@@ -1,2 +1,2 @@
-# Owsl
+# Oswl
 For Cyber security
