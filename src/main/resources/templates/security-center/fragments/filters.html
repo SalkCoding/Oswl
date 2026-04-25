@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Filter Sidebar Fragment -->
+<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb]">
+    <!-- Title -->
+    <div class="bg-[#001d35] flex items-center gap-[8px] h-[40px] px-[20px] w-full text-white">
+        <svg class="size-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        <p class="font-bold text-[12px] uppercase">
+            Filters
+        </p>
+    </div>
+    
+    <div class="flex flex-col gap-[17px] p-[20px] w-full overflow-y-auto">
+        <!-- Review Filter -->
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Reviewed</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Non-Reviewed</span>
+            </label>
+        </div>
+
+        <!-- Ignored Filter -->
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Ignored</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Non-Ignored</span>
+            </label>
+        </div>
+
+        <!-- Security Severity Filter -->
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <p class="font-semibold text-[14px] text-black w-full">Security Severity</p>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#e62727] focus:ring-[#e62727]" />
+                <span class="text-[13px] text-black">Critical</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#f47a29] focus:ring-[#f47a29]" />
+                <span class="text-[13px] text-black">High</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#f5bd26] focus:ring-[#f5bd26]" />
+                <span class="text-[13px] text-black">Medium</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#e8eef0] focus:ring-gray-300" />
+                <span class="text-[13px] text-black">Low</span>
+            </label>
+        </div>
+
+        <!-- License Severity Filter -->
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <p class="font-semibold text-[14px] text-black w-full">License Severity</p>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#e62727] focus:ring-[#e62727]" />
+                <span class="text-[13px] text-black">Critical</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#f47a29] focus:ring-[#f47a29]" />
+                <span class="text-[13px] text-black">High</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#f5bd26] focus:ring-[#f5bd26]" />
+                <span class="text-[13px] text-black">Medium</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#e8eef0] focus:ring-gray-300" />
+                <span class="text-[13px] text-black">Low</span>
+            </label>
+        </div>
+        
+        <!-- Patchability Filter -->
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Patchable</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Non-Patchable</span>
+            </label>
+        </div>
+    </div>
+</div>
+</html>

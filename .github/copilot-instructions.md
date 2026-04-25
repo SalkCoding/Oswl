@@ -28,6 +28,7 @@ OsWL/
   - Maintain entities representing PostgreSQL tables, leveraging Spring Data JPA for persistence.
   - Feel free to introduce additional Java libraries if they solve the problem cleanly (specify dependencies via `build.gradle`).
 - **Frontend (HTML/CSS/JS/Thymeleaf):**
+  - Always design the frontend with backend integration in mind. When creating UI components, account for dynamic behaviors (e.g., lists that will grow dynamically via backend communication) and structure the code to accommodate future data bindings or asynchronous updates.
   - Keep Thymeleaf templates (`.html`) inside `src/main/resources/templates/`.
   - Actively use Thymeleaf standard dialects (e.g., `th:text`, `th:each`, `th:if`) for server-side rendering and dynamic data binding.
   - Place static assets (JS, CSS, Images) in `src/main/resources/static/`.
