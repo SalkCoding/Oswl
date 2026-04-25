@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <!-- Risk Graph Fragment. Passed properties: title, critical, high, medium, low -->
+    <div th:fragment="riskGraph(title, critical, high, medium, low)" class="flex flex-col gap-[14px] items-start w-full relative shrink-0">
+        
+        <p class="font-medium text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] w-full" th:text="${title}">Security Risk</p>
+        
+        <!-- Bar Graph -->
+        <div class="flex w-full h-[20px] rounded-sm overflow-hidden" 
+             th:with="total=${critical + high + medium + low}">
+             <!-- Inline styles for width compute percentage. Use max(1, ...) for 0 width cases -->
+            <div class="bg-[var(--risk-critical)] h-full" 
+                 th:if="${critical > 0}" th:style="'width: ' + (${critical} * 100.0 / ${total}) + '%'"></div>
+            <div class="bg-[var(--risk-high)] h-full"    
+                 th:if="${high > 0}" th:style="'width: ' + (${high} * 100.0 / ${total}) + '%'"></div>
+            <div class="bg-[var(--risk-medium)] h-full"  
+                 th:if="${medium > 0}" th:style="'width: ' + (${medium} * 100.0 / ${total}) + '%'"></div>
+            <div class="bg-[var(--risk-low)] h-full"     
+                 th:if="${low > 0}" th:style="'width: ' + (${low} * 100.0 / ${total}) + '%'"></div>
+        </div>
+        
+        <!-- Legends -->
+        <div class="flex flex-wrap gap-y-[20px] items-center justify-between w-full pr-[8px]">
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap"><span th:text="${critical}">5</span> Critical</p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap"><span th:text="${high}">10</span> High</p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap"><span th:text="${medium}">20</span> Medium</p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-low)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap"><span th:text="${low}">120</span> Low</p>
+            </div>
+        </div>
+        
+    </div>
+</body>
+</html>
