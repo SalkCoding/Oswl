@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Center Detailed</title>
+    <link rel="stylesheet" th:href="@{/pages/security-center/detailed/css/detailed-page.css}">
+</head>
+<body>
+<div class="security-detailed-page" data-page="security-center-detailed">
+    <header class="top-bar">
+        <div class="top-bar__brand">OsWL</div>
+        <div class="top-bar__actions">
+            <button type="button" class="top-button">Alerts</button>
+            <button type="button" class="top-button">Settings</button>
+        </div>
+    </header>
+
+    <section class="risk-section">
+        <article class="risk-card" th:classappend="${riskCard.tone}" th:each="riskCard : ${riskCards}">
+            <p class="risk-card__title" th:text="${riskCard.title}">Risk Graph</p>
+            <p class="risk-card__subtitle" th:text="${riskCard.subtitle}">Critical + High</p>
+            <p class="risk-card__value" th:text="${riskCard.value}">28</p>
+            <p class="risk-card__helper" th:text="${riskCard.helper}">issues to patch</p>
+        </article>
+    </section>
+
+    <section class="content-shell">
+        <div class="toolbar">
+            <div class="toolbar__left">
+                <button type="button" class="chip-button">Apply Patch</button>
+                <button type="button" class="chip-button chip-button--muted">Defer</button>
+            </div>
+            <label class="search-input">
+                <input type="search" name="dependencyQuery" placeholder="Search dependencies or CVE...">
+            </label>
+        </div>
+
+        <div class="table-and-filter">
+            <div class="vuln-table">
+                <div class="vuln-table__header">
+                    <span th:each="header : ${tableHeaders}" th:text="${header}">Dependency</span>
+                </div>
+                <div class="vuln-table__row" th:each="row : ${rows}">
+                    <span th:text="${row.dependency}">android-arch-common</span>
+                    <span th:text="${row.currentVersion}">2.2.0-beta01</span>
+                    <span th:text="${row.targetVersion}">2.2.1-alpha01</span>
+                    <span th:text="${row.severity}">Critical</span>
+                    <span th:text="${row.cve}">CVE-2024-11053</span>
+                    <span class="status-chip" th:text="${row.status}">Open</span>
+                </div>
+            </div>
+
+            <aside class="filter-panel">
+                <h2>Filters</h2>
+                <label><input type="checkbox" checked> Critical</label>
+                <label><input type="checkbox" checked> High</label>
+                <label><input type="checkbox"> Medium</label>
+                <label><input type="checkbox"> Low</label>
+                <label><input type="checkbox"> Has Fix</label>
+                <button type="button" class="chip-button chip-button--full">Apply Filter</button>
+            </aside>
+        </div>
+    </section>
+
+    <div class="modal-overlay" data-modal="apply-patch">
+        <section class="apply-patch-modal">
+            <header class="modal-header">
+                <div class="modal-header__title-wrap">
+                    <h2>Apply Patch</h2>
+                    <h3>Create Pull Request</h3>
+                </div>
+                <button type="button" class="modal-close-button" aria-label="Close modal">x</button>
+                <p class="modal-header__description">The following upgrade will be applied to your repository.</p>
+                <div class="modal-upgrade-summary">
+                    <span>Upgrade</span>
+                    <span class="tag tag--critical">android-arch-common v2.2.0-beta01</span>
+                    <span class="arrow-right">&rarr;</span>
+                    <span class="tag tag--safe">v2.2.1-alpha01</span>
+                </div>
+                <div class="modal-fixes-summary">
+                    <span>Fixes</span>
+                    <span class="tag" th:classappend="' tag--' + ${tag.tone}" th:each="tag : ${fixTags}" th:text="${tag.label}">8 Critical</span>
+                </div>
+            </header>
+
+            <form class="modal-form" action="#" method="post">
+                <label class="form-field">
+                    <span>PR Title <em>*</em></span>
+                    <input type="text" name="prTitle" th:value="${page.prTitle}">
+                </label>
+
+                <label class="form-field">
+                    <span>Target Branch <em>*</em></span>
+                    <select name="targetBranch">
+                        <option th:text="${page.targetBranch}" selected>main</option>
+                    </select>
+                </label>
+
+                <label class="form-field">
+                    <span>New Branch Name (auto-generated)</span>
+                    <input type="text" name="newBranchName" th:value="${page.newBranchName}">
+                </label>
+
+                <label class="form-field">
+                    <span>Assign Reviewer (optional)</span>
+                    <input type="text" name="reviewer" th:value="${page.reviewer}" placeholder="Search team members...">
+                </label>
+
+                <label class="form-field">
+                    <span>Commit Message</span>
+                    <input type="text" name="commitMessage" th:value="${page.commitMessage}">
+                </label>
+
+                <label class="form-field">
+                    <span>PR Description</span>
+                    <textarea name="description" rows="6" th:text="${page.description}"></textarea>
+                </label>
+
+                <div class="form-actions">
+                    <button type="submit" class="primary-action">Create Pull Request</button>
+                    <button type="button" class="secondary-action">Cancel</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</div>
+
+<script defer th:src="@{/pages/security-center/detailed/js/detailed-page.js}"></script>
+</body>
+</html>
