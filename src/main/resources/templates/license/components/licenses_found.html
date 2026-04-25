@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!-- Left Column: Licenses Found Fragment -->
+    <div th:fragment="licenses_found" class="flex flex-col items-start min-w-[248px] w-full max-w-[620px] rounded-[10px] overflow-hidden border border-[#DBE4E7]">
+        
+        <!-- Title & Stats -->
+        <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col gap-3 px-6 py-4 w-full shrink-0">
+            <h2 class="font-bold text-[18px] text-black tracking-[-0.18px] m-0" 
+                th:text="${totalLicenses} + ' Licenses Found'">27 Licenses Found</h2>
+            
+            <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
+                <!-- Critical Risk Count -->
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
+                    <span th:text="${criticalRiskCount ?: 3} + ' Critical Risk'">3 Critical Risk</span>
+                </div>
+                <!-- High Risk Count -->
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#f47a29] rounded-full"></div>
+                    <span th:text="${highRiskCount ?: 6} + ' High Risk'">6 High Risk</span>
+                </div>
+                <!-- Medium Risk Count -->
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#f5bd26] rounded-full"></div>
+                    <span th:text="${mediumRiskCount ?: 7} + ' Medium Risk'">7 Medium Risk</span>
+                </div>
+                <!-- Low Risk Count -->
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#333e42] rounded-full"></div>
+                    <span th:text="${lowRiskCount ?: 11} + ' Low Risk'">11 Low Risk</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- List of Licenses (Mocking dynamic data via Thymeleaf) -->
+        <!-- In backend, map List<LicenseDto> to 'licenses' -->
+        <div class="flex flex-col w-full bg-white divide-y divide-[#DBE4E7]">
+            
+            <!-- Fallback Mock Data if 'licenses' isn't provided -->
+            <th:block th:if="${licenses == null}">
+                <th:block th:each="mockLevel, i : ${
+                    {'LOW', 'LOW', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'}
+                }">
+                    <div class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer">
+                        <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
+                            <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
+                               th:text="${
+                                   mockLevel == 'LOW' ? 'Apple MIT License' : 
+                                   mockLevel == 'MEDIUM' ? 'Creative Commons Attribution 4.0' :
+                                   mockLevel == 'HIGH' ? 'Creative Commons Attribution Share Alike 1.0' :
+                                   'AGPL v3.0'
+                               }">Apple MIT License</p>
+                            <!-- Reusable Risk Tag Fragment -->
+                            <div th:replace="~{shared/tags :: risk-tag(level=${mockLevel})}"></div>
+                        </div>
+                        
+                        <!-- Library Count Tag -->
+                        <div th:replace="~{shared/tags :: library-count(count=${i.index + 1 * 2})}"></div>
+                    </div>
+                </th:block>
+            </th:block>
+
+            <!-- Dynamic Iterate over Licenses -->
+            <th:block th:if="${licenses != null}">
+                <div th:each="license : ${licenses}" class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer" th:data-license-id="${license.id}">
+                    <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
+                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">Apple MIT License</p>
+                        <!-- Risk Tag -->
+                        <div th:replace="~{shared/tags :: risk-tag(level=${license.riskLevel})}"></div>
+                    </div>
+                    
+                    <!-- Library Count Tag -->
+                    <div th:replace="~{shared/tags :: library-count(count=${license.libraryCount})}"></div>
+                </div>
+            </th:block>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!-- Right Column: Obligations Found Fragment -->
+    <div th:fragment="obligations_found" class="flex flex-col items-start min-w-[248px] w-full max-w-[616px] rounded-[10px] overflow-hidden border border-[#DBE4E7]">
+        
+        <!-- Header -->
+        <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0">
+            <h2 class="font-bold text-[18px] text-black tracking-[-0.18px] m-0"
+                th:text="${totalObligations} + ' Obligations Found'">8 Obligations Found</h2>
+        </div>
+
+        <!-- Accordion Container -->
+        <div class="flex flex-col w-full bg-white divide-y divide-[#DBE4E7]">
+
+            <!-- Example 1: Expanded Root Accordion ( Alpine.js ) -->
+            <div x-data="{ expanded: true }" class="flex flex-col w-full relative">
+                
+                <!-- Root Obligation Header -->
+                <button @click="expanded = !expanded" class="bg-[#F2FCFA] flex flex-wrap gap-y-2 items-center justify-between px-6 py-3 w-full shrink-0 hover:bg-[#EBFBF7] transition-colors cursor-pointer text-left">
+                    <div class="flex flex-1 gap-2 items-center min-w-[224px]">
+                        
+                        <!-- Toggle Icon -->
+                        <div class="w-5 h-5 flex items-center justify-center transition-transform duration-200" 
+                             :class="expanded ? 'transform rotate-180' : ''">
+                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        
+                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0">Include License for projects</p>
+                    </div>
+                </button>
+                
+                <!-- Accordion Body -->
+                <div x-show="expanded" x-collapse.duration.300ms class="flex flex-col w-full border-t border-[#DBE4E7]">
+                    
+                    <!-- Sub-section 1: MIT -->
+                    <div class="flex flex-col bg-white">
+                        <div class="px-6 py-5 flex flex-col gap-4 border-b border-[#DBE4E7] items-end justify-start">
+                            <p class="font-normal text-[14px] text-[#141616] leading-tight text-left w-full m-0">
+                                You must <span class="font-semibold">include</span> the <span class="font-semibold">license</span> notice in all copies or substantial uses of the work.
+                            </p>
+                            <div class="flex gap-4 items-center">
+                                <div class="bg-[#F3F5F6] flex items-center px-3 py-1 rounded-[40px]">
+                                    <span class="font-normal text-[11px] text-[#425055]">MIT</span>
+                                </div>
+                                <!-- Shared Risk Tag -->
+                                <div th:replace="~{shared/tags :: risk-tag(level='LOW')}"></div>
+                            </div>
+                        </div>
+
+                        <!-- Nested Accordion: Projects Breakdown (Folded) -->
+                        <div x-data="{ expandedNested: false }" class="bg-[#FAFBFB] w-full">
+                            <button @click="expandedNested = !expandedNested" class="flex items-center px-6 py-4 gap-2 w-full text-left hover:bg-gray-100 transition-colors">
+                                <div class="bg-[#00A093] flex items-center px-3 py-1 rounded-[40px]">
+                                    <span class="font-medium text-[11px] text-white">21 Projects...</span>
+                                </div>
+                                <div class="w-5 h-5 flex items-center justify-center transition-transform duration-200" 
+                                     :class="expandedNested ? 'transform rotate-180' : ''">
+                                    <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </button>
+                            <!-- Nested Accordion Body (empty here, handled in the next section for BSD) -->
+                        </div>
+                    </div>
+
+                    <!-- Sub-section 2: BSD-2-CLAUSE (Expanded By Default for Demo) -->
+                    <div class="flex flex-col bg-white border-t border-[#DBE4E7]">
+                        <div class="px-6 py-5 flex flex-col gap-4 border-b border-[#DBE4E7] items-end justify-start">
+                            <p class="font-normal text-[14px] text-[#141616] leading-tight text-left w-full m-0">
+                                Including the full text of <span class="font-semibold">license</span> in modified software.
+                            </p>
+                            <div class="flex gap-4 items-center">
+                                <div class="bg-[#F3F5F6] flex items-center px-3 py-1 rounded-[40px]">
+                                    <span class="font-normal text-[11px] text-[#425055]">BSD-2-CLAUSE</span>
+                                </div>
+                                <div th:replace="~{shared/tags :: risk-tag(level='LOW')}"></div>
+                            </div>
+                        </div>
+
+                        <!-- Nested Accordion: Projects Breakdown (Expanded) -->
+                        <div x-data="{ expandedNested: true }" class="bg-[#FAFBFB] w-full border-b border-[#DBE4E7]">
+                            <button @click="expandedNested = !expandedNested" class="flex items-start px-6 py-4 gap-2 w-full text-left hover:bg-gray-100 transition-colors">
+                                <div class="bg-[#00A093] flex items-center px-3 py-1 rounded-[40px]">
+                                    <span class="font-medium text-[11px] text-white">6 Projects...</span>
+                                </div>
+                                <div class="w-5 h-5 flex items-center justify-center mt-1 transition-transform duration-200" 
+                                     :class="expandedNested ? 'transform rotate-180' : ''">
+                                    <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </button>
+                            
+                            <div x-show="expandedNested" x-collapse.duration.300ms class="flex flex-col w-full divide-y divide-[#E8EEF0]">
+                                
+                                <!-- Dependency Row -->
+                                <th:block th:each="dep, i : ${
+                                    {'css-select (1.2.0)', 'express-handlebars (4.0.4)', 'qs (6.13.0)', 'qs (6.14.1)', 'source-map (0.6.1)'}
+                                }">
+                                    <div class="flex flex-wrap gap-y-2 items-center justify-between px-6 py-3 w-full shrink-0">
+                                        <p class="font-medium text-[14px] text-[#141616] m-0" th:text="${dep}">css-select (1.2.0)</p>
+                                        <div class="flex items-center gap-2 border border-[#E8EEF0] px-2 py-1 rounded bg-white">
+                                            <!-- Tree Node Icon -->
+                                            <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                            </svg>
+                                            <span class="font-normal text-[13px] text-[#849197]" th:text="'3rd-level dep of ' + ${#strings.substringBefore(dep, ' ')}">3rd-level dep of css-select</span>
+                                            <span class="font-normal text-[13px] text-[#425055]" th:text="${#strings.substringBefore(dep, ' ')}">css-select</span>
+                                        </div>
+                                    </div>
+                                </th:block>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Example 2: Folded Root Accordion -->
+            <th:block th:each="ob : ${
+                {'Include Copyright for projects', 'Include Notice for projects', 'State changes for projects', 'Include Original for projects', 'Give Credit for projects', 'Rename for projects'}
+            }">
+                <div x-data="{ expanded: false }" class="flex flex-col w-full relative">
+                    <button @click="expanded = !expanded" class="bg-white flex flex-wrap gap-y-2 items-center justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer text-left">
+                        <div class="flex flex-1 gap-2 items-center min-w-[224px]">
+                            <!-- Toggle Icon -->
+                            <div class="w-5 h-5 flex items-center justify-center transition-transform duration-200" 
+                                 :class="expanded ? 'transform rotate-180' : ''">
+                                <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                            
+                            <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${ob}">Title</p>
+                        </div>
+                    </button>
+
+                    <!-- Content (Empty for now to demonstrate fold) -->
+                    <div x-show="expanded" x-collapse.duration.300ms class="flex flex-col w-full border-t border-[#DBE4E7] p-6 text-gray-500 text-sm">
+                        Additional details would go here.
+                    </div>
+                </div>
+            </th:block>
+
+        </div>
+    </div>
+
+</body>
+</html>
