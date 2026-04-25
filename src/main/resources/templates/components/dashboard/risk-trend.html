@@ -1,0 +1,118 @@
+<div th:fragment="risk-trend" class="risk-trend-container content-stretch flex flex-col gap-8 h-full items-start min-w-px relative p-8">
+    <div class="top-bar flex w-full justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-[#001d35]">Risk Trend</h2>
+        <!-- Legend -->
+        <div class="legend flex gap-10 items-center justify-center pr-2 relative">
+            <div class="flex gap-2 items-center relative shrink-0">
+                <div class="relative shrink-0 size-2 bg-[#FF4D4F] rounded-full"></div>
+                <p class="font-normal text-[13px] text-[#333e42]">Critical</p>
+            </div>
+            <div class="flex gap-2 items-center relative shrink-0">
+                <div class="relative shrink-0 size-2 bg-[#FA8C16] rounded-full"></div>
+                <p class="font-normal text-[13px] text-[#333e42]">High</p>
+            </div>
+            <div class="flex gap-2 items-center relative shrink-0">
+                <div class="relative shrink-0 size-2 bg-[#FADB14] rounded-full"></div>
+                <p class="font-normal text-[13px] text-[#333e42]">Medium</p>
+            </div>
+            <div class="flex gap-2 items-center relative shrink-0">
+                <div class="relative shrink-0 size-2 bg-[#52C41A] rounded-full"></div>
+                <p class="font-normal text-[13px] text-[#333e42]">Low</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-stretch flex gap-12 items-center relative w-full h-[665px]">
+        <!-- Security Risk Block -->
+        <div class="content-stretch flex flex-1 flex-col gap-12 h-full items-start relative w-full">
+            <div class="content-stretch flex flex-col gap-5 items-start pl-[94px] relative shrink-0 w-full">
+                <p class="font-bold text-2xl text-[#001d35]">Security Risk</p>
+                <div class="flex items-center gap-6 relative shrink-0 w-full">
+                    <p class="font-bold text-[20px] text-[#00a093]">155 Issues</p>
+                    <div class="bg-[#f3f5f6] flex items-center gap-2 px-3 py-1 rounded-[40px] shrink-0">
+                        <div class="flex items-end shrink-0 w-[38px]">
+                            <p class="font-medium text-[16px] text-[#5e6b70] w-[19px]">12</p>
+                            <svg class="h-5 w-[19px] text-[#5e6b70]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                            </svg>
+                        </div>
+                        <p class="font-normal text-[16px] text-[#5e6b70]">from previous version</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Graph Area -->
+            <div class="content-stretch flex flex-1 flex-col gap-3 items-start relative w-full">
+                <!-- The graph line visualization could go here (Canvas/Chart.js/SVG area) -->
+                <canvas id="securityRiskChart" class="w-full h-full min-h-[355px]"></canvas>
+            </div>
+            <!-- AI Insight -->
+            <div class="flex flex-col items-start pl-[92px] pr-[60px] relative shrink-0 w-full">
+                <div class="bg-[rgba(51,209,183,0.08)] flex items-start p-5 relative rounded-[10px] shrink-0 w-full">
+                    <div class="content-stretch flex flex-1 flex-col gap-3 items-start relative min-w-px">
+                        <div class="flex flex-wrap gap-[6px] items-start relative shrink-0 w-full font-bold text-[16px] text-[#141616]">
+                            <svg class="w-5 h-5 text-[#00a093]" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7zm2 17h-4v2a1 1 0 001 1h2a1 1 0 001-1v-2z" />
+                            </svg>
+                            AI Insight
+                        </div>
+                        <p class="font-normal text-[14px] text-[#272d30] w-full">
+                            High-severity risks have consistently decreased over the last 5 versions, showing a positive security trend.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- License Risk Block -->
+        <div class="content-stretch flex flex-1 flex-col gap-12 h-full items-start relative w-full">
+            <div class="content-stretch flex flex-col gap-5 items-start pl-[94px] relative shrink-0 w-full">
+                <p class="font-bold text-2xl text-[#001d35]">License Risk</p>
+                <div class="flex items-center gap-6 relative shrink-0 w-full">
+                    <p class="font-bold text-[20px] text-[#00a093]">155 Issues</p>
+                    <div class="bg-[#f3f5f6] flex items-center gap-2 px-3 py-1 rounded-[40px] shrink-0">
+                        <div class="flex items-end shrink-0 w-[38px]">
+                            <p class="font-medium text-[16px] text-[#5e6b70] w-[19px]">12</p>
+                            <svg class="h-5 w-[19px] text-[#5e6b70]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                            </svg>
+                        </div>
+                        <p class="font-normal text-[16px] text-[#5e6b70]">from previous version</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Graph Area -->
+            <div class="content-stretch flex flex-1 flex-col gap-3 items-start relative w-full">
+                <!-- The graph line visualization could go here (Canvas/Chart.js/SVG area) -->
+                <canvas id="licenseRiskChart" class="w-full h-full min-h-[355px]"></canvas>
+            </div>
+            <!-- AI Insight -->
+            <div class="flex flex-col items-start pl-[92px] pr-[60px] relative shrink-0 w-full">
+                <div class="bg-[rgba(51,209,183,0.08)] flex items-start p-5 relative rounded-[10px] shrink-0 w-full">
+                    <div class="content-stretch flex flex-1 flex-col gap-3 items-start relative min-w-px">
+                        <div class="flex flex-wrap gap-[6px] items-start relative shrink-0 w-full font-bold text-[16px] text-[#141616]">
+                            <svg class="w-5 h-5 text-[#00a093]" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7zm2 17h-4v2a1 1 0 001 1h2a1 1 0 001-1v-2z" />
+                            </svg>
+                            AI Insight
+                        </div>
+                        <p class="font-normal text-[14px] text-[#272d30] w-full">
+                            High-severity risks have consistently decreased over the last 5 versions, showing a positive security trend.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js configuration via JS for this component -->
+    <script th:inline="javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            // Include Chart.js setup for the Risk Trend graphs
+            // Fetching chart data from backend dynamically can be performed here.
+            // Example stub to be filled in with realistic configuration matching Figma visually 
+            const ctx1 = document.getElementById('securityRiskChart');
+            const ctx2 = document.getElementById('licenseRiskChart');
+            // Initialize charts...
+        });
+    </script>
+</div>

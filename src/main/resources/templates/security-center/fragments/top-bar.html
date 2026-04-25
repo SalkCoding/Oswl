@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Top Bar Fragment -->
+<div th:fragment="top-bar" class="relative size-full w-full">
+    <!-- Header info area -->
+    <div class="bg-[#001d35] flex items-center justify-between px-[60px] py-[17px] w-full">
+        <!-- Logo -->
+        <div class="flex items-center gap-[12px] shrink-0">
+            <!-- Icon placeholder -->
+            <div class="h-[30px] w-[22px] bg-teal-400 rounded-sm"></div>
+            <p class="font-['Inter',sans-serif] font-extrabold leading-[1.3] text-[24px] text-[#22efc3] tracking-[-0.24px] whitespace-nowrap">
+                OsWL
+            </p>
+        </div>
+        
+        <!-- Project Context -->
+        <div class="flex items-center gap-[24px] shrink-0">
+            <p class="font-['Inter',sans-serif] font-normal leading-[1.3] text-[18px] text-white/50 tracking-[-0.18px] whitespace-nowrap">
+                Projects
+            </p>
+            <div class="size-[20px] text-white/50">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18l6-6-6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <p class="font-bold leading-normal text-[18px] text-white whitespace-nowrap" th:text="${projectName ?: 'Project Name'}">
+                Project Name
+            </p>
+            <div class="bg-white/15 border border-white/30 flex items-center gap-[60px] px-[8px] py-[4px] rounded-[4px] cursor-pointer">
+                <p class="font-medium leading-[1.3] text-[16px] text-[#d3fcf3] tracking-[-0.16px]" th:text="${projectVersion ?: '1.2.5'}">
+                    1.2.5
+                </p>
+                <svg width="12" height="9" viewBox="0 0 12 9" fill="none" class="text-white"><path d="M6 9L0 0H12L6 9Z" fill="currentColor"/></svg>
+            </div>
+        </div>
+        
+        <!-- Spacer for alignment -->
+        <div class="w-[200px]"></div>
+    </div>
+    
+    <!-- Sub Nav -->
+    <div class="bg-[#f3f5f6] flex items-center gap-[32px] px-[60px] py-[16px] w-full border-b border-[#dbe4e7]">
+        <div class="bg-[#33d1b71a] flex items-center justify-center px-[12px] py-[6px] rounded-[8px]">
+            <p class="font-bold leading-[1.3] text-[18px] text-[#00a093] tracking-[-0.18px] whitespace-nowrap">
+                Security Center
+            </p>
+        </div>
+        <div class="size-[4px] rounded-full bg-[#dbe4e7]"></div>
+        <p class="font-medium leading-[1.3] text-[18px] text-[#272d30] tracking-[-0.18px] whitespace-nowrap cursor-pointer hover:text-[#00a093]">
+            License
+        </p>
+        <div class="size-[4px] rounded-full bg-[#dbe4e7]"></div>
+        <p class="font-medium leading-[1.3] text-[18px] text-[#272d30] tracking-[-0.18px] whitespace-nowrap cursor-pointer hover:text-[#00a093]">
+            Risk Trend
+        </p>
+    </div>
+</div>
+</html>
