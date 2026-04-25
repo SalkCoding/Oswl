@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Component Detail')}"></head>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col"
+      x-data="{ modal: null }">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
+
+    <main class="flex-1 w-full max-w-[1080px] mx-auto px-[24px] py-[40px]">
+
+        <article class="bg-white border border-[var(--grayscale-15)] rounded-[10px] shadow-sm flex flex-col">
+
+            <!-- Header -->
+            <section class="flex flex-col gap-[16px] px-[40px] pt-[32px] pb-[24px] border-b border-[var(--grayscale-15)]">
+                <div class="flex items-start gap-[16px] w-full">
+                    <div class="flex-1 flex flex-wrap items-end gap-[12px]">
+                        <h1 class="font-bold text-[28px] text-[var(--grayscale-100)] tracking-[-0.28px] leading-[1.3]"
+                            th:text="${componentName}">Android Arch-Common</h1>
+                        <p class="font-medium text-[18px] text-[var(--grayscale-60)] tracking-[-0.18px] leading-[1.3]"
+                           th:text="'v ' + ${componentVersion}">v 2.2.0-beta01</p>
+                    </div>
+                    <a th:href="@{|/projects/${projectId}/security-center|}"
+                       class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] w-[32px] h-[32px] rounded-[7px] flex items-center justify-center hover:bg-[var(--grayscale-10)]"
+                       aria-label="Close">
+                        <svg class="w-[18px] h-[18px] text-[var(--grayscale-60)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </a>
+                </div>
+
+                <!-- Status tags -->
+                <div class="flex flex-wrap gap-[8px] items-center">
+                    <span class="bg-white border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                        <svg class="w-[14px] h-[14px] text-[var(--grayscale-50)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                        </svg>
+                        <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                              th:text="${reviewed} ? 'Reviewed' : 'Not Reviewed'">Not Reviewed</span>
+                    </span>
+                    <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[5px] rounded-[40px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
+                              th:text="${projectsCount} + ' Projects'">7 Projects</span>
+                    </span>
+                    <span class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
+                        <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                              th:text="${patchability == 'patchable'} ? 'Patchable' : (${patchability == 'non-patchable'} ? 'Non-Patchable' : 'Unknown')">Patchable</span>
+                    </span>
+                    <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
+                        <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                              th:text="${licenseRiskLabel}">A High Risk License</span>
+                    </span>
+                </div>
+
+                <!-- Security issues row -->
+                <div class="flex flex-wrap items-center gap-[12px]">
+                    <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">Security Issues</p>
+                    <span th:if="${securityCritical > 0}"
+                          class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
+                        <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' Critical'">8 Critical</span>
+                    </span>
+                    <span th:if="${securityHigh > 0}"
+                          class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
+                        <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityHigh} + ' High'">20 High</span>
+                    </span>
+                    <span th:if="${securityMedium > 0}"
+                          class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)]"></span>
+                        <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityMedium} + ' Medium'">150 Medium</span>
+                    </span>
+                    <span th:if="${securityLow > 0}"
+                          class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span>
+                        <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
+                              th:text="${securityLow >= 1000 ? #numbers.formatDecimal(securityLow / 1000.0, 1, 1) + 'k' : securityLow} + ' Low'">1.1k Low</span>
+                    </span>
+                </div>
+            </section>
+
+            <!-- AI Recommendation -->
+            <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
+                <div class="flex items-center gap-[8px] mb-[14px]">
+                    <svg class="w-[20px] h-[20px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M9 21h6v-1H9v1zm3-19a7 7 0 00-4 12.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26A7 7 0 0012 2z"/>
+                    </svg>
+                    <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">AI Recommendation</h2>
+                </div>
+
+                <div class="bg-white border border-[var(--grayscale-15)] rounded-[10px] p-[24px] flex flex-col gap-[18px]">
+                    <p class="text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.5]">
+                        Upgrade to version
+                        <span class="font-bold text-[var(--primary-120)]" th:text="${recommendedVersion}">2.2.1-alpha01</span>
+                        to resolve all critical CVEs.
+                    </p>
+
+                    <ul class="flex flex-col gap-[10px] text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]">
+                        <li class="flex items-start gap-[8px]">
+                            <svg class="w-[16px] h-[16px] mt-[2px] text-[var(--primary-120)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><span class="font-bold">Fixes resolved :</span> All <span th:text="${securityCritical}">8</span> Critical + <span th:text="${securityHigh}">20</span> High vulnerabilities will be patched.</span>
+                        </li>
+                        <li class="flex items-start gap-[8px]">
+                            <svg class="w-[16px] h-[16px] mt-[2px] text-[var(--primary-120)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><span class="font-bold">Compatibility :</span> Safe upgrade - no breaking changes with current project dependencies.</span>
+                        </li>
+                        <li class="flex items-start gap-[8px]">
+                            <svg class="w-[16px] h-[16px] mt-[2px] text-[var(--primary-120)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span><span class="font-bold">License note :</span> CC-BY-SA 4.0 triggers copyleft - legal review recommended before deploy.</span>
+                        </li>
+                    </ul>
+
+                    <div class="flex gap-[12px] pt-[6px]">
+                        <button type="button" @click="modal = 'patch'"
+                                class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+                            </svg>
+                            Apply Patch (Create PR)
+                        </button>
+                        <button type="button" @click="modal = 'defer'"
+                                class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M6 2v6a6 6 0 0012 0V2M6 22v-6a6 6 0 0112 0v6M4 2h16M4 22h16"/>
+                            </svg>
+                            Defer (Exception)
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Vulnerability Details -->
+            <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
+                <div class="flex items-center gap-[8px] mb-[14px]">
+                    <svg class="w-[20px] h-[20px] text-[var(--grayscale-80)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">Vulnerability Details</h2>
+                </div>
+
+                <div class="flex flex-col gap-[12px]">
+                    <div th:each="cve, it : ${cves}"
+                         th:attr="x-data=|{ open: ${it.first} }|"
+                         class="bg-white border border-[var(--grayscale-15)] rounded-[10px] overflow-hidden">
+
+                        <button type="button"
+                                @click="open = !open"
+                                class="w-full flex items-center gap-[12px] px-[20px] py-[16px] text-left">
+                            <svg class="w-[14px] h-[14px] text-[var(--primary-120)] transition-transform duration-200"
+                                 :class="open ? 'rotate-180' : ''"
+                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                            <p class="font-bold text-[15px] text-[var(--grayscale-100)] tracking-[-0.15px]" th:text="${cve.id}">CVE-2024-11053</p>
+                            <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
+                                                  : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
+                                                  : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]' : 'bg-[var(--grayscale-30)]'))"
+                                  class="w-[8px] h-[8px] rounded-full"></span>
+                            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="${cve.type}">Remote Code Execution</p>
+                            <span class="ml-auto bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                                <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
+                                                       : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
+                                                       : 'bg-[var(--risk-medium)]')"
+                                      class="w-[6px] h-[6px] rounded-full"></span>
+                                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
+                                      th:text="'CVSS ' + ${#numbers.formatDecimal(cve.cvssScore, 1, 1)}">CVSS 9.8</span>
+                            </span>
+                        </button>
+
+                        <div x-show="open" x-collapse
+                             class="px-[20px] pb-[20px] flex flex-col gap-[16px]">
+                            <div class="bg-[rgba(51,209,183,0.08)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
+                                <div class="flex items-center gap-[6px]">
+                                    <svg class="w-[18px] h-[18px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7z"/>
+                                    </svg>
+                                    <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]">AI Plain Summary</p>
+                                </div>
+                                <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.aiSummary}"></p>
+                            </div>
+                            <div class="flex flex-wrap gap-x-[24px] gap-y-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
+                                <span><span class="font-medium">Discovered:</span> <span th:text="${cve.discoveredOn}">2024-06-15</span></span>
+                                <span><span class="font-medium">Type:</span> <span th:text="${cve.type}">RCE</span></span>
+                                <span><span class="font-medium">Affects:</span> <span th:text="${cve.affects}">Direct dep.</span></span>
+                                <span><span class="font-medium">Fix:</span>
+                                    <span class="text-[var(--primary-120)] font-medium" th:text="${cve.fixVersion}">2.2.1-alpha01</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- License Info -->
+            <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
+                <div class="flex items-center gap-[8px] mb-[14px]">
+                    <svg class="w-[20px] h-[20px] text-[var(--grayscale-80)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 3v18M5 9h14M5 15h14M2 12h20"/>
+                    </svg>
+                    <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">License Info</h2>
+                </div>
+
+                <div class="bg-white border border-[var(--grayscale-15)] rounded-[10px] p-[24px] flex flex-col gap-[12px]">
+                    <div class="flex flex-wrap gap-[12px] items-center">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]" th:text="${licenseName}">Creative Commons Attribution Share Alike 4.0</p>
+                        <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]">
+                            <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
+                            <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">High Risk</span>
+                        </span>
+                    </div>
+
+                    <div class="bg-[rgba(245,145,38,0.05)] border border-[rgba(245,145,38,0.2)] rounded-[8px] px-[14px] py-[10px] flex items-start gap-[8px]">
+                        <svg class="w-[20px] h-[20px] mt-[1px] text-[var(--semantic-caution)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
+                            Copyleft (Share-Alike): Derivative works must be released under the same license.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-[8px] items-center text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]">
+                        <span>Commercial use allowed</span>
+                        <span>·</span>
+                        <span>Attribution required</span>
+                        <span>·</span>
+                        <span>Source disclosure may be required on distribution.</span>
+                    </div>
+
+                    <p class="font-medium text-[11px] text-[var(--semantic-caution)] tracking-[-0.11px] leading-[1.3]">
+                        Legal risk : Medium–High. Recommend legal review before shipping.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Dependency Path -->
+            <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
+                <div class="flex items-center gap-[8px] mb-[14px]">
+                    <svg class="w-[20px] h-[20px] text-[var(--grayscale-80)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+                    </svg>
+                    <h2 class="font-bold text-[16px] text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3]">Where did this come from? (Dependency Path)</h2>
+                </div>
+
+                <div class="bg-white border border-[var(--grayscale-15)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[8px]">
+                    <div class="flex items-center gap-[6px]">
+                        <svg class="w-[20px] h-[20px] text-[var(--grayscale-80)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+                        </svg>
+                        <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]">payment-service</p>
+                        <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]">(our project)</p>
+                    </div>
+                    <div class="flex items-center gap-[6px] pl-[20px]">
+                        <span class="w-[6px] h-[6px] rounded-full border border-[var(--grayscale-40)]"></span>
+                        <svg class="w-[18px] h-[18px] text-[var(--grayscale-60)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                            <line x1="12" y1="22.08" x2="12" y2="12"/>
+                        </svg>
+                        <p class="text-[13px] text-black tracking-[-0.13px]">androidx.lifecycle:lifecycle-runtime</p>
+                        <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">v2.5.1</span>
+                        <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Direct Dep.</span>
+                    </div>
+                    <div class="flex items-center gap-[6px] pl-[40px]">
+                        <span class="w-[6px] h-[6px] rounded-full border border-[var(--grayscale-40)]"></span>
+                        <svg class="w-[18px] h-[18px] text-[var(--grayscale-60)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                            <line x1="12" y1="22.08" x2="12" y2="12"/>
+                        </svg>
+                        <p class="text-[13px] text-black tracking-[-0.13px]" th:text="${componentName.toLowerCase().replace(' ', '-')}">android-arch-common</p>
+                        <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
+                              th:text="'v' + ${componentVersion}">v2.2.0-beta01</span>
+                        <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] px-[10px] py-[2px] rounded-[40px] flex items-center gap-[4px]">
+                            <svg class="w-[12px] h-[12px] text-[var(--risk-critical)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Problem Lib</span>
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Component Description -->
+            <section class="px-[40px] py-[28px]">
+                <div class="flex items-center gap-[8px] mb-[14px]">
+                    <svg class="w-[20px] h-[20px] text-[var(--grayscale-80)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                    </svg>
+                    <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">Component Description</h2>
+                </div>
+
+                <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.6]">
+                    Android Arch-Common is a foundation module from the Android Architecture Components,
+                    providing common utilities used across other architecture modules. The current version
+                    (<span th:text="${componentVersion}">2.2.0-beta01</span>) is in beta and contains
+                    multiple known vulnerabilities. Upgrading to the recommended stable version is highly
+                    advised to maintain a healthy security posture.
+                </p>
+            </section>
+
+        </article>
+
+    </main>
+
+    <!-- Modals -->
+    <div th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"></div>
+    <div th:replace="~{component-detail/fragments/defer-modal :: defer}"></div>
+
+</body>
+</html>

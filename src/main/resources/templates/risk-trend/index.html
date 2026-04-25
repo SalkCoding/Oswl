@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Risk Trend')}"></head>
+<body class="bg-[var(--grayscale-5)] flex flex-col min-h-screen">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'risk-trend')}"></header>
+
+    <main class="flex-1 w-full">
+        <div th:replace="~{risk-trend/components/risk-trend :: risk-trend(${securityIssues}, ${securityDelta}, ${licenseIssues}, ${licenseDelta})}"></div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script th:src="@{/js/dashboard/risk-trend.js}"></script>
+
+</body>
+</html>

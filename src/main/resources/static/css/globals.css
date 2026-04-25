@@ -1,0 +1,76 @@
+:root {
+    --background-dark:  #001d35;
+    --background-light: #ffffff;
+
+    --grayscale-100: #141616;
+    --grayscale-90:  #272d30;
+    --grayscale-80:  #333e42;
+    --grayscale-70:  #425055;
+    --grayscale-60:  #5e6b70;
+    --grayscale-50:  #849197;
+    --grayscale-40:  #abb8be;
+    --grayscale-30:  #c5cfd3;
+    --grayscale-20:  #dbe4e7;
+    --grayscale-15:  #e8eef0;
+    --grayscale-10:  #f3f5f6;
+    --grayscale-5:   #fafbfb;
+
+    --primary-120:   #00a093;
+    --primary-80:    #33d1b7;
+    --primary-40:    #99ebd9;
+    --primary-20:    #d3fcf3;
+
+    --secondary-100: #22efc3;
+    --secondary-80:  #33d1b7;
+    --secondary-60:  #00a093;
+    --secondary-20:  #d3fcf3;
+
+    --risk-critical: #e62727;
+    --risk-high:     #f47a29;
+    --risk-medium:   #f5bd26;
+    --risk-low:      #e8eef0;
+
+    --semantic-warning: #e62727;
+    --semantic-caution: #f59126;
+    --semantic-patchable: #00d761;
+
+    --surface:        #ffffff;
+    --surface-soft:   #f3f5f6;
+    --border-default: #dbe4e7;
+
+    --copy-info:      #00659c;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    color: var(--grayscale-100);
+    background-color: var(--grayscale-5);
+    letter-spacing: -0.01em;
+}
+
+* { box-sizing: border-box; }
+
+a { color: inherit; text-decoration: none; }
+
+.custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #c5cfd3; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #849197; }
+
+.risk-graph-bar {
+    display: flex;
+    width: 100%;
+    height: 20px;
+    border-radius: 2px;
+    overflow: hidden;
+    background-color: var(--risk-low);
+}
+
+.risk-graph-segment { height: 100%; }
+
+.slide-over-enter { transform: translateX(100%); }
+.slide-over-enter-active { transition: transform 0.3s ease-out; transform: translateX(0); }
+.slide-over-leave { transform: translateX(0); }
+.slide-over-leave-active { transition: transform 0.3s ease-in; transform: translateX(100%); }
