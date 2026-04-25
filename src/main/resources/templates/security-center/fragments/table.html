@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- Table Layout Fragment -->
+<div th:fragment="table" class="flex-1 overflow-x-auto border-r border-[#dbe4e7]">
+    <div class="min-w-[1000px]">
+        <!-- Table Header -->
+        <div class="flex items-center w-full min-w-max sticky top-0 z-10 bg-white">
+            <!-- Checkbox Column -->
+            <div class="bg-[#fafbfb] border-y border-[#dbe4e7] flex h-[40px] items-center justify-center w-[60px] min-w-[60px]">
+                <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]">
+            </div>
+            <!-- Review Column -->
+            <div class="bg-[#fafbfb] border-y border-[#dbe4e7] flex h-[40px] items-center justify-center w-[80px] min-w-[80px]">
+                <p class="text-[12px] text-[#001d35] font-medium text-center">Review</p>
+            </div>
+            <!-- Component Column -->
+            <div class="bg-[#fafbfb] border-y border-[#dbe4e7] flex flex-1 h-[40px] items-center px-[12px] min-w-[300px]">
+                <p class="text-[12px] text-[#001d35] font-medium">Component</p>
+            </div>
+            <!-- Security Issues Column -->
+            <div class="bg-[#fafbfb] border-y border-[#dbe4e7] flex h-[40px] items-center px-[16px] w-[200px] min-w-[200px]">
+                <p class="text-[12px] text-[#001d35] font-medium">Security Issues</p>
+            </div>
+            <!-- Patchability Column -->
+            <div class="bg-[#fafbfb] border-y border-[#dbe4e7] flex h-[40px] items-center px-[16px] w-[140px] min-w-[140px]">
+                <p class="text-[12px] text-[#001d35] font-medium">Patchability</p>
+            </div>
+            <!-- License Column -->
+            <div class="bg-[#fafbfb] border-y border-[#dbe4e7] flex h-[40px] items-center px-[16px] w-[180px] min-w-[180px]">
+                <p class="text-[12px] text-[#001d35] font-medium">License</p>
+            </div>
+        </div>
+
+        <!-- Table Body Placeholder with dynamic iteration -->
+        <div class="flex flex-col">
+            <!-- If no data, display mocked variations (simulate thymeleaf check `th:if="${components == null}"`) -->
+            
+            <!-- Row 1: Reviewed state (Has #e5faf5 bg indicating active/reviewed or selection state based on design) -->
+            <div class="flex items-center w-full min-w-max border-b border-[#dbe4e7] bg-[#e5faf5] hover:bg-[#d8f5ec] transition-colors">
+                <div class="flex h-[48px] items-center justify-center w-[60px] min-w-[60px]">
+                    <input type="checkbox" checked class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]">
+                </div>
+                <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px]">
+                    <svg class="size-[20px] text-[#00a093]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                </div>
+                <div class="flex flex-1 flex-col h-[48px] justify-center px-[12px] min-w-[300px]">
+                    <p class="font-medium text-[13px] text-[#141616]">Android Arch-Common 2.2.0-beta01</p>
+                    <p class="text-[11px] text-[#5e6b70]">Direct (6) + Transitive (1) · Projects (7)</p>
+                </div>
+                <div class="flex h-[48px] items-center gap-[6px] px-[16px] w-[200px] min-w-[200px]">
+                    <div class="h-[20px] w-auto px-[6px] relative flex bg-[#e62727] rounded-[4px] items-center justify-center">
+                        <span class="text-[11px] font-medium text-white">8</span>
+                    </div>
+                    <div class="h-[20px] w-auto px-[6px] relative flex bg-[#f47a29] rounded-[4px] items-center justify-center">
+                        <span class="text-[11px] font-medium text-white">20</span>
+                    </div>
+                    <div class="h-[20px] w-auto px-[6px] relative flex bg-[#f5bd26] rounded-[4px] items-center justify-center">
+                        <span class="text-[11px] font-medium text-white">150</span>
+                    </div>
+                    <div class="h-[20px] w-auto px-[6px] relative flex bg-[#e8eef0] rounded-[4px] items-center justify-center">
+                        <span class="text-[11px] font-medium text-[#849197]">1.1k</span>
+                    </div>
+                </div>
+                <div class="flex h-[48px] items-center gap-[10px] px-[16px] w-[140px] min-w-[140px]">
+                    <div class="size-[6px] rounded-full bg-[#10b981]"></div>
+                    <p class="text-[13px] text-[#141616]">Patchable</p>
+                </div>
+                <div class="flex h-[48px] items-center gap-[10px] px-[16px] w-[180px] min-w-[180px]">
+                    <div class="size-[6px] rounded-full bg-[#cbd5e1]"></div>
+                    <p class="text-[13px] text-black truncate w-full border-r-4 border-transparent" title="Creative Commons...">Creative Commons...</p>
+                </div>
+            </div>
+
+            <!-- Row 2: Default state -->
+            <div class="flex items-center w-full min-w-max border-b border-[#dbe4e7] bg-white hover:bg-gray-50 transition-colors">
+                <div class="flex h-[48px] items-center justify-center w-[60px] min-w-[60px]">
+                    <input type="checkbox" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]">
+                </div>
+                <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px]">
+                    <svg class="size-[20px] text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                    </svg>
+                </div>
+                <div class="flex flex-1 flex-col h-[48px] justify-center px-[12px] min-w-[300px]">
+                    <p class="font-medium text-[13px] text-[#141616]">A Simple Utility for showing Tooltips 0.1.6</p>
+                    <p class="text-[11px] text-[#5e6b70]">Direct (6) + Transitive (1) · Projects (7)</p>
+                </div>
+                <div class="flex h-[48px] items-center gap-[6px] px-[16px] w-[200px] min-w-[200px]">
+                    <div class="h-[20px] w-auto px-[6px] relative flex bg-[#f47a29] rounded-[4px] items-center justify-center">
+                        <span class="text-[11px] font-medium text-white">2</span>
+                    </div>
+                    <div class="h-[20px] w-auto px-[6px] relative flex bg-[#e8eef0] rounded-[4px] items-center justify-center">
+                        <span class="text-[11px] font-medium text-[#849197]">5</span>
+                    </div>
+                </div>
+                <div class="flex h-[48px] items-center gap-[10px] px-[16px] w-[140px] min-w-[140px]">
+                    <div class="size-[6px] rounded-full bg-[#f43f5e]"></div>
+                    <p class="text-[13px] text-[#141616]">Non-Patchable</p>
+                </div>
+                <div class="flex h-[48px] items-center gap-[10px] px-[16px] w-[180px] min-w-[180px]">
+                    <div class="size-[6px] rounded-full bg-[#a855f7]"></div>
+                    <p class="text-[13px] text-[#141616] truncate">Apache-2.0</p>
+                </div>
+            </div>
+
+            <!-- Dynamic iteration for actual usage (Thymeleaf example placeholder) -->
+            <div th:each="comp, iterStat : ${components}" th:classappend="${comp.reviewed} ? 'bg-[#e5faf5]' : 'bg-white'" class="flex items-center w-full min-w-max border-b border-[#dbe4e7] hover:bg-gray-50 transition-colors">
+                <!-- Implementation detail goes here mimicking layout above mapping to backend data -->
+            </div>
+            
+        </div>
+    </div>
+</div>
+</html>

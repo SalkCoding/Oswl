@@ -1,0 +1,14 @@
+/* Projects specific styles */
+/* Uses Tailwind CSS utility classes heavily, but specific overrides can go here */
+
+.risk-graph-bar {
+    display: flex;
+    width: 100%;
+    height: 20px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.risk-graph-segment {
+    height: 100%;
+}
