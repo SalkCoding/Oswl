@@ -1,17 +1,76 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-</head>
 <body>
-    <!-- TopBar Fragment -->
-    <header th:fragment="topbar" class="bg-[var(--background-dark)] flex items-center h-[64px] px-[60px] py-[16px] w-full shrink-0 gap-[44px]">
-        <div class="flex gap-[12px] items-center shrink-0">
-            <!-- App Logo / Branding -->
-            <div class="w-[22px] h-[30px] bg-[var(--secondary-colors-100)] rounded-md flex justify-center items-center font-bold text-xs text-[var(--background-dark)]">W</div>
-            <h1 class="font-extrabold text-[24px] text-[var(--secondary-colors-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
-        </div>
-        <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap">Projects</h2>
+
+    <!--
+        Simple Topbar — Projects 목록 페이지처럼 프로젝트 컨텍스트가 없는 화면에서 사용.
+        usage: th:replace="~{fragments/topbar :: simple-topbar('Projects')}"
+    -->
+    <header th:fragment="simple-topbar(pageLabel)"
+            class="bg-[var(--background-dark)] flex items-center h-[64px] px-[60px] py-[16px] w-full shrink-0 gap-[44px]">
+        <a th:href="@{/projects}" class="flex gap-[12px] items-center shrink-0">
+            <div class="w-[22px] h-[30px] bg-[var(--secondary-100)] rounded-md flex justify-center items-center font-bold text-xs text-[var(--background-dark)]">W</div>
+            <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
+        </a>
+        <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap"
+            th:text="${pageLabel ?: 'Projects'}">Projects</h2>
     </header>
+
+
+    <!--
+        Project Topbar — 프로젝트 상세(security-center / license / risk-trend) 페이지 공통 헤더.
+        activeTab: 'security-center' | 'license' | 'risk-trend'
+        usage: th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'license')}"
+    -->
+    <div th:fragment="project-topbar(projectId, projectName, projectVersion, activeTab)"
+         class="w-full relative shrink-0 bg-[var(--background-dark)] flex flex-col">
+
+        <div class="flex items-center gap-[44px] pl-[60px] pr-8 py-[17px] border-b border-white/10">
+            <a th:href="@{/projects}" class="flex items-center gap-3">
+                <div class="w-[22px] h-[30px] bg-[var(--secondary-100)] rounded-md flex justify-center items-center font-bold text-xs text-[var(--background-dark)]">W</div>
+                <h1 class="text-[var(--secondary-100)] font-extrabold text-[24px] tracking-tight">OsWL</h1>
+            </a>
+
+            <div class="flex items-center gap-6">
+                <a th:href="@{/projects}" class="text-white/50 text-[18px] hover:text-white transition-colors">Projects</a>
+                <svg class="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="text-white font-bold text-[18px]" th:text="${projectName ?: 'Project Name'}">Project Name</span>
+
+                <div class="bg-white/15 border border-white/30 rounded px-2 py-1 flex items-center gap-2">
+                    <span class="text-[var(--secondary-20)] font-medium text-[16px]" th:text="${projectVersion ?: '1.2.5'}">1.2.5</span>
+                    <button type="button" class="w-[19px] h-[20px] flex items-center justify-center cursor-pointer">
+                        <svg class="w-3 h-3 text-[var(--secondary-20)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#F3F5F6] flex items-center gap-8 pl-[60px] pr-8 py-[16px]">
+
+            <a th:href="@{|/projects/${projectId}/security-center|}"
+               th:classappend="${activeTab == 'security-center'}
+                   ? 'bg-[#33D1B7]/10 text-[var(--secondary-60)] font-bold px-3 py-1.5 rounded-lg text-[18px]'
+                   : 'text-[#272D30] font-medium text-[18px] hover:text-[var(--secondary-60)] transition-colors'">Security Center</a>
+
+            <div class="w-1 h-1 bg-gray-400 rounded-full"></div>
+
+            <a th:href="@{|/projects/${projectId}/license|}"
+               th:classappend="${activeTab == 'license'}
+                   ? 'bg-[#33D1B7]/10 text-[var(--secondary-60)] font-bold px-3 py-1.5 rounded-lg text-[18px]'
+                   : 'text-[#272D30] font-medium text-[18px] hover:text-[var(--secondary-60)] transition-colors'">License</a>
+
+            <div class="w-1 h-1 bg-gray-400 rounded-full"></div>
+
+            <a th:href="@{|/projects/${projectId}/risk-trend|}"
+               th:classappend="${activeTab == 'risk-trend'}
+                   ? 'bg-[#33D1B7]/10 text-[var(--secondary-60)] font-bold px-3 py-1.5 rounded-lg text-[18px]'
+                   : 'text-[#272D30] font-medium text-[18px] hover:text-[var(--secondary-60)] transition-colors'">Risk Trend</a>
+        </div>
+    </div>
+
 </body>
 </html>

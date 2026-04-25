@@ -53,11 +53,11 @@
                                    'AGPL v3.0'
                                }">Apple MIT License</p>
                             <!-- Reusable Risk Tag Fragment -->
-                            <div th:replace="~{shared/tags :: risk-tag(level=${mockLevel})}"></div>
+                            <div th:replace="~{fragments/tags :: risk-tag(level=${mockLevel})}"></div>
                         </div>
                         
                         <!-- Library Count Tag -->
-                        <div th:replace="~{shared/tags :: library-count(count=${i.index + 1 * 2})}"></div>
+                        <div th:replace="~{fragments/tags :: library-count(count=${i.index + 1 * 2})}"></div>
                     </div>
                 </th:block>
             </th:block>
@@ -68,11 +68,11 @@
                     <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
                         <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">Apple MIT License</p>
                         <!-- Risk Tag -->
-                        <div th:replace="~{shared/tags :: risk-tag(level=${license.riskLevel})}"></div>
+                        <div th:replace="~{fragments/tags :: risk-tag(level=${license.riskLevel})}"></div>
                     </div>
                     
                     <!-- Library Count Tag -->
-                    <div th:replace="~{shared/tags :: library-count(count=${license.libraryCount})}"></div>
+                    <div th:replace="~{fragments/tags :: library-count(count=${license.libraryCount})}"></div>
                 </div>
             </th:block>
 
