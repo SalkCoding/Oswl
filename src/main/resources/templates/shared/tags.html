@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!-- Risk Tags Fragment -->
+    <!-- Low Risk -->
+    <div th:fragment="risk-tag(level)" th:classappend="${
+        level == 'LOW' ? 'bg-[#FAFBFB] border-[#E8EEF0]' :
+        level == 'MEDIUM' ? 'bg-[rgba(245,189,38,0.05)] border-[rgba(245,189,38,0.2)]' :
+        level == 'HIGH' ? 'bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]' :
+        'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
+    }" class="border border-solid flex gap-2 items-center px-3 py-1 rounded-[40px] shrink-0">
+        
+        <div th:classappend="${
+            level == 'LOW' ? 'bg-[#333E42]' :
+            level == 'MEDIUM' ? 'bg-[#F5BD26]' :
+            level == 'HIGH' ? 'bg-[#F47A29]' :
+            'bg-[#E62727]'
+        }" class="w-1.5 h-1.5 rounded-full shrink-0"></div>
+
+        <span class="font-normal text-[11px] text-[#333E42] tracking-tight whitespace-nowrap" 
+              th:text="${
+                  level == 'LOW' ? 'Low Risk' :
+                  level == 'MEDIUM' ? 'Medium Risk' :
+                  level == 'HIGH' ? 'High Risk' :
+                  'Critical Risk'
+              }">Low Risk</span>
+    </div>
+
+    <!-- Number of Libraries Tag -->
+    <div th:fragment="library-count(count)" class="bg-[#F3F5F6] flex items-center px-3 py-1 rounded-[40px] shrink-0">
+        <span class="font-normal text-[11px] text-[#5E6B70] tracking-tight whitespace-nowrap text-right"
+              th:text="${count} + ' libraries'">
+            3 libraries
+        </span>
+    </div>
+
+</body>
+</html>
