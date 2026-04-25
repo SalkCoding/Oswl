@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Security Center')}"></head>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
+
+    <main class="flex flex-col flex-1 min-h-0" x-data="{ searchQuery: '' }">
+
+        <!-- Risk Graph Summary Row -->
+        <section class="w-full flex items-center px-[60px] py-[24px] flex-shrink-0 bg-white">
+            <div class="flex flex-wrap gap-x-[120px] gap-y-[16px] w-full items-center">
+                <div class="w-[480px]"
+                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow})}"></div>
+                <div class="w-[480px]"
+                     th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, ${licenseMedium}, ${licenseLow})}"></div>
+            </div>
+        </section>
+
+        <!-- Table & Action area -->
+        <section class="flex flex-col flex-1 mt-[12px] bg-white border-t border-[var(--border-default)] min-h-0">
+            <div th:replace="~{security-center/fragments/actions :: actions}"></div>
+
+            <div class="flex flex-1 min-h-0">
+                <div class="flex-1 custom-scrollbar overflow-x-auto overflow-y-auto">
+                    <div th:replace="~{security-center/fragments/table :: table}"></div>
+                </div>
+                <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>
+            </div>
+        </section>
+
+    </main>
+
+</body>
+</html>

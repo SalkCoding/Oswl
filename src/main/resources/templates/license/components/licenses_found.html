@@ -40,24 +40,21 @@
             
             <!-- Fallback Mock Data if 'licenses' isn't provided -->
             <th:block th:if="${licenses == null}">
-                <th:block th:each="mockLevel, i : ${
-                    {'LOW', 'LOW', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'}
-                }">
-                    <div class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer">
+                <th:block th:each="mock, i : ${ {
+                        {'Apple MIT License', 'LOW', 2},
+                        {'Apache License 2.0', 'LOW', 14},
+                        {'BSD-2-Clause', 'LOW', 6},
+                        {'Creative Commons Attribution 4.0', 'MEDIUM', 3},
+                        {'Creative Commons Attribution Share Alike 1.0', 'HIGH', 1},
+                        {'AGPL v3.0', 'CRITICAL', 1}
+                    } }">
+                    <div class="flex flex-wrap gap-y-2 items-center justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer">
                         <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
                             <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
-                               th:text="${
-                                   mockLevel == 'LOW' ? 'Apple MIT License' : 
-                                   mockLevel == 'MEDIUM' ? 'Creative Commons Attribution 4.0' :
-                                   mockLevel == 'HIGH' ? 'Creative Commons Attribution Share Alike 1.0' :
-                                   'AGPL v3.0'
-                               }">Apple MIT License</p>
-                            <!-- Reusable Risk Tag Fragment -->
-                            <div th:replace="~{fragments/tags :: risk-tag(level=${mockLevel})}"></div>
+                               th:text="${mock[0]}">Apple MIT License</p>
+                            <div th:replace="~{fragments/tags :: risk-tag(level=${mock[1]})}"></div>
                         </div>
-                        
-                        <!-- Library Count Tag -->
-                        <div th:replace="~{fragments/tags :: library-count(count=${i.index + 1 * 2})}"></div>
+                        <div th:replace="~{fragments/tags :: library-count(count=${mock[2]})}"></div>
                     </div>
                 </th:block>
             </th:block>

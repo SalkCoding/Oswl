@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/oswl}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:oswl}
+    password: ${DB_PASSWORD:oswl}
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+
+  thymeleaf:
+    cache: true
