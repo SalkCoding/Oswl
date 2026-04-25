@@ -1,37 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OsWL - Project Licenses</title>
-    <!-- Tailwind CSS (CDN for rapid prototyping, replace with build setup if needed) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js for dynamic behaviors (dropdowns, accordions) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- HTMX (Optional for future async fetching) -->
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    
-    <link rel="stylesheet" th:href="@{/css/globals.css}" href="../../../static/css/globals.css">
-</head>
-<body class="bg-[var(--grayscale-5,#fafbfb)] text-gray-900 font-sans antialiased min-h-screen flex flex-col">
+<head th:replace="~{fragments/head :: head('Project Licenses')}"></head>
+<body class="bg-[var(--grayscale-5)] text-gray-900 font-sans antialiased min-h-screen flex flex-col">
 
-    <!-- Top Bar Navigation (Shared Component) -->
-    <div th:replace="~{shared/topbar :: topbar}"></div>
+    <div th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'license')}"></div>
 
-    <!-- Main Content Area -->
     <main class="flex-1 w-full max-w-[1440px] mx-auto px-[80px] py-[40px]">
         <div class="flex gap-[48px] items-start w-full">
-            
-            <!-- Left Column: Licenses Found -->
-            <div class="flex-1 flex flex-col min-w-[248px]" th:replace="~{license/components/licenses_found :: licenses_found}">
-                <!-- Licenses Content Placeholder -->
-            </div>
-
-            <!-- Right Column: Obligations Found -->
-            <div class="flex-1 flex flex-col min-w-[248px]" th:replace="~{license/components/obligations_found :: obligations_found}">
-                <!-- Obligations Content Placeholder -->
-            </div>
-
+            <div class="flex-1 flex flex-col min-w-[248px]"
+                 th:replace="~{license/components/licenses_found :: licenses_found}"></div>
+            <div class="flex-1 flex flex-col min-w-[248px]"
+                 th:replace="~{license/components/obligations_found :: obligations_found}"></div>
         </div>
     </main>
 

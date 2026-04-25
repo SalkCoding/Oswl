@@ -1,76 +1,26 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OsWL - Projects</title>
-    <!-- Tailwind CSS is included via CDN for demonstration based on the Figma output (using inline classes) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" th:href="@{/css/projects.css}">
-    
-    <!-- Using Google Fonts (Inter) matching Figma design -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #F8F9FA;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-        }
+<head th:replace="~{fragments/head :: head('Projects')}"></head>
+<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
 
-        /* Root variables based on Figma design tokens */
-        :root {
-            --background-dark: #001d35;
-            --grayscale-100: #141616;
-            --grayscale-80: #333e42;
-            --grayscale-60: #5e6b70;
-            --grayscale-20: #dbe4e7;
-            --secondary-colors-100: #22efc3;
-            --secondary-colors-20: #d3fcf3;
-            
-            /* Risk semantic colors */
-            --risk-critical: #e62727;
-            --risk-high: #f47a29;
-            --risk-medium: #f5bd26;
-            --risk-low: #e8eef0;
-        }
-    </style>
-</head>
-<body class="flex flex-col relative w-full h-full pb-[341px]">
+    <header th:replace="~{fragments/topbar :: simple-topbar('Projects')}"></header>
 
-    <!-- TopBar Fragment -->
-    <div th:replace="~{fragments/topbar :: topbar}">
-        <!-- Fallback if fragment is missing -->
-        <header class="bg-[var(--background-dark)] flex items-center h-[64px] px-[60px] py-[16px] w-full shrink-0 gap-[44px]">
-            <div class="flex gap-[12px] items-center shrink-0">
-                <!-- App Logo placeholder -->
-                <div class="w-[22px] h-[30px] bg-[var(--secondary-colors-100)] rounded-md"></div>
-                <h1 class="font-extrabold text-[24px] text-[var(--secondary-colors-100)] tracking-[-0.24px]">OsWL</h1>
-            </div>
-            <h2 class="font-bold text-[18px] text-white tracking-[-0.18px]">Projects</h2>
-        </header>
-    </div>
+    <main class="w-full flex flex-col gap-[32px] mt-8 pb-[80px]">
 
-    <main class="w-full flex flex-col gap-[32px] mt-8">
-        
-        <!-- Add Projects Section -->
+        <!-- Add Projects -->
         <section class="flex flex-col gap-[16px] px-[84px] w-full shrink-0">
-            <header class="flex gap-[12px] items-center w-full">
-                <!-- Add Icon -->
-                <div class="w-[20px] h-[20px] relative flex justify-center items-center">
+            <div class="flex gap-[12px] items-center w-full">
+                <div class="w-[20px] h-[20px] flex justify-center items-center">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--grayscale-100)]">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
                         <line x1="5" y1="12" x2="19" y2="12"></line>
                     </svg>
                 </div>
                 <h3 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">Add Projects</h3>
-            </header>
-            
+            </div>
+
             <div class="flex flex-wrap gap-[24px] items-center w-full">
-                
-                <!-- CLI Integration Button -->
-                <button class="bg-[var(--background-dark)] flex flex-[1] flex-col gap-[12px] items-start min-w-[280px] p-[22px] rounded-[10px] text-left transition-transform hover:scale-[1.01]">
+                <button type="button" class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[12px] items-start min-w-[280px] p-[22px] rounded-[10px] text-left transition-transform hover:scale-[1.01]">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="w-[20px] h-[20px] text-white">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"></path><polyline points="7 9 12 4 17 9"></polyline><line x1="12" y1="4" x2="12" y2="16"></line></svg>
@@ -81,13 +31,12 @@
                         Run fast and secure scans directly on your local machine or build server without uploading source code.
                     </p>
                     <div class="flex flex-wrap gap-[12px] items-center w-full mt-2">
-                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-colors-20)] tracking-[-0.11px]">High Security</span>
-                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-colors-20)] tracking-[-0.11px]">No Source Code Upload</span>
+                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]">High Security</span>
+                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]">No Source Code Upload</span>
                     </div>
                 </button>
 
-                <!-- Connect to Git Button -->
-                <button class="bg-[var(--background-dark)] flex flex-[1] flex-col gap-[12px] items-start min-w-[280px] p-[22px] rounded-[10px] text-left transition-transform hover:scale-[1.01]">
+                <button type="button" class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[12px] items-start min-w-[280px] p-[22px] rounded-[10px] text-left transition-transform hover:scale-[1.01]">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="w-[20px] h-[20px] text-white">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
@@ -98,53 +47,47 @@
                         Connect your GitHub, GitLab, or Bitbucket account to automatically scan your repositories in minutes.
                     </p>
                     <div class="flex flex-wrap gap-[12px] items-center w-full mt-2">
-                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-colors-20)] tracking-[-0.11px]">Quick Setup</span>
-                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-colors-20)] tracking-[-0.11px]">Auth Required</span>
+                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]">Quick Setup</span>
+                        <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-normal text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]">Auth Required</span>
                     </div>
                 </button>
-
             </div>
         </section>
 
-        <!-- Select a Project Section -->
+        <!-- Select a Project -->
         <section class="flex flex-col gap-[16px] px-[84px] w-full shrink-0 mt-8">
-            <header class="flex gap-[12px] items-center w-full">
-                <!-- Folder Icon -->
-                <div class="w-[20px] h-[20px] relative flex justify-center items-center">
+            <div class="flex gap-[12px] items-center w-full">
+                <div class="w-[20px] h-[20px] flex justify-center items-center">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--grayscale-100)]"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 </div>
                 <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px]">Select a Project</h3>
-            </header>
+            </div>
 
-            <div class="flex flex-wrap gap-[24px] items-start w-full cursor-pointer">
-                <!-- Dynamic Project List using Thymeleaf -->
-                <div th:each="project : ${projects}" class="bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start max-w-[600px] min-w-[360px] px-[24px] py-[28px] rounded-[8px] flex-[1] transition-shadow hover:shadow-md">
-                    
+            <div class="flex flex-wrap gap-[24px] items-start w-full">
+                <a th:each="project : ${projects}"
+                   th:href="@{|/projects/${project.id}/security-center|}"
+                   class="bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start max-w-[600px] min-w-[360px] px-[24px] py-[28px] rounded-[8px] flex-1 transition-shadow hover:shadow-md cursor-pointer no-underline text-inherit">
+
                     <div class="flex flex-col gap-[8px] items-start w-full shrink-0">
                         <div class="flex gap-[8px] items-center w-full">
-                            <p class="flex-[1] font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px]" th:text="${project.name}">Project Name</p>
-                            <!-- Menu vertical icon -->
+                            <p class="flex-1 font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px]"
+                               th:text="${project.name}">Project Name</p>
                             <div class="w-[4px] h-[14px] flex flex-col justify-between items-center text-[var(--grayscale-100)]">
                                 <div class="w-[3px] h-[3px] bg-current rounded-full"></div>
                                 <div class="w-[3px] h-[3px] bg-current rounded-full"></div>
                                 <div class="w-[3px] h-[3px] bg-current rounded-full"></div>
                             </div>
                         </div>
-                        <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]" th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
+                        <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
+                           th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
                     </div>
 
-                    <!-- Security Risk Graph -->
-                    <div th:replace="~{fragments/risk-graph :: riskGraph(title='Security Risk', critical=${project.criticalRisk}, high=${project.highRisk}, medium=${project.mediumRisk}, low=${project.lowRisk})}"></div>
-                    
-                    <!-- License Risk Graph (Mocking the exact same data variables for demonstration, adjust backend to pass license risks separately if needed) -->
-                    <div th:replace="~{fragments/risk-graph :: riskGraph(title='License Risk', critical=${project.criticalRisk}, high=${project.highRisk}, medium=${project.mediumRisk}, low=${project.lowRisk})}"></div>
-                    
-                </div>
+                    <div th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.criticalRisk}, ${project.highRisk}, ${project.mediumRisk}, ${project.lowRisk})}"></div>
+                    <div th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.criticalRisk}, ${project.highRisk}, ${project.mediumRisk}, ${project.lowRisk})}"></div>
+                </a>
             </div>
         </section>
 
     </main>
-
-    <!-- Optional extra logic (Alpine/HTMX) if needed can be added here or in the header -->
 </body>
 </html>
