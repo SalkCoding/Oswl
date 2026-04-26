@@ -1,0 +1,131 @@
+<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="{ selectAll: false, selectedRepos: [] }">
+    
+    <!-- Header -->
+    <div class="bg-white flex flex-col gap-[20px] pb-[36px] pt-[40px] px-[40px] w-full shrink-0">
+        <div class="flex gap-[12px] items-start w-full">
+            <!-- Github Icon -->
+            <div class="border border-[var(--grayscale-20)] rounded-[8px] w-[32px] h-[32px] flex items-center justify-center shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-[#24292F]">
+                    <path fill-rule="evenodd" d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.45-1.15-1.11-1.46-1.11-1.46-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"></path>
+                </svg>
+            </div>
+            
+            <div class="flex-1 flex gap-[14px] items-center h-[31px]">
+                <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0">Connect to Git</h2>
+            </div>
+            
+            <!-- Close Button -->
+            <button type="button" @click="openPanel = null" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Connection Details Labels -->
+        <div class="flex flex-wrap gap-[12px] items-center text-[13px] w-full">
+            <div class="bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.2)] rounded-[40px] flex gap-[6px] items-center px-[12px] py-[6px]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--primary-120)]">
+                    <path fill-rule="evenodd" d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.45-1.15-1.11-1.46-1.11-1.46-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"></path>
+                </svg>
+                <span class="font-medium text-[var(--primary-120)] tracking-[-0.13px]">GitHub</span>
+            </div>
+            
+            <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] w-[200px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors">
+                <span class="font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate">OwlCoding</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="bg-[var(--grayscale-10)] rounded-[10px] px-[18px] py-[12px] flex gap-[8px] items-center w-full shadow-sm shadow-[var(--grayscale-20)]/50">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-60)] shrink-0">
+                <circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[0] leading-[1.3]">If you don't see an organization listed, you may need to grant OsWL access in GitHub's settings.</span>
+        </div>
+    </div>
+
+    <!-- Main List Container -->
+    <div class="border-t border-[var(--grayscale-20)] w-full flex flex-col flex-1 shrink-0 pb-[32px]">
+        
+        <!-- Action Bar -->
+        <div class="flex gap-[16px] items-center justify-between px-[40px] pt-[24px] pb-[16px] w-full">
+            <!-- Search -->
+            <div class="bg-[var(--grayscale-10)] rounded-[75px] h-[36px] flex items-center gap-[8px] px-[16px] flex-1 max-w-[880px] border border-transparent focus-within:border-[var(--primary-120)] transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-50)] shrink-0">
+                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" placeholder="Search repos..." class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
+            </div>
+            
+            <!-- Buttons -->
+            <div class="flex gap-[12px] items-center w-[250px] shrink-0">
+                <button type="button" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] flex-1 h-[36px] text-[13px] font-medium text-[var(--primary-120)] tracking-[0] hover:bg-[var(--grayscale-10)] hover:border-[var(--grayscale-40)] transition-colors active:scale-[0.98] focus:outline-none">
+                    Import All
+                </button>
+                <button type="button" class="bg-[var(--primary-120)] rounded-[8px] flex-1 h-[36px] text-[13px] font-bold text-white tracking-[0] hover:bg-opacity-90 transition-colors active:scale-[0.98] focus:outline-none" 
+                        :class="selectedRepos.length === 0 ? 'opacity-70 cursor-not-allowed' : ''">
+                    Import <span x-show="selectedRepos.length > 0" x-text="'(' + selectedRepos.length + ')'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Table Header -->
+        <div class="bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] flex items-center w-full h-[40px]">
+            <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 border-r border-[var(--grayscale-20)] h-full">
+                <label class="cursor-pointer relative flex items-center justify-center p-2">
+                    <input type="checkbox" class="peer sr-only" x-model="selectAll" @change="selectedRepos = selectAll ? [1,2,3,4,5] : []">
+                    <!-- Figma 226:85324 new checkbox style: square with checkmark inside when selected -->
+                    <div class="w-[16px] h-[16px] rounded border-[1.5px] border-[var(--grayscale-40)] peer-checked:bg-[var(--primary-120)] peer-checked:border-[var(--primary-120)] flex items-center justify-center transition-colors">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 peer-checked:opacity-100 transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                </label>
+            </div>
+            <div class="flex-1 min-w-[200px] border-r border-[var(--grayscale-20)] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal">
+                Title
+            </div>
+            <div class="w-[240px] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal shrink-0">
+                Last Updated
+            </div>
+        </div>
+
+        <!-- Table Rows Container -->
+        <div class="flex flex-col w-full h-full flex-1">
+            
+            <!-- Generate a few mock rows using Alpine template loop -->
+            <template x-for="item in [1,2,3,4,5]" :key="item">
+                <div class="border-b border-[var(--grayscale-20)] flex items-center w-full min-h-[48px] hover:bg-[var(--primary-20)]/20 transition-colors"
+                     :class="selectedRepos.includes(item) ? 'bg-[var(--primary-20)]/30' : 'bg-white'">
+                    
+                    <!-- Checkbox -->
+                    <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 h-full">
+                        <label class="cursor-pointer relative flex items-center justify-center p-2">
+                            <input type="checkbox" class="peer sr-only" :value="item" x-model="selectedRepos">
+                            <div class="w-[16px] h-[16px] rounded border-[1.5px] border-[var(--grayscale-40)] peer-checked:bg-[var(--primary-120)] peer-checked:border-[var(--primary-120)] flex items-center justify-center transition-colors">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 peer-checked:opacity-100 transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Title -->
+                    <div class="flex-1 min-w-[200px] px-[16px] py-[12px] flex items-center">
+                        <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]">
+                            OWL.github.io
+                        </span>
+                    </div>
+
+                    <!-- Date -->
+                    <div class="w-[240px] px-[16px] py-[12px] flex items-center shrink-0">
+                        <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]">Imported : 35 minutes ago</span>
+                    </div>
+                </div>
+            </template>
+        
+        </div>
+
+    </div>
+
+</div>
