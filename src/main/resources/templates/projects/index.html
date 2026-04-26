@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Projects')}"></head>
-<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
+<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative" x-data="{ openPanel: null }" :class="openPanel ? 'overflow-hidden h-screen' : ''">
 
     <header th:replace="~{fragments/topbar :: simple-topbar('Projects')}"></header>
 
@@ -18,8 +18,8 @@
             </div>
 
             <div class="flex flex-wrap gap-[24px] items-stretch w-full">
-                <button type="button"
-                        class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg">
+                <button type="button" @click="openPanel = 'cli'"
+                   class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <svg class="w-[22px] h-[22px] text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polyline points="4 17 10 11 4 5"></polyline>
@@ -36,8 +36,8 @@
                     </div>
                 </button>
 
-                <button type="button"
-                        class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg">
+                <button type="button" @click="openPanel = 'git'"
+                   class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <svg class="w-[22px] h-[22px] text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
@@ -92,5 +92,40 @@
         </section>
 
     </main>
+    <!-- Slide-out Background Overlay -->
+    <div x-show="openPanel !== null" 
+         x-transition.opacity 
+         class="fixed inset-0 bg-black/30 z-[100]" 
+         @click="openPanel = null" 
+         style="display: none;"></div>
+
+    <!-- CLI Integration Panel -->
+    <div x-show="openPanel === 'cli'" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-screen w-full max-w-[880px] z-[110] bg-white shadow-2xl flex flex-col"
+         style="display: none;">
+         
+         <div th:replace="~{projects/cli-integration :: slideout}"></div>
+    </div>
+
+    <!-- Git Integration Panel -->
+    <div x-show="openPanel === 'git'" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
+         style="display: none;">
+         
+         <div th:replace="~{projects/git-integration :: slideout}"></div>
+    </div>
+
 </body>
 </html>
