@@ -30,9 +30,13 @@
     <!-- Body -->
     <div class="flex flex-col">
         <a th:each="comp : ${components}"
-           th:href="@{|/projects/${projectId}/components/${comp.id}|}"
+           href="javascript:void(0)"
+           th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|}"
+           hx-select="#component-detail-content"
+           hx-target="#slideout-content"
+           @click="$dispatch('open-component-panel')"
            th:classappend="${comp.reviewed} ? 'bg-[#e5faf5]' : 'bg-white'"
-           class="flex items-center w-full border-b border-[var(--grayscale-20)] hover:bg-[var(--grayscale-10)] transition-colors no-underline text-inherit">
+           class="flex items-center w-full border-b border-[var(--grayscale-20)] hover:bg-[var(--grayscale-10)] transition-colors no-underline text-inherit cursor-pointer">
 
             <div class="flex h-[48px] items-center justify-center w-[60px] min-w-[60px]"
                  onclick="event.preventDefault(); event.stopPropagation();">

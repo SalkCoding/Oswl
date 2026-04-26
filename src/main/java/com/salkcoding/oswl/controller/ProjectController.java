@@ -44,4 +44,14 @@ public class ProjectController {
         model.addAttribute("projects", projects);
         return "projects/index";
     }
+
+    @GetMapping("/cli-integration")
+    public String cliIntegration() {
+        return "projects/cli-integration";
+    }
+
+    @GetMapping("/git-integration")
+    public String gitIntegration() {
+        return "projects/git-integration";
+    }
 }
