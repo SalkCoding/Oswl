@@ -28,31 +28,33 @@
                     </svg>
                 </button>
             </div>
-                    <span class="bg-white border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
-                        <svg class="w-[14px] h-[14px] text-[var(--grayscale-50)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                        </svg>
-                        <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
-                              th:text="${reviewed} ? 'Reviewed' : 'Not Reviewed'">Not Reviewed</span>
-                    </span>
-                    <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[5px] rounded-[40px]">
-                        <span class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
-                              th:text="${projectsCount} + ' Projects'">7 Projects</span>
-                    </span>
-                    <span class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
-                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
-                        <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
-                              th:text="${patchability == 'patchable'} ? 'Patchable' : (${patchability == 'non-patchable'} ? 'Non-Patchable' : 'Unknown')">Patchable</span>
-                    </span>
-                    <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
-                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
-                        <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
-                              th:text="${licenseRiskLabel}">A High Risk License</span>
-                    </span>
-                </div>
 
-                <!-- Security issues row -->
+            <div class="flex flex-wrap gap-[10px]">
+                <span class="bg-white border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                    <svg class="w-[14px] h-[14px] text-[var(--grayscale-50)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
+                    </svg>
+                    <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                          th:text="${reviewed} ? 'Reviewed' : 'Not Reviewed'">Not Reviewed</span>
+                </span>
+                <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
+                          th:text="${projectsCount} + ' Projects'">7 Projects</span>
+                </span>
+                <span class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
+                    <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                          th:text="${patchability == 'patchable'} ? 'Patchable' : (${patchability == 'non-patchable'} ? 'Non-Patchable' : 'Unknown')">Patchable</span>
+                </span>
+                <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
+                    <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                          th:text="${licenseRiskLabel}">A High Risk License</span>
+                </span>
+            </div>
+
+            <!-- Security issues row -->
                 <div class="flex flex-wrap items-center gap-[12px]">
                     <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">Security Issues</p>
                     <span th:if="${securityCritical > 0}"
