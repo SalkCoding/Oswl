@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Projects')}"></head>
-<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative" x-data="{ openPanel: null }" :class="openPanel ? 'overflow-hidden h-screen' : ''">
+<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
+      x-data="{ openPanel: null }"
+      :class="openPanel ? 'overflow-hidden h-screen' : ''">
 
     <header th:replace="~{fragments/topbar :: simple-topbar('Projects')}"></header>
 
@@ -65,42 +67,71 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
-                <a th:each="project : ${projects}"
-                   th:href="@{|/projects/${project.id}/security-center|}"
-                   class="bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start px-[24px] py-[28px] rounded-[10px] transition-all hover:shadow-md hover:border-[var(--primary-80)] cursor-pointer no-underline text-inherit">
+
+                <!-- ✅ <div> + data-href + @click으로 이동, <button> 중첩 문제 없음 -->
+                <div th:each="project : ${projects}"
+                     x-data="{ openMenu: false }"
+                     th:attr="data-href=@{|/projects/${project.id}/security-center|}"
+                     @click="window.location.href = $el.dataset.href"
+                     class="project-card relative bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start px-[24px] py-[28px] rounded-[10px] transition-all hover:shadow-md hover:border-[var(--primary-80)] cursor-pointer text-inherit">
 
                     <div class="flex flex-col gap-[6px] items-start w-full shrink-0">
-                        <div class="flex gap-[8px] items-center w-full">
-                            <p class="flex-1 font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px] leading-[1.3]"
-                               th:text="${project.name}">Project Name</p>
-                            <span class="flex flex-col justify-between items-center w-[4px] h-[16px] py-[1px]" aria-hidden="true">
-                                <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-100)]"></span>
-                                <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-100)]"></span>
-                                <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-100)]"></span>
-                            </span>
+                        <div class="flex gap-[8px] items-start w-full">
+                            <div class="flex-1">
+                                <p class="font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px] leading-[1.3]"
+                                   th:text="${project.name}">Project Name</p>
+                                <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3]"
+                                   th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
+                            </div>
+
+                            <!-- ✅ @click.stop이 이 div에 걸려 카드 @click(→ 링크이동) 차단 -->
+                            <div class="relative" @click.stop>
+                                <button type="button"
+                                        @click="openMenu = !openMenu"
+                                        class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--grayscale-20)] bg-white text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition">
+                                    <span class="sr-only">Open project actions</span>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="5" r="1"></circle>
+                                        <circle cx="12" cy="12" r="1"></circle>
+                                        <circle cx="12" cy="19" r="1"></circle>
+                                    </svg>
+                                </button>
+
+                                <!-- 드롭다운 -->
+                                <div x-cloak x-show="openMenu"
+                                     @click.outside="openMenu = false"
+                                     x-transition
+                                     class="absolute right-0 top-[42px] z-20 min-w-[180px] rounded-[10px] border border-[var(--grayscale-20)] bg-white shadow-lg p-[6px]">
+                                    <button type="button"
+                                            @click="openMenu = false; deleteProject([[${project.id}]], $event.target)"
+                                            class="w-full rounded-[8px] px-[14px] py-[10px] text-left text-[var(--danger-70)] font-medium hover:bg-[var(--grayscale-5)] transition">
+                                        Delete Project
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3]"
-                           th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
                     </div>
 
                     <div class="w-full"
                          th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow})}"></div>
                     <div class="w-full"
                          th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.licenseCritical}, ${project.licenseHigh}, ${project.licenseMedium}, ${project.licenseLow})}"></div>
-                </a>
+                </div>
+
             </div>
         </section>
 
     </main>
+
     <!-- Slide-out Background Overlay -->
-    <div x-show="openPanel !== null" 
-         x-transition.opacity 
-         class="fixed inset-0 bg-black/30 z-[100]" 
-         @click="openPanel = null" 
+    <div x-show="openPanel !== null"
+         x-transition.opacity
+         class="fixed inset-0 bg-black/30 z-[100]"
+         @click="openPanel = null"
          style="display: none;"></div>
 
     <!-- CLI Integration Panel -->
-    <div x-show="openPanel === 'cli'" 
+    <div x-show="openPanel === 'cli'"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="translate-x-full"
          x-transition:enter-end="translate-x-0"
@@ -109,12 +140,11 @@
          x-transition:leave-end="translate-x-full"
          class="fixed top-0 right-0 h-screen w-full max-w-[880px] z-[110] bg-white shadow-2xl flex flex-col"
          style="display: none;">
-         
-         <div th:replace="~{projects/cli-integration :: slideout}"></div>
+        <div th:replace="~{projects/cli-integration :: slideout}"></div>
     </div>
 
     <!-- Git Integration Panel -->
-    <div x-show="openPanel === 'git'" 
+    <div x-show="openPanel === 'git'"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="translate-x-full"
          x-transition:enter-end="translate-x-0"
@@ -123,9 +153,16 @@
          x-transition:leave-end="translate-x-full"
          class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
          style="display: none;">
-         
-         <div th:replace="~{projects/git-integration :: slideout}"></div>
+        <div th:replace="~{projects/git-integration :: slideout}"></div>
     </div>
+
+    <!-- Toast -->
+    <div id="project-toast" x-cloak
+         class="pointer-events-none fixed bottom-[24px] left-1/2 z-[120] -translate-x-1/2 transform rounded-[12px] bg-[var(--grayscale-900)] px-[18px] py-[14px] text-white shadow-2xl opacity-0 translate-y-2 transition-all duration-300">
+        <p data-toast-message class="text-[14px] font-medium"></p>
+    </div>
+
+    <script th:src="@{/js/projects.js}" defer></script>
 
 </body>
 </html>
