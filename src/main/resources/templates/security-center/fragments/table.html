@@ -8,7 +8,7 @@
     <!-- Table Header / Description Bar -->
     <div class="flex items-center w-full bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] sticky top-0 z-10">
         <div class="flex h-[40px] items-center justify-center w-[60px] min-w-[60px]">
-            <input type="checkbox" class="rounded border-[var(--grayscale-30)] text-[var(--primary-120)] focus:ring-[var(--primary-120)]" />
+            <input type="checkbox" x-model="selectAll" @change="toggleSelectAll()" class="rounded border-[var(--grayscale-30)] text-[var(--primary-120)] focus:ring-[var(--primary-120)]" />
         </div>
         <div class="flex h-[40px] items-center justify-center w-[80px] min-w-[80px]">
             <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px] text-center">Review</p>
@@ -36,12 +36,15 @@
            hx-target="#slideout-content"
            @click="$dispatch('open-component-panel')"
            th:classappend="${comp.reviewed} ? 'bg-[#e5faf5]' : 'bg-white'"
+           :class="selectedComponents.includes('${comp.id}') ? 'bg-[var(--grayscale-10)]' : ''"
            class="flex items-center w-full border-b border-[var(--grayscale-20)] hover:bg-[var(--grayscale-10)] transition-colors no-underline text-inherit cursor-pointer">
 
             <div class="flex h-[48px] items-center justify-center w-[60px] min-w-[60px]"
                  onclick="event.preventDefault(); event.stopPropagation();">
                 <input type="checkbox"
-                       th:checked="${comp.reviewed}"
+                       x-model="selectedComponents"
+                       name="selectedComponent"
+                       th:value="${comp.id}"
                        class="rounded border-[var(--grayscale-30)] text-[var(--primary-120)] focus:ring-[var(--primary-120)]" />
             </div>
 

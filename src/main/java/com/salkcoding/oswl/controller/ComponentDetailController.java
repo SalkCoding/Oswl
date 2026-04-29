@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.dto.CveDto;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +17,8 @@ public class ComponentDetailController {
     @GetMapping
     public String detail(@PathVariable Long projectId,
                          @PathVariable Long componentId,
-                         Model model) {
+                         Model model,
+                         HttpServletRequest request) {
         // TODO: replace with ComponentService once available.
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", "Project " + projectId);
@@ -57,6 +59,10 @@ public class ComponentDetailController {
 
         model.addAttribute("licenseName", "Creative Commons Attribution Share Alike 4.0");
         model.addAttribute("licenseRisk", "HIGH");
+
+        if ("true".equals(request.getHeader("HX-Request"))) {
+            return "component-detail/fragments/detail-content :: content";
+        }
 
         return "component-detail/index";
     }
