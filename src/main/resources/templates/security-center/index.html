@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Security Center')}"></head>
-<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col relative" :class="componentPanelOpen ? 'overflow-hidden h-screen' : ''" x-data="{ componentPanelOpen: false, searchQuery: '' }">
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col relative" :class="componentPanelOpen ? 'overflow-hidden h-screen' : ''" x-data="{ componentPanelOpen: false, searchQuery: '', bulkActionsOpen: false, exportOpen: false, selectedComponents: [], selectAll: false, applyBulkAction(action){ if(!this.selectedComponents.length){ return; } this.bulkActionsOpen = false; this.selectedComponents = []; this.selectAll = false; }, exportAs(format){ if(!this.selectedComponents.length){ return; } this.exportOpen = false; }, toggleSelectAll(){ if(this.selectAll){ this.selectedComponents = []; this.selectAll = false; return; } const values = Array.from(document.querySelectorAll('input[name=selectedComponent]')).map(el => el.value); this.selectedComponents = values; this.selectAll = true; }, clearSelected(){ this.selectedComponents = []; this.selectAll = false; } }">
 
     <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
 

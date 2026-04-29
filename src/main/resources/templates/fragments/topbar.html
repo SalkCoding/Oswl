@@ -50,14 +50,59 @@
                 <span class="text-white font-bold text-[18px] tracking-[-0.18px]"
                       th:text="${projectName ?: 'Project Name'}">Project Name</span>
 
-                <button type="button"
-                        class="bg-white/15 border border-white/30 rounded-[4px] px-[8px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors">
-                    <span class="text-[var(--secondary-20)] font-medium text-[16px] tracking-[-0.16px]"
-                          th:text="${projectVersion ?: '1.2.5'}">1.2.5</span>
-                    <svg class="w-3 h-3 text-[var(--secondary-20)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
+                <!-- Version Dropdown -->
+                <div x-data="{ versionDropdownOpen: false }"
+                     @click.outside="versionDropdownOpen = false"
+                     class="relative">
+                    <button type="button"
+                            @click="versionDropdownOpen = !versionDropdownOpen"
+                            class="bg-white/15 border border-white/30 rounded-[4px] px-[8px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors"
+                            :class="versionDropdownOpen && 'bg-white/25 border-white/50'">
+                        <span class="text-[var(--secondary-20)] font-medium text-[16px] tracking-[-0.16px]"
+                              th:text="${projectVersion ?: '1.2.5'}">1.2.5</span>
+                        <svg class="w-3 h-3 text-[var(--secondary-20)] transition-transform"
+                             :class="versionDropdownOpen && 'rotate-180'"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div x-show="versionDropdownOpen"
+                         x-transition
+                         class="absolute right-0 top-[42px] z-20 w-[192px] rounded-[4px] border border-white/40 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.3)] p-[10px]">
+                        <div class="flex flex-col gap-[10px] max-h-[320px] overflow-y-auto">
+                            <button type="button"
+                                    @click="versionDropdownOpen = false; window.location.href = window.location.pathname.replace(/\/projects\/\d+\//, '/projects/PROJECT_ID/');"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap"
+                                    th:text="'1.2.5'">1.2.5</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.4-SNAPSHOT</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.4-DEV</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.4</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.3</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.2</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.1</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.2.0</button>
+                            <button type="button"
+                                    @click="versionDropdownOpen = false"
+                                    class="text-white text-[13px] font-normal tracking-[-0.13px] text-left px-[8px] py-[8px] rounded-[4px] hover:bg-white/15 transition-colors whitespace-nowrap">1.1.12</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
