@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
@@ -71,5 +72,29 @@ public class ProjectController {
     @GetMapping("/git-integration")
     public String gitIntegration() {
         return "projects/git-integration";
+    }
+
+    @GetMapping("/api/branches")
+    public ResponseEntity<List<String>> getBranches() {
+        List<String> branches = List.of(
+                "main",
+                "develop",
+                "feature/new-feature",
+                "hotfix/bug-fix",
+                "release/v1.0.0",
+                "staging"
+        );
+        return ResponseEntity.ok(branches);
+    }
+
+    @GetMapping("/api/accounts")
+    public ResponseEntity<List<String>> getAccounts() {
+        List<String> accounts = List.of(
+                "OwlCoding",
+                "OWL-Team",
+                "OWL-Analytics",
+                "OWL-Security"
+        );
+        return ResponseEntity.ok(accounts);
     }
 }

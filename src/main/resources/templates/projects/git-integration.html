@@ -1,4 +1,88 @@
-<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="{ selectAll: false, selectedRepos: [] }">
+<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="gitIntegrationData()" x-init="init()" @load="init()">
+    
+    <!-- Git Integration Script -->
+    <script>
+        function gitIntegrationData() {
+            return {
+                // Dropdown state
+                openBranchDropdownId: null,
+                accountDropdownOpen: false,
+                selectAll: false,
+                selectedRepos: [],
+                
+                // Dropdown data
+                branches: [],
+                accounts: [],
+                
+                // Per-item branch selection
+                itemBranches: {},
+                
+                // Selected values
+                selectedAccount: 'OwlCoding',
+                
+                // Initialize data on component load
+                async init() {
+                    await this.loadBranches();
+                    await this.loadAccounts();
+                    // Initialize branch selection for each item
+                    for (let i = 1; i <= 5; i++) {
+                        this.itemBranches[i] = this.branches.length > 0 ? this.branches[0] : 'main';
+                    }
+                },
+                
+                /**
+                 * Fetch branches from backend API
+                 */
+                async loadBranches() {
+                    try {
+                        const response = await fetch('/projects/api/branches');
+                        if (!response.ok) {
+                            throw new Error(`Failed to load branches: ${response.statusText}`);
+                        }
+                        this.branches = await response.json();
+                    } catch (error) {
+                        console.error('Error loading branches:', error);
+                        // Fallback to hardcoded branches if API fails
+                        this.branches = [
+                            'main',
+                            'develop',
+                            'feature/new-feature',
+                            'hotfix/bug-fix',
+                            'release/v1.0.0',
+                            'staging'
+                        ];
+                    }
+                },
+                
+                /**
+                 * Fetch accounts from backend API
+                 */
+                async loadAccounts() {
+                    try {
+                        const response = await fetch('/projects/api/accounts');
+                        if (!response.ok) {
+                            throw new Error(`Failed to load accounts: ${response.statusText}`);
+                        }
+                        this.accounts = await response.json();
+                        // Set first account as default if available
+                        if (this.accounts.length > 0) {
+                            this.selectedAccount = this.accounts[0];
+                        }
+                    } catch (error) {
+                        console.error('Error loading accounts:', error);
+                        // Fallback to hardcoded accounts if API fails
+                        this.accounts = [
+                            'OwlCoding',
+                            'OWL-Team',
+                            'OWL-Analytics',
+                            'OWL-Security'
+                        ];
+                        this.selectedAccount = this.accounts[0];
+                    }
+                }
+            };
+        }
+    </script>
     
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] pb-[36px] pt-[40px] px-[40px] w-full shrink-0">
@@ -31,11 +115,35 @@
                 <span class="font-medium text-[var(--primary-120)] tracking-[-0.13px]">GitHub</span>
             </div>
             
-            <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] w-[200px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors">
-                <span class="font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate">OwlCoding</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
-                </svg>
+            <!-- Account Name Dropdown -->
+            <div class="relative" @click.outside="accountDropdownOpen = false">
+                <button 
+                    @click="accountDropdownOpen = !accountDropdownOpen"
+                    class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] w-[200px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
+                    :class="accountDropdownOpen ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
+                    <span class="font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="selectedAccount"></span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" 
+                         class="text-[var(--grayscale-80)] shrink-0 transition-transform"
+                         :class="accountDropdownOpen ? 'rotate-180' : ''">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+                
+                <!-- Account Dropdown Menu -->
+                <div x-show="accountDropdownOpen"
+                     x-transition:enter="transition ease-out duration-100"
+                     x-transition:enter-start="opacity-0 -translate-y-2"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     class="absolute top-full left-0 mt-[4px] w-[200px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 max-h-[200px] overflow-y-auto">
+                    <template x-for="account in accounts" :key="account">
+                        <button 
+                            @click="selectedAccount = account; accountDropdownOpen = false"
+                            class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--primary-20)] hover:text-[var(--primary-120)] transition-colors"
+                            :class="selectedAccount === account ? 'bg-[var(--primary-20)] text-[var(--primary-120)]' : ''">
+                            <span x-text="account"></span>
+                        </button>
+                    </template>
+                </div>
             </div>
         </div>
 
@@ -87,6 +195,9 @@
             <div class="flex-1 min-w-[200px] border-r border-[var(--grayscale-20)] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal">
                 Title
             </div>
+            <div class="w-[160px] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal shrink-0 border-r border-[var(--grayscale-20)]">
+                Branch
+            </div>
             <div class="w-[240px] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal shrink-0">
                 Last Updated
             </div>
@@ -115,6 +226,37 @@
                         <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]">
                             OWL.github.io
                         </span>
+                    </div>
+
+                    <!-- Branch Dropdown -->
+                    <div class="w-[160px] px-[16px] py-[12px] flex items-center shrink-0 relative" @click.outside="openBranchDropdownId = null">
+                        <button 
+                            @click="openBranchDropdownId = openBranchDropdownId === item ? null : item"
+                            class="w-full bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
+                            :class="openBranchDropdownId === item ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
+                            <span class="font-medium text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="itemBranches[item]"></span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" 
+                                 class="text-[var(--grayscale-80)] shrink-0 transition-transform" 
+                                 :class="openBranchDropdownId === item ? 'rotate-180' : ''">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        
+                        <!-- Branch Dropdown Menu -->
+                        <div x-show="openBranchDropdownId === item" 
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 -translate-y-2"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute top-full left-0 mt-[4px] w-[140px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 max-h-[200px] overflow-y-auto">
+                            <template x-for="branch in branches" :key="branch">
+                                <button 
+                                    @click="itemBranches[item] = branch; openBranchDropdownId = null"
+                                    class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--primary-20)] hover:text-[var(--primary-120)] transition-colors"
+                                    :class="itemBranches[item] === branch ? 'bg-[var(--primary-20)] text-[var(--primary-120)]' : ''">
+                                    <span x-text="branch"></span>
+                                </button>
+                            </template>
+                        </div>
                     </div>
 
                     <!-- Date -->

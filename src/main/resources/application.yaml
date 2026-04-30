@@ -3,3 +3,5 @@ spring:
     name: oswl
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+server:
+  port: 9000
