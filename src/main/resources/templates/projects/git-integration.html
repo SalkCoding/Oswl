@@ -1,89 +1,93 @@
-<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="gitIntegrationData()" x-init="init()" @load="init()">
-    
-    <!-- Git Integration Script -->
+<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="gitIntegrationData()">
+
+    <!-- Inline script: runs synchronously (before Alpine defer), so gitIntegrationData is defined in time -->
     <script>
-        function gitIntegrationData() {
+    (function () {
+        const MOCK_REPOS = [
+            { id: 1,  name: 'OWL.github.io',     updated: '35 minutes ago' },
+            { id: 2,  name: 'owl-core',           updated: '2 hours ago'   },
+            { id: 3,  name: 'owl-sdk',            updated: '5 hours ago'   },
+            { id: 4,  name: 'owl-dashboard',      updated: '1 day ago'     },
+            { id: 5,  name: 'owl-scanner',        updated: '2 days ago'    },
+            { id: 6,  name: 'owl-api',            updated: '3 days ago'    },
+            { id: 7,  name: 'owl-cli',            updated: '5 days ago'    },
+            { id: 8,  name: 'owl-web',            updated: '1 week ago'    },
+            { id: 9,  name: 'owl-mobile',         updated: '2 weeks ago'   },
+            { id: 10, name: 'owl-docs',           updated: '3 weeks ago'   },
+            { id: 11, name: 'owl-analytics',      updated: '1 month ago'   },
+            { id: 12, name: 'owl-security',       updated: '2 months ago'  },
+            { id: 13, name: 'owl-monitor',        updated: '3 months ago'  },
+        ];
+
+        const MOCK_BRANCHES = ['main', 'develop', 'prod'];
+
+        const MOCK_ACCOUNTS = [
+            'OwlCoding', 'OWL-Team', 'OWL-Analytics',
+            'OWL-Security', 'OWL-Research', 'OWL-DevOps', 'OWL-Platform'
+        ];
+
+        const defaultBranches = {};
+        MOCK_REPOS.forEach(r => { defaultBranches[r.id] = 'main'; });
+
+        window.gitIntegrationData = function () {
             return {
-                // Dropdown state
+                /* --- data --- */
+                repos:            MOCK_REPOS,
+                branches:         MOCK_BRANCHES,
+                accounts:         MOCK_ACCOUNTS,
+                itemBranches:     Object.assign({}, defaultBranches),
+
                 openBranchDropdownId: null,
-                accountDropdownOpen: false,
-                selectAll: false,
+                accountDropdownOpen:  false,
+                selectedAccount:      'OwlCoding',
+
+                searchQuery:   '',
+                selectAll:     false,
                 selectedRepos: [],
-                
-                // Dropdown data
-                branches: [],
-                accounts: [],
-                
-                // Per-item branch selection
-                itemBranches: {},
-                
-                // Selected values
-                selectedAccount: 'OwlCoding',
-                
-                // Initialize data on component load
-                async init() {
-                    await this.loadBranches();
-                    await this.loadAccounts();
-                    // Initialize branch selection for each item
-                    for (let i = 1; i <= 5; i++) {
-                        this.itemBranches[i] = this.branches.length > 0 ? this.branches[0] : 'main';
-                    }
+                importedRepos: [],
+                importFeedback: false,
+
+                /* --- computed --- */
+                get filteredRepos() {
+                    const q = this.searchQuery.trim().toLowerCase();
+                    return q ? this.repos.filter(r => r.name.toLowerCase().includes(q))
+                              : this.repos;
                 },
-                
-                /**
-                 * Fetch branches from backend API
-                 */
-                async loadBranches() {
-                    try {
-                        const response = await fetch('/projects/api/branches');
-                        if (!response.ok) {
-                            throw new Error(`Failed to load branches: ${response.statusText}`);
-                        }
-                        this.branches = await response.json();
-                    } catch (error) {
-                        console.error('Error loading branches:', error);
-                        // Fallback to hardcoded branches if API fails
-                        this.branches = [
-                            'main',
-                            'develop',
-                            'feature/new-feature',
-                            'hotfix/bug-fix',
-                            'release/v1.0.0',
-                            'staging'
-                        ];
-                    }
+
+                /* --- methods --- */
+                toggleSelectAll() {
+                    this.selectedRepos = this.selectAll
+                        ? this.filteredRepos.map(r => r.id)
+                        : [];
                 },
-                
-                /**
-                 * Fetch accounts from backend API
-                 */
-                async loadAccounts() {
-                    try {
-                        const response = await fetch('/projects/api/accounts');
-                        if (!response.ok) {
-                            throw new Error(`Failed to load accounts: ${response.statusText}`);
-                        }
-                        this.accounts = await response.json();
-                        // Set first account as default if available
-                        if (this.accounts.length > 0) {
-                            this.selectedAccount = this.accounts[0];
-                        }
-                    } catch (error) {
-                        console.error('Error loading accounts:', error);
-                        // Fallback to hardcoded accounts if API fails
-                        this.accounts = [
-                            'OwlCoding',
-                            'OWL-Team',
-                            'OWL-Analytics',
-                            'OWL-Security'
-                        ];
-                        this.selectedAccount = this.accounts[0];
-                    }
+
+                importSelected() {
+                    if (this.selectedRepos.length === 0) return;
+                    // Coerce to Number: checkbox x-model stores values as strings
+                    this.selectedRepos.forEach(rawId => {
+                        const id = Number(rawId);
+                        if (!this.importedRepos.includes(id)) this.importedRepos.push(id);
+                    });
+                    this.selectedRepos  = [];
+                    this.selectAll      = false;
+                    this.importFeedback = true;
+                    setTimeout(() => { this.importFeedback = false; }, 2000);
+                },
+
+                importAll() {
+                    this.filteredRepos.forEach(r => {
+                        if (!this.importedRepos.includes(r.id)) this.importedRepos.push(r.id);
+                    });
+                    this.selectedRepos  = [];
+                    this.selectAll      = false;
+                    this.importFeedback = true;
+                    setTimeout(() => { this.importFeedback = false; }, 2000);
                 }
             };
-        }
+        };
+    })();
     </script>
-    
+
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] pb-[36px] pt-[40px] px-[40px] w-full shrink-0">
         <div class="flex gap-[12px] items-start w-full">
@@ -166,17 +170,28 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-50)] shrink-0">
                     <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" placeholder="Search repos..." class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
+                <input type="text" x-model="searchQuery" placeholder="Search repos..." class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
             </div>
             
             <!-- Buttons -->
             <div class="flex gap-[12px] items-center w-[250px] shrink-0">
-                <button type="button" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] flex-1 h-[36px] text-[13px] font-medium text-[var(--primary-120)] tracking-[0] hover:bg-[var(--grayscale-10)] hover:border-[var(--grayscale-40)] transition-colors active:scale-[0.98] focus:outline-none">
+                <button type="button" @click="importAll()"
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] flex-1 h-[36px] text-[13px] font-medium text-[var(--primary-120)] tracking-[0] hover:bg-[var(--grayscale-10)] hover:border-[var(--grayscale-40)] transition-colors active:scale-[0.98] focus:outline-none">
                     Import All
                 </button>
-                <button type="button" class="bg-[var(--primary-120)] rounded-[8px] flex-1 h-[36px] text-[13px] font-bold text-white tracking-[0] hover:bg-opacity-90 transition-colors active:scale-[0.98] focus:outline-none" 
-                        :class="selectedRepos.length === 0 ? 'opacity-70 cursor-not-allowed' : ''">
-                    Import <span x-show="selectedRepos.length > 0" x-text="'(' + selectedRepos.length + ')'"></span>
+                <button type="button"
+                        @click="importSelected()"
+                        :class="importFeedback ? 'cursor-default' : (selectedRepos.length === 0 ? 'opacity-50 cursor-not-allowed' : '')"
+                        class="bg-[var(--primary-120)] rounded-[8px] flex-1 h-[36px] text-[13px] font-bold text-white tracking-[0] hover:bg-opacity-90 transition-colors active:scale-[0.98] focus:outline-none">
+                    <template x-if="!importFeedback">
+                        <span>
+                            Import
+                            <span x-show="selectedRepos.length > 0" x-text="'(' + selectedRepos.length + ')'"></span>
+                        </span>
+                    </template>
+                    <template x-if="importFeedback">
+                        <span>&#10003; Imported!</span>
+                    </template>
                 </button>
             </div>
         </div>
@@ -185,10 +200,12 @@
         <div class="bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] flex items-center w-full h-[40px]">
             <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 border-r border-[var(--grayscale-20)] h-full">
                 <label class="cursor-pointer relative flex items-center justify-center p-2">
-                    <input type="checkbox" class="peer sr-only" x-model="selectAll" @change="selectedRepos = selectAll ? [1,2,3,4,5] : []">
-                    <!-- Figma 226:85324 new checkbox style: square with checkmark inside when selected -->
-                    <div class="w-[16px] h-[16px] rounded border-[1.5px] border-[var(--grayscale-40)] peer-checked:bg-[var(--primary-120)] peer-checked:border-[var(--primary-120)] flex items-center justify-center transition-colors">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 peer-checked:opacity-100 transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
+                    <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
+                         :class="selectAll ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                             :class="selectAll ? 'opacity-100' : 'opacity-0'"
+                             class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </div>
                 </label>
             </div>
@@ -206,62 +223,72 @@
         <!-- Table Rows Container -->
         <div class="flex flex-col w-full h-full flex-1">
             
-            <!-- Generate a few mock rows using Alpine template loop -->
-            <template x-for="item in [1,2,3,4,5]" :key="item">
+            <!-- Mock rows via Alpine loop over filteredRepos -->
+            <template x-for="repo in filteredRepos" :key="repo.id">
                 <div class="border-b border-[var(--grayscale-20)] flex items-center w-full min-h-[48px] hover:bg-[var(--primary-20)]/20 transition-colors"
-                     :class="selectedRepos.includes(item) ? 'bg-[var(--primary-20)]/30' : 'bg-white'">
-                    
+                     :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-20)]/30' : 'bg-white'">
+
                     <!-- Checkbox -->
                     <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 h-full">
                         <label class="cursor-pointer relative flex items-center justify-center p-2">
-                            <input type="checkbox" class="peer sr-only" :value="item" x-model="selectedRepos">
-                            <div class="w-[16px] h-[16px] rounded border-[1.5px] border-[var(--grayscale-40)] peer-checked:bg-[var(--primary-120)] peer-checked:border-[var(--primary-120)] flex items-center justify-center transition-colors">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 peer-checked:opacity-100 transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos">
+                            <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
+                                 :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                                     :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'opacity-100' : 'opacity-0'"
+                                     class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                             </div>
                         </label>
                     </div>
 
                     <!-- Title -->
                     <div class="flex-1 min-w-[200px] px-[16px] py-[12px] flex items-center">
-                        <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]">
-                            OWL.github.io
-                        </span>
+                        <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]" x-text="repo.name"></span>
                     </div>
 
-                    <!-- Branch Dropdown -->
-                    <div class="w-[160px] px-[16px] py-[12px] flex items-center shrink-0 relative" @click.outside="openBranchDropdownId = null">
-                        <button 
-                            @click="openBranchDropdownId = openBranchDropdownId === item ? null : item"
+                    <!-- Branch Dropdown (per-row local state avoids @click.outside cross-row interference) -->
+                    <div class="w-[160px] px-[16px] py-[12px] flex items-center shrink-0 relative"
+                         x-data="{ branchOpen: false }" @click.outside="branchOpen = false">
+                        <button
+                            @click="branchOpen = !branchOpen"
                             class="w-full bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
-                            :class="openBranchDropdownId === item ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
-                            <span class="font-medium text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="itemBranches[item]"></span>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" 
-                                 class="text-[var(--grayscale-80)] shrink-0 transition-transform" 
-                                 :class="openBranchDropdownId === item ? 'rotate-180' : ''">
+                            :class="branchOpen ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
+                            <span class="font-medium text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="itemBranches[repo.id] || 'main'"></span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 class="text-[var(--grayscale-80)] shrink-0 transition-transform"
+                                 :class="branchOpen ? 'rotate-180' : ''">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </button>
-                        
+
                         <!-- Branch Dropdown Menu -->
-                        <div x-show="openBranchDropdownId === item" 
+                        <div x-show="branchOpen"
                              x-transition:enter="transition ease-out duration-100"
                              x-transition:enter-start="opacity-0 -translate-y-2"
                              x-transition:enter-end="opacity-100 translate-y-0"
-                             class="absolute top-full left-0 mt-[4px] w-[140px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 max-h-[200px] overflow-y-auto">
+                             class="absolute top-full left-0 mt-[4px] w-[160px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 max-h-[220px] overflow-y-auto">
                             <template x-for="branch in branches" :key="branch">
-                                <button 
-                                    @click="itemBranches[item] = branch; openBranchDropdownId = null"
+                                <button
+                                    @click="itemBranches = { ...itemBranches, [repo.id]: branch }; branchOpen = false"
                                     class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--primary-20)] hover:text-[var(--primary-120)] transition-colors"
-                                    :class="itemBranches[item] === branch ? 'bg-[var(--primary-20)] text-[var(--primary-120)]' : ''">
+                                    :class="itemBranches[repo.id] === branch ? 'bg-[var(--primary-20)] text-[var(--primary-120)]' : ''">
                                     <span x-text="branch"></span>
                                 </button>
                             </template>
                         </div>
                     </div>
 
-                    <!-- Date -->
+                    <!-- Last Updated / Imported status -->
                     <div class="w-[240px] px-[16px] py-[12px] flex items-center shrink-0">
-                        <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]">Imported : 35 minutes ago</span>
+                        <template x-if="!importedRepos.includes(repo.id)">
+                            <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="'Imported : ' + repo.updated"></span>
+                        </template>
+                        <template x-if="importedRepos.includes(repo.id)">
+                            <span class="inline-flex items-center gap-[4px] text-[13px] text-[var(--primary-120)] font-medium tracking-[0]">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                Imported
+                            </span>
+                        </template>
                     </div>
                 </div>
             </template>

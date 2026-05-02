@@ -1,29 +1,37 @@
 /**
  * Git Integration Alpine.js Data Store
- * Handles dropdown functionality for branch version and account selection
+ * Handles branch dropdown (per-row), account selection, and import functionality
  */
 function gitIntegrationData() {
     return {
-        // Dropdown state
-        branchDropdownOpen: false,
+        // Dropdown state (per-row branch dropdown)
+        openBranchDropdownId: null,
         accountDropdownOpen: false,
         selectAll: false,
         selectedRepos: [],
-        
+        importedRepos: [],
+        importFeedback: false,
+
         // Dropdown data
         branches: [],
         accounts: [],
-        
+
+        // Per-item branch selection
+        itemBranches: {},
+
         // Selected values
-        selectedBranch: 'main',
         selectedAccount: 'OwlCoding',
-        
+
         // Initialize data on component load
         async init() {
             await this.loadBranches();
             await this.loadAccounts();
+            // Initialize branch selection for each item
+            for (let i = 1; i <= 5; i++) {
+                this.itemBranches[i] = this.branches.length > 0 ? this.branches[0] : 'main';
+            }
         },
-        
+
         /**
          * Fetch branches from backend API
          */
@@ -34,13 +42,8 @@ function gitIntegrationData() {
                     throw new Error(`Failed to load branches: ${response.statusText}`);
                 }
                 this.branches = await response.json();
-                // Set first branch as default if available
-                if (this.branches.length > 0) {
-                    this.selectedBranch = this.branches[0];
-                }
             } catch (error) {
                 console.error('Error loading branches:', error);
-                // Fallback to hardcoded branches if API fails
                 this.branches = [
                     'main',
                     'develop',
@@ -49,10 +52,9 @@ function gitIntegrationData() {
                     'release/v1.0.0',
                     'staging'
                 ];
-                this.selectedBranch = this.branches[0];
             }
         },
-        
+
         /**
          * Fetch accounts from backend API
          */
@@ -63,13 +65,11 @@ function gitIntegrationData() {
                     throw new Error(`Failed to load accounts: ${response.statusText}`);
                 }
                 this.accounts = await response.json();
-                // Set first account as default if available
                 if (this.accounts.length > 0) {
                     this.selectedAccount = this.accounts[0];
                 }
             } catch (error) {
                 console.error('Error loading accounts:', error);
-                // Fallback to hardcoded accounts if API fails
                 this.accounts = [
                     'OwlCoding',
                     'OWL-Team',
@@ -78,12 +78,43 @@ function gitIntegrationData() {
                 ];
                 this.selectedAccount = this.accounts[0];
             }
+        },
+
+        /**
+         * Import selected repositories
+         */
+        importSelected() {
+            if (this.selectedRepos.length === 0) return;
+            for (const repo of this.selectedRepos) {
+                if (!this.importedRepos.includes(repo)) {
+                    this.importedRepos.push(repo);
+                }
+            }
+            this.selectedRepos = [];
+            this.selectAll = false;
+            this.importFeedback = true;
+            setTimeout(() => { this.importFeedback = false; }, 2000);
+        },
+
+        /**
+         * Import all repositories
+         */
+        importAll() {
+            const allItems = [1, 2, 3, 4, 5];
+            for (const item of allItems) {
+                if (!this.importedRepos.includes(item)) {
+                    this.importedRepos.push(item);
+                }
+            }
+            this.selectedRepos = [];
+            this.selectAll = false;
+            this.importFeedback = true;
+            setTimeout(() => { this.importFeedback = false; }, 2000);
         }
     };
 }
 
-// Initialize when DOM is ready
+// Initialization is handled by Alpine.js via x-data
 document.addEventListener('DOMContentLoaded', () => {
-    // The initialization is handled by Alpine.js x-init directive
     console.log('Git integration script loaded');
 });
