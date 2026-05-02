@@ -1,5 +1,5 @@
 /**
- * Initialize Stacked Area Charts for Risk Trend Dashboard
+ * Initialize Line Charts for Risk Trend Dashboard
  */
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof Chart === 'undefined') {
@@ -14,12 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         low: '#c5cfd3'
     };
 
-    const toRgba = (hex, alpha) => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    };
+    const versions = ['1.0.0', '1.0.5', '1.1.0', '1.1.5', '1.2.0', '1.2.5'];
 
     const commonOptions = {
         responsive: true,
@@ -31,69 +26,70 @@ document.addEventListener('DOMContentLoaded', () => {
         scales: {
             x: {
                 title: {
-                    display: true, text: 'Version', align: 'end',
-                    color: '#5e6b70', font: { size: 13, family: 'Inter' }
+                    display: true,
+                    text: 'Version',
+                    align: 'end',
+                    color: '#5e6b70',
+                    font: { size: 14, family: 'Inter', weight: '500' },
+                    padding: { top: 8 }
                 },
                 grid: { display: false },
-                ticks: { color: '#425055', font: { size: 12, family: 'Inter' } }
+                border: { display: false },
+                ticks: {
+                    color: '#425055',
+                    font: { size: 14, family: 'Inter', weight: '500' },
+                    maxRotation: 0
+                }
             },
             y: {
-                stacked: true,
                 title: {
-                    display: true, text: 'Issue Count', align: 'end',
-                    color: '#5e6b70', font: { size: 13, family: 'Inter' }
+                    display: true,
+                    text: 'Issue Count',
+                    align: 'end',
+                    color: '#5e6b70',
+                    font: { size: 14, family: 'Inter' },
+                    padding: { bottom: 8 }
                 },
-                grid: { color: '#f3f5f6' },
+                grid: {
+                    color: '#dce4e7',
+                    drawBorder: false
+                },
+                border: { display: false, dash: [0] },
                 min: 0,
-                ticks: { color: '#425055', font: { size: 12, family: 'Inter' } }
+                ticks: {
+                    color: '#425055',
+                    font: { size: 14, family: 'Inter', weight: '500' },
+                    callback: (val) => val >= 1000 ? (val / 1000).toFixed(1) + 'K' : val
+                }
             }
         },
         elements: {
-            line: { tension: 0.4, borderWidth: 2 },
-            point: { radius: 0, hoverRadius: 6 }
+            line: { tension: 0.3, borderWidth: 2 },
+            point: { radius: 4, hoverRadius: 6, borderWidth: 2, borderColor: 'white' }
         },
         interaction: { mode: 'nearest', axis: 'x', intersect: false }
     };
 
-    const versions = ['1.0.0', '1.0.5', '1.1.0', '1.1.5', '1.2.0', '1.2.5'];
-
     const createDatasets = (variant) => {
-        // Slightly different sample numbers per chart for visual differentiation.
         const data = variant === 'license'
             ? {
-                critical: [60, 80, 70, 65, 50, 40],
-                high:     [120, 130, 120, 100, 90, 80],
-                medium:   [180, 200, 180, 160, 150, 140],
-                low:      [250, 260, 250, 240, 230, 220]
+                critical: [12, 18, 14, 9,  11, 7 ],
+                high:     [34, 41, 38, 29, 33, 21],
+                medium:   [78, 95, 82, 74, 61, 55],
+                low:      [210, 198, 225, 190, 172, 163]
             }
             : {
-                critical: [350, 400, 320, 200, 150, 100],
-                high:     [250, 250, 300, 200, 150, 80],
-                medium:   [200, 200, 250, 150, 120, 90],
-                low:      [150, 150, 100, 100, 80, 50]
+                critical: [45, 72, 58, 89, 63, 38],
+                high:     [130, 154, 117, 176, 142, 98],
+                medium:   [280, 310, 265, 340, 295, 248],
+                low:      [520, 490, 545, 610, 575, 432]
             };
 
         return [
-            {
-                label: 'Critical', data: data.critical, fill: true,
-                backgroundColor: toRgba(palette.critical, 0.4),
-                borderColor: palette.critical
-            },
-            {
-                label: 'High', data: data.high, fill: true,
-                backgroundColor: toRgba(palette.high, 0.4),
-                borderColor: palette.high
-            },
-            {
-                label: 'Medium', data: data.medium, fill: true,
-                backgroundColor: toRgba(palette.medium, 0.4),
-                borderColor: palette.medium
-            },
-            {
-                label: 'Low', data: data.low, fill: true,
-                backgroundColor: toRgba(palette.low, 0.4),
-                borderColor: palette.low
-            }
+            { label: 'Critical', data: data.critical, fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
+            { label: 'High',     data: data.high,     fill: false, borderColor: palette.high,     backgroundColor: palette.high },
+            { label: 'Medium',   data: data.medium,   fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
+            { label: 'Low',      data: data.low,      fill: false, borderColor: palette.low,      backgroundColor: palette.low }
         ];
     };
 
