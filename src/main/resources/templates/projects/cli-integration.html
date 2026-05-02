@@ -98,16 +98,24 @@
         <div class="flex gap-[32px] items-center w-full mt-[4px]">
             <button type="button" @click="tokenOption = 'create'" class="flex gap-[8px] items-center cursor-pointer focus:outline-none">
                 <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors" :class="tokenOption === 'create' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
-                    <div class="w-[10px] h-[10px] rounded-full transition-all" :class="tokenOption === 'create' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
+                    <div class="w-[12px] h-[12px] rounded-full transition-all" :class="tokenOption === 'create' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
                 </div>
-                <span class="text-[13px] font-medium text-[var(--grayscale-100)] tracking-[-0.13px]">Create API Token</span>
+                <span class="text-[13px] font-medium tracking-[-0.13px]" :class="tokenOption === 'create' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">Create API Token</span>
             </button>
             <button type="button" @click="tokenOption = 'have'" class="flex gap-[8px] items-center cursor-pointer focus:outline-none">
                 <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors" :class="tokenOption === 'have' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
-                    <div class="w-[10px] h-[10px] rounded-full transition-all" :class="tokenOption === 'have' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
+                    <div class="w-[12px] h-[12px] rounded-full transition-all" :class="tokenOption === 'have' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
                 </div>
-                <span class="text-[13px] font-medium text-[var(--grayscale-100)] tracking-[-0.13px]">I have an API Token</span>
+                <span class="text-[13px] font-medium tracking-[-0.13px]" :class="tokenOption === 'have' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">I have an API Token</span>
             </button>
+        </div>
+
+        <!-- API Token input — shown only when "I have an API Token" is selected -->
+        <div x-show="tokenOption === 'have'" x-transition style="display:none;" class="flex flex-col gap-[8px] w-full">
+            <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">API Token</label>
+            <input type="password"
+                   placeholder="Enter your API token"
+                   class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
         </div>
     </div>
 
