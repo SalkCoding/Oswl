@@ -6,18 +6,13 @@
 /**
  * Delete a project by ID
  */
-function deleteProject(projectId, triggerElement) {
+function deleteProject(projectId, projectName) {
     if (!projectId) return;
-    
-    // Show confirmation toast
+
     const toast = document.getElementById('project-toast');
-    const toastMessage = toast.querySelector('[data-toast-message]');
-    toastMessage.textContent = `Deleting project ${projectId}...`;
-    
-    // Show toast with opacity animation
-    toast.style.opacity = '1';
-    toast.style.transform = 'translate(-50%, 0)';
-    
+    const toastProjectName = toast.querySelector('[data-toast-project-name]');
+    const toastSuffix = toast.querySelector('[data-toast-suffix]');
+
     // Send delete request
     fetch(`/projects/${projectId}`, {
         method: 'DELETE',
@@ -27,28 +22,41 @@ function deleteProject(projectId, triggerElement) {
     })
     .then(response => {
         if (response.ok) {
-            toastMessage.textContent = 'Project deleted successfully';
-            // Reload the page after a short delay
+            toastProjectName.textContent = projectName;
+            toastSuffix.textContent = ' has been deleted.';
+
+            // Show toast
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+
+            // Hide toast after 3 seconds then reload
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 8px)';
+            }, 3000);
             setTimeout(() => {
                 window.location.reload();
             }, 1500);
         } else {
-            toastMessage.textContent = 'Failed to delete project';
+            toastProjectName.textContent = '';
+            toastSuffix.textContent = 'Failed to delete project.';
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 8px)';
+            }, 3000);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        toastMessage.textContent = 'Error deleting project';
-    })
-    .finally(() => {
-        // Hide toast after 3 seconds
+        toastProjectName.textContent = '';
+        toastSuffix.textContent = 'Error deleting project.';
+        toast.style.opacity = '1';
+        toast.style.transform = 'translate(-50%, 0)';
         setTimeout(() => {
             toast.style.opacity = '0';
             toast.style.transform = 'translate(-50%, 8px)';
         }, 3000);
     });
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Projects script loaded');
-});
