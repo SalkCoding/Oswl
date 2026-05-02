@@ -3,5 +3,26 @@ spring:
     name: oswl
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+
+  jackson:
+    default-property-inclusion: non_null
+
 server:
   port: 8080
+
+# AI 설정 (DB에 저장된 AiSetting으로 덮어쓰기 가능)
+# 초기 기동 시 환경변수로 주입하거나 UI에서 PUT /api/settings/ai 로 설정
+oswl:
+  ai:
+    # 기본 활성 제공자: OPENAI | ANTHROPIC | LOCAL
+    default-provider: ${OSWL_AI_PROVIDER:LOCAL}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_MODEL:gpt-4o-mini}
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+      model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
+    local:
+      # Ollama 등 OpenAI 호환 로컬 LLM 엔드포인트
+      base-url: ${LOCAL_LLM_URL:http://localhost:11434/v1}
+      model: ${LOCAL_LLM_MODEL:llama3}

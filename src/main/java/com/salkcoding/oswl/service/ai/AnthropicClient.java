@@ -1,0 +1,102 @@
+package com.salkcoding.oswl.service.ai;
+
+import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.enums.AiProvider;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.*;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Anthropic Messages API 구현체 (claude-3-5-sonnet 등).
+ * AiAnalysisService가 제공자 타입을 확인한 뒤 이 클래스로 위임한다.
+ */
+@Slf4j
+@Component
+public class AnthropicClient implements AiAnalysisClient {
+
+    private static final String ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+    private static final String ANTHROPIC_VERSION = "2023-06-01";
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Override
+    public String summarizeCve(String cveId, String severity, double cvssScore,
+                               String cveType, String component) {
+        String prompt = String.format(
+                "In one sentence, explain the risk of %s (severity: %s, CVSS: %.1f, type: %s) " +
+                "found in %s for a developer who needs to understand the impact quickly.",
+                cveId, severity, cvssScore, cveType, component);
+        return call(prompt, null);
+    }
+
+    @Override
+    public String generateRiskInsight(String projectName, int securityDelta,
+                                      int licenseDelta, String recentVersions) {
+        String prompt = String.format(
+                "Project '%s' shows security issues %s by %d and license issues %s by %d " +
+                "across versions [%s]. In one sentence, give a concise risk insight.",
+                projectName,
+                securityDelta >= 0 ? "increased" : "decreased", Math.abs(securityDelta),
+                licenseDelta >= 0 ? "increased" : "decreased", Math.abs(licenseDelta),
+                recentVersions);
+        return call(prompt, null);
+    }
+
+    @Override
+    public String summarizeLicenseRisk(String licenseName, String licenseStatus, String component) {
+        String prompt = String.format(
+                "In one sentence, explain the compliance risk of using '%s' (status: %s) " +
+                "in a commercial product component '%s'.",
+                licenseName, licenseStatus, component);
+        return call(prompt, null);
+    }
+
+    public String callWithSetting(String prompt, AiSetting setting) {
+        return call(prompt, setting);
+    }
+
+    // ── 내부 ─────────────────────────────────────────────────────────────
+
+    private String call(String userPrompt, AiSetting setting) {
+        String apiKey = setting != null ? setting.getApiKey() : null;
+        String model  = (setting != null && setting.getModelName() != null)
+                        ? setting.getModelName() : "claude-3-5-sonnet-20241022";
+
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("[AI] Anthropic API 키가 설정되지 않아 건너뜁니다.");
+            return null;
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", apiKey);
+        headers.set("anthropic-version", ANTHROPIC_VERSION);
+
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "max_tokens", 120,
+                "system", "You are an expert software supply chain security analyst. Be concise.",
+                "messages", List.of(Map.of("role", "user", "content", userPrompt))
+        );
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    ANTHROPIC_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                var content = (List<?>) response.getBody().get("content");
+                if (content != null && !content.isEmpty()) {
+                    return (String) ((Map<?, ?>) content.get(0)).get("text");
+                }
+            }
+        } catch (Exception e) {
+            log.error("[AI] Anthropic 호출 실패: {}", e.getMessage());
+        }
+        return null;
+    }
+}
