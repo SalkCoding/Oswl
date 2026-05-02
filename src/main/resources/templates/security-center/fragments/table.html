@@ -3,12 +3,20 @@
 <body>
 
 <!-- Security Center component list table -->
-<div th:fragment="table" class="flex-1 flex flex-col min-w-0">
+<div th:fragment="table" class="flex flex-col w-full" style="min-width: 1010px;">
 
     <!-- Table Header / Description Bar -->
     <div class="flex items-center w-full bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] sticky top-0 z-10">
         <div class="flex h-[40px] items-center justify-center w-[60px] min-w-[60px]">
-            <input type="checkbox" x-model="selectAll" @change="toggleSelectAll()" class="rounded border-[var(--grayscale-30)] text-[var(--primary-120)] focus:ring-[var(--primary-120)]" />
+            <label class="cursor-pointer relative flex items-center justify-center p-2">
+                <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
+                     :class="selectAll ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="selectAll ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+            </label>
         </div>
         <div class="flex h-[40px] items-center justify-center w-[80px] min-w-[80px]">
             <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px] text-center">Review</p>
@@ -31,28 +39,41 @@
     <div class="flex flex-col">
         <a th:each="comp : ${components}"
            href="javascript:void(0)"
-           th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|}"
+           th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|}, x-data=|{ reviewed: ${comp.reviewed} }|, data-comp-id=${comp.id}, data-comp-name=|${comp.name} ${comp.version}|"
            hx-select="#component-detail-content"
            hx-target="#slideout-content"
+           x-show="!searchQuery || $el.dataset.compName.toLowerCase().includes(searchQuery.toLowerCase())"
+           @bulk-review.window="if($event.detail.ids.includes($el.dataset.compId)) reviewed = $event.detail.value"
            @click="$dispatch('open-component-panel')"
-           th:classappend="${comp.reviewed} ? 'bg-[#e5faf5]' : 'bg-white'"
-           :class="selectedComponents.includes('${comp.id}') ? 'bg-[var(--grayscale-10)]' : ''"
+           :class="{
+               'bg-[#e5faf5]': selectedComponents.some(v => String(v) === $el.dataset.compId),
+               'bg-white': !selectedComponents.some(v => String(v) === $el.dataset.compId)
+           }"
            class="flex items-center w-full border-b border-[var(--grayscale-20)] hover:bg-[var(--grayscale-10)] transition-colors no-underline text-inherit cursor-pointer">
 
             <div class="flex h-[48px] items-center justify-center w-[60px] min-w-[60px]"
-                 onclick="event.preventDefault(); event.stopPropagation();">
-                <input type="checkbox"
-                       x-model="selectedComponents"
-                       name="selectedComponent"
-                       th:value="${comp.id}"
-                       class="rounded border-[var(--grayscale-30)] text-[var(--primary-120)] focus:ring-[var(--primary-120)]" />
+                 th:attr="data-row-id=${comp.id}"
+                 @click.stop>
+                <label class="cursor-pointer relative flex items-center justify-center p-2">
+                    <input type="checkbox" class="sr-only"
+                           x-model="selectedComponents"
+                           name="selectedComponent"
+                           th:value="${comp.id}">
+                    <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
+                         :class="selectedComponents.some(v => String(v) === $el.closest('[data-row-id]').dataset.rowId) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                             :class="selectedComponents.some(v => String(v) === $el.closest('[data-row-id]').dataset.rowId) ? 'opacity-100' : 'opacity-0'"
+                             class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                </label>
             </div>
 
-            <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px]">
-                <svg th:if="${comp.reviewed}" class="w-[20px] h-[20px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px] cursor-pointer"
+                 @click.stop="reviewed = !reviewed">
+                <svg x-show="reviewed" class="w-[20px] h-[20px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
-                <svg th:unless="${comp.reviewed}" class="w-[20px] h-[20px] text-[var(--grayscale-30)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <svg x-show="!reviewed" class="w-[20px] h-[20px] text-[var(--grayscale-30)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <circle cx="12" cy="12" r="10" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
                 </svg>
