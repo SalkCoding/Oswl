@@ -1,4 +1,4 @@
-<div th:fragment="slideout" class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full" x-data="{ os: 'mac' }">
+<div th:fragment="slideout" class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full" x-data="{ os: 'mac', copied1: false, copied3: false }">
     
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
@@ -68,15 +68,19 @@
         
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'mac'">
-                <code class="text-[12px] text-[#00659c] font-mono select-all">curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/oswl/cli/master/install.sh | bash</code>
+                <code id="code1-mac" class="text-[12px] text-[#00659c] font-mono select-all">curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/oswl/cli/master/install.sh | bash</code>
             </div>
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'windows'" x-cloak>
-                <code class="text-[12px] text-[#00659c] font-mono select-all">Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/oswl/cli/master/install.ps1'))</code>
+                <code id="code1-win" class="text-[12px] text-[#00659c] font-mono select-all">Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/oswl/cli/master/install.ps1'))</code>
             </div>
             
-            <button type="button" class="bg-white border border-[var(--grayscale-30)] rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 hover:bg-[var(--grayscale-5)] transition-colors active:scale-[0.98] focus:outline-none">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)]"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">Copy</span>
+            <button type="button"
+                    @click="const code = document.getElementById('code1-' + (os === 'mac' ? 'mac' : 'win')); if (code) navigator.clipboard.writeText(code.textContent.trim()); copied1 = true; setTimeout(() => copied1 = false, 2000)"
+                    :class="copied1 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
+                    class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
+                <svg x-show="!copied1" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg x-show="copied1" x-cloak width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-120)] shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copied1 ? 'Copied!' : 'Copy to clipboard'"></span>
             </button>
         </div>
     </div>
@@ -119,12 +123,16 @@
         
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
-                <code class="text-[12px] text-[#00659c] font-mono select-all">OSWL_API_KEY=your_api_key oswl analyze</code>
+                <code id="code3" class="text-[12px] text-[#00659c] font-mono select-all">OSWL_API_KEY=your_api_key oswl analyze</code>
             </div>
             
-            <button type="button" class="bg-white border border-[var(--grayscale-30)] rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 hover:bg-[var(--grayscale-5)] transition-colors active:scale-[0.98] focus:outline-none">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)]"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">Copy</span>
+            <button type="button"
+                    @click="const code = document.getElementById('code3'); if (code) navigator.clipboard.writeText(code.textContent.trim()); copied3 = true; setTimeout(() => copied3 = false, 2000)"
+                    :class="copied3 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
+                    class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
+                <svg x-show="!copied3" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg x-show="copied3" x-cloak width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-120)] shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copied3 ? 'Copied!' : 'Copy to clipboard'"></span>
             </button>
         </div>
     </div>

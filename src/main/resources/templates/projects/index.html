@@ -103,10 +103,15 @@
                                 <div x-cloak x-show="openMenu"
                                      @click.outside="openMenu = false"
                                      x-transition
-                                     class="absolute right-0 top-[42px] z-20 min-w-[180px] rounded-[10px] border border-[var(--grayscale-20)] bg-white shadow-lg p-[6px]">
+                                     class="absolute right-0 top-[42px] z-20">
                                     <button type="button"
-                                            @click="openMenu = false; deleteProject([[${project.id}]], $event.target)"
-                                            class="w-full rounded-[8px] px-[14px] py-[10px] text-left text-[var(--danger-70)] font-medium hover:bg-[var(--grayscale-5)] transition">
+                                            @click="openMenu = false; deleteProject([[${project.id}]], [[${project.name}]])"
+                                            class="flex items-center gap-[4px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] pl-[8px] pr-[10px] py-[8px] text-[var(--grayscale-80)] font-medium text-[13px] tracking-[-0.13px] hover:bg-[var(--grayscale-10)] transition whitespace-nowrap">
+                                        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                                            <polyline points="3,5.5 14,5.5"></polyline>
+                                            <path d="M7,5.5V4a0.5,0.5,0,0,1,.5-.5h2a0.5,0.5,0,0,1,.5,.5V5.5"></path>
+                                            <path d="M13,5.5l-.7,8a0.5,0.5,0,0,1-.5,.5H5.2a0.5,0.5,0,0,1-.5-.5l-.7-8"></path>
+                                        </svg>
                                         Delete Project
                                     </button>
                                 </div>
@@ -160,8 +165,19 @@
 
     <!-- Toast -->
     <div id="project-toast" x-cloak
-         class="pointer-events-none fixed bottom-[24px] left-1/2 z-[120] -translate-x-1/2 transform rounded-[12px] bg-[var(--grayscale-900)] px-[18px] py-[14px] text-white shadow-2xl opacity-0 translate-y-2 transition-all duration-300">
-        <p data-toast-message class="text-[14px] font-medium"></p>
+         class="pointer-events-none fixed bottom-[32px] left-1/2 z-[120] -translate-x-1/2 flex gap-[16px] items-center justify-center p-[16px] rounded-[100px] opacity-0 translate-y-2 transition-all duration-300"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <!-- Check icon -->
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <!-- Message -->
+        <p class="text-[14px] tracking-[-0.14px] whitespace-nowrap">
+            <span data-toast-project-name class="font-bold text-[#a7f9e7]"></span><span data-toast-suffix class="font-medium text-[#f4fefc]"></span>
+        </p>
     </div>
 
     <script th:src="@{/js/projects/git-integration.js}" defer></script>
