@@ -6,57 +6,49 @@
 /**
  * Delete a project by ID
  */
-function deleteProject(projectId, projectName) {
+let _toastHideTimer = null;
+
+function showToast(projectName, suffix) {
+    const toast = document.getElementById('project-toast');
+    toast.querySelector('[data-toast-project-name]').textContent = projectName;
+    toast.querySelector('[data-toast-suffix]').textContent = suffix;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translate(-50%, 0)';
+
+    if (_toastHideTimer) clearTimeout(_toastHideTimer);
+    _toastHideTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, 8px)';
+    }, 3000);
+}
+
+function deleteProject(projectId, projectName, cardEl) {
     if (!projectId) return;
 
-    const toast = document.getElementById('project-toast');
-    const toastProjectName = toast.querySelector('[data-toast-project-name]');
-    const toastSuffix = toast.querySelector('[data-toast-suffix]');
+    // Fade out the card immediately for instant feedback
+    cardEl.style.transition = 'opacity 0.2s, transform 0.2s';
+    cardEl.style.opacity = '0';
+    cardEl.style.transform = 'scale(0.97)';
 
-    // Send delete request
     fetch(`/projects/${projectId}`, {
         method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json',
-        }
+        headers: { 'Content-Type': 'application/json' }
     })
     .then(response => {
         if (response.ok) {
-            toastProjectName.textContent = projectName;
-            toastSuffix.textContent = ' has been deleted.';
-
-            // Show toast
-            toast.style.opacity = '1';
-            toast.style.transform = 'translate(-50%, 0)';
-
-            // Hide toast after 3 seconds then reload
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translate(-50%, 8px)';
-            }, 3000);
-            setTimeout(() => {
-                window.location.reload();
-            }, 1500);
+            cardEl.remove();
+            showToast(projectName, ' has been deleted.');
         } else {
-            toastProjectName.textContent = '';
-            toastSuffix.textContent = 'Failed to delete project.';
-            toast.style.opacity = '1';
-            toast.style.transform = 'translate(-50%, 0)';
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translate(-50%, 8px)';
-            }, 3000);
+            // Restore card on failure
+            cardEl.style.opacity = '1';
+            cardEl.style.transform = '';
+            showToast('', 'Failed to delete project.');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        toastProjectName.textContent = '';
-        toastSuffix.textContent = 'Error deleting project.';
-        toast.style.opacity = '1';
-        toast.style.transform = 'translate(-50%, 0)';
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translate(-50%, 8px)';
-        }, 3000);
+        cardEl.style.opacity = '1';
+        cardEl.style.transform = '';
+        showToast('', 'Error deleting project.');
     });
 }
