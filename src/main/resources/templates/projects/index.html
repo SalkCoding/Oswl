@@ -73,7 +73,7 @@
                 <!-- ✅ <div> + data-href + @click으로 이동, <button> 중첩 문제 없음 -->
                 <div th:each="project : ${projects}"
                      x-data="{ openMenu: false }"
-                     th:attr="data-href=@{|/projects/${project.id}/security-center|}"
+                     th:attr="data-href=@{|/projects/${project.id}/security-center|},data-project-id=${project.id},data-project-name=${project.name}"
                      @click="window.location.href = $el.dataset.href"
                      class="project-card relative bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start px-[24px] py-[28px] rounded-[10px] transition-all hover:shadow-md hover:border-[var(--primary-80)] cursor-pointer text-inherit">
 
@@ -99,15 +99,16 @@
                                     </svg>
                                 </button>
 
+                                <!-- 드롭다운 오버레이: 외부 클릭 시 메뉴 닫기 -->
+                                <div x-show="openMenu" @click.stop="openMenu = false" class="fixed inset-0 z-[15]" style="display:none"></div>
                                 <!-- 드롭다운 -->
                                 <div x-cloak x-show="openMenu"
-                                     @click.outside="openMenu = false"
                                      x-transition
-                                     class="absolute right-0 top-[42px] z-20">
+                                     class="absolute right-0 top-[42px] z-[20]">
                                     <button type="button"
-                                            @click="openMenu = false; deleteProject([[${project.id}]], [[${project.name}]])"
+                                            @click="openMenu = false; deleteProject($root.dataset.projectId, $root.dataset.projectName, $root)"
                                             class="flex items-center gap-[4px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] pl-[8px] pr-[10px] py-[8px] text-[var(--grayscale-80)] font-medium text-[13px] tracking-[-0.13px] hover:bg-[var(--grayscale-10)] transition whitespace-nowrap">
-                                        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                                        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="#e62727" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
                                             <polyline points="3,5.5 14,5.5"></polyline>
                                             <path d="M7,5.5V4a0.5,0.5,0,0,1,.5-.5h2a0.5,0.5,0,0,1,.5,.5V5.5"></path>
                                             <path d="M13,5.5l-.7,8a0.5,0.5,0,0,1-.5,.5H5.2a0.5,0.5,0,0,1-.5-.5l-.7-8"></path>
