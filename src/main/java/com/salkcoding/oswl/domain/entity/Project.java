@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 사용자가 등록한 분석 대상 프로젝트.
- * CLI 스캔 결과가 이 엔티티 단위로 누적된다.
+ * An analysis target project registered by the user.
+ * CLI scan results are accumulated per this entity.
  */
 @Entity
 @Table(name = "projects")
@@ -28,7 +28,7 @@ public class Project {
     @Column(nullable = false, length = 200)
     private String name;
 
-    /** 현재 스캔 기준 버전 */
+    /** Version as of the current scan */
     @Column(length = 50)
     private String version;
 

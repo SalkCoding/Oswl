@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * /api/scan/** 경로에 대해 Authorization: Bearer &lt;token&gt; 헤더를 검증한다.
- * 유효한 키라면 request attribute에 ApiKey와 projectId를 주입한다.
+ * Validates the Authorization: Bearer &lt;token&gt; header for /api/scan/** paths.
+ * Injects the ApiKey and projectId into request attributes if the key is valid.
  *
- * 키가 없거나 유효하지 않으면 401 Unauthorized를 반환한다.
+ * Returns 401 Unauthorized if the key is missing or invalid.
  */
 @Slf4j
 @Component
@@ -51,7 +51,7 @@ public class ApiKeyAuthInterceptor implements HandlerInterceptor {
             request.setAttribute(ATTR_PROJECT_ID, apiKey.getProject().getId());
             return true;
         } catch (UnauthorizedException e) {
-            log.warn("[ApiKeyAuth] 인증 실패 - {}", e.getMessage());
+            log.warn("[ApiKeyAuth] Authentication failed - {}", e.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
             return false;
         }
