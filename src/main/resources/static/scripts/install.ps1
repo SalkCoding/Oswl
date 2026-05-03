@@ -75,7 +75,8 @@ function Invoke-Auth {
             Write-Host "       Server: $Server"
         }
     } catch {
-        $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+        $resp = $null; try { $resp = $_.Exception.Response } catch { }
+        $statusCode = if ($resp) { [int]$resp.StatusCode } else { 0 }
         if ($statusCode -eq 401) {
             Write-Host "[OsWL] Error: Invalid API key." -ForegroundColor Red; exit 1
         }
@@ -130,7 +131,8 @@ function Invoke-Scan {
             -Headers $headers -Body $payload -ContentType "application/json"
         Write-Host "[OsWL] Scan complete! scanId=$($response.scanId) status=$($response.status)" -ForegroundColor Green
     } catch {
-        $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode.Value__ } else { 0 }
+        $resp = $null; try { $resp = $_.Exception.Response } catch { }
+        $statusCode = if ($resp) { [int]$resp.StatusCode.Value__ } else { 0 }
         if ($statusCode -eq 401) {
             Write-Host "[OsWL] Error: API key rejected." -ForegroundColor Red; exit 1
         }
