@@ -42,6 +42,9 @@ set -euo pipefail
 
 CONFIG_FILE="${HOME}/.oswl/config"
 BINARY_NAME="oswl"
+DEBUG_MODE=false
+
+dbg() { if [[ "${DEBUG_MODE}" == "true" ]]; then echo "[OsWL][DEBUG] $*" >&2; fi; }
 
 # ── Load config ──────────────────────────────────────────────────────────────────
 load_config() {
@@ -120,7 +123,6 @@ cmd_scan() {
 
     echo "[OsWL] Scanning dependencies... (version: ${version})"
 
-    # Collect dependencies (replace with real package manager parsing in production)
     local payload
     payload=$(build_payload "${project_dir}" "${version}")
 
@@ -153,17 +155,85 @@ cmd_scan() {
     fi
 }
 
-# ── Build payload (sample structure – replace with package manager output parsing) ───────────
+# ── Dependency collection helpers ────────────────────────────────────────────
+_collect_gradle() {
+    local dir="$1"
+    local gradle="${dir}/gradlew"
+    if [[ -x "${gradle}" ]]; then
+        dbg "Gradle: using wrapper at ${gradle}"
+    else
+        gradle="gradle"
+        dbg "Gradle: wrapper not found, using system gradle"
+    fi
+    local result
+    result=$(
+        (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) \
+        | grep -E '^[[:space:]|]*[+\\]---' \
+        | grep -oP '[+\\]--- \K[^: ]+:[^: ]+:[^ (\r\n]+' \
+        | sed 's/ ->.*//;s/ \*$//' \
+        | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"dependencyInfo\":\"Gradle runtimeClasspath\",\"patchability\":null,\"licenseStatus\":null,\"licenseName\":null,\"cves\":[]}\'\''\n\'\''",\$1,\$2,\$3}' \
+        | jq -s '.' 2>/dev/null
+    ) || result="[]"
+    dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
+    echo "${result}"
+}
+
+_collect_maven() {
+    local dir="$1"
+    mvn -f "${dir}/pom.xml" dependency:list -q 2>/dev/null \
+    | grep -oP '^\[INFO\]\s+\K[^:]+:[^:]+:jar:[^:]+' \
+    | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"dependencyInfo\":\"Maven\",\"patchability\":null,\"licenseStatus\":null,\"licenseName\":null,\"cves\":[]}\n",$1,$2,$4}' \
+    | jq -s '.' 2>/dev/null || echo "[]"
+}
+
+_collect_npm() {
+    local dir="$1"
+    jq '[.packages // {} | to_entries[]
+        | select(.key != "" and (.value.version // "") != "")
+        | {name: (.key | ltrimstr("node_modules/")),
+           version: .value.version,
+           dependencyInfo: (if (.value.dev // false) then "npm devDependency" else "npm dependency" end),
+           patchability: null, licenseStatus: null,
+           licenseName: (.value.license // null), cves: []}]' \
+        "${dir}/package-lock.json" 2>/dev/null || echo "[]"
+}
+
+_collect_pip() {
+    local dir="$1"
+    grep -E '^[A-Za-z0-9_.-]+==[^ ]+' "${dir}/requirements.txt" 2>/dev/null \
+    | awk -F'==' '{printf "{\"name\":\"%s\",\"version\":\"%s\",\"dependencyInfo\":\"pip\",\"patchability\":null,\"licenseStatus\":null,\"licenseName\":null,\"cves\":[]}\n",$1,$2}' \
+    | jq -s '.' 2>/dev/null || echo "[]"
+}
+
+# ── Build payload ─────────────────────────────────────────────────────────────
 build_payload() {
-    local _dir="$1" version="$2"
-    # In a real implementation, parse output of `mvn dependency:tree`,
-    # `gradle dependencies`, `npm ls --json`, etc. to populate the components array.
+    local dir="$1" version="$2"
+    local components="[]"
+
+    if   [[ -f "${dir}/build.gradle" || -f "${dir}/build.gradle.kts" ]]; then
+        dbg "Detected build system: Gradle (dir=${dir})"
+        components=$(_collect_gradle "${dir}")
+    elif [[ -f "${dir}/pom.xml" ]]; then
+        dbg "Detected build system: Maven"
+        components=$(_collect_maven "${dir}")
+    elif [[ -f "${dir}/package-lock.json" ]]; then
+        dbg "Detected build system: npm"
+        components=$(_collect_npm "${dir}")
+    elif [[ -f "${dir}/requirements.txt" ]]; then
+        dbg "Detected build system: pip"
+        components=$(_collect_pip "${dir}")
+    else
+        dbg "No recognized build file found in ${dir}"
+    fi
+
+    local count
+    count=$(echo "${components}" | jq 'length' 2>/dev/null || echo "0")
+    echo "[OsWL] Found ${count} component(s)." >&2
+
     jq -n \
         --arg version "${version}" \
-        '{
-            version: $version,
-            components: []
-        }'
+        --argjson components "${components}" \
+        '{version: $version, components: $components}'
 }
 
 # ── Help ─────────────────────────────────────────────────────────────────────────
@@ -176,6 +246,9 @@ Usage:
   oswl scan [<project_dir>]                    Scan dependencies and upload results to server
   oswl help                                    Show this help message
 
+Global flags:
+  --debug    Print detailed debug output (build system detection, component resolution, etc.)
+
 Environment variables:
   OSWL_API_KEY      API key (can be used instead of config file)
   OSWL_SERVER_URL   Server URL (default: http://localhost:8080)
@@ -184,6 +257,18 @@ HELP
 }
 
 # ── Entry point ─────────────────────────────────────────────────────────────────
+# Pre-process global flags (--debug) before dispatching
+_args=()
+for _a in "$@"; do
+    if [[ "${_a}" == "--debug" ]]; then
+        DEBUG_MODE=true
+    else
+        _args+=("${_a}")
+    fi
+done
+set -- "${_args[@]+"${_args[@]}"}"
+unset _a _args
+
 case "${1:-help}" in
     auth)  shift; cmd_auth "$@"  ;;
     scan)  shift; cmd_scan "$@"  ;;
