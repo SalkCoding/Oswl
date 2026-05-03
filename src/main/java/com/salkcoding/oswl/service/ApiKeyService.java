@@ -14,8 +14,8 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * API 키 발급·폐기를 담당한다.
- * 발급된 키는 CLI가 서버로 스캔 결과를 전송할 때 인증 수단으로 사용된다.
+ * Handles API key issuance and revocation.
+ * Issued keys are used by the CLI as an authentication credential when sending scan results to the server.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,7 +28,7 @@ public class ApiKeyService {
     private final ProjectRepository projectRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    /** 새 API 키 발급 */
+    /** Issue a new API key */
     @Transactional
     public ApiKey issue(Long projectId, String label, LocalDateTime expiresAt) {
         Project project = projectRepository.findById(projectId)
@@ -46,7 +46,7 @@ public class ApiKeyService {
         return apiKeyRepository.save(apiKey);
     }
 
-    /** 토큰 값으로 유효한 키 조회 (인터셉터 사용) */
+    /** Find a valid key by token value (used by the interceptor) */
     @Transactional
     public ApiKey validateAndRecord(String rawToken) {
         ApiKey key = apiKeyRepository.findByToken(rawToken)
@@ -60,7 +60,7 @@ public class ApiKeyService {
         return key;
     }
 
-    /** 키 폐기 */
+    /** Revoke a key */
     @Transactional
     public void revoke(Long keyId, Long projectId) {
         ApiKey key = apiKeyRepository.findById(keyId)
@@ -76,12 +76,12 @@ public class ApiKeyService {
         return apiKeyRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────
 
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);
-        // URL-safe Base64, 패딩 제거
+        // URL-safe Base64, no padding
         return PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

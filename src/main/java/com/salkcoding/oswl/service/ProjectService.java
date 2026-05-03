@@ -42,10 +42,10 @@ public class ProjectService {
         projectRepository.deleteById(id);
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────
 
     private ProjectSummaryDto toSummary(Project project) {
-        // 최신 완료 스캔에서 집계값 추출
+        // Extract aggregate values from the latest completed scan
         return scanResultRepository
                 .findFirstByProjectIdAndStatusOrderByScannedAtDesc(
                         project.getId(),
