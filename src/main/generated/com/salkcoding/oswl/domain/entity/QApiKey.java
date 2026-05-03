@@ -39,6 +39,8 @@ public class QApiKey extends EntityPathBase<ApiKey> {
 
     public final QProject project;
 
+    public final DateTimePath<java.time.LocalDateTime> revokedAt = createDateTime("revokedAt", java.time.LocalDateTime.class);
+
     public final StringPath token = createString("token");
 
     public QApiKey(String variable) {

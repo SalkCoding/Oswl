@@ -26,4 +26,7 @@ public class ApiKeyResponse {
 
     @Schema(description = "Key creation timestamp (ISO-8601)", example = "2026-04-01T09:00:00")
     private final String  createdAt;
+
+    @Schema(description = "Revocation timestamp (ISO-8601, null if still active)", example = "2026-05-02T14:00:00")
+    private final String  revokedAt;
 }
