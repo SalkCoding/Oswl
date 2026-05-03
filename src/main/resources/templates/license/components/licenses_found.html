@@ -61,7 +61,7 @@
 
             <!-- Dynamic Iterate over Licenses -->
             <th:block th:if="${licenses != null}">
-                <div th:each="license : ${licenses}" class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer" th:data-license-id="${license.id}">
+                <div th:each="license : ${licenses}" class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer">
                     <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
                         <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">Apple MIT License</p>
                         <!-- Risk Tag -->
