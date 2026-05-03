@@ -19,6 +19,7 @@
                 repos:    [],
                 accounts: [],
                 itemBranches: {},
+                allBranches: {},
 
                 accountDropdownOpen: false,
                 selectedAccount:     '',
@@ -123,6 +124,8 @@
                         this.itemBranches = branches;
                         this.selectedRepos = [];
                         this.selectAll = false;
+                        this.allBranches = {};
+                        this._loadAllBranches(data);
                     } catch (e) {
                         console.error('[GitHub] Failed to load repos', e);
                     }
@@ -184,6 +187,31 @@
                     } catch (e) {
                         console.error('[GitHub] Import failed for', repo.name, e);
                     }
+                },
+
+                async _loadAllBranches(repos) {
+                    await Promise.all(repos.map(async repo => {
+                        try {
+                            const [owner] = repo.fullName.split('/');
+                            const res = await fetch('/api/github/branches?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name));
+                            if (res.ok) {
+                                const branches = await res.json();
+                                this.allBranches = { ...this.allBranches, [repo.id]: branches };
+                            }
+                        } catch(e) {}
+                    }));
+                },
+
+                formatUpdatedAt(iso) {
+                    if (!iso) return '-';
+                    const d = new Date(iso);
+                    if (isNaN(d)) return iso;
+                    const diff = (Date.now() - d.getTime()) / 1000;
+                    if (diff < 60)        return 'just now';
+                    if (diff < 3600)      return Math.floor(diff / 60) + 'm ago';
+                    if (diff < 86400)     return Math.floor(diff / 3600) + 'h ago';
+                    if (diff < 604800)    return Math.floor(diff / 86400) + 'd ago';
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 }
             };
         };
@@ -429,27 +457,17 @@
                         <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]" x-text="repo.name"></span>
                     </div>
 
-                    <!-- Branch Dropdown (per-row: fetches real branches from API on first open) -->
+                    <!-- Branch Dropdown (eager: branches pre-loaded in parallel when repos are fetched) -->
                     <div class="w-[160px] px-[16px] py-[12px] flex items-center shrink-0 relative"
-                         x-data="{ branchOpen: false, repoBranches: [], loadingBranches: false, loaded: false }"
+                         x-data="{ branchOpen: false }"
                          @click.outside="branchOpen = false">
                         <button
-                            @click="async () => {
-                                branchOpen = !branchOpen;
-                                if (branchOpen && !loaded) {
-                                    loadingBranches = true;
-                                    try {
-                                        const [owner] = repo.fullName.split('/');
-                                        const res = await fetch('/api/github/branches?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name));
-                                        if (res.ok) repoBranches = await res.json();
-                                    } catch(e) {}
-                                    finally { loadingBranches = false; loaded = true; }
-                                }
-                            }"
+                            @click="branchOpen = !branchOpen"
                             class="w-full bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
                             :class="branchOpen ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
                             <span class="font-medium text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="itemBranches[repo.id] || repo.defaultBranch || 'main'"></span>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            <svg x-show="!allBranches[repo.id]" class="animate-spin w-[12px] h-[12px] text-[var(--grayscale-40)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                            <svg x-show="allBranches[repo.id]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                  class="text-[var(--grayscale-80)] shrink-0 transition-transform"
                                  :class="branchOpen ? 'rotate-180' : ''">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
@@ -462,15 +480,14 @@
                              x-transition:enter-start="opacity-0 -translate-y-2"
                              x-transition:enter-end="opacity-100 translate-y-0"
                              class="absolute top-full left-0 mt-[4px] w-[160px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 max-h-[220px] overflow-y-auto">
-                            <!-- Loading spinner -->
-                            <template x-if="loadingBranches">
+                            <template x-if="!allBranches[repo.id]">
                                 <div class="flex items-center justify-center py-[12px]">
                                     <svg class="animate-spin w-[14px] h-[14px] text-[var(--grayscale-50)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
                                 </div>
                             </template>
-                            <template x-if="!loadingBranches">
+                            <template x-if="allBranches[repo.id]">
                                 <div>
-                                    <template x-for="branch in repoBranches" :key="branch">
+                                    <template x-for="branch in allBranches[repo.id]" :key="branch">
                                         <button
                                             @click="$dispatch('set-branch', { id: repo.id, branch }); branchOpen = false"
                                             class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--primary-20)] hover:text-[var(--primary-120)] transition-colors"
@@ -486,7 +503,7 @@
                     <!-- Last Updated / Imported status -->
                     <div class="w-[240px] px-[16px] py-[12px] flex items-center shrink-0">
                         <template x-if="!importedRepos.includes(repo.id)">
-                            <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="repo.updatedAt"></span>
+                            <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="formatUpdatedAt(repo.updatedAt)"></span>
                         </template>
                         <template x-if="importedRepos.includes(repo.id)">
                             <span class="inline-flex items-center gap-[4px] text-[13px] text-[var(--primary-120)] font-medium tracking-[0]">
