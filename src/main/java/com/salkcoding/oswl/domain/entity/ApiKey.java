@@ -37,6 +37,9 @@ public class ApiKey {
     @Column(name = "last_used_at")
     private LocalDateTime lastUsedAt;
 
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
+
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
@@ -50,6 +53,7 @@ public class ApiKey {
 
     public void revoke() {
         this.active = false;
+        this.revokedAt = LocalDateTime.now();
     }
 
     public void recordUsage() {

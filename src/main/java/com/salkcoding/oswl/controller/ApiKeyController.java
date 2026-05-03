@@ -70,6 +70,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
                 .active(key.isActive())
                 .lastUsedAt(key.getLastUsedAt() != null ? key.getLastUsedAt().toString() : null)
                 .createdAt(key.getCreatedAt().toString())
+                .revokedAt(key.getRevokedAt() != null ? key.getRevokedAt().toString() : null)
                 .build();
     }
 
