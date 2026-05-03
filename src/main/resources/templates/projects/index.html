@@ -6,6 +6,7 @@
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
       x-data="{
           openPanel: null,
+          cliPreSelectProject: '',
           toast: null,
           initToast() {
               const p = new URLSearchParams(location.search).get('github');
@@ -16,6 +17,13 @@
               if (this.toast) {
                   history.replaceState(null, '', location.pathname);
                   setTimeout(() => this.toast = null, 4000);
+              }
+              // Auto-open CLI slideout when ?openCli={projectId} is present
+              const cliId = new URLSearchParams(location.search).get('openCli');
+              if (cliId) {
+                  this.cliPreSelectProject = cliId;
+                  this.openPanel = 'cli';
+                  history.replaceState(null, '', location.pathname);
               }
           }
       }"
