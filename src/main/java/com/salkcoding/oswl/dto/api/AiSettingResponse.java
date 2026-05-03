@@ -1,21 +1,33 @@
 package com.salkcoding.oswl.dto.api;
 
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Getter;
 
-/**
- * AI 설정 응답 DTO.
- * 미설정 상태일 때는 provider~active가 null이고 message만 채워진다.
- * (application.yaml: spring.jackson.default-property-inclusion: non_null 설정으로 null 필드 제외)
- */
+@Schema(description = "AI analysis settings response — when not configured, provider through active are null, only message is returned")
 @Getter
 @Builder
 public class AiSettingResponse {
+
+    @Schema(description = "AI provider", example = "OPENAI",
+            allowableValues = {"OPENAI", "ANTHROPIC", "LOCAL", "GEMINI"})
     private final AiProvider provider;
+
+    @Schema(description = "Model name in use", example = "gpt-4o-mini")
     private final String     modelName;
+
+    @Schema(description = "Custom endpoint URL for local LLM (only applicable for LOCAL provider)",
+            example = "http://localhost:11434/v1")
     private final String     baseUrl;
-    private final String     apiKey;    // 마스킹된 값
+
+    @Schema(description = "API key (masked — only first 4 characters exposed)", example = "sk-...abc")
+    private final String     apiKey;
+
+    @Schema(description = "Whether this provider is active", example = "true")
     private final Boolean    active;
-    private final String     message;  // 미설정 시 안내 메시지
+
+    @Schema(description = "Guidance message (returned only when not configured)",
+            example = "AI setting is not configured. Use PUT /api/settings/ai to configure.")
+    private final String     message;
 }

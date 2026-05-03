@@ -10,6 +10,25 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+    window.riskTrendData = {
+        versions:  /*[[${chartVersions}]]*/ [],
+        security: {
+            critical: /*[[${chartSecCritical}]]*/ [],
+            high:     /*[[${chartSecHigh}]]*/ [],
+            medium:   /*[[${chartSecMedium}]]*/ [],
+            low:      /*[[${chartSecLow}]]*/ []
+        },
+        license: {
+            critical: /*[[${chartLicCritical}]]*/ [],
+            high:     /*[[${chartLicHigh}]]*/ [],
+            medium:   /*[[${chartLicMedium}]]*/ [],
+            low:      /*[[${chartLicLow}]]*/ []
+        }
+    };
+    /*]]>*/
+    </script>
     <script th:src="@{/js/dashboard/risk-trend.js}"></script>
 
 </body>

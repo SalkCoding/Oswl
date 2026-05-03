@@ -17,11 +17,20 @@ public interface ComponentRepository extends JpaRepository<OswlComponent, Long>,
 
     Optional<OswlComponent> findByIdAndScanResultProjectId(Long componentId, Long projectId);
 
-    /** 라이선스 상태별 카운트 */
+    /** Fetch components with their CVEs — prevents N+1 queries */
+    @Query("SELECT c FROM OswlComponent c LEFT JOIN FETCH c.cves WHERE c.scanResult.id = :scanResultId")
+    List<OswlComponent> findByScanResultIdWithCves(@Param("scanResultId") Long scanResultId);
+
+    /** Fetch a single component with its CVEs — for the component detail page */
+    @Query("SELECT c FROM OswlComponent c LEFT JOIN FETCH c.cves WHERE c.id = :componentId AND c.scanResult.project.id = :projectId")
+    Optional<OswlComponent> findByIdAndProjectIdWithCves(@Param("componentId") Long componentId,
+                                                          @Param("projectId") Long projectId);
+
+    /** Count components by license status */
     @Query("SELECT COUNT(c) FROM OswlComponent c WHERE c.scanResult.id = :scanResultId AND c.licenseStatus = :status")
     long countByScanResultIdAndLicenseStatus(@Param("scanResultId") Long scanResultId,
                                               @Param("status") LicenseStatus status);
 
-    /** 스캔 결과의 전체 컴포넌트 수 */
+    /** Count all components for a scan result */
     long countByScanResultId(Long scanResultId);
 }

@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * CLI 클라이언트가 보낸 스캔 결과를 수신·저장하고
- * AI 분석을 비동기로 후처리한다.
+ * Receives and persists scan results sent by the CLI client,
+ * then triggers AI analysis as a post-processing step.
  */
 @Slf4j
 @Service
@@ -31,18 +31,18 @@ public class ScanIngestService {
     private final AiAnalysisService aiAnalysisService;
 
     /**
-     * CLI로부터 스캔 데이터를 수신하고 저장한다.
-     * 인증은 ApiKeyAuthInterceptor에서 이미 완료된 상태이다.
+     * Receives and persists scan data from the CLI.
+     * Authentication has already been completed by ApiKeyAuthInterceptor.
      *
-     * @param projectId  인증된 API 키에 포함된 프로젝트 ID
-     * @param payload    CLI가 전송한 페이로드 DTO
+     * @param projectId  project ID extracted from the authenticated API key
+     * @param payload    payload DTO sent by the CLI
      */
     @Transactional
     public ScanResult ingest(Long projectId, ScanPayload payload) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        // 1. ScanResult 생성
+        // 1. Create ScanResult
         ScanResult scanResult = ScanResult.builder()
                 .project(project)
                 .version(payload.getVersion())
@@ -50,7 +50,7 @@ public class ScanIngestService {
                 .build();
         scanResultRepository.save(scanResult);
 
-        // 2. 컴포넌트 + CVE 저장
+        // 2. Save components + CVEs
         if (payload.getComponents() != null) {
             for (ScanPayload.ComponentPayload cp : payload.getComponents()) {
                 OswlComponent component = saveComponent(scanResult, cp);
@@ -62,11 +62,11 @@ public class ScanIngestService {
             }
         }
 
-        // 3. 스캔 완료 상태로 전환
+        // 3. Transition scan to COMPLETED
         scanResult.complete();
         project.updateLastScanned(payload.getVersion(), LocalDateTime.now());
 
-        // 4. AI 분석 (설정되어 있을 경우에만 실행)
+        // 4. AI analysis (only when configured)
         if (aiAnalysisService.isAiConfigured()) {
             runAiAnalysis(scanResult);
         }
@@ -78,7 +78,7 @@ public class ScanIngestService {
         return scanResult;
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────
 
     private OswlComponent saveComponent(ScanResult scanResult, ScanPayload.ComponentPayload cp) {
         OswlComponent component = OswlComponent.builder()
@@ -110,7 +110,7 @@ public class ScanIngestService {
     private void runAiAnalysis(ScanResult scanResult) {
         try {
             for (OswlComponent comp : scanResult.getComponents()) {
-                // CVE 요약
+                // CVE risk summary
                 for (Cve cve : comp.getCves()) {
                     if (cve.getAiSummary() == null) {
                         String summary = aiAnalysisService.summarizeCve(
@@ -122,7 +122,7 @@ public class ScanIngestService {
                         cve.setAiSummary(summary);
                     }
                 }
-                // 라이선스 위험 요약
+                // License risk summary
                 if (comp.getLicenseStatus() != LicenseStatus.OK && comp.getAiLicenseSummary() == null) {
                     String summary = aiAnalysisService.summarizeLicenseRisk(
                             comp.getLicenseName(),
@@ -132,7 +132,7 @@ public class ScanIngestService {
                 }
             }
         } catch (Exception e) {
-            log.warn("[ScanIngest] AI 분석 중 오류 (스캔 저장에는 영향 없음): {}", e.getMessage());
+            log.warn("[ScanIngest] AI analysis error (scan save unaffected): {}", e.getMessage());
         }
     }
 

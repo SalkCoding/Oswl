@@ -10,13 +10,13 @@ import java.util.Optional;
 
 public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
 
-    /** 토큰 값으로 키를 조회 (인터셉터에서 인증 시 사용) */
+    /** Find a key by its token value (used by the interceptor for authentication) */
     Optional<ApiKey> findByToken(String token);
 
-    /** 프로젝트에 속한 모든 활성 키 조회 */
+    /** Find all active keys belonging to a project */
     @Query("SELECT k FROM ApiKey k WHERE k.project.id = :projectId AND k.active = true ORDER BY k.createdAt DESC")
     List<ApiKey> findActiveByProjectId(@Param("projectId") Long projectId);
 
-    /** 프로젝트에 속한 모든 키 조회 (비활성 포함) */
+    /** Find all keys for a project (including inactive ones) */
     List<ApiKey> findByProjectIdOrderByCreatedAtDesc(Long projectId);
 }

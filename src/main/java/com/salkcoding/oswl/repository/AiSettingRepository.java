@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface AiSettingRepository extends JpaRepository<AiSetting, Long> {
 
-    /** 현재 활성화된 AI 설정 조회 */
+    /** Find the currently active AI setting */
     Optional<AiSetting> findByActiveTrue();
 
     Optional<AiSetting> findByProvider(AiProvider provider);
