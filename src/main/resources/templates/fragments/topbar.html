@@ -53,9 +53,7 @@
 
             <div class="flex items-center gap-[24px]">
                 <a th:href="@{/projects}" class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors">Projects</a>
-                <svg class="w-5 h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
+                <img th:src="@{/icon/icon-chevron-right.svg}" class="w-5 h-5 shrink-0" alt="" aria-hidden="true">
                 <span class="text-white font-bold text-[18px] tracking-[-0.18px]"
                       th:text="${projectName ?: 'Project Name'}">Project Name</span>
 
