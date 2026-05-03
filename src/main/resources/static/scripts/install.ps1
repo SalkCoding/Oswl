@@ -49,7 +49,7 @@ function Save-Config {
 `$env:OSWL_API_KEY    = "$ApiKey"
 `$env:OSWL_SERVER_URL = "$ServerUrl"
 "@ | Set-Content -Path $ConfigFile -Encoding UTF8
-    # 파일 권한 제한 (현재 사용자만 읽기/쓰기)
+    # Restrict file permissions (current user only)
     $acl = Get-Acl $ConfigFile
     $acl.SetAccessRuleProtection($true, $false)
     $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
@@ -58,7 +58,7 @@ function Save-Config {
     Set-Acl $ConfigFile $acl
 }
 
-# ── auth 명령 ──────────────────────────────────────────────────────────────────
+# ── auth command ────────────────────────────────────────────────────────────────
 function Invoke-Auth {
     param([string]$Key = "", [string]$Server = "")
     if (-not $Key) { Write-Host "Error: --key <api_key> is required." -ForegroundColor Red; exit 1 }
@@ -84,7 +84,7 @@ function Invoke-Auth {
     }
 }
 
-# ── scan 명령 ──────────────────────────────────────────────────────────────────
+# ── scan command ────────────────────────────────────────────────────────────────
 function Invoke-Scan {
     param([string]$ProjectDir = $PWD)
     Load-Config
@@ -97,25 +97,25 @@ function Invoke-Scan {
         exit 1
     }
 
-    # 버전 자동 감지
+    # Auto-detect version (Maven, Gradle, npm)
     $version = "unknown"
     $pomFile   = Join-Path $ProjectDir "pom.xml"
     $gradleFile= Join-Path $ProjectDir "build.gradle"
     $pkgJson   = Join-Path $ProjectDir "package.json"
     if (Test-Path $pomFile) {
         $xml = [xml](Get-Content $pomFile)
-        $version = $xml.project.version ?? "unknown"
+        $version = if ($xml.project.version) { [string]$xml.project.version } else { "unknown" }
     } elseif (Test-Path $gradleFile) {
         $line = Select-String -Path $gradleFile -Pattern "^version\s*=" | Select-Object -First 1
-        if ($line) { $version = $line.Line -replace "version\s*=\s*['\"]", "" -replace "['\"].*", "" }
+        if ($line) { $version = ($line.Line -split "=", 2)[1].Trim().Trim("'").Trim('"') }
     } elseif (Test-Path $pkgJson) {
         $pkg = Get-Content $pkgJson | ConvertFrom-Json
-        $version = $pkg.version ?? "unknown"
+        $version = if ($pkg.version) { $pkg.version } else { "unknown" }
     }
 
     Write-Host "[OsWL] Scanning dependencies... (version: $version)"
 
-    # 페이로드 (실제 환경에서는 패키지 매니저 파싱으로 교체)
+    # Payload (replace with real package manager parsing in production)
     $payload = @{ version = $version; components = @() } | ConvertTo-Json -Depth 10
 
     Write-Host "[OsWL] Sending to server: $serverUrl"
@@ -176,7 +176,7 @@ switch ($cmd) {
 
 $MainScript | Set-Content -Path $ScriptPath -Encoding UTF8
 
-# ── CMD 심(shim) 생성 (명령 프롬프트 호환) ────────────────────────────────────
+# ── Create CMD shim (Command Prompt compatibility) ──────────────────────────────
 @"
 @echo off
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0oswl.ps1" %*
