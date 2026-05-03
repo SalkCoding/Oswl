@@ -124,6 +124,24 @@ public class GitHubService {
         return result;
     }
 
+    /**
+     * Returns the ISO-8601 date of the most recent commit on the given branch.
+     * Falls back to an empty string if the branch has no commits or the request fails.
+     */
+    public String getBranchLastCommitDate(String accessToken, String owner, String repo, String branch) {
+        String url = GITHUB_API_BASE + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
+        JsonNode commits = getJson(accessToken, url);
+        if (commits.isArray() && !commits.isEmpty()) {
+            JsonNode commit = commits.get(0).path("commit");
+            String date = commit.path("committer").path("date").asText("");
+            if (date.isEmpty()) {
+                date = commit.path("author").path("date").asText("");
+            }
+            return date;
+        }
+        return "";
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     private JsonNode getJson(String accessToken, String url) {
