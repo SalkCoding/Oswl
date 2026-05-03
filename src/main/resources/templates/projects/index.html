@@ -4,7 +4,22 @@
     <script th:src="@{/js/projects/git-integration.js}" defer></script>
 </head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
-      x-data="{ openPanel: null }"
+      x-data="{
+          openPanel: null,
+          toast: null,
+          initToast() {
+              const p = new URLSearchParams(location.search).get('github');
+              if (p === 'connected')    this.toast = { type: 'success', msg: 'GitHub connected successfully.' };
+              else if (p === 'denied') this.toast = { type: 'warn',    msg: 'GitHub authorization was denied.' };
+              else if (p === 'error')  this.toast = { type: 'error',   msg: 'GitHub connection failed. Please try again.' };
+              else if (p === 'disconnected') this.toast = { type: 'info', msg: 'GitHub disconnected.' };
+              if (this.toast) {
+                  history.replaceState(null, '', location.pathname);
+                  setTimeout(() => this.toast = null, 4000);
+              }
+          }
+      }"
+      x-init="initToast()"
       :class="openPanel ? 'overflow-hidden h-screen' : ''">
 
     <header th:replace="~{fragments/topbar :: simple-topbar('Projects')}"></header>
@@ -60,7 +75,8 @@
         </section>
 
         <!-- Select a Project -->
-        <section class="flex flex-col gap-[20px] px-[60px] w-full shrink-0">
+        <section class="flex flex-col gap-[20px] px-[60px] w-full shrink-0"
+                 @project-imported.window="refreshProjectCards()">
             <div class="flex gap-[10px] items-center w-full">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--grayscale-100)]" aria-hidden="true">
                     <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
@@ -68,7 +84,7 @@
                 <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]">Select a Project</h3>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
+            <div id="project-cards-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
 
                 <!-- ✅ <div> + data-href + @click으로 이동, <button> 중첩 문제 없음 -->
                 <div th:each="project : ${projects}"
@@ -84,6 +100,18 @@
                                    th:text="${project.name}">Project Name</p>
                                 <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3]"
                                    th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
+                                <!-- GitHub import badge -->
+                                <div th:if="${project.githubRepo != null}"
+                                     class="flex items-center gap-[4px] mt-[4px]">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-50)] shrink-0" aria-hidden="true">
+                                        <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.29 9.42 7.86 10.95.57.1.78-.25.78-.55v-2.16c-3.2.7-3.87-1.54-3.87-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.67 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.96 10.96 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.63 1.58.24 2.75.12 3.04.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.38-5.25 5.66.41.36.78 1.06.78 2.14v3.17c0 .3.2.66.79.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/>
+                                    </svg>
+                                    <span class="font-normal text-[10px] text-[var(--grayscale-50)] tracking-[-0.1px]"
+                                          th:text="${project.githubRepo}">owner/repo#main</span>
+                                    <span th:if="${project.importedAt != null}"
+                                          class="font-normal text-[10px] text-[var(--grayscale-40)] tracking-[-0.1px]"
+                                          th:text="'· Imported ' + ${project.importedAt}">· Imported 2026.05.03 14:05</span>
+                                </div>
                             </div>
 
                             <!-- ✅ @click.stop이 이 div에 걸려 카드 @click(→ 링크이동) 차단 -->
@@ -130,6 +158,31 @@
         </section>
 
     </main>
+
+    <!-- GitHub connection Toast -->
+    <div x-show="toast !== null"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         style="display:none;"
+         class="fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[130] flex items-center gap-[10px] px-[20px] py-[12px] rounded-[100px] shadow-xl text-[13px] font-medium tracking-[-0.13px] text-white"
+         :class="{
+             'bg-[var(--primary-120)]': toast && toast.type === 'success',
+             'bg-[#f59126]':           toast && toast.type === 'warn',
+             'bg-[#e62727]':           toast && toast.type === 'error',
+             'bg-[var(--grayscale-80)]': toast && toast.type === 'info'
+         }">
+        <template x-if="toast && toast.type === 'success'">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </template>
+        <template x-if="toast && (toast.type === 'warn' || toast.type === 'error' || toast.type === 'info')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </template>
+        <span x-text="toast && toast.msg"></span>
+    </div>
 
     <!-- Slide-out Background Overlay -->
     <div x-show="openPanel !== null"

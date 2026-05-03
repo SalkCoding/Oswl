@@ -1,22 +1,33 @@
-<div th:fragment="slideout" class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full" x-data="{ os: 'mac', copied1: false, copied3: false }">
-    
+<div th:fragment="slideout"
+     class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full"
+     x-data="{
+         os: 'mac',
+         copied1: false, copied2: false, copied3: false, copiedKey: false,
+         tokenOption: 'create',
+         apiKey: '',
+         keyVisible: false,
+         selectedProjectId: '',
+         keyLabel: 'CLI Key',
+         creating: false,
+         createError: '',
+         issuedToken: '',
+         createdKeys: []
+     }">
+
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
         <div class="flex flex-col gap-[16px] w-full">
             <div class="flex gap-[12px] items-start w-full">
-                <!-- SVG Icon (Upload/Terminal) -->
                 <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] w-[32px] h-[32px] flex items-center justify-center shrink-0">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)]">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 17l6-6-6-6m10 12h6"></path>
                     </svg>
                 </div>
-                
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
                     <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0">CLI Integration</h2>
                 </div>
-                
-                <!-- Close Button -->
-                <button type="button" @click="openPanel = null" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
+                <button type="button" @click="openPanel = null"
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -26,29 +37,26 @@
                 Run fast and secure scans on your local machine or build server.
             </p>
         </div>
-
         <div class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[10px] px-[18px] py-[12px] flex gap-[6px] shrink-0 w-full items-center">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59126" stroke-width="2" class="shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59126" stroke-width="2" class="shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
             <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[-0.13px]">This step requires a technical user</span>
         </div>
     </div>
 
     <!-- OS Selection -->
     <div class="bg-[var(--grayscale-5)] border-b border-[var(--grayscale-20)] flex items-center pt-[28px] px-[40px] w-full shrink-0">
-        <!-- Mac / Linux Tab -->
         <button type="button" @click="os = 'mac'" class="flex-1 flex flex-col gap-[20px] transition-all relative focus:outline-none">
-            <div :class="os === 'mac' ? 'bg-[#33d1b7]/10 border-[#33d1b7]/20 text-[var(--primary-120)] border cursor-default' : 'border-[var(--grayscale-15)] border bg-transparent text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)]'" 
+            <div :class="os === 'mac' ? 'bg-[#33d1b7]/10 border-[#33d1b7]/20 text-[var(--primary-120)] border cursor-default' : 'border-[var(--grayscale-15)] border bg-transparent text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)]'"
                  class="h-[56px] rounded-[100px] flex items-center justify-center w-full text-[14px] font-bold tracking-[-0.14px]">
                 Mac / Linux
             </div>
             <div :class="os === 'mac' ? 'bg-[var(--primary-120)] h-[4px] w-full' : 'h-[4px] w-full bg-transparent'"></div>
         </button>
-
         <div class="w-[20px]"></div>
-
-        <!-- Windows Tab -->
         <button type="button" @click="os = 'windows'" class="flex-1 flex flex-col gap-[20px] transition-all relative focus:outline-none">
-            <div :class="os === 'windows' ? 'bg-[#33d1b7]/10 border-[#33d1b7]/20 text-[var(--primary-120)] border font-bold cursor-default' : 'border-[var(--grayscale-15)] border bg-transparent text-[var(--grayscale-80)] font-medium hover:bg-[var(--grayscale-10)]'" 
+            <div :class="os === 'windows' ? 'bg-[#33d1b7]/10 border-[#33d1b7]/20 text-[var(--primary-120)] border font-bold cursor-default' : 'border-[var(--grayscale-15)] border bg-transparent text-[var(--grayscale-80)] font-medium hover:bg-[var(--grayscale-10)]'"
                  class="h-[56px] rounded-[100px] flex items-center justify-center w-full text-[14px] tracking-[-0.14px]">
                 Windows
             </div>
@@ -56,7 +64,7 @@
         </button>
     </div>
 
-    <!-- Step 1 -->
+    <!-- Step 1: Install -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
         <div class="flex gap-[8px] items-center w-full shrink-0">
             <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
@@ -64,18 +72,18 @@
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Install <span class="text-[var(--primary-120)]">OsWL-cli</span></h3>
         </div>
-        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">Run the following command from a local development Terminal or CI machine:</p>
-        
+        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
+            Run the following command from your Terminal or CI machine:
+        </p>
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'mac'">
-                <code id="code1-mac" class="text-[12px] text-[#00659c] font-mono select-all">curl -H 'Cache-Control: no-cache' https://raw.githubusercontent.com/oswl/cli/master/install.sh | bash</code>
+                <code id="code1-mac" class="text-[12px] text-[#00659c] font-mono select-all">curl -fsSL https://raw.githubusercontent.com/SalkCoding/Oswl/develop/src/main/resources/static/scripts/install.sh | bash</code>
             </div>
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'windows'" x-cloak>
-                <code id="code1-win" class="text-[12px] text-[#00659c] font-mono select-all">Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/oswl/cli/master/install.ps1'))</code>
+                <code id="code1-win" class="text-[12px] text-[#00659c] font-mono select-all">iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/SalkCoding/Oswl/develop/src/main/resources/static/scripts/install.ps1'))</code>
             </div>
-            
             <button type="button"
-                    @click="const code = document.getElementById('code1-' + (os === 'mac' ? 'mac' : 'win')); if (code) navigator.clipboard.writeText(code.textContent.trim()); copied1 = true; setTimeout(() => copied1 = false, 2000)"
+                    @click="const el = document.getElementById('code1-' + (os === 'mac' ? 'mac' : 'win')); if (el) navigator.clipboard.writeText(el.textContent.trim()); copied1 = true; setTimeout(() => copied1 = false, 2000)"
                     :class="copied1 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
                     class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
                 <svg x-show="!copied1" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -85,57 +93,229 @@
         </div>
     </div>
 
-    <!-- Step 2 -->
-    <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full" x-data="{ tokenOption: 'create' }">
+    <!-- Step 2: Get your API Key -->
+    <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
         <div class="flex gap-[8px] items-center w-full shrink-0">
             <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">2</span>
             </div>
-            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Set your API Key</h3>
+            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Get your API Key</h3>
         </div>
-        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">Set your API key. You can create and manage API keys in Settings.</p>
-        
+        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
+            API keys are project-scoped. Create a new one or paste an existing key below.
+        </p>
+
+        <!-- Radio: Create / Have -->
         <div class="flex gap-[32px] items-center w-full mt-[4px]">
             <button type="button" @click="tokenOption = 'create'" class="flex gap-[8px] items-center cursor-pointer focus:outline-none">
-                <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors" :class="tokenOption === 'create' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
-                    <div class="w-[12px] h-[12px] rounded-full transition-all" :class="tokenOption === 'create' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
+                <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors"
+                     :class="tokenOption === 'create' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
+                    <div class="w-[12px] h-[12px] rounded-full transition-all"
+                         :class="tokenOption === 'create' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
                 </div>
-                <span class="text-[13px] font-medium tracking-[-0.13px]" :class="tokenOption === 'create' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">Create API Token</span>
+                <span class="text-[13px] font-medium tracking-[-0.13px]"
+                      :class="tokenOption === 'create' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">Create API Token</span>
             </button>
             <button type="button" @click="tokenOption = 'have'" class="flex gap-[8px] items-center cursor-pointer focus:outline-none">
-                <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors" :class="tokenOption === 'have' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
-                    <div class="w-[12px] h-[12px] rounded-full transition-all" :class="tokenOption === 'have' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
+                <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors"
+                     :class="tokenOption === 'have' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
+                    <div class="w-[12px] h-[12px] rounded-full transition-all"
+                         :class="tokenOption === 'have' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
                 </div>
-                <span class="text-[13px] font-medium tracking-[-0.13px]" :class="tokenOption === 'have' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">I have an API Token</span>
+                <span class="text-[13px] font-medium tracking-[-0.13px]"
+                      :class="tokenOption === 'have' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">I already have an API Token</span>
             </button>
         </div>
 
-        <!-- API Token input — shown only when "I have an API Token" is selected -->
+        <!-- Create API Token flow -->
+        <div x-show="tokenOption === 'create'" x-transition class="flex flex-col gap-[12px] w-full">
+
+            <!-- No projects warning -->
+            <div th:if="${#lists.isEmpty(projects)}"
+                 class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[10px] px-[16px] py-[12px] flex gap-[8px] items-start">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59126" stroke-width="2" class="shrink-0 mt-[1px]">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <p class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px] m-0">
+                    No projects found. <strong>Create a project first</strong> — then come back here to generate an API key.
+                </p>
+            </div>
+
+            <!-- Projects exist: selector + label + create -->
+            <div th:unless="${#lists.isEmpty(projects)}" class="flex flex-col gap-[10px] w-full">
+
+                <!-- Project selector -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Project</label>
+                    <select x-model="selectedProjectId"
+                            class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
+                        <option value="">— Select a project —</option>
+                        <option th:each="p : ${projects}" th:value="${p.id}" th:text="${p.name}">Project</option>
+                    </select>
+                </div>
+
+                <!-- Label -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
+                        Label <span class="text-[var(--grayscale-50)] font-normal">(optional)</span>
+                    </label>
+                    <input type="text" x-model="keyLabel" placeholder="e.g. CI Pipeline"
+                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                </div>
+
+                <!-- Create button + error -->
+                <div class="flex items-center gap-[10px]">
+                    <button type="button"
+                            :disabled="!selectedProjectId || creating"
+                            @click="
+                                creating = true;
+                                createError = '';
+                                fetch('/api/projects/' + selectedProjectId + '/keys', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ label: keyLabel || 'CLI Key' })
+                                })
+                                .then(r => r.ok ? r.json() : Promise.reject(r))
+                                .then(data => {
+                                    issuedToken = data.token;
+                                    createdKeys.push({ label: keyLabel || 'CLI Key', token: data.token });
+                                    apiKey = data.token;
+                                    creating = false;
+                                })
+                                .catch(() => {
+                                    createError = 'Failed to create key. Please try again.';
+                                    creating = false;
+                                })"
+                            :class="(!selectedProjectId || creating) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
+                            class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none">
+                        <span x-text="creating ? 'Creating…' : 'Create API Key'">Create API Key</span>
+                    </button>
+                    <span x-show="createError" x-cloak x-text="createError"
+                          class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
+                </div>
+
+                <!-- Issued token (shown once after creation) -->
+                <div x-show="issuedToken" x-cloak x-transition class="flex flex-col gap-[8px] w-full">
+                    <div class="bg-[#22efc3]/10 border border-[#22efc3]/30 rounded-[10px] p-[14px] flex flex-col gap-[10px]">
+                        <div class="flex items-center justify-between gap-[8px]">
+                            <div class="flex items-center gap-[6px]">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-120)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <span class="text-[12px] font-semibold text-[var(--primary-120)] tracking-[-0.12px]">API Key issued</span>
+                            </div>
+                            <button type="button"
+                                    @click="navigator.clipboard.writeText(issuedToken)"
+                                    class="text-[11px] font-medium text-[var(--primary-120)] tracking-[-0.11px] hover:underline focus:outline-none">
+                                Copy
+                            </button>
+                        </div>
+                        <code class="font-mono text-[12px] text-[var(--grayscale-100)] break-all select-all bg-white/60 rounded-[6px] px-[10px] py-[8px]"
+                              x-text="issuedToken"></code>
+                    </div>
+                    <div class="flex gap-[6px] items-start">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e62727" stroke-width="2" class="shrink-0 mt-[1px]">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] m-0">
+                            Store this token securely — it will <strong>not</strong> be shown again.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Created keys dropdown + copyable text box -->
+                <div x-show="createdKeys.length > 0" x-cloak x-transition class="flex flex-col gap-[10px] w-full">
+                    <div class="flex flex-col gap-[6px]">
+                        <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Select Key to Use</label>
+                        <select x-model="apiKey"
+                                class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
+                            <template x-for="k in createdKeys" :key="k.token">
+                                <option :value="k.token" x-text="k.label"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
+                        <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
+                            <code class="text-[12px] text-[#00659c] font-mono select-all" x-text="apiKey"></code>
+                        </div>
+                        <button type="button"
+                                @click="navigator.clipboard.writeText(apiKey); copiedKey = true; setTimeout(() => copiedKey = false, 2000)"
+                                :class="copiedKey ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
+                                class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
+                            <svg x-show="!copiedKey" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            <svg x-show="copiedKey" x-cloak width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-120)] shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copiedKey ? 'Copied!' : 'Copy to clipboard'"></span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- I already have an API Token flow -->
         <div x-show="tokenOption === 'have'" x-transition style="display:none;" class="flex flex-col gap-[8px] w-full">
             <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">API Token</label>
-            <input type="password"
-                   placeholder="Enter your API token"
-                   class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+            <div class="relative w-full">
+                <input :type="keyVisible ? 'text' : 'password'"
+                       x-model="apiKey"
+                       placeholder="oswl_xxxxxxxxxxxx"
+                       class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] pr-[40px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                <button type="button"
+                        @click="keyVisible = !keyVisible"
+                        class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] focus:outline-none transition-colors">
+                    <svg x-show="!keyVisible" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <svg x-show="keyVisible" x-cloak width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Step 3 -->
+    <!-- Step 3: Authenticate -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
         <div class="flex gap-[8px] items-center w-full shrink-0">
             <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">3</span>
             </div>
-            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Run your first scan</h3>
+            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Authenticate</h3>
         </div>
-        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">In your project directory, run:</p>
-        
+        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
+            Register your API key with the CLI. Run this once per machine — credentials are saved to
+            <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">~/.oswl/config</code>.
+        </p>
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
-                <code id="code3" class="text-[12px] text-[#00659c] font-mono select-all">OSWL_API_KEY=your_api_key oswl analyze</code>
+                <code id="code2"
+                      class="text-[12px] font-mono select-all transition-colors"
+                      :class="(issuedToken || apiKey) ? 'text-[#00659c]' : 'text-[var(--grayscale-40)]'"
+                      x-text="'oswl auth --key ' + (issuedToken || apiKey || 'YOUR_API_KEY') + ' --server ' + location.origin"></code>
             </div>
-            
             <button type="button"
-                    @click="const code = document.getElementById('code3'); if (code) navigator.clipboard.writeText(code.textContent.trim()); copied3 = true; setTimeout(() => copied3 = false, 2000)"
+                    @click="navigator.clipboard.writeText('oswl auth --key ' + (issuedToken || apiKey || 'YOUR_API_KEY') + ' --server ' + location.origin); copied2 = true; setTimeout(() => copied2 = false, 2000)"
+                    :class="copied2 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
+                    class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
+                <svg x-show="!copied2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <svg x-show="copied2" x-cloak width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-120)] shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copied2 ? 'Copied!' : 'Copy to clipboard'"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 4: Run your first scan -->
+    <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
+        <div class="flex gap-[8px] items-center w-full shrink-0">
+            <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
+                <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">4</span>
+            </div>
+            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Run your first scan</h3>
+        </div>
+        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">Navigate to your project directory and run:</p>
+        <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
+            <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'mac'">
+                <code id="code3-mac" class="text-[12px] text-[#00659c] font-mono select-all">cd /your/project &amp;&amp; oswl scan</code>
+            </div>
+            <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'windows'" x-cloak>
+                <code id="code3-win" class="text-[12px] text-[#00659c] font-mono select-all">cd C:\your\project; oswl scan</code>
+            </div>
+            <button type="button"
+                    @click="const el = document.getElementById('code3-' + (os === 'mac' ? 'mac' : 'win')); if (el) navigator.clipboard.writeText(el.textContent.trim()); copied3 = true; setTimeout(() => copied3 = false, 2000)"
                     :class="copied3 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
                     class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
                 <svg x-show="!copied3" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -147,7 +327,8 @@
 
     <!-- Footer -->
     <div class="bg-white flex items-center justify-center py-[48px] w-full mt-auto shrink-0 border-t border-[var(--grayscale-15)]">
-        <button type="button" @click="openPanel = null" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] h-[38px] px-[24px] flex items-center justify-center text-[14px] font-bold text-[var(--grayscale-60)] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-80)] transition-colors active:scale-[0.98] focus:outline-none">
+        <button type="button" @click="openPanel = null"
+                class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] h-[38px] px-[24px] flex items-center justify-center text-[14px] font-bold text-[var(--grayscale-60)] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-80)] transition-colors active:scale-[0.98] focus:outline-none">
             Close
         </button>
     </div>

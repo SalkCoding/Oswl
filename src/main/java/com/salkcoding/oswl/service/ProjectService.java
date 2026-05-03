@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,13 +40,26 @@ public class ProjectService {
     }
 
     @Transactional
+    public Project createFromGitHub(String owner, String repo, String branch) {
+        String name = owner + "/" + repo;
+        Project project = Project.builder().name(name).build();
+        project.markGithubImport(owner, repo, branch);
+        return projectRepository.save(project);
+    }
+
+    @Transactional
     public void delete(Long id) {
         projectRepository.deleteById(id);
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
 
+    private static final DateTimeFormatter IMPORT_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
+
     private ProjectSummaryDto toSummary(Project project) {
+        String importedAt = project.getImportedAt() != null
+                ? project.getImportedAt().format(IMPORT_FMT)
+                : null;
         // Extract aggregate values from the latest completed scan
         return scanResultRepository
                 .findFirstByProjectIdAndStatusOrderByScannedAtDesc(
@@ -65,6 +80,8 @@ public class ProjectService {
                             .securityMedium(sec[2]).securityLow(sec[3])
                             .licenseCritical(lic[0]).licenseHigh(lic[1])
                             .licenseMedium(lic[2]).licenseLow(lic[3])
+                            .githubRepo(project.getGithubRepo())
+                            .importedAt(importedAt)
                             .build();
                 })
                 .orElseGet(() -> ProjectSummaryDto.builder()
@@ -72,6 +89,8 @@ public class ProjectService {
                         .name(project.getName())
                         .version("-")
                         .lastScanned("-")
+                        .githubRepo(project.getGithubRepo())
+                        .importedAt(importedAt)
                         .build());
     }
 

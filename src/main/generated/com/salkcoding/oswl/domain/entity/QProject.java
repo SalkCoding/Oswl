@@ -27,7 +27,11 @@ public class QProject extends EntityPathBase<Project> {
 
     public final DateTimePath<java.time.LocalDateTime> createdAt = createDateTime("createdAt", java.time.LocalDateTime.class);
 
+    public final StringPath githubRepo = createString("githubRepo");
+
     public final NumberPath<Long> id = createNumber("id", Long.class);
+
+    public final DateTimePath<java.time.LocalDateTime> importedAt = createDateTime("importedAt", java.time.LocalDateTime.class);
 
     public final DateTimePath<java.time.LocalDateTime> lastScannedAt = createDateTime("lastScannedAt", java.time.LocalDateTime.class);
 
