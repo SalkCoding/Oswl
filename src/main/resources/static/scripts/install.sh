@@ -75,6 +75,7 @@ cmd_auth() {
     load_config
     OSWL_API_KEY="${key}"
     [[ -n "${server}" ]] && OSWL_SERVER_URL="${server}"
+    OSWL_SERVER_URL="${OSWL_SERVER_URL:-http://localhost:8080}"
 
     # Test server connection
     local http_code
