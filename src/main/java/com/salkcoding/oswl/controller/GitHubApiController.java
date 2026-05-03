@@ -110,6 +110,18 @@ public class GitHubApiController {
         return ResponseEntity.ok(gitHubService.getBranches(token, owner, repo));
     }
 
+    @GetMapping("/branch-updated-at")
+    public ResponseEntity<Map<String, String>> branchUpdatedAt(
+            @RequestParam String owner,
+            @RequestParam String repo,
+            @RequestParam String branch,
+            HttpSession session) {
+        String token = requireToken(session);
+        if (token == null) return ResponseEntity.status(401).build();
+        String date = gitHubService.getBranchLastCommitDate(token, owner, repo, branch);
+        return ResponseEntity.ok(Map.of("updatedAt", date));
+    }
+
     // ── Import repo → create Project ─────────────────────────────────────────
 
     @PostMapping("/repos/import")

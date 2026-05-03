@@ -1,4 +1,4 @@
-<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="gitIntegrationData()">
+<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="gitIntegrationData()" @set-branch.window="onBranchSelect($event.detail)">
 
     <!-- Alpine component data — PAT-based GitHub integration -->
     <script>
@@ -9,6 +9,7 @@
                 connected: false,
                 connectedLogin: '',
                 loadingStatus: true,
+                loadingMessage: 'Checking connection…',
 
                 /* ── PAT connect form ── */
                 patInput: '',
@@ -20,6 +21,8 @@
                 accounts: [],
                 itemBranches: {},
                 allBranches: {},
+                branchUpdatedAt: {},
+                allBranchDates: {},   // { [repoId]: { [branchName]: isoString } }
 
                 accountDropdownOpen: false,
                 selectedAccount:     '',
@@ -46,6 +49,7 @@
                 /* ── methods ── */
                 async checkStatus() {
                     this.loadingStatus = true;
+                    this.loadingMessage = 'Checking connection…';
                     try {
                         const res = await fetch('/api/github/status');
                         const data = await res.json();
@@ -65,6 +69,7 @@
                     if (!this.patInput.trim() || this.patConnecting) return;
                     this.patConnecting = true;
                     this.patError = '';
+                    this.loadingMessage = 'Connecting to GitHub…';
                     try {
                         const res = await fetch('/api/github/connect', {
                             method: 'POST',
@@ -76,10 +81,10 @@
                             this.patError = data.error || 'Connection failed. Check your token.';
                             return;
                         }
-                        this.connected = true;
                         this.connectedLogin = data.login || '';
                         this.patInput = '';
                         await this.loadAccounts();
+                        this.connected = true;
                     } catch (e) {
                         this.patError = 'Network error. Please try again.';
                     } finally {
@@ -114,6 +119,7 @@
                 async loadRepos() {
                     if (!this.selectedAccount) return;
                     this.repos = [];
+                    this.loadingMessage = 'Loading repositories…';
                     try {
                         const res = await fetch('/api/github/repos?account=' + encodeURIComponent(this.selectedAccount));
                         if (!res.ok) return;
@@ -125,7 +131,10 @@
                         this.selectedRepos = [];
                         this.selectAll = false;
                         this.allBranches = {};
-                        this._loadAllBranches(data);
+                        this.allBranchDates = {};
+                        this.loadingMessage = 'Loading branches…';
+                        await this._loadAllBranches(data);
+                        this._loadAllBranchDates(data); // fire-and-forget: populate dates in background
                     } catch (e) {
                         console.error('[GitHub] Failed to load repos', e);
                     }
@@ -189,6 +198,28 @@
                     }
                 },
 
+                async onBranchSelect({ id, branch, fullName }) {
+                    this.itemBranches = { ...this.itemBranches, [id]: branch };
+                    // Use eagerly-loaded cache if available
+                    const cached = this.allBranchDates[id]?.[branch];
+                    if (cached !== undefined) {
+                        this.branchUpdatedAt = { ...this.branchUpdatedAt, [id]: cached };
+                        return;
+                    }
+                    // Fallback: fetch on demand
+                    try {
+                        const [owner, repoName] = fullName.split('/');
+                        const res = await fetch('/api/github/branch-updated-at?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repoName) + '&branch=' + encodeURIComponent(branch));
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.branchUpdatedAt = { ...this.branchUpdatedAt, [id]: data.updatedAt };
+                            // Populate cache
+                            const prev = this.allBranchDates[id] || {};
+                            this.allBranchDates = { ...this.allBranchDates, [id]: { ...prev, [branch]: data.updatedAt } };
+                        }
+                    } catch(e) { console.warn('[GitHub] Failed to fetch branch date', e); }
+                },
+
                 async _loadAllBranches(repos) {
                     await Promise.all(repos.map(async repo => {
                         try {
@@ -199,6 +230,26 @@
                                 this.allBranches = { ...this.allBranches, [repo.id]: branches };
                             }
                         } catch(e) {}
+                    }));
+                },
+
+                async _loadAllBranchDates(repos) {
+                    // Runs in background after branches are loaded.
+                    // Fetches last commit date for every branch of every repo in parallel.
+                    await Promise.all(repos.map(async repo => {
+                        const branches = this.allBranches[repo.id];
+                        if (!branches || branches.length === 0) return;
+                        const [owner] = repo.fullName.split('/');
+                        await Promise.all(branches.map(async branch => {
+                            try {
+                                const res = await fetch('/api/github/branch-updated-at?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name) + '&branch=' + encodeURIComponent(branch));
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    const prev = this.allBranchDates[repo.id] || {};
+                                    this.allBranchDates = { ...this.allBranchDates, [repo.id]: { ...prev, [branch]: data.updatedAt } };
+                                }
+                            } catch(e) {}
+                        }));
                     }));
                 },
 
@@ -249,16 +300,16 @@
                 <span class="font-medium text-[var(--primary-120)] tracking-[-0.13px]">GitHub</span>
             </div>
 
-            <!-- Loading -->
-            <template x-if="loadingStatus">
+            <!-- Loading (initial check or connecting) -->
+            <template x-if="loadingStatus || patConnecting">
                 <div class="flex items-center gap-[8px] text-[13px] text-[var(--grayscale-60)]">
                     <svg class="animate-spin w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
-                    <span>Checking connection…</span>
+                    <span x-text="loadingMessage"></span>
                 </div>
             </template>
 
             <!-- Not connected: status label -->
-            <template x-if="!loadingStatus && !connected">
+            <template x-if="!loadingStatus && !connected && !patConnecting">
                 <span class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">Not connected</span>
             </template>
 
@@ -316,8 +367,16 @@
         </template>
     </div>
 
+    <!-- Connecting: full body loading state -->
+    <template x-if="patConnecting">
+        <div class="flex flex-col flex-1 items-center justify-center gap-[16px] px-[40px] py-[48px]">
+            <svg class="animate-spin w-[28px] h-[28px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+            <p class="text-[14px] font-medium text-[var(--grayscale-70)] tracking-[-0.14px] m-0" x-text="loadingMessage"></p>
+        </div>
+    </template>
+
     <!-- Not connected: PAT input prompt -->
-    <template x-if="!loadingStatus && !connected">
+    <template x-if="!loadingStatus && !connected && !patConnecting">
         <div class="flex flex-col flex-1 gap-[20px] px-[40px] pt-[32px] pb-[24px]">
 
             <div class="flex items-center gap-[12px]">
@@ -437,7 +496,7 @@
             <template x-for="repo in filteredRepos" :key="repo.id">
                 <div class="border-b border-[var(--grayscale-20)] flex items-center w-full min-h-[48px] hover:bg-[var(--primary-20)]/20 transition-colors"
                      :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-20)]/30' : 'bg-white'"
-                     @set-branch.window="if ($event.detail.id === repo.id) itemBranches = { ...itemBranches, [repo.id]: $event.detail.branch }">
+                     @set-branch.window="if ($event.detail.id === repo.id) $dispatch('_noop')"><!-- set-branch handled by parent -->
 
                     <!-- Checkbox -->
                     <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 h-full">
@@ -489,7 +548,7 @@
                                 <div>
                                     <template x-for="branch in allBranches[repo.id]" :key="branch">
                                         <button
-                                            @click="$dispatch('set-branch', { id: repo.id, branch }); branchOpen = false"
+                                            @click="$dispatch('set-branch', { id: repo.id, branch, fullName: repo.fullName }); branchOpen = false"
                                             class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--primary-20)] hover:text-[var(--primary-120)] transition-colors"
                                             :class="(itemBranches[repo.id] || repo.defaultBranch) === branch ? 'bg-[var(--primary-20)] text-[var(--primary-120)]' : ''">
                                             <span x-text="branch"></span>
@@ -503,7 +562,7 @@
                     <!-- Last Updated / Imported status -->
                     <div class="w-[240px] px-[16px] py-[12px] flex items-center shrink-0">
                         <template x-if="!importedRepos.includes(repo.id)">
-                            <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="formatUpdatedAt(repo.updatedAt)"></span>
+                            <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="formatUpdatedAt(allBranchDates[repo.id]?.[itemBranches[repo.id] || repo.defaultBranch] ?? branchUpdatedAt[repo.id] ?? repo.updatedAt)"></span>
                         </template>
                         <template x-if="importedRepos.includes(repo.id)">
                             <span class="inline-flex items-center gap-[4px] text-[13px] text-[var(--primary-120)] font-medium tracking-[0]">
