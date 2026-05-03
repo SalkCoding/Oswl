@@ -22,12 +22,7 @@
                     <div class="flex flex-1 gap-2 items-center min-w-[224px]">
                         
                         <!-- Toggle Icon -->
-                        <div class="w-5 h-5 flex items-center justify-center transition-transform duration-200" 
-                             :class="expanded ? 'transform rotate-180' : ''">
-                            <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
+                        <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform duration-200" :class="expanded ? 'rotate-180' : ''" alt="" aria-hidden="true">
                         
                         <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0">Include License for projects</p>
                     </div>
@@ -57,12 +52,7 @@
                                 <div class="bg-[#00A093] flex items-center px-3 py-1 rounded-[40px]">
                                     <span class="font-medium text-[11px] text-white">21 Projects...</span>
                                 </div>
-                                <div class="w-5 h-5 flex items-center justify-center transition-transform duration-200" 
-                                     :class="expandedNested ? 'transform rotate-180' : ''">
-                                    <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
+                                <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform duration-200" :class="expandedNested ? 'rotate-180' : ''" alt="" aria-hidden="true">
                             </button>
                             <!-- Nested Accordion Body (empty here, handled in the next section for BSD) -->
                         </div>
@@ -88,12 +78,7 @@
                                 <div class="bg-[#00A093] flex items-center px-3 py-1 rounded-[40px]">
                                     <span class="font-medium text-[11px] text-white">6 Projects...</span>
                                 </div>
-                                <div class="w-5 h-5 flex items-center justify-center mt-1 transition-transform duration-200" 
-                                     :class="expandedNested ? 'transform rotate-180' : ''">
-                                    <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
+                                <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 mt-1 transition-transform duration-200" :class="expandedNested ? 'rotate-180' : ''" alt="" aria-hidden="true">
                             </button>
                             
                             <div x-show="expandedNested" x-collapse.duration.300ms class="flex flex-col w-full divide-y divide-[#E8EEF0]">
@@ -130,12 +115,7 @@
                     <button @click="expanded = !expanded" class="bg-white flex flex-wrap gap-y-2 items-center justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer text-left">
                         <div class="flex flex-1 gap-2 items-center min-w-[224px]">
                             <!-- Toggle Icon -->
-                            <div class="w-5 h-5 flex items-center justify-center transition-transform duration-200" 
-                                 :class="expanded ? 'transform rotate-180' : ''">
-                                <svg class="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </div>
+                            <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform duration-200" :class="expanded ? 'rotate-180' : ''" alt="" aria-hidden="true">
                             
                             <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${ob}">Title</p>
                         </div>

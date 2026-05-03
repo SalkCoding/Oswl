@@ -190,9 +190,7 @@
         <div class="flex gap-[16px] items-center px-[36px] pt-[8px] pb-[28px]">
             <button type="button"
                     class="bg-[var(--semantic-caution)] hover:opacity-90 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-opacity">
-                <svg class="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M6 2v6a6 6 0 0012 0V2M6 22v-6a6 6 0 0112 0v6M4 2h16M4 22h16"/>
-                </svg>
+                <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
                 Confirm Deferral
             </button>
             <button type="button" @click="modal = null"

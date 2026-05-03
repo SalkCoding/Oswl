@@ -49,8 +49,8 @@
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
         <div class="flex flex-col gap-[16px] w-full">
             <div class="flex gap-[12px] items-start w-full">
-                <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] w-[32px] h-[32px] flex items-center justify-center shrink-0">
-                    <img th:src="@{/icon/icon-terminal.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                <div class="w-[32px] h-[32px] flex items-center justify-center shrink-0">
+                    <img th:src="@{/icon/icon-terminal.svg}" class="w-[20px] h-[20px]" style="filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);" alt="" aria-hidden="true">
                 </div>
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
                     <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0">CLI Integration</h2>
@@ -92,7 +92,7 @@
     <!-- Step 1: Install -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
         <div class="flex gap-[8px] items-center w-full shrink-0">
-            <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
+            <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">1</span>
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Install <span class="text-[var(--primary-120)]">OsWL-cli</span></h3>
@@ -121,7 +121,7 @@
     <!-- Step 2: Get your API Key -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
         <div class="flex gap-[8px] items-center w-full shrink-0">
-            <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
+            <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">2</span>
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Get your API Key</h3>
@@ -369,7 +369,7 @@
     <!-- Step 3: Authenticate -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
         <div class="flex gap-[8px] items-center w-full shrink-0">
-            <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
+            <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">3</span>
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Authenticate</h3>
@@ -381,8 +381,7 @@
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
                 <code id="code2"
-                      class="text-[12px] font-mono select-all transition-colors"
-                      :class="(issuedToken || apiKey) ? 'text-[#00659c]' : 'text-[var(--grayscale-40)]'"
+                      class="text-[12px] font-mono select-all transition-colors text-[#00659c]"
                       x-text="'oswl auth --key ' + (issuedToken || apiKey || 'YOUR_API_KEY') + ' --server ' + location.origin"></code>
             </div>
             <button type="button"
@@ -399,7 +398,7 @@
     <!-- Step 4: Run your first scan -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
         <div class="flex gap-[8px] items-center w-full shrink-0">
-            <div class="bg-[var(--primary-120)] rounded-[8px] w-[16px] h-[16px] flex items-center justify-center shrink-0">
+            <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">4</span>
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Run your first scan</h3>
