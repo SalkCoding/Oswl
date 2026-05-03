@@ -15,6 +15,7 @@
          existingKeys: [],
          loadingKeys: false,
          revoking: null,
+         showRevoked: false,
 
          async loadExistingKeys() {
              if (!this.selectedProjectId) { this.existingKeys = []; return; }
@@ -38,7 +39,11 @@
              this.revoking = null;
          }
      }"
-     x-init="$watch('selectedProjectId', () => loadExistingKeys()); if (selectedProjectId) loadExistingKeys()">
+     x-init="
+         $watch('selectedProjectId', () => loadExistingKeys());
+         if (selectedProjectId) loadExistingKeys();
+         $watch('openPanel', val => { if (val === 'cli') { issuedToken = ''; createdKeys = []; } });
+     ">
 
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
@@ -175,7 +180,7 @@
                     <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Project</label>
                     <select x-model="selectedProjectId"
                             class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
-                        <option value="">— Select a project —</option>
+                        <option value="">Select a project</option>
                         <option th:each="p : ${projects}" th:value="${p.id}" th:text="${p.name}">Project</option>
                     </select>
                 </div>
@@ -205,7 +210,6 @@
                                 .then(data => {
                                     issuedToken = data.token;
                                     createdKeys.push({ label: keyLabel || 'CLI Key', token: data.token });
-                                    apiKey = data.token;
                                     creating = false;
                                     loadExistingKeys();
                                 })
@@ -248,31 +252,7 @@
                     </div>
                 </div>
 
-                <!-- Created keys dropdown + copyable text box -->
-                <div x-show="createdKeys.length > 0" x-cloak x-transition class="flex flex-col gap-[10px] w-full">
-                    <div class="flex flex-col gap-[6px]">
-                        <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Select Key to Use</label>
-                        <select x-model="apiKey"
-                                class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
-                            <template x-for="k in createdKeys" :key="k.token">
-                                <option :value="k.token" x-text="k.label"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
-                        <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
-                            <code class="text-[12px] text-[#00659c] font-mono select-all" x-text="apiKey"></code>
-                        </div>
-                        <button type="button"
-                                @click="navigator.clipboard.writeText(apiKey); copiedKey = true; setTimeout(() => copiedKey = false, 2000)"
-                                :class="copiedKey ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
-                                class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
-                            <svg x-show="!copiedKey" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-80)] shrink-0"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                            <svg x-show="copiedKey" x-cloak width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-120)] shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                            <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copiedKey ? 'Copied!' : 'Copy to clipboard'"></span>
-                        </button>
-                    </div>
-                </div>
+
 
             </div>
         </div>
@@ -300,14 +280,30 @@
          class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
         <div class="flex items-center justify-between w-full">
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Issued Keys</h3>
-            <button type="button" @click="loadExistingKeys()"
-                    class="flex items-center gap-[4px] text-[12px] font-medium text-[var(--grayscale-60)] hover:text-[var(--primary-120)] transition-colors focus:outline-none">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     :class="loadingKeys && 'animate-spin'">
-                    <polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                </svg>
-                Refresh
-            </button>
+            <div class="flex items-center gap-[12px]">
+                <!-- Show revoked toggle (only when revoked keys exist) -->
+                <button type="button"
+                        x-show="existingKeys.some(k => !k.active)"
+                        @click="showRevoked = !showRevoked"
+                        :class="showRevoked ? 'text-[var(--grayscale-80)]' : 'text-[var(--grayscale-50)]'"
+                        class="flex items-center gap-[4px] text-[12px] font-medium hover:text-[var(--grayscale-80)] transition-colors focus:outline-none">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path x-show="!showRevoked" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x-show="!showRevoked" x1="1" y1="1" x2="23" y2="23"></line>
+                        <path x-show="showRevoked" x-cloak d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle x-show="showRevoked" x-cloak cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span x-text="showRevoked ? 'Hide revoked' : 'Show revoked (' + existingKeys.filter(k => !k.active).length + ')'"></span>
+                </button>
+                <button type="button" @click="loadExistingKeys()"
+                        class="flex items-center gap-[4px] text-[12px] font-medium text-[var(--grayscale-60)] hover:text-[var(--primary-120)] transition-colors focus:outline-none">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                         :class="loadingKeys && 'animate-spin'">
+                        <polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
         </div>
 
         <!-- Loading -->
@@ -323,21 +319,39 @@
         </div>
 
         <!-- Key list -->
-        <div x-show="!loadingKeys && existingKeys.length > 0" class="flex flex-col gap-[8px] w-full">
-            <template x-for="k in existingKeys" :key="k.id">
+        <div x-show="!loadingKeys && existingKeys.length > 0" class="flex flex-col gap-[8px] w-full max-h-[260px] overflow-y-auto custom-scrollbar pr-[4px]">
+            <template x-for="k in existingKeys.filter(k => k.active || showRevoked)" :key="k.id">
                 <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center gap-[12px] px-[14px] py-[10px] w-full">
                     <!-- Status dot -->
                     <div class="w-[8px] h-[8px] rounded-full shrink-0 transition-colors"
                          :class="k.active ? 'bg-[var(--primary-120)]' : 'bg-[var(--grayscale-30)]'"></div>
 
                     <!-- Token + label -->
-                    <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-                        <span class="font-mono text-[12px] text-[var(--grayscale-100)] tracking-[-0.12px] truncate" x-text="k.token"></span>
-                        <div class="flex items-center gap-[8px]">
-                            <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" x-text="k.label || 'No label'"></span>
-                            <span class="text-[var(--grayscale-30)]">·</span>
+                    <div class="flex flex-col gap-[4px] flex-1 min-w-0">
+                        <div class="flex items-center gap-[6px]">
+                            <span class="font-mono text-[12px] text-[var(--grayscale-100)] tracking-[-0.12px] truncate" x-text="k.token"></span>
+                            <span x-show="k.label" class="text-[11px] text-[var(--grayscale-40)] tracking-[-0.11px] shrink-0" x-text="'· ' + k.label"></span>
+                        </div>
+                        <div class="flex items-center gap-[8px] flex-wrap">
+                            <!-- Issued -->
                             <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
-                                  x-text="k.lastUsedAt ? 'Last used ' + k.lastUsedAt.substring(0,10) : 'Never used'"></span>
+                                  x-text="'Issued ' + k.createdAt.substring(0,10)"></span>
+                            <!-- Last used -->
+                            <template x-if="k.active">
+                                <span class="text-[var(--grayscale-30)]">·</span>
+                            </template>
+                            <template x-if="k.active">
+                                <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
+                                      x-text="k.lastUsedAt ? 'Last used ' + k.lastUsedAt.substring(0,10) : 'Never used'"></span>
+                            </template>
+                            <!-- Revoked at -->
+                            <template x-if="!k.active && k.revokedAt">
+                                <span class="text-[var(--grayscale-30)]">·</span>
+                            </template>
+                            <template x-if="!k.active && k.revokedAt">
+                                <span class="text-[11px] text-red-400 tracking-[-0.11px]"
+                                      x-text="'Revoked ' + k.revokedAt.substring(0,10)"></span>
+                            </template>
                         </div>
                     </div>
 
