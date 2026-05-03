@@ -24,6 +24,12 @@ public class ProjectController implements ProjectControllerSpec {
         return "projects/index";
     }
 
+    @GetMapping(value = "/list", produces = "application/json")
+    @ResponseBody
+    public ResponseEntity<List<ProjectSummaryDto>> listJson() {
+        return ResponseEntity.ok(projectService.findAll());
+    }
+
     @DeleteMapping("/{projectId}")
     public ResponseEntity<Void> deleteProject(@PathVariable Long projectId) {
         projectService.delete(projectId);

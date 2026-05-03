@@ -46,6 +46,10 @@ public class OswlComponent {
     @Builder.Default
     private boolean reviewed = false;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean ignored = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -69,6 +73,10 @@ public class OswlComponent {
 
     public void markReviewed(boolean reviewed) {
         this.reviewed = reviewed;
+    }
+
+    public void markIgnored(boolean ignored) {
+        this.ignored = ignored;
     }
 
     public void setAiLicenseSummary(String summary) {

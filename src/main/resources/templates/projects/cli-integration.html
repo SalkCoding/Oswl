@@ -16,6 +16,17 @@
          loadingKeys: false,
          revoking: null,
          showRevoked: false,
+         projects: [],
+         loadingProjects: false,
+
+         async loadProjects() {
+             this.loadingProjects = true;
+             try {
+                 const res = await fetch('/projects/list');
+                 if (res.ok) this.projects = await res.json();
+             } catch(e) { this.projects = []; }
+             this.loadingProjects = false;
+         },
 
          async loadExistingKeys() {
              if (!this.selectedProjectId) { this.existingKeys = []; return; }
@@ -40,9 +51,10 @@
          }
      }"
      x-init="
+         loadProjects();
          $watch('selectedProjectId', () => loadExistingKeys());
          if (selectedProjectId) loadExistingKeys();
-         $watch('openPanel', val => { if (val === 'cli') { issuedToken = ''; createdKeys = []; } });
+         $watch('openPanel', val => { if (val === 'cli') { issuedToken = ''; createdKeys = []; loadProjects(); } });
      ">
 
     <!-- Header -->
@@ -155,8 +167,17 @@
         <!-- Create API Token flow -->
         <div x-show="tokenOption === 'create'" x-transition class="flex flex-col gap-[12px] w-full">
 
+            <!-- Loading projects -->
+            <div x-show="loadingProjects" class="flex items-center gap-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
+                <svg class="animate-spin w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                Loading projects…
+            </div>
+
             <!-- No projects warning -->
-            <div th:if="${#lists.isEmpty(projects)}"
+            <div x-show="!loadingProjects && projects.length === 0"
                  class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[10px] px-[16px] py-[12px] flex gap-[8px] items-start">
                 <img th:src="@{/icon/icon-warning.svg}" class="w-[16px] h-[16px] shrink-0 mt-[1px]" alt="" aria-hidden="true">
                 <p class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px] m-0">
@@ -165,7 +186,7 @@
             </div>
 
             <!-- Projects exist: selector + label + create -->
-            <div th:unless="${#lists.isEmpty(projects)}" class="flex flex-col gap-[10px] w-full">
+            <div x-show="!loadingProjects && projects.length > 0" class="flex flex-col gap-[10px] w-full">
 
                 <!-- Project selector -->
                 <div class="flex flex-col gap-[6px]">
@@ -173,7 +194,9 @@
                     <select x-model="selectedProjectId"
                             class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
                         <option value="">Select a project</option>
-                        <option th:each="p : ${projects}" th:value="${p.id}" th:text="${p.name}">Project</option>
+                        <template x-for="p in projects" :key="p.id">
+                            <option :value="p.id" x-text="p.name"></option>
+                        </template>
                     </select>
                 </div>
 

@@ -5,13 +5,11 @@ import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface ComponentRepository extends JpaRepository<OswlComponent, Long>,
-        QuerydslPredicateExecutor<OswlComponent> {
+public interface ComponentRepository extends JpaRepository<OswlComponent, Long> {
 
     List<OswlComponent> findByScanResultId(Long scanResultId);
 
@@ -33,4 +31,8 @@ public interface ComponentRepository extends JpaRepository<OswlComponent, Long>,
 
     /** Count all components for a scan result */
     long countByScanResultId(Long scanResultId);
+
+    /** Fetch components by IDs belonging to a specific project (security check) */
+    @Query("SELECT c FROM OswlComponent c WHERE c.id IN :ids AND c.scanResult.project.id = :projectId")
+    List<OswlComponent> findByIdsAndProjectId(@Param("ids") List<Long> ids, @Param("projectId") Long projectId);
 }
