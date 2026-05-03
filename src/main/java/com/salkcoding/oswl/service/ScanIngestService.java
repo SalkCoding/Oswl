@@ -42,13 +42,33 @@ public class ScanIngestService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        // 1. Create ScanResult
-        ScanResult scanResult = ScanResult.builder()
-                .project(project)
-                .version(payload.getVersion())
-                .rawPayload(payload.getRawJson())
-                .build();
-        scanResultRepository.save(scanResult);
+        // 1. Upsert ScanResult — same project + version → reuse existing row
+        String incomingVersion = payload.getVersion();
+        ScanResult scanResult = (incomingVersion != null)
+                ? scanResultRepository.findByProjectIdAndVersion(projectId, incomingVersion)
+                        .map(existing -> {
+                            // Wipe old components so orphanRemoval cleans them up
+                            existing.getComponents().clear();
+                            existing.resetForRescan(payload.getRawJson());
+                            return existing;
+                        })
+                        .orElseGet(() -> {
+                            ScanResult s = ScanResult.builder()
+                                    .project(project)
+                                    .version(incomingVersion)
+                                    .rawPayload(payload.getRawJson())
+                                    .build();
+                            return scanResultRepository.save(s);
+                        })
+                : ScanResult.builder()
+                        .project(project)
+                        .version(null)
+                        .rawPayload(payload.getRawJson())
+                        .build();
+
+        if (incomingVersion == null) {
+            scanResultRepository.save(scanResult);
+        }
 
         // 2. Save components + CVEs
         if (payload.getComponents() != null) {

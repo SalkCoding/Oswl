@@ -35,13 +35,19 @@ public class QProject extends EntityPathBase<Project> {
 
     public final DateTimePath<java.time.LocalDateTime> lastScannedAt = createDateTime("lastScannedAt", java.time.LocalDateTime.class);
 
+    public final StringPath latestBranch = createString("latestBranch");
+
     public final StringPath name = createString("name");
+
+    public final StringPath projectUuid = createString("projectUuid");
 
     public final ListPath<ScanResult, QScanResult> scanResults = this.<ScanResult, QScanResult>createList("scanResults", ScanResult.class, QScanResult.class, PathInits.DIRECT2);
 
     public final DateTimePath<java.time.LocalDateTime> updatedAt = createDateTime("updatedAt", java.time.LocalDateTime.class);
 
     public final StringPath version = createString("version");
+
+    public final ListPath<ProjectVersion, QProjectVersion> versions = this.<ProjectVersion, QProjectVersion>createList("versions", ProjectVersion.class, QProjectVersion.class, PathInits.DIRECT2);
 
     public QProject(String variable) {
         super(Project.class, forVariable(variable));

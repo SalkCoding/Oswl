@@ -49,9 +49,15 @@ public class ScanResult {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    @CreationTimestamp
-    @Column(name = "scanned_at", updatable = false)
+    @Column(name = "scanned_at")
     private LocalDateTime scannedAt;
+
+    @PrePersist
+    private void initScannedAt() {
+        if (this.scannedAt == null) {
+            this.scannedAt = LocalDateTime.now();
+        }
+    }
 
     /** Used when injecting test data from DataInitializer etc. */
     public void setScannedAt(LocalDateTime scannedAt) {
@@ -69,5 +75,17 @@ public class ScanResult {
     public void fail(String message) {
         this.status = ScanStatus.FAILED;
         this.errorMessage = message;
+    }
+
+    /**
+     * Resets this scan for a re-scan of the same version.
+     * Clears old payload/status so new component data can be ingested fresh.
+     * Callers must clear the components collection before calling this.
+     */
+    public void resetForRescan(String newRawPayload) {
+        this.rawPayload = newRawPayload;
+        this.status = ScanStatus.PENDING;
+        this.errorMessage = null;
+        this.scannedAt = LocalDateTime.now();
     }
 }

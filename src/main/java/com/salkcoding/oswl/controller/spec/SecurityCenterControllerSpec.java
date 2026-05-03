@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "Security Center", description = "Vulnerability overview page — lists all components with CVE counts aggregated from the latest completed scan.")
 public interface SecurityCenterControllerSpec {
@@ -29,6 +30,8 @@ public interface SecurityCenterControllerSpec {
     String index(
         @Parameter(description = "Project ID", example = "1", required = true)
         @PathVariable Long projectId,
+        @Parameter(description = "Specific scan ID to display; omit for latest", required = false)
+        @RequestParam(required = false) Long scanId,
         Model model
     );
 }
