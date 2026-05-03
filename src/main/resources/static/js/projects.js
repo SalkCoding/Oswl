@@ -63,6 +63,9 @@ function deleteProject(projectId, projectName, cardEl) {
     .then(response => {
         if (response.ok) {
             cardEl.remove();
+            // Also remove the project from CLI integration panel's select dropdown
+            const option = document.querySelector(`select option[value="${projectId}"]`);
+            if (option) option.remove();
             showToast(projectName, ' has been deleted.');
         } else {
             // Restore card on failure

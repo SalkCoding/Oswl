@@ -24,13 +24,13 @@ function Write-Info  { param($msg) Write-Host "[OsWL] $msg" -ForegroundColor Gre
 function Write-Warn  { param($msg) Write-Host "[OsWL] $msg" -ForegroundColor Yellow }
 function Write-Error2 { param($msg) Write-Host "[OsWL] $msg" -ForegroundColor Red; exit 1 }
 
-Write-Info "OsWL CLI 설치를 시작합니다..."
+Write-Info "Starting OsWL CLI installation..."
 
-# ── 설치 디렉터리 생성 ──────────────────────────────────────────────────────────
+# ── Create installation directory ───────────────────────────────────────────
 New-Item -ItemType Directory -Force -Path $InstallDir  | Out-Null
 New-Item -ItemType Directory -Force -Path $ConfigDir   | Out-Null
 
-# ── 메인 스크립트 생성 ──────────────────────────────────────────────────────────
+# ── Generate main script ─────────────────────────────────────────────────────
 $MainScript = @'
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
@@ -38,7 +38,7 @@ $ErrorActionPreference = "Stop"
 
 $ConfigFile = "$env:USERPROFILE\.oswl\config.ps1"
 
-# ── 설정 로드 / 저장 ────────────────────────────────────────────────────────────
+# ── Load / save config ───────────────────────────────────────────────────────
 function Load-Config {
     if (Test-Path $ConfigFile) { . $ConfigFile }
 }
@@ -61,7 +61,7 @@ function Save-Config {
 # ── auth 명령 ──────────────────────────────────────────────────────────────────
 function Invoke-Auth {
     param([string]$Key = "", [string]$Server = "")
-    if (-not $Key) { Write-Host "오류: --key <api_key> 가 필요합니다." -ForegroundColor Red; exit 1 }
+    if (-not $Key) { Write-Host "Error: --key <api_key> is required." -ForegroundColor Red; exit 1 }
 
     Load-Config
     if (-not $Server) { $Server = if ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL } else { "http://localhost:8080" } }
@@ -71,16 +71,16 @@ function Invoke-Auth {
         $response = Invoke-WebRequest -Uri "$Server/api/scan/ping" -Headers $headers -Method GET -UseBasicParsing -TimeoutSec 10
         if ($response.StatusCode -eq 200) {
             Save-Config -ApiKey $Key -ServerUrl $Server
-            Write-Host "[OsWL] 인증 성공! 설정이 저장되었습니다." -ForegroundColor Green
-            Write-Host "       서버: $Server"
+            Write-Host "[OsWL] Authentication successful! Config saved." -ForegroundColor Green
+            Write-Host "       Server: $Server"
         }
     } catch {
         if ($_.Exception.Response.StatusCode -eq 401) {
-            Write-Host "[OsWL] 오류: API 키가 유효하지 않습니다." -ForegroundColor Red; exit 1
+            Write-Host "[OsWL] Error: Invalid API key." -ForegroundColor Red; exit 1
         }
-        # 서버 미응답 시에도 키 저장
+        # Save key even if server is unreachable
         Save-Config -ApiKey $Key -ServerUrl $Server
-        Write-Host "[OsWL] 경고: 서버에 연결할 수 없습니다. 키는 저장되었습니다." -ForegroundColor Yellow
+        Write-Host "[OsWL] Warning: Could not reach server. Key saved locally." -ForegroundColor Yellow
     }
 }
 
@@ -93,7 +93,7 @@ function Invoke-Scan {
     $serverUrl = if ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL } else { "http://localhost:8080" }
 
     if (-not $apiKey) {
-        Write-Host "[OsWL] 오류: API 키가 설정되지 않았습니다. 'oswl auth --key <key>' 를 실행하세요." -ForegroundColor Red
+        Write-Host "[OsWL] Error: API key not set. Run 'oswl auth --key <key>' first." -ForegroundColor Red
         exit 1
     }
 
@@ -113,12 +113,12 @@ function Invoke-Scan {
         $version = $pkg.version ?? "unknown"
     }
 
-    Write-Host "[OsWL] 의존성 스캔 중... (버전: $version)"
+    Write-Host "[OsWL] Scanning dependencies... (version: $version)"
 
     # 페이로드 (실제 환경에서는 패키지 매니저 파싱으로 교체)
     $payload = @{ version = $version; components = @() } | ConvertTo-Json -Depth 10
 
-    Write-Host "[OsWL] 서버로 전송 중: $serverUrl"
+    Write-Host "[OsWL] Sending to server: $serverUrl"
 
     try {
         $headers = @{
@@ -127,35 +127,35 @@ function Invoke-Scan {
         }
         $response = Invoke-RestMethod -Uri "$serverUrl/api/scan" -Method POST `
             -Headers $headers -Body $payload -ContentType "application/json"
-        Write-Host "[OsWL] 스캔 완료! scanId=$($response.scanId) status=$($response.status)" -ForegroundColor Green
+        Write-Host "[OsWL] Scan complete! scanId=$($response.scanId) status=$($response.status)" -ForegroundColor Green
     } catch {
         $statusCode = $_.Exception.Response.StatusCode.Value__
         if ($statusCode -eq 401) {
-            Write-Host "[OsWL] 오류: API 키가 거부되었습니다." -ForegroundColor Red; exit 1
+            Write-Host "[OsWL] Error: API key rejected." -ForegroundColor Red; exit 1
         }
-        Write-Host "[OsWL] 오류: 서버 응답 HTTP $statusCode" -ForegroundColor Red
+        Write-Host "[OsWL] Error: Server responded HTTP $statusCode" -ForegroundColor Red
         Write-Host $_.ErrorDetails.Message
         exit 1
     }
 }
 
-# ── 도움말 ─────────────────────────────────────────────────────────────────────
+# ── Help ──────────────────────────────────────────────────────────────────────
 function Show-Help {
     Write-Host @"
-OsWL CLI – 오픈소스 공급망 분석 도구
+OsWL CLI - Open-source Software Composition Analysis tool
 
-사용법:
-  oswl auth --key <api_key> [--server <url>]   API 키 저장 및 서버 연결 테스트
-  oswl scan [<project_dir>]                    의존성 스캔 후 결과를 서버로 전송
-  oswl help                                    이 도움말 표시
+Usage:
+  oswl auth --key <api_key> [--server <url>]   Save API key and verify server connection
+  oswl scan [<project_dir>]                    Scan dependencies and upload results to server
+  oswl help                                    Show this help message
 
-환경 변수:
-  OSWL_API_KEY      API 키 (config 파일 대신 사용 가능)
-  OSWL_SERVER_URL   서버 URL (기본값: http://localhost:8080)
+Environment variables:
+  OSWL_API_KEY      API key (can be used instead of config file)
+  OSWL_SERVER_URL   Server URL (default: http://localhost:8080)
 "@
 }
 
-# ── 진입점 ─────────────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 $cmd = if ($args.Count -gt 0) { $args[0] } else { "help" }
 switch ($cmd) {
     "auth" {
@@ -170,7 +170,7 @@ switch ($cmd) {
     }
     "scan" { Invoke-Scan -ProjectDir (if ($args.Count -gt 1) { $args[1] } else { $PWD }) }
     { $_ -in "help", "--help", "-h" } { Show-Help }
-    default { Write-Host "알 수 없는 명령: $cmd. 'oswl help' 를 실행하세요." -ForegroundColor Red; exit 1 }
+    default { Write-Host "Unknown command: $cmd. Run 'oswl help' for usage." -ForegroundColor Red; exit 1 }
 }
 '@
 
@@ -182,12 +182,12 @@ $MainScript | Set-Content -Path $ScriptPath -Encoding UTF8
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0oswl.ps1" %*
 "@ | Set-Content -Path $ShimPath -Encoding ASCII
 
-# ── PATH 등록 (현재 사용자) ───────────────────────────────────────────────────
+# ── Register PATH (current user) ─────────────────────────────────────────────
 $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
 if ($userPath -notlike "*$InstallDir*") {
     [Environment]::SetEnvironmentVariable("PATH", "$userPath;$InstallDir", "User")
-    Write-Warn "PATH에 $InstallDir 를 추가했습니다. 터미널을 재시작하세요."
+    Write-Warn "Added $InstallDir to PATH. Please restart your terminal."
 }
 
-Write-Info "설치 완료! 다음 명령으로 API 키를 설정하세요:"
+Write-Info "Installation complete! Set your API key with:"
 Write-Info "  oswl auth --key <your_api_key> --server $ServerUrl"
