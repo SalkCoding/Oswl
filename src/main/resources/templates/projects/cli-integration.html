@@ -6,13 +6,39 @@
          tokenOption: 'create',
          apiKey: '',
          keyVisible: false,
-         selectedProjectId: '',
+         selectedProjectId: $root.cliPreSelectProject ?? '',
          keyLabel: 'CLI Key',
          creating: false,
          createError: '',
          issuedToken: '',
-         createdKeys: []
-     }">
+         createdKeys: [],
+         existingKeys: [],
+         loadingKeys: false,
+         revoking: null,
+
+         async loadExistingKeys() {
+             if (!this.selectedProjectId) { this.existingKeys = []; return; }
+             this.loadingKeys = true;
+             try {
+                 const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys');
+                 if (res.ok) this.existingKeys = await res.json();
+             } catch(e) { this.existingKeys = []; }
+             this.loadingKeys = false;
+         },
+
+         async revokeKey(keyId) {
+             if (this.revoking === keyId) return;
+             this.revoking = keyId;
+             try {
+                 const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys/' + keyId, { method: 'DELETE' });
+                 if (res.ok) {
+                     this.existingKeys = this.existingKeys.map(k => k.id === keyId ? {...k, active: false} : k);
+                 }
+             } catch(e) {}
+             this.revoking = null;
+         }
+     }"
+     x-init="$watch('selectedProjectId', () => loadExistingKeys()); if (selectedProjectId) loadExistingKeys()">
 
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
@@ -181,6 +207,7 @@
                                     createdKeys.push({ label: keyLabel || 'CLI Key', token: data.token });
                                     apiKey = data.token;
                                     creating = false;
+                                    loadExistingKeys();
                                 })
                                 .catch(() => {
                                     createError = 'Failed to create key. Please try again.';
@@ -265,6 +292,76 @@
                     <svg x-show="keyVisible" x-cloak width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- Existing Keys Section (shown when a project is selected) -->
+    <div x-show="selectedProjectId" x-transition style="display:none;"
+         class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
+        <div class="flex items-center justify-between w-full">
+            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Issued Keys</h3>
+            <button type="button" @click="loadExistingKeys()"
+                    class="flex items-center gap-[4px] text-[12px] font-medium text-[var(--grayscale-60)] hover:text-[var(--primary-120)] transition-colors focus:outline-none">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     :class="loadingKeys && 'animate-spin'">
+                    <polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                Refresh
+            </button>
+        </div>
+
+        <!-- Loading -->
+        <div x-show="loadingKeys" class="flex items-center gap-[8px] text-[13px] text-[var(--grayscale-50)]">
+            <svg class="animate-spin w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+            Loading keys…
+        </div>
+
+        <!-- Empty state -->
+        <div x-show="!loadingKeys && existingKeys.length === 0"
+             class="text-[13px] text-[var(--grayscale-50)] tracking-[-0.13px]">
+            No keys issued yet for this project.
+        </div>
+
+        <!-- Key list -->
+        <div x-show="!loadingKeys && existingKeys.length > 0" class="flex flex-col gap-[8px] w-full">
+            <template x-for="k in existingKeys" :key="k.id">
+                <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center gap-[12px] px-[14px] py-[10px] w-full">
+                    <!-- Status dot -->
+                    <div class="w-[8px] h-[8px] rounded-full shrink-0 transition-colors"
+                         :class="k.active ? 'bg-[var(--primary-120)]' : 'bg-[var(--grayscale-30)]'"></div>
+
+                    <!-- Token + label -->
+                    <div class="flex flex-col gap-[2px] flex-1 min-w-0">
+                        <span class="font-mono text-[12px] text-[var(--grayscale-100)] tracking-[-0.12px] truncate" x-text="k.token"></span>
+                        <div class="flex items-center gap-[8px]">
+                            <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" x-text="k.label || 'No label'"></span>
+                            <span class="text-[var(--grayscale-30)]">·</span>
+                            <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
+                                  x-text="k.lastUsedAt ? 'Last used ' + k.lastUsedAt.substring(0,10) : 'Never used'"></span>
+                        </div>
+                    </div>
+
+                    <!-- Active badge / Revoked label -->
+                    <span x-show="k.active"
+                          class="shrink-0 text-[11px] font-semibold text-[var(--primary-120)] bg-[var(--primary-20)] px-[8px] py-[3px] rounded-full tracking-[-0.11px]">
+                        Active
+                    </span>
+                    <span x-show="!k.active" x-cloak
+                          class="shrink-0 text-[11px] font-semibold text-[var(--grayscale-50)] bg-[var(--grayscale-15)] px-[8px] py-[3px] rounded-full tracking-[-0.11px]">
+                        Revoked
+                    </span>
+
+                    <!-- Revoke button (only when active) -->
+                    <button type="button"
+                            x-show="k.active"
+                            :disabled="revoking === k.id"
+                            @click="revokeKey(k.id)"
+                            :class="revoking === k.id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300 hover:text-red-600'"
+                            class="shrink-0 border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[4px] text-[11px] font-medium text-[var(--grayscale-60)] transition-colors focus:outline-none">
+                        <span x-text="revoking === k.id ? 'Revoking…' : 'Revoke'">Revoke</span>
+                    </button>
+                </div>
+            </template>
         </div>
     </div>
 
