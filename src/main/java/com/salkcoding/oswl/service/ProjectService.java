@@ -1,15 +1,17 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.ProjectVersion;
+import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final ProjectVersionRepository projectVersionRepository;
     private final ScanResultRepository scanResultRepository;
 
     @Transactional(readOnly = true)
@@ -39,10 +42,47 @@ public class ProjectService {
         return projectRepository.save(project);
     }
 
+    /**
+     * Find-or-create a Project for the given GitHub owner/repo, then upsert a
+     * {@link ProjectVersion} for the given branch.
+     *
+     * <ul>
+     *   <li>Same owner/repo + same branch → update {@code lastUpdatedAt} (re-import).</li>
+     *   <li>Same owner/repo + new branch → create a new version with the next sequential number.</li>
+     *   <li>New owner/repo → create a new Project (UUID auto-generated) and first version.</li>
+     * </ul>
+     *
+     * @return the Project (existing or newly created)
+     */
     @Transactional
-    public Project createFromGitHub(String owner, String repo, String branch) {
-        String name = owner + "/" + repo;
-        Project project = Project.builder().name(name).build();
+    public Project upsertFromGitHub(String owner, String repo, String branch) {
+        String repoKey = owner + "/" + repo;
+
+        // 1. Find or create the logical project
+        Project project = projectRepository.findByGithubRepo(repoKey)
+                .orElseGet(() -> projectRepository.save(
+                        Project.builder().name(repoKey).build()
+                ));
+
+        // 2. Upsert the branch-level version
+        projectVersionRepository.findByProjectAndBranch(project, branch)
+                .ifPresentOrElse(
+                        version -> {
+                            version.touch();
+                            projectVersionRepository.save(version);
+                        },
+                        () -> {
+                            int nextNum = projectVersionRepository.findMaxVersionNumber(project) + 1;
+                            projectVersionRepository.save(ProjectVersion.builder()
+                                    .project(project)
+                                    .branch(branch)
+                                    .versionNumber(nextNum)
+                                    .importSource(ImportSource.GIT)
+                                    .build());
+                        }
+                );
+
+        // 3. Update denormalized fields on the project
         project.markGithubImport(owner, repo, branch);
         return projectRepository.save(project);
     }
@@ -60,6 +100,13 @@ public class ProjectService {
         String importedAt = project.getImportedAt() != null
                 ? project.getImportedAt().format(IMPORT_FMT)
                 : null;
+
+        // Build the display string: "owner/repo#latestBranch" when available
+        String githubDisplayRepo = project.getGithubRepo() != null
+                ? project.getGithubRepo()
+                  + (project.getLatestBranch() != null ? "#" + project.getLatestBranch() : "")
+                : null;
+
         // Extract aggregate values from the latest completed scan
         return scanResultRepository
                 .findFirstByProjectIdAndStatusOrderByScannedAtDesc(
@@ -80,8 +127,9 @@ public class ProjectService {
                             .securityMedium(sec[2]).securityLow(sec[3])
                             .licenseCritical(lic[0]).licenseHigh(lic[1])
                             .licenseMedium(lic[2]).licenseLow(lic[3])
-                            .githubRepo(project.getGithubRepo())
+                            .githubRepo(githubDisplayRepo)
                             .importedAt(importedAt)
+                            .projectUuid(project.getProjectUuid())
                             .build();
                 })
                 .orElseGet(() -> ProjectSummaryDto.builder()
@@ -89,8 +137,9 @@ public class ProjectService {
                         .name(project.getName())
                         .version("-")
                         .lastScanned("-")
-                        .githubRepo(project.getGithubRepo())
+                        .githubRepo(githubDisplayRepo)
                         .importedAt(importedAt)
+                        .projectUuid(project.getProjectUuid())
                         .build());
     }
 

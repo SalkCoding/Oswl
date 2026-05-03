@@ -8,13 +8,23 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * An analysis target project registered by the user.
- * CLI scan results are accumulated per this entity.
+ *
+ * One Project row represents a logical project (e.g. one GitHub owner/repo).
+ * Branch-level imports are tracked in {@link ProjectVersion}.
+ *
+ * {@code projectUuid} is a stable, random UUID assigned on creation and serves
+ * as the public identifier for CLI integration (e.g. API key parameter).
  */
 @Entity
-@Table(name = "projects")
+@Table(name = "projects",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_projects_github_repo",
+                columnNames = {"github_repo"}
+        ))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -24,6 +34,13 @@ public class Project {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Stable UUID used as the CLI project identifier / API key.
+     * Generated once on first persist and never changes.
+     */
+    @Column(name = "project_uuid", length = 36, unique = true, updatable = false)
+    private String projectUuid;
 
     @Column(nullable = false, length = 200)
     private String name;
@@ -35,11 +52,21 @@ public class Project {
     @Column(name = "last_scanned_at")
     private LocalDateTime lastScannedAt;
 
-    /** GitHub source in "owner/repo#branch" format — null for CLI-imported projects */
+    /**
+     * GitHub source in "owner/repo" format — null for CLI-imported projects.
+     * Unique constraint prevents duplicate projects for the same repository.
+     */
     @Column(name = "github_repo", length = 300)
     private String githubRepo;
 
-    /** When this project was first imported from GitHub — null for CLI-imported projects */
+    /**
+     * The most recently imported branch (denormalized for fast card display).
+     * Kept in sync by {@link #markGithubImport}.
+     */
+    @Column(name = "latest_branch", length = 255)
+    private String latestBranch;
+
+    /** Timestamp of the most recent GitHub import — updated on every upsert. */
     @Column(name = "imported_at")
     private LocalDateTime importedAt;
 
@@ -59,13 +86,29 @@ public class Project {
     @Builder.Default
     private List<ApiKey> apiKeys = new ArrayList<>();
 
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProjectVersion> versions = new ArrayList<>();
+
+    @PrePersist
+    private void generateUuid() {
+        if (this.projectUuid == null) {
+            this.projectUuid = UUID.randomUUID().toString();
+        }
+    }
+
     public void updateLastScanned(String version, LocalDateTime scannedAt) {
         this.version = version;
         this.lastScannedAt = scannedAt;
     }
 
+    /**
+     * Updates denormalized GitHub import fields.
+     * Called on every upsert (both new and re-import).
+     */
     public void markGithubImport(String owner, String repo, String branch) {
-        this.githubRepo = owner + "/" + repo + "#" + branch;
+        this.githubRepo = owner + "/" + repo;
+        this.latestBranch = branch;
         this.importedAt = LocalDateTime.now();
     }
 }

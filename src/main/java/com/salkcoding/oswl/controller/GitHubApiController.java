@@ -122,7 +122,7 @@ public class GitHubApiController {
         return ResponseEntity.ok(Map.of("updatedAt", date));
     }
 
-    // ── Import repo → create Project ─────────────────────────────────────────
+    // ── Import repo → upsert Project ─────────────────────────────────────────
 
     @PostMapping("/repos/import")
     public ResponseEntity<Map<String, Object>> importRepo(
@@ -131,13 +131,15 @@ public class GitHubApiController {
         String token = requireToken(session);
         if (token == null) return ResponseEntity.status(401).build();
 
-        var project = projectService.createFromGitHub(request.getOwner(), request.getRepo(), request.getBranch());
-        log.info("[GitHub Import] Created project '{}' (id={}) from {}/{}@{}",
-                project.getName(), project.getId(), request.getOwner(), request.getRepo(), request.getBranch());
+        var project = projectService.upsertFromGitHub(request.getOwner(), request.getRepo(), request.getBranch());
+        log.info("[GitHub Import] Upserted project '{}' (id={}, uuid={}) from {}/{}@{}",
+                project.getName(), project.getId(), project.getProjectUuid(),
+                request.getOwner(), request.getRepo(), request.getBranch());
 
         return ResponseEntity.ok(Map.of(
                 "projectId", project.getId(),
-                "projectName", project.getName()
+                "projectName", project.getName(),
+                "projectUuid", project.getProjectUuid()
         ));
     }
 
