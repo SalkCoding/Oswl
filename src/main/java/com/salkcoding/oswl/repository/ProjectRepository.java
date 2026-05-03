@@ -2,12 +2,10 @@ package com.salkcoding.oswl.repository;
 
 import com.salkcoding.oswl.domain.entity.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 
 import java.util.Optional;
 
-public interface ProjectRepository extends JpaRepository<Project, Long>,
-        QuerydslPredicateExecutor<Project> {
+public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     /** Find a GitHub-imported project by its "owner/repo" key. Used for deduplication. */
     Optional<Project> findByGithubRepo(String githubRepo);

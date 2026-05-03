@@ -26,6 +26,9 @@ public class ComponentRowDto {
     @Schema(description = "Whether the component has been reviewed", example = "false")
     private final boolean reviewed;
 
+    @Schema(description = "Whether the component has been ignored", example = "false")
+    private final boolean ignored;
+
     @Schema(description = "Number of Critical CVEs", example = "2")
     private final int securityCritical;
 
