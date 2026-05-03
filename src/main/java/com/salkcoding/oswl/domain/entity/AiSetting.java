@@ -9,12 +9,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * AI 제공자 설정.
- * 운영자가 UI에서 API 키와 제공자를 주입하면 이 테이블에 저장된다.
- * LOCAL 제공자는 baseUrl만 필요하고 apiKey가 없을 수 있다.
+ * AI provider settings.
+ * Stored in this table when an operator injects an API key and provider from the UI.
+ * The LOCAL provider only needs a baseUrl and may have no apiKey.
  *
- * ⚠️ apiKey 컬럼은 암호화 저장을 권장한다
- *    (운영 환경에서는 JasyptStringEncryptor 또는 Vault 연동 고려).
+ * ⚠️ It is recommended to store the apiKey column encrypted
+ *    (consider JasyptStringEncryptor or Vault integration in production).
  */
 @Entity
 @Table(name = "ai_settings")
@@ -33,26 +33,26 @@ public class AiSetting {
     private AiProvider provider;
 
     /**
-     * OpenAI / Anthropic: API 키
-     * LOCAL: null 허용 (인증 없는 Ollama 등)
+     * OpenAI / Anthropic: API key
+     * LOCAL: null allowed (e.g. Ollama with no auth)
      */
     @Column(name = "api_key", length = 500)
     private String apiKey;
 
     /**
-     * 모델명 (예: "gpt-4o", "claude-3-5-sonnet-20241022", "llama3")
+     * Model name (e.g. "gpt-4o", "claude-3-5-sonnet-20241022", "llama3")
      */
     @Column(name = "model_name", length = 100)
     private String modelName;
 
     /**
-     * LOCAL 제공자용 엔드포인트 (예: "http://localhost:11434/v1")
-     * OpenAI 호환 API를 사용하는 로컬 LLM이라면 이 URL만 변경하면 된다.
+     * Endpoint for the LOCAL provider (e.g. "http://localhost:11434/v1")
+     * For local LLMs using an OpenAI-compatible API, only this URL needs to be changed.
      */
     @Column(name = "base_url", length = 300)
     private String baseUrl;
 
-    /** 현재 활성화된 제공자인지 여부 (하나만 활성화 가능) */
+    /** Whether this is the currently active provider (only one can be active at a time) */
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = false;

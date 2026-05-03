@@ -55,7 +55,7 @@ public class ComponentDetailService {
                 comp.getLicenseName() != null ? comp.getLicenseName() : "-");
         model.addAttribute("licenseRisk", comp.getLicenseStatus().name());
 
-        // 가장 낮은 심각도 CVE에서 fixVersion 추출 (첫 번째 CRITICAL → HIGH 순)
+        // Extract fixVersion from the highest-severity CVE (CRITICAL first, then HIGH)
         String recommendedVersion = comp.getCves().stream()
                 .sorted(Comparator.comparingInt(c -> c.getSeverity().ordinal()))
                 .filter(c -> c.getFixVersion() != null && !c.getFixVersion().isBlank())
