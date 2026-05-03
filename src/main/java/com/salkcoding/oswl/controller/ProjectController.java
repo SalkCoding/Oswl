@@ -42,14 +42,11 @@ public class ProjectController implements ProjectControllerSpec {
 
     @GetMapping("/api/branches")
     public ResponseEntity<List<String>> getBranches() {
-        return ResponseEntity.ok(List.of(
-                "main", "develop", "feature/new-feature",
-                "hotfix/bug-fix", "release/v1.0.0", "staging"));
+        return ResponseEntity.ok(List.of());
     }
 
     @GetMapping("/api/accounts")
     public ResponseEntity<List<String>> getAccounts() {
-        return ResponseEntity.ok(List.of(
-                "OwlCoding", "OWL-Team", "OWL-Analytics", "OWL-Security"));
+        return ResponseEntity.ok(List.of());
     }
 }

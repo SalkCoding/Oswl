@@ -9,12 +9,7 @@
     <header th:fragment="simple-topbar(pageLabel)"
             class="bg-[var(--background-dark)] flex items-center h-[64px] gap-[44px] pl-[60px] pr-[40px] py-[16px] w-full shrink-0">
         <a th:href="@{/projects}" class="flex gap-[12px] items-center shrink-0">
-            <div class="w-[22px] h-[30px] flex justify-center items-center">
-                <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path d="M11 0L22 6V18C22 24.6274 17.0751 30 11 30C4.92487 30 0 24.6274 0 18V6L11 0Z" fill="#22EFC3"/>
-                    <path d="M7.5 13L10.5 16L15 11" stroke="#001D35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
+            <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
             <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
         </a>
         <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap"
@@ -42,12 +37,7 @@
         <!-- Upper bar (logo + breadcrumb + version) -->
         <div class="bg-[var(--background-dark)] flex items-center gap-[44px] pl-[60px] pr-[40px] py-[17px] h-[64px] shrink-0">
             <a th:href="@{/projects}" class="flex items-center gap-[12px] shrink-0">
-                <div class="w-[22px] h-[30px] flex justify-center items-center">
-                    <svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M11 0L22 6V18C22 24.6274 17.0751 30 11 30C4.92487 30 0 24.6274 0 18V6L11 0Z" fill="#22EFC3"/>
-                        <path d="M7.5 13L10.5 16L15 11" stroke="#001D35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
+                <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
                 <h1 class="text-[var(--secondary-100)] font-extrabold text-[24px] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
             </a>
 
@@ -67,11 +57,7 @@
                             :class="versionDropdownOpen && 'bg-white/25 border-white/50'">
                         <span class="text-[var(--secondary-20)] font-medium text-[16px] tracking-[-0.16px]"
                               th:text="${projectVersion ?: '-'}">-</span>
-                        <svg class="w-3 h-3 text-[var(--secondary-20)] transition-transform"
-                             :class="versionDropdownOpen && 'rotate-180'"
-                             fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="versionDropdownOpen && 'rotate-180'" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
                     </button>
 
                     <!-- Dropdown Menu -->
