@@ -4,6 +4,7 @@ import com.salkcoding.oswl.domain.entity.OswlComponent;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.dto.ComponentRowDto;
 import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.ComponentRepository;
@@ -113,6 +114,7 @@ public class SecurityCenterService {
                     .version(comp.getVersion())
                     .dependencyInfo(comp.getDependencyInfo())
                     .reviewed(comp.isReviewed())
+                    .ignored(comp.isIgnored())
                     .securityCritical(c)
                     .securityHigh(h)
                     .securityMedium(m)
@@ -140,5 +142,14 @@ public class SecurityCenterService {
             case NON_PATCHABLE -> "non-patchable";
             default            -> "unknown";
         };
+    }
+
+    @Transactional
+    public void bulkUpdateStatus(Long projectId, BulkStatusRequest req) {
+        List<OswlComponent> comps = componentRepository.findByIdsAndProjectId(req.ids(), projectId);
+        for (OswlComponent comp : comps) {
+            if (req.reviewed() != null) comp.markReviewed(req.reviewed());
+            if (req.ignored()  != null) comp.markIgnored(req.ignored());
+        }
     }
 }

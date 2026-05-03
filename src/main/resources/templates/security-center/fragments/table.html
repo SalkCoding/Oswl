@@ -39,11 +39,23 @@
     <div class="flex flex-col">
         <a th:each="comp : ${components}"
            href="javascript:void(0)"
-           th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|}, x-data=|{ reviewed: ${comp.reviewed} }|, data-comp-id=${comp.id}, data-comp-name=|${comp.name} ${comp.version}|"
+           th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|},
+                    x-data=|{ reviewed: ${comp.reviewed} }|,
+                    data-comp-id=${comp.id},
+                    data-comp-name=|${comp.name} ${comp.version}|,
+                    data-reviewed=${comp.reviewed},
+                    data-ignored=${comp.ignored},
+                    data-sec-critical=${comp.securityCritical},
+                    data-sec-high=${comp.securityHigh},
+                    data-sec-medium=${comp.securityMedium},
+                    data-sec-low=${comp.securityLow},
+                    data-patchability=${comp.patchability},
+                    data-license-status=${comp.licenseStatus}"
            hx-select="#component-detail-content"
            hx-target="#slideout-content"
-           x-show="!searchQuery || $el.dataset.compName.toLowerCase().includes(searchQuery.toLowerCase())"
-           @bulk-review.window="if($event.detail.ids.includes($el.dataset.compId)) reviewed = $event.detail.value"
+           x-show="rowVisible($el)"
+           @bulk-review.window="if($event.detail.ids.includes($el.dataset.compId)) { reviewed = $event.detail.value; $el.dataset.reviewed = String($event.detail.value); }"
+           @bulk-ignore.window="if($event.detail.ids.includes($el.dataset.compId)) { $el.dataset.ignored = String($event.detail.value); }"
            @click="$dispatch('open-component-panel')"
            :class="{
                'bg-[#e5faf5]': selectedComponents.some(v => String(v) === $el.dataset.compId),
@@ -69,9 +81,9 @@
             </div>
 
             <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px] cursor-pointer"
-                 @click.stop="reviewed = !reviewed">
-                <img x-show="reviewed" th:src="@{/icon/icon-check-circle-filled.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
-                <img x-show="!reviewed" th:src="@{/icon/icon-check-circle.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                 @click.stop="reviewed = !reviewed; $el.closest('[data-comp-id]').dataset.reviewed = String(reviewed); filterVersion++; fetch('/projects/' + document.body.dataset.projectId + '/security-center/bulk-status', {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[Number($el.closest('[data-comp-id]').dataset.compId)],reviewed:reviewed})})">
+                <img x-show="reviewed" th:src="@{/icon/icon-check-circle-filled.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
+                <img x-show="!reviewed" th:src="@{/icon/icon-check-circle.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
             </div>
 
             <div class="flex flex-1 flex-col h-[48px] justify-center px-[12px] min-w-[300px]">
