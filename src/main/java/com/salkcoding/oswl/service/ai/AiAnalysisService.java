@@ -9,13 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * AI 분석의 진입점.
- * AiSettingRepository에서 현재 활성 설정을 읽어 적합한 클라이언트로 위임한다.
+ * Entry point for AI analysis.
+ * Reads the currently active setting from AiSettingRepository and delegates to the appropriate client.
  *
- * 제공자 추가 방법:
- *  1. AiProvider enum에 항목 추가
- *  2. AiAnalysisClient 구현체 작성
- *  3. 이 클래스의 switch에 분기 추가
+ * To add a new provider:
+ *  1. Add an entry to the AiProvider enum
+ *  2. Implement the AiAnalysisClient interface
+ *  3. Add a branch to the switch statement in this class
  */
 @Slf4j
 @Service
@@ -26,7 +26,7 @@ public class AiAnalysisService {
     private final OpenAiClient openAiClient;
     private final AnthropicClient anthropicClient;
 
-    // ── 공개 API ─────────────────────────────────────────────────────────
+    // ── Public API ───────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public String summarizeCve(String cveId, String severity, double cvssScore,
@@ -78,17 +78,17 @@ public class AiAnalysisService {
         };
     }
 
-    /** AI가 설정되어 있는지 확인 (UI에서 안내 문구 표시용) */
+    /** Check whether an AI provider is configured (for displaying guidance in the UI) */
     @Transactional(readOnly = true)
     public boolean isAiConfigured() {
         return aiSettingRepository.findByActiveTrue().isPresent();
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────
 
     private AiSetting getActiveSetting() {
         return aiSettingRepository.findByActiveTrue().orElseGet(() -> {
-            log.debug("[AI] 활성화된 AI 설정이 없습니다. 분석을 건너뜁니다.");
+            log.debug("[AI] No active AI setting found. Skipping analysis.");
             return null;
         });
     }

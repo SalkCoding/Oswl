@@ -12,8 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * CLI 클라이언트가 올린 1회 스캔의 결과 묶음.
- * CLI 버전, 스캔 시각, 상태(PENDING→COMPLETED 등)를 추적한다.
+ * A bundle of results from a single CLI scan.
+ * Tracks the CLI version, scan time, and status (PENDING → COMPLETED, etc.).
  */
 @Entity
 @Table(name = "scan_results")
@@ -31,7 +31,7 @@ public class ScanResult {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    /** 스캔 당시의 프로젝트 버전 */
+    /** Project version at the time of the scan */
     @Column(length = 50)
     private String version;
 
@@ -40,12 +40,12 @@ public class ScanResult {
     @Builder.Default
     private ScanStatus status = ScanStatus.PENDING;
 
-    /** CLI가 보낸 원시 JSON 페이로드 (감사 목적) */
+    /** Raw JSON payload sent by the CLI (for audit purposes) */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_payload", columnDefinition = "jsonb")
     private String rawPayload;
 
-    /** AI 분석 실패 등 에러 메시지 */
+    /** Error message for AI analysis failures, etc. */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
@@ -53,7 +53,7 @@ public class ScanResult {
     @Column(name = "scanned_at", updatable = false)
     private LocalDateTime scannedAt;
 
-    /** DataInitializer 등에서 테스트 데이터 주입 시 사용 */
+    /** Used when injecting test data from DataInitializer etc. */
     public void setScannedAt(LocalDateTime scannedAt) {
         this.scannedAt = scannedAt;
     }

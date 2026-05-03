@@ -53,7 +53,7 @@ public class LicenseService {
 
         List<OswlComponent> components = componentRepository.findByScanResultId(scan.getId());
 
-        // 라이선스 이름 기준으로 그룹핑
+        // Group by license name
         Map<String, List<OswlComponent>> byLicense = components.stream()
                 .filter(c -> c.getLicenseName() != null && !c.getLicenseName().isBlank())
                 .collect(Collectors.groupingBy(OswlComponent::getLicenseName));
@@ -72,7 +72,7 @@ public class LicenseService {
         long mediumCount   = licenses.stream().filter(l -> "MEDIUM".equals(l.getRiskLevel())).count();
         long lowCount      = licenses.stream().filter(l -> "LOW".equals(l.getRiskLevel())).count();
 
-        // VIOLATION + WARN 컴포넌트 수 = 의무 사항이 있는 컴포넌트 수
+        // VIOLATION + WARN component count = components with obligations
         long totalObligations = components.stream()
                 .filter(c -> c.getLicenseStatus() != LicenseStatus.OK)
                 .count();

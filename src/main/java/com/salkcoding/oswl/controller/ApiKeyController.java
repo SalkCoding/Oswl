@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 프로젝트 API 키 관리 REST 엔드포인트.
- * UI에서 호출하며, CLI 클라이언트가 사용하는 인증 키와는 별개.
+ * Project API key management REST endpoint.
+ * Called from the UI; separate from the auth keys used by the CLI client.
  */
 @RestController
 @RequestMapping("/api/projects/{projectId}/keys")
@@ -25,7 +25,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
 
     private final ApiKeyService apiKeyService;
 
-    /** 프로젝트의 키 목록 조회 */
+    /** List API keys for the project */
     @GetMapping
     public ResponseEntity<List<ApiKeyResponse>> list(@PathVariable Long projectId) {
         List<ApiKeyResponse> result = apiKeyService.findByProject(projectId).stream()
@@ -34,14 +34,14 @@ public class ApiKeyController implements ApiKeyControllerSpec {
         return ResponseEntity.ok(result);
     }
 
-    /** 새 API 키 발급 */
+    /** Issue a new API key */
     @PostMapping
     public ResponseEntity<ApiKeyIssueResponse> issue(
             @PathVariable Long projectId,
             @Valid @RequestBody ApiKeyIssueRequest request) {
 
         ApiKey key = apiKeyService.issue(projectId, request.getLabel(), request.getExpiresAt());
-        // 발급 직후에만 전체 토큰을 반환 (이후 조회 시에는 마스킹)
+        // Full token is returned only immediately after issuance (masked on subsequent lookups)
         return ResponseEntity.ok(ApiKeyIssueResponse.builder()
                 .id(key.getId())
                 .token(key.getToken())
@@ -51,7 +51,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
                 .build());
     }
 
-    /** 키 폐기 */
+    /** Revoke a key */
     @DeleteMapping("/{keyId}")
     public ResponseEntity<Void> revoke(
             @PathVariable Long projectId,
@@ -60,7 +60,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
         return ResponseEntity.noContent().build();
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────────
 
     private ApiKeyResponse toResponse(ApiKey key) {
         return ApiKeyResponse.builder()
@@ -73,7 +73,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
                 .build();
     }
 
-    /** oswl_ABCDxxxxxxxx...xxxx → oswl_ABCD...xxxx (앞 9자 + 뒤 4자만 노출) */
+    /** oswl_ABCDxxxxxxxx...xxxx → oswl_ABCD...xxxx (first 9 chars + last 4 chars only) */
     private String maskToken(String token) {
         if (token == null || token.length() < 14) return "***";
         return token.substring(0, 9) + "..." + token.substring(token.length() - 4);

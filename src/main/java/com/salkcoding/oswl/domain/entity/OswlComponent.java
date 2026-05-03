@@ -9,8 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 스캔에서 발견된 오픈소스 컴포넌트(라이브러리).
- * 동일 컴포넌트가 여러 스캔에 걸쳐 나타날 수 있다.
+ * Open-source component (library) discovered in a scan.
+ * The same component may appear across multiple scans.
  */
 @Entity
 @Table(name = "components",
@@ -38,7 +38,7 @@ public class OswlComponent {
     @Column(length = 100)
     private String version;
 
-    /** "Direct (6) + Transitive (1) · Projects (7)" 형태 표시용 */
+    /** Display format: "Direct (6) + Transitive (1) · Projects (7)" */
     @Column(name = "dependency_info", length = 300)
     private String dependencyInfo;
 
@@ -59,7 +59,7 @@ public class OswlComponent {
     @Column(name = "license_name", length = 200)
     private String licenseName;
 
-    /** AI가 생성한 라이선스 위험 요약 (nullable) */
+    /** AI-generated license risk summary (nullable) */
     @Column(name = "ai_license_summary", columnDefinition = "TEXT")
     private String aiLicenseSummary;
 
@@ -75,7 +75,7 @@ public class OswlComponent {
         this.aiLicenseSummary = summary;
     }
 
-    /** 보안 이슈 집계 편의 메서드 */
+    /** Convenience method for aggregating security issues by severity */
     public long countBySeverity(String severity) {
         return cves.stream()
                 .filter(c -> c.getSeverity().name().equalsIgnoreCase(severity))

@@ -13,17 +13,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * AI 제공자 설정 REST 엔드포인트.
- * 운영자가 UI에서 GPT / Claude / 로컬 LLM 중 하나를 활성화한다.
+ * AI provider settings REST endpoint.
+ * Operators activate one of GPT / Claude / local LLM from the UI.
  *
  * PUT /api/settings/ai
  *   Body: { "provider": "OPENAI", "apiKey": "sk-...", "modelName": "gpt-4o", "baseUrl": null }
  *
  * PUT /api/settings/ai/activate/{provider}
- *   제공자 전환 (기존 활성 설정 비활성화 → 새 설정 활성화)
+ *   Switch provider (deactivates existing active setting → activates new setting)
  *
  * GET /api/settings/ai
- *   현재 AI 설정 조회 (apiKey는 마스킹)
+ *   Retrieve current AI settings (apiKey is masked)
  */
 @RestController
 @RequestMapping("/api/settings/ai")
@@ -66,13 +66,13 @@ public class AiSettingController implements AiSettingControllerSpec {
 
         AiSetting setting = aiSettingRepository.findByProvider(provider)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        provider + " 설정이 없습니다. 먼저 PUT /api/settings/ai 로 설정하세요."));
+                        provider + " settings not found. Configure it first via PUT /api/settings/ai."));
         setting.activate();
 
         return ResponseEntity.ok(toResponse(setting));
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────────────
 
     private AiSettingResponse toResponse(AiSetting s) {
         return AiSettingResponse.builder()

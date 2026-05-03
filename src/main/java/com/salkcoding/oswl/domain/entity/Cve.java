@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * 컴포넌트에 연결된 CVE(보안 취약점).
+ * CVE (security vulnerability) linked to a component.
  */
 @Entity
 @Table(name = "cves",
@@ -24,7 +24,7 @@ public class Cve {
     @JoinColumn(name = "component_id", nullable = false)
     private OswlComponent component;
 
-    /** "CVE-2024-11053" 형식 */
+    /** "CVE-2024-11053" format */
     @Column(name = "cve_id", nullable = false, length = 30)
     private String cveId;
 
@@ -35,7 +35,7 @@ public class Cve {
     @Column(name = "cvss_score")
     private Double cvssScore;
 
-    /** RCE / Injection / XSS 등 */
+    /** RCE / Injection / XSS etc. */
     @Column(length = 100)
     private String type;
 
@@ -49,7 +49,7 @@ public class Cve {
     @Column(name = "fix_version", length = 100)
     private String fixVersion;
 
-    /** AI가 생성한 한줄 위험 요약 (nullable) */
+    /** AI-generated one-line risk summary (nullable) */
     @Column(name = "ai_summary", columnDefinition = "TEXT")
     private String aiSummary;
 

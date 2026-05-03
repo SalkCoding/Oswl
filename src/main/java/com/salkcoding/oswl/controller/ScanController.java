@@ -15,15 +15,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * CLI 클라이언트 전용 REST 엔드포인트.
- * 모든 요청은 ApiKeyAuthInterceptor가 먼저 인증한다.
+ * REST endpoint dedicated to CLI clients.
+ * All requests are authenticated first by ApiKeyAuthInterceptor.
  *
  * POST /api/scan
  *   Headers: Authorization: Bearer oswl_xxxx
  *   Body: ScanPayload (JSON)
  *
  * GET /api/scan/ping
- *   API 키 유효성 확인 (CLI auth 명령에서 사용)
+ *   API key validity check (used by the CLI auth command)
  */
 @RestController
 @RequestMapping("/api/scan")
@@ -34,7 +34,7 @@ public class ScanController implements ScanControllerSpec {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    /** CLI auth 명령이 연결 테스트에 사용하는 핑 엔드포인트 */
+    /** Ping endpoint used by the CLI auth command for a connection test */
     @GetMapping("/ping")
     public ResponseEntity<PingResponse> ping(HttpServletRequest request) {
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
@@ -51,7 +51,7 @@ public class ScanController implements ScanControllerSpec {
 
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
 
-        // 원시 JSON 보존 (감사 목적) — DTO를 재직렬화
+        // Preserve raw JSON (for audit purposes) — re-serialize from DTO
         payload.setRawJson(MAPPER.writeValueAsString(payload));
 
         ScanResult result = scanIngestService.ingest(projectId, payload);

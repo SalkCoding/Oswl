@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Anthropic Messages API 구현체 (claude-3-5-sonnet 등).
- * AiAnalysisService가 제공자 타입을 확인한 뒤 이 클래스로 위임한다.
+ * Anthropic Messages API implementation (claude-3-5-sonnet, etc.).
+ * AiAnalysisService delegates to this class after checking the provider type.
  */
 @Slf4j
 @Component
@@ -60,7 +60,7 @@ public class AnthropicClient implements AiAnalysisClient {
         return call(prompt, setting);
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────────────
 
     private String call(String userPrompt, AiSetting setting) {
         String apiKey = setting != null ? setting.getApiKey() : null;
@@ -68,7 +68,7 @@ public class AnthropicClient implements AiAnalysisClient {
                         ? setting.getModelName() : "claude-3-5-sonnet-20241022";
 
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("[AI] Anthropic API 키가 설정되지 않아 건너뜁니다.");
+            log.warn("[AI] Anthropic API key is not configured. Skipping.");
             return null;
         }
 
@@ -95,7 +95,7 @@ public class AnthropicClient implements AiAnalysisClient {
                 }
             }
         } catch (Exception e) {
-            log.error("[AI] Anthropic 호출 실패: {}", e.getMessage());
+            log.error("[AI] Anthropic call failed: {}", e.getMessage());
         }
         return null;
     }

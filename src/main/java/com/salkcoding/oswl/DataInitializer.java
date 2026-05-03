@@ -19,8 +19,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * local 프로파일 기동 시 샘플 프로젝트와 스캔 데이터를 자동으로 생성한다.
- * production 환경에서는 실행되지 않는다.
+ * Automatically creates sample projects and scan data when the local profile is active.
+ * Does not run in the production environment.
  */
 @Slf4j
 @Component
@@ -38,13 +38,13 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String @NonNull ... args) {
         if (projectRepository.count() > 0) {
-            log.info("[Init] 이미 데이터가 존재합니다. 초기화를 건너뜁니다.");
+            log.info("[Init] Data already exists. Skipping initialization.");
             return;
         }
 
-        log.info("[Init] 샘플 데이터를 생성합니다...");
+        log.info("[Init] Creating sample data...");
 
-        // ── 프로젝트 1 ──────────────────────────────────────────────────────
+        // ── Project 1 ──────────────────────────────────────────────────────
         Project p1 = projectRepository.save(
                 Project.builder().name("Project 1").build());
 
@@ -83,7 +83,7 @@ public class DataInitializer implements CommandLineRunner {
                 .reviewed(false).patchability(Patchability.NON_PATCHABLE)
                 .licenseStatus(LicenseStatus.OK).licenseName("Apache-2.0").build());
 
-        // API 키 발급
+        // Issue API key
         apiKeyRepository.save(ApiKey.builder()
                 .project(p1)
                 .token("oswl_SAMPLE_KEY_PROJECT_1_DO_NOT_USE_IN_PROD")
@@ -92,14 +92,14 @@ public class DataInitializer implements CommandLineRunner {
 
         p1.updateLastScanned("1.2.5", LocalDateTime.of(2026, 4, 4, 10, 0));
 
-        // ── 프로젝트 2~6 (리스크 데이터만) ────────────────────────────────────
+        // ── Projects 2–6 (risk data only) ────────────────────────────────────
         createSimpleProject("Project 2", "0.9.0", 2, 8,  15, 90, 1, 4, 6, 9,  LocalDateTime.of(2026, 4, 3, 9, 0));
         createSimpleProject("Project 3", "2.0.0", 0, 1,  5,  30, 0, 2, 3, 8,  LocalDateTime.of(2026, 4, 2, 8, 0));
         createSimpleProject("Project 4", "3.1.2", 8, 15, 25, 140, 4, 8, 10, 15, LocalDateTime.of(2026, 4, 1, 7, 0));
         createSimpleProject("Project 5", "1.0.0", 1, 3,  8,  40, 0, 1, 4, 7,  LocalDateTime.of(2026, 3, 31, 6, 0));
         createSimpleProject("Project 6", "4.2.0", 3, 7,  12, 80, 2, 5, 6, 10, LocalDateTime.of(2026, 3, 30, 5, 0));
 
-        log.info("[Init] 샘플 데이터 생성 완료.");
+        log.info("[Init] Sample data created.");
     }
 
     private void createSimpleProject(String name, String version,
@@ -112,7 +112,7 @@ public class DataInitializer implements CommandLineRunner {
         scan.setScannedAt(scannedAt);
         scanResultRepository.save(scan);
 
-        // 보안 CVE를 가진 더미 컴포넌트 생성
+        // Create dummy components with security CVEs
         addDummyComponents(scan, sCrit, sHigh, sMed, sLow, lCrit, lHigh, lMed, lLow);
         project.updateLastScanned(version, scannedAt);
     }
@@ -145,7 +145,7 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
-        // 라이선스 위험 더미
+        // License risk dummy components
         LicenseStatus[] licStatuses = {LicenseStatus.VIOLATION, LicenseStatus.WARN, LicenseStatus.WARN, LicenseStatus.OK};
         int[] licCounts = {lCrit, lHigh, lMed, lLow};
         for (int lvl = 0; lvl < 4; lvl++) {

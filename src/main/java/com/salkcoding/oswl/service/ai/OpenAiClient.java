@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * OpenAI Chat Completions API 구현체.
- * LOCAL 제공자도 baseUrl만 변경하면 OpenAI 호환 엔드포인트로 동작한다.
+ * OpenAI Chat Completions API implementation.
+ * The LOCAL provider also works with this client by simply changing the baseUrl to an OpenAI-compatible endpoint.
  */
 @Slf4j
 @Component
@@ -27,7 +27,7 @@ public class OpenAiClient implements AiAnalysisClient {
         this.restTemplate = new RestTemplate();
     }
 
-    // ── 패키지 내부에서만 호출 (AiAnalysisService가 위임) ───────────────
+    // ── Called only within the package (delegated by AiAnalysisService) ───────────────
 
     @Override
     public String summarizeCve(String cveId, String severity, double cvssScore,
@@ -62,14 +62,14 @@ public class OpenAiClient implements AiAnalysisClient {
     }
 
     /**
-     * AiSetting에 담긴 apiKey / baseUrl / modelName을 사용해 호출.
-     * AiAnalysisService에서 setting을 주입하여 호출한다.
+     * Calls using the apiKey / baseUrl / modelName stored in AiSetting.
+     * Invoked by AiAnalysisService with the injected setting.
      */
     public String callWithSetting(String prompt, AiSetting setting) {
         return call(prompt, setting);
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────────────────
 
     private String call(String userPrompt, AiSetting setting) {
         String url = resolveUrl(setting);
@@ -77,7 +77,7 @@ public class OpenAiClient implements AiAnalysisClient {
         String apiKey = setting != null ? setting.getApiKey() : null;
 
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("[AI] API 키가 설정되지 않아 AI 분석을 건너뜁니다.");
+            log.warn("[AI] API key is not configured. Skipping AI analysis.");
             return null;
         }
 
@@ -108,14 +108,14 @@ public class OpenAiClient implements AiAnalysisClient {
                 }
             }
         } catch (Exception e) {
-            log.error("[AI] 호출 실패: {}", e.getMessage());
+            log.error("[AI] Call failed: {}", e.getMessage());;
         }
         return null;
     }
 
     private String resolveUrl(AiSetting setting) {
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {
-            // LOCAL: "http://localhost:11434/v1/chat/completions" 등
+            // LOCAL: e.g. "http://localhost:11434/v1/chat/completions"
             String base = setting.getBaseUrl();
             return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         }

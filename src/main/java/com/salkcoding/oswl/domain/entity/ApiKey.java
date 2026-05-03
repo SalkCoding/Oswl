@@ -7,8 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * CLI 클라이언트가 서버로 데이터를 전송할 때 사용하는 API 키.
- * 프로젝트 단위로 발급되며, 키가 일치하지 않으면 스캔 데이터 수신을 거부한다.
+ * API key used by the CLI client to send data to the server.
+ * Issued per project; scan data reception is rejected if the key does not match.
  */
 @Entity
 @Table(name = "api_keys",
@@ -23,7 +23,7 @@ public class ApiKey {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** `oswl_` 접두사 + SecureRandom base64 토큰 */
+    /** `oswl_` prefix + SecureRandom base64 token */
     @Column(nullable = false, unique = true, length = 100)
     private String token;
 
