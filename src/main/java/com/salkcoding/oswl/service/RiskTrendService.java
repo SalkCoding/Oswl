@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,19 @@ public class RiskTrendService {
 
         // Recent completed scans (DESC order → reversed for chart display)
         List<ScanResult> scansDesc = scanResultRepository.findRecentCompleted(projectId, TREND_LIMIT);
+
+        // All completed scans for the topbar version dropdown
+        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<VersionSummaryDto> scanVersions = allScans.stream()
+                .map(s -> VersionSummaryDto.builder()
+                        .scanId(s.getId())
+                        .version(s.getVersion() != null ? s.getVersion() : s.getScannedAt().toLocalDate().toString().replace("-", "."))
+                        .scannedAt(s.getScannedAt() != null ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
+                        .current(false)
+                        .build())
+                .toList();
+        model.addAttribute("scanVersions", scanVersions);
+        model.addAttribute("currentScanId", (Object) null);
 
         if (scansDesc.isEmpty()) {
             model.addAttribute("projectVersion", "-");

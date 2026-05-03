@@ -47,9 +47,12 @@ public class ProjectSummaryDto {
     @Schema(description = "Number of license OKs (Low)", example = "18")
     private final int licenseLow;
 
-    @Schema(description = "GitHub source in owner/repo#branch format — null if not imported from GitHub", example = "acme/api-service#main")
+    @Schema(description = "GitHub source in owner/repo format — null if not imported from GitHub", example = "acme/api-service")
     private final String githubRepo;
 
     @Schema(description = "Formatted GitHub import timestamp — null if not imported from GitHub", example = "2026.05.03 14:05")
     private final String importedAt;
+
+    @Schema(description = "Stable project UUID used as the CLI API key identifier", example = "550e8400-e29b-41d4-a716-446655440000")
+    private final String projectUuid;
 }

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "License", description = "License compliance page — groups detected licenses by risk level and lists obligations derived from the latest scan.")
 public interface LicenseControllerSpec {
@@ -33,6 +34,8 @@ public interface LicenseControllerSpec {
     String index(
         @Parameter(description = "Project ID", example = "1", required = true)
         @PathVariable Long projectId,
+        @Parameter(description = "Specific scan ID to display; omit for latest", required = false)
+        @RequestParam(required = false) Long scanId,
         Model model
     );
 }
