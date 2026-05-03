@@ -46,4 +46,10 @@ public class ProjectSummaryDto {
 
     @Schema(description = "Number of license OKs (Low)", example = "18")
     private final int licenseLow;
+
+    @Schema(description = "GitHub source in owner/repo#branch format — null if not imported from GitHub", example = "acme/api-service#main")
+    private final String githubRepo;
+
+    @Schema(description = "Formatted GitHub import timestamp — null if not imported from GitHub", example = "2026.05.03 14:05")
+    private final String importedAt;
 }

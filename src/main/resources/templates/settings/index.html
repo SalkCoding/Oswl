@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Settings')}"></head>
+<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]"
+      x-data="{
+          clientId: '',
+          clientSecret: '',
+          redirectUri: '',
+          saving: false,
+          saveError: '',
+          savedOk: false,
+          init() {
+              fetch('/api/settings/github')
+                  .then(r => r.json())
+                  .then(d => {
+                      this.clientId   = d.clientId   || '';
+                      this.redirectUri = d.redirectUri || '';
+                      // secret is never returned; show placeholder if set
+                  });
+          }
+      }"
+      x-init="init()">
+
+    <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
+
+    <main class="w-full flex flex-col gap-[40px] mt-[40px] pb-[80px] px-[60px]">
+
+        <!-- Page title -->
+        <div class="flex flex-col gap-[6px]">
+            <h2 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3] m-0">Integrations</h2>
+            <p class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] m-0">
+                Configure third-party integrations used by OsWL.
+            </p>
+        </div>
+
+        <!-- GitHub OAuth App card -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-[640px] w-full overflow-hidden">
+
+            <!-- Card header -->
+            <div class="flex gap-[14px] items-center px-[28px] py-[22px] border-b border-[var(--grayscale-15)]">
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] w-[36px] h-[36px] flex items-center justify-center shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-[#24292F]">
+                        <path fill-rule="evenodd" d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.45-1.15-1.11-1.46-1.11-1.46-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0">GitHub OAuth App</p>
+                    <p class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                        Required to import repositories from GitHub.
+                    </p>
+                </div>
+                <!-- Status badge -->
+                <span th:if="${githubConfigured}"
+                      class="bg-[var(--primary-20)] text-[var(--primary-120)] text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
+                    Connected
+                </span>
+                <span th:unless="${githubConfigured}"
+                      class="bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
+                    Not configured
+                </span>
+            </div>
+
+            <!-- How-to steps -->
+            <div class="bg-[var(--grayscale-5)] border-b border-[var(--grayscale-15)] px-[28px] py-[18px] flex flex-col gap-[10px]">
+                <p class="text-[12px] font-semibold text-[var(--grayscale-80)] tracking-[-0.12px] m-0">How to create a GitHub OAuth App:</p>
+                <ol class="list-decimal list-inside flex flex-col gap-[6px] m-0 pl-[4px]">
+                    <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                        Go to <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer"
+                                 class="text-[var(--primary-120)] underline">github.com/settings/developers</a>
+                        → <strong>New OAuth App</strong>
+                    </li>
+                    <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                        Set <strong>Authorization callback URL</strong> to the Redirect URI below.
+                    </li>
+                    <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                        Copy the <strong>Client ID</strong> and generate a <strong>Client Secret</strong>, then paste them below.
+                    </li>
+                </ol>
+            </div>
+
+            <!-- Form -->
+            <div class="flex flex-col gap-[16px] px-[28px] py-[24px]">
+
+                <!-- Redirect URI (shown first so they can copy it before visiting GitHub) -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
+                        Redirect URI
+                        <span class="text-[var(--grayscale-50)] font-normal">(paste this into your GitHub OAuth App)</span>
+                    </label>
+                    <input type="url" x-model="redirectUri"
+                           placeholder="http://localhost:8080/oauth/github/callback"
+                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                </div>
+
+                <!-- Client ID -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Client ID</label>
+                    <input type="text" x-model="clientId"
+                           placeholder="Iv1.xxxxxxxxxxxxxxxxx"
+                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                </div>
+
+                <!-- Client Secret -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
+                        Client Secret
+                        <span th:if="${githubConfigured}" class="text-[var(--grayscale-50)] font-normal">(already set — leave blank to keep current)</span>
+                    </label>
+                    <input type="password" x-model="clientSecret"
+                           th:placeholder="${githubConfigured} ? '••••••••••••••••••••••••••••••••••••••••' : 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"
+                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-[12px] pt-[4px]">
+                    <button type="button"
+                            :disabled="saving || (!clientId && !clientSecret && !redirectUri)"
+                            @click="
+                                saving = true; saveError = ''; savedOk = false;
+                                fetch('/api/settings/github', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ clientId, clientSecret, redirectUri })
+                                })
+                                .then(r => r.ok ? r.json() : Promise.reject(r))
+                                .then(() => { savedOk = true; clientSecret = ''; setTimeout(() => savedOk = false, 3000); })
+                                .catch(() => saveError = 'Failed to save. Please try again.')
+                                .finally(() => saving = false)"
+                            :class="(saving || (!clientId && !clientSecret && !redirectUri)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
+                            class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none">
+                        <span x-text="saving ? 'Saving…' : 'Save'">Save</span>
+                    </button>
+
+                    <span x-show="savedOk" x-cloak
+                          class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        Saved
+                    </span>
+                    <span x-show="saveError" x-cloak x-text="saveError"
+                          class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+</body>
+</html>
