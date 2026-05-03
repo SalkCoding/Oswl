@@ -45,7 +45,7 @@ dependencies {
 }
 
 // QueryDSL Q-class 생성 디렉터리
-def generated = 'src/main/generated'
+def generated = layout.buildDirectory.dir('generated/querydsl').get().asFile
 
 sourceSets {
 	main {
@@ -56,11 +56,7 @@ sourceSets {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	options.getGeneratedSourceOutputDirectory().set(file(generated))
-}
-
-clean {
-	delete file(generated)
+	options.getGeneratedSourceOutputDirectory().set(generated)
 }
 
 tasks.named('test') {

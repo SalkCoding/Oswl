@@ -70,13 +70,8 @@
 
             <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px] cursor-pointer"
                  @click.stop="reviewed = !reviewed">
-                <svg x-show="reviewed" class="w-[20px] h-[20px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-                <svg x-show="!reviewed" class="w-[20px] h-[20px] text-[var(--grayscale-30)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" />
-                </svg>
+                <img x-show="reviewed" th:src="@{/icon/icon-check-circle-filled.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                <img x-show="!reviewed" th:src="@{/icon/icon-check-circle.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
             </div>
 
             <div class="flex flex-1 flex-col h-[48px] justify-center px-[12px] min-w-[300px]">

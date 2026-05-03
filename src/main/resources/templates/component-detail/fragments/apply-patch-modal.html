@@ -19,9 +19,7 @@
 
         <!-- Title -->
         <div class="bg-[var(--grayscale-5)] border-b border-[var(--grayscale-20)] flex items-start gap-[10px] px-[36px] pt-[28px] pb-[24px] rounded-tl-[10px] rounded-tr-[10px]">
-            <svg class="w-[26px] h-[26px] text-[var(--primary-120)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
-            </svg>
+            <img th:src="@{/icon/icon-wrench.svg}" class="w-[26px] h-[26px] shrink-0" alt="" aria-hidden="true">
 
             <div class="flex flex-col gap-[10px] items-start flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-[10px]">
@@ -35,9 +33,7 @@
 
             <button type="button" @click="modal = null"
                     class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center justify-center w-[28px] h-[28px] rounded-[7px] hover:bg-[var(--grayscale-10)]">
-                <svg class="w-[18px] h-[18px] text-[var(--grayscale-60)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
+                <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
             </button>
         </div>
 
@@ -131,9 +127,7 @@
         <div class="flex gap-[16px] items-center px-[36px] pt-[8px] pb-[28px]">
             <button type="button"
                     class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
-                <svg class="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
-                </svg>
+                <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
                 Create Pull Request
             </button>
             <button type="button" @click="modal = null"
