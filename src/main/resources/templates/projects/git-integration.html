@@ -40,8 +40,15 @@
                 addAccountConnecting: false,
                 addAccountError:      '',
 
+                /* ── per-account repo cache ── */
+                // { [login]: { repos, itemBranches, allBranches, allBranchDates } }
+                repoCache: {},
+                loadingAccounts: false,   // true while initial parallel load is running
+
                 /* ── reload state ── */
                 reloading: false,
+                repoStatus: '',        // '' | 'loading' | 'done'
+                _repoStatusTimer: null,
                 lastImportedProjectId: null,
 
                 /* ── computed ── */
@@ -117,37 +124,89 @@
                         if (!res.ok) { this.connected = false; return; }
                         const data = await res.json();
                         this.accounts = data.map(a => a.login);
-                        if (this.accounts.length > 0) {
-                            this.selectedAccount = this.accounts[0];
-                            await this.loadRepos();
-                        }
+                        if (this.accounts.length === 0) return;
+
+                        // Select first account immediately (shows cached data or empty)
+                        this.selectedAccount = this.accounts[0];
+
+                        // Load all accounts' repos in parallel (warm the cache)
+                        this.loadingAccounts = true;
+                        this.loadingMessage = 'Loading repositories…';
+                        await Promise.all(this.accounts.map(login => this._fetchAndCacheRepos(login)));
+                        this.loadingAccounts = false;
+
+                        // Populate view from cache
+                        this._applyCache(this.selectedAccount);
                     } catch (e) {
                         console.error('[GitHub] Failed to load accounts', e);
+                        this.loadingAccounts = false;
                     }
                 },
 
-                async loadRepos() {
-                    if (!this.selectedAccount) return;
-                    this.repos = [];
-                    this.loadingMessage = 'Loading repositories…';
+                /* Switch account instantly from cache — no network call */
+                selectAccount(login) {
+                    if (this.selectedAccount === login) return;
+                    this.selectedAccount = login;
+                    this.accountDropdownOpen = false;
+                    this.selectedRepos = [];
+                    this.selectAll = false;
+                    this._applyCache(login);
+                },
+
+                /* Set repoStatus and auto-clear 'done' after 1.5 s */
+                _setRepoStatus(status) {
+                    if (this._repoStatusTimer) clearTimeout(this._repoStatusTimer);
+                    this.repoStatus = status;
+                    if (status === 'done') {
+                        this._repoStatusTimer = setTimeout(() => { this.repoStatus = ''; }, 1500);
+                    }
+                },
+
+                /* Apply cached data for a login to the visible state */
+                _applyCache(login) {
+                    const cached = this.repoCache[login];
+                    if (!cached) { this.repos = []; this.itemBranches = {}; this.allBranches = {}; this.allBranchDates = {}; return; }
+                    this.repos          = cached.repos;
+                    this.itemBranches   = cached.itemBranches;
+                    this.allBranches    = cached.allBranches;
+                    this.allBranchDates = cached.allBranchDates;
+                },
+
+                /* Fetch repos + branches for one account and store in repoCache */
+                async _fetchAndCacheRepos(login, showStatus = false) {
+                    if (showStatus) this._setRepoStatus('loading');
                     try {
-                        const res = await fetch('/api/github/repos?account=' + encodeURIComponent(this.selectedAccount));
+                        const res = await fetch('/api/github/repos?account=' + encodeURIComponent(login));
                         if (!res.ok) return;
                         const data = await res.json();
-                        this.repos = data;
-                        const branches = {};
-                        data.forEach(r => { branches[r.id] = r.defaultBranch || 'main'; });
-                        this.itemBranches = branches;
-                        this.selectedRepos = [];
-                        this.selectAll = false;
-                        this.allBranches = {};
-                        this.allBranchDates = {};
-                        this.loadingMessage = 'Loading branches…';
-                        await this._loadAllBranches(data);
-                        this._loadAllBranchDates(data); // fire-and-forget: populate dates in background
+                        const itemBranches = {};
+                        data.forEach(r => { itemBranches[r.id] = r.defaultBranch || 'main'; });
+                        const allBranches = {};
+                        const allBranchDates = {};
+                        // Store skeleton first so the view can render immediately
+                        this.repoCache[login] = { repos: data, itemBranches, allBranches, allBranchDates };
+                        // Load branches in parallel
+                        await this._loadAllBranches(data, allBranches);
+                        // Update cache with branch data
+                        this.repoCache[login].allBranches = allBranches;
+                        // If this is the currently shown account, refresh view
+                        if (this.selectedAccount === login) {
+                            this.allBranches = allBranches;
+                        }
+                        // Kick off date loading in background
+                        this._loadAllBranchDates(data, itemBranches, allBranchDates, login);
+                        if (showStatus) this._setRepoStatus('done');
                     } catch (e) {
-                        console.error('[GitHub] Failed to load repos', e);
+                        console.error('[GitHub] Failed to fetch repos for', login, e);
+                        if (showStatus) this._setRepoStatus('');
                     }
+                },
+
+                /* Reload only the current account from server, then update cache + view */
+                async loadRepos() {
+                    if (!this.selectedAccount) return;
+                    await this._fetchAndCacheRepos(this.selectedAccount, true);
+                    this._applyCache(this.selectedAccount);
                 },
 
                 toggleSelectAll() {
@@ -208,6 +267,146 @@
                     } catch (e) {
                         console.error('[GitHub] Import failed for', repo.name, e);
                     }
+                },
+
+                /* ── branches (pre-loaded in parallel) — writes into provided target object ── */
+                async _loadAllBranches(repos, target) {
+                    if (!target) target = this.allBranches;
+                    const promises = repos.map(async repo => {
+                        const [owner] = repo.fullName.split('/');
+                        try {
+                            const res = await fetch('/api/github/branches?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name));
+                            if (res.ok) {
+                                const branches = await res.json();
+                                target[repo.id] = branches.length > 0 ? branches : [repo.defaultBranch || 'main'];
+                            } else {
+                                target[repo.id] = [repo.defaultBranch || 'main'];
+                            }
+                        } catch (e) {
+                            target[repo.id] = [repo.defaultBranch || 'main'];
+                        }
+                        // If this repo belongs to the currently shown account, refresh view live
+                        if (this.allBranches === target) this.allBranches = { ...target };
+                    });
+                    await Promise.all(promises);
+                },
+
+                /* ── branch dates (fire-and-forget) — writes into provided target object ── */
+                _loadAllBranchDates(repos, itemBranches, target, login) {
+                    if (!itemBranches) itemBranches = this.itemBranches;
+                    if (!target) target = this.allBranchDates;
+                    repos.forEach(async repo => {
+                        const [owner] = repo.fullName.split('/');
+                        const branch = itemBranches[repo.id] || repo.defaultBranch || 'main';
+                        try {
+                            const res = await fetch('/api/github/branch-updated-at?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name) + '&branch=' + encodeURIComponent(branch));
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (!target[repo.id]) target[repo.id] = {};
+                                target[repo.id][branch] = data.updatedAt;
+                                // Update cache
+                                if (login && this.repoCache[login]) this.repoCache[login].allBranchDates = target;
+                                // If currently shown account, refresh view
+                                if (!login || login === this.selectedAccount) this.allBranchDates = { ...target };
+                            }
+                        } catch (e) { /* silent */ }
+                    });
+                },
+
+                /* ── add account (second PAT) ── */
+                async connectAddAccount() {
+                    if (!this.addAccountPat.trim() || this.addAccountConnecting) return;
+                    this.addAccountConnecting = true;
+                    this.addAccountError = '';
+                    try {
+                        const res = await fetch('/api/github/connect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: this.addAccountPat.trim() })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            this.addAccountError = data.error || 'Connection failed. Check your token.';
+                            return;
+                        }
+                        const newLogin = data.login;
+                        this.addAccountPat = '';
+                        this.addingAccount = false;
+                        // Add to accounts list if not already present
+                        if (!this.accounts.includes(newLogin)) {
+                            this.accounts.push(newLogin);
+                        }
+                        // Fetch repos for the new account in background (with status indicator)
+                        this._fetchAndCacheRepos(newLogin, true);
+                    } catch (e) {
+                        this.addAccountError = 'Network error. Please try again.';
+                    } finally {
+                        this.addAccountConnecting = false;
+                    }
+                },
+
+                /* ── disconnect single account ── */
+                async disconnectAccount(login) {
+                    try {
+                        await fetch('/api/github/accounts/' + encodeURIComponent(login), { method: 'DELETE' });
+                        this.accounts = this.accounts.filter(a => a !== login);
+                        delete this.repoCache[login];
+                        this.accountDropdownOpen = false;
+                        if (this.accounts.length === 0) {
+                            this.connected = false;
+                            this.repos = [];
+                            this.selectedAccount = '';
+                        } else if (this.selectedAccount === login) {
+                            this.selectedAccount = this.accounts[0];
+                            this._applyCache(this.selectedAccount); // instant, from cache
+                        }
+                    } catch (e) {
+                        console.error('[GitHub] Failed to disconnect account', login, e);
+                    }
+                },
+
+                /* ── reload repos ── */
+                async reloadRepos() {
+                    if (this.reloading) return;
+                    this.reloading = true;
+                    try {
+                        await this.loadRepos();
+                    } finally {
+                        this.reloading = false;
+                    }
+                },
+
+                /* ── format ISO date → human-readable ── */
+                formatUpdatedAt(iso) {
+                    if (!iso) return '—';
+                    try {
+                        const d = new Date(iso);
+                        const diffMin = Math.floor((Date.now() - d) / 60000);
+                        const diffH = Math.floor(diffMin / 60);
+                        const diffD = Math.floor(diffH / 24);
+                        if (diffMin < 2)  return 'just now';
+                        if (diffMin < 60) return diffMin + ' minutes ago';
+                        if (diffH < 24)   return diffH + ' hour' + (diffH > 1 ? 's' : '') + ' ago';
+                        if (diffD < 30)   return diffD + ' day' + (diffD > 1 ? 's' : '') + ' ago';
+                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    } catch (e) { return iso; }
+                },
+
+                /* ── handle branch selection: update choice + fetch date ── */
+                onBranchSelect(detail) {
+                    const { id, branch, fullName } = detail;
+                    this.itemBranches[id] = branch;
+                    const [owner, repo] = fullName.split('/');
+                    (async () => {
+                        try {
+                            const res = await fetch('/api/github/branch-updated-at?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo) + '&branch=' + encodeURIComponent(branch));
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (!this.allBranchDates[id]) this.allBranchDates[id] = {};
+                                this.allBranchDates[id][branch] = data.updatedAt;
+                            }
+                        } catch (e) { /* silent */ }
+                    })();
                 }
             };
         };
@@ -288,7 +487,7 @@
                                     <div class="flex items-center group transition-colors"
                                          :class="selectedAccount === account ? 'bg-[var(--primary-20)]' : 'hover:bg-[var(--primary-20)]'">
                                         <button
-                                            @click="selectedAccount = account; accountDropdownOpen = false; loadRepos()"
+                                            @click="selectAccount(account)"
                                             class="flex-1 text-left px-[12px] py-[10px] text-[13px] font-medium transition-colors"
                                             :class="selectedAccount === account ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)] group-hover:text-[var(--primary-120)]'">
                                             <span x-text="account"></span>
@@ -325,19 +524,46 @@
                         </div>
                     </div>
 
-                    <!-- Reload button -->
-                    <button
-                        type="button"
-                        @click="reloadRepos()"
-                        title="Reload repos"
-                        :class="reloading ? 'cursor-wait' : 'cursor-pointer'"
-                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[7px] rounded-[6px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-90)] transition-colors focus:outline-none shrink-0">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                             :class="reloading ? 'animate-spin' : ''">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-                        </svg>
-                    </button>
+                    <!-- Reload button + status indicator -->
+                    <div class="flex items-center gap-[8px]">
+                        <button
+                            type="button"
+                            @click="reloadRepos()"
+                            title="Reload repos"
+                            :disabled="reloading || repoStatus === 'loading'"
+                            :class="(reloading || repoStatus === 'loading') ? 'cursor-wait opacity-60' : 'cursor-pointer'"
+                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[7px] rounded-[6px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-90)] transition-colors focus:outline-none shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                 :class="(reloading || repoStatus === 'loading') ? 'animate-spin' : ''">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Loading indicator -->
+                        <div x-show="repoStatus === 'loading'"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-x-[-4px]"
+                             x-transition:enter-end="opacity-100 translate-x-0"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-end="opacity-0"
+                             class="flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
+                            <svg class="animate-spin w-[12px] h-[12px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                            <span>Loading&hellip;</span>
+                        </div>
+
+                        <!-- Done indicator -->
+                        <div x-show="repoStatus === 'done'"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-x-[-4px]"
+                             x-transition:enter-end="opacity-100 translate-x-0"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-end="opacity-0"
+                             class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] tracking-[-0.12px]">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span>Updated!</span>
+                        </div>
+                    </div>
                 </div>
             </template>
         </div>
@@ -477,7 +703,7 @@
                 </button>
                 <!-- CLI setup shortcut shown after import -->
                 <a x-show="importFeedback && lastImportedProjectId"
-                   :href="'/projects/' + lastImportedProjectId + '/cli-integration'"
+                   :href="'/projects?openCli=' + lastImportedProjectId"
                    class="shrink-0 flex items-center gap-[6px] text-[13px] font-medium text-[var(--primary-120)] hover:underline whitespace-nowrap">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
                     Set up CLI

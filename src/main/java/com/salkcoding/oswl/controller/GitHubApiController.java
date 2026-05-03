@@ -11,16 +11,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * REST endpoints used by the Git Integration panel (git-integration.html).
  *
- * Authentication is via a GitHub Personal Access Token (PAT) stored in HttpSession.
- * POST /api/github/connect   — validate PAT and store it in session
- * POST /api/github/disconnect — remove PAT from session
- * All other endpoints require a valid PAT in session (returns 401 otherwise).
+ * Multiple PATs are supported: each GitHub user login maps to its own token,
+ * stored as Map<String, String> in the HTTP session.
+ *
+ * POST   /api/github/connect              — validate PAT and add to session map
+ * POST   /api/github/disconnect           — remove all tokens from session
+ * DELETE /api/github/accounts/{login}     — remove one account from session
  */
 @Slf4j
 @RestController
@@ -28,12 +29,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GitHubApiController {
 
-    static final String SESSION_GITHUB_TOKEN = "githubAccessToken";
+    static final String SESSION_GITHUB_TOKENS = "githubTokens";
 
     private final GitHubService gitHubService;
     private final ProjectService projectService;
 
-    // ── Connect (store PAT) ──────────────────────────────────────────────────
+    // ── Connect (add PAT to session map) ─────────────────────────────────────
 
     @PostMapping("/connect")
     public ResponseEntity<Map<String, Object>> connect(
@@ -45,7 +46,8 @@ public class GitHubApiController {
         }
         try {
             String login = gitHubService.getUserLogin(token.trim());
-            session.setAttribute(SESSION_GITHUB_TOKEN, token.trim());
+            Map<String, String> tokens = getTokensMap(session);
+            tokens.put(login, token.trim());
             log.info("[GitHub] PAT connected for user '{}'", login);
             return ResponseEntity.ok(Map.of("connected", true, "login", login));
         } catch (GitHubService.GitHubAuthException e) {
@@ -53,38 +55,66 @@ public class GitHubApiController {
         }
     }
 
-    // ── Disconnect (remove PAT from session) ─────────────────────────────────
+    // ── Disconnect all ───────────────────────────────────────────────────────
 
     @PostMapping("/disconnect")
     public ResponseEntity<Map<String, Object>> disconnect(HttpSession session) {
-        session.removeAttribute(SESSION_GITHUB_TOKEN);
+        session.removeAttribute(SESSION_GITHUB_TOKENS);
         return ResponseEntity.ok(Map.of("disconnected", true));
+    }
+
+    // ── Disconnect single account ─────────────────────────────────────────────
+
+    @DeleteMapping("/accounts/{login}")
+    public ResponseEntity<Map<String, Object>> disconnectAccount(
+            @PathVariable String login,
+            HttpSession session) {
+        Map<String, String> tokens = getTokensMap(session);
+        tokens.remove(login);
+        if (tokens.isEmpty()) {
+            session.removeAttribute(SESSION_GITHUB_TOKENS);
+        }
+        log.info("[GitHub] Disconnected account '{}'", login);
+        return ResponseEntity.ok(Map.of("removed", login));
     }
 
     // ── Connection status ────────────────────────────────────────────────────
 
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status(HttpSession session) {
-        String token = getToken(session);
-        if (token == null) {
+        Map<String, String> tokens = getTokensMap(session);
+        if (tokens.isEmpty()) {
             return ResponseEntity.ok(Map.of("connected", false));
         }
+        // Validate first token
+        Map.Entry<String, String> first = tokens.entrySet().iterator().next();
         try {
-            String login = gitHubService.getUserLogin(token);
-            return ResponseEntity.ok(Map.of("connected", true, "login", login));
+            gitHubService.getUserLogin(first.getValue());
+            return ResponseEntity.ok(Map.of("connected", true, "login", first.getKey()));
         } catch (GitHubService.GitHubAuthException e) {
-            session.removeAttribute(SESSION_GITHUB_TOKEN);
+            session.removeAttribute(SESSION_GITHUB_TOKENS);
             return ResponseEntity.ok(Map.of("connected", false));
         }
     }
 
-    // ── Accounts (user + orgs) ───────────────────────────────────────────────
+    // ── Accounts (all connected users + their orgs, de-duplicated) ───────────
 
     @GetMapping("/accounts")
     public ResponseEntity<List<GitHubAccountDto>> accounts(HttpSession session) {
-        String token = requireToken(session);
-        if (token == null) return ResponseEntity.status(401).build();
-        return ResponseEntity.ok(gitHubService.getAccounts(token));
+        Map<String, String> tokens = getTokensMap(session);
+        if (tokens.isEmpty()) return ResponseEntity.status(401).build();
+
+        Map<String, GitHubAccountDto> accountMap = new LinkedHashMap<>();
+        for (String token : tokens.values()) {
+            try {
+                for (GitHubAccountDto acc : gitHubService.getAccounts(token)) {
+                    accountMap.putIfAbsent(acc.getLogin(), acc);
+                }
+            } catch (Exception e) {
+                log.warn("[GitHub] Could not load accounts for a token: {}", e.getMessage());
+            }
+        }
+        return ResponseEntity.ok(new ArrayList<>(accountMap.values()));
     }
 
     // ── Repos ────────────────────────────────────────────────────────────────
@@ -93,7 +123,7 @@ public class GitHubApiController {
     public ResponseEntity<List<GitHubRepoDto>> repos(
             @RequestParam String account,
             HttpSession session) {
-        String token = requireToken(session);
+        String token = getTokenForAccount(session, account);
         if (token == null) return ResponseEntity.status(401).build();
         return ResponseEntity.ok(gitHubService.getRepos(token, account));
     }
@@ -105,7 +135,7 @@ public class GitHubApiController {
             @RequestParam String owner,
             @RequestParam String repo,
             HttpSession session) {
-        String token = requireToken(session);
+        String token = getTokenForAccount(session, owner);
         if (token == null) return ResponseEntity.status(401).build();
         return ResponseEntity.ok(gitHubService.getBranches(token, owner, repo));
     }
@@ -116,7 +146,7 @@ public class GitHubApiController {
             @RequestParam String repo,
             @RequestParam String branch,
             HttpSession session) {
-        String token = requireToken(session);
+        String token = getTokenForAccount(session, owner);
         if (token == null) return ResponseEntity.status(401).build();
         String date = gitHubService.getBranchLastCommitDate(token, owner, repo, branch);
         return ResponseEntity.ok(Map.of("updatedAt", date));
@@ -128,12 +158,12 @@ public class GitHubApiController {
     public ResponseEntity<Map<String, Object>> importRepo(
             @RequestBody GitHubImportRequest request,
             HttpSession session) {
-        String token = requireToken(session);
+        String token = getTokenForAccount(session, request.getOwner());
         if (token == null) return ResponseEntity.status(401).build();
 
         var project = projectService.upsertFromGitHub(request.getOwner(), request.getRepo(), request.getBranch());
-        log.info("[GitHub Import] Upserted project '{}' (id={}, uuid={}) from {}/{}@{}",
-                project.getName(), project.getId(), project.getProjectUuid(),
+        log.info("[GitHub Import] Upserted project '{}' (id={}) from {}/{}@{}",
+                project.getName(), project.getId(),
                 request.getOwner(), request.getRepo(), request.getBranch());
 
         return ResponseEntity.ok(Map.of(
@@ -143,17 +173,29 @@ public class GitHubApiController {
         ));
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────────
+    // ── Internal helpers ──────────────────────────────────────────────────────
 
-    private String getToken(HttpSession session) {
-        return (String) session.getAttribute(SESSION_GITHUB_TOKEN);
+    @SuppressWarnings("unchecked")
+    private Map<String, String> getTokensMap(HttpSession session) {
+        Object obj = session.getAttribute(SESSION_GITHUB_TOKENS);
+        if (obj instanceof Map<?, ?> m) {
+            return (Map<String, String>) m;
+        }
+        Map<String, String> tokens = new LinkedHashMap<>();
+        session.setAttribute(SESSION_GITHUB_TOKENS, tokens);
+        return tokens;
     }
 
-    private String requireToken(HttpSession session) {
-        String token = getToken(session);
-        if (token == null) {
-            log.debug("[GitHubApi] No GitHub token in session");
-        }
-        return token;
+    /**
+     * Finds the best token for a given account/owner.
+     * Tries direct match first (account == user login), then falls back to any available token
+     * (for org repos where the owner is an org, not a user).
+     */
+    private String getTokenForAccount(HttpSession session, String account) {
+        Map<String, String> tokens = getTokensMap(session);
+        if (tokens.isEmpty()) return null;
+        String direct = tokens.get(account);
+        if (direct != null) return direct;
+        return tokens.values().iterator().next(); // fallback: any token
     }
 }

@@ -32,7 +32,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     @GetMapping("/cli-integration")
     public String cliIntegration() {
-        return "projects/cli-integration";
+        return "redirect:/projects";
     }
 
     @GetMapping("/git-integration")
