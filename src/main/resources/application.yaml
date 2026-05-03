@@ -14,7 +14,7 @@ server:
 # 초기 기동 시 환경변수로 주입하거나 UI에서 PUT /api/settings/ai 로 설정
 oswl:
   ai:
-    # 기본 활성 제공자: OPENAI | ANTHROPIC | LOCAL
+    # Default active provider: OPENAI | ANTHROPIC | LOCAL
     default-provider: ${OSWL_AI_PROVIDER:LOCAL}
     openai:
       api-key: ${OPENAI_API_KEY:}
@@ -23,6 +23,43 @@ oswl:
       api-key: ${ANTHROPIC_API_KEY:}
       model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
     local:
-      # Ollama 등 OpenAI 호환 로컬 LLM 엔드포인트
+      # Ollama or any OpenAI-compatible local LLM endpoint
       base-url: ${LOCAL_LLM_URL:http://localhost:11434/v1}
       model: ${LOCAL_LLM_MODEL:llama3}
+
+---
+# ── Local profile (H2 in-memory) ─────────────────────────────────────────────
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:h2:mem:oswl;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
+  thymeleaf:
+    cache: false
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace

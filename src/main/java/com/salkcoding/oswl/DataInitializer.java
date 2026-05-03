@@ -95,9 +95,6 @@ public class DataInitializer implements CommandLineRunner {
         // ── Projects 2–6 (risk data only) ────────────────────────────────────
         createSimpleProject("Project 2", "0.9.0", 2, 8,  15, 90, 1, 4, 6, 9,  LocalDateTime.of(2026, 4, 3, 9, 0));
         createSimpleProject("Project 3", "2.0.0", 0, 1,  5,  30, 0, 2, 3, 8,  LocalDateTime.of(2026, 4, 2, 8, 0));
-        createSimpleProject("Project 4", "3.1.2", 8, 15, 25, 140, 4, 8, 10, 15, LocalDateTime.of(2026, 4, 1, 7, 0));
-        createSimpleProject("Project 5", "1.0.0", 1, 3,  8,  40, 0, 1, 4, 7,  LocalDateTime.of(2026, 3, 31, 6, 0));
-        createSimpleProject("Project 6", "4.2.0", 3, 7,  12, 80, 2, 5, 6, 10, LocalDateTime.of(2026, 3, 30, 5, 0));
 
         log.info("[Init] Sample data created.");
     }

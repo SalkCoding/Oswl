@@ -4,6 +4,32 @@
  */
 
 /**
+ * Refresh the project cards grid by fetching the server-rendered page
+ * and swapping only the grid container's inner HTML (no full page reload).
+ */
+async function refreshProjectCards() {
+    const container = document.getElementById('project-cards-container');
+    if (!container) return;
+    try {
+        const res = await fetch('/projects');
+        if (!res.ok) return;
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newContainer = doc.getElementById('project-cards-container');
+        if (newContainer) {
+            container.innerHTML = newContainer.innerHTML;
+            // Re-initialize Alpine on dynamically injected x-data nodes
+            if (window.Alpine) {
+                window.Alpine.initTree(container);
+            }
+        }
+    } catch (e) {
+        console.error('[Projects] Failed to refresh project cards', e);
+    }
+}
+
+/**
  * Delete a project by ID
  */
 let _toastHideTimer = null;

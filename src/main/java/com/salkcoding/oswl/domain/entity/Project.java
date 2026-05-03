@@ -35,6 +35,14 @@ public class Project {
     @Column(name = "last_scanned_at")
     private LocalDateTime lastScannedAt;
 
+    /** GitHub source in "owner/repo#branch" format — null for CLI-imported projects */
+    @Column(name = "github_repo", length = 300)
+    private String githubRepo;
+
+    /** When this project was first imported from GitHub — null for CLI-imported projects */
+    @Column(name = "imported_at")
+    private LocalDateTime importedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -54,5 +62,10 @@ public class Project {
     public void updateLastScanned(String version, LocalDateTime scannedAt) {
         this.version = version;
         this.lastScannedAt = scannedAt;
+    }
+
+    public void markGithubImport(String owner, String repo, String branch) {
+        this.githubRepo = owner + "/" + repo + "#" + branch;
+        this.importedAt = LocalDateTime.now();
     }
 }
