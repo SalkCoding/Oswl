@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
         critical: '#e62727',
         high: '#f47a29',
         medium: '#f5bd26',
-        low: '#c5cfd3'
+        low: '#c5cfd3',
+        unknown: '#272d30'
     };
 
     // 백엔드에서 주입된 실제 데이터, 없으면 빈 배열로 폴백
@@ -23,12 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 critical: [45, 72, 58, 89, 63, 38],
                 high:     [130, 154, 117, 176, 142, 98],
                 medium:   [280, 310, 265, 340, 295, 248],
-                low:      [520, 490, 545, 610, 575, 432]
+                low:      [520, 490, 545, 610, 575, 432],
+                none:     [8, 12, 9, 15, 11, 7]
             },
             license: {
                 critical: [12, 18, 14, 9,  11, 7 ],
                 high:     [34, 41, 38, 29, 33, 21],
-                medium:   [78, 95, 82, 74, 61, 55],
+                unknown:  [5, 8, 6, 4, 7, 3],
                 low:      [210, 198, 225, 190, 172, 163]
             }
         };
@@ -91,11 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const createDatasets = (variant) => {
         const d = variant === 'license' ? trendData.license : trendData.security;
+        const unknownData = variant === 'license' ? (d.unknown || []) : (d.none || []);
+        const unknownLabel = variant === 'license' ? 'Unknown' : 'None';
         return [
-            { label: 'Critical', data: d.critical, fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
-            { label: 'High',     data: d.high,     fill: false, borderColor: palette.high,     backgroundColor: palette.high },
-            { label: 'Medium',   data: d.medium,   fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
-            { label: 'Low',      data: d.low,      fill: false, borderColor: palette.low,      backgroundColor: palette.low }
+            { label: 'Critical',      data: d.critical,   fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
+            { label: 'High',          data: d.high,       fill: false, borderColor: palette.high,     backgroundColor: palette.high },
+            { label: 'Medium',        data: d.medium,     fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
+            { label: 'Low',           data: d.low,        fill: false, borderColor: palette.low,      backgroundColor: palette.low },
+            { label: unknownLabel,    data: unknownData,  fill: false, borderColor: palette.unknown,  backgroundColor: palette.unknown }
         ];
     };
 

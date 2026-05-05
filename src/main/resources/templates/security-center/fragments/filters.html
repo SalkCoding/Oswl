@@ -13,86 +13,98 @@
     </div>
     
     <div class="flex flex-col gap-[17px] p-[20px] w-full overflow-y-auto">
-        <!-- Review Filter -->
+        <!-- Review Filter (Non-Reviewed = unassessed risk → top) -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.reviewed" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Reviewed</span>
-            </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonReviewed" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Non-Reviewed</span>
             </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.reviewed" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Reviewed</span>
+            </label>
         </div>
 
-        <!-- Ignored Filter -->
+        <!-- Ignored Filter (Non-Ignored = active exposure → top) -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.ignored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Ignored</span>
-            </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonIgnored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Non-Ignored</span>
             </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.ignored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Ignored</span>
+            </label>
         </div>
 
-        <!-- Security Severity Filter -->
+        <!-- Security Severity Filter (descending risk) -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full">Security Severity</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secCritical" class="rounded border-gray-300 text-[#e62727] focus:ring-[#e62727]" />
+                <input type="checkbox" x-model="filters.secCritical" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Critical</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secHigh" class="rounded border-gray-300 text-[#f47a29] focus:ring-[#f47a29]" />
+                <input type="checkbox" x-model="filters.secHigh" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">High</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secMedium" class="rounded border-gray-300 text-[#f5bd26] focus:ring-[#f5bd26]" />
+                <input type="checkbox" x-model="filters.secMedium" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Medium</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secLow" class="rounded border-gray-300 text-[#e8eef0] focus:ring-gray-300" />
+                <input type="checkbox" x-model="filters.secLow" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Low</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.secUnknown" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">None / Unscored</span>
             </label>
         </div>
 
-        <!-- License Severity Filter -->
+        <!-- License Status Filter: Critical(VIOLATION) > High(WARN) > Low(OK) > Unknown -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full">License Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licCritical" class="rounded border-gray-300 text-[#e62727] focus:ring-[#e62727]" />
-                <span class="text-[13px] text-black">Violation</span>
+                <input type="checkbox" x-model="filters.licCritical" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Critical</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licHigh" class="rounded border-gray-300 text-[#f47a29] focus:ring-[#f47a29]" />
-                <span class="text-[13px] text-black">Warning</span>
+                <input type="checkbox" x-model="filters.licHigh" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">High</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licMedium" class="rounded border-gray-300 text-[#f5bd26] focus:ring-[#f5bd26]" />
+                <input type="checkbox" x-model="filters.licLow" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Low</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.licMedium" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Unknown</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licLow" class="rounded border-gray-300 text-[#e8eef0] focus:ring-gray-300" />
-                <span class="text-[13px] text-black">OK</span>
-            </label>
         </div>
-        
-        <!-- Patchability Filter -->
+
+        <!-- Patchability / Version Health Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full">Patchability</p>
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.patchable" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Patchable</span>
-            </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonPatchable" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
                 <span class="text-[13px] text-black">Non-Patchable</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.patchUnknown" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Unknown</span>
+                <input type="checkbox" x-model="filters.patchDeprecated" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Deprecated</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.patchOutdated" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Outdated</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.patchable" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Patchable</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.patchUpToDate" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <span class="text-[13px] text-black">Up to date</span>
             </label>
         </div>
     </div>

@@ -134,7 +134,7 @@ public class ProjectService {
                             .version(scan.getVersion())
                             .lastScanned(lastScanned)
                             .securityCritical(sec[0]).securityHigh(sec[1])
-                            .securityMedium(sec[2]).securityLow(sec[3])
+                            .securityMedium(sec[2]).securityLow(sec[3]).securityNone(sec[4])
                             .licenseCritical(lic[0]).licenseHigh(lic[1])
                             .licenseMedium(lic[2]).licenseLow(lic[3])
                             .githubRepo(githubDisplayRepo)
@@ -154,30 +154,33 @@ public class ProjectService {
     }
 
     private int[] aggregateSecurity(com.salkcoding.oswl.domain.entity.ScanResult scan) {
-        int critical = 0, high = 0, medium = 0, low = 0;
+        int critical = 0, high = 0, medium = 0, low = 0, none = 0;
         for (var comp : scan.getComponents()) {
             for (var cve : comp.getLibrary().getCves()) {
+                if (cve.getSeverity() == null) continue;
                 switch (cve.getSeverity()) {
                     case CRITICAL -> critical++;
                     case HIGH     -> high++;
                     case MEDIUM   -> medium++;
                     case LOW      -> low++;
+                    case NONE     -> none++;
                     default       -> {}
                 }
             }
         }
-        return new int[]{critical, high, medium, low};
+        return new int[]{critical, high, medium, low, none};
     }
 
     private int[] aggregateLicense(com.salkcoding.oswl.domain.entity.ScanResult scan) {
-        int critical = 0, high = 0, medium = 0, low = 0;
+        int critical = 0, high = 0, unknown = 0, low = 0;
         for (var comp : scan.getComponents()) {
             switch (comp.getLibrary().getLicenseStatus()) {
                 case VIOLATION -> critical++;
                 case WARN      -> high++;
+                case UNKNOWN   -> unknown++;
                 default        -> low++;
             }
         }
-        return new int[]{critical, high, medium, low};
+        return new int[]{critical, high, unknown, low};
     }
 }

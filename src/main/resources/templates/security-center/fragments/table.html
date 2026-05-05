@@ -49,8 +49,11 @@
                     data-sec-high=${comp.securityHigh},
                     data-sec-medium=${comp.securityMedium},
                     data-sec-low=${comp.securityLow},
+                    data-sec-none=${comp.securityNone},
                     data-patchability=${comp.patchability},
-                    data-license-status=${comp.licenseStatus}"
+                    data-license-status=${comp.licenseStatus},
+                    data-deprecated=${comp.deprecated != null ? 'true' : 'false'},
+                    data-is-latest=${comp.isLatestVersion != null ? comp.isLatestVersion : ''}"
            hx-select="#component-detail-content"
            hx-target="#slideout-content"
            x-show="rowVisible($el)"
@@ -120,17 +123,41 @@
                 <span th:if="${comp.securityLow > 0}"
                       class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-low)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-50)] tracking-[-0.11px]"
                       th:text="${comp.securityLow >= 1000} ? ${#numbers.formatDecimal(comp.securityLow / 1000.0, 1, 1)} + 'k' : ${comp.securityLow}">1.1k</span>
+                <span th:if="${comp.securityNone > 0}"
+                      class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-white tracking-[-0.11px]"
+                      th:text="${comp.securityNone}">3</span>
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[140px] min-w-[140px]">
-                <span th:classappend="${
-                          comp.patchability == 'patchable'     ? 'bg-[var(--semantic-patchable)]' :
-                          comp.patchability == 'non-patchable' ? 'bg-[var(--risk-critical)]' :
-                                                                 'bg-[var(--grayscale-30)]'
-                      }"
-                      class="w-[8px] h-[8px] rounded-full"></span>
-                <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
-                   th:text="${comp.patchability == 'patchable' ? 'Patchable' : (comp.patchability == 'non-patchable' ? 'Non-Patchable' : 'Unknown')}">Patchable</p>
+                <!-- Has CVEs: show patchability -->
+                <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityNone > 0}">
+                    <span th:classappend="${
+                              comp.patchability == 'patchable'     ? 'bg-[var(--semantic-patchable)]' :
+                              comp.patchability == 'non-patchable' ? 'bg-[var(--risk-critical)]' :
+                                                                     'bg-[var(--grayscale-30)]'
+                          }"
+                          class="w-[8px] h-[8px] rounded-full"></span>
+                    <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
+                       th:text="${comp.patchability == 'patchable' ? 'Patchable' : (comp.patchability == 'non-patchable' ? 'Non-Patchable' : 'Unknown')}">Patchable</p>
+                </th:block>
+                <!-- No CVEs: show version currency status -->
+                <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityNone == 0}">
+                    <span th:if="${comp.deprecated != null}"
+                          class="flex items-center gap-[6px]">
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-critical)]"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Deprecated</p>
+                    </span>
+                    <span th:if="${comp.deprecated == null and comp.isLatestVersion == false}"
+                          class="flex items-center gap-[6px]">
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-caution)]"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Outdated</p>
+                    </span>
+                    <span th:if="${comp.deprecated == null and comp.isLatestVersion != false}"
+                          class="flex items-center gap-[6px]">
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)]"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Up to date</p>
+                    </span>
+                </th:block>
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[200px] min-w-[200px]">
@@ -141,7 +168,15 @@
                                                               'bg-[var(--grayscale-30)]'
                       }"
                       class="w-[8px] h-[8px] rounded-full shrink-0"></span>
-                <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] truncate"
+                <!-- Non-standard: show original name with italic label -->
+                <th:block th:if="${comp.licenseStatus == 'UNKNOWN' and comp.licenseName != null}">
+                    <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] truncate"
+                       th:text="${comp.licenseName}"
+                       th:title="'Non-standard license — not in SPDX policy list'">LicenseRef-custom</p>
+                </th:block>
+                <!-- Truly unknown: no license info from deps.dev -->
+                <p th:if="${comp.licenseStatus != 'UNKNOWN' or comp.licenseName == null}"
+                   class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] truncate"
                    th:text="${comp.licenseName ?: '—'}" th:title="${comp.licenseName ?: ''}">MIT</p>
             </div>
         </a>

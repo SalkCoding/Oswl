@@ -35,13 +35,16 @@ public class ProjectSummaryDto {
     @Schema(description = "Number of Low CVEs", example = "55")
     private final int securityLow;
 
+    @Schema(description = "Number of CVEs with no CVSS score (severity = NONE)", example = "2")
+    private final int securityNone;
+
     @Schema(description = "Number of license VIOLATIONs (Critical)", example = "1")
     private final int licenseCritical;
 
     @Schema(description = "Number of license WARNs (High)", example = "3")
     private final int licenseHigh;
 
-    @Schema(description = "Number of license Mediums (currently unused, reserved)", example = "0")
+    @Schema(description = "Number of license Unknowns — packages whose license could not be classified", example = "5")
     private final int licenseMedium;
 
     @Schema(description = "Number of license OKs (Low)", example = "18")
