@@ -29,16 +29,15 @@ public class AiAnalysisService {
     // ── Public API ───────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public String summarizeCve(String cveId, String severity, double cvssScore,
-                               String cveType, String component) {
+    public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
 
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(
-                    buildCvePrompt(cveId, severity, cvssScore, cveType, component), setting);
+                    buildCvePrompt(cveId, severity, cvssScore, component), setting);
             case ANTHROPIC -> anthropicClient.callWithSetting(
-                    buildCvePrompt(cveId, severity, cvssScore, cveType, component), setting);
+                    buildCvePrompt(cveId, severity, cvssScore, component), setting);
         };
     }
 
@@ -93,11 +92,10 @@ public class AiAnalysisService {
         });
     }
 
-    private String buildCvePrompt(String cveId, String severity, double cvssScore,
-                                   String cveType, String component) {
+    private String buildCvePrompt(String cveId, String severity, double cvssScore, String component) {
         return String.format(
-                "In one sentence, explain the risk of %s (severity: %s, CVSS: %.1f, type: %s) " +
+                "In one sentence, explain the risk of %s (severity: %s, CVSS: %.1f) " +
                 "found in %s for a developer who needs to understand the impact quickly.",
-                cveId, severity, cvssScore, cveType, component);
+                cveId, severity, cvssScore, component);
     }
 }

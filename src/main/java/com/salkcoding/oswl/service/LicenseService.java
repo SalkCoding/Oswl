@@ -1,13 +1,12 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.OswlComponent;
+import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
-import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.LicenseRowDto;
 import com.salkcoding.oswl.dto.VersionSummaryDto;
-import com.salkcoding.oswl.repository.ComponentRepository;
+import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +21,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LicenseService {
 
-    private final ProjectRepository projectRepository;
+    private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
-    private final ComponentRepository componentRepository;
+    private final LibraryRepository    libraryRepository;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long scanId, Model model) {
@@ -34,10 +33,8 @@ public class LicenseService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        // Build version history for the dropdown
         List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
 
-        // Resolve which scan to display
         ScanResult scan;
         if (scanId != null) {
             scan = allScans.stream()
@@ -53,8 +50,10 @@ public class LicenseService {
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
                         .scanId(s.getId())
-                        .version(s.getVersion() != null ? s.getVersion() : s.getScannedAt().toLocalDate().toString().replace("-", "."))
-                        .scannedAt(s.getScannedAt() != null ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
+                        .version(s.getVersion() != null ? s.getVersion()
+                                : s.getScannedAt().toLocalDate().toString().replace("-", "."))
+                        .scannedAt(s.getScannedAt() != null
+                                ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
                         .current(s.getId().equals(activeScanId))
                         .build())
                 .toList();
@@ -76,12 +75,12 @@ public class LicenseService {
 
         model.addAttribute("projectVersion", scan.getVersion() != null ? scan.getVersion() : "-");
 
-        List<OswlComponent> components = componentRepository.findByScanResultId(scan.getId());
+        List<Library> libraries = libraryRepository.findByScanResultIdWithCves(scan.getId());
 
         // Group by license name
-        Map<String, List<OswlComponent>> byLicense = components.stream()
-                .filter(c -> c.getLicenseName() != null && !c.getLicenseName().isBlank())
-                .collect(Collectors.groupingBy(OswlComponent::getLicenseName));
+        Map<String, List<Library>> byLicense = libraries.stream()
+                .filter(l -> l.getLicenseName() != null && !l.getLicenseName().isBlank())
+                .collect(Collectors.groupingBy(Library::getLicenseName));
 
         List<LicenseRowDto> licenses = byLicense.entrySet().stream()
                 .map(entry -> LicenseRowDto.builder()
@@ -97,9 +96,8 @@ public class LicenseService {
         long mediumCount   = licenses.stream().filter(l -> "MEDIUM".equals(l.getRiskLevel())).count();
         long lowCount      = licenses.stream().filter(l -> "LOW".equals(l.getRiskLevel())).count();
 
-        // VIOLATION + WARN component count = components with obligations
-        long totalObligations = components.stream()
-                .filter(c -> c.getLicenseStatus() != LicenseStatus.OK)
+        long totalObligations = libraries.stream()
+                .filter(l -> l.getLicenseStatus() != LicenseStatus.OK)
                 .count();
 
         model.addAttribute("totalLicenses", licenses.size());
@@ -111,12 +109,12 @@ public class LicenseService {
         model.addAttribute("licenses", licenses);
     }
 
-    private String computeMaxRisk(List<OswlComponent> comps) {
-        boolean hasViolation = comps.stream()
-                .anyMatch(c -> c.getLicenseStatus() == LicenseStatus.VIOLATION);
+    private String computeMaxRisk(List<Library> libs) {
+        boolean hasViolation = libs.stream()
+                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.VIOLATION);
         if (hasViolation) return "CRITICAL";
-        boolean hasWarn = comps.stream()
-                .anyMatch(c -> c.getLicenseStatus() == LicenseStatus.WARN);
+        boolean hasWarn = libs.stream()
+                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.WARN);
         if (hasWarn) return "HIGH";
         return "LOW";
     }

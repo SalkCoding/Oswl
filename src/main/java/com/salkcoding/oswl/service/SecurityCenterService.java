@@ -1,16 +1,19 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.OswlComponent;
+import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
-import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.dto.ComponentRowDto;
 import com.salkcoding.oswl.dto.VersionSummaryDto;
-import com.salkcoding.oswl.repository.ComponentRepository;
+import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -18,21 +21,16 @@ import org.springframework.ui.Model;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SecurityCenterService {
 
-    private final ProjectRepository projectRepository;
-    private final ScanResultRepository scanResultRepository;
-    private final ComponentRepository componentRepository;
+    private final ProjectRepository       projectRepository;
+    private final ScanResultRepository    scanResultRepository;
+    private final ScanComponentRepository scanComponentRepository;
+    private final LibraryRepository       libraryRepository;
 
-    /**
-     * Populates the model for the Security Center page.
-     *
-     * @param projectId project PK
-     * @param scanId    optional: specific ScanResult to display; null = latest
-     * @param model     Spring MVC model
-     */
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long scanId, Model model) {
         Project project = projectRepository.findById(projectId)
@@ -41,10 +39,8 @@ public class SecurityCenterService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        // Build version history for the dropdown
         List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
-        
-        // Resolve which scan to display
+
         ScanResult scan;
         if (scanId != null) {
             scan = allScans.stream()
@@ -60,8 +56,10 @@ public class SecurityCenterService {
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
                         .scanId(s.getId())
-                        .version(s.getVersion() != null ? s.getVersion() : s.getScannedAt().toLocalDate().toString().replace("-", "."))
-                        .scannedAt(s.getScannedAt() != null ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
+                        .version(s.getVersion() != null ? s.getVersion()
+                                : s.getScannedAt().toLocalDate().toString().replace("-", "."))
+                        .scannedAt(s.getScannedAt() != null
+                                ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
                         .current(s.getId().equals(activeScanId))
                         .build())
                 .toList();
@@ -69,59 +67,67 @@ public class SecurityCenterService {
         model.addAttribute("scanVersions", scanVersions);
         model.addAttribute("currentScanId", activeScanId);
 
+        // Add the latest scan's status and ID for the UI polling banner
+        ScanResult latestAny = scanResultRepository.findLatestByProjectId(projectId).orElse(null);
+        model.addAttribute("latestScanId",     latestAny != null ? latestAny.getId() : null);
+        model.addAttribute("latestScanStatus", latestAny != null ? latestAny.getStatus().name() : "NONE");
+
         if (scan == null) {
-            model.addAttribute("projectVersion", "-");
-            model.addAttribute("securityCritical", 0);
-            model.addAttribute("securityHigh", 0);
-            model.addAttribute("securityMedium", 0);
-            model.addAttribute("securityLow", 0);
-            model.addAttribute("licenseCritical", 0);
-            model.addAttribute("licenseHigh", 0);
-            model.addAttribute("licenseMedium", 0);
-            model.addAttribute("licenseLow", 0);
-            model.addAttribute("components", List.of());
+            addEmptySummary(model);
             return;
         }
 
         model.addAttribute("projectVersion", scan.getVersion() != null ? scan.getVersion() : "-");
 
-        List<OswlComponent> components = componentRepository.findByScanResultIdWithCves(scan.getId());
+        // Eagerly load libraries + CVEs via the join query
+        List<Library> libraries = libraryRepository.findByScanResultIdWithCves(scan.getId());
+        // Map library.id → ScanComponent for reviewed/ignored flags
+        List<ScanComponent> scanComponents = scanComponentRepository.findByScanResultId(scan.getId());
+        java.util.Map<Long, ScanComponent> libToSc = new java.util.HashMap<>();
+        for (ScanComponent sc : scanComponents) {
+            libToSc.put(sc.getLibrary().getId(), sc);
+        }
 
         int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0;
         int licCritical = 0, licHigh = 0, licMedium = 0, licLow = 0;
         List<ComponentRowDto> rows = new ArrayList<>();
 
-        for (OswlComponent comp : components) {
-            int c = (int) comp.countBySeverity("CRITICAL");
-            int h = (int) comp.countBySeverity("HIGH");
-            int m = (int) comp.countBySeverity("MEDIUM");
-            int l = (int) comp.countBySeverity("LOW");
+        for (Library lib : libraries) {
+            int c = (int) lib.countBySeverity("CRITICAL");
+            int h = (int) lib.countBySeverity("HIGH");
+            int m = (int) lib.countBySeverity("MEDIUM");
+            int l = (int) lib.countBySeverity("LOW");
 
             secCritical += c;
             secHigh     += h;
             secMedium   += m;
             secLow      += l;
 
-            switch (comp.getLicenseStatus()) {
+            switch (lib.getLicenseStatus()) {
                 case VIOLATION -> licCritical++;
                 case WARN      -> licHigh++;
                 default        -> licLow++;
             }
 
+            ScanComponent sc = libToSc.get(lib.getId());
+            boolean reviewed = sc != null && sc.isReviewed();
+            boolean ignored  = sc != null && sc.isIgnored();
+            Long componentId = sc != null ? sc.getId() : null;
+
             rows.add(ComponentRowDto.builder()
-                    .id(comp.getId())
-                    .name(comp.getName())
-                    .version(comp.getVersion())
-                    .dependencyInfo(comp.getDependencyInfo())
-                    .reviewed(comp.isReviewed())
-                    .ignored(comp.isIgnored())
+                    .id(componentId)
+                    .name(lib.getName())
+                    .version(lib.getVersion())
+                    .dependencyInfo(sc != null ? sc.getDependencyInfo() : null)
+                    .reviewed(reviewed)
+                    .ignored(ignored)
                     .securityCritical(c)
                     .securityHigh(h)
                     .securityMedium(m)
                     .securityLow(l)
-                    .patchability(patchabilityLabel(comp.getPatchability()))
-                    .licenseStatus(comp.getLicenseStatus().name())
-                    .licenseName(comp.getLicenseName())
+                    .patchability(patchabilityLabel(lib.computePatchability()))
+                    .licenseStatus(lib.getLicenseStatus().name())
+                    .licenseName(lib.getLicenseName())
                     .build());
         }
 
@@ -136,20 +142,43 @@ public class SecurityCenterService {
         model.addAttribute("components", rows);
     }
 
-    private String patchabilityLabel(com.salkcoding.oswl.domain.enums.Patchability p) {
+    @Transactional
+    public void bulkUpdateStatus(Long projectId, BulkStatusRequest req) {
+        List<ScanComponent> comps = scanComponentRepository.findAllById(req.ids())
+                .stream()
+                .filter(sc -> sc.getScanResult().getProject().getId().equals(projectId))
+                .toList();
+        for (ScanComponent sc : comps) {
+            if (req.reviewed() != null) sc.markReviewed(req.reviewed());
+            if (req.ignored()  != null) sc.markIgnored(req.ignored());
+        }
+        log.info("[SecurityCenter] bulkUpdateStatus projectId={} ids={} reviewed={} ignored={}",
+                projectId, req.ids(), req.reviewed(), req.ignored());
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    private void addEmptySummary(Model model) {
+        model.addAttribute("projectVersion", "-");
+        model.addAttribute("latestScanId",     null);
+        model.addAttribute("latestScanStatus", "NONE");
+        model.addAttribute("securityCritical", 0);
+        model.addAttribute("securityHigh", 0);
+        model.addAttribute("securityMedium", 0);
+        model.addAttribute("securityLow", 0);
+        model.addAttribute("licenseCritical", 0);
+        model.addAttribute("licenseHigh", 0);
+        model.addAttribute("licenseMedium", 0);
+        model.addAttribute("licenseLow", 0);
+        model.addAttribute("components", List.of());
+    }
+
+    private String patchabilityLabel(Patchability p) {
         return switch (p) {
             case PATCHABLE     -> "patchable";
             case NON_PATCHABLE -> "non-patchable";
             default            -> "unknown";
         };
     }
-
-    @Transactional
-    public void bulkUpdateStatus(Long projectId, BulkStatusRequest req) {
-        List<OswlComponent> comps = componentRepository.findByIdsAndProjectId(req.ids(), projectId);
-        for (OswlComponent comp : comps) {
-            if (req.reviewed() != null) comp.markReviewed(req.reviewed());
-            if (req.ignored()  != null) comp.markIgnored(req.ignored());
-        }
-    }
 }
+

@@ -15,7 +15,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(apiKeyAuthInterceptor)
-                // Protect only the CLI scan endpoint
-                .addPathPatterns("/api/scan/**");
+                // Protect CLI scan ingest and ping endpoints
+                .addPathPatterns("/api/scan/**")
+                // Exclude the UI polling endpoint — no API key required
+                .excludePathPatterns("/api/scan/*/status");
     }
 }

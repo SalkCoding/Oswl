@@ -81,7 +81,21 @@
             </div>
 
             <div class="flex h-[48px] items-center justify-center w-[80px] min-w-[80px] cursor-pointer"
-                 @click.stop="reviewed = !reviewed; $el.closest('[data-comp-id]').dataset.reviewed = String(reviewed); filterVersion++; fetch('/projects/' + document.body.dataset.projectId + '/security-center/bulk-status', {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[Number($el.closest('[data-comp-id]').dataset.compId)],reviewed:reviewed})})">
+                 @click.stop="
+                   const row = $el.closest('[data-comp-id]');
+                   const prev = reviewed;
+                   reviewed = !reviewed;
+                   row.dataset.reviewed = String(reviewed);
+                   filterVersion++;
+                   fetch('/projects/' + document.body.dataset.projectId + '/security-center/bulk-status', {
+                     method: 'PATCH',
+                     headers: {'Content-Type': 'application/json'},
+                     body: JSON.stringify({ids: [Number(row.dataset.compId)], reviewed: reviewed})
+                   }).catch(() => {
+                     reviewed = prev;
+                     row.dataset.reviewed = String(prev);
+                     filterVersion++;
+                   })">
                 <img x-show="reviewed" th:src="@{/icon/icon-check-circle-filled.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
                 <img x-show="!reviewed" th:src="@{/icon/icon-check-circle.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
             </div>
@@ -109,19 +123,26 @@
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[140px] min-w-[140px]">
-                <span th:classappend="${comp.patchability == 'patchable'} ? 'bg-[var(--semantic-patchable)]'
-                                       : (${comp.patchability == 'non-patchable'} ? 'bg-[var(--risk-critical)]' : 'bg-[var(--grayscale-30)]')"
+                <span th:classappend="${
+                          comp.patchability == 'patchable'     ? 'bg-[var(--semantic-patchable)]' :
+                          comp.patchability == 'non-patchable' ? 'bg-[var(--risk-critical)]' :
+                                                                 'bg-[var(--grayscale-30)]'
+                      }"
                       class="w-[8px] h-[8px] rounded-full"></span>
                 <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
-                   th:text="${comp.patchability == 'patchable'} ? 'Patchable' : (${comp.patchability == 'non-patchable'} ? 'Non-Patchable' : 'Unknown')">Patchable</p>
+                   th:text="${comp.patchability == 'patchable' ? 'Patchable' : (comp.patchability == 'non-patchable' ? 'Non-Patchable' : 'Unknown')}">Patchable</p>
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[200px] min-w-[200px]">
-                <span th:classappend="${comp.licenseStatus == 'OK'} ? 'bg-[var(--primary-80)]'
-                                        : (${comp.licenseStatus == 'WARN'} ? 'bg-[var(--semantic-caution)]' : 'bg-[var(--risk-critical)]')"
+                <span th:classappend="${
+                          comp.licenseStatus == 'OK'        ? 'bg-[var(--primary-80)]' :
+                          comp.licenseStatus == 'WARN'      ? 'bg-[var(--semantic-caution)]' :
+                          comp.licenseStatus == 'VIOLATION' ? 'bg-[var(--risk-critical)]' :
+                                                              'bg-[var(--grayscale-30)]'
+                      }"
                       class="w-[8px] h-[8px] rounded-full shrink-0"></span>
                 <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] truncate"
-                   th:text="${comp.licenseName}" th:title="${comp.licenseName}">MIT</p>
+                   th:text="${comp.licenseName ?: '—'}" th:title="${comp.licenseName ?: ''}">MIT</p>
             </div>
         </a>
     </div>

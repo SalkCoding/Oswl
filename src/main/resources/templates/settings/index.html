@@ -10,7 +10,7 @@
           saveError: '',
           savedOk: false,
           init() {
-              fetch('/api/settings/github')
+              fetch('/api/settings/external/github')
                   .then(r => r.json())
                   .then(d => {
                       this.clientId   = d.clientId   || '';
@@ -115,7 +115,7 @@
                             :disabled="saving || (!clientId && !clientSecret && !redirectUri)"
                             @click="
                                 saving = true; saveError = ''; savedOk = false;
-                                fetch('/api/settings/github', {
+                                fetch('/api/settings/external/github', {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ clientId, clientSecret, redirectUri })
@@ -135,6 +135,202 @@
                         Saved
                     </span>
                     <span x-show="saveError" x-cloak x-text="saveError"
+                          class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── NVD API Integration card ──────────────────────────────────── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-[640px] w-full overflow-hidden"
+             x-data="{
+                 nvdKey: '',
+                 nvdSaving: false,
+                 nvdSavedOk: false,
+                 nvdError: '',
+                 nvdStatus: null,
+                 init() {
+                     fetch('/api/settings/external')
+                         .then(r => r.json())
+                         .then(d => { this.nvdStatus = d.nvdConfigured ? 'connected' : null; });
+                 }
+             }"
+             x-init="init()">
+
+            <div class="flex gap-[14px] items-center px-[28px] py-[22px] border-b border-[var(--grayscale-15)]">
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] w-[36px] h-[36px] flex items-center justify-center shrink-0">
+                    <span class="text-[16px] font-bold text-[var(--grayscale-80)]">N</span>
+                </div>
+                <div class="flex-1">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0">NVD API Integration</p>
+                    <p class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                        Optional. Enriches CVEs with CVSS scores and CWE IDs from the National Vulnerability Database.
+                    </p>
+                </div>
+                <span x-show="nvdStatus === 'connected'"
+                      class="bg-[var(--primary-20)] text-[var(--primary-120)] text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
+                    Connected
+                </span>
+                <span x-show="nvdStatus === 'invalid'"
+                      class="bg-red-50 text-red-600 text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
+                    Invalid Key
+                </span>
+            </div>
+
+            <div class="flex flex-col gap-[16px] px-[28px] py-[24px]">
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
+                        NVD API Key
+                        <span class="text-[var(--grayscale-50)] font-normal">
+                            (get one free at
+                            <a href="https://nvd.nist.gov/developers/request-an-api-key" target="_blank" rel="noopener noreferrer"
+                               class="text-[var(--primary-120)] underline">nvd.nist.gov</a>)
+                        </span>
+                    </label>
+                    <input type="password" x-model="nvdKey"
+                           placeholder="Leave blank to disable NVD enrichment"
+                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                </div>
+
+                <div class="flex items-center gap-[12px] pt-[4px]">
+                    <button type="button"
+                            :disabled="nvdSaving"
+                            @click="
+                                nvdSaving = true; nvdError = ''; nvdSavedOk = false; nvdStatus = null;
+                                fetch('/api/settings/external/nvd', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ nvdApiKey: nvdKey })
+                                })
+                                .then(r => r.ok ? r.json() : Promise.reject(r))
+                                .then(d => {
+                                    nvdSavedOk = true;
+                                    nvdStatus = d.nvdConfigured ? 'connected' : null;
+                                    nvdKey = '';
+                                    setTimeout(() => nvdSavedOk = false, 3000);
+                                })
+                                .catch(() => { nvdError = 'Failed to save. Please try again.'; })
+                                .finally(() => nvdSaving = false)"
+                            :class="nvdSaving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
+                            class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none">
+                        <span x-text="nvdSaving ? 'Saving…' : 'Save'">Save</span>
+                    </button>
+                    <span x-show="nvdSavedOk" x-cloak
+                          class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]">
+                        <img th:src="@{/icon/icon-check.svg}" class="w-[13px] h-[13px]" alt="" aria-hidden="true">
+                        Saved
+                    </span>
+                    <span x-show="nvdError" x-cloak x-text="nvdError"
+                          class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Library Cache Policy card ─────────────────────────────────── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-[640px] w-full overflow-hidden"
+             x-data="{
+                 cacheMode: 'permanent',
+                 ttlValue: 7,
+                 ttlUnit: 'days',
+                 cacheSaving: false,
+                 cacheSavedOk: false,
+                 cacheError: '',
+                 init() {
+                     fetch('/api/settings/external')
+                         .then(r => r.json())
+                         .then(d => {
+                             this.cacheMode = d.permanentCache ? 'permanent' : 'custom';
+                             if (d.cacheTtlDays) {
+                                 if (d.cacheTtlDays % 30 === 0) { this.ttlValue = d.cacheTtlDays / 30; this.ttlUnit = 'months'; }
+                                 else if (d.cacheTtlDays % 7 === 0) { this.ttlValue = d.cacheTtlDays / 7; this.ttlUnit = 'weeks'; }
+                                 else { this.ttlValue = d.cacheTtlDays; this.ttlUnit = 'days'; }
+                             }
+                         });
+                 },
+                 ttlDays() {
+                     if (this.ttlUnit === 'weeks') return this.ttlValue * 7;
+                     if (this.ttlUnit === 'months') return this.ttlValue * 30;
+                     return this.ttlValue;
+                 }
+             }"
+             x-init="init()">
+
+            <div class="flex gap-[14px] items-center px-[28px] py-[22px] border-b border-[var(--grayscale-15)]">
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] w-[36px] h-[36px] flex items-center justify-center shrink-0">
+                    <span class="text-[15px] font-bold text-[var(--grayscale-80)]">⏱</span>
+                </div>
+                <div class="flex-1">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0">Library Cache Policy</p>
+                    <p class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                        Controls how long library vulnerability data is cached before re-fetching from deps.dev and OSV.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-[16px] px-[28px] py-[24px]">
+                <!-- Permanent cache option -->
+                <label class="flex items-start gap-[10px] cursor-pointer">
+                    <input type="radio" name="cacheMode" value="permanent" x-model="cacheMode"
+                           class="mt-[3px] accent-[var(--primary-120)]">
+                    <div>
+                        <p class="text-[13px] font-semibold text-[var(--grayscale-100)] tracking-[-0.13px] m-0">Permanent Cache</p>
+                        <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                            Library data is fetched once and never re-fetched automatically. Recommended for most projects.
+                        </p>
+                    </div>
+                </label>
+
+                <!-- Custom TTL option -->
+                <label class="flex items-start gap-[10px] cursor-pointer">
+                    <input type="radio" name="cacheMode" value="custom" x-model="cacheMode"
+                           class="mt-[3px] accent-[var(--primary-120)]">
+                    <div class="flex flex-col gap-[8px]">
+                        <div>
+                            <p class="text-[13px] font-semibold text-[var(--grayscale-100)] tracking-[-0.13px] m-0">Custom TTL</p>
+                            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                                Re-fetch library data after the specified period.
+                            </p>
+                        </div>
+                        <!-- TTL input — only active when custom is selected -->
+                        <div class="flex items-center gap-[8px]" :class="cacheMode !== 'custom' ? 'opacity-40 pointer-events-none' : ''">
+                            <input type="number" min="1" max="365" x-model.number="ttlValue"
+                                   class="w-[80px] h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                            <select x-model="ttlUnit"
+                                    class="h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[10px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer">
+                                <option value="days">Days</option>
+                                <option value="weeks">Weeks</option>
+                                <option value="months">Months</option>
+                            </select>
+                        </div>
+                    </div>
+                </label>
+
+                <div class="flex items-center gap-[12px] pt-[4px]">
+                    <button type="button"
+                            :disabled="cacheSaving"
+                            @click="
+                                cacheSaving = true; cacheError = ''; cacheSavedOk = false;
+                                const body = cacheMode === 'permanent'
+                                    ? { permanentCache: true, cacheTtlDays: null }
+                                    : { permanentCache: false, cacheTtlDays: ttlDays() };
+                                fetch('/api/settings/external/cache', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(body)
+                                })
+                                .then(r => r.ok ? r.json() : Promise.reject(r))
+                                .then(() => { cacheSavedOk = true; setTimeout(() => cacheSavedOk = false, 3000); })
+                                .catch(() => { cacheError = 'Failed to save. Please try again.'; })
+                                .finally(() => cacheSaving = false)"
+                            :class="cacheSaving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
+                            class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none">
+                        <span x-text="cacheSaving ? 'Saving…' : 'Save'">Save</span>
+                    </button>
+                    <span x-show="cacheSavedOk" x-cloak
+                          class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]">
+                        <img th:src="@{/icon/icon-check.svg}" class="w-[13px] h-[13px]" alt="" aria-hidden="true">
+                        Saved
+                    </span>
+                    <span x-show="cacheError" x-cloak x-text="cacheError"
                           class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
                 </div>
             </div>
