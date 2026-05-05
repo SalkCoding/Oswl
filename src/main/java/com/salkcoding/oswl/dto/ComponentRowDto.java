@@ -41,12 +41,21 @@ public class ComponentRowDto {
     @Schema(description = "Number of Low CVEs", example = "30")
     private final int securityLow;
 
+    @Schema(description = "Number of CVEs with no CVSS score (severity = NONE)", example = "4")
+    private final int securityNone;
+
     @Schema(description = "Patchability status", example = "patchable", allowableValues = {"patchable", "non-patchable", "unknown"})
     private final String patchability;
 
-    @Schema(description = "License status", example = "WARN", allowableValues = {"OK", "WARN", "VIOLATION"})
+    @Schema(description = "License status", example = "WARN", allowableValues = {"OK", "WARN", "VIOLATION", "UNKNOWN"})
     private final String licenseStatus;
 
     @Schema(description = "License name", example = "Apache-2.0")
     private final String licenseName;
+
+    @Schema(description = "True when deps.dev reports this is the latest stable version of the package")
+    private final Boolean isLatestVersion;
+
+    @Schema(description = "Non-null when deps.dev marks this version as deprecated; contains the reason")
+    private final String deprecated;
 }

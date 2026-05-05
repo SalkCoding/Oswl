@@ -1,11 +1,14 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.Cve;
+import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.CveDto;
+import com.salkcoding.oswl.dto.DependencyPathDto;
+import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import org.springframework.ui.Model;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
@@ -25,6 +29,7 @@ public class ComponentDetailService {
 
     private final ProjectRepository       projectRepository;
     private final ScanComponentRepository scanComponentRepository;
+    private final DependencyPathRepository dependencyPathRepository;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long componentId, Model model) {
@@ -49,16 +54,45 @@ public class ComponentDetailService {
         model.addAttribute("componentVersion", lib.getVersion() != null ? lib.getVersion() : "-");
         model.addAttribute("reviewed", sc.isReviewed());
         model.addAttribute("patchability", patchabilityLabel(lib.computePatchability()));
-        model.addAttribute("licenseRiskLabel", licenseRiskLabel(lib.getLicenseStatus()));
+        model.addAttribute("licenseRiskLabel", licenseRiskLabel(lib.getLicenseStatus(),
+                lib.getLicenseName() != null && !lib.getLicenseName().isBlank()
+                && lib.getLicenseStatus() == LicenseStatus.UNKNOWN));
 
-        model.addAttribute("securityCritical", (int) lib.countBySeverity("CRITICAL"));
-        model.addAttribute("securityHigh",     (int) lib.countBySeverity("HIGH"));
-        model.addAttribute("securityMedium",   (int) lib.countBySeverity("MEDIUM"));
-        model.addAttribute("securityLow",      (int) lib.countBySeverity("LOW"));
+        int secCritical = (int) lib.countBySeverity("CRITICAL");
+        int secHigh     = (int) lib.countBySeverity("HIGH");
+        int secMedium   = (int) lib.countBySeverity("MEDIUM");
+        int secLow      = (int) lib.countBySeverity("LOW");
+        int secNone     = (int) lib.countBySeverity("NONE");
+        model.addAttribute("securityCritical", secCritical);
+        model.addAttribute("securityHigh",     secHigh);
+        model.addAttribute("securityMedium",   secMedium);
+        model.addAttribute("securityLow",      secLow);
+        model.addAttribute("securityNone",     secNone);
+        model.addAttribute("hasVulnerabilities", secCritical + secHigh + secMedium + secLow + secNone > 0);
+        model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
+        model.addAttribute("ecosystem", lib.getEcosystem());
+
+        // Full dependency path trees (empty for old scans that pre-date this feature)
+        List<DependencyPathDto> pathDtos = buildPathDtos(
+                dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(sc.getId()),
+                project.getName());
+        model.addAttribute("dependencyPaths", pathDtos);
 
         model.addAttribute("licenseName",
-                lib.getLicenseName() != null ? lib.getLicenseName() : "-");
+                lib.getLicenseName() != null ? lib.getLicenseName() : null);
         model.addAttribute("licenseRisk", lib.getLicenseStatus().name());
+        // For UNKNOWN status: distinguish non-standard (has a name) from truly unknown (no name)
+        boolean licenseIsNonStandard = lib.getLicenseStatus() == LicenseStatus.UNKNOWN
+                && lib.getLicenseName() != null && !lib.getLicenseName().isBlank();
+        model.addAttribute("licenseIsNonStandard", licenseIsNonStandard);
+        model.addAttribute("licenseRiskLabel", licenseRiskLabel(lib.getLicenseStatus(), licenseIsNonStandard));
+
+        // Version status for patchability context
+        Boolean isLatest = lib.getIsLatestVersion();
+        String deprecated = lib.getDeprecated();
+        model.addAttribute("isLatestVersion", isLatest);
+        model.addAttribute("isDeprecated", deprecated != null);
+        model.addAttribute("deprecatedReason", deprecated);
 
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
         model.addAttribute("projectsCount", 0);
@@ -89,12 +123,64 @@ public class ComponentDetailService {
         };
     }
 
-    private String licenseRiskLabel(LicenseStatus status) {
+    private String licenseRiskLabel(LicenseStatus status, boolean isNonStandard) {
         return switch (status) {
-            case VIOLATION -> "A Critical Risk License";
-            case WARN      -> "A High Risk License";
-            default        -> "A Low Risk License";
+            case VIOLATION -> "Critical";
+            case WARN      -> "High";
+            case UNKNOWN   -> isNonStandard ? "Non-standard" : "Unknown";
+            default        -> "Low";
         };
+    }
+
+    // ── Dependency path helpers ───────────────────────────────────────────
+
+    private List<DependencyPathDto> buildPathDtos(List<DependencyPath> paths, String rootProjectName) {
+        return IntStream.range(0, paths.size())
+                .mapToObj(i -> toPathDto(paths.get(i), i, rootProjectName))
+                .toList();
+    }
+
+    private DependencyPathDto toPathDto(DependencyPath path, int idx, String rootProjectName) {
+        List<DependencyPath.PathNode> rawNodes = path.getPathNodes();
+        List<DependencyPathDto.PathNodeDto> nodeDtos = IntStream.range(0, rawNodes.size())
+                .mapToObj(i -> {
+                    DependencyPath.PathNode n = rawNodes.get(i);
+                    boolean isRoot   = (i == 0);
+                    boolean isTarget = (i == rawNodes.size() - 1);
+                    // For the root node, use the project name for nicer display
+                    String displayName = isRoot && (n.getName() == null || n.getName().isBlank())
+                            ? rootProjectName : n.getName();
+                    return DependencyPathDto.PathNodeDto.builder()
+                            .name(displayName)
+                            .shortName(deriveShortName(displayName))
+                            .version(n.getVersion())
+                            .root(isRoot)
+                            .target(isTarget)
+                            .index(i)
+                            .build();
+                })
+                .toList();
+
+        return DependencyPathDto.builder()
+                .pathIndex(idx)
+                .depth(path.getDepth())
+                .direct(path.getDepth() == 2)
+                .nodes(nodeDtos)
+                .build();
+    }
+
+    /**
+     * Returns the portion after the last ':' or '/', or the full string if neither exists.
+     * Examples: "org.springframework:spring-web" → "spring-web",
+     *           "github.com/user/repo" → "repo", "lodash" → "lodash"
+     */
+    private String deriveShortName(String name) {
+        if (name == null || name.isBlank()) return "-";
+        int colon = name.lastIndexOf(':');
+        if (colon >= 0) return name.substring(colon + 1);
+        int slash = name.lastIndexOf('/');
+        if (slash >= 0) return name.substring(slash + 1);
+        return name;
     }
 }
 

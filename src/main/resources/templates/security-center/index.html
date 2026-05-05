@@ -19,13 +19,16 @@
               secHigh: false,
               secMedium: false,
               secLow: false,
+              secUnknown: false,
               licCritical: false,
               licHigh: false,
               licMedium: false,
               licLow: false,
               patchable: false,
               nonPatchable: false,
-              patchUnknown: false
+              patchDeprecated: false,
+              patchOutdated: false,
+              patchUpToDate: false
           },
           filterVersion: 0,
           scanStatus: /*[[${latestScanStatus}]]*/ 'NONE',
@@ -57,16 +60,18 @@
               }
 
               // Security severity filters — if any active, row must match at least one active
-              const anySec = f.secCritical || f.secHigh || f.secMedium || f.secLow;
+              const anySec = f.secCritical || f.secHigh || f.secMedium || f.secLow || f.secUnknown;
               if (anySec) {
                   const secC = parseInt(el.dataset.secCritical) || 0;
                   const secH = parseInt(el.dataset.secHigh)     || 0;
                   const secM = parseInt(el.dataset.secMedium)   || 0;
                   const secL = parseInt(el.dataset.secLow)      || 0;
+                  const secN = parseInt(el.dataset.secNone)     || 0;
                   const match = (f.secCritical && secC > 0) ||
                                 (f.secHigh     && secH > 0) ||
                                 (f.secMedium   && secM > 0) ||
-                                (f.secLow      && secL > 0);
+                                (f.secLow      && secL > 0) ||
+                                (f.secUnknown  && secN > 0);
                   if (!match) return false;
               }
 
@@ -81,13 +86,24 @@
                   if (!match) return false;
               }
 
-              // Patchability filter
-              const anyPatch = f.patchable || f.nonPatchable || f.patchUnknown;
+              // Patchability / version-health filter
+              const anyPatch = f.nonPatchable || f.patchDeprecated || f.patchable || f.patchOutdated || f.patchUpToDate;
               if (anyPatch) {
-                  const p = el.dataset.patchability || '';
-                  const match = (f.patchable    && p === 'patchable')     ||
-                                (f.nonPatchable && p === 'non-patchable') ||
-                                (f.patchUnknown && p === 'unknown');
+                  const p    = el.dataset.patchability || '';
+                  const dep  = el.dataset.deprecated === 'true';
+                  const lat  = el.dataset.isLatest;
+                  const hasVuln = (parseInt(el.dataset.secCritical) || 0) +
+                                  (parseInt(el.dataset.secHigh)     || 0) +
+                                  (parseInt(el.dataset.secMedium)   || 0) +
+                                  (parseInt(el.dataset.secLow)      || 0) +
+                                  (parseInt(el.dataset.secNone)     || 0) > 0;
+                  const isUpToDate  = !hasVuln && !dep && lat !== 'false';
+                  const isOutdated  = !hasVuln && !dep && lat === 'false';
+                  const match = (f.nonPatchable   && hasVuln && p === 'non-patchable') ||
+                                (f.patchDeprecated && dep)                              ||
+                                (f.patchable      && hasVuln && p === 'patchable')     ||
+                                (f.patchOutdated  && isOutdated)                       ||
+                                (f.patchUpToDate  && isUpToDate);
                   if (!match) return false;
               }
 
@@ -194,9 +210,9 @@
         <section class="w-full flex items-center px-[60px] py-[24px] flex-shrink-0 bg-white">
             <div class="flex flex-wrap gap-x-[120px] gap-y-[16px] w-full items-center">
                 <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow})}"></div>
+                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityNone})}"></div>
                 <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, ${licenseMedium}, ${licenseLow})}"></div>
+                     th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, 0, ${licenseLow}, ${licenseMedium})}"></div>
             </div>
         </section>
 

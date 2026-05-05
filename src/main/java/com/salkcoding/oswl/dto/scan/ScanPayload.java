@@ -51,6 +51,38 @@ public class ScanPayload {
 
         @Schema(description = "Dependency path display string", example = "Direct (1) + Transitive (3)")
         private String dependencyInfo;
+
+        /**
+         * Full dependency path trees resolved at scan time.
+         * Each inner list is one complete path from the root project (index 0)
+         * to this library (last index), inclusive.
+         *
+         * Example — a transitive dep reached via two routes:
+         * <pre>
+         * [
+         *   [ {"name":"com.example:app","version":"1.0"}, {"name":"commons-lang3","version":"3.12"} ],
+         *   [ {"name":"com.example:app","version":"1.0"}, {"name":"spring-web","version":"6.0"}, {"name":"commons-lang3","version":"3.12"} ]
+         * ]
+         * </pre>
+         * Omit or send an empty array for backward-compatibility with older server versions.
+         */
+        @Schema(description = "Dependency path trees — each inner list is one path from root to this library")
+        private List<List<DependencyNodeRef>> dependencyPaths;
+    }
+
+    /**
+     * A single package reference in a dependency path (name + version).
+     */
+    @Schema(description = "A single node in a dependency path")
+    @Getter
+    @NoArgsConstructor
+    public static class DependencyNodeRef {
+
+        @Schema(description = "Package name", example = "org.springframework:spring-web")
+        private String name;
+
+        @Schema(description = "Package version", example = "6.0.0")
+        private String version;
     }
 
     /**

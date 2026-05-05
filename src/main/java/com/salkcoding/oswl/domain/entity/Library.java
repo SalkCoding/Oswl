@@ -57,6 +57,20 @@ public class Library {
     @Builder.Default
     private LicenseStatus licenseStatus = LicenseStatus.UNKNOWN;
 
+    /**
+     * True when deps.dev reports this is the default (latest stable) version of the package.
+     * Null means the information has not been fetched yet.
+     */
+    @Column(name = "is_latest_version")
+    private Boolean isLatestVersion;
+
+    /**
+     * Non-null when deps.dev marks this version as deprecated.
+     * Contains the deprecation reason string from deps.dev.
+     */
+    @Column(name = "deprecated", length = 500)
+    private String deprecated;
+
     /** Timestamp of the last successful deps.dev + OSV fetch */
     @Column(name = "fetched_at")
     private LocalDateTime fetchedAt;
@@ -70,6 +84,11 @@ public class Library {
     public void updateLicense(String licenseName, LicenseStatus licenseStatus) {
         this.licenseName = licenseName;
         this.licenseStatus = licenseStatus;
+    }
+
+    public void updateVersionStatus(boolean isLatestVersion, String deprecated) {
+        this.isLatestVersion = isLatestVersion;
+        this.deprecated = (deprecated != null && !deprecated.isBlank()) ? deprecated : null;
     }
 
     public void markFetched() {

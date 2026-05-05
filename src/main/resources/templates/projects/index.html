@@ -137,9 +137,9 @@
                     </div>
 
                     <div class="w-full"
-                         th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow})}"></div>
+                         th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow}, ${project.securityNone})}"></div>
                     <div class="w-full"
-                         th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.licenseCritical}, ${project.licenseHigh}, ${project.licenseMedium}, ${project.licenseLow})}"></div>
+                         th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.licenseCritical}, ${project.licenseHigh}, 0, ${project.licenseLow}, ${project.licenseMedium})}"></div>
                 </div>
 
             </div>

@@ -16,7 +16,7 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
     Optional<Library> findByIdWithCves(@Param("id") Long id);
 
     @Query("""
-            SELECT l FROM Library l LEFT JOIN FETCH l.cves
+            SELECT DISTINCT l FROM Library l LEFT JOIN FETCH l.cves
             WHERE l.id IN (
                 SELECT sc.library.id FROM ScanComponent sc WHERE sc.scanResult.id = :scanResultId
             )

@@ -112,13 +112,17 @@ cmd_scan() {
     local project_dir="${1:-$PWD}"
     local version="${OSWL_VERSION:-unknown}"
 
-    # Auto-detect version (Maven, Gradle, npm, Python)
-    if [[ -f "${project_dir}/pom.xml" ]]; then
+    # Auto-detect version (Maven, Gradle, npm, Cargo, Python)
+    if   [[ -f "${project_dir}/pom.xml" ]]; then
         version=$(grep -m1 '<version>' "${project_dir}/pom.xml" | sed 's/.*<version>\(.*\)<\/version>.*/\1/' || echo "unknown")
     elif [[ -f "${project_dir}/build.gradle" ]]; then
         version=$(grep -m1 "^version" "${project_dir}/build.gradle" | sed "s/version\s*=\s*['\"]//;s/['\"].*//" || echo "unknown")
     elif [[ -f "${project_dir}/package.json" ]]; then
         version=$(jq -r '.version // "unknown"' "${project_dir}/package.json" 2>/dev/null || echo "unknown")
+    elif [[ -f "${project_dir}/Cargo.toml" ]]; then
+        version=$(grep -m1 '^version' "${project_dir}/Cargo.toml" | sed 's/version\s*=\s*"\(.*\)"/\1/' || echo "unknown")
+    elif [[ -f "${project_dir}/pyproject.toml" ]]; then
+        version=$(grep -m1 '^version' "${project_dir}/pyproject.toml" | sed 's/version\s*=\s*"\(.*\)"/\1/' || echo "unknown")
     fi
 
     echo "[OsWL] Scanning dependencies... (version: ${version})"
@@ -158,33 +162,97 @@ cmd_scan() {
 
 # ── Dependency collection helpers ────────────────────────────────────────────
 _collect_gradle() {
-    local dir="$1"
+    local dir="$1" version="${2:-unknown}"
     local gradle="${dir}/gradlew"
-    if [[ -x "${gradle}" ]]; then
-        dbg "Gradle: using wrapper at ${gradle}"
-    else
-        gradle="gradle"
-        dbg "Gradle: wrapper not found, using system gradle"
-    fi
+    [[ -x "${gradle}" ]] && dbg "Gradle: using wrapper at ${gradle}" || { gradle="gradle"; dbg "Gradle: wrapper not found, using system gradle"; }
+    local project_name
+    for f in "${dir}/settings.gradle" "${dir}/settings.gradle.kts"; do
+        if [[ -f "${f}" ]]; then
+            project_name=$(grep -m1 'rootProject\.name' "${f}" 2>/dev/null \
+                | sed "s/.*=\s*['\"]//;s/['\"].*//" | tr -d '[:space:]')
+            [[ -n "${project_name}" ]] && break
+        fi
+    done
+    [[ -z "${project_name}" ]] && project_name=$(basename "${dir}")
     local result
     result=$(
-        (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) \
-        | grep -E '^[[:space:]|]*[+\\]---' \
-        | grep -oP '[+\\]--- \K[^: ]+:[^: ]+:[^ (\r\n]+' \
-        | sed 's/ ->.*//;s/ \*$//' \
-        | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Gradle runtimeClasspath\"}\n",$1,$2,$3}' \
-        | jq -s '.' 2>/dev/null
+        (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) | \
+        awk -v root="${project_name}" -v root_ver="${version}" '
+        function jesc(s,  r) { r=s; gsub(/\\/,"\\\\",r); gsub(/"/,"\\\"",r); return r }
+        function get_depth(line,  pos) {
+            pos=index(line,"+---"); if(!pos) pos=index(line,"\\---"); if(!pos) return -1
+            return int((pos-1)/5)
+        }
+        {
+            d=get_depth($0); if(d<0) next
+            line=$0; sub(/^.*[+\\]--- /,"",line)
+            sub(/[[:space:]]*\(\*\)[[:space:]]*$/,"",line)
+            ver=""
+            if(match(line,/ -> [^ (]+/)){ver=substr(line,RSTART+4,RLENGTH-4);sub(/ ->.*$/,"",line)}
+            gsub(/[[:space:]]*$/,"",line)
+            n=split(line,p,":"); if(n<2) next
+            name=p[1]":"p[2]; if(ver==""&&n>=3) ver=p[3]; if(ver=="") ver="unknown"
+            gsub(/[[:space:]*()]/,"",ver)
+            sname[d]=name; sver[d]=ver
+            path="[{\"name\":\""jesc(root)"\",\"version\":\""jesc(root_ver)"\"}"
+            for(i=0;i<d;i++) path=path",{\"name\":\""jesc(sname[i])"\",\"version\":\""jesc(sver[i])"\"}"
+            path=path",{\"name\":\""jesc(name)"\",\"version\":\""jesc(ver)"\"}]"
+            key=name SUBSEP ver; aname[key]=name; aver[key]=ver
+            if(apaths[key]=="") apaths[key]=path; else apaths[key]=apaths[key]","path
+        }
+        END {
+            printf "["; sep=""
+            for(k in aname){
+                printf "%s{\"name\":\"%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Gradle runtimeClasspath\",\"dependencyPaths\":[%s]}",sep,jesc(aname[k]),jesc(aver[k]),apaths[k]
+                sep=","
+            }
+            printf "]\n"
+        }
+        ' 2>/dev/null
     ) || result="[]"
+    echo "${result}" | jq '.' &>/dev/null || result="[]"
     dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
     echo "${result}"
 }
 
 _collect_maven() {
-    local dir="$1"
-    mvn -f "${dir}/pom.xml" dependency:list -q 2>/dev/null \
-    | grep -oP '^\[INFO\]\s+\K[^:]+:[^:]+:jar:[^:]+' \
-    | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Maven\"}\n",$1,$2,$4}' \
-    | jq -s '.' 2>/dev/null || echo "[]"
+    local dir="$1" version="${2:-unknown}"
+    local project_name
+    project_name=$(grep -m1 '<artifactId>' "${dir}/pom.xml" 2>/dev/null \
+        | sed 's/.*<artifactId>//;s/<\/artifactId>.*//' | tr -d '[:space:]') || true
+    [[ -z "${project_name}" ]] && project_name=$(basename "${dir}")
+    mvn -f "${dir}/pom.xml" dependency:tree -DoutputType=text -q 2>/dev/null | \
+    awk -v root="${project_name}" -v root_ver="${version}" '
+    function jesc(s,  r) { r=s; gsub(/\\/,"\\\\",r); gsub(/"/,"\\\"",r); return r }
+    function get_depth(line,  pfx,pos) {
+        if(substr(line,1,7)=="[INFO] ") pfx=substr(line,8)
+        else if(substr(line,1,6)=="[INFO]") pfx=substr(line,7)
+        else return -1
+        pos=index(pfx,"+- "); if(!pos) pos=index(pfx,"\\- "); if(!pos) return -1
+        return int((pos-1)/3)
+    }
+    {
+        d=get_depth($0); if(d<0) next
+        line=$0; sub(/^\[INFO\][[:space:]]+.*[+\\]- /,"",line)
+        gsub(/[[:space:]]*$/,"",line)
+        n=split(line,p,":"); if(n<4) next
+        name=p[1]":"p[2]; ver=p[4]; gsub(/[[:space:]]/,"",ver)
+        sname[d]=name; sver[d]=ver
+        path="[{\"name\":\""jesc(root)"\",\"version\":\""jesc(root_ver)"\"}"
+        for(i=0;i<d;i++) path=path",{\"name\":\""jesc(sname[i])"\",\"version\":\""jesc(sver[i])"\"}"
+        path=path",{\"name\":\""jesc(name)"\",\"version\":\""jesc(ver)"\"}]"
+        key=name SUBSEP ver; aname[key]=name; aver[key]=ver
+        if(apaths[key]=="") apaths[key]=path; else apaths[key]=apaths[key]","path
+    }
+    END {
+        printf "["; sep=""
+        for(k in aname){
+            printf "%s{\"name\":\"%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Maven\",\"dependencyPaths\":[%s]}",sep,jesc(aname[k]),jesc(aver[k]),apaths[k]
+            sep=","
+        }
+        printf "]\n"
+    }
+    ' 2>/dev/null || echo "[]"
 }
 
 _collect_npm() {
@@ -198,6 +266,19 @@ _collect_npm() {
         "${dir}/package-lock.json" 2>/dev/null || echo "[]"
 }
 
+_collect_npm_pkg() {
+    local dir="$1"
+    jq '[
+        ([(.dependencies // {}) | to_entries[]
+          | {name: .key, version: (.value | ltrimstr("^") | ltrimstr("~") | gsub("^[>=<]+"; "")),
+             ecosystem: "NPM", dependencyInfo: "npm dependency"}]),
+        ([(.devDependencies // {}) | to_entries[]
+          | {name: .key, version: (.value | ltrimstr("^") | ltrimstr("~") | gsub("^[>=<]+"; "")),
+             ecosystem: "NPM", dependencyInfo: "npm devDependency"}])
+    ] | add // []' \
+        "${dir}/package.json" 2>/dev/null || echo "[]"
+}
+
 _collect_pip() {
     local dir="$1"
     grep -E '^[A-Za-z0-9_.-]+==[^ ]+' "${dir}/requirements.txt" 2>/dev/null \
@@ -205,26 +286,227 @@ _collect_pip() {
     | jq -s '.' 2>/dev/null || echo "[]"
 }
 
+_collect_yarn() {
+    local dir="$1"
+    awk '
+    /^[^ \t#]/ && /:$/ {
+        line = $0; sub(/:$/, "", line)
+        n = split(line, parts, ", ")
+        for (i=1; i<=n; i++) {
+            p = parts[i]; gsub(/^"|"$/, "", p)
+            if (p ~ /^@/) { sub(/@[^@]*$/, "", p) } else { sub(/@.*$/, "", p) }
+            pkgs[i] = p
+        }
+        nparts = n
+    }
+    /^  version/ && nparts > 0 {
+        match($0, /[0-9][0-9a-zA-Z._-]*/)
+        ver = substr($0, RSTART, RLENGTH)
+        for (i=1; i<=nparts; i++) { if (pkgs[i] != "") print pkgs[i] "\t" ver }
+        nparts = 0; delete pkgs
+    }
+    ' "${dir}/yarn.lock" 2>/dev/null | sort -u | \
+    jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NPM", dependencyInfo: "yarn"}]' \
+    2>/dev/null || echo "[]"
+}
+
+_collect_pnpm() {
+    local dir="$1"
+    awk '
+    /^(packages|snapshots):/ { in_sec=1; next }
+    in_sec && /^[^ ]/ { in_sec=0 }
+    in_sec && /^  [^ ]/ {
+        line = substr($0, 3); sub(/:$/, "", line)
+        gsub(/^\//, "", line); gsub(/^'"'"'|'"'"'$/, "", line)
+        name = ""; ver = ""
+        if (match(line, /@[0-9]/)) {
+            name = substr(line, 1, RSTART-1)
+            ver  = substr(line, RSTART+1); sub(/_.*$/, "", ver)
+        } else if (match(line, /\/[0-9]/)) {
+            name = substr(line, 1, RSTART-1)
+            ver  = substr(line, RSTART+1); sub(/_.*$/, "", ver)
+        }
+        if (name != "" && ver != "") print name "\t" ver
+    }
+    ' "${dir}/pnpm-lock.yaml" 2>/dev/null | sort -u | \
+    jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NPM", dependencyInfo: "pnpm"}]' \
+    2>/dev/null || echo "[]"
+}
+
+_collect_poetry() {
+    local dir="$1"
+    awk '
+    /^\[\[package\]\]/ { name=""; ver="" }
+    /^name = "/ { n=$0; sub(/^name = "/, "", n); sub(/"$/, "", n); name=n }
+    /^version = "/ { v=$0; sub(/^version = "/, "", v); sub(/"$/, "", v); ver=v }
+    name != "" && ver != "" { print name "\t" ver; name=""; ver="" }
+    ' "${dir}/poetry.lock" 2>/dev/null | sort -u | \
+    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "PYPI", dependencyInfo: "poetry"}]' \
+    2>/dev/null || echo "[]"
+}
+
+_collect_pipenv() {
+    local dir="$1"
+    jq '[
+        ((.default // {}) | to_entries[] | select(.value.version != null) |
+         {name: .key, version: (.value.version | ltrimstr("==")), ecosystem: "PYPI", dependencyInfo: "pipenv dependency"}),
+        ((.develop // {}) | to_entries[] | select(.value.version != null) |
+         {name: .key, version: (.value.version | ltrimstr("==")), ecosystem: "PYPI", dependencyInfo: "pipenv devDependency"})
+    ]' "${dir}/Pipfile.lock" 2>/dev/null || echo "[]"
+}
+
+_collect_uv() {
+    local dir="$1"
+    awk '
+    /^\[\[package\]\]/ { name=""; ver="" }
+    /^name = "/ { n=$0; sub(/^name = "/, "", n); sub(/"$/, "", n); name=n }
+    /^version = "/ { v=$0; sub(/^version = "/, "", v); sub(/"$/, "", v); ver=v }
+    name != "" && ver != "" { print name "\t" ver; name=""; ver="" }
+    ' "${dir}/uv.lock" 2>/dev/null | sort -u | \
+    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "PYPI", dependencyInfo: "uv"}]' \
+    2>/dev/null || echo "[]"
+}
+
+_collect_go() {
+    local dir="$1"
+    if [[ -f "${dir}/go.sum" ]]; then
+        grep -v '/go\.mod ' "${dir}/go.sum" 2>/dev/null | \
+        awk '{print $1 "\t" $2}' | sort -u | \
+        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "GO", dependencyInfo: "go.sum"}]' \
+        2>/dev/null || echo "[]"
+    else
+        awk '
+        /^require \(/ { in_req=1; next }
+        in_req && /^\)/ { in_req=0 }
+        in_req && NF >= 2 { gsub(/\/\/.*$/, ""); if ($1 != "" && $2 != "") print $1 "\t" $2 }
+        /^require [^(]/ && NF >= 3 { print $2 "\t" $3 }
+        ' "${dir}/go.mod" 2>/dev/null | sort -u | \
+        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "GO", dependencyInfo: "go.mod"}]' \
+        2>/dev/null || echo "[]"
+    fi
+}
+
+_collect_cargo() {
+    local dir="$1"
+    awk '
+    /^\[\[package\]\]/ { name=""; ver="" }
+    /^name = "/ { n=$0; sub(/^name = "/, "", n); sub(/"$/, "", n); name=n }
+    /^version = "/ { v=$0; sub(/^version = "/, "", v); sub(/"$/, "", v); ver=v }
+    name != "" && ver != "" { print name "\t" ver; name=""; ver="" }
+    ' "${dir}/Cargo.lock" 2>/dev/null | sort -u | \
+    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "CARGO", dependencyInfo: "Cargo.lock"}]' \
+    2>/dev/null || echo "[]"
+}
+
+_collect_nuget() {
+    local dir="$1"
+    if [[ -f "${dir}/packages.lock.json" ]]; then
+        jq '[.dependencies // {} | to_entries[] | .value | to_entries[]
+            | select(.value.resolved != null)
+            | {name: .key, version: .value.resolved, ecosystem: "NUGET", dependencyInfo: "NuGet"}]' \
+            "${dir}/packages.lock.json" 2>/dev/null || echo "[]"
+    elif find "${dir}" -maxdepth 3 -name "*.csproj" 2>/dev/null | grep -q .; then
+        find "${dir}" -maxdepth 3 -name "*.csproj" 2>/dev/null | head -20 | \
+        xargs grep -h 'PackageReference' 2>/dev/null | \
+        sed -n 's/.*[Ii]nclude="\([^"]*\)".*[Vv]ersion="\([^"]*\)".*/\1\t\2/p
+                s/.*[Vv]ersion="\([^"]*\)".*[Ii]nclude="\([^"]*\)".*/\2\t\1/p' | \
+        sort -u | \
+        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NUGET", dependencyInfo: ".csproj"}]' \
+        2>/dev/null || echo "[]"
+    elif [[ -f "${dir}/packages.config" ]]; then
+        grep -oE '<package [^>]+>' "${dir}/packages.config" 2>/dev/null | \
+        sed 's/.*id="\([^"]*\)".*version="\([^"]*\)".*/\1\t\2/' | \
+        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NUGET", dependencyInfo: "packages.config"}]' \
+        2>/dev/null || echo "[]"
+    else
+        echo "[]"
+    fi
+}
+
+_collect_bundler() {
+    local dir="$1"
+    awk '
+    /^  specs:/ { in_specs=1; next }
+    in_specs && /^[A-Z]/ { in_specs=0 }
+    in_specs && /^    [^ ]/ {
+        line = substr($0, 5)
+        if (index(line, " (") > 0) {
+            name = substr(line, 1, index(line, " (")-1)
+            ver  = substr(line, index(line, " (")+2)
+            sub(/\).*/, "", ver)
+            if (ver !~ /^[=<>~!]/ && name != "") print name "\t" ver
+        }
+    }
+    ' "${dir}/Gemfile.lock" 2>/dev/null | sort -u | \
+    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "RUBYGEMS", dependencyInfo: "Gemfile.lock"}]' \
+    2>/dev/null || echo "[]"
+}
+
 # ── Build payload ─────────────────────────────────────────────────────────────
 build_payload() {
     local dir="$1" version="$2"
-    local components="[]"
 
+    # ── MAVEN: Gradle (preferred) or Maven pom.xml ───────────────────────────
+    local maven="[]"
     if   [[ -f "${dir}/build.gradle" || -f "${dir}/build.gradle.kts" ]]; then
-        dbg "Detected build system: Gradle (dir=${dir})"
-        components=$(_collect_gradle "${dir}")
+        dbg "MAVEN: Gradle"; maven=$(_collect_gradle "${dir}" "${version}")
     elif [[ -f "${dir}/pom.xml" ]]; then
-        dbg "Detected build system: Maven"
-        components=$(_collect_maven "${dir}")
-    elif [[ -f "${dir}/package-lock.json" ]]; then
-        dbg "Detected build system: npm"
-        components=$(_collect_npm "${dir}")
-    elif [[ -f "${dir}/requirements.txt" ]]; then
-        dbg "Detected build system: pip"
-        components=$(_collect_pip "${dir}")
-    else
-        dbg "No recognized build file found in ${dir}"
+        dbg "MAVEN: Maven"; maven=$(_collect_maven "${dir}" "${version}")
     fi
+
+    # ── NPM: package-lock.json > yarn.lock > pnpm-lock.yaml > package.json ──
+    local npm="[]"
+    if   [[ -f "${dir}/package-lock.json" ]]; then dbg "NPM: package-lock.json";       npm=$(_collect_npm "${dir}")
+    elif [[ -f "${dir}/yarn.lock"         ]]; then dbg "NPM: yarn.lock";               npm=$(_collect_yarn "${dir}")
+    elif [[ -f "${dir}/pnpm-lock.yaml"    ]]; then dbg "NPM: pnpm-lock.yaml";          npm=$(_collect_pnpm "${dir}")
+    elif [[ -f "${dir}/package.json"      ]]; then dbg "NPM: package.json (fallback)"; npm=$(_collect_npm_pkg "${dir}")
+    fi
+
+    # ── PYPI: poetry.lock > Pipfile.lock > uv.lock > requirements.txt ────────
+    local pypi="[]"
+    if   [[ -f "${dir}/poetry.lock"      ]]; then dbg "PYPI: poetry.lock";      pypi=$(_collect_poetry "${dir}")
+    elif [[ -f "${dir}/Pipfile.lock"     ]]; then dbg "PYPI: Pipfile.lock";     pypi=$(_collect_pipenv "${dir}")
+    elif [[ -f "${dir}/uv.lock"          ]]; then dbg "PYPI: uv.lock";          pypi=$(_collect_uv "${dir}")
+    elif [[ -f "${dir}/requirements.txt" ]]; then dbg "PYPI: requirements.txt"; pypi=$(_collect_pip "${dir}")
+    fi
+
+    # ── GO: go.sum or go.mod (independent) ──────────────────────────────────
+    local go_deps="[]"
+    if [[ -f "${dir}/go.sum" || -f "${dir}/go.mod" ]]; then
+        dbg "GO: go.sum/go.mod"; go_deps=$(_collect_go "${dir}")
+    fi
+
+    # ── CARGO: Cargo.lock (independent) ─────────────────────────────────────
+    local cargo="[]"
+    if [[ -f "${dir}/Cargo.lock" ]]; then
+        dbg "CARGO: Cargo.lock"; cargo=$(_collect_cargo "${dir}")
+    fi
+
+    # ── NUGET: packages.lock.json > *.csproj > packages.config (independent) ─
+    local nuget="[]"
+    if [[ -f "${dir}/packages.lock.json" ]] || \
+       find "${dir}" -maxdepth 3 -name "*.csproj" 2>/dev/null | grep -q . || \
+       [[ -f "${dir}/packages.config" ]]; then
+        dbg "NUGET: detected"; nuget=$(_collect_nuget "${dir}")
+    fi
+
+    # ── RUBYGEMS: Gemfile.lock (independent) ────────────────────────────────
+    local ruby="[]"
+    if [[ -f "${dir}/Gemfile.lock" ]]; then
+        dbg "RUBYGEMS: Gemfile.lock"; ruby=$(_collect_bundler "${dir}")
+    fi
+
+    # ── Merge all ecosystems ─────────────────────────────────────────────────
+    local components
+    components=$(jq -n \
+        --argjson maven  "${maven}" \
+        --argjson npm    "${npm}" \
+        --argjson pypi   "${pypi}" \
+        --argjson go     "${go_deps}" \
+        --argjson cargo  "${cargo}" \
+        --argjson nuget  "${nuget}" \
+        --argjson ruby   "${ruby}" \
+        '$maven + $npm + $pypi + $go + $cargo + $nuget + $ruby' 2>/dev/null) || components="[]"
 
     local count
     count=$(echo "${components}" | jq 'length' 2>/dev/null || echo "0")

@@ -1,11 +1,13 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
@@ -18,6 +20,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Receives a CLI scan payload, saves ScanComponents (linked to shared Library rows),
@@ -32,6 +35,7 @@ public class ScanIngestService {
 
     private final ScanResultRepository            scanResultRepository;
     private final ScanComponentRepository         scanComponentRepository;
+    private final DependencyPathRepository        dependencyPathRepository;
     private final LibraryRepository               libraryRepository;
     private final ProjectRepository               projectRepository;
     private final VulnerabilityEnrichmentService  enrichmentService;
@@ -83,6 +87,24 @@ public class ScanIngestService {
                         .ignored(false)
                         .build();
                 scanComponentRepository.save(sc);
+
+                // Persist full dependency path trees if the CLI sent them
+                if (cp.getDependencyPaths() != null && !cp.getDependencyPaths().isEmpty()) {
+                    int pathIdx = 0;
+                    for (List<ScanPayload.DependencyNodeRef> rawPath : cp.getDependencyPaths()) {
+                        if (rawPath == null || rawPath.isEmpty()) continue;
+                        List<DependencyPath.PathNode> nodes = rawPath.stream()
+                                .map(n -> new DependencyPath.PathNode(
+                                        n.getName(), n.getVersion()))
+                                .toList();
+                        dependencyPathRepository.save(DependencyPath.builder()
+                                .scanComponent(sc)
+                                .pathIndex(pathIdx++)
+                                .pathNodes(nodes)
+                                .depth(nodes.size())
+                                .build());
+                    }
+                }
             }
         }
 

@@ -36,3 +36,6 @@ out/
 ### VS Code ###
 .vscode/
 oswl-db.mv.db
+
+### Database ###
+*.db
