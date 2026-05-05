@@ -68,9 +68,10 @@ public class RiskTrendService {
         List<Integer> secHigh     = new ArrayList<>();
         List<Integer> secMedium   = new ArrayList<>();
         List<Integer> secLow      = new ArrayList<>();
+        List<Integer> secNone     = new ArrayList<>();
         List<Integer> licCritical = new ArrayList<>();
         List<Integer> licHigh     = new ArrayList<>();
-        List<Integer> licMedium   = new ArrayList<>();
+        List<Integer> licUnknown  = new ArrayList<>();
         List<Integer> licLow      = new ArrayList<>();
 
         for (ScanResult scan : scansAsc) {
@@ -83,16 +84,17 @@ public class RiskTrendService {
             secHigh.add(sec[1]);
             secMedium.add(sec[2]);
             secLow.add(sec[3]);
+            secNone.add(sec[4]);
             licCritical.add(lic[0]);
             licHigh.add(lic[1]);
-            licMedium.add(lic[2]);
+            licUnknown.add(lic[2]);
             licLow.add(lic[3]);
         }
 
         List<Library> latestLibs = libraryRepository.findByScanResultIdWithCves(latest.getId());
         int[] latestSec = aggregateSecurity(latestLibs);
         int[] latestLic = aggregateLicense(latestLibs);
-        int currentSecIssues = latestSec[0] + latestSec[1] + latestSec[2] + latestSec[3];
+        int currentSecIssues = latestSec[0] + latestSec[1] + latestSec[2] + latestSec[3] + latestSec[4];
         int currentLicIssues = latestLic[0] + latestLic[1] + latestLic[2] + latestLic[3];
 
         int secDelta = 0;
@@ -101,7 +103,7 @@ public class RiskTrendService {
             List<Library> prevLibs = libraryRepository.findByScanResultIdWithCves(scansDesc.get(1).getId());
             int[] prevSec = aggregateSecurity(prevLibs);
             int[] prevLic = aggregateLicense(prevLibs);
-            secDelta = currentSecIssues - (prevSec[0] + prevSec[1] + prevSec[2] + prevSec[3]);
+            secDelta = currentSecIssues - (prevSec[0] + prevSec[1] + prevSec[2] + prevSec[3] + prevSec[4]);
             licDelta = currentLicIssues - (prevLic[0] + prevLic[1] + prevLic[2] + prevLic[3]);
         }
 
@@ -115,14 +117,15 @@ public class RiskTrendService {
         model.addAttribute("chartSecHigh",     secHigh);
         model.addAttribute("chartSecMedium",   secMedium);
         model.addAttribute("chartSecLow",      secLow);
+        model.addAttribute("chartSecNone",     secNone);
         model.addAttribute("chartLicCritical", licCritical);
         model.addAttribute("chartLicHigh",     licHigh);
-        model.addAttribute("chartLicMedium",   licMedium);
+        model.addAttribute("chartLicUnknown",  licUnknown);
         model.addAttribute("chartLicLow",      licLow);
     }
 
     private int[] aggregateSecurity(List<Library> libraries) {
-        int c = 0, h = 0, m = 0, l = 0;
+        int c = 0, h = 0, m = 0, l = 0, n = 0;
         for (Library lib : libraries) {
             for (var cve : lib.getCves()) {
                 if (cve.getSeverity() == null) continue;
@@ -131,23 +134,25 @@ public class RiskTrendService {
                     case HIGH     -> h++;
                     case MEDIUM   -> m++;
                     case LOW      -> l++;
+                    case NONE     -> n++;
                     default       -> {}
                 }
             }
         }
-        return new int[]{c, h, m, l};
+        return new int[]{c, h, m, l, n};
     }
 
     private int[] aggregateLicense(List<Library> libraries) {
-        int c = 0, h = 0, m = 0, l = 0;
+        int c = 0, h = 0, u = 0, l = 0;
         for (Library lib : libraries) {
             switch (lib.getLicenseStatus()) {
                 case VIOLATION -> c++;
                 case WARN      -> h++;
+                case UNKNOWN   -> u++;
                 default        -> l++;
             }
         }
-        return new int[]{c, h, m, l};
+        return new int[]{c, h, u, l};
     }
 
     private void addEmptyChartData(Model model) {
@@ -163,7 +168,8 @@ public class RiskTrendService {
         model.addAttribute("chartSecLow",      List.of());
         model.addAttribute("chartLicCritical", List.of());
         model.addAttribute("chartLicHigh",     List.of());
-        model.addAttribute("chartLicMedium",   List.of());
+        model.addAttribute("chartLicUnknown",  List.of());
         model.addAttribute("chartLicLow",      List.of());
+        model.addAttribute("chartSecNone",     List.of());
     }
 }

@@ -4,16 +4,16 @@
 
     <!--
         Risk Graph fragment.
-        usage: th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${critical}, ${high}, ${medium}, ${low})}"
+        usage: th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${critical}, ${high}, ${medium}, ${low}, ${unknown})}"
     -->
-    <div th:fragment="riskGraph(title, critical, high, medium, low)"
+    <div th:fragment="riskGraph(title, critical, high, medium, low, unknown)"
          class="flex flex-col gap-[14px] items-start w-full relative shrink-0">
 
         <p class="font-medium text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] w-full"
            th:text="${title}">Security Risk</p>
 
         <div class="risk-graph-bar"
-             th:with="total=${(critical ?: 0) + (high ?: 0) + (medium ?: 0) + (low ?: 0)}">
+             th:with="total=${(critical ?: 0) + (high ?: 0) + (medium ?: 0) + (low ?: 0) + (unknown ?: 0)}">
             <th:block th:if="${total > 0}">
                 <div class="risk-graph-segment bg-[var(--risk-critical)]"
                      th:if="${critical != null and critical > 0}"
@@ -27,6 +27,9 @@
                 <div class="risk-graph-segment bg-[var(--risk-low)]"
                      th:if="${low != null and low > 0}"
                      th:style="'width: ' + (${low} * 100.0 / ${total}) + '%'"></div>
+                <div class="risk-graph-segment bg-[var(--risk-unknown)]"
+                     th:if="${unknown != null and unknown > 0}"
+                     th:style="'width: ' + (${unknown} * 100.0 / ${total}) + '%'"></div>
             </th:block>
             <div class="risk-graph-segment bg-[var(--risk-low)] w-full" th:if="${total == 0}"></div>
         </div>
@@ -54,6 +57,12 @@
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-low)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
                     <span th:text="${low ?: 0}">0</span> Low
+                </p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
+                    <span th:text="${unknown ?: 0}">0</span> Unknown
                 </p>
             </div>
         </div>

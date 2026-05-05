@@ -88,7 +88,7 @@ public class SecurityCenterService {
             libToSc.put(sc.getLibrary().getId(), sc);
         }
 
-        int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0;
+        int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secNone = 0;
         int licCritical = 0, licHigh = 0, licMedium = 0, licLow = 0;
         List<ComponentRowDto> rows = new ArrayList<>();
 
@@ -97,15 +97,18 @@ public class SecurityCenterService {
             int h = (int) lib.countBySeverity("HIGH");
             int m = (int) lib.countBySeverity("MEDIUM");
             int l = (int) lib.countBySeverity("LOW");
+            int n = (int) lib.countBySeverity("NONE");
 
             secCritical += c;
             secHigh     += h;
             secMedium   += m;
             secLow      += l;
+            secNone     += n;
 
             switch (lib.getLicenseStatus()) {
                 case VIOLATION -> licCritical++;
                 case WARN      -> licHigh++;
+                case UNKNOWN   -> licMedium++;
                 default        -> licLow++;
             }
 
@@ -125,9 +128,12 @@ public class SecurityCenterService {
                     .securityHigh(h)
                     .securityMedium(m)
                     .securityLow(l)
+                    .securityNone(n)
                     .patchability(patchabilityLabel(lib.computePatchability()))
                     .licenseStatus(lib.getLicenseStatus().name())
                     .licenseName(lib.getLicenseName())
+                    .isLatestVersion(lib.getIsLatestVersion())
+                    .deprecated(lib.getDeprecated())
                     .build());
         }
 
@@ -135,6 +141,7 @@ public class SecurityCenterService {
         model.addAttribute("securityHigh", secHigh);
         model.addAttribute("securityMedium", secMedium);
         model.addAttribute("securityLow", secLow);
+        model.addAttribute("securityNone", secNone);
         model.addAttribute("licenseCritical", licCritical);
         model.addAttribute("licenseHigh", licHigh);
         model.addAttribute("licenseMedium", licMedium);

@@ -45,7 +45,12 @@ public class DepsDevClient {
 
     // ── DTOs ────────────────────────────────────────────────────────────
 
-    public record VersionInfo(List<String> licenses, List<String> advisoryKeys) {}
+    /**
+     * @param isDefault  true if this is the default (latest stable) version for the package
+     * @param deprecated non-null/non-blank deprecation reason when the version is deprecated; null otherwise
+     */
+    public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
+                              boolean isDefault, String deprecated) {}
 
     public record AdvisoryInfo(
             String ghsaId,
@@ -122,7 +127,7 @@ public class DepsDevClient {
 
             if (body == null) {
                 log.debug("[DepsDevClient] GetVersion RESPONSE null body for {}:{}", key.name(), key.version());
-                return new VersionInfo(List.of(), List.of());
+                return new VersionInfo(List.of(), List.of(), false, null);
             }
 
             List<String> licenses = extractStrings(body, "licenses");
@@ -137,12 +142,17 @@ public class DepsDevClient {
                     }
                 }
             }
-            log.debug("[DepsDevClient] GetVersion RESPONSE {}:{} licenses={} advisoryKeys={}",
-                    key.name(), key.version(), licenses, advisoryKeys);
-            return new VersionInfo(licenses, advisoryKeys);
+
+            boolean isDefault = Boolean.TRUE.equals(body.get("isDefault"));
+            Object depRaw = body.get("deprecated");
+            String deprecated = (depRaw instanceof String s && !s.isBlank()) ? s : null;
+
+            log.debug("[DepsDevClient] GetVersion RESPONSE {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={}",
+                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated);
+            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated);
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] GetVersion 404/error for {}:{} - {}", key.name(), key.version(), e.getMessage());
-            return new VersionInfo(List.of(), List.of());
+            return new VersionInfo(List.of(), List.of(), false, null);
         }
     }
 
