@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller.spec;
 
 import com.salkcoding.oswl.dto.api.PingResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
+import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "CLI Scan", description = "Endpoints consumed by the OSWL CLI agent. All requests must carry `Authorization: Bearer oswl_<token>`.")
@@ -101,4 +103,28 @@ public interface ScanControllerSpec {
         @Valid @RequestBody ScanPayload payload,
         @Parameter(hidden = true) HttpServletRequest request
     ) throws Exception;
+
+    @Operation(
+        summary = "Poll scan status",
+        description = """
+            Lightweight UI polling endpoint — returns the current status and component count
+            for a given scan result. Used by the Security Center banner to auto-refresh when a
+            scan is in-progress.
+
+            **This endpoint does NOT require an API key.** It is authenticated by the user's
+            web session context (project access is implicitly scoped by the URL).
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scan status returned",
+            content = @Content(schema = @Schema(implementation = ScanStatusResponse.class),
+                examples = @ExampleObject(value = """
+                    { "scanId": 42, "status": "ANALYZING", "componentCount": 128 }
+                    """))),
+        @ApiResponse(responseCode = "404", description = "Scan result not found", content = @Content)
+    })
+    ResponseEntity<ScanStatusResponse> scanStatus(
+        @Parameter(description = "Scan result ID", example = "42", required = true)
+        @PathVariable Long scanId
+    );
 }

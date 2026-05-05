@@ -31,4 +31,8 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
             """, nativeQuery = true)
     List<ScanResult> findRecentCompleted(@Param("projectId") Long projectId,
                                          @Param("limit") int limit);
+
+    /** Most recent scan for the project (any status) — used for scan status polling banner */
+    @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId ORDER BY s.scannedAt DESC LIMIT 1")
+    Optional<ScanResult> findLatestByProjectId(@Param("projectId") Long projectId);
 }

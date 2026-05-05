@@ -66,10 +66,18 @@ public class ScanResult {
 
     @OneToMany(mappedBy = "scanResult", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<OswlComponent> components = new ArrayList<>();
+    private List<ScanComponent> components = new ArrayList<>();
 
     public void complete() {
         this.status = ScanStatus.COMPLETED;
+    }
+
+    public void startAnalyzing() {
+        this.status = ScanStatus.ANALYZING;
+    }
+
+    public void startScanning() {
+        this.status = ScanStatus.SCANNING;
     }
 
     public void fail(String message) {

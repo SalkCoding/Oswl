@@ -5,6 +5,7 @@ import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +18,7 @@ import java.util.List;
  * Handles API key issuance and revocation.
  * Issued keys are used by the CLI as an authentication credential when sending scan results to the server.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApiKeyService {
@@ -43,7 +45,9 @@ public class ApiKeyService {
                 .expiresAt(expiresAt)
                 .build();
 
-        return apiKeyRepository.save(apiKey);
+        ApiKey saved = apiKeyRepository.save(apiKey);
+        log.info("[ApiKey] 발급 projectId={} label={} keyId={}", projectId, label, saved.getId());
+        return saved;
     }
 
     /** Find a valid key by token value (used by the interceptor) */
