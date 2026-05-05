@@ -144,7 +144,8 @@ cmd_scan() {
         local scan_id status
         scan_id=$(echo "${body}" | jq -r '.scanId // "?"')
         status=$(echo "${body}"  | jq -r '.status  // "?"')
-        echo "[OsWL] Scan complete! scanId=${scan_id} status=${status}"
+        echo "[OsWL] Scan submitted! scanId=${scan_id}"
+        echo "       Analysis is running on the server. Check the Security Center for results."
     elif [[ "${http_code}" == "401" ]]; then
         echo "[OsWL] Error: API key rejected. Run 'oswl auth --key <new_key>'." >&2
         exit 1
@@ -171,7 +172,7 @@ _collect_gradle() {
         | grep -E '^[[:space:]|]*[+\\]---' \
         | grep -oP '[+\\]--- \K[^: ]+:[^: ]+:[^ (\r\n]+' \
         | sed 's/ ->.*//;s/ \*$//' \
-        | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"dependencyInfo\":\"Gradle runtimeClasspath\",\"patchability\":null,\"licenseStatus\":null,\"licenseName\":null,\"cves\":[]}\'\''\n\'\''",\$1,\$2,\$3}' \
+        | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Gradle runtimeClasspath\"}\n",$1,$2,$3}' \
         | jq -s '.' 2>/dev/null
     ) || result="[]"
     dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
@@ -182,7 +183,7 @@ _collect_maven() {
     local dir="$1"
     mvn -f "${dir}/pom.xml" dependency:list -q 2>/dev/null \
     | grep -oP '^\[INFO\]\s+\K[^:]+:[^:]+:jar:[^:]+' \
-    | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"dependencyInfo\":\"Maven\",\"patchability\":null,\"licenseStatus\":null,\"licenseName\":null,\"cves\":[]}\n",$1,$2,$4}' \
+    | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Maven\"}\n",$1,$2,$4}' \
     | jq -s '.' 2>/dev/null || echo "[]"
 }
 
@@ -192,16 +193,15 @@ _collect_npm() {
         | select(.key != "" and (.value.version // "") != "")
         | {name: (.key | ltrimstr("node_modules/")),
            version: .value.version,
-           dependencyInfo: (if (.value.dev // false) then "npm devDependency" else "npm dependency" end),
-           patchability: null, licenseStatus: null,
-           licenseName: (.value.license // null), cves: []}]' \
+           ecosystem: "NPM",
+           dependencyInfo: (if (.value.dev // false) then "npm devDependency" else "npm dependency" end)}]' \
         "${dir}/package-lock.json" 2>/dev/null || echo "[]"
 }
 
 _collect_pip() {
     local dir="$1"
     grep -E '^[A-Za-z0-9_.-]+==[^ ]+' "${dir}/requirements.txt" 2>/dev/null \
-    | awk -F'==' '{printf "{\"name\":\"%s\",\"version\":\"%s\",\"dependencyInfo\":\"pip\",\"patchability\":null,\"licenseStatus\":null,\"licenseName\":null,\"cves\":[]}\n",$1,$2}' \
+    | awk -F'==' '{printf "{\"name\":\"%s\",\"version\":\"%s\",\"ecosystem\":\"PYPI\",\"dependencyInfo\":\"pip\"}\n",$1,$2}' \
     | jq -s '.' 2>/dev/null || echo "[]"
 }
 

@@ -172,8 +172,8 @@ function Get-Components {
                             $seen[$name] = $true
                             [void]$c.Add([ordered]@{
                                 name = $name; version = $ver
+                                ecosystem = "MAVEN"
                                 dependencyInfo = "Gradle runtimeClasspath"
-                                patchability = $null; licenseStatus = $null; licenseName = $null; cves = @()
                             })
                         }
                     }
@@ -201,8 +201,8 @@ function Get-Components {
                     $seen2[$name] = $true
                     [void]$c.Add([ordered]@{
                         name = $name; version = $ver
+                        ecosystem = "MAVEN"
                         dependencyInfo = "Gradle (declared only)"
-                        patchability = $null; licenseStatus = $null; licenseName = $null; cves = @()
                     })
                 }
             }
@@ -222,8 +222,8 @@ function Get-Components {
                 [void]$c.Add([ordered]@{
                     name = "$($d.groupId):$($d.artifactId)"
                     version = if ($d.version) { [string]$d.version } else { "unspecified" }
+                    ecosystem = "MAVEN"
                     dependencyInfo = "Maven"
-                    patchability = $null; licenseStatus = $null; licenseName = $null; cves = @()
                 })
             }
             Write-Dbg "Maven parsed components: $($c.Count)"
@@ -243,10 +243,8 @@ function Get-Components {
                     [void]$c.Add([ordered]@{
                         name = ($p.Name -replace '^node_modules/', '')
                         version = [string]$p.Value.version
+                        ecosystem = "NPM"
                         dependencyInfo = if ($p.Value.dev) { "npm devDependency" } else { "npm dependency" }
-                        patchability = $null; licenseStatus = $null
-                        licenseName = if ($p.Value.license) { [string]$p.Value.license } else { $null }
-                        cves = @()
                     })
                 }
             }
@@ -265,8 +263,8 @@ function Get-Components {
             if ($line -match '^([A-Za-z0-9_.\-]+)==(.+)$') {
                 [void]$c.Add([ordered]@{
                     name = $Matches[1]; version = $Matches[2].Trim()
+                    ecosystem = "PYPI"
                     dependencyInfo = "pip"
-                    patchability = $null; licenseStatus = $null; licenseName = $null; cves = @()
                 })
             }
         }
@@ -321,7 +319,8 @@ function Invoke-Scan {
         }
         $response = Invoke-RestMethod -Uri "$serverUrl/api/scan" -Method POST `
             -Headers $headers -Body $payload -ContentType "application/json"
-        Write-Host "[OsWL] Scan complete! scanId=$($response.scanId) status=$($response.status)" -ForegroundColor Green
+        Write-Host "[OsWL] Scan submitted! scanId=$($response.scanId)" -ForegroundColor Green
+        Write-Host "       Analysis is running on the server. Check the Security Center for results."
     } catch {
         $resp = $null; try { $resp = $_.Exception.Response } catch { }
         $statusCode = if ($resp) { [int]$resp.StatusCode.Value__ } else { 0 }

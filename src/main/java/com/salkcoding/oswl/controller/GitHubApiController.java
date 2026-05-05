@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.controller.spec.GitHubApiControllerSpec;
 import com.salkcoding.oswl.dto.github.GitHubAccountDto;
 import com.salkcoding.oswl.dto.github.GitHubImportRequest;
 import com.salkcoding.oswl.dto.github.GitHubRepoDto;
@@ -27,7 +28,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/github")
 @RequiredArgsConstructor
-public class GitHubApiController {
+public class GitHubApiController implements GitHubApiControllerSpec {
 
     static final String SESSION_GITHUB_TOKENS = "githubTokens";
 

@@ -1,9 +1,192 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Security Center')}"></head>
-<body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative" x-data="{ componentPanelOpen: false, searchQuery: '', bulkActionsOpen: false, exportOpen: false, selectedComponents: [], selectAll: false, applyBulkAction(action){ if(!this.selectedComponents.length){ return; } if(action === 'reviewed' || action === 'unreviewed'){ window.dispatchEvent(new CustomEvent('bulk-review', { detail: { ids: this.selectedComponents.map(v => String(v)), value: action === 'reviewed' } })); } this.bulkActionsOpen = false; this.selectedComponents = []; this.selectAll = false; }, exportAs(format){ if(!this.selectedComponents.length){ return; } this.exportOpen = false; }, toggleSelectAll(){ if(this.selectAll){ const values = Array.from(document.querySelectorAll('input[name=selectedComponent]')).map(el => el.value); this.selectedComponents = values; } else { this.selectedComponents = []; } }, clearSelected(){ this.selectedComponents = []; this.selectAll = false; } }">
+<body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative"
+      th:data-project-id="${projectId}"
+      x-data="{
+          componentPanelOpen: false,
+          searchQuery: '',
+          bulkActionsOpen: false,
+          exportOpen: false,
+          selectedComponents: [],
+          selectAll: false,
+          filters: {
+              reviewed: false,
+              nonReviewed: false,
+              ignored: false,
+              nonIgnored: false,
+              secCritical: false,
+              secHigh: false,
+              secMedium: false,
+              secLow: false,
+              licCritical: false,
+              licHigh: false,
+              licMedium: false,
+              licLow: false,
+              patchable: false,
+              nonPatchable: false,
+              patchUnknown: false
+          },
+          filterVersion: 0,
+          scanStatus: /*[[${latestScanStatus}]]*/ 'NONE',
+          latestScanId: /*[[${latestScanId}]]*/ null,
+          scanPollTimer: null,
+          rowVisible(el) {
+              const f = this.filters;
+              const anyFilter = Object.values(f).some(v => v);
+              if (!anyFilter) return true;
+
+              const q = this.searchQuery.trim().toLowerCase();
+              if (q) {
+                  const name = (el.dataset.compName || '').toLowerCase();
+                  if (!name.includes(q)) return false;
+              }
+
+              // Reviewed / non-reviewed (both can't be true simultaneously — treat as OR group)
+              if (f.reviewed || f.nonReviewed) {
+                  const rev = el.dataset.reviewed === 'true';
+                  if (f.reviewed && !f.nonReviewed && !rev) return false;
+                  if (!f.reviewed && f.nonReviewed && rev) return false;
+              }
+
+              // Ignored / non-ignored
+              if (f.ignored || f.nonIgnored) {
+                  const ign = el.dataset.ignored === 'true';
+                  if (f.ignored && !f.nonIgnored && !ign) return false;
+                  if (!f.ignored && f.nonIgnored && ign) return false;
+              }
+
+              // Security severity filters — if any active, row must match at least one active
+              const anySec = f.secCritical || f.secHigh || f.secMedium || f.secLow;
+              if (anySec) {
+                  const secC = parseInt(el.dataset.secCritical) || 0;
+                  const secH = parseInt(el.dataset.secHigh)     || 0;
+                  const secM = parseInt(el.dataset.secMedium)   || 0;
+                  const secL = parseInt(el.dataset.secLow)      || 0;
+                  const match = (f.secCritical && secC > 0) ||
+                                (f.secHigh     && secH > 0) ||
+                                (f.secMedium   && secM > 0) ||
+                                (f.secLow      && secL > 0);
+                  if (!match) return false;
+              }
+
+              // License severity filters
+              const anyLic = f.licCritical || f.licHigh || f.licMedium || f.licLow;
+              if (anyLic) {
+                  const ls = el.dataset.licenseStatus || '';
+                  const match = (f.licCritical && ls === 'VIOLATION') ||
+                                (f.licHigh     && ls === 'WARN')      ||
+                                (f.licMedium   && ls === 'UNKNOWN')   ||
+                                (f.licLow      && ls === 'OK');
+                  if (!match) return false;
+              }
+
+              // Patchability filter
+              const anyPatch = f.patchable || f.nonPatchable || f.patchUnknown;
+              if (anyPatch) {
+                  const p = el.dataset.patchability || '';
+                  const match = (f.patchable    && p === 'patchable')     ||
+                                (f.nonPatchable && p === 'non-patchable') ||
+                                (f.patchUnknown && p === 'unknown');
+                  if (!match) return false;
+              }
+
+              return true;
+          },
+          startPolling() {
+              if (this.scanPollTimer) return;
+              this.scanPollTimer = setInterval(async () => {
+                  if (!this.latestScanId) return;
+                  const r = await fetch('/api/scan/' + this.latestScanId + '/status');
+                  if (!r.ok) return;
+                  const d = await r.json();
+                  this.scanStatus = d.status;
+                  if (d.status === 'COMPLETED' || d.status === 'FAILED') {
+                      clearInterval(this.scanPollTimer);
+                      this.scanPollTimer = null;
+                      if (d.status === 'COMPLETED') { location.reload(); }
+                  }
+              }, 2500);
+          },
+          applyBulkAction(action) {
+              if (!this.selectedComponents.length) return;
+              const projectId = document.body.dataset.projectId;
+              const ids = this.selectedComponents.map(Number);
+
+              if (action === 'reviewed' || action === 'unreviewed') {
+                  const value = action === 'reviewed';
+                  const idStrings = ids.map(String);
+                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
+                      method: 'PATCH',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({ids: ids, reviewed: value})
+                  }).then(r => {
+                      if (r.ok) {
+                          window.dispatchEvent(new CustomEvent('bulk-review', {
+                              detail: {ids: idStrings, value: value}
+                          }));
+                      }
+                  });
+              } else if (action === 'ignore' || action === 'unignore') {
+                  const value = action === 'ignore';
+                  const idStrings = ids.map(String);
+                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
+                      method: 'PATCH',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({ids: ids, ignored: value})
+                  }).then(r => {
+                      if (r.ok) {
+                          window.dispatchEvent(new CustomEvent('bulk-ignore', {
+                              detail: {ids: idStrings, value: value}
+                          }));
+                      }
+                  });
+              }
+
+              this.bulkActionsOpen = false;
+              this.selectedComponents = [];
+              this.selectAll = false;
+          },
+          exportAs(format) {
+              if (!this.selectedComponents.length) return;
+              this.exportOpen = false;
+          },
+          toggleSelectAll() {
+              if (this.selectAll) {
+                  const values = Array.from(document.querySelectorAll('input[name=selectedComponent]')).map(el => el.value);
+                  this.selectedComponents = values;
+              } else {
+                  this.selectedComponents = [];
+              }
+          },
+          clearSelected() {
+              this.selectedComponents = [];
+              this.selectAll = false;
+          },
+          init() {
+              if (['SCANNING', 'ANALYZING', 'PENDING'].includes(this.scanStatus)) {
+                  this.startPolling();
+              }
+          }
+      }"
+      x-init="init()">
 
     <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
+
+    <!-- Scan-in-progress banner (auto-dismissed when polling detects COMPLETED/FAILED) -->
+    <div x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"
+         x-cloak
+         class="w-full px-[60px] py-[10px] bg-[var(--primary-10)] border-b border-[var(--primary-40)] flex items-center gap-[10px]">
+        <svg class="w-[16px] h-[16px] text-[var(--primary-120)] animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <p class="text-[13px] text-[var(--primary-120)] font-medium tracking-[-0.13px] m-0">
+            Analysis in progress — results will update automatically when complete.
+        </p>
+        <span x-text="'(' + scanStatus.toLowerCase() + ')'"
+              class="text-[11px] text-[var(--primary-80)] font-mono"></span>
+    </div>
 
     <main class="flex flex-col flex-1 min-h-0">
 

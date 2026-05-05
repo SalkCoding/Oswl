@@ -5,7 +5,10 @@ import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.controller.spec.ScanControllerSpec;
 import com.salkcoding.oswl.dto.api.PingResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
+import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.service.ScanIngestService;
 import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * REST endpoint dedicated to CLI clients.
- * All requests are authenticated first by ApiKeyAuthInterceptor.
+ * All requests are authenticated by ApiKeyAuthInterceptor.
  *
  * POST /api/scan
  *   Headers: Authorization: Bearer oswl_xxxx
@@ -24,13 +27,19 @@ import org.springframework.web.bind.annotation.*;
  *
  * GET /api/scan/ping
  *   API key validity check (used by the CLI auth command)
+ *
+ * GET /api/scan/{scanId}/status
+ *   Poll endpoint for UI status badge polling.
+ *   Does NOT require API key auth — uses session/project auth only.
  */
 @RestController
 @RequestMapping("/api/scan")
 @RequiredArgsConstructor
 public class ScanController implements ScanControllerSpec {
 
-    private final ScanIngestService scanIngestService;
+    private final ScanIngestService      scanIngestService;
+    private final ScanResultRepository   scanResultRepository;
+    private final ScanComponentRepository scanComponentRepository;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -51,7 +60,7 @@ public class ScanController implements ScanControllerSpec {
 
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
 
-        // Preserve raw JSON (for audit purposes) — re-serialize from DTO
+        // Preserve raw JSON for audit
         payload.setRawJson(MAPPER.writeValueAsString(payload));
 
         ScanResult result = scanIngestService.ingest(projectId, payload);
@@ -64,4 +73,24 @@ public class ScanController implements ScanControllerSpec {
                 .message("Scan received successfully")
                 .build());
     }
+
+    /**
+     * Lightweight poll endpoint for the UI.
+     * Returns the current scan status and component count.
+     * Used for the Security Center scan progress badge (Alpine.js polling).
+     */
+    @GetMapping("/{scanId}/status")
+    public ResponseEntity<ScanStatusResponse> scanStatus(@PathVariable Long scanId) {
+        return scanResultRepository.findById(scanId)
+                .map(scan -> {
+                    long count = scanComponentRepository.countByScanResultId(scan.getId());
+                    return ResponseEntity.ok(ScanStatusResponse.builder()
+                            .scanId(scan.getId())
+                            .status(scan.getStatus().name())
+                            .componentCount(count)
+                            .build());
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
+

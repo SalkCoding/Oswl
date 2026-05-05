@@ -8,6 +8,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.salkcoding.oswl.domain.enums.LicenseStatus.*;
+import static com.salkcoding.oswl.domain.enums.RiskLevel.*;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectService {
@@ -39,7 +44,9 @@ public class ProjectService {
     @Transactional
     public Project create(String name) {
         Project project = Project.builder().name(name).build();
-        return projectRepository.save(project);
+        Project saved = projectRepository.save(project);
+        log.info("[Project] 생성 id={} name={}", saved.getId(), saved.getName());
+        return saved;
     }
 
     /**
@@ -84,12 +91,15 @@ public class ProjectService {
 
         // 3. Update denormalized fields on the project
         project.markGithubImport(owner, repo, branch);
-        return projectRepository.save(project);
+        Project saved = projectRepository.save(project);
+        log.info("[Project] GitHub import projectId={} repo={} branch={}", saved.getId(), repoKey, branch);
+        return saved;
     }
 
     @Transactional
     public void delete(Long id) {
         projectRepository.deleteById(id);
+        log.info("[Project] 삭제 id={}", id);
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
@@ -146,7 +156,7 @@ public class ProjectService {
     private int[] aggregateSecurity(com.salkcoding.oswl.domain.entity.ScanResult scan) {
         int critical = 0, high = 0, medium = 0, low = 0;
         for (var comp : scan.getComponents()) {
-            for (var cve : comp.getCves()) {
+            for (var cve : comp.getLibrary().getCves()) {
                 switch (cve.getSeverity()) {
                     case CRITICAL -> critical++;
                     case HIGH     -> high++;
@@ -162,7 +172,7 @@ public class ProjectService {
     private int[] aggregateLicense(com.salkcoding.oswl.domain.entity.ScanResult scan) {
         int critical = 0, high = 0, medium = 0, low = 0;
         for (var comp : scan.getComponents()) {
-            switch (comp.getLicenseStatus()) {
+            switch (comp.getLibrary().getLicenseStatus()) {
                 case VIOLATION -> critical++;
                 case WARN      -> high++;
                 default        -> low++;

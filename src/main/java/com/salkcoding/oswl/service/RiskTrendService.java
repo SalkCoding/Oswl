@@ -1,12 +1,12 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.OswlComponent;
+import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
-import com.salkcoding.oswl.domain.enums.RiskLevel;
-import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.VersionSummaryDto;
+import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +24,9 @@ public class RiskTrendService {
 
     private static final int TREND_LIMIT = 10;
 
-    private final ProjectRepository projectRepository;
+    private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
+    private final LibraryRepository    libraryRepository;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Model model) {
@@ -35,16 +36,16 @@ public class RiskTrendService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        // Recent completed scans (DESC order → reversed for chart display)
         List<ScanResult> scansDesc = scanResultRepository.findRecentCompleted(projectId, TREND_LIMIT);
 
-        // All completed scans for the topbar version dropdown
         List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
                         .scanId(s.getId())
-                        .version(s.getVersion() != null ? s.getVersion() : s.getScannedAt().toLocalDate().toString().replace("-", "."))
-                        .scannedAt(s.getScannedAt() != null ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
+                        .version(s.getVersion() != null ? s.getVersion()
+                                : s.getScannedAt().toLocalDate().toString().replace("-", "."))
+                        .scannedAt(s.getScannedAt() != null
+                                ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
                         .current(false)
                         .build())
                 .toList();
@@ -52,28 +53,13 @@ public class RiskTrendService {
         model.addAttribute("currentScanId", (Object) null);
 
         if (scansDesc.isEmpty()) {
-            model.addAttribute("projectVersion", "-");
-            model.addAttribute("securityIssues", 0);
-            model.addAttribute("securityDelta", 0);
-            model.addAttribute("licenseIssues", 0);
-            model.addAttribute("licenseDelta", 0);
-            model.addAttribute("chartVersions", List.of());
-            model.addAttribute("chartSecCritical", List.of());
-            model.addAttribute("chartSecHigh",     List.of());
-            model.addAttribute("chartSecMedium",   List.of());
-            model.addAttribute("chartSecLow",      List.of());
-            model.addAttribute("chartLicCritical", List.of());
-            model.addAttribute("chartLicHigh",     List.of());
-            model.addAttribute("chartLicMedium",   List.of());
-            model.addAttribute("chartLicLow",      List.of());
+            addEmptyChartData(model);
             return;
         }
 
-        // Current version based on the latest scan
         ScanResult latest = scansDesc.get(0);
         model.addAttribute("projectVersion", latest.getVersion() != null ? latest.getVersion() : "-");
 
-        // Build chart data (oldest → newest)
         List<ScanResult> scansAsc = new ArrayList<>(scansDesc);
         Collections.reverse(scansAsc);
 
@@ -88,8 +74,9 @@ public class RiskTrendService {
         List<Integer> licLow      = new ArrayList<>();
 
         for (ScanResult scan : scansAsc) {
-            int[] sec = aggregateSecurity(scan);
-            int[] lic = aggregateLicense(scan);
+            List<Library> libs = libraryRepository.findByScanResultIdWithCves(scan.getId());
+            int[] sec = aggregateSecurity(libs);
+            int[] lic = aggregateLicense(libs);
 
             versions.add(scan.getVersion() != null ? scan.getVersion() : "?");
             secCritical.add(sec[0]);
@@ -102,23 +89,20 @@ public class RiskTrendService {
             licLow.add(lic[3]);
         }
 
-        // Current issue counts (latest scan)
-        int[] latestSec = aggregateSecurity(latest);
-        int[] latestLic = aggregateLicense(latest);
+        List<Library> latestLibs = libraryRepository.findByScanResultIdWithCves(latest.getId());
+        int[] latestSec = aggregateSecurity(latestLibs);
+        int[] latestLic = aggregateLicense(latestLibs);
         int currentSecIssues = latestSec[0] + latestSec[1] + latestSec[2] + latestSec[3];
         int currentLicIssues = latestLic[0] + latestLic[1] + latestLic[2] + latestLic[3];
 
-        // Delta compared to previous scan
         int secDelta = 0;
         int licDelta = 0;
         if (scansDesc.size() >= 2) {
-            ScanResult prev = scansDesc.get(1);
-            int[] prevSec = aggregateSecurity(prev);
-            int[] prevLic = aggregateLicense(prev);
-            int prevSecIssues = prevSec[0] + prevSec[1] + prevSec[2] + prevSec[3];
-            int prevLicIssues = prevLic[0] + prevLic[1] + prevLic[2] + prevLic[3];
-            secDelta = currentSecIssues - prevSecIssues;
-            licDelta = currentLicIssues - prevLicIssues;
+            List<Library> prevLibs = libraryRepository.findByScanResultIdWithCves(scansDesc.get(1).getId());
+            int[] prevSec = aggregateSecurity(prevLibs);
+            int[] prevLic = aggregateLicense(prevLibs);
+            secDelta = currentSecIssues - (prevSec[0] + prevSec[1] + prevSec[2] + prevSec[3]);
+            licDelta = currentLicIssues - (prevLic[0] + prevLic[1] + prevLic[2] + prevLic[3]);
         }
 
         model.addAttribute("securityIssues", currentSecIssues);
@@ -137,10 +121,11 @@ public class RiskTrendService {
         model.addAttribute("chartLicLow",      licLow);
     }
 
-    private int[] aggregateSecurity(ScanResult scan) {
+    private int[] aggregateSecurity(List<Library> libraries) {
         int c = 0, h = 0, m = 0, l = 0;
-        for (OswlComponent comp : scan.getComponents()) {
-            for (var cve : comp.getCves()) {
+        for (Library lib : libraries) {
+            for (var cve : lib.getCves()) {
+                if (cve.getSeverity() == null) continue;
                 switch (cve.getSeverity()) {
                     case CRITICAL -> c++;
                     case HIGH     -> h++;
@@ -153,15 +138,32 @@ public class RiskTrendService {
         return new int[]{c, h, m, l};
     }
 
-    private int[] aggregateLicense(ScanResult scan) {
+    private int[] aggregateLicense(List<Library> libraries) {
         int c = 0, h = 0, m = 0, l = 0;
-        for (OswlComponent comp : scan.getComponents()) {
-            switch (comp.getLicenseStatus()) {
+        for (Library lib : libraries) {
+            switch (lib.getLicenseStatus()) {
                 case VIOLATION -> c++;
                 case WARN      -> h++;
                 default        -> l++;
             }
         }
         return new int[]{c, h, m, l};
+    }
+
+    private void addEmptyChartData(Model model) {
+        model.addAttribute("projectVersion",         "-");
+        model.addAttribute("securityIssues",           0);
+        model.addAttribute("securityDelta",            0);
+        model.addAttribute("licenseIssues",            0);
+        model.addAttribute("licenseDelta",             0);
+        model.addAttribute("chartVersions",    List.of());
+        model.addAttribute("chartSecCritical", List.of());
+        model.addAttribute("chartSecHigh",     List.of());
+        model.addAttribute("chartSecMedium",   List.of());
+        model.addAttribute("chartSecLow",      List.of());
+        model.addAttribute("chartLicCritical", List.of());
+        model.addAttribute("chartLicHigh",     List.of());
+        model.addAttribute("chartLicMedium",   List.of());
+        model.addAttribute("chartLicLow",      List.of());
     }
 }

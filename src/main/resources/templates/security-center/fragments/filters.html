@@ -29,7 +29,7 @@
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.ignored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Ignored</span>F
+                <span class="text-[13px] text-black">Ignored</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonIgnored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
@@ -60,22 +60,22 @@
 
         <!-- License Severity Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
-            <p class="font-semibold text-[14px] text-black w-full">License Severity</p>
+            <p class="font-semibold text-[14px] text-black w-full">License Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licCritical" class="rounded border-gray-300 text-[#e62727] focus:ring-[#e62727]" />
-                <span class="text-[13px] text-black">Critical</span>
+                <span class="text-[13px] text-black">Violation</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licHigh" class="rounded border-gray-300 text-[#f47a29] focus:ring-[#f47a29]" />
-                <span class="text-[13px] text-black">High</span>
+                <span class="text-[13px] text-black">Warning</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licMedium" class="rounded border-gray-300 text-[#f5bd26] focus:ring-[#f5bd26]" />
-                <span class="text-[13px] text-black">Medium</span>
+                <span class="text-[13px] text-black">Unknown</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licLow" class="rounded border-gray-300 text-[#e8eef0] focus:ring-gray-300" />
-                <span class="text-[13px] text-black">Low</span>
+                <span class="text-[13px] text-black">OK</span>
             </label>
         </div>
         
