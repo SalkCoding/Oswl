@@ -4,6 +4,7 @@ import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ProjectVersion;
 import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
+import com.salkcoding.oswl.dto.TrashProjectDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
@@ -12,6 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,8 +34,15 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> findAll() {
-        return projectRepository.findAll().stream()
+        return projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc().stream()
                 .map(this::toSummary)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<TrashProjectDto> findTrash() {
+        return projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
+                .map(this::toTrash)
                 .collect(Collectors.toList());
     }
 
@@ -96,10 +107,55 @@ public class ProjectService {
         return saved;
     }
 
+    /** Soft-delete: moves the project to trash. */
     @Transactional
     public void delete(Long id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
+        project.softDelete();
+        projectRepository.save(project);
+        log.info("[Project] 소프트삭제 id={}", id);
+    }
+
+    @Transactional
+    public void restore(Long id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
+        project.restore();
+        projectRepository.save(project);
+        log.info("[Project] 복구 id={}", id);
+    }
+
+    @Transactional
+    public void permanentDelete(Long id) {
         projectRepository.deleteById(id);
-        log.info("[Project] 삭제 id={}", id);
+        log.info("[Project] 영구삭제 id={}", id);
+    }
+
+    @Transactional
+    public void permanentDeleteAll() {
+        List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc();
+        projectRepository.deleteAll(trash);
+        log.info("[Project] 휴지통 전체 영구삭제 count={}", trash.size());
+    }
+
+    @Transactional
+    public void permanentDeleteSelected(List<Long> ids) {
+        ids.forEach(id -> {
+            if (projectRepository.existsById(id)) {
+                projectRepository.deleteById(id);
+                log.info("[Project] 선택 영구삭제 id={}", id);
+            }
+        });
+    }
+
+    @Transactional
+    public void restoreSelected(List<Long> ids) {
+        ids.forEach(id -> projectRepository.findById(id).ifPresent(p -> {
+            p.restore();
+            projectRepository.save(p);
+            log.info("[Project] 선택 복구 id={}", id);
+        }));
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
@@ -182,5 +238,21 @@ public class ProjectService {
             }
         }
         return new int[]{critical, high, unknown, low};
+    }
+
+    private static final DateTimeFormatter DELETED_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+
+    private TrashProjectDto toTrash(Project project) {
+        long daysSince = ChronoUnit.DAYS.between(
+                project.getDeletedAt().toLocalDate(), LocalDate.now());
+        int daysLeft = (int) Math.max(0, 30 - daysSince);
+        String urgency = daysLeft <= 7 ? "red" : daysLeft <= 15 ? "orange" : "yellow";
+        return TrashProjectDto.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .deletedAt(project.getDeletedAt().format(DELETED_FMT))
+                .daysLeft(daysLeft)
+                .urgencyColor(urgency)
+                .build();
     }
 }

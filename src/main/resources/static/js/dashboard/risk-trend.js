@@ -80,7 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ticks: {
                     color: '#425055',
                     font: { size: 14, family: 'Inter', weight: '500' },
-                    callback: (val) => val >= 1000 ? (val / 1000).toFixed(1) + 'K' : val
+                    stepSize: 1,
+                    callback: (val) => {
+                        if (!Number.isInteger(val)) return null;
+                        return val >= 1000 ? Math.round(val / 1000) + 'K' : val;
+                    }
                 }
             }
         },
