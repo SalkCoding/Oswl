@@ -21,6 +21,7 @@ public class ProjectController implements ProjectControllerSpec {
     @GetMapping
     public String index(Model model) {
         model.addAttribute("projects", projectService.findAll());
+        model.addAttribute("trashProjects", projectService.findTrash());
         return "projects/index";
     }
 
@@ -30,9 +31,50 @@ public class ProjectController implements ProjectControllerSpec {
         return ResponseEntity.ok(projectService.findAll());
     }
 
+    /** Soft-delete — moves to trash. */
     @DeleteMapping("/{projectId}")
     public ResponseEntity<Void> deleteProject(@PathVariable Long projectId) {
         projectService.delete(projectId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Restore a trashed project. */
+    @PostMapping("/{projectId}/restore")
+    @ResponseBody
+    public ResponseEntity<Void> restoreProject(@PathVariable Long projectId) {
+        projectService.restore(projectId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Permanently delete a single trashed project. */
+    @DeleteMapping("/{projectId}/permanent")
+    @ResponseBody
+    public ResponseEntity<Void> permanentDeleteProject(@PathVariable Long projectId) {
+        projectService.permanentDelete(projectId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Permanently delete all trashed projects. */
+    @DeleteMapping("/trash/all")
+    @ResponseBody
+    public ResponseEntity<Void> permanentDeleteAll() {
+        projectService.permanentDeleteAll();
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Permanently delete selected trashed projects. */
+    @DeleteMapping("/trash/selected")
+    @ResponseBody
+    public ResponseEntity<Void> permanentDeleteSelected(@RequestBody List<Long> ids) {
+        projectService.permanentDeleteSelected(ids);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Restore selected trashed projects. */
+    @PostMapping("/trash/restore-selected")
+    @ResponseBody
+    public ResponseEntity<Void> restoreSelected(@RequestBody List<Long> ids) {
+        projectService.restoreSelected(ids);
         return ResponseEntity.noContent().build();
     }
 
@@ -56,3 +98,4 @@ public class ProjectController implements ProjectControllerSpec {
         return ResponseEntity.ok(List.of());
     }
 }
+

@@ -4,31 +4,55 @@
     <script th:src="@{/js/projects/git-integration.js}" defer></script>
 </head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
-      x-data="{
-          openPanel: null,
-          cliPreSelectProject: '',
-          toast: null,
-          initToast() {
-              const p = new URLSearchParams(location.search).get('github');
-              if (p === 'connected')    this.toast = { type: 'success', msg: 'GitHub connected successfully.' };
-              else if (p === 'denied') this.toast = { type: 'warn',    msg: 'GitHub authorization was denied.' };
-              else if (p === 'error')  this.toast = { type: 'error',   msg: 'GitHub connection failed. Please try again.' };
-              else if (p === 'disconnected') this.toast = { type: 'info', msg: 'GitHub disconnected.' };
-              if (this.toast) {
-                  history.replaceState(null, '', location.pathname);
-                  setTimeout(() => this.toast = null, 4000);
-              }
-              // Auto-open CLI slideout when ?openCli={projectId} is present
-              const cliId = new URLSearchParams(location.search).get('openCli');
-              if (cliId) {
-                  this.cliPreSelectProject = cliId;
-                  this.openPanel = 'cli';
-                  history.replaceState(null, '', location.pathname);
-              }
-          }
-      }"
+      th:attr="data-active-count=${#lists.size(projects)},data-trash-count=${#lists.size(trashProjects)}"
+      x-data="projectsPage()"
       x-init="initToast()"
-      :class="openPanel ? 'overflow-hidden h-screen' : ''">
+      :class="(openPanel || confirmModal) ? 'overflow-hidden h-screen' : ''">
+    <script>
+        function projectsPage() {
+            const _activeCount = parseInt(document.body.dataset.activeCount || '0', 10);
+            const _trashCount  = parseInt(document.body.dataset.trashCount  || '0', 10);
+            return {
+                openPanel: null,
+                cliPreSelectProject: '',
+                toast: null,
+                projectTab: 'active',
+                trashSelected: [],
+                activeCount: _activeCount,
+                trashCount: _trashCount,
+                confirmModal: null,
+                initToast() {
+                    const p = new URLSearchParams(location.search).get('github');
+                    if (p === 'connected')         this.toast = { type: 'success', msg: 'GitHub connected successfully.' };
+                    else if (p === 'denied')       this.toast = { type: 'warn',    msg: 'GitHub authorization was denied.' };
+                    else if (p === 'error')        this.toast = { type: 'error',   msg: 'GitHub connection failed. Please try again.' };
+                    else if (p === 'disconnected') this.toast = { type: 'info',    msg: 'GitHub disconnected.' };
+                    if (this.toast) {
+                        history.replaceState(null, '', location.pathname);
+                        setTimeout(() => this.toast = null, 4000);
+                    }
+                    const cliId = new URLSearchParams(location.search).get('openCli');
+                    if (cliId) {
+                        this.cliPreSelectProject = cliId;
+                        this.openPanel = 'cli';
+                        history.replaceState(null, '', location.pathname);
+                    }
+                    const self = this;
+                    window.updateProjectCounts = (a, t) => { self.activeCount += a; self.trashCount += t; };
+                    window.getTrashSelected    = () => [...self.trashSelected];
+                    window.clearTrashSelected  = () => { self.trashSelected = []; };
+                },
+                isTrashSelected(id) { return this.trashSelected.includes(id); },
+                toggleTrash(id) {
+                    const idx = this.trashSelected.indexOf(id);
+                    idx === -1 ? this.trashSelected.push(id) : this.trashSelected.splice(idx, 1);
+                },
+                openConfirm(title, message, onConfirm) {
+                    this.confirmModal = { title, message, onConfirm };
+                }
+            };
+        }
+    </script>
 
     <header th:replace="~{fragments/topbar :: simple-topbar('Projects')}"></header>
 
@@ -77,72 +101,199 @@
         <!-- Select a Project -->
         <section class="flex flex-col gap-[20px] px-[60px] w-full shrink-0"
                  @project-imported.window="refreshProjectCards()">
-            <div class="flex gap-[10px] items-center w-full">
-                <img th:src="@{/icon/icon-folder.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
-                <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]">Select a Project</h3>
+            <div class="flex gap-[10px] items-center justify-between w-full">
+                <div class="flex gap-[10px] items-center">
+                    <img th:src="@{/icon/icon-folder.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
+                    <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]">Select a Project</h3>
+                </div>
+
+                <!-- Active / Trash tabs — 피그마 언더라인 스타일 -->
+                <div class="flex items-center gap-[4px]">
+                    <button type="button"
+                            @click="projectTab = 'active'"
+                            class="flex items-center gap-[6px] px-[4px] pb-[4px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2"
+                            :class="projectTab === 'active'
+                                ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]'
+                                : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        <span class="w-[7px] h-[7px] rounded-full bg-[#22c55e] inline-block shrink-0"></span>
+                        Active Projects
+                        <span x-text="activeCount" class="font-normal text-[var(--grayscale-50)]"></span>
+                    </button>
+                    <button type="button"
+                            @click="projectTab = 'trash'"
+                            class="flex items-center gap-[6px] px-[4px] pb-[4px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2"
+                            :class="projectTab === 'trash'
+                                ? 'text-red-500 border-red-500'
+                                : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        Trash
+                        <span x-text="trashCount" class="font-normal text-[var(--grayscale-50)]"></span>
+                    </button>
+                </div>
             </div>
 
-            <div id="project-cards-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
+            <!-- ── ACTIVE TAB ── -->
+            <div x-show="projectTab === 'active'">
+                <div id="project-cards-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
+                    <div th:each="project : ${projects}"
+                         x-data="{ openMenu: false }"
+                         th:attr="data-href=@{|/projects/${project.id}/security-center|},data-project-id=${project.id},data-project-name=${project.name}"
+                         @click="window.location.href = $el.dataset.href"
+                         class="project-card relative bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start px-[24px] py-[28px] rounded-[10px] transition-all hover:shadow-md hover:border-[var(--primary-80)] cursor-pointer text-inherit">
 
-                <!-- ✅ <div> + data-href + @click으로 이동, <button> 중첩 문제 없음 -->
-                <div th:each="project : ${projects}"
-                     x-data="{ openMenu: false }"
-                     th:attr="data-href=@{|/projects/${project.id}/security-center|},data-project-id=${project.id},data-project-name=${project.name}"
-                     @click="window.location.href = $el.dataset.href"
-                     class="project-card relative bg-white border border-[var(--grayscale-20)] flex flex-col gap-[24px] items-start px-[24px] py-[28px] rounded-[10px] transition-all hover:shadow-md hover:border-[var(--primary-80)] cursor-pointer text-inherit">
-
-                    <div class="flex flex-col gap-[6px] items-start w-full shrink-0">
-                        <div class="flex gap-[8px] items-start w-full">
-                            <div class="flex-1">
-                                <p class="font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px] leading-[1.3]"
-                                   th:text="${project.name}">Project Name</p>
-                                <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3]"
-                                   th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
-                                <!-- GitHub import badge -->
-                                <div th:if="${project.githubRepo != null}"
-                                     class="flex items-center gap-[4px] mt-[4px]">
-                                    <img th:src="@{/icon/icon-github.svg}" class="w-[11px] h-[11px] shrink-0" alt="" aria-hidden="true">
-                                    <span class="font-normal text-[10px] text-[var(--grayscale-50)] tracking-[-0.1px]"
-                                          th:text="${project.githubRepo}">owner/repo#main</span>
-                                    <span th:if="${project.importedAt != null}"
-                                          class="font-normal text-[10px] text-[var(--grayscale-40)] tracking-[-0.1px]"
-                                          th:text="'· Imported ' + ${project.importedAt}">· Imported 2026.05.03 14:05</span>
+                        <div class="flex flex-col gap-[6px] items-start w-full shrink-0">
+                            <div class="flex gap-[8px] items-start w-full">
+                                <div class="flex-1">
+                                    <p class="font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px] leading-[1.3]"
+                                       th:text="${project.name}">Project Name</p>
+                                    <p class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3]"
+                                       th:text="'Last Scanned : ' + ${project.lastScanned}">Last Scanned : 2026.04.04</p>
+                                    <div th:if="${project.githubRepo != null}"
+                                         class="flex items-center gap-[4px] mt-[4px]">
+                                        <img th:src="@{/icon/icon-github.svg}" class="w-[11px] h-[11px] shrink-0" alt="" aria-hidden="true">
+                                        <span class="font-normal text-[10px] text-[var(--grayscale-50)] tracking-[-0.1px]"
+                                              th:text="${project.githubRepo}">owner/repo#main</span>
+                                        <span th:if="${project.importedAt != null}"
+                                              class="font-normal text-[10px] text-[var(--grayscale-40)] tracking-[-0.1px]"
+                                              th:text="'· Imported ' + ${project.importedAt}">· Imported 2026.05.03 14:05</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- ✅ @click.stop이 이 div에 걸려 카드 @click(→ 링크이동) 차단 -->
-                            <div class="relative" @click.stop>
-                                <button type="button"
-                                        @click="openMenu = !openMenu"
-                                        class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--grayscale-20)] bg-white text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition">
-                                    <span class="sr-only">Open project actions</span>
-                                    <img th:src="@{/icon/icon-more-vertical.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
-                                </button>
-
-                                <!-- 드롭다운 오버레이: 외부 클릭 시 메뉴 닫기 -->
-                                <div x-show="openMenu" @click.stop="openMenu = false" class="fixed inset-0 z-[15]" style="display:none"></div>
-                                <!-- 드롭다운 -->
-                                <div x-cloak x-show="openMenu"
-                                     x-transition
-                                     class="absolute right-0 top-[42px] z-[20]">
+                                <div class="relative" @click.stop>
                                     <button type="button"
-                                            @click="openMenu = false; deleteProject($root.dataset.projectId, $root.dataset.projectName, $root)"
-                                            class="flex items-center gap-[4px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] pl-[8px] pr-[10px] py-[8px] text-[var(--grayscale-80)] font-medium text-[13px] tracking-[-0.13px] hover:bg-[var(--grayscale-10)] transition whitespace-nowrap">
-                                        <img th:src="@{/icon/icon-trash.svg}" class="w-[17px] h-[17px] shrink-0" alt="" aria-hidden="true">
-                                        Delete Project
+                                            @click="openMenu = !openMenu"
+                                            class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--grayscale-20)] bg-white text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition">
+                                        <span class="sr-only">Open project actions</span>
+                                        <img th:src="@{/icon/icon-more-vertical.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                                     </button>
+                                    <div x-show="openMenu" @click.stop="openMenu = false" class="fixed inset-0 z-[15]" style="display:none"></div>
+                                    <div x-cloak x-show="openMenu" x-transition class="absolute right-0 top-[42px] z-[20]">
+                                        <button type="button"
+                                                @click="openMenu = false; deleteProject($root.dataset.projectId, $root.dataset.projectName, $root)"
+                                                class="flex items-center gap-[4px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] pl-[8px] pr-[10px] py-[8px] text-[var(--grayscale-80)] font-medium text-[13px] tracking-[-0.13px] hover:bg-[var(--grayscale-10)] transition whitespace-nowrap">
+                                            <img th:src="@{/icon/icon-trash.svg}" class="w-[17px] h-[17px] shrink-0" alt="" aria-hidden="true">
+                                            Delete Project
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="w-full"
-                         th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow}, ${project.securityNone})}"></div>
-                    <div class="w-full"
-                         th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.licenseCritical}, ${project.licenseHigh}, 0, ${project.licenseLow}, ${project.licenseMedium})}"></div>
+                        <div class="w-full"
+                             th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow}, ${project.securityNone})}"></div>
+                        <div class="w-full"
+                             th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.licenseCritical}, ${project.licenseHigh}, 0, ${project.licenseLow}, ${project.licenseMedium})}"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── TRASH TAB ── -->
+            <div x-show="projectTab === 'trash'" style="display:none">
+
+                <!-- Warning banner -->
+                <div class="flex items-center gap-[10px] bg-[#fffbeb] border border-[#fcd34d] rounded-[8px] px-[16px] py-[11px] mb-[16px]">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span class="text-[13px] font-medium text-[#92400e] tracking-[-0.13px]">Items will be permanently deleted after 30 days.</span>
                 </div>
 
+                <!-- Bulk actions bar -->
+                <div class="flex items-center gap-[10px] mb-[20px]">
+                    <button type="button"
+                            @click="trashSelected.length > 0 && restoreSelected()"
+                            :class="trashSelected.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--grayscale-10)] cursor-pointer'"
+                            class="flex items-center gap-[6px] bg-white border border-[var(--grayscale-20)] rounded-[6px] px-[14px] py-[8px] text-[13px] font-medium text-[var(--grayscale-80)] tracking-[-0.13px] transition">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.7L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.3l3-2.3"/></svg>
+                        Restore Selected
+                    </button>
+                    <button type="button"
+                            @click="trashSelected.length > 0 && openConfirm('Delete Selected', 'Permanently delete ' + trashSelected.length + ' selected project(s)? This cannot be undone.', () => deleteSelected())"
+                            :class="trashSelected.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--grayscale-10)] cursor-pointer'"
+                            class="flex items-center gap-[6px] bg-white border border-[var(--grayscale-20)] rounded-[6px] px-[14px] py-[8px] text-[13px] font-medium text-[var(--grayscale-80)] tracking-[-0.13px] transition">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        Delete Selected
+                    </button>
+                    <div class="flex-1"></div>
+                    <button type="button"
+                            @click="openConfirm('Delete All Permanently', 'Permanently delete ALL trashed projects? This cannot be undone.', () => deleteAllPermanently())"
+                            class="flex items-center gap-[6px] bg-[#e53e3e] hover:bg-[#c53030] rounded-[6px] px-[14px] py-[8px] text-[13px] font-medium text-white tracking-[-0.13px] transition">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        Delete All Permanently
+                    </button>
+                </div>
+
+                <!-- Trash cards -->
+                <div id="trash-cards-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
+                    <div th:each="tp : ${trashProjects}"
+                         th:attr="data-trash-id=${tp.id},data-trash-name=${tp.name}"
+                         class="trash-card relative flex flex-col gap-[14px] items-start px-[22px] py-[22px] rounded-[10px] border transition-all"
+                         :class="isTrashSelected($el.dataset.trashId)
+                             ? 'border-[var(--primary-100)] border-2 bg-[#f0fdf9]'
+                             : 'border-[var(--grayscale-20)] border bg-white'">
+
+                        <!-- Checkbox + name row -->
+                        <div class="flex gap-[10px] items-start w-full">
+                            <!-- Square checkbox -->
+                            <button type="button"
+                                    th:attr="data-id=${tp.id}"
+                                    @click="toggleTrash($el.dataset.id)"
+                                    class="mt-[2px] w-[17px] h-[17px] rounded-[4px] border-2 shrink-0 flex items-center justify-center transition-colors"
+                                    :class="isTrashSelected($el.dataset.id)
+                                        ? 'bg-[var(--primary-100)] border-[var(--primary-100)]'
+                                        : 'border-[var(--grayscale-40)] bg-white hover:border-[var(--primary-80)]'">
+                                <svg x-show="isTrashSelected($el.closest('button').dataset.id)" width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="1.5,4.5 3.5,6.5 7.5,2.5"/></svg>
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-bold text-[15px] text-[var(--grayscale-100)] tracking-[-0.15px] leading-[1.3] truncate"
+                                   th:text="${tp.name}">Project Name</p>
+                                <p class="font-normal text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] mt-[1px]"
+                                   th:text="'Deleted At : ' + ${tp.deletedAt}">Deleted At : 2026.04.04</p>
+                            </div>
+                        </div>
+
+                        <!-- Time Left -->
+                        <div class="flex items-center gap-[8px]">
+                            <span class="text-[12px] font-medium text-[var(--grayscale-60)] tracking-[-0.12px]">Time Left</span>
+                            <span class="flex items-center gap-[5px] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[20px] text-[12px] font-semibold tracking-[-0.12px]"
+                                  th:classappend="${tp.urgencyColor == 'red'}    ? ' text-red-600'
+                                               : (${tp.urgencyColor == 'orange'} ? ' text-orange-500'
+                                               : ' text-yellow-600')">
+                                <span class="w-[6px] h-[6px] rounded-full inline-block shrink-0"
+                                      th:classappend="${tp.urgencyColor == 'red'}    ? ' bg-red-500'
+                                                   : (${tp.urgencyColor == 'orange'} ? ' bg-orange-400'
+                                                   : ' bg-yellow-400')"></span>
+                                D-<span th:text="${tp.daysLeft}">7</span>
+                            </span>
+                        </div>
+
+                        <!-- Actions — 항상 보임 -->
+                        <div class="flex gap-[8px] w-full mt-[2px]">
+                            <button type="button"
+                                    th:attr="data-id=${tp.id},data-name=${tp.name}"
+                                    @click="restoreOne($el.dataset.id, $el.dataset.name, $el.closest('.trash-card'))"
+                                    class="flex-1 flex items-center justify-center gap-[6px] bg-[var(--primary-100)] hover:bg-[var(--primary-120)] rounded-[7px] py-[10px] px-[12px] text-[13px] font-semibold text-white tracking-[-0.13px] transition">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.7L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.3l3-2.3"/></svg>
+                                Restore
+                            </button>
+                            <button type="button"
+                                    th:attr="data-id=${tp.id},data-name=${tp.name}"
+                                    @click="const el = $el; openConfirm('Delete Permanently', 'Permanently delete &quot;' + el.dataset.name + '&quot;? This cannot be undone.', () => permanentDeleteOne(el.dataset.id, el.dataset.name, el.closest('.trash-card')))"
+                                    class="flex items-center justify-center gap-[6px] border border-red-300 bg-white hover:bg-red-50 rounded-[7px] py-[10px] px-[12px] text-[13px] font-medium text-red-600 tracking-[-0.13px] transition whitespace-nowrap">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                                Delete Permanently
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Empty state -->
+                    <div th:if="${#lists.isEmpty(trashProjects)}"
+                         id="trash-empty-state"
+                         class="col-span-3 flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        <p class="text-[14px] font-medium">Trash is empty</p>
+                    </div>
+                </div>
             </div>
+
         </section>
 
     </main>
@@ -224,6 +375,50 @@
 
     <script th:src="@{/js/projects/git-integration.js}" defer></script>
     <script th:src="@{/js/projects.js}" defer></script>
+
+    <!-- ── 커스텀 삭제 확인 모달 ── -->
+    <div x-show="confirmModal !== null"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         style="display:none"
+         class="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center px-[16px]">
+        <div x-show="confirmModal !== null"
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             @click.outside="confirmModal = null"
+             class="bg-white rounded-[14px] px-[28px] py-[26px] w-full max-w-[420px] shadow-2xl">
+            <!-- Icon + title + message -->
+            <div class="flex items-start gap-[14px] mb-[22px]">
+                <div class="w-[42px] h-[42px] rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-[1px]">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </div>
+                <div>
+                    <h3 x-text="confirmModal && confirmModal.title"
+                        class="font-bold text-[17px] text-[var(--grayscale-100)] tracking-[-0.17px] mb-[6px]"></h3>
+                    <p x-text="confirmModal && confirmModal.message"
+                       class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] leading-[1.5]"></p>
+                </div>
+            </div>
+            <!-- Buttons -->
+            <div class="flex gap-[10px]">
+                <button type="button"
+                        @click="confirmModal = null"
+                        class="flex-1 border border-[var(--grayscale-20)] bg-white hover:bg-[var(--grayscale-5)] rounded-[8px] py-[11px] text-[13px] font-semibold text-[var(--grayscale-80)] tracking-[-0.13px] transition">
+                    Cancel
+                </button>
+                <button type="button"
+                        @click="const fn = confirmModal.onConfirm; confirmModal = null; fn()"
+                        class="flex-1 bg-[#e53e3e] hover:bg-[#c53030] rounded-[8px] py-[11px] text-[13px] font-semibold text-white tracking-[-0.13px] transition">
+                    Delete Permanently
+                </button>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
