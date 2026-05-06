@@ -112,6 +112,8 @@
         </div>
 
         <!-- No vulnerabilities: clean / outdated / deprecated state -->
+
+        <!-- Case: Deprecated (no CVE) -->
         <div th:if="${!hasVulnerabilities and isDeprecated}"
              class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[10px]">
             <div class="flex items-center gap-[10px]">
@@ -120,16 +122,48 @@
             </div>
             <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] leading-[1.5]" th:text="${deprecatedReason}">Deprecated reason</p>
             <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]">No known CVEs, but this version is no longer maintained. Upgrade to a supported release.</p>
+            <div class="pt-[6px]">
+                <button type="button" @click="modal = 'defer'"
+                        class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                    Defer (Exception)
+                </button>
+            </div>
         </div>
+
+        <!-- Case: Outdated version, no CVE -->
         <div th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion == false}"
-             class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] rounded-[10px] p-[24px] flex items-center gap-[12px]">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-caution)] shrink-0"></span>
-            <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">No known vulnerabilities detected, but this is not the latest version. Consider upgrading to reduce exposure risk.</p>
+             class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[14px]">
+            <div class="flex items-center gap-[12px]">
+                <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-caution)] shrink-0"></span>
+                <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">No known vulnerabilities detected, but this is not the latest version. Consider upgrading to reduce exposure risk.</p>
+            </div>
+            <div class="flex flex-col gap-[6px]">
+                <button type="button" @click="modal = 'defer'"
+                        class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                    Defer (Exception)
+                </button>
+                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
+                    No patch PR can be created for version-only issues — you can defer this review instead.
+                </p>
+            </div>
         </div>
+
+        <!-- Case: Up to date (latest, no CVE) — show Defer only if license risk exists -->
         <div th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion != false}"
-             class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[10px] p-[24px] flex items-center gap-[12px]">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
-            <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">No known vulnerabilities detected. This component is safe to use.</p>
+             class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[14px]">
+            <div class="flex items-center gap-[12px]">
+                <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
+                <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">No known vulnerabilities detected. This component is safe to use.</p>
+            </div>
+            <div th:if="${licenseRisk == 'VIOLATION' or licenseRisk == 'WARN'}" class="pt-[0px]">
+                <button type="button" @click="modal = 'defer'"
+                        class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                    Defer (Exception)
+                </button>
+            </div>
         </div>
 
         <!-- Vulnerabilities found: recommendation -->
@@ -163,17 +197,24 @@
                 </li>
             </ul>
 
-            <div th:if="${recommendedVersion != null}" class="flex gap-[12px] pt-[6px]">
-                <button type="button" @click="modal = 'patch'"
-                        class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
-                    <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    Apply Patch (Create PR)
-                </button>
-                <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
-                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    Defer (Exception)
-                </button>
+            <div class="flex flex-col gap-[8px] pt-[6px]">
+                <div class="flex gap-[12px]">
+                    <button type="button" @click="modal = 'patch'"
+                            th:if="${recommendedVersion != null}"
+                            class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                        Apply Patch (Create PR)
+                    </button>
+                    <button type="button" @click="modal = 'defer'"
+                            class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                        Defer (Exception)
+                    </button>
+                </div>
+                <p th:if="${recommendedVersion == null}"
+                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
+                    No patch version available at this time.
+                </p>
             </div>
         </div>
     </section>
@@ -188,7 +229,7 @@
         <div class="flex flex-col gap-[12px]">
             <p th:if="${#lists.isEmpty(cves)}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]">No security vulnerabilities detected for this component.</p>
             <div th:each="cve, it : ${cves}"
-                 th:attr="x-data=|{ open: ${it.first} }|"
+                 x-data="{ open: false }"
                  class="bg-white border border-[var(--grayscale-15)] rounded-[10px] overflow-hidden">
 
                 <button type="button"
@@ -330,10 +371,14 @@
              class="flex flex-col gap-[10px]">
 
             <div th:each="path : ${dependencyPaths}"
+                 x-data="{ open: false }"
                  class="bg-white border border-[var(--grayscale-15)] rounded-[10px] overflow-hidden">
 
-                <!-- Path header bar -->
-                <div class="flex items-center gap-[8px] px-[18px] py-[10px] bg-[var(--grayscale-5)] border-b border-[var(--grayscale-15)]">
+                <!-- Path header bar (click to expand) -->
+                <button type="button"
+                        @click="open = !open"
+                        class="w-full flex items-center gap-[8px] px-[18px] py-[10px] bg-[var(--grayscale-5)] border-b border-[var(--grayscale-15)] text-left transition-colors hover:bg-[var(--grayscale-10)] cursor-pointer">
+                    <img th:src="@{/icon/icon-chevron-down.svg}" class="w-[12px] h-[12px] shrink-0 transition-transform duration-200" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(44%) sepia(8%) saturate(503%) hue-rotate(153deg) brightness(95%) contrast(90%);"> 
                     <span th:if="${path.direct}"
                           class="inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-[20px] bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] text-[11px] font-semibold text-[var(--primary-120)] tracking-[-0.11px]">
                         <svg class="w-[10px] h-[10px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -349,10 +394,17 @@
                                  : 'Via ' + (${path.depth - 2}) + (${path.depth - 2 == 1} ? ' intermediate' : ' intermediates') + ' (depth ' + (${path.depth - 1}) + ')'">
                         Direct dependency (depth 1)
                     </span>
-                </div>
+                </button>
 
-                <!-- Path nodes (tree) -->
-                <div class="px-[18px] py-[14px] flex flex-col gap-0">
+                <!-- Path nodes (tree) — collapsed by default -->
+                <div x-show="open"
+                     x-transition:enter="transition-all duration-200 ease-out"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition-all duration-150 ease-in"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0"
+                     class="px-[18px] py-[14px] flex flex-col gap-0">
                     <div th:each="node, nodeStat : ${path.nodes}" class="flex items-start gap-0">
 
                         <!-- Vertical indent lines + connector for non-root nodes -->
@@ -490,5 +542,6 @@
                (<span th:text="${licenseRiskLabel}">-</span>).</p>
         </div>
     </section>
+
 
 </div>

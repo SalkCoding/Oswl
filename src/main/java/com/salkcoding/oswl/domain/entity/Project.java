@@ -78,6 +78,10 @@ public class Project {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /** Soft-delete timestamp. Non-null means the project is in the trash. */
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ScanResult> scanResults = new ArrayList<>();
@@ -110,5 +114,13 @@ public class Project {
         this.githubRepo = owner + "/" + repo;
         this.latestBranch = branch;
         this.importedAt = LocalDateTime.now();
+    }
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public void restore() {
+        this.deletedAt = null;
     }
 }

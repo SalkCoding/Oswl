@@ -35,4 +35,8 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
     /** Most recent scan for the project (any status) — used for scan status polling banner */
     @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId ORDER BY s.scannedAt DESC LIMIT 1")
     Optional<ScanResult> findLatestByProjectId(@Param("projectId") Long projectId);
+
+    /** All scans for a project in reverse chronological order — used for scan history page */
+    @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId ORDER BY s.scannedAt DESC")
+    List<ScanResult> findAllByProjectIdOrderByScannedAtDesc(@Param("projectId") Long projectId);
 }
