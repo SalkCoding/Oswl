@@ -46,11 +46,12 @@ public class DepsDevClient {
     // ── DTOs ────────────────────────────────────────────────────────────
 
     /**
-     * @param isDefault  true if this is the default (latest stable) version for the package
-     * @param deprecated non-null/non-blank deprecation reason when the version is deprecated; null otherwise
+     * @param isDefault     true if this is the default (latest stable) version for the package
+     * @param deprecated    non-null/non-blank deprecation reason when the version is deprecated; null otherwise
+     * @param latestVersion the latest stable version string when this is NOT the default; null if already latest
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
-                              boolean isDefault, String deprecated) {}
+                              boolean isDefault, String deprecated, String latestVersion) {}
 
     public record AdvisoryInfo(
             String ghsaId,
@@ -127,7 +128,7 @@ public class DepsDevClient {
 
             if (body == null) {
                 log.debug("[DepsDevClient] GetVersion RESPONSE null body for {}:{}", key.name(), key.version());
-                return new VersionInfo(List.of(), List.of(), false, null);
+                return new VersionInfo(List.of(), List.of(), false, null, null);
             }
 
             List<String> licenses = extractStrings(body, "licenses");
@@ -147,12 +148,33 @@ public class DepsDevClient {
             Object depRaw = body.get("deprecated");
             String deprecated = (depRaw instanceof String s && !s.isBlank()) ? s : null;
 
-            log.debug("[DepsDevClient] GetVersion RESPONSE {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={}",
-                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated);
-            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated);
+            // Extract the latest stable version from relatedVersions (relationshipType == "DEFAULT")
+            String latestVersion = null;
+            if (!isDefault) {
+                Object rvRaw = body.get("relatedVersions");
+                if (rvRaw instanceof List<?> rvList) {
+                    for (Object rv : rvList) {
+                        if (rv instanceof Map<?, ?> rvMap
+                                && "DEFAULT".equals(rvMap.get("relationshipType"))) {
+                            Object vk = rvMap.get("versionKey");
+                            if (vk instanceof Map<?, ?> vkMap) {
+                                Object v = vkMap.get("version");
+                                if (v instanceof String vs && !vs.isBlank()) {
+                                    latestVersion = vs;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            log.debug("[DepsDevClient] GetVersion RESPONSE {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
+                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion);
+            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion);
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] GetVersion 404/error for {}:{} - {}", key.name(), key.version(), e.getMessage());
-            return new VersionInfo(List.of(), List.of(), false, null);
+            return new VersionInfo(List.of(), List.of(), false, null, null);
         }
     }
 

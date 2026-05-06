@@ -52,25 +52,29 @@ public class ScanIngestService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        // Upsert ScanResult for this version (clear old components on rescan)
+        // Same project + same version → upsert (clear old components, re-run analysis).
+        // Same project + different version → always create a new ScanResult row.
         String incomingVersion = payload.getVersion();
-        ScanResult scanResult = (incomingVersion != null)
-                ? scanResultRepository.findByProjectIdAndVersion(projectId, incomingVersion)
-                        .map(existing -> {
-                            existing.getComponents().clear();
-                            existing.resetForRescan(payload.getRawJson());
-                            return existing;
-                        })
-                        .orElseGet(() -> scanResultRepository.save(ScanResult.builder()
-                                .project(project)
-                                .version(incomingVersion)
-                                .rawPayload(payload.getRawJson())
-                                .build()))
-                : scanResultRepository.save(ScanResult.builder()
-                        .project(project)
-                        .version(null)
-                        .rawPayload(payload.getRawJson())
-                        .build());
+        ScanResult scanResult;
+        if (incomingVersion != null) {
+            scanResult = scanResultRepository.findByProjectIdAndVersion(projectId, incomingVersion)
+                    .map(existing -> {
+                        existing.getComponents().clear();
+                        existing.resetForRescan(payload.getRawJson());
+                        return existing;
+                    })
+                    .orElseGet(() -> scanResultRepository.save(ScanResult.builder()
+                            .project(project)
+                            .version(incomingVersion)
+                            .rawPayload(payload.getRawJson())
+                            .build()));
+        } else {
+            scanResult = scanResultRepository.save(ScanResult.builder()
+                    .project(project)
+                    .version(null)
+                    .rawPayload(payload.getRawJson())
+                    .build());
+        }
 
         scanResult.startScanning();
         scanResultRepository.save(scanResult);

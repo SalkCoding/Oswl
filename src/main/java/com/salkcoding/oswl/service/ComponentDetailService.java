@@ -93,6 +93,7 @@ public class ComponentDetailService {
         model.addAttribute("isLatestVersion", isLatest);
         model.addAttribute("isDeprecated", deprecated != null);
         model.addAttribute("deprecatedReason", deprecated);
+        model.addAttribute("latestVersion", lib.getLatestVersion());
 
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
         model.addAttribute("projectsCount", 0);

@@ -27,12 +27,8 @@ public class ScanHistoryController {
     public ResponseEntity<Void> deleteScan(
             @PathVariable Long projectId,
             @PathVariable Long scanId) {
-        scanResultRepository.findById(scanId).ifPresent(scan -> {
-            if (!scan.getProject().getId().equals(projectId)) {
-                throw new IllegalArgumentException("Scan does not belong to project");
-            }
-            scanResultRepository.deleteById(scanId);
-        });
+        scanResultRepository.findByIdAndProjectId(scanId, projectId)
+                .ifPresent(scanResultRepository::delete);
         return ResponseEntity.noContent().build();
     }
 }
