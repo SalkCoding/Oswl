@@ -39,4 +39,7 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
     /** All scans for a project in reverse chronological order — used for scan history page */
     @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId ORDER BY s.scannedAt DESC")
     List<ScanResult> findAllByProjectIdOrderByScannedAtDesc(@Param("projectId") Long projectId);
+
+    /** Find scan by id scoped to a project — avoids lazy-loading the project association */
+    Optional<ScanResult> findByIdAndProjectId(Long id, Long projectId);
 }

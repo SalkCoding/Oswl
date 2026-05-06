@@ -58,4 +58,7 @@ public class ComponentRowDto {
 
     @Schema(description = "Non-null when deps.dev marks this version as deprecated; contains the reason")
     private final String deprecated;
+
+    @Schema(description = "Latest stable version from deps.dev; non-null only when isLatestVersion is false", example = "2.17.0")
+    private final String latestVersion;
 }

@@ -164,6 +164,7 @@ function restoreSelected() {
             if (window.clearTrashSelected) window.clearTrashSelected();
             setTimeout(checkTrashEmpty, 250);
             showToast('', `${ids.length} project(s) restored.`);
+            refreshProjectCards();
         } else {
             showToast('', 'Failed to restore selected projects.');
         }

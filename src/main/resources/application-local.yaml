@@ -37,7 +37,8 @@ logging:
     com.salkcoding.oswl.client: DEBUG
     com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
     # SQL — 평소엔 억제, 필요 시 DEBUG로 변경
-    org.hibernate.SQL: WARN
+    org.hibernate.SQL: INFO
+    com.salkcoding.oswl.service.ScanIngestService: INFO
     org.hibernate.orm.jdbc.bind: WARN
     # Spring 내부 노이즈 억제
     org.springframework.web: WARN

@@ -134,6 +134,7 @@ public class SecurityCenterService {
                     .licenseName(lib.getLicenseName())
                     .isLatestVersion(lib.getIsLatestVersion())
                     .deprecated(lib.getDeprecated())
+                    .latestVersion(lib.getLatestVersion())
                     .build());
         }
 

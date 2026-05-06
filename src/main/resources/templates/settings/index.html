@@ -1,25 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head('Settings')}"></head>
-<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]"
-      x-data="{
-          clientId: '',
-          clientSecret: '',
-          redirectUri: '',
-          saving: false,
-          saveError: '',
-          savedOk: false,
-          init() {
-              fetch('/api/settings/external/github')
-                  .then(r => r.json())
-                  .then(d => {
-                      this.clientId   = d.clientId   || '';
-                      this.redirectUri = d.redirectUri || '';
-                      // secret is never returned; show placeholder if set
-                  });
-          }
-      }"
-      x-init="init()">
+<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
 
     <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
 
@@ -27,7 +9,7 @@
 
         <!-- Back button -->
         <div>
-            <a th:href="@{/projects}"
+            <a href="javascript:history.back()"
                class="inline-flex items-center gap-[6px] text-[13px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] font-medium tracking-[-0.13px] transition-colors no-underline">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="15 18 9 12 15 6"/>
@@ -44,115 +26,345 @@
             </p>
         </div>
 
-        <!-- GitHub OAuth App card -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-[640px] w-full overflow-hidden">
+        <!-- ── GitHub PAT Connection card ──────────────────────────────────── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-full w-full overflow-hidden"
+             x-data="{
+                 connected: false,
+                 connectedLogin: '',
+                 accounts: [],
+                 loadingStatus: true,
+                 patInput: '',
+                 connecting: false,
+                 connectError: '',
+                 disconnecting: false,
+                 async init() {
+                     this.loadingStatus = true;
+                     try {
+                         const res = await fetch('/api/github/status');
+                         const data = await res.json();
+                         this.connected = data.connected;
+                         this.connectedLogin = data.login || '';
+                         if (this.connected) {
+                             const accRes = await fetch('/api/github/accounts');
+                             if (accRes.ok) this.accounts = await accRes.json();
+                         }
+                     } catch(e) { this.connected = false; }
+                     this.loadingStatus = false;
+                 },
+                 async connect() {
+                     this.connecting = true; this.connectError = '';
+                     try {
+                         const res = await fetch('/api/github/connect', {
+                             method: 'POST',
+                             headers: { 'Content-Type': 'application/json' },
+                             body: JSON.stringify({ token: this.patInput.trim() })
+                         });
+                         const data = await res.json();
+                         if (!res.ok) { this.connectError = data.error || 'Connection failed.'; return; }
+                         this.connected = true;
+                         this.connectedLogin = data.login;
+                         this.patInput = '';
+                         const accRes = await fetch('/api/github/accounts');
+                         if (accRes.ok) this.accounts = await accRes.json();
+                     } catch(e) { this.connectError = 'Connection failed.'; }
+                     finally { this.connecting = false; }
+                 },
+                 async disconnectAccount(login) {
+                     this.disconnecting = true;
+                     try {
+                         await fetch('/api/github/accounts/' + login, { method: 'DELETE' });
+                         this.accounts = this.accounts.filter(a => a.login !== login);
+                         if (this.accounts.length === 0) { this.connected = false; this.connectedLogin = ''; }
+                     } catch(e) {}
+                     this.disconnecting = false;
+                 }
+             }"
+             x-init="init()">
 
-            <!-- Card header -->
             <div class="flex gap-[14px] items-center px-[28px] py-[22px] border-b border-[var(--grayscale-15)]">
                 <div class="border border-[var(--grayscale-20)] rounded-[8px] w-[36px] h-[36px] flex items-center justify-center shrink-0">
                     <img th:src="@{/icon/icon-github.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
                 </div>
                 <div class="flex-1">
-                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0">GitHub OAuth App</p>
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0">Connect to GitHub</p>
                     <p class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
-                        Required to import repositories from GitHub.
+                        Connect your GitHub account via Personal Access Token to import repositories.
                     </p>
                 </div>
-                <!-- Status badge -->
-                <span th:if="${githubConfigured}"
+                <span x-show="loadingStatus" class="bg-[var(--grayscale-10)] text-[var(--grayscale-50)] text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
+                    Checking…
+                </span>
+                <span x-show="!loadingStatus && connected" x-cloak
                       class="bg-[var(--primary-20)] text-[var(--primary-120)] text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
                     Connected
                 </span>
-                <span th:unless="${githubConfigured}"
+                <span x-show="!loadingStatus && !connected" x-cloak
                       class="bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[11px] font-bold px-[10px] py-[4px] rounded-[20px] tracking-[-0.11px]">
-                    Not configured
+                    Not connected
                 </span>
             </div>
 
-            <!-- How-to steps -->
-            <div class="bg-[var(--grayscale-5)] border-b border-[var(--grayscale-15)] px-[28px] py-[18px] flex flex-col gap-[10px]">
-                <p class="text-[12px] font-semibold text-[var(--grayscale-80)] tracking-[-0.12px] m-0">How to create a GitHub OAuth App:</p>
-                <ol class="list-decimal list-inside flex flex-col gap-[6px] m-0 pl-[4px]">
-                    <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
-                        Go to <a href="https://github.com/settings/developers" target="_blank" rel="noopener noreferrer"
-                                 class="text-[var(--primary-120)] underline">github.com/settings/developers</a>
-                        → <strong>New OAuth App</strong>
-                    </li>
-                    <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
-                        Set <strong>Authorization callback URL</strong> to the Redirect URI below.
-                    </li>
-                    <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
-                        Copy the <strong>Client ID</strong> and generate a <strong>Client Secret</strong>, then paste them below.
-                    </li>
-                </ol>
-            </div>
-
-            <!-- Form -->
             <div class="flex flex-col gap-[16px] px-[28px] py-[24px]">
 
-                <!-- Redirect URI (shown first so they can copy it before visiting GitHub) -->
+                <!-- Connected: account list -->
+                <div x-show="connected" x-cloak class="flex flex-col gap-[12px]">
+                    <p class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px] m-0">Connected accounts</p>
+                    <div class="flex flex-col gap-[6px]">
+                        <template x-for="acc in accounts" :key="acc.login">
+                            <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center gap-[10px] px-[14px] py-[10px]">
+                                <img :src="acc.avatarUrl" class="w-[24px] h-[24px] rounded-full shrink-0" alt="">
+                                <span class="text-[13px] font-medium text-[var(--grayscale-100)] tracking-[-0.13px] flex-1" x-text="acc.login"></span>
+                                <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" x-text="acc.type === 'Organization' ? 'Org' : 'User'"></span>
+                                <button type="button"
+                                        :disabled="disconnecting"
+                                        @click="disconnectAccount(acc.login)"
+                                        class="border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[4px] text-[11px] font-medium text-[var(--grayscale-60)] hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors focus:outline-none">
+                                    Disconnect
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">Add another account:</p>
+                </div>
+
+                <!-- PAT input -->
                 <div class="flex flex-col gap-[6px]">
                     <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
-                        Redirect URI
-                        <span class="text-[var(--grayscale-50)] font-normal">(paste this into your GitHub OAuth App)</span>
+                        Personal Access Token
                     </label>
-                    <input type="url" x-model="redirectUri"
-                           placeholder="http://localhost:8080/oauth/github/callback"
-                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
-                </div>
 
-                <!-- Client ID -->
-                <div class="flex flex-col gap-[6px]">
-                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Client ID</label>
-                    <input type="text" x-model="clientId"
-                           placeholder="Iv1.xxxxxxxxxxxxxxxxx"
-                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
-                </div>
+                    <!-- How-to guide -->
+                    <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex flex-col gap-[8px]">
+                        <p class="text-[12px] font-semibold text-[var(--grayscale-80)] tracking-[-0.12px] m-0">How to get a token</p>
+                        <ol class="list-decimal list-inside flex flex-col gap-[5px] m-0 pl-[2px]">
+                            <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                                Go to
+                                <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer"
+                                   class="text-[var(--primary-120)] underline">github.com/settings/tokens</a>
+                            </li>
+                            <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                                Click <strong>Generate new token (classic)</strong> or <strong>Fine-grained token</strong>
+                            </li>
+                            <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                                Select the <code class="bg-[var(--grayscale-15)] px-[4px] py-[1px] rounded text-[11px]">repo</code> scope
+                                <span class="text-[var(--grayscale-50)]">(add <code class="bg-[var(--grayscale-15)] px-[4px] py-[1px] rounded text-[11px]">read:org</code> to include organizations)</span>
+                            </li>
+                            <li class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                                Copy the generated token and paste it below
+                                <span class="text-[var(--grayscale-50)]">(starts with <code class="bg-[var(--grayscale-15)] px-[4px] py-[1px] rounded text-[11px]">ghp_</code> for classic or <code class="bg-[var(--grayscale-15)] px-[4px] py-[1px] rounded text-[11px]">github_pat_</code> for fine-grained)</span>
+                            </li>
+                        </ol>
+                    </div>
 
-                <!-- Client Secret -->
-                <div class="flex flex-col gap-[6px]">
-                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
-                        Client Secret
-                        <span th:if="${githubConfigured}" class="text-[var(--grayscale-50)] font-normal">(already set — leave blank to keep current)</span>
-                    </label>
-                    <input type="password" x-model="clientSecret"
-                           th:placeholder="${githubConfigured} ? '••••••••••••••••••••••••••••••••••••••••' : 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"
-                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
-                </div>
-
-                <!-- Actions -->
-                <div class="flex items-center gap-[12px] pt-[4px]">
-                    <button type="button"
-                            :disabled="saving || (!clientId && !clientSecret && !redirectUri)"
-                            @click="
-                                saving = true; saveError = ''; savedOk = false;
-                                fetch('/api/settings/external/github', {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ clientId, clientSecret, redirectUri })
-                                })
-                                .then(r => r.ok ? r.json() : Promise.reject(r))
-                                .then(() => { savedOk = true; clientSecret = ''; setTimeout(() => savedOk = false, 3000); })
-                                .catch(() => saveError = 'Failed to save. Please try again.')
-                                .finally(() => saving = false)"
-                            :class="(saving || (!clientId && !clientSecret && !redirectUri)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
-                            class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none">
-                        <span x-text="saving ? 'Saving…' : 'Save'">Save</span>
-                    </button>
-
-                    <span x-show="savedOk" x-cloak
-                          class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]">
-                        <img th:src="@{/icon/icon-check.svg}" class="w-[13px] h-[13px]" alt="" aria-hidden="true">
-                        Saved
-                    </span>
-                    <span x-show="saveError" x-cloak x-text="saveError"
+                    <div class="flex gap-[8px]">
+                        <input type="password" x-model="patInput" placeholder="ghp_… or github_pat_…"
+                               @keydown.enter="connect()"
+                               class="flex-1 h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                        <button type="button"
+                                :disabled="connecting || !patInput.trim()"
+                                @click="connect()"
+                                :class="(connecting || !patInput.trim()) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
+                                class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none shrink-0">
+                            <span x-text="connecting ? 'Connecting…' : 'Connect'">Connect</span>
+                        </button>
+                    </div>
+                    <span x-show="connectError" x-cloak x-text="connectError"
                           class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
                 </div>
             </div>
         </div>
 
+        <!-- ── CLI API Keys card ─────────────────────────────────────────── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-full w-full overflow-hidden"
+             x-data="{
+                 projects: [],
+                 loadingProjects: false,
+                 selectedProjectId: '',
+                 keyLabel: '',
+                 creating: false,
+                 createError: '',
+                 issuedToken: '',
+                 existingKeys: [],
+                 loadingKeys: false,
+                 showRevoked: false,
+                 revoking: null,
+                 async init() {
+                     this.loadingProjects = true;
+                     try {
+                         const res = await fetch('/projects/list');
+                         if (res.ok) this.projects = await res.json();
+                     } catch(e) {}
+                     this.loadingProjects = false;
+                 },
+                 async loadKeys() {
+                     if (!this.selectedProjectId) { this.existingKeys = []; return; }
+                     this.loadingKeys = true;
+                     try {
+                         const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys');
+                         if (res.ok) this.existingKeys = await res.json();
+                     } catch(e) { this.existingKeys = []; }
+                     this.loadingKeys = false;
+                 },
+                 async createKey() {
+                     this.creating = true; this.createError = ''; this.issuedToken = '';
+                     try {
+                         const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys', {
+                             method: 'POST',
+                             headers: { 'Content-Type': 'application/json' },
+                             body: JSON.stringify({ label: this.keyLabel || 'CLI Key' })
+                         });
+                         if (!res.ok) throw new Error();
+                         const data = await res.json();
+                         this.issuedToken = data.token;
+                         this.keyLabel = '';
+                         await this.loadKeys();
+                     } catch(e) { this.createError = 'Failed to create key. Please try again.'; }
+                     this.creating = false;
+                 },
+                 async revokeKey(keyId) {
+                     if (this.revoking === keyId) return;
+                     this.revoking = keyId;
+                     try {
+                         const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys/' + keyId, { method: 'DELETE' });
+                         if (res.ok) this.existingKeys = this.existingKeys.map(k => k.id === keyId ? {...k, active: false} : k);
+                     } catch(e) {}
+                     this.revoking = null;
+                 }
+             }"
+             x-init="init(); $watch('selectedProjectId', () => { issuedToken = ''; loadKeys(); })">
+
+            <div class="flex gap-[14px] items-center px-[28px] py-[22px] border-b border-[var(--grayscale-15)]">
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] w-[36px] h-[36px] flex items-center justify-center shrink-0">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--grayscale-70)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0">CLI API Keys</p>
+                    <p class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                        Manage project-scoped API keys used by the OsWL CLI for scan authentication.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-[20px] px-[28px] py-[24px]">
+
+                <!-- Project selector -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Project</label>
+                    <div x-show="loadingProjects" class="flex items-center gap-[8px] text-[12px] text-[var(--grayscale-50)]">
+                        <svg class="animate-spin w-[13px] h-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                        Loading projects…
+                    </div>
+                    <div x-show="!loadingProjects && projects.length === 0" x-cloak
+                         class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[8px] px-[14px] py-[10px] text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]">
+                        No projects found. Create a project first.
+                    </div>
+                    <select x-show="!loadingProjects && projects.length > 0" x-cloak
+                            x-model="selectedProjectId"
+                            class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
+                        <option value="">Select a project</option>
+                        <template x-for="p in projects" :key="p.id">
+                            <option :value="p.id" x-text="p.name"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Issue new key (only when project selected) -->
+                <div x-show="selectedProjectId" x-cloak class="flex flex-col gap-[10px]">
+                    <p class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px] m-0">Issue new key</p>
+                    <div class="flex gap-[8px]">
+                        <input type="text" x-model="keyLabel" placeholder="Label (e.g. CI Pipeline)"
+                               @keydown.enter="createKey()"
+                               class="flex-1 h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                        <button type="button"
+                                :disabled="creating"
+                                @click="createKey()"
+                                :class="creating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
+                                class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none shrink-0">
+                            <span x-text="creating ? 'Creating…' : 'Create'">Create</span>
+                        </button>
+                    </div>
+                    <span x-show="createError" x-cloak x-text="createError" class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
+
+                    <!-- Issued token banner -->
+                    <div x-show="issuedToken" x-cloak x-transition class="flex flex-col gap-[8px]">
+                        <div class="bg-[#22efc3]/10 border border-[#22efc3]/30 rounded-[10px] p-[14px] flex flex-col gap-[10px]">
+                            <div class="flex items-center justify-between gap-[8px]">
+                                <span class="text-[12px] font-semibold text-[var(--primary-120)] tracking-[-0.12px]">API Key issued</span>
+                                <button type="button" @click="navigator.clipboard.writeText(issuedToken)"
+                                        class="text-[11px] font-medium text-[var(--primary-120)] hover:underline focus:outline-none">Copy</button>
+                            </div>
+                            <code class="font-mono text-[12px] text-[var(--grayscale-100)] break-all select-all bg-white/60 rounded-[6px] px-[10px] py-[8px]" x-text="issuedToken"></code>
+                        </div>
+                        <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] m-0">
+                            Store this token securely — it will <strong>not</strong> be shown again.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Issued keys list -->
+                <div x-show="selectedProjectId" x-cloak class="flex flex-col gap-[10px]">
+                    <div class="flex items-center justify-between">
+                        <p class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px] m-0">Issued keys</p>
+                        <div class="flex items-center gap-[12px]">
+                            <button type="button" x-show="existingKeys.some(k => !k.active)"
+                                    @click="showRevoked = !showRevoked"
+                                    class="text-[11px] font-medium text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors focus:outline-none"
+                                    x-text="showRevoked ? 'Hide revoked' : 'Show revoked (' + existingKeys.filter(k => !k.active).length + ')'"></button>
+                            <button type="button" @click="loadKeys()"
+                                    class="flex items-center gap-[4px] text-[11px] font-medium text-[var(--grayscale-50)] hover:text-[var(--primary-120)] transition-colors focus:outline-none">
+                                <svg :class="loadingKeys && 'animate-spin'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path></svg>
+                                Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div x-show="loadingKeys" class="flex items-center gap-[8px] text-[12px] text-[var(--grayscale-50)]">
+                        <svg class="animate-spin w-[13px] h-[13px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                        Loading…
+                    </div>
+                    <div x-show="!loadingKeys && existingKeys.length === 0" x-cloak
+                         class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">No keys issued yet.</div>
+
+                    <div x-show="!loadingKeys && existingKeys.length > 0" x-cloak class="flex flex-col gap-[6px]">
+                        <template x-for="k in existingKeys.filter(k => k.active || showRevoked)" :key="k.id">
+                            <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center gap-[12px] px-[14px] py-[10px]">
+                                <div class="w-[8px] h-[8px] rounded-full shrink-0" :class="k.active ? 'bg-[var(--primary-120)]' : 'bg-[var(--grayscale-30)]'"></div>
+                                <div class="flex flex-col gap-[3px] flex-1 min-w-0">
+                                    <div class="flex items-center gap-[6px]">
+                                        <span class="font-mono text-[12px] text-[var(--grayscale-100)] tracking-[-0.12px] truncate" x-text="k.token"></span>
+                                        <span x-show="k.label" class="text-[11px] text-[var(--grayscale-40)] shrink-0" x-text="'· ' + k.label"></span>
+                                    </div>
+                                    <div class="flex items-center gap-[8px] flex-wrap">
+                                        <span class="text-[11px] text-[var(--grayscale-50)]" x-text="'Issued ' + k.createdAt.substring(0,10)"></span>
+                                        <template x-if="k.active">
+                                            <span class="text-[11px] text-[var(--grayscale-50)]" x-text="k.lastUsedAt ? '· Last used ' + k.lastUsedAt.substring(0,10) : '· Never used'"></span>
+                                        </template>
+                                        <template x-if="!k.active && k.revokedAt">
+                                            <span class="text-[11px] text-red-400" x-text="'· Revoked ' + k.revokedAt.substring(0,10)"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <span x-show="k.active" class="shrink-0 text-[11px] font-semibold text-[var(--primary-120)] bg-[var(--primary-20)] px-[8px] py-[3px] rounded-full">Active</span>
+                                <span x-show="!k.active" x-cloak class="shrink-0 text-[11px] font-semibold text-[var(--grayscale-50)] bg-[var(--grayscale-15)] px-[8px] py-[3px] rounded-full">Revoked</span>
+                                <button type="button" x-show="k.active"
+                                        :disabled="revoking === k.id"
+                                        @click="revokeKey(k.id)"
+                                        :class="revoking === k.id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300 hover:text-red-600'"
+                                        class="shrink-0 border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[4px] text-[11px] font-medium text-[var(--grayscale-60)] transition-colors focus:outline-none">
+                                    <span x-text="revoking === k.id ? 'Revoking…' : 'Revoke'">Revoke</span>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ── NVD API Integration card ──────────────────────────────────── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-[640px] w-full overflow-hidden"
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-full w-full overflow-hidden"
              x-data="{
                  nvdKey: '',
                  nvdSaving: false,
@@ -237,7 +449,7 @@
         </div>
 
         <!-- ── Library Cache Policy card ─────────────────────────────────── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-[640px] w-full overflow-hidden"
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] flex flex-col gap-[0px] max-w-full w-full overflow-hidden"
              x-data="{
                  cacheMode: 'permanent',
                  ttlValue: 7,
@@ -249,7 +461,13 @@
                      fetch('/api/settings/external')
                          .then(r => r.json())
                          .then(d => {
-                             this.cacheMode = d.permanentCache ? 'permanent' : 'custom';
+                             if (d.permanentCache) {
+                                 this.cacheMode = 'permanent';
+                             } else if (!d.cacheTtlDays || d.cacheTtlDays === 0) {
+                                 this.cacheMode = 'always';
+                             } else {
+                                 this.cacheMode = 'custom';
+                             }
                              if (d.cacheTtlDays) {
                                  if (d.cacheTtlDays % 30 === 0) { this.ttlValue = d.cacheTtlDays / 30; this.ttlUnit = 'months'; }
                                  else if (d.cacheTtlDays % 7 === 0) { this.ttlValue = d.cacheTtlDays / 7; this.ttlUnit = 'weeks'; }
@@ -290,6 +508,18 @@
                     </div>
                 </label>
 
+                <!-- Always Re-fetch option -->
+                <label class="flex items-start gap-[10px] cursor-pointer">
+                    <input type="radio" name="cacheMode" value="always" x-model="cacheMode"
+                           class="mt-[3px] accent-[var(--primary-120)]">
+                    <div>
+                        <p class="text-[13px] font-semibold text-[var(--grayscale-100)] tracking-[-0.13px] m-0">Always Re-fetch</p>
+                        <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+                            Library data is re-fetched from deps.dev and OSV on every scan. Useful for development or when you always want up-to-date results.
+                        </p>
+                    </div>
+                </label>
+
                 <!-- Custom TTL option -->
                 <label class="flex items-start gap-[10px] cursor-pointer">
                     <input type="radio" name="cacheMode" value="custom" x-model="cacheMode"
@@ -322,6 +552,8 @@
                                 cacheSaving = true; cacheError = ''; cacheSavedOk = false;
                                 const body = cacheMode === 'permanent'
                                     ? { permanentCache: true, cacheTtlDays: null }
+                                    : cacheMode === 'always'
+                                    ? { permanentCache: false, cacheTtlDays: 0 }
                                     : { permanentCache: false, cacheTtlDays: ttlDays() };
                                 fetch('/api/settings/external/cache', {
                                     method: 'PUT',
