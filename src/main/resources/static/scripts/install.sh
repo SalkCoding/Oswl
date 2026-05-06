@@ -162,97 +162,33 @@ cmd_scan() {
 
 # ── Dependency collection helpers ────────────────────────────────────────────
 _collect_gradle() {
-    local dir="$1" version="${2:-unknown}"
+    local dir="$1"
     local gradle="${dir}/gradlew"
-    [[ -x "${gradle}" ]] && dbg "Gradle: using wrapper at ${gradle}" || { gradle="gradle"; dbg "Gradle: wrapper not found, using system gradle"; }
-    local project_name
-    for f in "${dir}/settings.gradle" "${dir}/settings.gradle.kts"; do
-        if [[ -f "${f}" ]]; then
-            project_name=$(grep -m1 'rootProject\.name' "${f}" 2>/dev/null \
-                | sed "s/.*=\s*['\"]//;s/['\"].*//" | tr -d '[:space:]')
-            [[ -n "${project_name}" ]] && break
-        fi
-    done
-    [[ -z "${project_name}" ]] && project_name=$(basename "${dir}")
+    if [[ -x "${gradle}" ]]; then
+        dbg "Gradle: using wrapper at ${gradle}"
+    else
+        gradle="gradle"
+        dbg "Gradle: wrapper not found, using system gradle"
+    fi
     local result
     result=$(
-        (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) | \
-        awk -v root="${project_name}" -v root_ver="${version}" '
-        function jesc(s,  r) { r=s; gsub(/\\/,"\\\\",r); gsub(/"/,"\\\"",r); return r }
-        function get_depth(line,  pos) {
-            pos=index(line,"+---"); if(!pos) pos=index(line,"\\---"); if(!pos) return -1
-            return int((pos-1)/5)
-        }
-        {
-            d=get_depth($0); if(d<0) next
-            line=$0; sub(/^.*[+\\]--- /,"",line)
-            sub(/[[:space:]]*\(\*\)[[:space:]]*$/,"",line)
-            ver=""
-            if(match(line,/ -> [^ (]+/)){ver=substr(line,RSTART+4,RLENGTH-4);sub(/ ->.*$/,"",line)}
-            gsub(/[[:space:]]*$/,"",line)
-            n=split(line,p,":"); if(n<2) next
-            name=p[1]":"p[2]; if(ver==""&&n>=3) ver=p[3]; if(ver=="") ver="unknown"
-            gsub(/[[:space:]*()]/,"",ver)
-            sname[d]=name; sver[d]=ver
-            path="[{\"name\":\""jesc(root)"\",\"version\":\""jesc(root_ver)"\"}"
-            for(i=0;i<d;i++) path=path",{\"name\":\""jesc(sname[i])"\",\"version\":\""jesc(sver[i])"\"}"
-            path=path",{\"name\":\""jesc(name)"\",\"version\":\""jesc(ver)"\"}]"
-            key=name SUBSEP ver; aname[key]=name; aver[key]=ver
-            if(apaths[key]=="") apaths[key]=path; else apaths[key]=apaths[key]","path
-        }
-        END {
-            printf "["; sep=""
-            for(k in aname){
-                printf "%s{\"name\":\"%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Gradle runtimeClasspath\",\"dependencyPaths\":[%s]}",sep,jesc(aname[k]),jesc(aver[k]),apaths[k]
-                sep=","
-            }
-            printf "]\n"
-        }
-        ' 2>/dev/null
+        (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) \
+        | grep -E '^[[:space:]|]*[+\\]---' \
+        | grep -oP '[+\\]--- \K[^: ]+:[^: ]+:[^ (\r\n]+' \
+        | sed 's/ ->.*//;s/ \*$//' \
+        | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Gradle runtimeClasspath\"}\n",$1,$2,$3}' \
+        | jq -s '.' 2>/dev/null
     ) || result="[]"
-    echo "${result}" | jq '.' &>/dev/null || result="[]"
     dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
     echo "${result}"
 }
 
 _collect_maven() {
-    local dir="$1" version="${2:-unknown}"
-    local project_name
-    project_name=$(grep -m1 '<artifactId>' "${dir}/pom.xml" 2>/dev/null \
-        | sed 's/.*<artifactId>//;s/<\/artifactId>.*//' | tr -d '[:space:]') || true
-    [[ -z "${project_name}" ]] && project_name=$(basename "${dir}")
-    mvn -f "${dir}/pom.xml" dependency:tree -DoutputType=text -q 2>/dev/null | \
-    awk -v root="${project_name}" -v root_ver="${version}" '
-    function jesc(s,  r) { r=s; gsub(/\\/,"\\\\",r); gsub(/"/,"\\\"",r); return r }
-    function get_depth(line,  pfx,pos) {
-        if(substr(line,1,7)=="[INFO] ") pfx=substr(line,8)
-        else if(substr(line,1,6)=="[INFO]") pfx=substr(line,7)
-        else return -1
-        pos=index(pfx,"+- "); if(!pos) pos=index(pfx,"\\- "); if(!pos) return -1
-        return int((pos-1)/3)
-    }
-    {
-        d=get_depth($0); if(d<0) next
-        line=$0; sub(/^\[INFO\][[:space:]]+.*[+\\]- /,"",line)
-        gsub(/[[:space:]]*$/,"",line)
-        n=split(line,p,":"); if(n<4) next
-        name=p[1]":"p[2]; ver=p[4]; gsub(/[[:space:]]/,"",ver)
-        sname[d]=name; sver[d]=ver
-        path="[{\"name\":\""jesc(root)"\",\"version\":\""jesc(root_ver)"\"}"
-        for(i=0;i<d;i++) path=path",{\"name\":\""jesc(sname[i])"\",\"version\":\""jesc(sver[i])"\"}"
-        path=path",{\"name\":\""jesc(name)"\",\"version\":\""jesc(ver)"\"}]"
-        key=name SUBSEP ver; aname[key]=name; aver[key]=ver
-        if(apaths[key]=="") apaths[key]=path; else apaths[key]=apaths[key]","path
-    }
-    END {
-        printf "["; sep=""
-        for(k in aname){
-            printf "%s{\"name\":\"%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Maven\",\"dependencyPaths\":[%s]}",sep,jesc(aname[k]),jesc(aver[k]),apaths[k]
-            sep=","
-        }
-        printf "]\n"
-    }
-    ' 2>/dev/null || echo "[]"
+    local dir="$1"
+    mvn -f "${dir}/pom.xml" dependency:list -q 2>/dev/null \
+    | grep -oP '^\[INFO\]\s+\K[^:]+:[^:]+:jar:[^:]+' \
+    | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Maven\"}\n",$1,$2,$4}' \
+    | jq -s '.' 2>/dev/null || echo "[]"
 }
 
 _collect_npm() {
@@ -449,9 +385,9 @@ build_payload() {
     # ── MAVEN: Gradle (preferred) or Maven pom.xml ───────────────────────────
     local maven="[]"
     if   [[ -f "${dir}/build.gradle" || -f "${dir}/build.gradle.kts" ]]; then
-        dbg "MAVEN: Gradle"; maven=$(_collect_gradle "${dir}" "${version}")
+        dbg "MAVEN: Gradle"; maven=$(_collect_gradle "${dir}")
     elif [[ -f "${dir}/pom.xml" ]]; then
-        dbg "MAVEN: Maven"; maven=$(_collect_maven "${dir}" "${version}")
+        dbg "MAVEN: Maven"; maven=$(_collect_maven "${dir}")
     fi
 
     # ── NPM: package-lock.json > yarn.lock > pnpm-lock.yaml > package.json ──

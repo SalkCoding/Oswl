@@ -71,6 +71,13 @@ public class Library {
     @Column(name = "deprecated", length = 500)
     private String deprecated;
 
+    /**
+     * The latest stable version string from deps.dev, populated only when this version
+     * is not the default (i.e. isLatestVersion == false). Null if already on the latest.
+     */
+    @Column(name = "latest_version", length = 100)
+    private String latestVersion;
+
     /** Timestamp of the last successful deps.dev + OSV fetch */
     @Column(name = "fetched_at")
     private LocalDateTime fetchedAt;
@@ -86,9 +93,10 @@ public class Library {
         this.licenseStatus = licenseStatus;
     }
 
-    public void updateVersionStatus(boolean isLatestVersion, String deprecated) {
+    public void updateVersionStatus(boolean isLatestVersion, String deprecated, String latestVersion) {
         this.isLatestVersion = isLatestVersion;
         this.deprecated = (deprecated != null && !deprecated.isBlank()) ? deprecated : null;
+        this.latestVersion = (latestVersion != null && !latestVersion.isBlank()) ? latestVersion : null;
     }
 
     public void markFetched() {
