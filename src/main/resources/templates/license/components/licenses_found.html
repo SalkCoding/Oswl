@@ -50,12 +50,34 @@
 
             <!-- Dynamic license rows -->
             <div th:each="license : ${licenses}"
-                 class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer">
-                <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
-                    <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">License Name</p>
-                    <div th:replace="~{fragments/tags :: risk-tag(level=${license.riskLevel})}"></div>
+                 x-data="{ open: false }"
+                 class="flex flex-col w-full shrink-0 border-b border-[#DBE4E7] last:border-b-0">
+                <!-- Row header (clickable) -->
+                <div @click="open = !open"
+                     class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
+                    <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
+                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">License Name</p>
+                        <div th:replace="~{fragments/tags :: risk-tag(level=${license.riskLevel})}"></div>
+                    </div>
+                    <div class="flex items-center gap-[6px]">
+                        <div th:replace="~{fragments/tags :: library-count(count=${license.libraryCount})}"></div>
+                        <svg class="w-[14px] h-[14px] text-[var(--grayscale-40)] transition-transform shrink-0"
+                             :class="open ? 'rotate-180' : ''"
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
                 </div>
-                <div th:replace="~{fragments/tags :: library-count(count=${license.libraryCount})}"></div>
+                <!-- Expanded: list of libraries using this license -->
+                <div x-show="open" x-cloak
+                     class="flex flex-col gap-0 px-6 pb-3 bg-[var(--grayscale-5)] border-t border-[#DBE4E7]">
+                    <p class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0">Libraries</p>
+                    <div th:each="libName : ${license.libraryNames}"
+                         class="flex items-center gap-[8px] py-[5px]">
+                        <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] m-0" th:text="${libName}">library-name 1.0.0</p>
+                    </div>
+                </div>
             </div>
 
         </div>

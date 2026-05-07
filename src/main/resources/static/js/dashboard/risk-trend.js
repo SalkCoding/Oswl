@@ -18,22 +18,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // 백엔드에서 주입된 실제 데이터, 없으면 빈 배열로 폴백
     const trendData = (window.riskTrendData && window.riskTrendData.versions.length > 0)
         ? window.riskTrendData
-        : {
-            versions: ['1.0.0', '1.0.5', '1.1.0', '1.1.5', '1.2.0', '1.2.5'],
-            security: {
-                critical: [45, 72, 58, 89, 63, 38],
-                high:     [130, 154, 117, 176, 142, 98],
-                medium:   [280, 310, 265, 340, 295, 248],
-                low:      [520, 490, 545, 610, 575, 432],
-                none:     [8, 12, 9, 15, 11, 7]
-            },
-            license: {
-                critical: [12, 18, 14, 9,  11, 7 ],
-                high:     [34, 41, 38, 29, 33, 21],
-                unknown:  [5, 8, 6, 4, 7, 3],
-                low:      [210, 198, 225, 190, 172, 163]
-            }
-        };
+        : null;
+
+    if (!trendData) {
+        // No scan data: show empty-state message in each chart canvas
+        ['securityRiskChart', 'licenseRiskChart'].forEach(id => {
+            const canvas = document.getElementById(id);
+            if (!canvas) return;
+            const container = canvas.closest('.relative') || canvas.parentElement;
+            canvas.style.display = 'none';
+            const msg = document.createElement('div');
+            msg.className = 'flex flex-col items-center justify-center h-full gap-[8px] text-center';
+            msg.innerHTML = '<p class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">No scan data yet</p>' +
+                            '<p class="text-[12px] text-[var(--grayscale-30)] tracking-[-0.12px]">Run a scan to see the risk trend over time.</p>';
+            container.appendChild(msg);
+        });
+        // Hide AI insight boxes when no data
+        document.querySelectorAll('.ai-insight-box').forEach(el => el.style.display = 'none');
+        return;
+    }
 
     const versions = trendData.versions;
 
