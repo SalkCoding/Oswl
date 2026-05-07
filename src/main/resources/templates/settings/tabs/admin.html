@@ -6,6 +6,13 @@
      x-init="init()"
      class="flex flex-col gap-[24px]">
 
+    <!-- API Error Banner -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+        <span class="text-red-600 text-[13px]" x-text="apiError"></span>
+        <a href="/login" class="ml-auto text-[12px] text-red-700 underline">다시 로그인</a>
+    </div>
+
     <!-- Sub-tabs -->
     <div class="flex items-center gap-[4px] bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[4px] w-fit">
         <button @click="subTab='users'" :class="subTab==='users' ? 'bg-[var(--secondary-100)] text-white' : 'text-[var(--grayscale-70)] hover:text-[var(--grayscale-100)]'"
@@ -208,6 +215,7 @@
             subTab: 'users',
             users: [], templates: [], allPermissions: [],
             openInvite: false, openRoleEdit: false, openTplEdit: false,
+            apiError: null,
             invite: { email: '', displayName: '', temporaryPassword: '', templateIds: [] },
             editingUser: null, editingTemplateIds: [],
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
@@ -215,15 +223,26 @@
             auditLogs: [],
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
             async init() {
-                await Promise.all([this.loadUsers(), this.loadTemplates(), this.loadPermissions()]);
+                try {
+                    await Promise.all([this.loadUsers(), this.loadTemplates(), this.loadPermissions()]);
+                } catch(e) {
+                    this.apiError = e.message || '데이터를 불러오지 못했습니다. 로그인 세션을 확인하세요.';
+                }
             },
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
-            async loadUsers() { const r = await fetch('/api/admin/users'); this.users = await r.json(); },
-            async loadTemplates() { const r = await fetch('/api/admin/role-templates'); this.templates = await r.json(); },
-            async loadPermissions() { const r = await fetch('/api/admin/role-templates/permissions'); this.allPermissions = await r.json(); },
+            async apiGet(url) {
+                const r = await fetch(url);
+                if (r.status === 401) { location.href = '/login'; throw new Error('Unauthorized'); }
+                if (!r.ok) throw new Error(`API 오류 ${r.status}: ${url}`);
+                return r.json();
+            },
+            async loadUsers() { this.users = await this.apiGet('/api/admin/users'); },
+            async loadTemplates() { this.templates = await this.apiGet('/api/admin/role-templates'); },
+            async loadPermissions() { this.allPermissions = await this.apiGet('/api/admin/role-templates/permissions'); },
             randomPwd() { return Math.random().toString(36).slice(-12) + 'A1!'; },
             async submitInvite() {
                 const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(this.invite) });
+                if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('실패: ' + await r.text()); return; }
                 this.openInvite = false;
                 this.invite = { email: '', displayName: '', temporaryPassword: '', templateIds: [] };
@@ -232,12 +251,14 @@
             editUser(u) { this.editingUser = u; this.editingTemplateIds = (u.roleTemplates||[]).map(r=>r.id); this.openRoleEdit = true; },
             async saveRoles() {
                 const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateIds }) });
+                if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('실패'); return; }
                 this.openRoleEdit = false; await this.loadUsers();
             },
             async toggleEnabled(u, enabled) {
                 const url = `/api/admin/users/${u.id}/${enabled ? 'activate' : 'deactivate'}`;
-                await fetch(url, { method: 'PUT', headers: this.headers() });
+                const r = await fetch(url, { method: 'PUT', headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
                 await this.loadUsers();
             },
             openTemplate(t) {
@@ -250,12 +271,14 @@
                 const url = this.editingTpl?.id ? `/api/admin/role-templates/${this.editingTpl.id}` : '/api/admin/role-templates';
                 const method = this.editingTpl?.id ? 'PUT' : 'POST';
                 const r = await fetch(url, { method, headers: this.headers(), body: JSON.stringify(this.tplForm) });
+                if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('실패: ' + await r.text()); return; }
                 this.openTplEdit = false; await this.loadTemplates();
             },
             async deleteTemplate(t) {
                 if (!confirm(`'${t.name}' 템플릿을 삭제할까요?`)) return;
                 const r = await fetch(`/api/admin/role-templates/${t.id}`, { method: 'DELETE', headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('실패: ' + await r.text()); return; }
                 await this.loadTemplates();
             },
@@ -263,9 +286,13 @@
                 const params = new URLSearchParams();
                 if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
                 if (this.auditFilter.action) params.set('action', this.auditFilter.action);
-                const r = await fetch('/api/admin/audit-logs?' + params.toString());
-                const data = await r.json();
-                this.auditLogs = data.content || [];
+                try {
+                    const r = await fetch('/api/admin/audit-logs?' + params.toString());
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = `감사 로그 조회 실패 (${r.status})`; return; }
+                    const data = await r.json();
+                    this.auditLogs = data.content || [];
+                } catch(e) { this.apiError = '감사 로그를 불러오지 못했습니다.'; }
             }
         };
     }

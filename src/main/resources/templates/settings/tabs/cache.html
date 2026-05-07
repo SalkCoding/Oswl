@@ -2,6 +2,12 @@
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <body>
 <div th:fragment="tab" x-data="cacheTab()" x-init="load()" class="flex flex-col gap-[16px] max-w-[720px]">
+    <!-- API Error Banner -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+        <span class="text-red-600 text-[13px]" x-text="apiError"></span>
+        <a href="/login" class="ml-auto text-[12px] text-red-700 underline">다시 로그인</a>
+    </div>
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[14px]">
         <h2 class="font-bold text-[18px]">캐시 설정</h2>
         <p class="text-[13px] text-[var(--grayscale-60)]">
@@ -46,11 +52,16 @@
     function cacheTab() {
         return {
             items: [],
+            apiError: null,
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
             async load() {
-                const r = await fetch('/api/settings/cache');
-                this.items = await r.json();
+                try {
+                    const r = await fetch('/api/settings/cache');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = `캐시 설정 사용 불가 (${r.status})`; return; }
+                    this.items = await r.json();
+                } catch(e) { this.apiError = '데이터를 불러오지 못했습니다.'; }
             },
             async save(c) {
                 const ttlSeconds = Math.max(1, (c.ttlHours || 1) * 3600);

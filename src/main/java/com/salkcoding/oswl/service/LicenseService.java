@@ -87,6 +87,10 @@ public class LicenseService {
                         .name(entry.getKey())
                         .riskLevel(computeMaxRisk(entry.getValue()))
                         .libraryCount(entry.getValue().size())
+                        .libraryNames(entry.getValue().stream()
+                                .map(l -> l.getName() + " " + l.getVersion())
+                                .sorted()
+                                .collect(Collectors.toList()))
                         .build())
                 .sorted(Comparator.comparingInt(dto -> riskOrdinal(dto.getRiskLevel())))
                 .collect(Collectors.toList());

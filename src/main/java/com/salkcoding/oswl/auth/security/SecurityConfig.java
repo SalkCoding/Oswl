@@ -20,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -68,7 +69,20 @@ public class SecurityConfig {
                     .invalidateHttpSession(true)
                     .deleteCookies("JSESSIONID")
                     .permitAll())
-            .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler))
+            .exceptionHandling(ex -> ex
+                    .accessDeniedHandler(accessDeniedHandler)
+                    // REST API 요청 (Accept: application/json 또는 /api/**) 에는 302 대신 401 반환
+                    .authenticationEntryPoint((request, response, authException) -> {
+                        String accept = request.getHeader("Accept");
+                        String uri = request.getRequestURI();
+                        if (uri.startsWith("/api/") || (accept != null && accept.contains("application/json"))) {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"error\":\"Unauthorized\",\"status\":401}");
+                        } else {
+                            response.sendRedirect("/login");
+                        }
+                    }))
             .addFilterBefore(new SetupRedirectFilter(userRepository),
                     UsernamePasswordAuthenticationFilter.class);
 

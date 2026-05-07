@@ -37,6 +37,15 @@
 
     <!-- Body -->
     <div class="flex flex-col">
+
+        <!-- Empty state: no scan data yet -->
+        <div th:if="${#lists.isEmpty(components)}"
+             class="flex flex-col items-center justify-center py-[80px] gap-[12px] text-center">
+            <img th:src="@{/icon/icon-shield.svg}" class="w-[48px] h-[48px] opacity-20" alt="" aria-hidden="true">
+            <p class="text-[15px] font-semibold text-[var(--grayscale-60)] tracking-[-0.15px]">No scan results yet</p>
+            <p class="text-[13px] text-[var(--grayscale-40)] tracking-[-0.13px]">Run a scan via CLI or Git integration to see discovered components.</p>
+        </div>
+
         <a th:each="comp : ${components}"
            href="javascript:void(0)"
            th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|},

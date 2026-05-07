@@ -1,17 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/head :: head('Settings')}">
-    <script>
-        // 설정 페이지 최초 진입 시 이전 URL 저장 (탭 이동해도 덮어쓰지 않음)
-        (function () {
-            const ref = document.referrer;
-            if (!ref.includes('/settings')) {
-                sessionStorage.setItem('oswl_settings_back', ref || '/projects');
-            }
-        })();
-    </script>
-</head>
+<head th:replace="~{fragments/head :: head('Settings')}"></head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
+<script>
+    // 설정 페이지 최초 진입 시 이전 URL 저장 (탭 이동해도 덮어쓰지 않음)
+    (function () {
+        const ref = document.referrer;
+        if (!ref.includes('/settings')) {
+            sessionStorage.setItem('oswl_settings_back', ref || '/projects');
+        }
+    })();
+</script>
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
 
