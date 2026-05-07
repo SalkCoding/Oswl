@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab" x-data="vcsTab()" x-init="load()" class="flex flex-col gap-[16px] max-w-[720px]">
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[14px]">
+        <h2 class="font-bold text-[18px]">버전 관리 시스템(VCS) 계정 연결</h2>
+        <p class="text-[13px] text-[var(--grayscale-60)]">이 설정은 본인 계정에만 적용됩니다.</p>
+
+        <!-- existing connections -->
+        <div class="flex flex-col gap-[8px]">
+            <template x-for="c in connections" :key="c.id">
+                <div class="flex items-center justify-between border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px]">
+                    <div class="flex flex-col">
+                        <span class="text-[13px] font-semibold" x-text="c.provider"></span>
+                        <span class="text-[12px] text-[var(--grayscale-60)]" x-text="(c.vcsUsername || '(미상)') + (c.serverUrl ? ' · '+c.serverUrl : '')"></span>
+                    </div>
+                    <button @click="remove(c.id)" class="text-[12px] text-red-600 hover:underline">연결 해제</button>
+                </div>
+            </template>
+            <p x-show="connections.length===0" class="text-[12px] text-[var(--grayscale-50)]">연결된 VCS 계정이 없습니다.</p>
+        </div>
+    </div>
+
+    <!-- add new -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[12px]">
+        <h3 class="font-bold text-[15px]">새 연결 추가</h3>
+        <label class="flex flex-col gap-[4px] text-[12px]">공급자
+            <select x-model="form.provider" class="px-[10px] py-[8px] border rounded-[6px] text-[13px]">
+                <option value="GITHUB">GitHub</option>
+                <option value="GITLAB">GitLab</option>
+                <option value="BITBUCKET">Bitbucket</option>
+            </select>
+        </label>
+        <label class="flex flex-col gap-[4px] text-[12px]" x-show="form.provider!=='GITHUB'">서버 URL (self-hosted, 선택)
+            <input type="text" x-model="form.serverUrl" placeholder="https://gitlab.company.com" class="px-[10px] py-[8px] border rounded-[6px] text-[13px]"/>
+        </label>
+        <label class="flex flex-col gap-[4px] text-[12px]">사용자명 (선택)
+            <input type="text" x-model="form.vcsUsername" class="px-[10px] py-[8px] border rounded-[6px] text-[13px]"/>
+        </label>
+        <label class="flex flex-col gap-[4px] text-[12px]">Personal Access Token
+            <input type="password" x-model="form.accessToken" placeholder="ghp_… / glpat-…" class="px-[10px] py-[8px] border rounded-[6px] text-[13px]"/>
+        </label>
+        <button @click="add()" class="self-end bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px]">저장</button>
+    </div>
+
+    <script>
+    function vcsTab() {
+        return {
+            connections: [],
+            form: { provider: 'GITHUB', serverUrl: '', vcsUsername: '', accessToken: '' },
+            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            async load() { const r = await fetch('/api/settings/vcs'); this.connections = await r.json(); },
+            async add() {
+                if (!this.form.accessToken) { alert('토큰이 필요합니다.'); return; }
+                const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(this.form) });
+                if (!r.ok) { alert('실패: ' + await r.text()); return; }
+                this.form.accessToken = '';
+                await this.load();
+            },
+            async remove(id) {
+                if (!confirm('연결을 해제할까요?')) return;
+                await fetch('/api/settings/vcs/' + id, { method: 'DELETE', headers: this.headers() });
+                await this.load();
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

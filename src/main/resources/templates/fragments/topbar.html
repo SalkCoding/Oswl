@@ -1,6 +1,31 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
+
+    <!-- Reusable user menu (logged-in user dropdown + logout) -->
+    <div th:fragment="user-menu" sec:authorize="isAuthenticated()"
+         x-data="{ open: false }" @click.outside="open = false" class="relative">
+        <button type="button" @click="open = !open"
+                class="flex items-center gap-[8px] text-white/80 hover:text-white text-[13px] font-medium tracking-[-0.13px] transition-colors">
+            <span class="w-[28px] h-[28px] rounded-full bg-[var(--secondary-100)] text-white flex items-center justify-center text-[12px] font-bold"
+                  th:text="${#authentication != null ? #authentication.getPrincipal().displayName.substring(0,1).toUpperCase() : 'U'}">U</span>
+            <span th:text="${#authentication != null ? #authentication.getPrincipal().displayName : 'User'}">User</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div x-show="open" x-transition style="display:none;"
+             class="absolute right-0 top-[34px] z-30 w-[220px] rounded-[6px] border border-white/20 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-lg p-[10px] flex flex-col gap-[6px]">
+            <div class="px-[8px] py-[4px] border-b border-white/15 mb-[2px]">
+                <div class="text-white text-[13px] font-semibold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : 'User'}">User</div>
+                <div class="text-white/50 text-[11px]" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
+                <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SUPER_ADMIN')">★ Super Admin</div>
+            </div>
+            <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline">⚙️ Settings</a>
+            <form th:action="@{/logout}" method="post" class="m-0">
+                <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}"/>
+                <button type="submit" class="w-full text-left text-red-300 hover:text-red-200 text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10">↪️ 로그아웃</button>
+            </form>
+        </div>
+    </div>
 
     <!--
         Simple Topbar — Projects 목록 페이지처럼 프로젝트 컨텍스트가 없는 화면에서 사용.
@@ -23,6 +48,7 @@
             </svg>
             Settings
         </a>
+        <div th:replace="~{fragments/topbar :: user-menu}"></div>
     </header>
 
 
@@ -151,6 +177,7 @@
                 </svg>
                 Settings
             </a>
+            <div th:replace="~{fragments/topbar :: user-menu}"></div>
         </div>
 
         <!-- Lower bar (tabs) -->

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab" x-data="cacheTab()" x-init="load()" class="flex flex-col gap-[16px] max-w-[720px]">
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[14px]">
+        <h2 class="font-bold text-[18px]">캐시 설정</h2>
+        <p class="text-[13px] text-[var(--grayscale-60)]">
+            취약점 데이터(NVD, OSV)를 얼마나 오래 저장할지 설정합니다. 오래 캐시하면 API 호출이 줄지만 최신 취약점 반영이 늦어집니다.
+        </p>
+
+        <table class="w-full text-[13px]">
+            <thead>
+            <tr class="text-left text-[12px] text-[var(--grayscale-60)] border-b border-[var(--grayscale-20)]">
+                <th class="py-[8px]">항목</th>
+                <th class="py-[8px]">유효 기간(시간)</th>
+                <th class="py-[8px]">최근 초기화</th>
+                <th class="py-[8px]">작업</th>
+            </tr>
+            </thead>
+            <tbody>
+            <template x-for="c in items" :key="c.cacheKey">
+                <tr class="border-b border-[var(--grayscale-10)]">
+                    <td class="py-[8px] font-mono text-[12px]" x-text="c.cacheKey"></td>
+                    <td class="py-[8px]">
+                        <input type="number" min="1" x-model.number="c.ttlHours" class="w-[80px] px-[8px] py-[4px] border rounded-[6px] text-[13px]"/>
+                    </td>
+                    <td class="py-[8px] text-[var(--grayscale-60)]">
+                        <span x-text="c.lastClearedAt ? c.lastClearedAt.replace('T',' ') : '—'"></span>
+                        <span x-show="c.lastClearedByName" class="text-[var(--grayscale-50)]" x-text="' (' + c.lastClearedByName + ')'"></span>
+                    </td>
+                    <td class="py-[8px] flex gap-[6px]">
+                        <button @click="save(c)" class="text-[12px] text-[var(--secondary-100)] hover:underline">저장</button>
+                        <button @click="clearOne(c)" class="text-[12px] text-red-600 hover:underline">초기화</button>
+                    </td>
+                </tr>
+            </template>
+            </tbody>
+        </table>
+
+        <div class="flex justify-end pt-[8px] border-t border-[var(--grayscale-20)]">
+            <button @click="clearAll()" class="text-[13px] text-red-600 hover:underline">🗑 전체 초기화</button>
+        </div>
+    </div>
+
+    <script>
+    function cacheTab() {
+        return {
+            items: [],
+            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            async load() {
+                const r = await fetch('/api/settings/cache');
+                this.items = await r.json();
+            },
+            async save(c) {
+                const ttlSeconds = Math.max(1, (c.ttlHours || 1) * 3600);
+                await fetch('/api/settings/cache', { method: 'PUT', headers: this.headers(), body: JSON.stringify({ cacheKey: c.cacheKey, ttlSeconds }) });
+                await this.load();
+            },
+            async clearOne(c) {
+                if (!confirm(`'${c.cacheKey}' 캐시를 초기화할까요?`)) return;
+                await fetch('/api/settings/cache/clear?cacheKey=' + encodeURIComponent(c.cacheKey), { method: 'POST', headers: this.headers() });
+                await this.load();
+            },
+            async clearAll() {
+                if (!confirm('전체 캐시를 초기화할까요?')) return;
+                await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
+                await this.load();
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>
