@@ -5,6 +5,7 @@ import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ public class ProjectController implements ProjectControllerSpec {
     private final ProjectService projectService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SUPER_ADMIN')")
     public String index(Model model) {
         model.addAttribute("projects", projectService.findAll());
         model.addAttribute("trashProjects", projectService.findTrash());
@@ -26,6 +28,7 @@ public class ProjectController implements ProjectControllerSpec {
     }
 
     @GetMapping(value = "/list", produces = "application/json")
+    @PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SUPER_ADMIN')")
     @ResponseBody
     public ResponseEntity<List<ProjectSummaryDto>> listJson() {
         return ResponseEntity.ok(projectService.findAll());
@@ -33,6 +36,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     /** Soft-delete — moves to trash. */
     @DeleteMapping("/{projectId}")
+    @PreAuthorize("hasPermission(null, 'PROJECT_DELETE') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> deleteProject(@PathVariable Long projectId) {
         projectService.delete(projectId);
         return ResponseEntity.noContent().build();
@@ -40,6 +44,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     /** Restore a trashed project. */
     @PostMapping("/{projectId}/restore")
+    @PreAuthorize("hasPermission(null, 'PROJECT_RESTORE') or hasRole('SUPER_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> restoreProject(@PathVariable Long projectId) {
         projectService.restore(projectId);
@@ -48,6 +53,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     /** Permanently delete a single trashed project. */
     @DeleteMapping("/{projectId}/permanent")
+    @PreAuthorize("hasPermission(null, 'PROJECT_PERMANENT_DELETE') or hasRole('SUPER_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> permanentDeleteProject(@PathVariable Long projectId) {
         projectService.permanentDelete(projectId);
@@ -56,6 +62,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     /** Permanently delete all trashed projects. */
     @DeleteMapping("/trash/all")
+    @PreAuthorize("hasPermission(null, 'PROJECT_PERMANENT_DELETE') or hasRole('SUPER_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> permanentDeleteAll() {
         projectService.permanentDeleteAll();
@@ -64,6 +71,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     /** Permanently delete selected trashed projects. */
     @DeleteMapping("/trash/selected")
+    @PreAuthorize("hasPermission(null, 'PROJECT_PERMANENT_DELETE') or hasRole('SUPER_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> permanentDeleteSelected(@RequestBody List<Long> ids) {
         projectService.permanentDeleteSelected(ids);
@@ -72,6 +80,7 @@ public class ProjectController implements ProjectControllerSpec {
 
     /** Restore selected trashed projects. */
     @PostMapping("/trash/restore-selected")
+    @PreAuthorize("hasPermission(null, 'PROJECT_RESTORE') or hasRole('SUPER_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> restoreSelected(@RequestBody List<Long> ids) {
         projectService.restoreSelected(ids);

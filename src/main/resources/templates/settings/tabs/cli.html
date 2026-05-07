@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab" class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[14px] max-w-[720px]">
+    <h2 class="font-bold text-[18px]">CLI API 키 관리</h2>
+    <p class="text-[13px] text-[var(--grayscale-60)]">
+        CLI 도구(<code>oswl-cli</code>)를 사용하기 위한 인증 키입니다. 키는 발급 직후 1회만 전체 표시됩니다.
+    </p>
+    <p class="text-[12px] text-[var(--grayscale-50)]">
+        프로젝트별 API 키 발급 화면은 기존 <a th:href="@{/projects}" class="text-[var(--secondary-100)] hover:underline">프로젝트 목록</a>에서 가능합니다.
+    </p>
+</div>
+</body>
+</html>

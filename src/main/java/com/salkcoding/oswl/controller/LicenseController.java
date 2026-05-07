@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 @RequestMapping("/projects/{projectId}/license")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'LICENSE_VIEW') or hasRole('SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class LicenseController implements LicenseControllerSpec {
 
