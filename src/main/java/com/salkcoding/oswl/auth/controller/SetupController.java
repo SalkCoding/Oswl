@@ -27,7 +27,7 @@ public class SetupController {
 
     @GetMapping
     public String setupForm(Model model) {
-        if (userRepository.count() > 0) return "redirect:/login";
+        if (userRepository.existsByIsSuperAdminTrue()) return "redirect:/login";
         if (!model.containsAttribute("setupRequest")) {
             model.addAttribute("setupRequest", new SetupRequest());
         }
@@ -39,7 +39,7 @@ public class SetupController {
     public String createInitialAdmin(@Valid @ModelAttribute("setupRequest") SetupRequest request,
                                      BindingResult bindingResult,
                                      Model model) {
-        if (userRepository.count() > 0) return "redirect:/login";
+        if (userRepository.existsByIsSuperAdminTrue()) return "redirect:/login";
 
         if (!request.getPassword().equals(request.getPasswordConfirm())) {
             bindingResult.rejectValue("passwordConfirm", "mismatch", "비밀번호가 일치하지 않습니다.");
