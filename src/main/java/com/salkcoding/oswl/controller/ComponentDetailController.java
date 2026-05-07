@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 @RequestMapping("/projects/{projectId}/components/{componentId}")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'COMPONENT_DETAIL_VIEW') or hasRole('SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class ComponentDetailController implements ComponentDetailControllerSpec {
 

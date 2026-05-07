@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head('Projects')}">
     <script th:src="@{/js/projects/git-integration.js}" defer></script>
 </head>
@@ -159,7 +159,7 @@
                                     </div>
                                 </div>
 
-                                <div class="relative" @click.stop>
+                                <div class="relative" @click.stop sec:authorize="hasPermission(null, 'PROJECT_DELETE') or hasRole('SUPER_ADMIN')">
                                     <button type="button"
                                             @click="openMenu = !openMenu"
                                             class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--grayscale-20)] bg-white text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition">

@@ -14,3 +14,12 @@ spring:
 
   thymeleaf:
     cache: true
+
+# Production encryption key for VCS access tokens (REQUIRED in prod).
+# Must be a Base64-encoded 32-byte (256-bit) value, e.g. produced by:
+#   openssl rand -base64 32
+# If unset, EncryptionService falls back to a random per-boot key, which makes
+# previously stored VCS tokens unrecoverable after restart.
+oswl:
+  encryption:
+    key: ${OSWL_ENCRYPTION_KEY:}

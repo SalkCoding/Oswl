@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/settings/ai")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SETTINGS_AI_MANAGE') or hasRole('SUPER_ADMIN')")
 @RequiredArgsConstructor
 public class AiSettingController implements AiSettingControllerSpec {
 
