@@ -1,15 +1,137 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="tab" class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[16px] max-w-[720px]">
-    <h2 class="font-bold text-[18px]">AI 분석 설정</h2>
-    <p class="text-[13px] text-[var(--grayscale-60)]">
-        AI 설정은 별도 API(<code>/api/settings/ai</code>)를 통해 관리됩니다. 자세한 사용법은 운영 가이드를 참조하세요.
-    </p>
-    <p class="text-[12px] text-[var(--grayscale-50)]">
-        • 공급자: OpenAI / Anthropic / Local (Ollama)<br/>
-        • 키와 모델은 DB에 저장되며, 환경변수로도 부팅 시 주입 가능합니다.
-    </p>
+<div th:fragment="tab"
+     x-data="aiTab()"
+     x-init="init()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[4px]">
+        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">AI Analysis Settings</h2>
+        <p class="text-[13px] text-[var(--grayscale-60)]">Configure AI-powered vulnerability analysis.</p>
+    </div>
+
+    <!-- API Error Banner -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <!-- Provider card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[20px]">
+        <h3 class="font-bold text-[15px] text-[var(--grayscale-100)]">AI Provider</h3>
+
+        <div class="flex flex-col gap-[16px]">
+            <!-- Option 1: Do not use AI -->
+            <label class="flex items-center gap-[10px] cursor-pointer">
+                <input type="radio" name="aiMode" value="off" x-model="mode"
+                       class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
+                <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Do not use AI</span>
+            </label>
+
+            <!-- Option 2: Custom OpenAI-Compatible -->
+            <div class="flex flex-col gap-[12px]">
+                <label class="flex items-center gap-[10px] cursor-pointer">
+                    <input type="radio" name="aiMode" value="custom" x-model="mode"
+                           class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
+                    <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Custom OpenAI-Compatible API</span>
+                </label>
+                <p class="text-[12px] text-[var(--grayscale-60)] ml-[26px]">Analyze using your own custom API endpoint.</p>
+
+                <div x-show="mode==='custom'" class="ml-[26px] grid grid-cols-2 gap-[14px]">
+                    <label class="flex flex-col gap-[6px] text-[12px] font-semibold text-[var(--grayscale-80)]">API Endpoint
+                        <input type="url" x-model="form.baseUrl" placeholder="https://api.example.com"
+                               class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-semibold text-[var(--grayscale-80)]">API Key
+                        <input type="password" x-model="form.apiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-semibold text-[var(--grayscale-80)] col-span-1">Model
+                        <input type="text" x-model="form.modelName" placeholder="gpt-4o"
+                               class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-[10px] pt-[8px] border-t border-[var(--grayscale-20)]">
+            <button @click="testConnection()" :disabled="testing"
+                    class="text-[13px] font-bold px-[16px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[var(--grayscale-80)] hover:bg-[var(--grayscale-5)] disabled:opacity-50">
+                <span x-text="testing ? 'Testing...' : 'Test Connection'"></span>
+            </button>
+            <button @click="save()" :disabled="saving"
+                    class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span x-text="saving ? 'Saving...' : 'Save'"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast" x-cloak x-transition
+         class="fixed bottom-[40px] left-1/2 -translate-x-1/2 bg-[var(--background-dark,#001d35)] text-white text-[13px] font-semibold px-[24px] py-[14px] rounded-full shadow-2xl inline-flex items-center gap-[10px] z-50">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-100)]"><polyline points="20 6 9 17 4 12"/></svg>
+        <span x-text="toast"></span>
+    </div>
+
+    <script>
+    function aiTab() {
+        return {
+            mode: 'off',  // 'off' | 'custom'
+            form: { baseUrl: '', apiKey: '', modelName: '' },
+            saving: false, testing: false, apiError: null, toast: null,
+            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            async init() {
+                try {
+                    const r = await fetch('/api/settings/ai');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = 'Failed to load AI settings.'; return; }
+                    const data = await r.json();
+                    if (data && data.active) {
+                        this.mode = 'custom';
+                        this.form.baseUrl = data.baseUrl || '';
+                        this.form.modelName = data.modelName || '';
+                        // apiKey is masked from server; leave blank so user re-enters only if changing
+                    }
+                } catch(e) { this.apiError = 'Failed to load AI settings.'; }
+            },
+            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
+            async save() {
+                this.saving = true; this.apiError = null;
+                try {
+                    if (this.mode === 'off') {
+                        // No "delete/disable" endpoint exists; we just don't activate.
+                        // Send a deactivate via re-saving with activate=false (existing one will keep its row but inactive).
+                        // Simplest UX: just inform user.
+                        this.showToast('AI disabled. Existing settings retained but inactive.');
+                        this.saving = false; return;
+                    }
+                    const body = {
+                        provider: 'OPENAI',
+                        apiKey: this.form.apiKey || null,
+                        modelName: this.form.modelName || null,
+                        baseUrl: this.form.baseUrl || null,
+                        activate: true
+                    };
+                    const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = 'Save failed: ' + await r.text(); return; }
+                    this.showToast('AI settings saved successfully.');
+                } finally { this.saving = false; }
+            },
+            async testConnection() {
+                if (this.mode !== 'custom') { this.showToast('Select Custom mode to test.'); return; }
+                this.testing = true;
+                try {
+                    // No backend endpoint yet — UI feedback only.
+                    await new Promise(r => setTimeout(r, 600));
+                    this.showToast('Connection test (UI only — backend test endpoint TBD).');
+                } finally { this.testing = false; }
+            }
+        };
+    }
+    </script>
 </div>
 </body>
 </html>

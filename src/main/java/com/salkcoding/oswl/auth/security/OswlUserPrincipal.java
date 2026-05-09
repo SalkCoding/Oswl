@@ -10,14 +10,14 @@ import java.util.Set;
 
 /**
  * Custom UserDetails carrying OsWL-specific identity data
- * (userId, displayName, isSuperAdmin, permissions).
+ * (userId, displayName, isSystemAdmin, permissions).
  */
 @Getter
 public class OswlUserPrincipal extends User {
 
     private final Long userId;
     private final String displayName;
-    private final boolean superAdmin;
+    private final boolean systemAdmin;
     private final Set<Long> roleTemplateIds;
     private final Set<Permission> permissions;
 
@@ -25,7 +25,7 @@ public class OswlUserPrincipal extends User {
                              String email,
                              String passwordHash,
                              String displayName,
-                             boolean superAdmin,
+                             boolean systemAdmin,
                              boolean enabled,
                              Collection<? extends GrantedAuthority> authorities,
                              Set<Long> roleTemplateIds,
@@ -33,12 +33,12 @@ public class OswlUserPrincipal extends User {
         super(email, passwordHash, enabled, true, true, true, authorities);
         this.userId = userId;
         this.displayName = displayName;
-        this.superAdmin = superAdmin;
+        this.systemAdmin = systemAdmin;
         this.roleTemplateIds = roleTemplateIds;
         this.permissions = permissions;
     }
 
     public boolean hasPermission(Permission permission) {
-        return superAdmin || permissions.contains(permission);
+        return systemAdmin || permissions.contains(permission);
     }
 }

@@ -21,20 +21,20 @@ public class SettingsTabAccess {
         List<TabSpec> tabs = new ArrayList<>();
         if (principal == null) return tabs;
 
-        if (principal.isSuperAdmin()) {
-            tabs.add(new TabSpec("admin", "🔐", "관리자 설정"));
+        if (principal.isSystemAdmin()) {
+            tabs.add(new TabSpec("admin", "🔐", "Administration"));
         }
-        if (principal.isSuperAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
-            tabs.add(new TabSpec("ai", "🤖", "AI 설정"));
+        if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
+            tabs.add(new TabSpec("ai", "🤖", "AI Settings"));
         }
-        if (principal.isSuperAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_VCS_MANAGE)) {
-            tabs.add(new TabSpec("vcs", "🔗", "VCS 연결"));
+        if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_VCS_MANAGE)) {
+            tabs.add(new TabSpec("vcs", "🔗", "VCS Connections"));
         }
-        if (principal.isSuperAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CLI_KEY_MANAGE)) {
-            tabs.add(new TabSpec("cli", "🔑", "CLI 키"));
+        if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CLI_KEY_MANAGE)) {
+            tabs.add(new TabSpec("cli", "🔑", "CLI API Keys"));
         }
-        if (principal.isSuperAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CACHE_MANAGE)) {
-            tabs.add(new TabSpec("cache", "⚡", "캐시"));
+        if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CACHE_MANAGE)) {
+            tabs.add(new TabSpec("cache", "⚡", "Cache Settings"));
         }
         return tabs;
     }

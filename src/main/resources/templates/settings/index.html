@@ -41,18 +41,14 @@
         </div>
     </div>
 
-    <h1 class="font-extrabold text-[28px] tracking-[-0.28px] text-[var(--grayscale-100)]">설정</h1>
-
-    <!-- Tabs -->
+    <!-- Tabs (Figma underline style, 영문 라벨) -->
     <div th:if="${not #lists.isEmpty(accessibleTabs)}"
-         class="flex items-center gap-[2px] border-b border-[var(--grayscale-20)]">
+         class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] bg-white px-[8px] rounded-t-[10px]">
         <a th:each="t : ${accessibleTabs}"
            th:href="@{/settings(tab=${t.key})}"
            th:classappend="${t.key == activeTab} ? 'border-[var(--secondary-100)] text-[var(--secondary-100)]' : 'border-transparent text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]'"
-           class="inline-flex items-center gap-[8px] px-[16px] py-[12px] text-[14px] font-semibold tracking-[-0.14px] border-b-[2px] transition-colors no-underline">
-            <span th:text="${t.icon}">🔐</span>
-            <span th:text="${t.label}">탭</span>
-        </a>
+           class="inline-flex items-center px-[8px] py-[14px] text-[14px] font-bold tracking-[-0.14px] border-b-[2px] transition-colors no-underline"
+           th:text="${t.label}">Tab</a>
     </div>
 
     <div th:if="${#lists.isEmpty(accessibleTabs)}"

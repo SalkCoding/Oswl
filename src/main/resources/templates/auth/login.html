@@ -26,17 +26,14 @@
 
         <!-- Brand block -->
         <div class="flex flex-col items-center">
-            <img th:src="@{/icon/icon-logo.svg}" class="w-[90px] h-[124px] mb-[6px]" alt="OsWL" aria-hidden="true">
+            <img th:src="@{/icon/icon-logo-card.svg}" class="w-[90px] h-[124px] mb-[6px]" alt="OsWL" aria-hidden="true">
             <p class="font-extrabold text-[32px] text-[var(--primary-120)] tracking-[-0.32px] leading-[1.3]">OsWL</p>
             <p class="mt-[16px] text-[16px] font-normal text-[var(--grayscale-70)] tracking-[-0.16px] leading-[1.3]">
                 Open Source Watch List
             </p>
         </div>
 
-        <!-- Alerts -->
-        <div th:if="${param.error}" class="w-full bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-[8px] px-[12px] py-[10px]">
-            Invalid email or password.
-        </div>
+        <!-- Alerts (logout / setup only — login error is shown inline) -->
         <div th:if="${param.logout}" class="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] rounded-[8px] px-[12px] py-[10px]">
             You have been signed out.
         </div>
@@ -54,8 +51,7 @@
                        class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
                     Email
                 </label>
-                <div class="w-full border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-center
-                            focus-within:border-[var(--primary-100)] transition-colors">
+                <div class="w-full border rounded-[8px] px-[14px] py-[10px] flex items-center transition-colors border-[var(--grayscale-20)] focus-within:border-[var(--primary-100)]">
                     <input id="login-email" type="email" name="email" autocomplete="email" required
                            placeholder="oswl@company.com"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
@@ -69,14 +65,13 @@
                        class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
                     Password
                 </label>
-                <div class="w-full border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[10px]
-                            focus-within:border-[var(--primary-100)] transition-colors">
+                <div class="w-full border rounded-[8px] px-[14px] py-[10px] flex items-center gap-[10px] transition-colors border-[var(--grayscale-20)] focus-within:border-[var(--primary-100)]">
                     <input id="login-password" :type="showPwd ? 'text' : 'password'"
                            name="password" autocomplete="current-password" required
                            placeholder="Enter your password"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
-                    <button type="button" @click="showPwd = !showPwd"
+                    <button type="button" tabindex="-1" @click="showPwd = !showPwd"
                             :aria-label="showPwd ? 'Hide password' : 'Show password'"
                             class="shrink-0 w-[17px] h-[17px] flex items-center justify-center text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] transition-colors">
                         <svg x-show="!showPwd" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -87,6 +82,18 @@
                         </svg>
                     </button>
                 </div>
+            </div>
+
+            <!-- Login error message -->
+            <div th:if="${param.error}"
+                 class="w-full bg-red-50 border border-red-200 rounded-[8px] px-[14px] py-[12px] flex items-center gap-[10px]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" class="text-red-500 shrink-0">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span class="text-[14px] font-semibold text-red-600 tracking-[-0.14px] leading-[1.3]">
+                    Invalid email or password.
+                </span>
             </div>
 
             <!-- Submit -->

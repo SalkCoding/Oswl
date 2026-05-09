@@ -1,16 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Forbidden')}"></head>
-<body class="bg-[var(--grayscale-5)] min-h-screen flex items-center justify-center font-sans antialiased">
-<div class="text-center flex flex-col gap-[16px] px-[24px] max-w-[480px]">
-    <h1 class="font-extrabold text-[64px] text-[var(--secondary-100)]">403</h1>
-    <h2 class="font-bold text-[20px] text-[var(--grayscale-90)]">접근 권한이 없습니다</h2>
-    <p class="text-[13px] text-[var(--grayscale-60)] leading-[1.6]">
-        이 페이지에 접근하려면 추가 권한이 필요합니다. 관리자에게 문의하세요.
-    </p>
-    <a th:href="@{/projects}" class="mt-[8px] inline-block bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white font-semibold text-[13px] py-[10px] px-[20px] rounded-[8px] no-underline">
-        프로젝트 목록으로
-    </a>
-</div>
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>403 - Forbidden</title>
+</head>
+<body>
+<div th:replace="~{error/_owl-error :: page(code='403', title='Forbidden', descHtml='You don\'t have permission to access this page.<br/>Please contact your administrator if you need access.', buttonText='Go to Home', buttonHref=@{/})}">placeholder</div>
 </body>
 </html>

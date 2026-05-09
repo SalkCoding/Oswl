@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>500 - Internal Server Error</title>
+</head>
+<body>
+<div th:replace="~{error/_owl-error :: page(code='500', title='Internal Server Error', descHtml='Something went wrong on our side.<br/>Please try again later or contact your administrator.', buttonText='Go to Home', buttonHref=@{/})}">placeholder</div>
+</body>
+</html>
