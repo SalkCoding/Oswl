@@ -66,9 +66,9 @@ public class AiSetting {
     private LocalDateTime updatedAt;
 
     public void update(String apiKey, String modelName, String baseUrl) {
-        this.apiKey = apiKey;
-        this.modelName = modelName;
-        this.baseUrl = baseUrl;
+        if (apiKey != null) this.apiKey = apiKey;
+        if (modelName != null) this.modelName = modelName;
+        if (baseUrl != null) this.baseUrl = baseUrl;
     }
 
     public void activate() {

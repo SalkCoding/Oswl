@@ -2,60 +2,8 @@
      class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full"
      x-data="{
          os: 'mac',
-         copied1: false, copied2: false, copied3: false, copiedKey: false,
-         tokenOption: 'create',
-         apiKey: '',
-         keyVisible: false,
-         selectedProjectId: $root.cliPreSelectProject ?? '',
-         keyLabel: 'CLI Key',
-         creating: false,
-         createError: '',
-         issuedToken: '',
-         createdKeys: [],
-         existingKeys: [],
-         loadingKeys: false,
-         revoking: null,
-         showRevoked: false,
-         projects: [],
-         loadingProjects: false,
-
-         async loadProjects() {
-             this.loadingProjects = true;
-             try {
-                 const res = await fetch('/projects/list');
-                 if (res.ok) this.projects = await res.json();
-             } catch(e) { this.projects = []; }
-             this.loadingProjects = false;
-         },
-
-         async loadExistingKeys() {
-             if (!this.selectedProjectId) { this.existingKeys = []; return; }
-             this.loadingKeys = true;
-             try {
-                 const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys');
-                 if (res.ok) this.existingKeys = await res.json();
-             } catch(e) { this.existingKeys = []; }
-             this.loadingKeys = false;
-         },
-
-         async revokeKey(keyId) {
-             if (this.revoking === keyId) return;
-             this.revoking = keyId;
-             try {
-                 const res = await fetch('/api/projects/' + this.selectedProjectId + '/keys/' + keyId, { method: 'DELETE' });
-                 if (res.ok) {
-                     this.existingKeys = this.existingKeys.map(k => k.id === keyId ? {...k, active: false} : k);
-                 }
-             } catch(e) {}
-             this.revoking = null;
-         }
-     }"
-     x-init="
-         loadProjects();
-         $watch('selectedProjectId', () => loadExistingKeys());
-         if (selectedProjectId) loadExistingKeys();
-         $watch('openPanel', val => { if (val === 'cli') { issuedToken = ''; createdKeys = []; loadProjects(); } });
-     ">
+         copied1: false, copied2: false, copied3: false
+     }">
 
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
@@ -130,270 +78,11 @@
         </div>
     </div>
 
-    <!-- Step 2: Get your API Key -->
+    <!-- Step 2: Authenticate -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
         <div class="flex gap-[8px] items-center w-full shrink-0">
             <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">2</span>
-            </div>
-            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Get your API Key</h3>
-        </div>
-        <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
-            API keys are project-scoped. Create a new one or paste an existing key below.
-        </p>
-
-        <!-- Radio: Create / Have -->
-        <div class="flex gap-[32px] items-center w-full mt-[4px]">
-            <button type="button" @click="tokenOption = 'create'" class="flex gap-[8px] items-center cursor-pointer focus:outline-none">
-                <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors"
-                     :class="tokenOption === 'create' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
-                    <div class="w-[12px] h-[12px] rounded-full transition-all"
-                         :class="tokenOption === 'create' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
-                </div>
-                <span class="text-[13px] font-medium tracking-[-0.13px]"
-                      :class="tokenOption === 'create' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">Create API Token</span>
-            </button>
-            <button type="button" @click="tokenOption = 'have'" class="flex gap-[8px] items-center cursor-pointer focus:outline-none">
-                <div class="w-[20px] h-[20px] shrink-0 rounded-full border-[1.5px] flex items-center justify-center transition-colors"
-                     :class="tokenOption === 'have' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-30)]'">
-                    <div class="w-[12px] h-[12px] rounded-full transition-all"
-                         :class="tokenOption === 'have' ? 'bg-[var(--primary-120)]' : 'bg-transparent'"></div>
-                </div>
-                <span class="text-[13px] font-medium tracking-[-0.13px]"
-                      :class="tokenOption === 'have' ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'">I already have an API Token</span>
-            </button>
-        </div>
-
-        <!-- Create API Token flow -->
-        <div x-show="tokenOption === 'create'" x-transition class="flex flex-col gap-[12px] w-full">
-
-            <!-- Loading projects -->
-            <div x-show="loadingProjects" class="flex items-center gap-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
-                <svg class="animate-spin w-[14px] h-[14px] shrink-0" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                </svg>
-                Loading projects…
-            </div>
-
-            <!-- No projects warning -->
-            <div x-show="!loadingProjects && projects.length === 0"
-                 class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[10px] px-[16px] py-[12px] flex gap-[8px] items-start">
-                <img th:src="@{/icon/icon-warning.svg}" class="w-[16px] h-[16px] shrink-0 mt-[1px]" alt="" aria-hidden="true">
-                <p class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px] m-0">
-                    No projects found. <strong>Create a project first</strong> — then come back here to generate an API key.
-                </p>
-            </div>
-
-            <!-- Projects exist: selector + label + create -->
-            <div x-show="!loadingProjects && projects.length > 0" class="flex flex-col gap-[10px] w-full">
-
-                <!-- Project selector -->
-                <div class="flex flex-col gap-[6px]">
-                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">Project</label>
-                    <select x-model="selectedProjectId"
-                            class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors appearance-none cursor-pointer">
-                        <option value="">Select a project</option>
-                        <template x-for="p in projects" :key="p.id">
-                            <option :value="p.id" x-text="p.name"></option>
-                        </template>
-                    </select>
-                </div>
-
-                <!-- Label -->
-                <div class="flex flex-col gap-[6px]">
-                    <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">
-                        Label <span class="text-[var(--grayscale-50)] font-normal">(optional)</span>
-                    </label>
-                    <input type="text" x-model="keyLabel" placeholder="e.g. CI Pipeline"
-                           class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
-                </div>
-
-                <!-- Create button + error -->
-                <div class="flex items-center gap-[10px]">
-                    <button type="button"
-                            :disabled="!selectedProjectId || creating"
-                            @click="
-                                creating = true;
-                                createError = '';
-                                fetch('/api/projects/' + selectedProjectId + '/keys', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ label: keyLabel || 'CLI Key' })
-                                })
-                                .then(r => r.ok ? r.json() : Promise.reject(r))
-                                .then(data => {
-                                    issuedToken = data.token;
-                                    createdKeys.push({ label: keyLabel || 'CLI Key', token: data.token });
-                                    creating = false;
-                                    loadExistingKeys();
-                                })
-                                .catch(() => {
-                                    createError = 'Failed to create key. Please try again.';
-                                    creating = false;
-                                })"
-                            :class="(!selectedProjectId || creating) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--primary-80)] cursor-pointer'"
-                            class="bg-[var(--primary-120)] rounded-[8px] h-[36px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none">
-                        <span x-text="creating ? 'Creating…' : 'Create API Key'">Create API Key</span>
-                    </button>
-                    <span x-show="createError" x-cloak x-text="createError"
-                          class="text-[12px] text-red-500 tracking-[-0.12px]"></span>
-                </div>
-
-                <!-- Issued token (shown once after creation) -->
-                <div x-show="issuedToken" x-cloak x-transition class="flex flex-col gap-[8px] w-full">
-                    <div class="bg-[#22efc3]/10 border border-[#22efc3]/30 rounded-[10px] p-[14px] flex flex-col gap-[10px]">
-                        <div class="flex items-center justify-between gap-[8px]">
-                            <div class="flex items-center gap-[6px]">
-                                <img th:src="@{/icon/icon-check.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
-                                <span class="text-[12px] font-semibold text-[var(--primary-120)] tracking-[-0.12px]">API Key issued</span>
-                            </div>
-                            <button type="button"
-                                    @click="navigator.clipboard.writeText(issuedToken)"
-                                    class="text-[11px] font-medium text-[var(--primary-120)] tracking-[-0.11px] hover:underline focus:outline-none">
-                                Copy
-                            </button>
-                        </div>
-                        <code class="font-mono text-[12px] text-[var(--grayscale-100)] break-all select-all bg-white/60 rounded-[6px] px-[10px] py-[8px]"
-                              x-text="issuedToken"></code>
-                    </div>
-                    <div class="flex gap-[6px] items-start">
-                        <img th:src="@{/icon/icon-warning.svg}" class="w-[13px] h-[13px] shrink-0 mt-[1px]" alt="" aria-hidden="true">
-                        <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] m-0">
-                            Store this token securely — it will <strong>not</strong> be shown again.
-                        </p>
-                    </div>
-                </div>
-
-
-
-            </div>
-        </div>
-
-        <!-- I already have an API Token flow -->
-        <div x-show="tokenOption === 'have'" x-transition style="display:none;" class="flex flex-col gap-[8px] w-full">
-            <label class="text-[12px] font-medium text-[var(--grayscale-80)] tracking-[-0.12px]">API Token</label>
-            <div class="relative w-full">
-                <input :type="keyVisible ? 'text' : 'password'"
-                       x-model="apiKey"
-                       placeholder="oswl_xxxxxxxxxxxx"
-                       class="w-full h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] pr-[40px] text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
-                <button type="button"
-                        @click="keyVisible = !keyVisible"
-                        class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] focus:outline-none transition-colors">
-                    <svg x-show="!keyVisible" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                    <svg x-show="keyVisible" x-cloak width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Existing Keys Section (shown when a project is selected) -->
-    <div x-show="selectedProjectId" x-transition style="display:none;"
-         class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
-        <div class="flex items-center justify-between w-full">
-            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Issued Keys</h3>
-            <div class="flex items-center gap-[12px]">
-                <!-- Show revoked toggle (only when revoked keys exist) -->
-                <button type="button"
-                        x-show="existingKeys.some(k => !k.active)"
-                        @click="showRevoked = !showRevoked"
-                        :class="showRevoked ? 'text-[var(--grayscale-80)]' : 'text-[var(--grayscale-50)]'"
-                        class="flex items-center gap-[4px] text-[12px] font-medium hover:text-[var(--grayscale-80)] transition-colors focus:outline-none">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path x-show="!showRevoked" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                        <line x-show="!showRevoked" x1="1" y1="1" x2="23" y2="23"></line>
-                        <path x-show="showRevoked" x-cloak d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle x-show="showRevoked" x-cloak cx="12" cy="12" r="3"></circle>
-                    </svg>
-                    <span x-text="showRevoked ? 'Hide revoked' : 'Show revoked (' + existingKeys.filter(k => !k.active).length + ')'"></span>
-                </button>
-                <button type="button" @click="loadExistingKeys()"
-                        class="flex items-center gap-[4px] text-[12px] font-medium text-[var(--grayscale-60)] hover:text-[var(--primary-120)] transition-colors focus:outline-none">
-                    <img th:src="@{/icon/icon-refresh.svg}" class="w-[12px] h-[12px]" :class="loadingKeys && 'animate-spin'" alt="" aria-hidden="true">
-                    Refresh
-                </button>
-            </div>
-        </div>
-
-        <!-- Loading -->
-        <div x-show="loadingKeys" class="flex items-center gap-[8px] text-[13px] text-[var(--grayscale-50)]">
-            <svg class="animate-spin w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
-            Loading keys…
-        </div>
-
-        <!-- Empty state -->
-        <div x-show="!loadingKeys && existingKeys.length === 0"
-             class="text-[13px] text-[var(--grayscale-50)] tracking-[-0.13px]">
-            No keys issued yet for this project.
-        </div>
-
-        <!-- Key list -->
-        <div x-show="!loadingKeys && existingKeys.length > 0" class="flex flex-col gap-[8px] w-full max-h-[260px] overflow-y-auto custom-scrollbar pr-[4px]">
-            <template x-for="k in existingKeys.filter(k => k.active || showRevoked)" :key="k.id">
-                <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center gap-[12px] px-[14px] py-[10px] w-full">
-                    <!-- Status dot -->
-                    <div class="w-[8px] h-[8px] rounded-full shrink-0 transition-colors"
-                         :class="k.active ? 'bg-[var(--primary-120)]' : 'bg-[var(--grayscale-30)]'"></div>
-
-                    <!-- Token + label -->
-                    <div class="flex flex-col gap-[4px] flex-1 min-w-0">
-                        <div class="flex items-center gap-[6px]">
-                            <span class="font-mono text-[12px] text-[var(--grayscale-100)] tracking-[-0.12px] truncate" x-text="k.token"></span>
-                            <span x-show="k.label" class="text-[11px] text-[var(--grayscale-40)] tracking-[-0.11px] shrink-0" x-text="'· ' + k.label"></span>
-                        </div>
-                        <div class="flex items-center gap-[8px] flex-wrap">
-                            <!-- Issued -->
-                            <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
-                                  x-text="'Issued ' + k.createdAt.substring(0,10)"></span>
-                            <!-- Last used -->
-                            <template x-if="k.active">
-                                <span class="text-[var(--grayscale-30)]">·</span>
-                            </template>
-                            <template x-if="k.active">
-                                <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
-                                      x-text="k.lastUsedAt ? 'Last used ' + k.lastUsedAt.substring(0,10) : 'Never used'"></span>
-                            </template>
-                            <!-- Revoked at -->
-                            <template x-if="!k.active && k.revokedAt">
-                                <span class="text-[var(--grayscale-30)]">·</span>
-                            </template>
-                            <template x-if="!k.active && k.revokedAt">
-                                <span class="text-[11px] text-red-400 tracking-[-0.11px]"
-                                      x-text="'Revoked ' + k.revokedAt.substring(0,10)"></span>
-                            </template>
-                        </div>
-                    </div>
-
-                    <!-- Active badge / Revoked label -->
-                    <span x-show="k.active"
-                          class="shrink-0 text-[11px] font-semibold text-[var(--primary-120)] bg-[var(--primary-20)] px-[8px] py-[3px] rounded-full tracking-[-0.11px]">
-                        Active
-                    </span>
-                    <span x-show="!k.active" x-cloak
-                          class="shrink-0 text-[11px] font-semibold text-[var(--grayscale-50)] bg-[var(--grayscale-15)] px-[8px] py-[3px] rounded-full tracking-[-0.11px]">
-                        Revoked
-                    </span>
-
-                    <!-- Revoke button (only when active) -->
-                    <button type="button"
-                            x-show="k.active"
-                            :disabled="revoking === k.id"
-                            @click="revokeKey(k.id)"
-                            :class="revoking === k.id ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 hover:border-red-300 hover:text-red-600'"
-                            class="shrink-0 border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[4px] text-[11px] font-medium text-[var(--grayscale-60)] transition-colors focus:outline-none">
-                        <span x-text="revoking === k.id ? 'Revoking…' : 'Revoke'">Revoke</span>
-                    </button>
-                </div>
-            </template>
-        </div>
-    </div>
-
-    <!-- Step 3: Authenticate -->
-    <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
-        <div class="flex gap-[8px] items-center w-full shrink-0">
-            <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
-                <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">3</span>
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Authenticate</h3>
         </div>
@@ -401,14 +90,20 @@
             Register your API key with the CLI. Run this once per machine — credentials are saved to
             <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">~/.oswl/config</code>.
         </p>
+        <div class="bg-[#22efc3]/5 border border-[#22efc3]/20 rounded-[10px] px-[16px] py-[12px] flex gap-[8px] items-start">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-120)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-[1px]"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px] m-0">
+                API keys are issued by an admin under <strong>Settings → CLI API Keys</strong>. Copy your key and use it in the command below.
+            </p>
+        </div>
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
                 <code id="code2"
                       class="text-[12px] font-mono select-all transition-colors text-[#00659c]"
-                      x-text="'oswl auth --key ' + (issuedToken || apiKey || 'YOUR_API_KEY') + ' --server ' + location.origin"></code>
+                      x-text="'oswl auth --key YOUR_API_KEY --server ' + location.origin"></code>
             </div>
             <button type="button"
-                    @click="navigator.clipboard.writeText('oswl auth --key ' + (issuedToken || apiKey || 'YOUR_API_KEY') + ' --server ' + location.origin); copied2 = true; setTimeout(() => copied2 = false, 2000)"
+                    @click="navigator.clipboard.writeText('oswl auth --key YOUR_API_KEY --server ' + location.origin); copied2 = true; setTimeout(() => copied2 = false, 2000)"
                     :class="copied2 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
                     class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
                 <img x-show="!copied2" th:src="@{/icon/icon-copy.svg}" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
@@ -418,11 +113,12 @@
         </div>
     </div>
 
-    <!-- Step 4: Run your first scan -->
+
+    <!-- Step 3: Run your first scan -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
         <div class="flex gap-[8px] items-center w-full shrink-0">
             <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
-                <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">4</span>
+                <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">3</span>
             </div>
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Run your first scan</h3>
         </div>

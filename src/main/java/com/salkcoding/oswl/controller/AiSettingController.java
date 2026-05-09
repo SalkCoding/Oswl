@@ -60,6 +60,13 @@ public class AiSettingController implements AiSettingControllerSpec {
         return ResponseEntity.ok(toResponse(setting));
     }
 
+    @PutMapping("/deactivate")
+    @Transactional
+    public ResponseEntity<Void> deactivate() {
+        aiSettingRepository.findByActiveTrue().ifPresent(AiSetting::deactivate);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/activate/{provider}")
     @Transactional
     public ResponseEntity<AiSettingResponse> activate(@PathVariable AiProvider provider) {

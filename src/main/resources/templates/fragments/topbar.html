@@ -33,22 +33,56 @@
     -->
     <header th:fragment="simple-topbar(pageLabel)"
             class="bg-[var(--background-dark)] flex items-center h-[64px] gap-[44px] pl-[60px] pr-[40px] py-[16px] w-full shrink-0">
-        <a th:href="@{/projects}" class="flex gap-[12px] items-center shrink-0">
+        <!-- Logo -->
+        <a th:href="@{/projects}" class="flex gap-[12px] items-center shrink-0 no-underline">
             <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
-            <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
+            <span class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</span>
         </a>
-        <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap"
-            th:text="${pageLabel ?: 'Projects'}">Projects</h2>
-        <div class="flex-1"></div>
-        <a th:href="@{/settings}"
-           class="flex items-center gap-[6px] text-white/60 hover:text-white text-[13px] font-medium tracking-[-0.13px] transition-colors no-underline"
-           th:classappend="${pageLabel == 'Settings'} ? ' text-white' : ''">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            Settings
-        </a>
-        <div th:replace="~{fragments/topbar :: user-menu}"></div>
+        <!-- Breadcrumb: Projects 페이지에선 타이틀만, 하위 페이지에선 Projects > [icon] pageLabel -->
+        <div class="flex flex-1 items-center gap-[24px]">
+            <th:block th:if="${pageLabel == 'Projects'}">
+                <span class="text-[18px] font-normal text-white tracking-[-0.18px] whitespace-nowrap">Projects</span>
+            </th:block>
+            <th:block th:unless="${pageLabel == 'Projects'}">
+                <a th:href="@{/projects}"
+                   class="text-[18px] font-normal text-[rgba(255,255,255,0.5)] hover:text-white tracking-[-0.18px] no-underline transition-colors whitespace-nowrap">Projects</a>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+                <!-- Settings 페이지만 gear 아이콘 표시 (Figma 기준) -->
+                <div class="flex items-center gap-[8px]">
+                    <svg th:if="${pageLabel == 'Settings'}" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                         stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span class="text-[18px] font-bold text-white tracking-[-0.18px] whitespace-nowrap"
+                          th:text="${pageLabel}">Settings</span>
+                </div>
+            </th:block>
+        </div>
+        <!-- Right area: User Info + Settings 아이콘 -->
+        <div class="flex items-center gap-[20px]" sec:authorize="isAuthenticated()">
+            <!-- User Info -->
+            <div class="flex items-center gap-[10px]">
+                <span class="text-[14px] font-medium text-[#bdfaed] tracking-[-0.14px] whitespace-nowrap"
+                      th:text="${#authentication != null ? #authentication.getPrincipal().displayName : ''}"></span>
+                <span class="w-[3px] h-[3px] rounded-full bg-[#bdfaed] shrink-0"></span>
+                <span class="text-[14px] font-light text-[#bdfaed] tracking-[-0.14px] whitespace-nowrap"
+                      th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}"></span>
+            </div>
+            <!-- Settings 아이콘: Settings 페이지가 아닐 때만 표시 -->
+            <a th:unless="${pageLabel == 'Settings'}" th:href="@{/settings}"
+               class="flex items-center gap-[6px] text-white/50 hover:text-white transition-colors" title="Settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span class="text-[13px] font-medium whitespace-nowrap">Settings</span>
+            </a>
+        </div>
     </header>
 
 

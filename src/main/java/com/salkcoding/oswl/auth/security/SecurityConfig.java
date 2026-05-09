@@ -20,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -44,6 +45,7 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                     .ignoringRequestMatchers("/api/scan/**"))
             .sessionManagement(s -> s
                     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
