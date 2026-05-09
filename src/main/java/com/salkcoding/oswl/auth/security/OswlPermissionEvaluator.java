@@ -16,7 +16,7 @@ public class OswlPermissionEvaluator implements PermissionEvaluator {
         String permName = permission.toString();
         for (GrantedAuthority ga : auth.getAuthorities()) {
             String role = ga.getAuthority();
-            if ("ROLE_SUPER_ADMIN".equals(role)) return true;
+            if ("ROLE_SYSTEM_ADMIN".equals(role)) return true;
             if (("PERMISSION_" + permName).equals(role)) return true;
         }
         return false;

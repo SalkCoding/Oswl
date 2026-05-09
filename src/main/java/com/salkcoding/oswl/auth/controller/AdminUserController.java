@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasRole('SYSTEM_ADMIN')")
 public class AdminUserController {
 
     private final UserManagementService userManagementService;
@@ -42,5 +42,10 @@ public class AdminUserController {
     @PutMapping("/{id}/deactivate")
     public void deactivate(@PathVariable Long id) {
         userManagementService.setUserEnabled(id, false);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        userManagementService.deleteUser(id);
     }
 }

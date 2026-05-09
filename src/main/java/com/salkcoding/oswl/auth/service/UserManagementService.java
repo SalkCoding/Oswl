@@ -46,7 +46,7 @@ public class UserManagementService {
                 .email(email)
                 .passwordHash(passwordEncoder.encode(request.getTemporaryPassword()))
                 .displayName(request.getDisplayName().trim())
-                .isSuperAdmin(false)
+                .isSystemAdmin(false)
                 .enabled(true)
                 .roleTemplates(templates)
                 .build();
@@ -57,7 +57,7 @@ public class UserManagementService {
     public void updateUserRoles(Long userId, List<Long> templateIds) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        if (user.isSuperAdmin()) {
+        if (user.isSystemAdmin()) {
             throw new IllegalStateException("최고 관리자의 권한은 변경할 수 없습니다.");
         }
         Set<RoleTemplate> templates = new HashSet<>();
@@ -72,10 +72,21 @@ public class UserManagementService {
     public void setUserEnabled(Long userId, boolean enabled) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        if (user.isSuperAdmin()) {
+        if (user.isSystemAdmin()) {
             throw new IllegalStateException("최고 관리자의 상태는 변경할 수 없습니다.");
         }
         user.setEnabled(enabled);
+    }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        if (user.isSystemAdmin()) {
+            throw new IllegalStateException("최고 관리자는 삭제할 수 없습니다.");
+        }
+        user.getRoleTemplates().clear();
+        userRepository.delete(user);
     }
 
     public boolean hasAnyUser() {
@@ -90,7 +101,7 @@ public class UserManagementService {
                 .id(user.getId())
                 .email(user.getEmail())
                 .displayName(user.getDisplayName())
-                .superAdmin(user.isSuperAdmin())
+                .systemAdmin(user.isSystemAdmin())
                 .enabled(user.isEnabled())
                 .createdAt(user.getCreatedAt())
                 .roleTemplates(refs)

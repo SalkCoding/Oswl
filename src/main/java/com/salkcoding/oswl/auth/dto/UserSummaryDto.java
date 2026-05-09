@@ -14,7 +14,7 @@ public class UserSummaryDto {
     private Long id;
     private String email;
     private String displayName;
-    private boolean superAdmin;
+    private boolean systemAdmin;
     private boolean enabled;
     private LocalDateTime createdAt;
     private List<RoleTemplateRefDto> roleTemplates;

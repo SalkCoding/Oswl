@@ -16,4 +16,19 @@ public class AuthViewController {
     public String forbidden() {
         return "error/403";
     }
+
+    @RequestMapping("/error/401")
+    public String unauthorized() {
+        return "error/401";
+    }
+
+    @RequestMapping("/error/500")
+    public String serverError() {
+        return "error/500";
+    }
+
+    @RequestMapping("/error/503")
+    public String serviceUnavailable() {
+        return "error/503";
+    }
 }

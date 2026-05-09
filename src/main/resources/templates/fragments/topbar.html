@@ -17,7 +17,7 @@
             <div class="px-[8px] py-[4px] border-b border-white/15 mb-[2px]">
                 <div class="text-white text-[13px] font-semibold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : 'User'}">User</div>
                 <div class="text-white/50 text-[11px]" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
-                <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SUPER_ADMIN')">★ Super Admin</div>
+                <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')">★ System Admin</div>
             </div>
             <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline">⚙️ Settings</a>
             <form th:action="@{/logout}" method="post" class="m-0">

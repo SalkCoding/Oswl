@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/admin/role-templates")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasRole('SYSTEM_ADMIN')")
 public class AdminRoleTemplateController {
 
     private final RoleTemplateService roleTemplateService;

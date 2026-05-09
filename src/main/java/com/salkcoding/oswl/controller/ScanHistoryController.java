@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Controller
 @RequestMapping("/projects/{projectId}/scan-history")
-@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SCAN_HISTORY_VIEW') or hasRole('SUPER_ADMIN')")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SCAN_HISTORY_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class ScanHistoryController {
 

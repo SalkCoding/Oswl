@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Controller
 @RequestMapping("/projects/{projectId}/security-center")
-@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SECURITY_CENTER_VIEW') or hasRole('SUPER_ADMIN')")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SECURITY_CENTER_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class SecurityCenterController implements SecurityCenterControllerSpec {
 
@@ -26,7 +26,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
     }
 
     @PatchMapping("/bulk-status")
-    @org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SUPER_ADMIN')")
+    @org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SYSTEM_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> bulkStatus(@PathVariable Long projectId,
                                            @RequestBody BulkStatusRequest req) {

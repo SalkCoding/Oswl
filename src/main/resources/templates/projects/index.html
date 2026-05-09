@@ -157,7 +157,7 @@
                                     </div>
                                 </div>
 
-                                <div class="relative" @click.stop sec:authorize="hasPermission(null, 'PROJECT_DELETE') or hasRole('SUPER_ADMIN')">
+                                <div class="relative" @click.stop sec:authorize="hasPermission(null, 'PROJECT_DELETE') or hasRole('SYSTEM_ADMIN')">
                                     <button type="button"
                                             @click="openMenu = !openMenu"
                                             class="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--grayscale-20)] bg-white text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition">

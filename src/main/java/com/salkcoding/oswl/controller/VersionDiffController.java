@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Controller
 @RequestMapping("/projects/{projectId}/version-diff")
-@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'VERSION_DIFF_VIEW') or hasRole('SUPER_ADMIN')")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'VERSION_DIFF_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class VersionDiffController {
 

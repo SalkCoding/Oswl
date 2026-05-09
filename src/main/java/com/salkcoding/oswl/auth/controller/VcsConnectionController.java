@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/settings/vcs")
 @RequiredArgsConstructor
-@PreAuthorize("hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')")
 public class VcsConnectionController {
 
     private final VcsConnectionService vcsConnectionService;

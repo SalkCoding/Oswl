@@ -36,7 +36,7 @@ public class SetupRedirectFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!userRepository.existsByIsSuperAdminTrue()) {
+        if (!userRepository.existsByIsSystemAdminTrue()) {
             response.sendRedirect("/setup");
             return;
         }

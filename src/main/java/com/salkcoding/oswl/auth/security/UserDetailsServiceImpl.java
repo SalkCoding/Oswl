@@ -28,8 +28,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + email));
 
         Set<GrantedAuthority> authorities = new HashSet<>();
-        if (user.isSuperAdmin()) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+        if (user.isSystemAdmin()) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_SYSTEM_ADMIN"));
         }
         user.getRoleTemplates().forEach(rt ->
                 rt.getPermissions().forEach(p ->
@@ -42,7 +42,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 user.getEmail(),
                 user.getPasswordHash(),
                 user.getDisplayName(),
-                user.isSuperAdmin(),
+                user.isSystemAdmin(),
                 user.isEnabled(),
                 authorities,
                 user.getRoleTemplates().stream().map(rt -> rt.getId()).collect(java.util.stream.Collectors.toSet()),
