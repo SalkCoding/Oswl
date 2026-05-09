@@ -126,10 +126,10 @@ public class ComponentDetailService {
 
     private String licenseRiskLabel(LicenseStatus status, boolean isNonStandard) {
         return switch (status) {
-            case VIOLATION -> "Critical";
-            case WARN      -> "High";
+            case RESTRICTED -> "Restricted";
+            case CAUTION      -> "Caution";
             case UNKNOWN   -> isNonStandard ? "Non-standard" : "Unknown";
-            default        -> "Low";
+            default        -> "Permitted";
         };
     }
 

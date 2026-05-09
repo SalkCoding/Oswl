@@ -28,7 +28,7 @@ import java.util.UUID;
  *  - Library with GHSA id only (no CVE id)
  *  - Library deprecated with a reason
  *  - Library with null fetchedAt (not yet enriched)
- *  - License UNKNOWN (non-standard name), WARN, VIOLATION, OK
+ *  - License UNKNOWN (non-standard name), CAUTION, RESTRICTED, PERMITTED
  *  - Reviewed=true and ignored=true components
  *  - Component with full DependencyPath trees (direct + 2-level transitive)
  *  - Component with no DependencyPaths (legacy scan)
@@ -127,55 +127,55 @@ public class TestDataController {
                 .project(projectC).branch("main").versionNumber(1).importSource(ImportSource.CLI).build());
 
         // ================================
-        // 3.  LIBRARIES  (MAVEN 횞 28 쨌 NPM 횞 19 쨌 PYPI 횞 18)
+        // 3.  LIBRARIES  (MAVEN × 28 · NPM × 19 · PYPI × 18)
         // ================================
 
-        // ?? MAVEN ?????????????????????????????????????????????????????????
+        // ── MAVEN ecosystem ─────────────────────────────────────────────
         // original
         Library log4j = lib("org.apache.logging.log4j:log4j-core", "2.14.1",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, "Deprecated: use log4j 2.17.1+", "2.17.1",
                 LocalDateTime.now().minusDays(1));
 
         // CRITICAL x1 + HIGH x1 —multiple-CVE per library
         Library springWeb = lib("org.springframework:spring-web", "5.3.20",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "6.1.6",
                 LocalDateTime.now().minusDays(2));
 
         // HIGH x1, no fix (NON_PATCHABLE edge case)
         Library springCore = lib("org.springframework:spring-core", "5.3.20",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "6.1.6",
                 LocalDateTime.now().minusDays(2));
 
         // HIGH x1, fixVersion exists (PATCHABLE)
         Library jackson = lib("com.fasterxml.jackson.core:jackson-databind", "2.13.0",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.17.0",
                 LocalDateTime.now().minusDays(2));
 
         // MEDIUM x2 + LOW x1
         Library commonsText = lib("org.apache.commons:commons-text", "1.9",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "1.11.0",
                 LocalDateTime.now().minusDays(3));
 
         // CRITICAL, no fix at all (NON_PATCHABLE)
         Library snakeYaml = lib("org.yaml:snakeyaml", "1.30",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.2",
                 LocalDateTime.now().minusDays(3));
 
-        // License WARN + no CVEs (license-only risk)
+        // License CAUTION + no CVEs (license-only risk)
         Library h2 = lib("com.h2database:h2", "2.1.214",
-                "MAVEN", "MPL-2.0", LicenseStatus.WARN,
+                "MAVEN", "MPL-2.0", LicenseStatus.CAUTION,
                 false, null, "2.2.224",
                 LocalDateTime.now().minusDays(4));
 
-        // License VIOLATION
+        // License RESTRICTED
         Library gplLib = lib("net.sf.jsqlparser:jsqlparser", "4.6",
-                "MAVEN", "GPL-2.0-only", LicenseStatus.VIOLATION,
+                "MAVEN", "GPL-2.0-only", LicenseStatus.RESTRICTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(5));
 
@@ -193,7 +193,7 @@ public class TestDataController {
 
         // NONE severity (clean, up-to-date, safe)
         Library guava = lib("com.google.guava:guava", "32.1.3-jre",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(1));
 
@@ -203,250 +203,250 @@ public class TestDataController {
                 null, null, null,
                 null);
 
-        // CRITICAL —H2 RCE, License WARN (dual risk)
+        // CRITICAL —H2 RCE, License CAUTION (dual risk)
         Library h2Rce = lib("com.h2database:h2", "1.4.200",
-                "MAVEN", "MPL-2.0", LicenseStatus.WARN,
+                "MAVEN", "MPL-2.0", LicenseStatus.CAUTION,
                 false, null, "2.2.224",
                 LocalDateTime.now().minusDays(4));
 
-        // ?? NPM ecosystem ????????????????????????????????????????????????
+        // ── NPM ecosystem ──────────────────────────────────────────────
 
         // HIGH + no fix (NON_PATCHABLE)
         Library lodash = lib("lodash", "4.17.20",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "4.17.21",
                 LocalDateTime.now().minusDays(2));
 
         // LOW only
         Library axios = lib("axios", "1.2.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "1.6.8",
                 LocalDateTime.now().minusDays(2));
 
         // MEDIUM x1
         Library momentJs = lib("moment", "2.29.3",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "2.30.1",
                 LocalDateTime.now().minusDays(3));
 
-        // License WARN (NPM)
+        // License CAUTION (NPM)
         Library angularCore = lib("@angular/core", "15.0.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "17.3.0",
                 LocalDateTime.now().minusDays(2));
 
         // CRITICAL (prototype pollution)
         Library qs = lib("qs", "6.5.2",
-                "NPM", "BSD-3-Clause", LicenseStatus.OK,
+                "NPM", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "6.11.0",
                 LocalDateTime.now().minusDays(2));
 
         // Clean + latest
         Library reactDom = lib("react-dom", "18.2.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(1));
 
-        // ?? PYPI ecosystem ???????????????????????????????????????????????
+        // ── PYPI ecosystem ─────────────────────────────────────────────
 
         // HIGH
         Library requests = lib("requests", "2.28.0",
-                "PYPI", "Apache-2.0", LicenseStatus.OK,
+                "PYPI", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.31.0",
                 LocalDateTime.now().minusDays(5));
 
         // CRITICAL
         Library pillow = lib("Pillow", "9.0.0",
-                "PYPI", "HPND", LicenseStatus.OK,
+                "PYPI", "HPND", LicenseStatus.PERMITTED,
                 false, null, "10.3.0",
                 LocalDateTime.now().minusDays(5));
 
-        // MEDIUM + WARN license
+        // MEDIUM + CAUTION license
         Library urllib3 = lib("urllib3", "1.26.5",
-                "PYPI", "MIT", LicenseStatus.OK,
+                "PYPI", "MIT", LicenseStatus.PERMITTED,
                 false, null, "2.2.1",
                 LocalDateTime.now().minusDays(5));
 
         // Clean
         Library numpy = lib("numpy", "1.26.4",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(3));
 
         // CRITICAL —deserialization
         Library pyyaml = lib("PyYAML", "5.3.1",
-                "PYPI", "MIT", LicenseStatus.OK,
+                "PYPI", "MIT", LicenseStatus.PERMITTED,
                 false, null, "6.0.1",
                 LocalDateTime.now().minusDays(4));
 
-        // ?? NEW MAVEN ????????????????????????????????????????????????????
+        // ── NEW MAVEN ───────────────────────────────────────────────────
         Library nettyHandler = lib("io.netty:netty-handler", "4.1.86.Final",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "4.1.101.Final", LocalDateTime.now().minusDays(2));
 
         Library commonsCollections = lib("commons-collections:commons-collections", "3.2.1",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, "EOL: use commons-collections4", "4.4", LocalDateTime.now().minusDays(5));
 
         Library commonsIo = lib("commons-io:commons-io", "2.7",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.15.1", LocalDateTime.now().minusDays(3));
 
         Library hibernate = lib("org.hibernate:hibernate-core", "5.6.10.Final",
-                "MAVEN", "LGPL-2.1-only", LicenseStatus.WARN,
+                "MAVEN", "LGPL-2.1-only", LicenseStatus.CAUTION,
                 false, null, "6.4.4.Final", LocalDateTime.now().minusDays(3));
 
         Library tomcatEmbed = lib("org.apache.tomcat.embed:tomcat-embed-core", "9.0.65",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "10.1.20", LocalDateTime.now().minusDays(4));
 
         Library springSecCore = lib("org.springframework.security:spring-security-core", "5.7.3",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "6.2.3", LocalDateTime.now().minusDays(3));
 
         Library okhttp = lib("com.squareup.okhttp3:okhttp", "4.9.3",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "4.12.0", LocalDateTime.now().minusDays(2));
 
         Library gson = lib("com.google.code.gson:gson", "2.8.9",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.10.1", LocalDateTime.now().minusDays(3));
 
         Library xstream = lib("com.thoughtworks.xstream:xstream", "1.4.18",
-                "MAVEN", "BSD-3-Clause", LicenseStatus.OK,
+                "MAVEN", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "1.4.20", LocalDateTime.now().minusDays(4));
 
         Library woodstox = lib("com.fasterxml.woodstox:woodstox-core", "6.2.7",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "6.6.2", LocalDateTime.now().minusDays(3));
 
         Library bouncycastle = lib("org.bouncycastle:bcprov-jdk15on", "1.69",
-                "MAVEN", "MIT", LicenseStatus.OK,
+                "MAVEN", "MIT", LicenseStatus.PERMITTED,
                 false, null, "1.78.1", LocalDateTime.now().minusDays(4));
 
         Library poiOoxml = lib("org.apache.poi:poi-ooxml", "5.2.2",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "5.2.5", LocalDateTime.now().minusDays(3));
 
         Library groovyAll = lib("org.codehaus.groovy:groovy-all", "3.0.10",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "3.0.21", LocalDateTime.now().minusDays(5));
 
         Library pdfbox = lib("org.apache.pdfbox:pdfbox", "2.0.27",
-                "MAVEN", "Apache-2.0", LicenseStatus.OK,
+                "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "3.0.2", LocalDateTime.now().minusDays(4));
 
         Library hsqldb = lib("org.hsqldb:hsqldb", "2.6.1",
-                "MAVEN", "BSD-3-Clause", LicenseStatus.OK,
+                "MAVEN", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "2.7.2", LocalDateTime.now().minusDays(5));
 
-        // ?? NEW NPM ??????????????????????????????????????????????????????
+        // ── NEW NPM ─────────────────────────────────────────────────────
         Library express = lib("express", "4.18.1",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "4.19.2", LocalDateTime.now().minusDays(2));
 
         Library bodyParser = lib("body-parser", "1.19.2",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "1.20.2", LocalDateTime.now().minusDays(3));
 
         Library minimist = lib("minimist", "1.2.5",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "1.2.8", LocalDateTime.now().minusDays(4));
 
         Library ansiRegex = lib("ansi-regex", "5.0.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "5.0.1", LocalDateTime.now().minusDays(3));
 
         Library semver = lib("semver", "7.3.7",
-                "NPM", "ISC", LicenseStatus.OK,
+                "NPM", "ISC", LicenseStatus.PERMITTED,
                 false, null, "7.6.0", LocalDateTime.now().minusDays(2));
 
         Library toughCookie = lib("tough-cookie", "4.1.2",
-                "NPM", "BSD-3-Clause", LicenseStatus.OK,
+                "NPM", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "4.1.4", LocalDateTime.now().minusDays(3));
 
         Library json5 = lib("json5", "2.2.1",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "2.2.3", LocalDateTime.now().minusDays(3));
 
         Library babelTraverse = lib("babel-traverse", "6.26.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, "EOL: use @babel/traverse 7.x", "7.24.0", LocalDateTime.now().minusDays(7));
 
         Library loaderUtils = lib("loader-utils", "2.0.2",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "2.0.4", LocalDateTime.now().minusDays(4));
 
         Library nodeFetch = lib("node-fetch", "2.6.7",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "3.3.2", LocalDateTime.now().minusDays(3));
 
         Library passport = lib("passport", "0.6.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "0.7.0", LocalDateTime.now().minusDays(5));
 
         Library webpack = lib("webpack", "5.74.0",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "5.91.0", LocalDateTime.now().minusDays(2));
 
         Library socketIoParser = lib("socket.io-parser", "4.2.1",
-                "NPM", "MIT", LicenseStatus.OK,
+                "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "4.2.4", LocalDateTime.now().minusDays(4));
 
-        // ?? NEW PYPI ?????????????????????????????????????????????????????
+        // ── NEW PYPI ────────────────────────────────────────────────────
         Library django = lib("Django", "3.2.15",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "4.2.11", LocalDateTime.now().minusDays(4));
 
         Library flask = lib("Flask", "2.0.3",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "3.0.3", LocalDateTime.now().minusDays(5));
 
         Library jinja2 = lib("Jinja2", "3.0.3",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "3.1.4", LocalDateTime.now().minusDays(4));
 
         Library werkzeug = lib("Werkzeug", "2.2.2",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "3.0.3", LocalDateTime.now().minusDays(4));
 
         Library cryptography = lib("cryptography", "38.0.1",
-                "PYPI", "Apache-2.0", LicenseStatus.OK,
+                "PYPI", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "42.0.5", LocalDateTime.now().minusDays(3));
 
         Library sqlalchemy = lib("SQLAlchemy", "1.4.40",
-                "PYPI", "MIT", LicenseStatus.OK,
+                "PYPI", "MIT", LicenseStatus.PERMITTED,
                 false, null, "2.0.29", LocalDateTime.now().minusDays(4));
 
         Library paramiko = lib("paramiko", "2.11.0",
-                "PYPI", "LGPL-2.1-only", LicenseStatus.WARN,
+                "PYPI", "LGPL-2.1-only", LicenseStatus.CAUTION,
                 false, null, "3.4.0", LocalDateTime.now().minusDays(5));
 
         Library aiohttp = lib("aiohttp", "3.8.1",
-                "PYPI", "Apache-2.0", LicenseStatus.OK,
+                "PYPI", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "3.9.4", LocalDateTime.now().minusDays(4));
 
         Library certifi = lib("certifi", "2022.9.24",
-                "PYPI", "MPL-2.0", LicenseStatus.WARN,
+                "PYPI", "MPL-2.0", LicenseStatus.CAUTION,
                 false, null, "2024.2.2", LocalDateTime.now().minusDays(6));
 
         Library pandas = lib("pandas", "1.5.0",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "2.2.1", LocalDateTime.now().minusDays(4));
 
         Library scipy = lib("scipy", "1.9.3",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "1.13.0", LocalDateTime.now().minusDays(5));
 
         Library httpx = lib("httpx", "0.23.0",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "0.27.0", LocalDateTime.now().minusDays(4));
 
         Library celery = lib("celery", "5.2.7",
-                "PYPI", "BSD-3-Clause", LicenseStatus.OK,
+                "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "5.3.6", LocalDateTime.now().minusDays(5));
 
-        // ?? Persist all ??????????????????????????????????????????????????
+        // ?? Persist all ??????????????????????????????????????????????????
         // original MAVEN
         log4j             = libraryRepository.save(log4j);
         springWeb         = libraryRepository.save(springWeb);
@@ -593,7 +593,7 @@ public class TestDataController {
                 null, "CWE-502",
                 "No official patch available for this version series. Migrate to a safe constructor or replace with Jackson YAML.");
 
-        // h2Rce —CRITICAL + WARN license dual risk
+        // h2Rce —CRITICAL + CAUTION license dual risk
         cve(h2Rce, "GHSA-h376-j262-vhq6", "CVE-2022-23221", RiskLevel.CRITICAL, 9.8,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                 "H2 Console RCE via JDBC URL",
@@ -662,7 +662,7 @@ public class TestDataController {
                 "A vulnerability was discovered in the PyYAML library, where it is susceptible to arbitrary code execution when it processes YAML files through the full_load method or with the FullLoader Loader.",
                 "5.4", "CWE-20", null);
 
-        // ?? CVEs for new MAVEN ????????????????????????????????????????????
+        // ── CVEs for new MAVEN ──────────────────────────────────────────
 
         cve(nettyHandler, "GHSA-5mcr-gq6c-3hq2", "CVE-2022-41881", RiskLevel.HIGH, 7.5,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
@@ -757,7 +757,7 @@ public class TestDataController {
                 "Those using HyperSQL DataBase (HSQLDB) for running a remote HSQLDB server can be exposed to remote code execution when connecting to a malicious server via a URL that contains a crafted Java class path.",
                 "2.7.1", "CWE-94", null);
 
-        // ?? CVEs for new NPM ??????????????????????????????????????????????
+        // ── CVEs for new NPM ────────────────────────────────────────────
 
         cve(express, "GHSA-rv95-896h-c2vc", "CVE-2024-29041", RiskLevel.MEDIUM, 6.1,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
@@ -839,7 +839,7 @@ public class TestDataController {
                 "A specially crafted Socket.IO packet sent to a vulnerable server can cause an uncaught exception and server crash.",
                 "4.2.3", "CWE-400", null);
 
-        // ?? CVEs for new PYPI ?????????????????????????????????????????????
+        // ── CVEs for new PYPI ───────────────────────────────────────────
 
         cve(django, "GHSA-jh3w-4vvf-mjgr", "CVE-2022-34265", RiskLevel.HIGH, 9.1,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
@@ -974,9 +974,9 @@ public class TestDataController {
         //       v3.2.0: 2C  4H  3M 1L  (current state)
         // ================================
 
-        // scanA1 —11 libs, 0 CRIT 쨌 3 HIGH 쨌 4 MED 쨌 1 LOW
+        // scanA1 —11 libs, 0 CRIT · 3 HIGH · 4 MED · 1 LOW
         addComp(scanA1, jackson,          "Direct (1)",       false, false); // HIGH
-        addComp(scanA1, hibernate,        "Direct (1)",       false, false); // MED + WARN lic
+        addComp(scanA1, hibernate,        "Direct (1)",       false, false); // MED + CAUTION lic
         addComp(scanA1, okhttp,           "Direct (1)",       false, false); // MED
         addComp(scanA1, gson,             "Direct (1)",       false, false); // LOW
         addComp(scanA1, guava,            "Transitive (2)",   false, false); // NONE
@@ -985,9 +985,9 @@ public class TestDataController {
         addComp(scanA1, bouncycastle,     "Direct (1)",       false, false); // MED
         addComp(scanA1, pdfbox,           "Direct (1)",       false, false); // MED
         addComp(scanA1, unknownLic,       "Transitive (1)",   false, false); // UNKNOWN lic
-        addComp(scanA1, gplLib,           "Direct (1)",       false, false); // VIOLATION lic
+        addComp(scanA1, gplLib,           "Direct (1)",       false, false); // RESTRICTED lic
 
-        // scanA2 —15 libs, 3 CRIT 쨌 3 HIGH 쨌 5 MED 쨌 2 LOW
+        // scanA2 —15 libs, 3 CRIT · 3 HIGH · 5 MED · 2 LOW
         addComp(scanA2, jackson,          "Direct (1)",       false, false);
         addComp(scanA2, hibernate,        "Direct (1)",       false, false);
         addComp(scanA2, okhttp,           "Direct (1)",       false, false);
@@ -1004,7 +1004,7 @@ public class TestDataController {
         addComp(scanA2, commonsCollections, "Transitive (2)", false, false); // +CRIT
         addComp(scanA2, poiOoxml,         "Direct (1)",       false, false); // +MED
 
-        // scanA3 —22 libs, 9 CRIT 쨌 5 HIGH 쨌 5 MED 쨌 2 LOW  [PEAK]
+        // scanA3 —22 libs, 9 CRIT · 5 HIGH · 5 MED · 2 LOW  [PEAK]
         addComp(scanA3, jackson,          "Direct (1)",       false, false);
         addComp(scanA3, hibernate,        "Direct (1)",       false, false);
         addComp(scanA3, okhttp,           "Direct (1)",       false, false);
@@ -1028,7 +1028,7 @@ public class TestDataController {
         addComp(scanA3, h2Rce,            "Direct (1)",       false, false); // +CRIT
         addComp(scanA3, tomcatEmbed,      "Direct (1)",       false, false); // +HIGH
 
-        // scanA4 —20 libs, 5 CRIT 쨌 5 HIGH 쨌 5 MED 쨌 2 LOW  (hotfix)
+        // scanA4 —20 libs, 5 CRIT · 5 HIGH · 5 MED · 2 LOW  (hotfix)
         // removed: log4j(2C), groovyAll(1C)
         addComp(scanA4, jackson,          "Direct (1)",       false, false);
         addComp(scanA4, hibernate,        "Direct (1)",       false, false);
@@ -1051,7 +1051,7 @@ public class TestDataController {
         addComp(scanA4, h2Rce,            "Direct (1)",       false, false);
         addComp(scanA4, tomcatEmbed,      "Direct (1)",       false, false);
 
-        // scanA5 —24 libs, 7 CRIT 쨌 7 HIGH 쨌 6 MED 쨌 2 LOW  (new features)
+        // scanA5 —24 libs, 7 CRIT · 7 HIGH · 6 MED · 2 LOW  (new features)
         // added: hsqldb(1C), springSecCore(1H), nettyHandler(1H), notFetched
         addComp(scanA5, jackson,          "Direct (1)",       false, false);
         addComp(scanA5, hibernate,        "Direct (1)",       false, false);
@@ -1078,7 +1078,7 @@ public class TestDataController {
         addComp(scanA5, nettyHandler,     "Transitive (3)",   false, false); // +HIGH
         addComp(scanA5, notFetched,       "Transitive (1)",   false, false); // not enriched
 
-        // scanA6 —19 libs, 2 CRIT 쨌 5 HIGH 쨌 4 MED 쨌 1 LOW  [major cleanup]
+        // scanA6 —19 libs, 2 CRIT · 5 HIGH · 4 MED · 1 LOW  [major cleanup]
         // removed: snakeYaml, commonsCollections, xstream, h2Rce, gplLib, notFetched, hsqldb, woodstox, tomcatEmbed
         // added:   internalLib, h2
         addComp(scanA6, jackson,          "Direct (1)",       true,  false); // reviewed=true
@@ -1097,9 +1097,9 @@ public class TestDataController {
         addComp(scanA6, nettyHandler,     "Transitive (3)",   false, false);
         addComp(scanA6, springSecCore,    "Direct (1)",       false, false);
         addComp(scanA6, internalLib,      "Direct (1)",       false, false); // UNKNOWN lic
-        addComp(scanA6, h2,              "Direct (1)",       false, false); // WARN lic
+        addComp(scanA6, h2,              "Direct (1)",       false, false); // CAUTION lic
 
-        // scanA7 —21 libs, 3 CRIT 쨌 6 HIGH 쨌 4 MED 쨌 1 LOW  [minor regression]
+        // scanA7 —21 libs, 3 CRIT · 6 HIGH · 4 MED · 1 LOW  [minor regression]
         // added: groovyAll crept back, commonsCollections reintroduced
         addComp(scanA7, jackson,          "Direct (1)",       true,  false);
         addComp(scanA7, hibernate,        "Direct (1)",       false, false);
@@ -1123,7 +1123,7 @@ public class TestDataController {
         addComp(scanA7, woodstox,         "Transitive (2)",   false, false); // +HIGH
         addComp(scanA7, notFetched,       "Transitive (1)",   false, false);
 
-        // scanA8 —19 libs, 2 CRIT 쨌 4 HIGH 쨌 3 MED 쨌 1 LOW  [current]
+        // scanA8 —19 libs, 2 CRIT · 4 HIGH · 3 MED · 1 LOW  [current]
         // removed: groovyAll, commonsCollections, woodstox, notFetched
         ScanComponent scA8SpringWeb   = addComp(scanA8, springWeb,       "Direct (1)",       false, false);
         ScanComponent scA8SpringCore  = addComp(scanA8, springCore,      "Transitive (2)",   false, false);
@@ -1143,9 +1143,9 @@ public class TestDataController {
         addComp(scanA8, nettyHandler,     "Transitive (3)",   false, false);
         addComp(scanA8, springSecCore,    "Direct (1)",       false, false);
         addComp(scanA8, tomcatEmbed,      "Direct (1)",       false, false);
-        addComp(scanA8, gplLib,           "Direct (1)",       false, false); // VIOLATION lic
+        addComp(scanA8, gplLib,           "Direct (1)",       false, false); // RESTRICTED lic
 
-        // ?? DependencyPaths for scanA8 ????????????????????????????????????
+        // ?? DependencyPaths for scanA8 ????????????????????????????????????
 
         savePath(scA8SpringWeb, 0,
                 List.of(node("backend-api", "3.2.0"),
@@ -1327,8 +1327,8 @@ public class TestDataController {
         addComp(scanC3, jinja2,       "Transitive (2)",false, false); // +HIGH
         addComp(scanC3, werkzeug,     "Transitive (2)",false, false); // +HIGH
         addComp(scanC3, aiohttp,      "Direct (1)",    false, false); // +HIGH
-        addComp(scanC3, certifi,      "Transitive (1)",false, false); // +MED (WARN lic)
-        addComp(scanC3, paramiko,     "Direct (1)",    false, false); // +MED (WARN lic)
+        addComp(scanC3, certifi,      "Transitive (1)",false, false); // +MED (CAUTION lic)
+        addComp(scanC3, paramiko,     "Direct (1)",    false, false); // +MED (CAUTION lic)
 
         // scanC4 —15 libs, 2C 4H 4M 3L  [partial cleanup]
         // removed: jinja2, werkzeug, paramiko

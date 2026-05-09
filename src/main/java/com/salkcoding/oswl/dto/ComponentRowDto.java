@@ -47,7 +47,7 @@ public class ComponentRowDto {
     @Schema(description = "Patchability status", example = "patchable", allowableValues = {"patchable", "non-patchable", "unknown"})
     private final String patchability;
 
-    @Schema(description = "License status", example = "WARN", allowableValues = {"OK", "WARN", "VIOLATION", "UNKNOWN"})
+    @Schema(description = "License status", example = "CAUTION", allowableValues = {"PERMITTED", "CAUTION", "RESTRICTED", "UNKNOWN"})
     private final String licenseStatus;
 
     @Schema(description = "License name", example = "Apache-2.0")

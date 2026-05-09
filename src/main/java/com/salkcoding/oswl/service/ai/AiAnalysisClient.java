@@ -35,7 +35,7 @@ public interface AiAnalysisClient {
      * Generate a license risk summary.
      *
      * @param licenseName    "Creative Commons Attribution Share Alike 4.0"
-     * @param licenseStatus  "VIOLATION"
+     * @param licenseStatus  "RESTRICTED"
      * @param component      component name
      * @return one-sentence description
      */
