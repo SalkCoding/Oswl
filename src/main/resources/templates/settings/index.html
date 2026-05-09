@@ -14,42 +14,24 @@
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
 
-<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[80px] px-[60px] max-w-[1440px] mx-auto">
-
-    <div class="flex items-center justify-between">
-        <div class="flex items-center gap-[12px]">
-            <a href="javascript:void(0)"
-               onclick="location.href = sessionStorage.getItem('oswl_settings_back') || '/projects'"
-               class="inline-flex items-center gap-[6px] text-[13px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] font-medium tracking-[-0.13px] transition-colors no-underline">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
-                Back
-            </a>
-        </div>
-        <div class="text-[13px] text-[var(--grayscale-60)]"
-             sec:authorize="isAuthenticated()">
-            <span th:text="${#authentication != null ? #authentication.getPrincipal().displayName : ''}">User</span>
-            <span class="text-[var(--grayscale-40)]"> · </span>
-            <span th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">email</span>
-            <span class="ml-[12px]">
-                <form th:action="@{/logout}" method="post" class="inline">
-                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                    <button type="submit" class="text-[13px] text-[var(--secondary-100)] hover:underline">로그아웃</button>
-                </form>
-            </span>
-        </div>
+<!-- Tab bar — full width, Figma #f3f5f6 bg, directly below header -->
+<div th:if="${not #lists.isEmpty(accessibleTabs)}"
+     class="bg-[#f3f5f6] w-full shrink-0">
+    <div class="max-w-[1440px] mx-auto px-[60px] flex items-center gap-[32px] pt-[17px] pb-[16px]">
+        <th:block th:each="t, tStat : ${accessibleTabs}">
+            <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
+            <a th:href="@{/settings(tab=${t.key})}"
+               th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
+               class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
+               th:text="${t.label}">Tab</a>
+            <!-- 점 구분자 (4px 원) -->
+            <span th:unless="${tStat.last}"
+                  class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-40)] shrink-0 -mx-[16px]"></span>
+        </th:block>
     </div>
+</div>
 
-    <!-- Tabs (Figma underline style, 영문 라벨) -->
-    <div th:if="${not #lists.isEmpty(accessibleTabs)}"
-         class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] bg-white px-[8px] rounded-t-[10px]">
-        <a th:each="t : ${accessibleTabs}"
-           th:href="@{/settings(tab=${t.key})}"
-           th:classappend="${t.key == activeTab} ? 'border-[var(--secondary-100)] text-[var(--secondary-100)]' : 'border-transparent text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]'"
-           class="inline-flex items-center px-[8px] py-[14px] text-[14px] font-bold tracking-[-0.14px] border-b-[2px] transition-colors no-underline"
-           th:text="${t.label}">Tab</a>
-    </div>
+<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[60px] max-w-[1440px] mx-auto">
 
     <div th:if="${#lists.isEmpty(accessibleTabs)}"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]">
