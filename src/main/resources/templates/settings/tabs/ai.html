@@ -7,126 +7,332 @@
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">AI Analysis Settings</h2>
-        <p class="text-[13px] text-[var(--grayscale-60)]">Configure AI-powered vulnerability analysis.</p>
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]">AI Analysis Settings</h2>
+        <p class="font-medium text-[16px] text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3]">Configure AI-powered vulnerability analysis.</p>
     </div>
 
-    <!-- API Error Banner -->
+    <!-- Error Banner -->
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
+         x-text="apiError"></div>
 
-    <!-- Provider card -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[20px]">
-        <h3 class="font-bold text-[15px] text-[var(--grayscale-100)]">AI Provider</h3>
+    <!-- Provider Card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
-        <div class="flex flex-col gap-[16px]">
-            <!-- Option 1: Do not use AI -->
-            <label class="flex items-center gap-[10px] cursor-pointer">
-                <input type="radio" name="aiMode" value="off" x-model="mode"
-                       class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
-                <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Do not use AI</span>
-            </label>
+        <!-- Card Title -->
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">AI Provider</h3>
 
-            <!-- Option 2: Custom OpenAI-Compatible -->
-            <div class="flex flex-col gap-[12px]">
-                <label class="flex items-center gap-[10px] cursor-pointer">
-                    <input type="radio" name="aiMode" value="custom" x-model="mode"
-                           class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
-                    <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Custom OpenAI-Compatible API</span>
-                </label>
-                <p class="text-[12px] text-[var(--grayscale-60)] ml-[26px]">Analyze using your own custom API endpoint.</p>
+        <!-- ── Option 1: Do not use AI ── -->
+        <label class="flex gap-[8px] items-center cursor-pointer">
+            <input type="radio" name="aiMode" value="off" x-model="mode" class="sr-only"/>
+            <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                 :class="mode==='off' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='off'"></div>
+            </div>
+            <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Do not use AI</span>
+        </label>
 
-                <div x-show="mode==='custom'" class="ml-[26px] grid grid-cols-2 gap-[14px]">
-                    <label class="flex flex-col gap-[6px] text-[12px] font-semibold text-[var(--grayscale-80)]">API Endpoint
-                        <input type="url" x-model="form.baseUrl" placeholder="https://api.example.com"
-                               class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
-                    </label>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-semibold text-[var(--grayscale-80)]">API Key
-                        <input type="password" x-model="form.apiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                               class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
-                    </label>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-semibold text-[var(--grayscale-80)] col-span-1">Model
-                        <input type="text" x-model="form.modelName" placeholder="gpt-4o"
-                               class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
-                    </label>
+        <!-- ── Option 2: OpenAI (GPT) ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='OPENAI'">
+                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                     :class="mode==='OPENAI' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='OPENAI'"></div>
+                </div>
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">OpenAI (GPT)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use OpenAI GPT models with an API key. Also compatible with Azure OpenAI and custom endpoints.</span>
+                </div>
+            </div>
+            <!-- OpenAI Fields -->
+            <div x-show="mode==='OPENAI'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Key</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="password" x-model="forms.OPENAI.apiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Endpoint</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="url" x-model="forms.OPENAI.baseUrl" placeholder="https://api.openai.com/v1 (optional)"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" @click.away="open = false"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                :class="open ? 'border-[var(--primary-120)]' : ''">
+                            <span x-text="forms.OPENAI.modelName"></span>
+                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini']" :key="opt">
+                                <button type="button" @click="forms.OPENAI.modelName = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="flex items-center justify-end gap-[10px] pt-[8px] border-t border-[var(--grayscale-20)]">
-            <button @click="testConnection()" :disabled="testing"
-                    class="text-[13px] font-bold px-[16px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[var(--grayscale-80)] hover:bg-[var(--grayscale-5)] disabled:opacity-50">
-                <span x-text="testing ? 'Testing...' : 'Test Connection'"></span>
+        <!-- ── Option 3: Anthropic (Claude) ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='ANTHROPIC'">
+                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                     :class="mode==='ANTHROPIC' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='ANTHROPIC'"></div>
+                </div>
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Anthropic (Claude)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use Anthropic's Claude models via API key. Supports claude-opus, claude-sonnet, and claude-haiku families.</span>
+                </div>
+            </div>
+            <!-- Anthropic Fields -->
+            <div x-show="mode==='ANTHROPIC'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Key</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="password" x-model="forms.ANTHROPIC.apiKey" placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" @click.away="open = false"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                :class="open ? 'border-[var(--primary-120)]' : ''">
+                            <span x-text="forms.ANTHROPIC.modelName"></span>
+                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5']" :key="opt">
+                                <button type="button" @click="forms.ANTHROPIC.modelName = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Option 4: Google Gemini ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='GEMINI'">
+                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                     :class="mode==='GEMINI' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='GEMINI'"></div>
+                </div>
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Google (Gemini)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use Google's Gemini models via API key from Google AI Studio or Vertex AI.</span>
+                </div>
+            </div>
+            <!-- Gemini Fields -->
+            <div x-show="mode==='GEMINI'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Key</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="password" x-model="forms.GEMINI.apiKey" placeholder="AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" @click.away="open = false"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                :class="open ? 'border-[var(--primary-120)]' : ''">
+                            <span x-text="forms.GEMINI.modelName"></span>
+                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite']" :key="opt">
+                                <button type="button" @click="forms.GEMINI.modelName = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.GEMINI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Option 5: Local / Ollama ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
+                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                     :class="mode==='LOCAL' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='LOCAL'"></div>
+                </div>
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Local / Ollama</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use a locally running Ollama instance or any OpenAI-compatible local LLM. No API key required.</span>
+                </div>
+            </div>
+            <!-- Local Fields -->
+            <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Endpoint</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="url" x-model="forms.LOCAL.baseUrl" placeholder="http://localhost:11434/v1"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" @click.away="open = false"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                :class="open ? 'border-[var(--primary-120)]' : ''">
+                            <span x-text="forms.LOCAL.modelName || 'Select model'"></span>
+                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama']" :key="opt">
+                                <button type="button" @click="forms.LOCAL.modelName = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.LOCAL.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Action Buttons ── -->
+        <div class="flex gap-[12px] items-center justify-end mt-[10px]">
+            <button type="button"
+                    @click="testConnection()"
+                    :disabled="testing || mode==='off'"
+                    class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[14px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[4px] items-center disabled:opacity-40 hover:bg-[var(--grayscale-10)] transition-colors cursor-pointer">
+                <span class="font-medium text-[14px] text-[var(--grayscale-80)] tracking-[-0.14px] whitespace-nowrap"
+                      x-text="testing ? 'Testing...' : 'Test Connection'"></span>
             </button>
-            <button @click="save()" :disabled="saving"
-                    class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                <span x-text="saving ? 'Saving...' : 'Save'"></span>
+            <button type="button"
+                    @click="save()"
+                    :disabled="saving"
+                    class="bg-[var(--primary-120)] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 hover:opacity-90 transition-opacity cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="saving ? 'Saving...' : 'Save'"></span>
             </button>
         </div>
+
     </div>
 
-    <!-- Toast -->
-    <div x-show="toast" x-cloak x-transition
-         class="fixed bottom-[40px] left-1/2 -translate-x-1/2 bg-[var(--background-dark,#001d35)] text-white text-[13px] font-semibold px-[24px] py-[14px] rounded-full shadow-2xl inline-flex items-center gap-[10px] z-50">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--primary-100)]"><polyline points="20 6 9 17 4 12"/></svg>
-        <span x-text="toast"></span>
+    <!-- ── Toast (Figma-exact) ── -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-[8px]"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-[8px]"
+         class="fixed bottom-[60px] left-1/2 -translate-x-1/2 z-50
+                bg-gradient-to-r from-[rgba(0,29,53,0.7)] via-[rgba(0,29,53,0.95)] to-[rgba(0,29,53,0.7)]
+                backdrop-blur-[10px] rounded-[100px] px-[20px] py-[16px] gap-[16px]
+                flex items-center">
+        <div class="w-[32px] h-[32px] rounded-full bg-[#33D1B7] flex items-center justify-center shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#d3fcf3] tracking-[-0.14px] leading-[1.3] whitespace-nowrap"
+              x-text="toastMsg"></span>
     </div>
 
     <script>
     function aiTab() {
         return {
-            mode: 'off',  // 'off' | 'custom'
-            form: { baseUrl: '', apiKey: '', modelName: '' },
-            saving: false, testing: false, apiError: null, toast: null,
-            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
+            forms: {
+                OPENAI:    { apiKey: '', modelName: 'gpt-5.5',          baseUrl: '' },
+                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-7', baseUrl: '' },
+                GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
+                LOCAL:     { apiKey: '', modelName: 'llama3.3',         baseUrl: 'http://localhost:11434/v1' }
+            },
+            saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
+
+            csrf() {
+                const m = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='));
+                return m ? decodeURIComponent(m.split('=')[1]) : '';
+            },
+
             async init() {
                 try {
                     const r = await fetch('/api/settings/ai');
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = 'Failed to load AI settings.'; return; }
                     const data = await r.json();
-                    if (data && data.active) {
-                        this.mode = 'custom';
-                        this.form.baseUrl = data.baseUrl || '';
-                        this.form.modelName = data.modelName || '';
-                        // apiKey is masked from server; leave blank so user re-enters only if changing
+                    if (data && data.active && data.provider) {
+                        this.mode = data.provider;
+                        const f = this.forms[data.provider];
+                        if (f) {
+                            if (data.baseUrl)   f.baseUrl   = data.baseUrl;
+                            if (data.modelName) f.modelName = data.modelName;
+                            // apiKey is masked on server; keep blank — user re-enters only if changing
+                        }
                     }
-                } catch(e) { this.apiError = 'Failed to load AI settings.'; }
+                } catch (e) { this.apiError = 'Failed to load AI settings.'; }
             },
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
-            showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
+
+            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': this.csrf() }; },
+
+            showToast(msg) { this.toastMsg = msg; this.toastVisible = true; setTimeout(() => { this.toastVisible = false; }, 3000); },
+
             async save() {
                 this.saving = true; this.apiError = null;
                 try {
                     if (this.mode === 'off') {
-                        // No "delete/disable" endpoint exists; we just don't activate.
-                        // Send a deactivate via re-saving with activate=false (existing one will keep its row but inactive).
-                        // Simplest UX: just inform user.
-                        this.showToast('AI disabled. Existing settings retained but inactive.');
-                        this.saving = false; return;
+                        const r = await fetch('/api/settings/ai/deactivate', { method: 'PUT', headers: this.headers() });
+                        if (r.status === 401) { location.href = '/login'; return; }
+                        if (!r.ok) { this.apiError = 'Failed to disable AI.'; return; }
+                        this.showToast('AI analysis disabled.');
+                        return;
                     }
+                    const f = this.forms[this.mode];
                     const body = {
-                        provider: 'OPENAI',
-                        apiKey: this.form.apiKey || null,
-                        modelName: this.form.modelName || null,
-                        baseUrl: this.form.baseUrl || null,
-                        activate: true
+                        provider:  this.mode,
+                        apiKey:    f.apiKey    || null,
+                        modelName: f.modelName || null,
+                        baseUrl:   f.baseUrl   || null,
+                        activate:  true
                     };
                     const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = 'Save failed: ' + await r.text(); return; }
                     this.showToast('AI settings saved successfully.');
-                } finally { this.saving = false; }
+                } catch (e) { this.apiError = String(e); }
+                finally { this.saving = false; }
             },
+
             async testConnection() {
-                if (this.mode !== 'custom') { this.showToast('Select Custom mode to test.'); return; }
+                if (this.mode === 'off') return;
                 this.testing = true;
                 try {
-                    // No backend endpoint yet — UI feedback only.
-                    await new Promise(r => setTimeout(r, 600));
-                    this.showToast('Connection test (UI only — backend test endpoint TBD).');
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    this.showToast('Connection test is not yet supported from the UI.');
                 } finally { this.testing = false; }
             }
         };
