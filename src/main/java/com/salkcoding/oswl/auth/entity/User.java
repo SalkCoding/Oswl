@@ -32,8 +32,8 @@ public class User {
     @Column(name = "display_name", nullable = false, length = 100)
     private String displayName;
 
-    @Column(name = "is_super_admin", nullable = false)
-    private boolean isSuperAdmin;
+    @Column(name = "is_system_admin", nullable = false)
+    private boolean isSystemAdmin;
 
     @Column(nullable = false)
     private boolean enabled;

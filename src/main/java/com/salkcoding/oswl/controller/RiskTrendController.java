@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 @RequestMapping("/projects/{projectId}/risk-trend")
-@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'RISK_TREND_VIEW') or hasRole('SUPER_ADMIN')")
+@org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'RISK_TREND_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class RiskTrendController implements RiskTrendControllerSpec {
 
