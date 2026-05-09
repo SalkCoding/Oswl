@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/head :: head('Projects')}">
-    <script th:src="@{/js/projects/git-integration.js}" defer></script>
-</head>
+<head th:replace="~{fragments/head :: head('Projects')}"></head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
       th:attr="data-active-count=${#lists.size(projects)},data-trash-count=${#lists.size(trashProjects)}"
       x-data="projectsPage()"
@@ -374,7 +372,7 @@
     </div>
 
     <script th:src="@{/js/projects/git-integration.js}" defer></script>
-    <script th:src="@{/js/projects.js}" defer></script>
+    <script th:src="@{/js/projects/projects.js}" defer></script>
 
     <!-- ── 커스텀 삭제 확인 모달 ── -->
     <div x-show="confirmModal !== null"

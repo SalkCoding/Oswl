@@ -51,7 +51,7 @@ public class SecurityConfig {
                     .maximumSessions(1))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/login", "/setup", "/error/**").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/icon/**", "/webjars/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/data/**").permitAll()
                     .anyRequest().authenticated())
