@@ -176,9 +176,9 @@
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[200px] min-w-[200px]">
                 <span th:classappend="${
-                          comp.licenseStatus == 'OK'        ? 'bg-[var(--primary-80)]' :
-                          comp.licenseStatus == 'WARN'      ? 'bg-[var(--semantic-caution)]' :
-                          comp.licenseStatus == 'VIOLATION' ? 'bg-[var(--risk-critical)]' :
+                          comp.licenseStatus == 'PERMITTED'        ? 'bg-[var(--primary-80)]' :
+                          comp.licenseStatus == 'CAUTION'      ? 'bg-[var(--semantic-caution)]' :
+                          comp.licenseStatus == 'RESTRICTED' ? 'bg-[var(--risk-critical)]' :
                                                               'bg-[var(--grayscale-30)]'
                       }"
                       class="w-[8px] h-[8px] rounded-full shrink-0"></span>

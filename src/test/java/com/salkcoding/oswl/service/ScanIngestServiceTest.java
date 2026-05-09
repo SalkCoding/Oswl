@@ -94,7 +94,7 @@ class ScanIngestServiceTest {
         when(compPayload.getName()).thenReturn("log4j");
         when(compPayload.getVersion()).thenReturn("2.14.0");
         when(compPayload.getPatchability()).thenReturn("patchable");
-        when(compPayload.getLicenseStatus()).thenReturn("WARN");
+        when(compPayload.getLicenseStatus()).thenReturn("CAUTION");
         when(compPayload.getLicenseName()).thenReturn("Apache-2.0");
         when(compPayload.getCves()).thenReturn(List.of(cvePayload));
 
@@ -111,7 +111,7 @@ class ScanIngestServiceTest {
         assertThat(savedComp.getName()).isEqualTo("log4j");
         assertThat(savedComp.getVersion()).isEqualTo("2.14.0");
         assertThat(savedComp.getPatchability()).isEqualTo(Patchability.PATCHABLE);
-        assertThat(savedComp.getLicenseStatus()).isEqualTo(LicenseStatus.WARN);
+        assertThat(savedComp.getLicenseStatus()).isEqualTo(LicenseStatus.CAUTION);
 
         ArgumentCaptor<Cve> cveCaptor = ArgumentCaptor.forClass(Cve.class);
         verify(cveRepository).save(cveCaptor.capture());
@@ -151,7 +151,7 @@ class ScanIngestServiceTest {
     // ── enum 파싱 ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("'non-patchable' 문자열은 NON_PATCHABLE, 'VIOLATION'은 LicenseStatus.VIOLATION으로 파싱된다")
+    @DisplayName("'non-patchable' 문자열은 NON_PATCHABLE, 'VIOLATION'은 LicenseStatus.RESTRICTED으로 파싱된다")
     void ingest_parsesNonPatchable_andViolation() {
         Project project = Project.builder().id(1L).name("P").build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
@@ -162,7 +162,7 @@ class ScanIngestServiceTest {
         ScanPayload.ComponentPayload compPayload = mock(ScanPayload.ComponentPayload.class);
         when(compPayload.getName()).thenReturn("badlib");
         when(compPayload.getPatchability()).thenReturn("non-patchable");
-        when(compPayload.getLicenseStatus()).thenReturn("VIOLATION");
+        when(compPayload.getLicenseStatus()).thenReturn("RESTRICTED");
         when(compPayload.getCves()).thenReturn(List.of());
 
         ScanPayload payload = mock(ScanPayload.class);
@@ -175,7 +175,7 @@ class ScanIngestServiceTest {
         ArgumentCaptor<OswlComponent> captor = ArgumentCaptor.forClass(OswlComponent.class);
         verify(componentRepository).save(captor.capture());
         assertThat(captor.getValue().getPatchability()).isEqualTo(Patchability.NON_PATCHABLE);
-        assertThat(captor.getValue().getLicenseStatus()).isEqualTo(LicenseStatus.VIOLATION);
+        assertThat(captor.getValue().getLicenseStatus()).isEqualTo(LicenseStatus.RESTRICTED);
     }
 
     @Test
@@ -207,7 +207,7 @@ class ScanIngestServiceTest {
         ArgumentCaptor<OswlComponent> compCaptor = ArgumentCaptor.forClass(OswlComponent.class);
         verify(componentRepository).save(compCaptor.capture());
         assertThat(compCaptor.getValue().getPatchability()).isEqualTo(Patchability.UNKNOWN);
-        assertThat(compCaptor.getValue().getLicenseStatus()).isEqualTo(LicenseStatus.OK);
+        assertThat(compCaptor.getValue().getLicenseStatus()).isEqualTo(LicenseStatus.PERMITTED);
 
         ArgumentCaptor<Cve> cveCaptor = ArgumentCaptor.forClass(Cve.class);
         verify(cveRepository).save(cveCaptor.capture());

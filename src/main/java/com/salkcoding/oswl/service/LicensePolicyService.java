@@ -132,9 +132,9 @@ public class LicensePolicyService {
     private void seedDefaults() {
         if (licensePolicyRepository.count() > 0) return;
 
-        DEFAULT_OK.forEach(id -> saveDefault(id, LicenseStatus.OK, "Permissive open-source license"));
-        DEFAULT_WARN.forEach(id -> saveDefault(id, LicenseStatus.WARN, "Copyleft with limited obligations"));
-        DEFAULT_VIOLATION.forEach(id -> saveDefault(id, LicenseStatus.VIOLATION, "Strong copyleft or commercial restriction"));
+        DEFAULT_OK.forEach(id -> saveDefault(id, LicenseStatus.PERMITTED, "Permissive open-source license"));
+        DEFAULT_WARN.forEach(id -> saveDefault(id, LicenseStatus.CAUTION, "Copyleft with limited obligations"));
+        DEFAULT_VIOLATION.forEach(id -> saveDefault(id, LicenseStatus.RESTRICTED, "Strong copyleft or commercial restriction"));
         log.info("[LicensePolicyService] Seeded {} default license policy entries",
                 DEFAULT_OK.size() + DEFAULT_WARN.size() + DEFAULT_VIOLATION.size());
     }
@@ -158,9 +158,9 @@ public class LicensePolicyService {
 
     private static int restrictiveRank(LicenseStatus s) {
         return switch (s) {
-            case VIOLATION -> 3;
-            case WARN      -> 2;
-            case OK        -> 1;
+            case RESTRICTED -> 3;
+            case CAUTION      -> 2;
+            case PERMITTED        -> 1;
             case UNKNOWN   -> 0;
         };
     }

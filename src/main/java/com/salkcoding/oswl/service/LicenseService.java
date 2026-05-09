@@ -101,7 +101,7 @@ public class LicenseService {
         long lowCount      = licenses.stream().filter(l -> "LOW".equals(l.getRiskLevel())).count();
 
         long totalObligations = libraries.stream()
-                .filter(l -> l.getLicenseStatus() != LicenseStatus.OK)
+                .filter(l -> l.getLicenseStatus() != LicenseStatus.PERMITTED)
                 .count();
 
         model.addAttribute("totalLicenses", licenses.size());
@@ -115,10 +115,10 @@ public class LicenseService {
 
     private String computeMaxRisk(List<Library> libs) {
         boolean hasViolation = libs.stream()
-                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.VIOLATION);
+                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.RESTRICTED);
         if (hasViolation) return "CRITICAL";
         boolean hasWarn = libs.stream()
-                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.WARN);
+                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.CAUTION);
         if (hasWarn) return "HIGH";
         return "LOW";
     }

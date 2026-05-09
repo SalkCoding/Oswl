@@ -119,7 +119,7 @@ class AiAnalysisServiceTest {
     void summarizeLicenseRisk_returnsNull_whenNoActiveSetting() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        assertThat(aiAnalysisService.summarizeLicenseRisk("AGPL", "VIOLATION", "mylib")).isNull();
+        assertThat(aiAnalysisService.summarizeLicenseRisk("AGPL", "RESTRICTED", "mylib")).isNull();
     }
 
     @Test
@@ -129,7 +129,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("License risk: AGPL must be disclosed");
 
-        String result = aiAnalysisService.summarizeLicenseRisk("AGPL-3.0", "VIOLATION", "mylib");
+        String result = aiAnalysisService.summarizeLicenseRisk("AGPL-3.0", "RESTRICTED", "mylib");
 
         assertThat(result).isEqualTo("License risk: AGPL must be disclosed");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
@@ -142,7 +142,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("CC-BY-SA compliance risk");
 
-        assertThat(aiAnalysisService.summarizeLicenseRisk("CC-BY-SA", "WARN", "lib"))
+        assertThat(aiAnalysisService.summarizeLicenseRisk("CC-BY-SA", "CAUTION", "lib"))
                 .isEqualTo("CC-BY-SA compliance risk");
         verify(anthropicClient).callWithSetting(anyString(), eq(setting));
     }

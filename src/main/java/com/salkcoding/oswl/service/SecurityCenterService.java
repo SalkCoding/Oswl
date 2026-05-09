@@ -106,8 +106,8 @@ public class SecurityCenterService {
             secNone     += n;
 
             switch (lib.getLicenseStatus()) {
-                case VIOLATION -> licCritical++;
-                case WARN      -> licHigh++;
+                case RESTRICTED -> licCritical++;
+                case CAUTION      -> licHigh++;
                 case UNKNOWN   -> licMedium++;
                 default        -> licLow++;
             }

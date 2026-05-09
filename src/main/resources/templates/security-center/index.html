@@ -20,10 +20,10 @@
               secMedium: false,
               secLow: false,
               secUnknown: false,
-              licCritical: false,
-              licHigh: false,
-              licMedium: false,
-              licLow: false,
+              licRestricted: false,
+              licCaution: false,
+              licUnknown: false,
+              licPermitted: false,
               patchable: false,
               nonPatchable: false,
               patchDeprecated: false,
@@ -75,14 +75,14 @@
                   if (!match) return false;
               }
 
-              // License severity filters
-              const anyLic = f.licCritical || f.licHigh || f.licMedium || f.licLow;
+              // License status filters
+              const anyLic = f.licRestricted || f.licCaution || f.licUnknown || f.licPermitted;
               if (anyLic) {
                   const ls = el.dataset.licenseStatus || '';
-                  const match = (f.licCritical && ls === 'VIOLATION') ||
-                                (f.licHigh     && ls === 'WARN')      ||
-                                (f.licMedium   && ls === 'UNKNOWN')   ||
-                                (f.licLow      && ls === 'OK');
+                  const match = (f.licRestricted && ls === 'RESTRICTED') ||
+                                (f.licCaution    && ls === 'CAUTION')      ||
+                                (f.licUnknown    && ls === 'UNKNOWN')   ||
+                                (f.licPermitted  && ls === 'PERMITTED');
                   if (!match) return false;
               }
 
@@ -210,9 +210,9 @@
         <section class="w-full flex items-center px-[60px] py-[24px] flex-shrink-0 bg-white">
             <div class="flex flex-wrap gap-x-[120px] gap-y-[16px] w-full items-center">
                 <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityNone})}"></div>
+                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityNone}, 'None / Unscored')}"></div>
                 <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, 0, ${licenseLow}, ${licenseMedium})}"></div>
+                     th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, 0, ${licenseLow}, ${licenseMedium}, 'Unknown')}"></div>
             </div>
         </section>
 
