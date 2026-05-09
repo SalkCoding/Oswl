@@ -231,8 +231,8 @@ public class ProjectService {
         int critical = 0, high = 0, unknown = 0, low = 0;
         for (var comp : scan.getComponents()) {
             switch (comp.getLibrary().getLicenseStatus()) {
-                case VIOLATION -> critical++;
-                case WARN      -> high++;
+                case RESTRICTED -> critical++;
+                case CAUTION      -> high++;
                 case UNKNOWN   -> unknown++;
                 default        -> low++;
             }

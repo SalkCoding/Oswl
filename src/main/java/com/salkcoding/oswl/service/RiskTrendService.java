@@ -146,8 +146,8 @@ public class RiskTrendService {
         int c = 0, h = 0, u = 0, l = 0;
         for (Library lib : libraries) {
             switch (lib.getLicenseStatus()) {
-                case VIOLATION -> c++;
-                case WARN      -> h++;
+                case RESTRICTED -> c++;
+                case CAUTION      -> h++;
                 case UNKNOWN   -> u++;
                 default        -> l++;
             }

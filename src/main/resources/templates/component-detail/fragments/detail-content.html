@@ -61,14 +61,14 @@
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
                 <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]">Up to date</span>
             </span>
-            <span th:class="${licenseRisk == 'VIOLATION'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : (${licenseRisk == 'WARN'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : (${licenseRisk == 'OK'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
+            <span th:class="${licenseRisk == 'RESTRICTED'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
+                           : (${licenseRisk == 'CAUTION'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
+                           : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
                            : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'))">
                 <span class="w-[6px] h-[6px] rounded-full"
-                      th:classappend="${licenseRisk == 'VIOLATION'} ? 'bg-[var(--risk-critical)]'
-                                     : (${licenseRisk == 'WARN'} ? 'bg-[var(--risk-high)]'
-                                     : (${licenseRisk == 'OK'} ? 'bg-[var(--semantic-patchable)]' : 'bg-[var(--grayscale-30)]'))"></span>
+                      th:classappend="${licenseRisk == 'RESTRICTED'} ? 'bg-[var(--risk-critical)]'
+                                     : (${licenseRisk == 'CAUTION'} ? 'bg-[var(--risk-high)]'
+                                     : (${licenseRisk == 'PERMITTED'} ? 'bg-[var(--semantic-patchable)]' : 'bg-[var(--grayscale-30)]'))"></span>
                 <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
                       th:text="${licenseRiskLabel}">A High Risk License</span>
             </span>
@@ -100,7 +100,7 @@
             <span th:if="${securityNone > 0}"
                   class="bg-[rgba(39,45,48,0.05)] border border-[rgba(39,45,48,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityNone} + ' None'">4 None</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityNone} + ' None / Unscored'">4 None / Unscored</span>
             </span>
         </div>
     </section>
@@ -164,7 +164,7 @@
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
                 <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">No known vulnerabilities detected. This component is safe to use.</p>
             </div>
-            <div th:if="${licenseRisk == 'VIOLATION' or licenseRisk == 'WARN'}" class="pt-[0px]">
+            <div th:if="${licenseRisk == 'RESTRICTED' or licenseRisk == 'CAUTION'}" class="pt-[0px]">
                 <button type="button" @click="modal = 'defer'"
                         class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
@@ -198,7 +198,7 @@
                         <span th:text="${securityLow}">0</span> Low.
                     </span>
                 </li>
-                <li th:if="${licenseRisk == 'WARN' or licenseRisk == 'VIOLATION'}" class="flex items-start gap-[8px]">
+                <li th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}" class="flex items-start gap-[8px]">
                     <img th:src="@{/icon/icon-check.svg}" class="w-[16px] h-[16px] mt-[2px] shrink-0" alt="" aria-hidden="true">
                     <span><span class="font-bold">License note :</span> <span th:text="${licenseName}">-</span> — legal review may be required.</span>
                 </li>
@@ -303,20 +303,20 @@
                 <!-- Show raw license name if available, otherwise 'Unknown' -->
                 <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]"
                    th:text="${licenseName != null ? licenseName : 'Unknown'}">Apache-2.0</p>
-                <span th:class="${licenseRisk == 'VIOLATION'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
-                               : (${licenseRisk == 'WARN'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
-                               : (${licenseRisk == 'OK'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
+                <span th:class="${licenseRisk == 'RESTRICTED'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
+                               : (${licenseRisk == 'CAUTION'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
+                               : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
                                : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'))">
                     <span class="w-[6px] h-[6px] rounded-full"
-                          th:classappend="${licenseRisk == 'VIOLATION'} ? 'bg-[var(--risk-critical)]'
-                                         : (${licenseRisk == 'WARN'} ? 'bg-[var(--risk-high)]'
-                                         : (${licenseRisk == 'OK'} ? 'bg-[var(--semantic-patchable)]' : 'bg-[var(--grayscale-30)]'))"></span>
+                          th:classappend="${licenseRisk == 'RESTRICTED'} ? 'bg-[var(--risk-critical)]'
+                                         : (${licenseRisk == 'CAUTION'} ? 'bg-[var(--risk-high)]'
+                                         : (${licenseRisk == 'PERMITTED'} ? 'bg-[var(--semantic-patchable)]' : 'bg-[var(--grayscale-30)]'))"></span>
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${licenseRiskLabel}">High Risk</span>
                 </span>
             </div>
 
             <!-- WARN / VIOLATION: copyleft warning -->
-            <div th:if="${licenseRisk == 'WARN' or licenseRisk == 'VIOLATION'}"
+            <div th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}"
                  class="bg-[rgba(245,145,38,0.05)] border border-[rgba(245,145,38,0.2)] rounded-[8px] px-[14px] py-[10px] flex items-start gap-[8px]">
                 <img th:src="@{/icon/icon-warning.svg}" class="w-[20px] h-[20px] mt-[1px] shrink-0" alt="" aria-hidden="true">
                 <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
@@ -325,7 +325,7 @@
             </div>
 
             <!-- OK: permissive -->
-            <div th:if="${licenseRisk == 'OK'}"
+            <div th:if="${licenseRisk == 'PERMITTED'}"
                  class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[8px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
                 <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
@@ -356,7 +356,7 @@
                 </p>
             </div>
 
-            <p th:if="${licenseRisk == 'WARN' or licenseRisk == 'VIOLATION'}"
+            <p th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}"
                class="font-medium text-[11px] text-[var(--semantic-caution)] tracking-[-0.11px] leading-[1.3]">
                 Legal risk — recommend legal review before shipping.
             </p>

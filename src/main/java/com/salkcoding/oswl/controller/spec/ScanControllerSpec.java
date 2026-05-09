@@ -81,7 +81,7 @@ public interface ScanControllerSpec {
                           "name": "jackson-databind",
                           "version": "2.15.0",
                           "patchability": "patchable",
-                          "licenseStatus": "OK",
+                          "licenseStatus": "PERMITTED",
                           "licenseName": "Apache-2.0",
                           "cves": [
                             {

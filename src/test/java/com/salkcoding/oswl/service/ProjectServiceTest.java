@@ -77,7 +77,7 @@ class ProjectServiceTest {
 
         OswlComponent comp = OswlComponent.builder()
                 .scanResult(null).name("lib").version("1.0")
-                .licenseStatus(LicenseStatus.OK).patchability(Patchability.PATCHABLE)
+                .licenseStatus(LicenseStatus.PERMITTED).patchability(Patchability.PATCHABLE)
                 .cves(List.of(critical, high, medium, low))
                 .build();
 
@@ -106,13 +106,13 @@ class ProjectServiceTest {
 
         OswlComponent violation = OswlComponent.builder()
                 .scanResult(null).name("a").version("1")
-                .licenseStatus(LicenseStatus.VIOLATION).patchability(Patchability.UNKNOWN).build();
+                .licenseStatus(LicenseStatus.RESTRICTED).patchability(Patchability.UNKNOWN).build();
         OswlComponent warn = OswlComponent.builder()
                 .scanResult(null).name("b").version("1")
-                .licenseStatus(LicenseStatus.WARN).patchability(Patchability.UNKNOWN).build();
+                .licenseStatus(LicenseStatus.CAUTION).patchability(Patchability.UNKNOWN).build();
         OswlComponent ok = OswlComponent.builder()
                 .scanResult(null).name("c").version("1")
-                .licenseStatus(LicenseStatus.OK).patchability(Patchability.UNKNOWN).build();
+                .licenseStatus(LicenseStatus.PERMITTED).patchability(Patchability.UNKNOWN).build();
 
         ScanResult scan = ScanResult.builder()
                 .project(project).version("2.0").status(ScanStatus.COMPLETED)

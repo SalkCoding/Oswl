@@ -9,35 +9,35 @@
 <div th:fragment="risk-trend(securityIssues, securityDelta, licenseIssues, licenseDelta)"
      class="flex flex-col w-full">
 
-    <!-- Legend - centered at top -->
-    <div class="flex items-center justify-center gap-[24px] pt-[40px] pb-[32px]">
-        <div class="flex gap-[8px] items-center">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-critical)]"></span>
-            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Critical</p>
-        </div>
-        <div class="flex gap-[8px] items-center">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-high)]"></span>
-            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">High</p>
-        </div>
-        <div class="flex gap-[8px] items-center">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-medium)]"></span>
-            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Medium</p>
-        </div>
-        <div class="flex gap-[8px] items-center">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-30)]"></span>
-            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Low</p>
-        </div>
-        <div class="flex gap-[8px] items-center">
-            <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-100)]"></span>
-            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Unknown / None</p>
-        </div>
-    </div>
-
     <!-- Two columns -->
-    <div class="flex gap-[48px] px-[80px] pb-[60px]">
+    <div class="flex gap-[48px] px-[80px] pb-[60px] pt-[40px]">
 
         <!-- Security Risk -->
         <div class="flex-1 flex flex-col gap-[48px] min-w-0">
+
+            <!-- Legend - Security -->
+            <div class="flex items-center justify-center gap-[24px]">
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-critical)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Critical</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-high)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">High</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-medium)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Medium</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-30)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Low</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-100)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">None / Unscored</p>
+                </div>
+            </div>
 
             <!-- Title & Issues -->
             <div class="flex flex-col gap-[20px] pl-[60px]">
@@ -77,6 +77,30 @@
 
         <!-- License Risk -->
         <div class="flex-1 flex flex-col gap-[48px] min-w-0">
+
+            <!-- Legend - License -->
+            <div class="flex items-center justify-center gap-[24px]">
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-critical)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Critical</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-high)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">High</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-medium)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Medium</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-30)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Low</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-100)]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Unknown</p>
+                </div>
+            </div>
 
             <!-- Title & Issues -->
             <div class="flex flex-col gap-[20px] pl-[60px]">
