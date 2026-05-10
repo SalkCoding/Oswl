@@ -19,4 +19,7 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
 
     /** Find all keys for a project (including inactive ones) */
     List<ApiKey> findByProjectIdOrderByCreatedAtDesc(Long projectId);
+
+    /** Find all keys across all projects (admin use) */
+    List<ApiKey> findAllByOrderByCreatedAtDesc();
 }

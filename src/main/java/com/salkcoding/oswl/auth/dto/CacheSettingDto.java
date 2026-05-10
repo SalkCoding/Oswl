@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class CacheSettingDto {
     private String cacheKey;
-    private int ttlSeconds;
-    private int ttlHours;
+    private long ttlSeconds;
+    private long ttlHours;
     private LocalDateTime lastClearedAt;
     private String lastClearedByName;
 }

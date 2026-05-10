@@ -16,7 +16,7 @@ public class VersionDiffRowDto {
     // ── Left side (fromScan) ──────────────────────────────────────────────
     private final String fromName;
     private final String fromVersion;
-    private final String fromRiskLevel;   // "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE"
+    private final String fromRiskLevel;   // "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE" (displayed as "Unscored")
 
     // ── Right side (toScan) ──────────────────────────────────────────────
     private final String toName;

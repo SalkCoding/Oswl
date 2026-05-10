@@ -128,7 +128,7 @@ public class Library {
     }
 
     /**
-     * Highest severity CVE in this library (CRITICAL > HIGH > MEDIUM > LOW > NONE).
+     * Highest severity CVE in this library (CRITICAL > HIGH > MEDIUM > LOW > Unscored).
      */
     public RiskLevel highestSeverity() {
         return cves.stream()

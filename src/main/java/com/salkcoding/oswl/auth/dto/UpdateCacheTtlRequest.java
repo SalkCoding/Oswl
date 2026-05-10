@@ -10,5 +10,5 @@ public class UpdateCacheTtlRequest {
     private String cacheKey;
 
     @Min(1)
-    private int ttlSeconds;
+    private long ttlSeconds;
 }
