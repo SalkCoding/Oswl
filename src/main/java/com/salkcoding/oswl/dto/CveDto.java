@@ -20,7 +20,7 @@ public class CveDto {
     @Schema(description = "Vulnerability title from deps.dev", example = "Remote Code Execution in log4j")
     private final String title;
 
-    @Schema(description = "Severity", example = "CRITICAL", allowableValues = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"})
+    @Schema(description = "Severity (NONE = Unscored, i.e. no CVSS score)", example = "CRITICAL", allowableValues = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"})
     private final String severity;
 
     @Schema(description = "CVSS 3.x base score (0.0 – 10.0)", example = "9.8")

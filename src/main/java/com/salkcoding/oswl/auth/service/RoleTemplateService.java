@@ -60,9 +60,10 @@ public class RoleTemplateService {
         if (rt.isBuiltIn()) {
             throw new IllegalStateException("기본 제공 템플릿은 삭제할 수 없습니다.");
         }
-        long users = roleTemplateRepository.countUsersByTemplateId(id);
-        if (users > 0) {
-            throw new IllegalStateException("이 템플릿을 사용하는 사용자가 있어 삭제할 수 없습니다.");
+        // 해당 템플릿을 가진 유저들을 비활성화 처리
+        List<Long> affectedUserIds = roleTemplateRepository.findUserIdsByTemplateId(id);
+        if (!affectedUserIds.isEmpty()) {
+            roleTemplateRepository.deactivateUsers(affectedUserIds);
         }
         roleTemplateRepository.delete(rt);
     }

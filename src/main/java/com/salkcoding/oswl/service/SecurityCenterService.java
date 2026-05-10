@@ -88,7 +88,7 @@ public class SecurityCenterService {
             libToSc.put(sc.getLibrary().getId(), sc);
         }
 
-        int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secNone = 0;
+        int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secUnscored = 0;
         int licCritical = 0, licHigh = 0, licMedium = 0, licLow = 0;
         List<ComponentRowDto> rows = new ArrayList<>();
 
@@ -103,7 +103,7 @@ public class SecurityCenterService {
             secHigh     += h;
             secMedium   += m;
             secLow      += l;
-            secNone     += n;
+            secUnscored += n;
 
             switch (lib.getLicenseStatus()) {
                 case RESTRICTED -> licCritical++;
@@ -128,7 +128,7 @@ public class SecurityCenterService {
                     .securityHigh(h)
                     .securityMedium(m)
                     .securityLow(l)
-                    .securityNone(n)
+                    .securityUnscored(n)
                     .patchability(patchabilityLabel(lib.computePatchability()))
                     .licenseStatus(lib.getLicenseStatus().name())
                     .licenseName(lib.getLicenseName())
@@ -142,7 +142,7 @@ public class SecurityCenterService {
         model.addAttribute("securityHigh", secHigh);
         model.addAttribute("securityMedium", secMedium);
         model.addAttribute("securityLow", secLow);
-        model.addAttribute("securityNone", secNone);
+        model.addAttribute("securityUnscored", secUnscored);
         model.addAttribute("licenseCritical", licCritical);
         model.addAttribute("licenseHigh", licHigh);
         model.addAttribute("licenseMedium", licMedium);

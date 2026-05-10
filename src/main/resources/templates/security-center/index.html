@@ -66,7 +66,7 @@
                   const secH = parseInt(el.dataset.secHigh)     || 0;
                   const secM = parseInt(el.dataset.secMedium)   || 0;
                   const secL = parseInt(el.dataset.secLow)      || 0;
-                  const secN = parseInt(el.dataset.secNone)     || 0;
+                  const secN = parseInt(el.dataset.secUnscored)   || 0;
                   const match = (f.secCritical && secC > 0) ||
                                 (f.secHigh     && secH > 0) ||
                                 (f.secMedium   && secM > 0) ||
@@ -96,7 +96,7 @@
                                   (parseInt(el.dataset.secHigh)     || 0) +
                                   (parseInt(el.dataset.secMedium)   || 0) +
                                   (parseInt(el.dataset.secLow)      || 0) +
-                                  (parseInt(el.dataset.secNone)     || 0) > 0;
+                                  (parseInt(el.dataset.secUnscored)   || 0) > 0;
                   const isUpToDate  = !hasVuln && !dep && lat !== 'false';
                   const isOutdated  = !hasVuln && !dep && lat === 'false';
                   const match = (f.nonPatchable   && hasVuln && p === 'non-patchable') ||
@@ -210,7 +210,7 @@
         <section class="w-full flex items-center px-[60px] py-[24px] flex-shrink-0 bg-white">
             <div class="flex flex-wrap gap-x-[120px] gap-y-[16px] w-full items-center">
                 <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityNone}, 'None / Unscored')}"></div>
+                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, 'Unscored')}"></div>
                 <div class="w-[480px]"
                      th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, 0, ${licenseLow}, ${licenseMedium}, 'Unknown')}"></div>
             </div>
