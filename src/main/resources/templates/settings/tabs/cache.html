@@ -7,9 +7,9 @@
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">Cache Settings</h2>
-        <p class="text-[13px] text-[var(--grayscale-60)]">Configure caching policies for library vulnerability data.</p>
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]">Cache Settings</h2>
+        <p class="font-medium text-[16px] text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3]">Configure caching policies for library vulnerability data.</p>
     </div>
 
     <!-- API Error -->
@@ -17,22 +17,25 @@
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
 
     <!-- Policy card -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[24px] flex flex-col gap-[20px]">
-        <h3 class="font-bold text-[15px] text-[var(--grayscale-100)]">Automatic Cache Policy</h3>
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">Automatic Cache Policy</h3>
 
-        <div class="flex flex-col gap-[18px]">
+        <div class="flex flex-col gap-[24px]">
             <!-- Custom TTL -->
-            <div class="flex flex-col gap-[6px]">
-                <label class="flex items-center gap-[10px] cursor-pointer">
-                    <input type="radio" name="cachePolicy" value="custom" x-model="policy" class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
-                    <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Custom TTL</span>
-                </label>
-                <p class="text-[12px] text-[var(--grayscale-60)] ml-[26px]">Refreshes data after the specified period.</p>
-                <div x-show="policy==='custom'" class="ml-[26px] flex items-center gap-[8px]">
+            <div class="flex flex-col gap-[8px]">
+                <div class="flex gap-[8px] items-center cursor-pointer" @click="policy='custom'">
+                    <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                         :class="policy==='custom' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='custom'"></div>
+                    </div>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Custom TTL</span>
+                </div>
+                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Refreshes data after the specified period.</p>
+                <div x-show="policy==='custom'" class="ml-[28px] flex items-center gap-[8px]">
                     <input type="number" min="1" x-model.number="customAmount"
-                           class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px]"/>
+                           class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[var(--primary-120)]"/>
                     <select x-model="customUnit"
-                            class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white">
+                            class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white focus:outline-none focus:border-[var(--primary-120)]">
                         <option value="hour">hour(s)</option>
                         <option value="day">day(s)</option>
                     </select>
@@ -40,56 +43,37 @@
             </div>
 
             <!-- Always Refresh -->
-            <div class="flex flex-col gap-[6px]">
-                <label class="flex items-center gap-[10px] cursor-pointer">
-                    <input type="radio" name="cachePolicy" value="always" x-model="policy" class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
-                    <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Always Refresh</span>
-                </label>
-                <p class="text-[12px] text-[var(--grayscale-60)] ml-[26px]">Fetches the latest data from deps.dev and OSV on every scan.</p>
+            <div class="flex flex-col gap-[8px]">
+                <div class="flex gap-[8px] items-center cursor-pointer" @click="policy='always'">
+                    <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                         :class="policy==='always' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='always'"></div>
+                    </div>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Always Refresh</span>
+                </div>
+                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Fetches the latest data from deps.dev and OSV on every scan.</p>
             </div>
 
             <!-- Permanent -->
-            <div class="flex flex-col gap-[6px]">
-                <label class="flex items-center gap-[10px] cursor-pointer">
-                    <input type="radio" name="cachePolicy" value="permanent" x-model="policy" class="w-[16px] h-[16px] accent-[var(--secondary-100)]"/>
-                    <span class="text-[14px] font-semibold text-[var(--grayscale-100)]">Permanent Cache</span>
-                </label>
-                <p class="text-[12px] text-[var(--grayscale-60)] ml-[26px]">Once fetched, library data will not be refreshed automatically.</p>
+            <div class="flex flex-col gap-[8px]">
+                <div class="flex gap-[8px] items-center cursor-pointer" @click="policy='permanent'">
+                    <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
+                         :class="policy==='permanent' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='permanent'"></div>
+                    </div>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Permanent Cache</span>
+                </div>
+                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Once fetched, library data will not be refreshed automatically.</p>
             </div>
         </div>
 
-        <div class="flex items-center justify-between pt-[8px] border-t border-[var(--grayscale-20)]">
-            <button @click="clearAll()" class="text-[13px] font-semibold text-red-600 hover:underline">Clear All Cache</button>
+        <div class="flex items-center justify-end">
             <button @click="save()" :disabled="saving"
-                    class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60">
+                    class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span x-text="saving ? 'Saving...' : 'Save'"></span>
             </button>
         </div>
-    </div>
-
-    <!-- Per-key TTL summary -->
-    <div x-show="items.length" x-cloak
-         class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
-        <h3 class="font-bold text-[14px] text-[var(--grayscale-100)]">Current Cache Entries</h3>
-        <table class="w-full text-[13px]">
-            <thead>
-            <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)]">
-                <th class="py-[8px] font-bold">Cache Key</th>
-                <th class="py-[8px] font-bold">TTL</th>
-                <th class="py-[8px] font-bold">Last Cleared</th>
-            </tr>
-            </thead>
-            <tbody>
-            <template x-for="c in items" :key="c.cacheKey">
-                <tr class="border-b border-[var(--grayscale-10)] last:border-b-0">
-                    <td class="py-[8px] font-mono text-[12px] text-[var(--grayscale-80)]" x-text="c.cacheKey"></td>
-                    <td class="py-[8px] text-[var(--grayscale-70)]" x-text="formatTtl(c.ttlHours)"></td>
-                    <td class="py-[8px] text-[var(--grayscale-60)] text-[12px]" x-text="c.lastClearedAt ? c.lastClearedAt.replace('T',' ').slice(0,16) : '—'"></td>
-                </tr>
-            </template>
-            </tbody>
-        </table>
     </div>
 
     <!-- Toast -->
@@ -124,7 +108,8 @@
                     // Infer current policy from first item's ttlHours
                     if (this.items.length) {
                         const h = this.items[0].ttlHours;
-                        if (!h || h <= 0) this.policy = 'always';
+                        if (h === null || h === undefined) { this.policy = 'custom'; this.customAmount = 7; this.customUnit = 'day'; }
+                        else if (h <= 0) this.policy = 'always';
                         else if (h >= 24*365*10) this.policy = 'permanent';
                         else {
                             this.policy = 'custom';
@@ -136,12 +121,19 @@
             },
             ttlSecondsForPolicy() {
                 if (this.policy === 'always') return 1;
-                if (this.policy === 'permanent') return 60 * 60 * 24 * 365 * 100; // ~100 years
+                if (this.policy === 'permanent') return 50 * 365 * 24 * 3600; // 50 years, fits in long
                 const hours = (this.customUnit === 'day') ? this.customAmount * 24 : this.customAmount;
                 return Math.max(1, hours) * 3600;
             },
+            savedPolicyLabel() {
+                if (this.policy === 'always') return 'Cache policy set to Always Refresh.';
+                if (this.policy === 'permanent') return 'Cache policy set to Permanent.';
+                const unit = this.customUnit === 'day' ? 'day(s)' : 'hour(s)';
+                return `Cache policy set to ${this.customAmount} ${unit}.`;
+            },
             async save() {
                 this.saving = true; this.apiError = null;
+                const label = this.savedPolicyLabel(); // capture before any await
                 try {
                     const ttlSeconds = this.ttlSecondsForPolicy();
                     // Apply to every existing cache key
@@ -150,8 +142,11 @@
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = 'Save failed.'; return; }
                     }
-                    await this.load();
-                    this.showToast('Cache settings saved.');
+                    // Update items in-place so a re-fetch doesn't overwrite the policy
+                    this.items = this.items.map(c => ({
+                        ...c, ttlSeconds, ttlHours: Math.floor(ttlSeconds / 3600)
+                    }));
+                    this.showToast(label);
                 } finally { this.saving = false; }
             },
             async clearAll() {

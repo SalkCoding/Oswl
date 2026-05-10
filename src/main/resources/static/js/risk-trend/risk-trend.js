@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
         critical: '#e62727',
         high: '#f47a29',
         medium: '#f5bd26',
-        low: '#c5cfd3',
-        unknown: '#272d30'
+        low: '#c2cdd1',
+        unknown: '#e8eef0'
     };
 
     // 백엔드에서 주입된 실제 데이터, 없으면 빈 배열로 폴백
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const createDatasets = (variant) => {
         const d = variant === 'license' ? trendData.license : trendData.security;
         const unknownData = variant === 'license' ? (d.unknown || []) : (d.none || []);
-        const unknownLabel = variant === 'license' ? 'Unknown' : 'None';
+        const unknownLabel = variant === 'license' ? 'Unknown' : 'Unscored';
         return [
             { label: 'Critical',      data: d.critical,   fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
             { label: 'High',          data: d.high,       fill: false, borderColor: palette.high,     backgroundColor: palette.high },

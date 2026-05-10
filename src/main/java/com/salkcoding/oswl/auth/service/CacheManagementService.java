@@ -20,10 +20,12 @@ public class CacheManagementService {
 
     public static final Map<String, Integer> DEFAULT_TTLS;
     static {
+        // Default TTL: 7 days (604800 seconds) for all cache keys.
+        // Matches the UI default shown in Cache Settings tab.
         Map<String, Integer> m = new LinkedHashMap<>();
-        m.put("NVD_CVE", 86400);
-        m.put("OSV_VULN", 43200);
-        m.put("DEPS_DEV", 172800);
+        m.put("NVD_CVE",  604800);
+        m.put("OSV_VULN", 604800);
+        m.put("DEPS_DEV", 604800);
         DEFAULT_TTLS = Map.copyOf(m);
     }
 
@@ -47,7 +49,7 @@ public class CacheManagementService {
     }
 
     @Transactional
-    public void updateTtl(String cacheKey, int ttlSeconds) {
+    public void updateTtl(String cacheKey, long ttlSeconds) {
         if (ttlSeconds <= 0) throw new IllegalArgumentException("TTL must be positive.");
         CacheSetting cs = cacheSettingRepository.findById(cacheKey)
                 .orElse(CacheSetting.builder().cacheKey(cacheKey).ttlSeconds(ttlSeconds).build());
@@ -81,7 +83,7 @@ public class CacheManagementService {
         return CacheSettingDto.builder()
                 .cacheKey(cs.getCacheKey())
                 .ttlSeconds(cs.getTtlSeconds())
-                .ttlHours(cs.getTtlSeconds() / 3600)
+                .ttlHours(cs.getTtlSeconds() / 3600L)
                 .lastClearedAt(cs.getLastClearedAt())
                 .lastClearedByName(name)
                 .build();

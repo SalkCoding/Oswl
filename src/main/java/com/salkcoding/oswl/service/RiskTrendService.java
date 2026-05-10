@@ -68,7 +68,7 @@ public class RiskTrendService {
         List<Integer> secHigh     = new ArrayList<>();
         List<Integer> secMedium   = new ArrayList<>();
         List<Integer> secLow      = new ArrayList<>();
-        List<Integer> secNone     = new ArrayList<>();
+        List<Integer> secUnscored = new ArrayList<>();
         List<Integer> licCritical = new ArrayList<>();
         List<Integer> licHigh     = new ArrayList<>();
         List<Integer> licUnknown  = new ArrayList<>();
@@ -84,7 +84,7 @@ public class RiskTrendService {
             secHigh.add(sec[1]);
             secMedium.add(sec[2]);
             secLow.add(sec[3]);
-            secNone.add(sec[4]);
+            secUnscored.add(sec[4]);
             licCritical.add(lic[0]);
             licHigh.add(lic[1]);
             licUnknown.add(lic[2]);
@@ -117,7 +117,7 @@ public class RiskTrendService {
         model.addAttribute("chartSecHigh",     secHigh);
         model.addAttribute("chartSecMedium",   secMedium);
         model.addAttribute("chartSecLow",      secLow);
-        model.addAttribute("chartSecNone",     secNone);
+        model.addAttribute("chartSecNone",     secUnscored);
         model.addAttribute("chartLicCritical", licCritical);
         model.addAttribute("chartLicHigh",     licHigh);
         model.addAttribute("chartLicUnknown",  licUnknown);

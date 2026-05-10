@@ -19,7 +19,7 @@ public class CacheSetting {
     private String cacheKey;
 
     @Column(name = "ttl_seconds", nullable = false)
-    private int ttlSeconds;
+    private long ttlSeconds;
 
     @Column(name = "last_cleared_at")
     private LocalDateTime lastClearedAt;

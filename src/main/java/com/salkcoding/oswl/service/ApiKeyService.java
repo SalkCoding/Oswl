@@ -80,6 +80,24 @@ public class ApiKeyService {
         return apiKeyRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
     }
 
+    /** Find all keys across all projects (admin use) */
+    @Transactional(readOnly = true)
+    public List<ApiKey> findAll() {
+        return apiKeyRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    /** Toggle a key's active status (admin use) */
+    @Transactional
+    public void toggleActive(Long keyId) {
+        ApiKey key = apiKeyRepository.findById(keyId)
+                .orElseThrow(() -> new IllegalArgumentException("ApiKey not found: " + keyId));
+        if (key.isActive()) {
+            key.revoke();
+        } else {
+            key.activate();
+        }
+    }
+
     // ── Internal ─────────────────────────────────────────────────────────
 
     private String generateToken() {

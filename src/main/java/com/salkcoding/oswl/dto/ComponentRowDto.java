@@ -41,8 +41,8 @@ public class ComponentRowDto {
     @Schema(description = "Number of Low CVEs", example = "30")
     private final int securityLow;
 
-    @Schema(description = "Number of CVEs with no CVSS score (severity = NONE)", example = "4")
-    private final int securityNone;
+    @Schema(description = "Number of Unscored CVEs (no CVSS score, severity = NONE)", example = "4")
+    private final int securityUnscored;
 
     @Schema(description = "Patchability status", example = "patchable", allowableValues = {"patchable", "non-patchable", "unknown"})
     private final String patchability;

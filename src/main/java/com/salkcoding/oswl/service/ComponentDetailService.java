@@ -62,13 +62,13 @@ public class ComponentDetailService {
         int secHigh     = (int) lib.countBySeverity("HIGH");
         int secMedium   = (int) lib.countBySeverity("MEDIUM");
         int secLow      = (int) lib.countBySeverity("LOW");
-        int secNone     = (int) lib.countBySeverity("NONE");
+        int secUnscored = (int) lib.countBySeverity("NONE");
         model.addAttribute("securityCritical", secCritical);
         model.addAttribute("securityHigh",     secHigh);
         model.addAttribute("securityMedium",   secMedium);
         model.addAttribute("securityLow",      secLow);
-        model.addAttribute("securityNone",     secNone);
-        model.addAttribute("hasVulnerabilities", secCritical + secHigh + secMedium + secLow + secNone > 0);
+        model.addAttribute("securityUnscored", secUnscored);
+        model.addAttribute("hasVulnerabilities", secCritical + secHigh + secMedium + secLow + secUnscored > 0);
         model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
         model.addAttribute("ecosystem", lib.getEcosystem());
 

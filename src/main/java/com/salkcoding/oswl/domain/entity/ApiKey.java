@@ -56,6 +56,11 @@ public class ApiKey {
         this.revokedAt = LocalDateTime.now();
     }
 
+    public void activate() {
+        this.active = true;
+        this.revokedAt = null;
+    }
+
     public void recordUsage() {
         this.lastUsedAt = LocalDateTime.now();
     }

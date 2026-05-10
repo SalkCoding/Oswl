@@ -4,8 +4,8 @@
 
     <!--
         Risk Graph fragment.
-        usage: th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${critical}, ${high}, ${medium}, ${low}, ${unknown}, 'None / Unscored')}"
-        unknownLabel: 'None / Unscored' for security, 'Unknown' for license
+        usage: th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${critical}, ${high}, ${medium}, ${low}, ${unknown}, 'Unscored')}"
+        unknownLabel: 'Unscored' for security, 'Unknown' for license
     -->
     <div th:fragment="riskGraph(title, critical, high, medium, low, unknown, unknownLabel)"
          class="flex flex-col gap-[14px] items-start w-full relative shrink-0">
@@ -64,7 +64,7 @@
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
                     <span th:text="${unknown ?: 0}">0</span>
-                    <th:block th:text="' ' + ${unknownLabel}">None / Unscored</th:block>
+                    <th:block th:text="' ' + ${unknownLabel}">Unscored</th:block>
                 </p>
             </div>
         </div>

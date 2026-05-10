@@ -93,14 +93,14 @@
             </span>
             <span th:if="${securityLow > 0}"
                   class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
-                <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span>
+                <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-low)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${securityLow >= 1000 ? #numbers.formatDecimal(securityLow / 1000.0, 1, 1) + 'k' : securityLow} + ' Low'">1.1k Low</span>
             </span>
-            <span th:if="${securityNone > 0}"
-                  class="bg-[rgba(39,45,48,0.05)] border border-[rgba(39,45,48,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+            <span th:if="${securityUnscored > 0}"
+                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityNone} + ' None / Unscored'">4 None / Unscored</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityUnscored} + ' Unscored'">4 Unscored</span>
             </span>
         </div>
     </section>

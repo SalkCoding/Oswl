@@ -35,8 +35,8 @@ public class ProjectSummaryDto {
     @Schema(description = "Number of Low CVEs", example = "55")
     private final int securityLow;
 
-    @Schema(description = "Number of CVEs with no CVSS score (severity = NONE)", example = "2")
-    private final int securityNone;
+    @Schema(description = "Number of Unscored CVEs (no CVSS score, severity = NONE)", example = "2")
+    private final int securityUnscored;
 
     @Schema(description = "Number of license VIOLATIONs (Critical)", example = "1")
     private final int licenseCritical;

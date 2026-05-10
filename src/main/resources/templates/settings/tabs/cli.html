@@ -1,38 +1,238 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="tab" class="flex flex-col gap-[20px]">
+<div th:fragment="tab"
+     x-data="cliTab()"
+     x-init="init()"
+     class="flex flex-col gap-[20px] relative">
 
-    <!-- Heading -->
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">CLI API Key Management</h2>
-        <p class="text-[13px] text-[var(--grayscale-60)]">Manage per-project API keys to allow the CLI tool to securely access the OsWL API.</p>
-    </div>
-
-    <!-- Info -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             class="text-[var(--grayscale-60)] flex-shrink-0">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-        <span class="text-[13px] text-[var(--grayscale-70)]">API keys are project-scoped and only shown once at creation. Manage keys from each project page.</span>
-    </div>
-
-    <!-- Empty state with CTA -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[12px] p-[40px] flex flex-col items-center gap-[16px] text-center">
-        <div class="w-[48px] h-[48px] rounded-full bg-[var(--grayscale-5)] inline-flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-60)]"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+    <!-- Heading + Create New Key button -->
+    <div class="flex items-start justify-between gap-[12px]">
+        <div class="flex flex-col gap-[4px]">
+            <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">CLI API Key Management</h2>
+            <p class="text-[13px] text-[var(--grayscale-60)]">Manage per-project API keys to allow the CLI tool to securely access the OsWL API.</p>
         </div>
-        <h3 class="font-bold text-[16px] text-[var(--grayscale-100)]">Manage API Keys per Project</h3>
-        <p class="text-[13px] text-[var(--grayscale-60)] max-w-[420px]">
-            Open a project to create, rotate, or revoke its CLI API keys. Each key is scoped to a single project for least-privilege access.
-        </p>
-        <a th:href="@{/projects}"
-           class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[16px] py-[10px] rounded-[8px] no-underline inline-flex items-center gap-[6px]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            Go to Projects
-        </a>
+        <button @click="openCreate()"
+                class="flex-shrink-0 bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create New Key
+        </button>
     </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <!-- Keys table -->
+    <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
+        <table class="w-full text-[13px]">
+            <thead>
+            <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                <th class="px-[16px] py-[12px] font-bold">API Key</th>
+                <th class="px-[16px] py-[12px] font-bold">Project</th>
+                <th class="px-[16px] py-[12px] font-bold">Label</th>
+                <th class="px-[16px] py-[12px] font-bold">Created</th>
+                <th class="px-[16px] py-[12px] font-bold">Last Used</th>
+                <th class="px-[16px] py-[12px] font-bold">Status</th>
+                <th class="px-[16px] py-[12px] font-bold w-[80px]">Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <template x-for="k in keys" :key="k.id">
+                <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                    <td class="px-[16px] py-[12px] font-mono text-[12px] text-[var(--grayscale-70)]" x-text="k.token"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-100)]" x-text="k.projectName"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="k.label"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="formatDate(k.createdAt)"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="k.lastUsedAt ? formatDate(k.lastUsedAt) : '—'"></td>
+                    <td class="px-[16px] py-[12px]">
+                        <span x-show="k.active"
+                              class="inline-flex items-center gap-[5px] px-[9px] py-[3px] rounded-[6px] bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
+                            <span class="w-[5px] h-[5px] rounded-full bg-emerald-500"></span>Active
+                        </span>
+                        <span x-show="!k.active"
+                              class="inline-flex items-center gap-[5px] px-[9px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-semibold">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-40)]"></span>Inactive
+                        </span>
+                    </td>
+                    <td class="px-[16px] py-[12px]">
+                        <button @click="toggleKey(k)"
+                                :title="k.active ? 'Deactivate' : 'Activate'"
+                                class="text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]">
+                            <!-- Moon icon = deactivate (active key) -->
+                            <svg x-show="k.active" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            <!-- Sun icon = activate (inactive key) -->
+                            <svg x-show="!k.active" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+            <tr x-show="keys.length===0 && !loading">
+                <td colspan="7" class="px-[16px] py-[48px] text-center text-[var(--grayscale-50)]">
+                    No API keys created yet. Click "Create New Key" to get started.
+                </td>
+            </tr>
+            <tr x-show="loading">
+                <td colspan="7" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]">Loading...</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer notice -->
+    <p class="text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        API keys are only shown once. If you lose a key, generate a new one.
+    </p>
+
+    <!-- New key confirmation banner (shown after creation) -->
+    <div x-show="newTokenBanner" x-cloak x-transition
+         class="bg-emerald-50 border border-emerald-200 rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[6px]">
+        <p class="text-[13px] font-bold text-emerald-800">Key created — copy it now!</p>
+        <p class="text-[12px] text-emerald-700">This is the only time the full key is shown.</p>
+        <div class="flex items-center gap-[8px] mt-[4px]">
+            <code class="flex-1 font-mono text-[12px] bg-white border border-emerald-300 rounded-[6px] px-[10px] py-[6px] text-emerald-900 break-all" x-text="newTokenBanner"></code>
+            <button @click="copyToken()" class="text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 px-[10px] py-[6px] border border-emerald-300 rounded-[6px] bg-white flex-shrink-0">Copy</button>
+        </div>
+    </div>
+
+    <!-- ===================== Create New Key Slideout ===================== -->
+    <div x-show="slideout" x-cloak class="fixed inset-0 z-50"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="absolute inset-0 bg-black/30" @click="closeCreate()"></div>
+
+        <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] bg-[var(--background-dark,#001d35)] text-white shadow-2xl flex flex-col overflow-hidden"
+             x-transition:enter="transition transform ease-out duration-300"
+             x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition transform ease-in duration-200"
+             x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+            <div class="flex flex-col gap-[20px] p-[24px] overflow-y-auto h-full">
+                <!-- Header -->
+                <div class="flex items-start justify-between">
+                    <div class="flex flex-col gap-[4px]">
+                        <h3 class="font-bold text-[16px] inline-flex items-center gap-[8px]">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Create New Key
+                        </h3>
+                        <p class="text-[12px] text-white/60">API Keys are project-scoped. Create a new one or paste an existing key below.</p>
+                    </div>
+                    <button @click="closeCreate()" class="text-white/60 hover:text-white flex-shrink-0 mt-[2px]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                <!-- Project dropdown -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-bold">Project</label>
+                    <select x-model.number="form.projectId"
+                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white focus:outline-none focus:border-white/40">
+                        <option value="" class="bg-[#001d35]">Select a project</option>
+                        <template x-for="p in projects" :key="p.id">
+                            <option :value="p.id" class="bg-[#001d35]" x-text="p.name"></option>
+                        </template>
+                    </select>
+                </div>
+
+                <!-- Label -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-bold">Label <span class="text-white/50 font-normal">(Optional)</span></label>
+                    <input type="text" x-model="form.label" placeholder="CLI Key"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                    <button @click="createKey()" :disabled="!form.projectId || creating"
+                            class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                            x-text="creating ? 'Creating...' : 'Create Key'"></button>
+                    <button @click="closeCreate()"
+                            class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function cliTab() {
+        return {
+            keys: [],
+            projects: [],
+            loading: true,
+            slideout: false,
+            creating: false,
+            apiError: null,
+            newTokenBanner: null,
+            form: { projectId: '', label: '' },
+            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
+
+            async init() {
+                await Promise.all([this.loadKeys(), this.loadProjects()]);
+            },
+            async loadKeys() {
+                this.loading = true;
+                try {
+                    const r = await fetch('/api/admin/cli-keys');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = `Failed to load keys (${r.status})`; return; }
+                    this.keys = await r.json();
+                } catch(e) {
+                    this.apiError = 'Failed to load API keys.';
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async loadProjects() {
+                try {
+                    const r = await fetch('/projects/list');
+                    if (r.ok) this.projects = await r.json();
+                } catch(e) { /* non-critical */ }
+            },
+            openCreate() {
+                this.form = { projectId: '', label: '' };
+                this.newTokenBanner = null;
+                this.slideout = true;
+            },
+            closeCreate() {
+                this.slideout = false;
+            },
+            async createKey() {
+                if (!this.form.projectId) return;
+                this.creating = true;
+                try {
+                    const body = {
+                        projectId: this.form.projectId,
+                        label: this.form.label.trim() || 'CLI Key'
+                    };
+                    const r = await fetch('/api/admin/cli-keys', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = 'Failed to create key.'; return; }
+                    const data = await r.json();
+                    this.newTokenBanner = data.token;
+                    this.closeCreate();
+                    await this.loadKeys();
+                } finally {
+                    this.creating = false;
+                }
+            },
+            async toggleKey(k) {
+                try {
+                    const r = await fetch(`/api/admin/cli-keys/${k.id}/toggle`, { method: 'PATCH', headers: this.headers() });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = 'Failed to update key.'; return; }
+                    await this.loadKeys();
+                } catch(e) { this.apiError = 'Failed to update key.'; }
+            },
+            copyToken() {
+                if (this.newTokenBanner) navigator.clipboard.writeText(this.newTokenBanner);
+            }
+        };
+    }
+    </script>
 </div>
 </body>
 </html>

@@ -4,9 +4,9 @@
 <div th:fragment="tab"
      x-data="adminTab()"
      x-init="init()"
-     class="flex flex-col gap-[20px]">
+     class="flex flex-col gap-[20px] relative">
 
-    <!-- Info Banner (Figma) -->
+    <!-- Info Banner -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              class="text-[var(--grayscale-60)] flex-shrink-0">
@@ -22,104 +22,277 @@
         <a href="/login" class="ml-auto text-[12px] text-red-700 underline">Sign in again</a>
     </div>
 
-    <!-- Sub-tabs (Figma underline style) -->
+    <!-- Sub-tabs -->
     <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
-        <button @click="subTab='users'"
+        <button @click="subTab='users'; closeSidebar()"
                 :class="subTab==='users' ? 'border-[var(--grayscale-100)] text-[var(--grayscale-100)]' : 'border-transparent text-[var(--grayscale-60)]'"
                 class="px-[8px] py-[12px] text-[14px] font-bold border-b-[2px] transition-colors">User Management</button>
-        <button @click="subTab='templates'"
+        <button @click="subTab='templates'; closeSidebar()"
                 :class="subTab==='templates' ? 'border-[var(--grayscale-100)] text-[var(--grayscale-100)]' : 'border-transparent text-[var(--grayscale-60)]'"
                 class="px-[8px] py-[12px] text-[14px] font-bold border-b-[2px] transition-colors">Permission Template</button>
-        <button @click="subTab='audit'; loadAudit()"
+        <button @click="subTab='audit'; closeSidebar(); loadAudit()"
                 :class="subTab==='audit' ? 'border-[var(--grayscale-100)] text-[var(--grayscale-100)]' : 'border-transparent text-[var(--grayscale-60)]'"
                 class="px-[8px] py-[12px] text-[14px] font-bold border-b-[2px] transition-colors">Audit Log</button>
     </div>
 
     <!-- ===================== USERS ===================== -->
     <div x-show="subTab==='users'" x-cloak class="flex flex-col gap-[12px]">
-        <div class="flex items-center justify-end">
-            <button @click="openInvite=true"
-                    class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
-                <span>+ Invite User</span>
+        <div class="flex items-center justify-between">
+            <div class="text-[12px] text-[var(--grayscale-60)]">
+                <span x-text="users.length"></span> users registered
+            </div>
+            <button @click="openInvite()"
+                    class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                <span>Invited user</span>
             </button>
         </div>
-        <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
-            <table class="w-full text-[13px]">
-                <thead>
-                <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                    <th class="px-[16px] py-[12px] font-bold">Name</th>
-                    <th class="px-[16px] py-[12px] font-bold">Email</th>
-                    <th class="px-[16px] py-[12px] font-bold">Role</th>
-                    <th class="px-[16px] py-[12px] font-bold">Status</th>
-                    <th class="px-[16px] py-[12px] font-bold">Last Login</th>
-                    <th class="px-[16px] py-[12px] font-bold w-[140px]">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <template x-for="u in users" :key="u.id">
-                    <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
-                        <td class="px-[16px] py-[12px] text-[var(--grayscale-100)]">
-                            <span x-text="u.displayName"></span>
-                            <span x-show="u.systemAdmin" class="ml-[4px] text-amber-500" title="System Admin">★</span>
-                        </td>
-                        <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="u.email"></td>
-                        <td class="px-[16px] py-[12px]">
-                            <template x-if="u.systemAdmin">
-                                <span class="inline-flex items-center px-[10px] py-[3px] rounded-[6px] bg-amber-50 text-amber-700 text-[12px] font-semibold border border-amber-200">System Admin</span>
-                            </template>
-                            <template x-if="!u.systemAdmin">
-                                <span class="inline-flex flex-wrap gap-[4px]">
-                                    <template x-for="r in (u.roleTemplates||[])" :key="r.id">
-                                        <span class="inline-flex items-center px-[10px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-80)] text-[12px] font-semibold" x-text="r.name"></span>
-                                    </template>
-                                    <span x-show="!(u.roleTemplates||[]).length" class="text-[var(--grayscale-50)] text-[12px]">—</span>
-                                </span>
-                            </template>
-                        </td>
-                        <td class="px-[16px] py-[12px]">
-                            <span x-show="u.enabled" class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[6px] bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
-                                <span class="w-[6px] h-[6px] rounded-full bg-emerald-500"></span>Active
-                            </span>
-                            <span x-show="!u.enabled" class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[12px] font-semibold">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-50)]"></span>Inactive
-                            </span>
-                        </td>
-                        <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]">
-                            <span x-text="u.lastLoginAt ? u.lastLoginAt.replace('T',' ').slice(0,16) : '—'"></span>
-                        </td>
-                        <td class="px-[16px] py-[12px]">
-                            <div class="flex items-center gap-[10px]" :class="u.systemAdmin ? 'opacity-30 pointer-events-none' : ''">
-                                <button @click="!u.systemAdmin && toggleEnabled(u, !u.enabled)"
-                                        class="text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]"
-                                        :title="u.enabled ? 'Deactivate' : 'Activate'">
-                                    <svg x-show="u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                                    <svg x-show="!u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                                </button>
-                                <button @click="!u.systemAdmin && editUser(u)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit roles">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                                </button>
-                                <button @click="!u.systemAdmin && deleteUser(u)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-                                </button>
-                            </div>
-                        </td>
+        <!-- Split container: table (left) + side panel (right) -->
+        <div class="flex rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden bg-white min-h-[300px]">
+            <!-- Table area -->
+            <div class="flex-1 min-w-0 overflow-x-auto">
+                <table class="w-full text-[13px]">
+                    <thead>
+                    <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                        <th class="px-[16px] py-[12px] font-bold">Name</th>
+                        <th class="px-[16px] py-[12px] font-bold">Email</th>
+                        <th class="px-[16px] py-[12px] font-bold">Role</th>
+                        <th x-show="sidebarMode !== 'invite' && sidebarMode !== 'editUser'" class="px-[16px] py-[12px] font-bold">Status</th>
+                        <th x-show="sidebarMode !== 'invite' && sidebarMode !== 'editUser'" class="px-[16px] py-[12px] font-bold">Last Login</th>
+                        <th x-show="sidebarMode !== 'invite' && sidebarMode !== 'editUser'" class="px-[16px] py-[12px] font-bold w-[140px]">Actions</th>
                     </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="u in pagedUsers" :key="u.id">
+                        <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 transition-colors"
+                            :class="(sidebarMode==='editUser' && editingUser?.id===u.id) ? 'bg-[var(--secondary-20,#e0f0ff)]' : 'hover:bg-[var(--grayscale-5)]'">
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-100)]">
+                                <div class="flex items-center gap-[10px]">
+                                    <div class="w-[32px] h-[32px] rounded-full inline-flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+                                         :style="`background-color: ${avatarColor(u.displayName||u.email)}`"
+                                         x-text="(u.displayName||u.email||'?').trim().charAt(0).toUpperCase()"></div>
+                                    <span x-text="u.displayName"></span>
+                                </div>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="u.email"></td>
+                            <td class="px-[16px] py-[12px]">
+                                <template x-if="u.systemAdmin">
+                                    <span class="inline-flex items-center px-[10px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-80)] text-[12px] font-semibold">System Admin</span>
+                                </template>
+                                <template x-if="!u.systemAdmin">
+                                    <span class="inline-flex flex-wrap gap-[4px]">
+                                        <template x-for="r in (u.roleTemplates||[])" :key="r.id">
+                                            <span class="inline-flex items-center px-[10px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-80)] text-[12px] font-semibold" x-text="r.name"></span>
+                                        </template>
+                                        <span x-show="!(u.roleTemplates||[]).length" class="text-[var(--grayscale-50)] text-[12px]">—</span>
+                                    </span>
+                                </template>
+                            </td>
+                            <td x-show="sidebarMode !== 'invite' && sidebarMode !== 'editUser'" class="px-[16px] py-[12px]">
+                                <span x-show="u.enabled" class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[6px] bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                    Active
+                                </span>
+                                <span x-show="!u.enabled" class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[12px] font-semibold">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                    Inactive
+                                </span>
+                            </td>
+                            <td x-show="sidebarMode !== 'invite' && sidebarMode !== 'editUser'" class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]">
+                                <span x-text="u.lastLoginAt ? u.lastLoginAt.replace('T',' ').slice(0,16) : '—'"></span>
+                            </td>
+                            <td x-show="sidebarMode !== 'invite' && sidebarMode !== 'editUser'" class="px-[16px] py-[12px]">
+                                <div class="flex items-center gap-[10px]" :class="u.systemAdmin ? 'opacity-30 pointer-events-none' : ''">
+                                    <button @click="!u.systemAdmin && toggleEnabled(u, !u.enabled)"
+                                            class="text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]"
+                                            :title="u.enabled ? 'Deactivate' : 'Activate'">
+                                        <svg x-show="u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                        <svg x-show="!u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                    </button>
+                                    <button @click="!u.systemAdmin && openEditUser(u)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit user">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    </button>
+                                    <button @click="!u.systemAdmin && deleteUser(u)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="users.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No users.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Side panel: Invite User or Edit User -->
+            <div x-show="sidebarMode==='invite' || sidebarMode==='editUser'"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="w-[440px] flex-none border-l border-[var(--grayscale-20)] flex flex-col">
+                <!-- Invite User -->
+                <template x-if="sidebarMode==='invite'">
+                    <div class="flex flex-col h-full">
+                        <div class="bg-[var(--background-dark,#001d35)] text-white px-[20px] py-[14px] flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center gap-[10px]">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                                <div>
+                                    <div class="font-bold text-[14px]">Invited user</div>
+                                    <div class="text-[11px] text-white/60">Invite a new user to OsWL.</div>
+                                </div>
+                            </div>
+                            <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1">
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Name
+                                <input type="text" x-model="invite.displayName" placeholder="Enter user's name"
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)]"/>
+                            </label>
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Email
+                                <input type="email" x-model="invite.email" placeholder="Enter email address"
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)]"/>
+                            </label>
+                            <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Role
+                                <div class="relative" x-data="{ open: false }">
+                                    <button type="button" @click="open = !open" @click.away="open = false"
+                                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
+                                            :class="open ? 'border-[var(--primary-120)]' : ''">
+                                        <span :class="invite.templateId ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] font-normal'"
+                                              x-text="invite.templateId ? (templates.find(t=>t.id===invite.templateId)||{name:'Select a role'}).name : 'Select a role'"></span>
+                                        <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div x-show="open" x-cloak
+                                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                                        <button type="button" @click="invite.templateId = null; open = false"
+                                                class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                :class="!invite.templateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'">Select a role</button>
+                                        <template x-for="t in templates" :key="t.id">
+                                            <button type="button" @click="invite.templateId = t.id; open = false"
+                                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                    :class="invite.templateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                    x-text="t.name"></button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Temporary Password
+                                <div class="flex gap-[6px]">
+                                    <input type="text" x-model="invite.temporaryPassword" placeholder="8+ alphanumeric characters"
+                                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)]"/>
+                                    <button type="button" @click="invite.temporaryPassword=randomPwd()"
+                                            class="text-[12px] font-semibold px-[10px] border border-[var(--grayscale-20)] rounded-[8px] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-70)]">Generate</button>
+                                </div>
+                            </label>
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
+                                Message <span class="text-[var(--grayscale-50)] font-normal">(Optional)</span>
+                                <textarea x-model="invite.message" rows="3" maxlength="200" placeholder="Enter an invitation message (max 200 characters)"
+                                          class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)] resize-none"></textarea>
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
+                            <button @click="submitInvite()"
+                                    class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[13px] font-bold py-[10px] rounded-[8px]">Send Invite</button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                        </div>
+                    </div>
                 </template>
-                <tr x-show="users.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No users.</td></tr>
-                </tbody>
-            </table>
+                <!-- Edit User -->
+                <template x-if="sidebarMode==='editUser'">
+                    <div class="flex flex-col h-full">
+                        <div class="bg-[var(--background-dark,#001d35)] text-white px-[20px] py-[14px] flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center gap-[10px]">
+                                <div class="w-[34px] h-[34px] rounded-full inline-flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+                                     :style="`background-color: ${avatarColor(editingUser?.displayName||editingUser?.email||'')}`"
+                                     x-text="(editingUser?.displayName||editingUser?.email||'?').trim().charAt(0).toUpperCase()"></div>
+                                <div>
+                                    <div class="font-bold text-[14px]">Edit user : <span x-text="editingUser?.displayName"></span></div>
+                                    <div class="text-[11px] text-white/60" x-text="editingUser?.email"></div>
+                                </div>
+                            </div>
+                            <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1">
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Name
+                                <input type="text" :value="editingUser?.displayName" disabled
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-50)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
+                            </label>
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
+                                Email <span class="text-[var(--grayscale-50)] font-normal">(Not editable)</span>
+                                <input type="email" :value="editingUser?.email" disabled
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-50)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
+                            </label>
+                            <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Role
+                                <div class="relative" x-data="{ open: false }">
+                                    <button type="button" @click="open = !open" @click.away="open = false"
+                                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
+                                            :class="open ? 'border-[var(--primary-120)]' : ''">
+                                        <span :class="editingTemplateId ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] font-normal'"
+                                              x-text="editingTemplateId ? (templates.find(t=>t.id===editingTemplateId)||{name:'— No role —'}).name : '— No role —'"></span>
+                                        <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div x-show="open" x-cloak
+                                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                                        <button type="button" @click="editingTemplateId = null; open = false"
+                                                class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                :class="!editingTemplateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'">— No role —</button>
+                                        <template x-for="t in templates" :key="t.id">
+                                            <button type="button" @click="editingTemplateId = t.id; open = false"
+                                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                    :class="editingTemplateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                    x-text="t.name"></button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
+                                Message <span class="text-[var(--grayscale-50)] font-normal">(Optional)</span>
+                                <textarea x-model="editingMessage" rows="3" maxlength="200" placeholder="Enter a message (max 200 characters)"
+                                          class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)] resize-none"></textarea>
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
+                            <button @click="saveRoles()"
+                                    class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[13px] font-bold py-[10px] rounded-[8px]">Save</button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
 
-        <!-- Footer: total + pagination -->
-        <div class="flex items-center justify-between text-[12px] text-[var(--grayscale-60)]">
-            <span><span x-text="users.length"></span> total</span>
+        <!-- Footer: total + page-size + pagination -->
+        <div class="flex items-center justify-between text-[12px] text-[var(--grayscale-60)] mt-[4px]">
+            <div class="flex items-center gap-[10px]">
+                <span><span x-text="users.length"></span> total</span>
+                <select x-model.number="pageSize" @change="page=1"
+                        class="px-[8px] py-[4px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] bg-white">
+                    <option :value="10">Show 10</option>
+                    <option :value="20">Show 20</option>
+                    <option :value="50">Show 50</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-[4px]" x-show="totalPages>1">
+                <button @click="page=1" :disabled="page===1" class="px-[8px] py-[4px] rounded-[6px] hover:bg-[var(--grayscale-5)] disabled:opacity-30">«</button>
+                <button @click="page=Math.max(1,page-1)" :disabled="page===1" class="px-[8px] py-[4px] rounded-[6px] hover:bg-[var(--grayscale-5)] disabled:opacity-30">‹</button>
+                <span class="px-[10px] py-[4px] text-[var(--grayscale-100)] font-semibold"><span x-text="page"></span> / <span x-text="totalPages"></span></span>
+                <button @click="page=Math.min(totalPages,page+1)" :disabled="page===totalPages" class="px-[8px] py-[4px] rounded-[6px] hover:bg-[var(--grayscale-5)] disabled:opacity-30">›</button>
+                <button @click="page=totalPages" :disabled="page===totalPages" class="px-[8px] py-[4px] rounded-[6px] hover:bg-[var(--grayscale-5)] disabled:opacity-30">»</button>
+            </div>
         </div>
 
-        <!-- Action icons guide (Figma) -->
+        <!-- Action icons guide -->
         <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[10px] flex items-center gap-[20px] text-[12px] text-[var(--grayscale-60)] mt-[8px]">
             <span class="font-semibold text-[var(--grayscale-70)]">Action Icons Guide</span>
-            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Deactivate</span>
-            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/></svg>Activate</span>
+            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Inactivate</span>
+            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>Activate</span>
             <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Edit</span>
             <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete</span>
         </div>
@@ -127,61 +300,171 @@
 
     <!-- ===================== TEMPLATES ===================== -->
     <div x-show="subTab==='templates'" x-cloak class="flex flex-col gap-[12px]">
-        <div class="flex items-center justify-end">
-            <button @click="openTemplate(null)"
-                    class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">+ New Template</button>
+        <div class="flex items-center justify-between">
+            <div class="text-[12px] text-[var(--grayscale-60)]">
+                <span x-text="templates.length"></span> templates defined
+            </div>
+            <button @click="openNewTemplate()"
+                    class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add a New Template
+            </button>
         </div>
-        <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
-            <table class="w-full text-[13px]">
-                <thead>
-                <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                    <th class="px-[16px] py-[12px] font-bold">Template</th>
-                    <th class="px-[16px] py-[12px] font-bold">Description</th>
-                    <th class="px-[16px] py-[12px] font-bold">Users</th>
-                    <th class="px-[16px] py-[12px] font-bold w-[140px]">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <template x-for="t in templates" :key="t.id">
-                    <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
-                        <td class="px-[16px] py-[12px]">
-                            <span x-show="t.builtIn" class="mr-[6px]" title="Built-in">🔒</span>
-                            <span x-text="t.name" class="font-bold text-[var(--grayscale-100)]"></span>
-                        </td>
-                        <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="t.description"></td>
-                        <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]"><span x-text="t.userCount"></span> users</td>
-                        <td class="px-[16px] py-[12px]">
-                            <div class="flex items-center gap-[10px]">
-                                <button @click="openTemplate(t)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                                </button>
-                                <button x-show="!t.builtIn" @click="deleteTemplate(t)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-                                </button>
-                            </div>
-                        </td>
+        <!-- Split container: template table (left) + side panel (right) -->
+        <div class="flex rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden bg-white min-h-[300px]">
+            <!-- Table area -->
+            <div class="flex-1 min-w-0 overflow-x-auto">
+                <table class="w-full text-[13px]">
+                    <thead>
+                    <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                        <th class="px-[16px] py-[12px] font-bold">Template Name</th>
+                        <th class="px-[16px] py-[12px] font-bold">Description</th>
+                        <th x-show="sidebarMode !== 'newTemplate' && sidebarMode !== 'editTemplate'" class="px-[16px] py-[12px] font-bold">Users</th>
+                        <th x-show="sidebarMode !== 'newTemplate' && sidebarMode !== 'editTemplate'" class="px-[16px] py-[12px] font-bold w-[140px]">Actions</th>
                     </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="t in templates" :key="t.id">
+                        <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 transition-colors"
+                            :class="(sidebarMode==='editTemplate' && editingTpl?.id===t.id) ? 'bg-[var(--secondary-20,#e0f0ff)]' : 'hover:bg-[var(--grayscale-5)]'">
+                            <td class="px-[16px] py-[12px]">
+                                <span x-show="t.builtIn" class="mr-[6px] text-[var(--grayscale-50)]" title="Built-in">
+                                    <svg class="inline" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                </span>
+                                <span x-text="t.name" class="font-bold text-[var(--grayscale-100)]"></span>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="t.description"></td>
+                            <td x-show="sidebarMode !== 'newTemplate' && sidebarMode !== 'editTemplate'" class="px-[16px] py-[12px] text-[var(--grayscale-70)]"><span x-text="t.userCount"></span> users</td>
+                            <td x-show="sidebarMode !== 'newTemplate' && sidebarMode !== 'editTemplate'" class="px-[16px] py-[12px]">
+                                <div class="flex items-center gap-[10px]">
+                                    <button @click="openEditTemplate(t)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                    </button>
+                                    <button x-show="!t.builtIn" @click="deleteTemplate(t)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="templates.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No templates.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Side panel: Add / Edit Template -->
+            <div x-show="sidebarMode==='newTemplate' || sidebarMode==='editTemplate'"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="w-[440px] flex-none border-l border-[var(--grayscale-20)] flex flex-col bg-white">
+                <template x-if="sidebarMode==='newTemplate' || sidebarMode==='editTemplate'">
+                    <div class="flex flex-col h-full">
+                        <!-- Dark header -->
+                        <div class="bg-[var(--background-dark,#001d35)] text-white px-[20px] py-[14px] flex items-center justify-between flex-shrink-0">
+                            <div class="flex flex-col gap-[2px]">
+                                <div class="font-bold text-[14px]">
+                                    <span x-show="sidebarMode==='newTemplate'">+ Add a New Template</span>
+                                    <span x-show="sidebarMode==='editTemplate'" x-text="'Edit Template : ' + (editingTpl?.name || '')"></span>
+                                </div>
+                                <div class="text-[11px] text-white/60">Group permissions to assign to users.</div>
+                            </div>
+                            <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <!-- Scrollable body -->
+                        <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1 text-[var(--grayscale-100)]">
+                            <label class="flex flex-col gap-[4px] text-[12px] font-bold">Name
+                                <input type="text" x-model="tplForm.name" placeholder="e.g., Security Reviewer"
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                            </label>
+                            <label class="flex flex-col gap-[4px] text-[12px] font-bold">Description
+                                <input type="text" x-model="tplForm.description" placeholder="Short description"
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                            </label>
+                            <div class="flex flex-col gap-[8px]">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[12px] font-bold text-[var(--grayscale-80)]">Permissions <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                    <button type="button" @click="toggleAllPermissions()"
+                                            class="text-[12px] font-semibold text-[var(--secondary-100)] hover:underline"
+                                            x-text="allSelected() ? 'Clear All' : 'Select All'"></button>
+                                </div>
+                                <div class="grid grid-cols-2 gap-[12px] max-h-[380px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
+                                    <template x-for="(group, gName) in groupedPermissions" :key="gName">
+                                        <div class="flex flex-col gap-[6px]">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
+                                                <button type="button" @click="toggleGroup(group)"
+                                                        class="text-[10px] font-semibold text-[var(--secondary-100)] hover:underline"
+                                                        x-text="groupAllSelected(group) ? 'Clear' : 'Select'"></button>
+                                            </div>
+                                            <div class="flex flex-col gap-[2px]">
+                                                <template x-for="p in group" :key="p.code">
+                                                    <label class="inline-flex items-start gap-[8px] text-[12px] py-[3px] hover:bg-[var(--grayscale-5)] rounded px-[4px] cursor-pointer">
+                                                        <input type="checkbox" :value="p.code" x-model="tplForm.permissions" class="mt-[2px] w-[14px] h-[14px]"/>
+                                                        <span class="flex flex-col">
+                                                            <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
+                                                            <span class="font-mono text-[var(--grayscale-50)] text-[10px]" x-text="p.code"></span>
+                                                        </span>
+                                                    </label>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Footer buttons -->
+                        <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
+                            <button @click="saveTemplate()"
+                                    class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                                    x-text="sidebarMode==='editTemplate' ? 'Save Changes' : 'Create Template'"></button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                        </div>
+                    </div>
                 </template>
-                <tr x-show="templates.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No templates.</td></tr>
-                </tbody>
-            </table>
+            </div>
         </div>
-        <p class="text-[11px] text-[var(--grayscale-50)]">Built-in (🔒) templates can be edited but not deleted.</p>
+        <p class="text-[11px] text-[var(--grayscale-50)] flex items-center gap-[4px]">
+            Built-in (<svg class="inline" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>) templates cannot be deleted.
+        </p>
     </div>
 
     <!-- ===================== AUDIT ===================== -->
     <div x-show="subTab==='audit'" x-cloak class="flex flex-col gap-[12px]">
-        <div class="flex items-end justify-between gap-[8px] flex-wrap">
-            <div class="flex items-end gap-[8px] flex-wrap">
-                <input type="text" x-model="auditFilter.actorEmail" placeholder="Actor email"
-                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white"/>
-                <input type="text" x-model="auditFilter.action" placeholder="Action keyword"
-                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white"/>
+        <div class="flex items-center justify-between gap-[8px] flex-wrap">
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <select x-model="auditFilter.dateRange" @change="loadAudit()"
+                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer">
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="">All time</option>
+                </select>
+                <div class="relative">
+                    <input type="text" x-model="auditFilter.actorEmail" placeholder="All Users"
+                           @keydown.enter="loadAudit()"
+                           class="px-[12px] py-[8px] pr-[28px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white w-[160px]"/>
+                    <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <div class="relative">
+                    <input type="text" x-model="auditFilter.action" placeholder="All Actions"
+                           @keydown.enter="loadAudit()"
+                           class="px-[12px] py-[8px] pr-[28px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white w-[160px]"/>
+                    <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
                 <button @click="loadAudit()"
-                        class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">Search</button>
+                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-70)] hover:bg-[var(--grayscale-5)] inline-flex items-center gap-[6px]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    Search
+                </button>
             </div>
-            <a href="/api/admin/audit-logs/export.csv"
-               class="text-[13px] font-semibold text-[var(--secondary-100)] hover:underline inline-flex items-center gap-[6px] no-underline">
+            <a :href="auditExportUrl()"
+               class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] no-underline">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Export CSV
             </a>
@@ -213,103 +496,200 @@
         </div>
     </div>
 
-    <!-- ===================== INVITE SIDE PANEL (Figma dark) ===================== -->
-    <div x-show="openInvite" x-cloak class="fixed inset-0 z-50">
-        <div class="absolute inset-0 bg-black/30" @click="openInvite=false"></div>
-        <div class="absolute right-0 top-0 h-full w-[420px] max-w-[95vw] bg-[var(--background-dark,#001d35)] text-white shadow-2xl p-[24px] flex flex-col gap-[18px] overflow-y-auto">
-            <div class="flex flex-col gap-[4px]">
-                <h3 class="font-bold text-[16px] inline-flex items-center gap-[6px]">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                    Invite User
-                </h3>
-                <p class="text-[12px] text-white/60">Invite a new user to OsWL.</p>
-            </div>
-            <label class="flex flex-col gap-[6px] text-[12px] font-bold">Name
-                <input type="text" x-model="invite.displayName" placeholder="Enter user's name"
-                       class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)]"/>
-            </label>
-            <label class="flex flex-col gap-[6px] text-[12px] font-bold">Email
-                <input type="email" x-model="invite.email" placeholder="Enter email address"
-                       class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)]"/>
-            </label>
-            <div class="flex flex-col gap-[6px] text-[12px] font-bold">Role
-                <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
-                    <template x-for="t in templates" :key="t.id">
-                        <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
-                               :class="invite.templateIds.includes(t.id) ? 'bg-[var(--primary-100)] text-[var(--background-dark)]' : 'bg-white/10 text-white/70'">
-                            <input type="checkbox" :value="t.id" x-model="invite.templateIds" class="hidden"/>
-                            <span x-text="t.name"></span>
-                        </label>
-                    </template>
-                </div>
-            </div>
-            <label class="flex flex-col gap-[6px] text-[12px] font-bold">Temporary Password
-                <div class="flex gap-[6px]">
-                    <input type="text" x-model="invite.temporaryPassword" placeholder="8+ characters"
-                           class="flex-1 px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)]"/>
-                    <button type="button" @click="invite.temporaryPassword=randomPwd()"
-                            class="text-[12px] font-semibold px-[10px] bg-white/10 hover:bg-white/15 border border-white/15 rounded-[8px] text-white">Generate</button>
-                </div>
-            </label>
-            <label class="flex flex-col gap-[6px] text-[12px] font-bold">Message <span class="text-white/40 font-normal">(Optional)</span>
-                <textarea x-model="invite.message" rows="3" maxlength="200" placeholder="Enter an invitation message (max 200 characters)"
-                          class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)] resize-none"></textarea>
-            </label>
-            <div class="flex items-center gap-[8px] mt-auto">
-                <button @click="submitInvite()"
-                        class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]">Send Invite</button>
-                <button @click="openInvite=false"
-                        class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
-            </div>
-        </div>
-    </div>
+    <!-- ===================== UNIFIED SLIDEOUT (legacy — hidden, panels are now inline) ===================== -->
+    <div x-show="false" class="fixed inset-0 z-50"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="absolute inset-0 bg-black/30" @click="closeSidebar()"></div>
 
-    <!-- USER ROLES MODAL (centered) -->
-    <div x-show="openRoleEdit" x-cloak class="fixed inset-0 bg-black/40 flex items-center justify-center z-50" @click.self="openRoleEdit=false">
-        <div class="bg-white rounded-[12px] p-[24px] w-[460px] max-w-[90vw] flex flex-col gap-[14px]">
-            <h3 class="font-bold text-[16px]">Edit Roles — <span x-text="editingUser?.displayName"></span></h3>
-            <div class="flex flex-wrap gap-[8px]">
-                <template x-for="t in templates" :key="t.id">
-                    <label class="inline-flex items-center gap-[6px] text-[12px] cursor-pointer px-[10px] py-[4px] rounded-[6px] border"
-                           :class="editingTemplateIds.includes(t.id) ? 'bg-[var(--secondary-100)] text-white border-[var(--secondary-100)]' : 'bg-white text-[var(--grayscale-80)] border-[var(--grayscale-20)]'">
-                        <input type="checkbox" :value="t.id" x-model="editingTemplateIds" class="hidden"/>
-                        <span x-text="t.name"></span>
+        <!-- Animated panel -->
+        <div class="absolute right-0 top-0 h-full w-[480px] max-w-[95vw] shadow-2xl flex flex-col overflow-hidden"
+             :class="(sidebarMode==='invite' || sidebarMode==='editUser') ? 'bg-[var(--background-dark,#001d35)] text-white' : ''"
+             x-transition:enter="transition transform ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition transform ease-in duration-200"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full">
+
+            <!-- ===== Invite User ===== -->
+            <template x-if="sidebarMode==='invite'">
+                <div class="flex flex-col gap-[18px] p-[24px] overflow-y-auto h-full">
+                    <div class="flex items-start justify-between">
+                        <div class="flex flex-col gap-[4px]">
+                            <h3 class="font-bold text-[16px] inline-flex items-center gap-[6px]">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                                Invite User
+                            </h3>
+                            <p class="text-[12px] text-white/60">Invite a new user to OsWL.</p>
+                        </div>
+                        <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Name
+                        <input type="text" x-model="invite.displayName" placeholder="Enter user's name"
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)]"/>
                     </label>
-                </template>
-            </div>
-            <div class="flex justify-end gap-[8px] mt-[8px]">
-                <button @click="openRoleEdit=false" class="text-[13px] px-[14px] py-[8px] text-[var(--grayscale-70)]">Cancel</button>
-                <button @click="saveRoles()" class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">Save</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- TEMPLATE EDIT SLIDEOUT -->
-    <div x-show="openTplEdit" x-cloak class="fixed inset-0 bg-black/40 z-50" @click.self="openTplEdit=false">
-        <div class="absolute right-0 top-0 h-full w-[480px] max-w-[95vw] bg-white shadow-2xl p-[24px] flex flex-col gap-[14px] overflow-y-auto">
-            <h3 class="font-bold text-[16px]" x-text="editingTpl?.id ? 'Edit Template' : 'New Template'"></h3>
-            <label class="flex flex-col gap-[4px] text-[12px] font-bold">Name
-                <input type="text" x-model="tplForm.name" class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal"/>
-            </label>
-            <label class="flex flex-col gap-[4px] text-[12px] font-bold">Description
-                <input type="text" x-model="tplForm.description" class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal"/>
-            </label>
-            <div class="flex flex-col gap-[8px]">
-                <span class="text-[12px] font-bold text-[var(--grayscale-80)]">Permissions</span>
-                <div class="flex flex-col gap-[2px] max-h-[400px] overflow-y-auto pr-[6px] border border-[var(--grayscale-20)] rounded-[8px] p-[8px]">
-                    <template x-for="p in allPermissions" :key="p.code">
-                        <label class="inline-flex items-center gap-[6px] text-[12px] py-[3px] hover:bg-[var(--grayscale-5)] rounded px-[4px] cursor-pointer">
-                            <input type="checkbox" :value="p.code" x-model="tplForm.permissions" class="w-[14px] h-[14px]"/>
-                            <span class="font-mono text-[var(--grayscale-50)] text-[10px]" x-text="p.code"></span>
-                            <span class="text-[var(--grayscale-80)]" x-text="p.description"></span>
-                        </label>
-                    </template>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Email
+                        <input type="email" x-model="invite.email" placeholder="Enter email address"
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)]"/>
+                    </label>
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold">Role
+                        <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
+                            <template x-for="t in templates" :key="t.id">
+                                <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
+                                       :class="invite.templateId === t.id ? 'bg-[var(--primary-100)] text-[var(--background-dark)]' : 'bg-white/10 text-white/70'">
+                                    <input type="radio" :value="t.id" x-model.number="invite.templateId" class="hidden"/>
+                                    <span x-text="t.name"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Temporary Password
+                        <div class="flex gap-[6px]">
+                            <input type="text" x-model="invite.temporaryPassword" placeholder="8+ characters"
+                                   class="flex-1 px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)]"/>
+                            <button type="button" @click="invite.temporaryPassword=randomPwd()"
+                                    class="text-[12px] font-semibold px-[10px] bg-white/10 hover:bg-white/15 border border-white/15 rounded-[8px] text-white">Generate</button>
+                        </div>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Message <span class="text-white/40 font-normal">(Optional)</span>
+                        <textarea x-model="invite.message" rows="3" maxlength="200" placeholder="Enter an invitation message (max 200 characters)"
+                                  class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[var(--primary-100)] resize-none"></textarea>
+                    </label>
+                    <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                        <button @click="submitInvite()"
+                                class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]">Send Invite</button>
+                        <button @click="closeSidebar()"
+                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                    </div>
                 </div>
-            </div>
-            <div class="flex justify-end gap-[8px] mt-auto pt-[12px] border-t border-[var(--grayscale-20)]">
-                <button @click="openTplEdit=false" class="text-[13px] px-[14px] py-[8px] text-[var(--grayscale-70)]">Cancel</button>
-                <button @click="saveTemplate()" class="bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">Save</button>
-            </div>
+            </template>
+
+            <!-- ===== Edit User (Slideout, dark) ===== -->
+            <template x-if="sidebarMode==='editUser'">
+                <div class="flex flex-col gap-[18px] p-[24px] overflow-y-auto h-full">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-[12px]">
+                            <div class="w-[40px] h-[40px] rounded-full inline-flex items-center justify-center text-[14px] font-bold text-white"
+                                 :style="`background-color: ${avatarColor(editingUser?.displayName||editingUser?.email||'')}`"
+                                 x-text="(editingUser?.displayName||editingUser?.email||'?').trim().charAt(0).toUpperCase()"></div>
+                            <div class="flex flex-col gap-[2px]">
+                                <h3 class="font-bold text-[16px]">Edit User</h3>
+                                <p class="text-[12px] text-white/60" x-text="editingUser?.displayName"></p>
+                            </div>
+                        </div>
+                        <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Name
+                        <input type="text" :value="editingUser?.displayName" disabled
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/10 rounded-[8px] text-[13px] font-normal text-white/60 cursor-not-allowed"/>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">
+                        Email <span class="text-white/40 font-normal">(Not editable)</span>
+                        <input type="email" :value="editingUser?.email" disabled
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/10 rounded-[8px] text-[13px] font-normal text-white/60 cursor-not-allowed"/>
+                    </label>
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold">Role
+                        <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
+                            <template x-for="t in templates" :key="t.id">
+                                <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
+                                       :class="editingTemplateId === t.id ? 'bg-[var(--primary-100)] text-[var(--background-dark)]' : 'bg-white/10 text-white/70'">
+                                    <input type="radio" :value="t.id" x-model.number="editingTemplateId" class="hidden"/>
+                                    <span x-text="t.name"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold">Status
+                        <div class="flex items-center gap-[10px] px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px]">
+                            <span class="text-[12px] font-normal text-white/60" x-text="editingUser?.enabled ? 'Active' : 'Inactive'"></span>
+                            <button @click="toggleEnabled(editingUser, !editingUser.enabled).then(()=>{ if(editingUser){ editingUser.enabled = !editingUser.enabled; } })"
+                                    class="ml-auto text-[11px] font-semibold px-[8px] py-[2px] rounded-[6px] bg-white/10 hover:bg-white/20 text-white"
+                                    x-text="editingUser?.enabled ? 'Deactivate' : 'Activate'"></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                        <button @click="saveRoles()"
+                                class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]">Save Changes</button>
+                        <button @click="closeSidebar()"
+                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ===== Template Add / Edit (Slideout, dark header + light body) ===== -->
+            <template x-if="sidebarMode==='newTemplate' || sidebarMode==='editTemplate'">
+                <div class="flex flex-col h-full bg-white text-[var(--grayscale-100)]">
+                    <!-- Dark header -->
+                    <div class="bg-[var(--background-dark,#001d35)] text-white px-[24px] py-[20px] flex items-start justify-between flex-shrink-0">
+                        <div class="flex flex-col gap-[4px]">
+                            <h3 class="font-bold text-[16px]">
+                                <span x-show="sidebarMode==='newTemplate'">+ Add a New Template</span>
+                                <span x-show="sidebarMode==='editTemplate'" x-text="'Edit Template : ' + (editingTpl?.name || '')"></span>
+                            </h3>
+                            <p class="text-[12px] text-white/60">Group permissions to assign to users.</p>
+                        </div>
+                        <button @click="closeSidebar()" class="text-white/60 hover:text-white mt-[2px]">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <!-- Scrollable body -->
+                    <div class="flex flex-col gap-[16px] p-[24px] overflow-y-auto flex-1">
+                        <label class="flex flex-col gap-[4px] text-[12px] font-bold">Name
+                            <input type="text" x-model="tplForm.name" placeholder="e.g., Security Reviewer"
+                                   class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                        </label>
+                        <label class="flex flex-col gap-[4px] text-[12px] font-bold">Description
+                            <input type="text" x-model="tplForm.description" placeholder="Short description"
+                                   class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--secondary-100)]"/>
+                        </label>
+                        <div class="flex flex-col gap-[8px]">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[12px] font-bold text-[var(--grayscale-80)]">Permissions <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                <button type="button" @click="toggleAllPermissions()"
+                                        class="text-[12px] font-semibold text-[var(--secondary-100)] hover:underline"
+                                        x-text="allSelected() ? 'Clear All' : 'Select All'"></button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-[12px] max-h-[420px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
+                                <template x-for="(group, gName) in groupedPermissions" :key="gName">
+                                    <div class="flex flex-col gap-[6px]">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
+                                            <button type="button" @click="toggleGroup(group)"
+                                                    class="text-[10px] font-semibold text-[var(--secondary-100)] hover:underline"
+                                                    x-text="groupAllSelected(group) ? 'Clear' : 'Select'"></button>
+                                        </div>
+                                        <div class="flex flex-col gap-[2px]">
+                                            <template x-for="p in group" :key="p.code">
+                                                <label class="inline-flex items-start gap-[8px] text-[12px] py-[3px] hover:bg-[var(--grayscale-5)] rounded px-[4px] cursor-pointer">
+                                                    <input type="checkbox" :value="p.code" x-model="tplForm.permissions" class="mt-[2px] w-[14px] h-[14px]"/>
+                                                    <span class="flex flex-col">
+                                                        <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
+                                                        <span class="font-mono text-[var(--grayscale-50)] text-[10px]" x-text="p.code"></span>
+                                                    </span>
+                                                </label>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-[8px] mt-auto pt-[12px] border-t border-[var(--grayscale-20)]">
+                            <button @click="saveTemplate()"
+                                    class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                                    x-text="sidebarMode==='editTemplate' ? 'Save Changes' : 'Create Template'"></button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-transparent border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 
@@ -318,14 +698,45 @@
         return {
             subTab: 'users',
             users: [], templates: [], allPermissions: [],
-            openInvite: false, openRoleEdit: false, openTplEdit: false,
+            sidebarMode: null,  // 'invite' | 'editUser' | 'newTemplate' | 'editTemplate' | null
             apiError: null,
-            invite: { email: '', displayName: '', temporaryPassword: '', templateIds: [], message: '' },
-            editingUser: null, editingTemplateIds: [],
+            page: 1, pageSize: 10,
+            invite: { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' },
+            editingUser: null, editingTemplateId: null, editingMessage: '',
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
-            auditFilter: { actorEmail: '', action: '' },
+            auditFilter: { dateRange: '7', actorEmail: '', action: '' },
             auditLogs: [],
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+
+            // ── Permission grouping ──
+            permissionGroups: {
+                'Project': ['PROJECT_'],
+                'Scan': ['SCAN_'],
+                'Security Center': ['SECURITY_CENTER_'],
+                'License': ['LICENSE_'],
+                'Analysis': ['COMPONENT_', 'VERSION_', 'RISK_'],
+                'Settings': ['SETTINGS_']
+            },
+            get groupedPermissions() {
+                const result = {};
+                for (const [name, prefixes] of Object.entries(this.permissionGroups)) {
+                    result[name] = this.allPermissions.filter(p => prefixes.some(pref => p.code.startsWith(pref)));
+                }
+                return result;
+            },
+            // ── Pagination ──
+            get totalPages() { return Math.max(1, Math.ceil(this.users.length / this.pageSize)); },
+            get pagedUsers() {
+                const start = (this.page - 1) * this.pageSize;
+                return this.users.slice(start, start + this.pageSize);
+            },
+            // ── Avatar color from name ──
+            avatarColor(s) {
+                const palette = ['#0d9488','#0891b2','#059669','#0284c7','#0f766e','#0369a1','#14b8a6','#0ea5e9'];
+                let h = 0; for (const c of (s||'?')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+                return palette[h % palette.length];
+            },
+
             async init() {
                 try {
                     await Promise.all([this.loadUsers(), this.loadTemplates(), this.loadPermissions()]);
@@ -343,21 +754,72 @@
             async loadUsers() { this.users = await this.apiGet('/api/admin/users'); },
             async loadTemplates() { this.templates = await this.apiGet('/api/admin/role-templates'); },
             async loadPermissions() { this.allPermissions = await this.apiGet('/api/admin/role-templates/permissions'); },
-            randomPwd() { return Math.random().toString(36).slice(-12) + 'A1!'; },
+            randomPwd() {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let pwd = '';
+                for (let i = 0; i < 12; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+                return pwd;
+            },
+
+            // ── Sidebar control (mutually exclusive) ──
+            closeSidebar() {
+                this.sidebarMode = null;
+                this.editingUser = null;
+                this.editingTpl = null;
+            },
+            openInvite() {
+                this.invite = { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' };
+                this.editingUser = null;
+                this.sidebarMode = 'invite';
+            },
+            openEditUser(u) {
+                this.editingUser = u;
+                this.editingTemplateId = (u.roleTemplates && u.roleTemplates.length > 0) ? u.roleTemplates[0].id : null;
+                this.editingMessage = '';
+                this.sidebarMode = 'editUser';
+            },
+            openNewTemplate() {
+                this.editingTpl = null;
+                this.tplForm = { name: '', description: '', permissions: [] };
+                this.sidebarMode = 'newTemplate';
+            },
+            openEditTemplate(t) {
+                this.editingTpl = t;
+                this.tplForm = { name: t.name, description: t.description||'', permissions: [...(t.permissions||[])] };
+                this.sidebarMode = 'editTemplate';
+            },
+
+            // ── Permission Select All ──
+            allSelected() { return this.allPermissions.length > 0 && this.tplForm.permissions.length === this.allPermissions.length; },
+            toggleAllPermissions() {
+                if (this.allSelected()) this.tplForm.permissions = [];
+                else this.tplForm.permissions = this.allPermissions.map(p => p.code);
+            },
+            groupAllSelected(group) { return group.length > 0 && group.every(p => this.tplForm.permissions.includes(p.code)); },
+            toggleGroup(group) {
+                if (this.groupAllSelected(group)) {
+                    this.tplForm.permissions = this.tplForm.permissions.filter(c => !group.some(p => p.code === c));
+                } else {
+                    const codes = new Set(this.tplForm.permissions);
+                    group.forEach(p => codes.add(p.code));
+                    this.tplForm.permissions = [...codes];
+                }
+            },
+
             async submitInvite() {
-                const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(this.invite) });
+                const { templateId, ...rest } = this.invite;
+                const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
+                const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(payload) });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed: ' + await r.text()); return; }
-                this.openInvite = false;
-                this.invite = { email: '', displayName: '', temporaryPassword: '', templateIds: [], message: '' };
+                this.closeSidebar();
                 await this.loadUsers();
             },
-            editUser(u) { this.editingUser = u; this.editingTemplateIds = (u.roleTemplates||[]).map(r=>r.id); this.openRoleEdit = true; },
             async saveRoles() {
-                const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateIds }) });
+                const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateId ? [this.editingTemplateId] : [] }) });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed'); return; }
-                this.openRoleEdit = false; await this.loadUsers();
+                this.closeSidebar(); await this.loadUsers();
             },
             async toggleEnabled(u, enabled) {
                 const url = `/api/admin/users/${u.id}/${enabled ? 'activate' : 'deactivate'}`;
@@ -372,19 +834,13 @@
                 if (!r.ok) { alert('Failed: ' + await r.text()); return; }
                 await this.loadUsers();
             },
-            openTemplate(t) {
-                this.editingTpl = t;
-                this.tplForm = t ? { name: t.name, description: t.description||'', permissions: [...(t.permissions||[])] }
-                                 : { name: '', description: '', permissions: [] };
-                this.openTplEdit = true;
-            },
             async saveTemplate() {
                 const url = this.editingTpl?.id ? `/api/admin/role-templates/${this.editingTpl.id}` : '/api/admin/role-templates';
                 const method = this.editingTpl?.id ? 'PUT' : 'POST';
                 const r = await fetch(url, { method, headers: this.headers(), body: JSON.stringify(this.tplForm) });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed: ' + await r.text()); return; }
-                this.openTplEdit = false; await this.loadTemplates();
+                this.closeSidebar(); await this.loadTemplates();
             },
             async deleteTemplate(t) {
                 if (!confirm(`Delete template '${t.name}'?`)) return;
@@ -395,6 +851,12 @@
             },
             async loadAudit() {
                 const params = new URLSearchParams();
+                if (this.auditFilter.dateRange) {
+                    const days = parseInt(this.auditFilter.dateRange, 10);
+                    const start = new Date();
+                    start.setDate(start.getDate() - days);
+                    params.set('startDate', start.toISOString().slice(0, 19));
+                }
                 if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
                 if (this.auditFilter.action) params.set('action', this.auditFilter.action);
                 try {
@@ -404,6 +866,19 @@
                     const data = await r.json();
                     this.auditLogs = data.content || [];
                 } catch(e) { this.apiError = 'Failed to load audit logs.'; }
+            },
+            auditExportUrl() {
+                const params = new URLSearchParams();
+                if (this.auditFilter.dateRange) {
+                    const days = parseInt(this.auditFilter.dateRange, 10);
+                    const start = new Date();
+                    start.setDate(start.getDate() - days);
+                    params.set('startDate', start.toISOString().slice(0, 19));
+                }
+                if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
+                if (this.auditFilter.action) params.set('action', this.auditFilter.action);
+                const qs = params.toString();
+                return '/api/admin/audit-logs/export.csv' + (qs ? '?' + qs : '');
             }
         };
     }

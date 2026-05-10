@@ -31,6 +31,7 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
     private final PermissionEvaluator oswlPermissionEvaluator;
+    private final OswlAuthenticationFailureHandler authenticationFailureHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -63,7 +64,7 @@ public class SecurityConfig {
                     .usernameParameter("email")
                     .passwordParameter("password")
                     .defaultSuccessUrl("/projects", true)
-                    .failureUrl("/login?error")
+                    .failureHandler(authenticationFailureHandler)
                     .permitAll())
             .logout(logout -> logout
                     .logoutUrl("/logout")
