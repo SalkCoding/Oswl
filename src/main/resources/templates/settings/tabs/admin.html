@@ -156,7 +156,7 @@
                                 <input type="email" x-model="invite.email" placeholder="Enter email address"
                                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)]"/>
                             </label>
-                            <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Role
+                            <div class="flex flex-col gap-[5px] text-[12px] font-normal text-[var(--grayscale-80)]">Role
                                 <div class="relative" x-data="{ open: false }">
                                     <button type="button" @click="open = !open" @click.away="open = false"
                                             class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
@@ -219,16 +219,19 @@
                             </button>
                         </div>
                         <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1">
-                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Name
-                                <input type="text" :value="editingUser?.displayName" disabled
-                                       class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-50)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
-                            </label>
+                            <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Name
+                                <input type="text" x-model="editingDisplayName" maxlength="20"
+                                       @input="editingNameError = editingDisplayName.trim().length < 1 ? '이름은 1글자 이상이어야 합니다.' : editingDisplayName.trim().length > 20 ? '이름은 최대 20글자까지 입력할 수 있습니다.' : ''"
+                                       class="px-[12px] py-[8px] border rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)]"
+                                       :class="editingNameError ? 'border-red-400' : 'border-[var(--grayscale-20)]'"/>
+                                <span x-show="editingNameError" x-text="editingNameError" class="text-[11px] text-red-500 font-normal"></span>
+                            </div>
                             <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
                                 Email <span class="text-[var(--grayscale-50)] font-normal">(Not editable)</span>
                                 <input type="email" :value="editingUser?.email" disabled
                                        class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-50)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
                             </label>
-                            <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Role
+                            <div class="flex flex-col gap-[5px] text-[12px] font-normal text-[var(--grayscale-80)]">Role
                                 <div class="relative" x-data="{ open: false }">
                                     <button type="button" @click="open = !open" @click.away="open = false"
                                             class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
@@ -702,7 +705,7 @@
             apiError: null,
             page: 1, pageSize: 10,
             invite: { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' },
-            editingUser: null, editingTemplateId: null, editingMessage: '',
+            editingUser: null, editingDisplayName: '', editingNameError: '', editingTemplateId: null, editingMessage: '',
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
             auditFilter: { dateRange: '7', actorEmail: '', action: '' },
             auditLogs: [],
@@ -774,6 +777,8 @@
             },
             openEditUser(u) {
                 this.editingUser = u;
+                this.editingDisplayName = u.displayName || '';
+                this.editingNameError = '';
                 this.editingTemplateId = (u.roleTemplates && u.roleTemplates.length > 0) ? u.roleTemplates[0].id : null;
                 this.editingMessage = '';
                 this.sidebarMode = 'editUser';
@@ -816,6 +821,14 @@
                 await this.loadUsers();
             },
             async saveRoles() {
+                const name = this.editingDisplayName.trim();
+                if (name.length < 1) { this.editingNameError = '이름은 1글자 이상이어야 합니다.'; return; }
+                if (name.length > 20) { this.editingNameError = '이름은 최대 20글자까지 입력할 수 있습니다.'; return; }
+                if (name !== (this.editingUser.displayName || '').trim()) {
+                    const nr = await fetch(`/api/admin/users/${this.editingUser.id}/display-name`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ displayName: name }) });
+                    if (nr.status === 401) { location.href = '/login'; return; }
+                    if (!nr.ok) { alert('Failed to update name'); return; }
+                }
                 const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateId ? [this.editingTemplateId] : [] }) });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed'); return; }

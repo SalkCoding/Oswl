@@ -54,6 +54,19 @@ public class UserManagementService {
     }
 
     @Transactional
+    public void updateDisplayName(Long userId, String displayName) {
+        if (displayName == null || displayName.trim().isEmpty()) {
+            throw new IllegalArgumentException("이름은 1글자 이상이어야 합니다.");
+        }
+        if (displayName.trim().length() > 20) {
+            throw new IllegalArgumentException("이름은 최대 20글자까지 입력할 수 있습니다.");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        user.setDisplayName(displayName.trim());
+    }
+
+    @Transactional
     public void updateUserRoles(Long userId, List<Long> templateIds) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));

@@ -3,237 +3,160 @@
 <body>
 <div th:fragment="tab"
      x-data="vcsTab()"
-     x-init="load()"
-     class="flex flex-col gap-[20px]">
+     x-init="init()"
+     class="flex flex-col gap-[20px] relative">
 
-    <!-- Heading -->
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px]">VCS Account Connections</h2>
-        <p class="font-medium text-[16px] text-[var(--grayscale-80)] tracking-[-0.16px]">Connect your VCS accounts so OsWL can fetch repositories and sync scan results.</p>
-    </div>
-
-    <!-- API Error Banner -->
-    <div x-show="apiError" x-cloak
-         class="flex items-center gap-[10px] bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span class="text-red-700 text-[13px]" x-text="apiError"></span>
-        <button @click="apiError=null" class="ml-auto text-red-400 hover:text-red-600">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    <!-- Heading + Add Connection button -->
+    <div class="flex items-start justify-between gap-[12px]">
+        <div class="flex flex-col gap-[4px]">
+            <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">VCS Account Connections</h2>
+            <p class="text-[13px] text-[var(--grayscale-60)]">Connect your VCS accounts so OsWL can fetch repositories and sync scan results.</p>
+        </div>
+        <button @click="openCreate()"
+                class="flex-shrink-0 bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Connection
         </button>
     </div>
 
-    <!-- Provider Cards -->
-    <div class="flex flex-col gap-[28px]">
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
 
-        <!-- ───── GITHUB ───── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[28px] flex items-start gap-[20px]">
-            <div class="flex-1 flex flex-col gap-[20px] min-w-0">
-                <!-- Info row -->
-                <div class="flex items-center gap-[16px]">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-100)] shrink-0">
-                        <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/>
-                    </svg>
-                    <div class="flex flex-col gap-[5px] min-w-0">
-                        <div class="flex items-center gap-[10px] flex-wrap">
-                            <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]">GitHub</h3>
-                            <span x-show="conn('GITHUB')" style="display:none"
-                                  class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px] bg-[rgba(0,215,97,0.07)] border border-[rgba(0,215,97,0.25)] text-[11px] font-medium text-[var(--grayscale-80)] shrink-0">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>Connected
-                            </span>
-                            <span x-show="!conn('GITHUB')"
-                                  class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[11px] font-medium text-[var(--grayscale-60)] shrink-0">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>Not connected
-                            </span>
+    <!-- Connections table -->
+    <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
+        <table class="w-full text-[13px]">
+            <thead>
+            <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                <th class="px-[16px] py-[12px] font-bold">Provider</th>
+                <th class="px-[16px] py-[12px] font-bold">Server URL</th>
+                <th class="px-[16px] py-[12px] font-bold">Username</th>
+                <th class="px-[16px] py-[12px] font-bold">Connected</th>
+                <th class="px-[16px] py-[12px] font-bold w-[80px]">Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <template x-for="c in connections" :key="c.id">
+                <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                    <td class="px-[16px] py-[12px]">
+                        <div class="inline-flex items-center gap-[8px]">
+                            <template x-if="c.provider === 'GITHUB'">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-100)]"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+                            </template>
+                            <template x-if="c.provider === 'GITLAB'">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#FC6D26"><path d="M12 22.5l4.42-13.6H7.58L12 22.5z"/><path d="M12 22.5l-4.42-13.6H1.4L12 22.5z" opacity=".7"/><path d="M1.4 8.9L0 13.2c-.13.39 0 .82.34 1.06L12 22.5 1.4 8.9z" opacity=".5"/><path d="M1.4 8.9h6.18L4.84.5C4.71.13 4.18.13 4.05.5L1.4 8.9z"/><path d="M12 22.5l4.42-13.6h6.18L12 22.5z" opacity=".7"/><path d="M22.6 8.9L24 13.2c.13.39 0 .82-.34 1.06L12 22.5l10.6-13.6z" opacity=".5"/><path d="M22.6 8.9h-6.18L19.16.5c.13-.37.66-.37.79 0L22.6 8.9z"/></svg>
+                            </template>
+                            <template x-if="c.provider === 'BITBUCKET'">
+                                <svg width="18" height="18" viewBox="0 0 24 24"><defs><linearGradient id="bb-t" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0052cc"/><stop offset="100%" style="stop-color:#2684ff"/></linearGradient></defs><path fill="url(#bb-t)" d="M2.65 3c-.26 0-.5.22-.47.5l2.83 17.23c.06.34.35.59.7.59h12.56c.26 0 .48-.18.53-.43L21.82 3.5c.04-.28-.2-.5-.47-.5H2.65zM14.1 14.82H9.9l-1.1-6.64h6.38L14.1 14.82z"/></svg>
+                            </template>
+                            <span class="font-medium text-[var(--grayscale-100)]" x-text="providerLabel(c.provider)"></span>
                         </div>
-                        <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px]">Connect your GitHub account to fetch repositories and manage scan results.</p>
-                    </div>
-                </div>
-                <!-- Form -->
-                <div x-show="openProvider==='GITHUB'" x-cloak class="flex flex-col gap-[14px] pl-[56px]">
-                    <div class="flex flex-col gap-[6px]">
-                        <span class="font-medium text-[13px] text-[var(--grayscale-70)]">Personal Access Token</span>
-                        <div class="max-w-[420px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                            <input type="password" x-model="form.accessToken"
-                                   placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                   class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-[8px]">
-                        <button @click="add('GITHUB')"
-                                class="flex items-center gap-[6px] bg-[var(--primary-120)] text-white rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium hover:opacity-90 transition-opacity">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Save
+                    </td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="c.serverUrl || '—'"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="c.vcsUsername || '—'"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="formatDate(c.createdAt)"></td>
+                    <td class="px-[16px] py-[12px]">
+                        <button @click="disconnect(c)" title="Disconnect"
+                                class="text-[var(--grayscale-60)] hover:text-red-500 transition-colors">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                         </button>
-                        <button @click="openProvider=null"
-                                class="px-[10px] py-[8px] text-[14px] font-medium text-[var(--grayscale-60)] hover:text-[var(--grayscale-80)] transition-colors">
-                            Cancel
-                        </button>
+                    </td>
+                </tr>
+            </template>
+            <tr x-show="connections.length===0 && !loading">
+                <td colspan="5" class="px-[16px] py-[48px] text-center text-[var(--grayscale-50)]">
+                    No VCS connections yet. Click "Add Connection" to get started.
+                </td>
+            </tr>
+            <tr x-show="loading">
+                <td colspan="5" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]">Loading...</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer notice -->
+    <p class="text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Access tokens are encrypted at rest. You can disconnect and reconnect at any time.
+    </p>
+
+    <!-- ===================== Add Connection Slideout ===================== -->
+    <div x-show="slideout" x-cloak class="fixed inset-0 z-50"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="absolute inset-0 bg-black/30" @click="closeCreate()"></div>
+
+        <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] bg-[var(--background-dark,#001d35)] text-white shadow-2xl flex flex-col overflow-hidden"
+             x-transition:enter="transition transform ease-out duration-300"
+             x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition transform ease-in duration-200"
+             x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+            <div class="flex flex-col gap-[20px] p-[24px] overflow-y-auto h-full">
+                <!-- Header -->
+                <div class="flex items-start justify-between">
+                    <div class="flex flex-col gap-[4px]">
+                        <h3 class="font-bold text-[16px] inline-flex items-center gap-[8px]">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add VCS Connection
+                        </h3>
+                        <p class="text-[12px] text-white/60">Access tokens are encrypted and never exposed after saving.</p>
                     </div>
+                    <button @click="closeCreate()" class="text-white/60 hover:text-white flex-shrink-0 mt-[2px]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                 </div>
-            </div>
-            <!-- Right button -->
-            <div class="shrink-0 self-start" x-show="openProvider!=='GITHUB'">
-                <button x-show="conn('GITHUB')" style="display:none"
-                        @click="remove('GITHUB')"
-                        class="flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium text-[var(--grayscale-80)] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors whitespace-nowrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    Disconnect
-                </button>
-                <button x-show="!conn('GITHUB')"
-                        @click="openProvider='GITHUB'; resetForm()"
-                        class="flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors whitespace-nowrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    connect
-                </button>
+
+                <!-- Provider dropdown -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-bold">Provider</label>
+                    <select x-model="form.provider"
+                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white focus:outline-none focus:border-white/40">
+                        <option value="" class="bg-[#001d35]">Select a provider</option>
+                        <option value="GITHUB" class="bg-[#001d35]">GitHub</option>
+                        <option value="GITLAB" class="bg-[#001d35]">GitLab</option>
+                        <option value="BITBUCKET" class="bg-[#001d35]">Atlassian / Bitbucket</option>
+                    </select>
+                </div>
+
+                <!-- GitLab: Server URL (optional) -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider === 'GITLAB'" x-cloak>
+                    <label class="text-[12px] font-bold">Server URL <span class="text-white/50 font-normal">(Optional — leave blank for gitlab.com)</span></label>
+                    <input type="url" x-model="form.serverUrl" placeholder="https://gitlab.example.com"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                </div>
+
+                <!-- Bitbucket: Username -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
+                    <label class="text-[12px] font-bold">Username</label>
+                    <input type="text" x-model="form.vcsUsername" placeholder="atlassian-username"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                </div>
+
+                <!-- Access Token / App Password -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider" x-cloak>
+                    <label class="text-[12px] font-bold">
+                        <span x-show="form.provider !== 'BITBUCKET'">Personal Access Token</span>
+                        <span x-show="form.provider === 'BITBUCKET'">App Password</span>
+                    </label>
+                    <input type="password" x-model="form.accessToken"
+                           :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx'"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                    <button @click="addConnection()" :disabled="!form.provider || !form.accessToken.trim() || creating"
+                            class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                            x-text="creating ? 'Connecting...' : 'Connect'"></button>
+                    <button @click="closeCreate()"
+                            class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                </div>
             </div>
         </div>
-
-        <!-- ───── GITLAB ───── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[28px] flex items-start gap-[20px]">
-            <div class="flex-1 flex flex-col gap-[20px] min-w-0">
-                <div class="flex items-center gap-[16px]">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="#FC6D26" class="shrink-0">
-                        <path d="M12 22.5l4.42-13.6H7.58L12 22.5z"/>
-                        <path d="M12 22.5l-4.42-13.6H1.4L12 22.5z" opacity=".7"/>
-                        <path d="M1.4 8.9L0 13.2c-.13.39 0 .82.34 1.06L12 22.5 1.4 8.9z" opacity=".5"/>
-                        <path d="M1.4 8.9h6.18L4.84.5C4.71.13 4.18.13 4.05.5L1.4 8.9z"/>
-                        <path d="M12 22.5l4.42-13.6h6.18L12 22.5z" opacity=".7"/>
-                        <path d="M22.6 8.9L24 13.2c.13.39 0 .82-.34 1.06L12 22.5l10.6-13.6z" opacity=".5"/>
-                        <path d="M22.6 8.9h-6.18L19.16.5c.13-.37.66-.37.79 0L22.6 8.9z"/>
-                    </svg>
-                    <div class="flex flex-col gap-[5px] min-w-0">
-                        <div class="flex items-center gap-[10px] flex-wrap">
-                            <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]">GitLab</h3>
-                            <span x-show="conn('GITLAB')" style="display:none"
-                                  class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px] bg-[rgba(0,215,97,0.07)] border border-[rgba(0,215,97,0.25)] text-[11px] font-medium text-[var(--grayscale-80)] shrink-0">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>Connected
-                            </span>
-                            <span x-show="!conn('GITLAB')"
-                                  class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[11px] font-medium text-[var(--grayscale-60)] shrink-0">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>Not connected
-                            </span>
-                        </div>
-                        <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px]">Connect to your self-hosted or cloud GitLab instance.</p>
-                    </div>
-                </div>
-                <!-- Form -->
-                <div x-show="openProvider==='GITLAB'" x-cloak class="flex flex-col gap-[14px] pl-[56px]">
-                    <div class="flex flex-wrap gap-[12px]">
-                        <div class="flex flex-col gap-[6px] flex-1 min-w-[200px]">
-                            <span class="font-medium text-[13px] text-[var(--grayscale-70)]">Server URL</span>
-                            <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                                <input type="url" x-model="form.serverUrl" placeholder="https://gitlab.example.com"
-                                       class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                            </div>
-                        </div>
-                        <div class="flex flex-col gap-[6px] flex-1 min-w-[200px]">
-                            <span class="font-medium text-[13px] text-[var(--grayscale-70)]">Personal Access Token</span>
-                            <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                                <input type="password" x-model="form.accessToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
-                                       class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-[8px]">
-                        <button @click="add('GITLAB')"
-                                class="flex items-center gap-[6px] bg-[var(--primary-120)] text-white rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium hover:opacity-90 transition-opacity">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Save
-                        </button>
-                        <button @click="openProvider=null"
-                                class="px-[10px] py-[8px] text-[14px] font-medium text-[var(--grayscale-60)] hover:text-[var(--grayscale-80)] transition-colors">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="shrink-0 self-start" x-show="openProvider!=='GITLAB'">
-                <button x-show="conn('GITLAB')" style="display:none"
-                        @click="remove('GITLAB')"
-                        class="flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium text-[var(--grayscale-80)] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors whitespace-nowrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    Disconnect
-                </button>
-                <button x-show="!conn('GITLAB')"
-                        @click="openProvider='GITLAB'; resetForm()"
-                        class="flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors whitespace-nowrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    connect
-                </button>
-            </div>
-        </div>
-
-        <!-- ───── ATLASSIAN / BITBUCKET ───── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[28px] flex items-start gap-[20px]">
-            <div class="flex-1 flex flex-col gap-[20px] min-w-0">
-                <div class="flex items-center gap-[16px]">
-                    <svg width="40" height="40" viewBox="0 0 24 24" class="shrink-0">
-                        <defs><linearGradient id="bb-g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0052cc"/><stop offset="100%" style="stop-color:#2684ff"/></linearGradient></defs>
-                        <path fill="url(#bb-g)" d="M2.65 3c-.26 0-.5.22-.47.5l2.83 17.23c.06.34.35.59.7.59h12.56c.26 0 .48-.18.53-.43L21.82 3.5c.04-.28-.2-.5-.47-.5H2.65zM14.1 14.82H9.9l-1.1-6.64h6.38L14.1 14.82z"/>
-                    </svg>
-                    <div class="flex flex-col gap-[5px] min-w-0">
-                        <div class="flex items-center gap-[10px] flex-wrap">
-                            <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]">Atlassian</h3>
-                            <span x-show="conn('BITBUCKET')" style="display:none"
-                                  class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px] bg-[rgba(0,215,97,0.07)] border border-[rgba(0,215,97,0.25)] text-[11px] font-medium text-[var(--grayscale-80)] shrink-0">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>Connected
-                            </span>
-                            <span x-show="!conn('BITBUCKET')"
-                                  class="inline-flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[11px] font-medium text-[var(--grayscale-60)] shrink-0">
-                                <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>Not connected
-                            </span>
-                        </div>
-                        <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px]">Connect your Bitbucket account to fetch repositories and manage scan results.</p>
-                    </div>
-                </div>
-                <!-- Form -->
-                <div x-show="openProvider==='BITBUCKET'" x-cloak class="flex flex-col gap-[14px] pl-[56px]">
-                    <div class="flex flex-wrap gap-[12px]">
-                        <div class="flex flex-col gap-[6px] flex-1 min-w-[200px]">
-                            <span class="font-medium text-[13px] text-[var(--grayscale-70)]">Username</span>
-                            <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                                <input type="text" x-model="form.vcsUsername" placeholder="atlassian-username"
-                                       class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                            </div>
-                        </div>
-                        <div class="flex flex-col gap-[6px] flex-1 min-w-[200px]">
-                            <span class="font-medium text-[13px] text-[var(--grayscale-70)]">App Password</span>
-                            <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                                <input type="password" x-model="form.accessToken" placeholder="ATBB-xxxxxxxxxxxxxxxxxxxxxxxx"
-                                       class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-[8px]">
-                        <button @click="add('BITBUCKET')"
-                                class="flex items-center gap-[6px] bg-[var(--primary-120)] text-white rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium hover:opacity-90 transition-opacity">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Save
-                        </button>
-                        <button @click="openProvider=null"
-                                class="px-[10px] py-[8px] text-[14px] font-medium text-[var(--grayscale-60)] hover:text-[var(--grayscale-80)] transition-colors">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="shrink-0 self-start" x-show="openProvider!=='BITBUCKET'">
-                <button x-show="conn('BITBUCKET')" style="display:none"
-                        @click="remove('BITBUCKET')"
-                        class="flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium text-[var(--grayscale-80)] hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors whitespace-nowrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    Disconnect
-                </button>
-                <button x-show="!conn('BITBUCKET')"
-                        @click="openProvider='BITBUCKET'; resetForm()"
-                        class="flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[8px] text-[14px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors whitespace-nowrap">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    connect
-                </button>
-            </div>
-        </div>
-
-    </div><!-- /cards -->
+    </div>
 
     <!-- Toast -->
     <div x-show="toastVisible" x-cloak
@@ -254,88 +177,82 @@
     function vcsTab() {
         return {
             connections: [],
+            loading: true,
+            slideout: false,
+            creating: false,
             apiError: null,
             toastVisible: false,
             toastMsg: '',
-            openProvider: null,
-            form: { serverUrl: '', vcsUsername: '', accessToken: '' },
-
-            csrf() {
-                const m = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='));
-                return m ? decodeURIComponent(m.split('=')[1]) : '';
-            },
-            headers() {
-                return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': this.csrf() };
+            form: { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' },
+            csrf: document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
+            providerLabel(p) {
+                return p === 'GITHUB' ? 'GitHub' : p === 'GITLAB' ? 'GitLab' : p === 'BITBUCKET' ? 'Atlassian' : p;
             },
             showToast(msg) {
                 this.toastMsg = msg;
                 this.toastVisible = true;
                 setTimeout(() => { this.toastVisible = false; }, 3000);
             },
-            conn(provider) {
-                return this.connections.find(c => c.provider === provider) || null;
-            },
-            resetForm() {
-                this.form = { serverUrl: '', vcsUsername: '', accessToken: '' };
-            },
 
-            async load() {
+            async init() {
+                await this.loadConnections();
+            },
+            async loadConnections() {
+                this.loading = true;
                 try {
                     const r = await fetch('/api/settings/vcs');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to load VCS connections.'; return; }
+                    if (!r.ok) { this.apiError = `Failed to load connections (${r.status})`; return; }
                     this.connections = await r.json();
                 } catch (e) {
-                    this.apiError = 'Network error while loading connections.';
+                    this.apiError = 'Failed to load VCS connections.';
+                } finally {
+                    this.loading = false;
                 }
             },
-
-            async add(provider) {
-                if (!this.form.accessToken.trim()) {
-                    this.showToast('Access token is required.');
-                    return;
-                }
+            openCreate() {
+                this.form = { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' };
+                this.slideout = true;
+            },
+            closeCreate() {
+                this.slideout = false;
+            },
+            async addConnection() {
+                if (!this.form.provider || !this.form.accessToken.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                const providerName = this.providerLabel(this.form.provider);
                 try {
                     const body = {
-                        provider,
-                        serverUrl: this.form.serverUrl || null,
-                        vcsUsername: this.form.vcsUsername || null,
+                        provider: this.form.provider,
+                        serverUrl: this.form.serverUrl.trim() || null,
+                        vcsUsername: this.form.vcsUsername.trim() || null,
                         accessToken: this.form.accessToken
+                        // TODO: actual VCS API validation (verify token against provider)
                     };
-                    const r = await fetch('/api/settings/vcs', {
-                        method: 'POST',
-                        headers: this.headers(),
-                        body: JSON.stringify(body)
-                    });
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) {
-                        this.apiError = 'Failed to connect. (' + r.status + ')';
-                        return;
-                    }
-                    this.openProvider = null;
-                    this.resetForm();
-                    await this.load();
-                    const name = provider.charAt(0) + provider.slice(1).toLowerCase();
-                    this.showToast(name + ' connected successfully.');
+                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    this.closeCreate();
+                    await this.loadConnections();
+                    this.showToast(providerName + ' connected successfully.');
                 } catch (e) {
                     this.apiError = 'Network error. Please try again.';
+                } finally {
+                    this.creating = false;
                 }
             },
-
-            async remove(provider) {
-                const c = this.conn(provider);
-                if (!c) return;
-                const name = provider.charAt(0) + provider.slice(1).toLowerCase();
-                if (!confirm('Disconnect ' + name + '?')) return;
+            async disconnect(c) {
+                if (!confirm('Disconnect ' + this.providerLabel(c.provider) + '?')) return;
+                this.apiError = null;
                 try {
-                    const r = await fetch('/api/settings/vcs/' + c.id, {
-                        method: 'DELETE',
-                        headers: this.headers()
-                    });
+                    const r = await fetch('/api/settings/vcs/' + c.id, { method: 'DELETE', headers: this.headers() });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = 'Failed to disconnect.'; return; }
-                    await this.load();
-                    this.showToast(name + ' disconnected.');
+                    await this.loadConnections();
+                    this.showToast(this.providerLabel(c.provider) + ' disconnected.');
                 } catch (e) {
                     this.apiError = 'Network error. Please try again.';
                 }

@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.auth.controller;
 
 import com.salkcoding.oswl.auth.dto.CreateUserRequest;
+import com.salkcoding.oswl.auth.dto.UpdateDisplayNameRequest;
 import com.salkcoding.oswl.auth.dto.UpdateUserRolesRequest;
 import com.salkcoding.oswl.auth.dto.UserSummaryDto;
 import com.salkcoding.oswl.auth.service.UserManagementService;
@@ -32,6 +33,11 @@ public class AdminUserController {
     @PutMapping("/{id}/roles")
     public void updateRoles(@PathVariable Long id, @RequestBody UpdateUserRolesRequest request) {
         userManagementService.updateUserRoles(id, request.getTemplateIds());
+    }
+
+    @PutMapping("/{id}/display-name")
+    public void updateDisplayName(@PathVariable Long id, @RequestBody UpdateDisplayNameRequest request) {
+        userManagementService.updateDisplayName(id, request.getDisplayName());
     }
 
     @PutMapping("/{id}/activate")
