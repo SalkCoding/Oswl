@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.controller.spec.ScanControllerSpec;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.dto.api.PingResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
@@ -40,6 +41,7 @@ public class ScanController implements ScanControllerSpec {
     private final ScanIngestService      scanIngestService;
     private final ScanResultRepository   scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
+    private final AuditLogService        auditLogService;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -64,6 +66,9 @@ public class ScanController implements ScanControllerSpec {
         payload.setRawJson(MAPPER.writeValueAsString(payload));
 
         ScanResult result = scanIngestService.ingest(projectId, payload);
+
+        auditLogService.logAnonymous("system", "SCAN.INGEST", "PROJECT",
+                projectId.toString(), payload.getVersion(), null);
 
         return ResponseEntity.ok(ScanResponse.builder()
                 .scanId(result.getId())

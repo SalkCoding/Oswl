@@ -32,6 +32,7 @@ public class SecurityConfig {
     private final UserRepository userRepository;
     private final PermissionEvaluator oswlPermissionEvaluator;
     private final OswlAuthenticationFailureHandler authenticationFailureHandler;
+    private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -68,7 +69,7 @@ public class SecurityConfig {
                     .permitAll())
             .logout(logout -> logout
                     .logoutUrl("/logout")
-                    .logoutSuccessUrl("/login?logout")
+                    .logoutSuccessHandler(auditLogoutSuccessHandler)
                     .invalidateHttpSession(true)
                     .deleteCookies("JSESSIONID")
                     .permitAll())

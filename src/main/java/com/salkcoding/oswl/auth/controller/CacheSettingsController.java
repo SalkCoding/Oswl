@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.CacheSettingDto;
 import com.salkcoding.oswl.auth.dto.UpdateCacheTtlRequest;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.CacheManagementService;
+import com.salkcoding.oswl.aop.Auditable;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,11 +27,16 @@ public class CacheSettingsController {
     }
 
     @PutMapping
+    @Auditable(action = "CACHE.UPDATE_TTL", targetType = "CACHE",
+               targetIdExpr = "#request.cacheKey", targetNameExpr = "#request.cacheKey",
+               detailExpr = "#request.ttlSeconds + 's'")
     public void update(@RequestBody @Valid UpdateCacheTtlRequest request) {
         cacheManagementService.updateTtl(request.getCacheKey(), request.getTtlSeconds());
     }
 
     @PostMapping("/clear")
+    @Auditable(action = "CACHE.CLEAR", targetType = "CACHE",
+               targetIdExpr = "#cacheKey", targetNameExpr = "#cacheKey")
     public void clear(@RequestParam String cacheKey,
                       @AuthenticationPrincipal OswlUserPrincipal principal) {
         cacheManagementService.clearCache(cacheKey, principal != null ? principal.getUserId() : null);
