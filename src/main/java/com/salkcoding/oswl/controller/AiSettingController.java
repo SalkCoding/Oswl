@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 public class AiSettingController implements AiSettingControllerSpec {
 
     private final AiSettingRepository aiSettingRepository;
+    private final AuditLogService auditLogService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -57,13 +59,20 @@ public class AiSettingController implements AiSettingControllerSpec {
         }
 
         aiSettingRepository.save(setting);
+        auditLogService.log("AI_SETTING.SAVE", "AI_SETTING",
+                setting.getProvider().name(), setting.getProvider().name(),
+                setting.getModelName());
         return ResponseEntity.ok(toResponse(setting));
     }
 
     @PutMapping("/deactivate")
     @Transactional
     public ResponseEntity<Void> deactivate() {
-        aiSettingRepository.findByActiveTrue().ifPresent(AiSetting::deactivate);
+        aiSettingRepository.findByActiveTrue().ifPresent(s -> {
+            auditLogService.log("AI_SETTING.DEACTIVATE", "AI_SETTING",
+                    s.getProvider().name(), s.getProvider().name(), null);
+            s.deactivate();
+        });
         return ResponseEntity.noContent().build();
     }
 
@@ -76,7 +85,8 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .orElseThrow(() -> new IllegalArgumentException(
                         provider + " settings not found. Configure it first via PUT /api/settings/ai."));
         setting.activate();
-
+        auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
+                provider.name(), provider.name(), setting.getModelName());
         return ResponseEntity.ok(toResponse(setting));
     }
 

@@ -254,12 +254,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
-                                Message <span class="text-[var(--grayscale-50)] font-normal">(Optional)</span>
-                                <textarea x-model="editingMessage" rows="3" maxlength="200" placeholder="Enter a message (max 200 characters)"
-                                          class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[var(--primary-100)] resize-none"></textarea>
-                            </label>
-                        </div>
+
                         <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
                             <button @click="saveRoles()"
                                     class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[13px] font-bold py-[10px] rounded-[8px]">Save</button>
@@ -472,28 +467,45 @@
                 Export CSV
             </a>
         </div>
-        <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
-            <table class="w-full text-[13px]">
+        <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-x-auto">
+            <table class="w-full text-[13px] min-w-[860px]">
                 <thead>
                 <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                    <th class="px-[16px] py-[12px] font-bold">Time</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">Time</th>
                     <th class="px-[16px] py-[12px] font-bold">Actor</th>
-                    <th class="px-[16px] py-[12px] font-bold">Action</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">IP</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">Action</th>
                     <th class="px-[16px] py-[12px] font-bold">Target</th>
+                    <th class="px-[16px] py-[12px] font-bold">Detail</th>
                 </tr>
                 </thead>
                 <tbody>
                 <template x-for="l in auditLogs" :key="l.id">
                     <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
-                        <td class="px-[16px] py-[10px] text-[var(--grayscale-70)] text-[12px]" x-text="(l.createdAt||'').replace('T',' ').slice(0,19)"></td>
-                        <td class="px-[16px] py-[10px] text-[var(--grayscale-100)]" x-text="l.actorEmail"></td>
+                        <td class="px-[16px] py-[10px] text-[var(--grayscale-70)] text-[12px] whitespace-nowrap" x-text="(l.createdAt||'').replace('T',' ').slice(0,19)"></td>
                         <td class="px-[16px] py-[10px]">
+                            <div class="flex flex-col gap-[2px]">
+                                <span class="text-[var(--grayscale-100)] font-medium text-[13px]" x-text="l.actorDisplayName || l.actorEmail"></span>
+                                <span x-show="l.actorDisplayName" class="text-[var(--grayscale-50)] text-[11px]" x-text="l.actorEmail"></span>
+                            </div>
+                        </td>
+                        <td class="px-[16px] py-[10px]">
+                            <span class="text-[var(--grayscale-60)] text-[12px] font-mono" x-text="l.actorIp || '—'"></span>
+                        </td>
+                        <td class="px-[16px] py-[10px] whitespace-nowrap">
                             <span class="inline-flex items-center px-[8px] py-[2px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[11px] font-mono text-[var(--grayscale-80)]" x-text="l.action"></span>
                         </td>
-                        <td class="px-[16px] py-[10px] text-[var(--grayscale-70)]" x-text="(l.targetType||'') + (l.targetName ? ' / '+l.targetName : '')"></td>
+                        <td class="px-[16px] py-[10px]">
+                            <div class="flex items-center gap-[6px] flex-wrap">
+                                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] uppercase tracking-wide" x-text="l.targetType"></span>
+                                <span x-show="l.targetName" class="w-[3px] h-[3px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
+                                <span x-show="l.targetName" class="text-[var(--grayscale-80)] text-[13px]" x-text="l.targetName"></span>
+                            </div>
+                        </td>
+                        <td class="px-[16px] py-[10px] text-[var(--grayscale-60)] text-[12px] max-w-[200px] truncate" x-text="l.detail || '—'"></td>
                     </tr>
                 </template>
-                <tr x-show="auditLogs.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No audit records.</td></tr>
+                <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No audit records.</td></tr>
                 </tbody>
             </table>
         </div>

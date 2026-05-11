@@ -28,6 +28,12 @@ public class AuditLog {
     @Column(name = "actor_email", length = 255)
     private String actorEmail;
 
+    @Column(name = "actor_display_name", length = 100)
+    private String actorDisplayName;
+
+    @Column(name = "actor_ip", length = 45)
+    private String actorIp;
+
     @Column(nullable = false, length = 64)
     private String action;
 

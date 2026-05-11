@@ -5,6 +5,7 @@ import com.salkcoding.oswl.dto.api.AdminCliKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.GlobalApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class AdminCliKeyController {
 
     private final ApiKeyService apiKeyService;
+    private final AuditLogService auditLogService;
 
     /** List all API keys across all projects */
     @GetMapping
@@ -43,6 +45,8 @@ public class AdminCliKeyController {
         String label = (request.getLabel() != null && !request.getLabel().isBlank())
                 ? request.getLabel() : "CLI Key";
         ApiKey key = apiKeyService.issue(request.getProjectId(), label, null);
+        auditLogService.log("CLI_KEY.CREATE", "CLI_KEY", key.getId().toString(),
+                label + " / " + key.getProject().getName(), null);
         return ResponseEntity.ok(ApiKeyIssueResponse.builder()
                 .id(key.getId())
                 .token(key.getToken())
@@ -55,7 +59,10 @@ public class AdminCliKeyController {
     /** Toggle the active status of an API key */
     @PatchMapping("/{keyId}/toggle")
     public ResponseEntity<Void> toggle(@PathVariable Long keyId) {
-        apiKeyService.toggleActive(keyId);
+        ApiKey key = apiKeyService.toggleActive(keyId);
+        String action = key.isActive() ? "CLI_KEY.ACTIVATE" : "CLI_KEY.REVOKE";
+        auditLogService.log(action, "CLI_KEY", keyId.toString(),
+                (key.getLabel() != null ? key.getLabel() : "") + " / " + key.getProject().getName(), null);
         return ResponseEntity.noContent().build();
     }
 

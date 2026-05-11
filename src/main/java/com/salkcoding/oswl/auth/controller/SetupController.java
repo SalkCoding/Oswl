@@ -3,6 +3,7 @@ package com.salkcoding.oswl.auth.controller;
 import com.salkcoding.oswl.auth.dto.SetupRequest;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.auth.service.RoleTemplateBootstrapService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class SetupController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleTemplateBootstrapService roleTemplateBootstrapService;
+    private final AuditLogService auditLogService;
 
     @GetMapping
     public String setupForm(Model model) {
@@ -58,6 +60,10 @@ public class SetupController {
                 .enabled(true)
                 .build();
         userRepository.save(admin);
+
+        auditLogService.logAnonymous(request.getEmail().trim().toLowerCase(),
+                "SYSTEM.SETUP", "SYSTEM", null,
+                request.getDisplayName().trim(), null);
 
         return "redirect:/login?setup";
     }

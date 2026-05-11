@@ -17,5 +17,6 @@ public class UserSummaryDto {
     private boolean systemAdmin;
     private boolean enabled;
     private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt;
     private List<RoleTemplateRefDto> roleTemplates;
 }

@@ -7,6 +7,7 @@ import com.salkcoding.oswl.auth.entity.RoleTemplate;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class UserManagementService {
     private final UserRepository userRepository;
     private final RoleTemplateRepository roleTemplateRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public List<UserSummaryDto> findAllUsers() {
@@ -33,6 +35,9 @@ public class UserManagementService {
     }
 
     @Transactional
+    @Auditable(action = "USER.CREATE", targetType = "USER",
+               targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.email",
+               detailExpr = "#result.displayName")
     public UserSummaryDto createUser(CreateUserRequest request) {
         String email = request.getEmail().trim().toLowerCase();
         if (userRepository.existsByEmail(email)) {
@@ -64,6 +69,7 @@ public class UserManagementService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         user.setDisplayName(displayName.trim());
+        auditLogService.log("USER.UPDATE_NAME", "USER", userId.toString(), user.getEmail(), displayName.trim());
     }
 
     @Transactional
@@ -79,6 +85,8 @@ public class UserManagementService {
         }
         user.getRoleTemplates().clear();
         user.getRoleTemplates().addAll(templates);
+        String templateNames = templates.stream().map(RoleTemplate::getName).collect(Collectors.joining(", "));
+        auditLogService.log("USER.UPDATE_ROLES", "USER", userId.toString(), user.getEmail(), templateNames);
     }
 
     @Transactional
@@ -89,6 +97,8 @@ public class UserManagementService {
             throw new IllegalStateException("최고 관리자의 상태는 변경할 수 없습니다.");
         }
         user.setEnabled(enabled);
+        String action = enabled ? "USER.ACTIVATE" : "USER.DEACTIVATE";
+        auditLogService.log(action, "USER", userId.toString(), user.getEmail(), user.getDisplayName());
     }
 
     @Transactional
@@ -98,8 +108,11 @@ public class UserManagementService {
         if (user.isSystemAdmin()) {
             throw new IllegalStateException("최고 관리자는 삭제할 수 없습니다.");
         }
+        String email = user.getEmail();
+        String displayName = user.getDisplayName();
         user.getRoleTemplates().clear();
         userRepository.delete(user);
+        auditLogService.log("USER.DELETE", "USER", userId.toString(), email, displayName);
     }
 
     public boolean hasAnyUser() {
@@ -117,6 +130,7 @@ public class UserManagementService {
                 .systemAdmin(user.isSystemAdmin())
                 .enabled(user.isEnabled())
                 .createdAt(user.getCreatedAt())
+                .lastLoginAt(user.getLastLoginAt())
                 .roleTemplates(refs)
                 .build();
     }
