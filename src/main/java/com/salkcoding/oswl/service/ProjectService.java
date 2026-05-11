@@ -8,6 +8,7 @@ import com.salkcoding.oswl.dto.TrashProjectDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,6 +54,8 @@ public class ProjectService {
     }
 
     @Transactional
+    @Auditable(action = "PROJECT.CREATE", targetType = "PROJECT",
+               targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.name")
     public Project create(String name) {
         Project project = Project.builder().name(name).build();
         Project saved = projectRepository.save(project);
@@ -109,6 +112,8 @@ public class ProjectService {
 
     /** Soft-delete: moves the project to trash. */
     @Transactional
+    @Auditable(action = "PROJECT.DELETE", targetType = "PROJECT",
+               targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void delete(Long id) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
@@ -118,6 +123,8 @@ public class ProjectService {
     }
 
     @Transactional
+    @Auditable(action = "PROJECT.RESTORE", targetType = "PROJECT",
+               targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void restore(Long id) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
@@ -127,6 +134,8 @@ public class ProjectService {
     }
 
     @Transactional
+    @Auditable(action = "PROJECT.PERMANENT_DELETE", targetType = "PROJECT",
+               targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void permanentDelete(Long id) {
         projectRepository.deleteById(id);
         log.info("[Project] 영구삭제 id={}", id);

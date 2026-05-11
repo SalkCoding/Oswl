@@ -7,6 +7,8 @@ import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.aop.Auditable;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ public class VcsConnectionService {
     private final UserVcsConnectionRepository repository;
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public List<VcsConnectionDto> findByCurrentUser(Long userId) {
@@ -36,10 +39,12 @@ public class VcsConnectionService {
     }
 
     @Transactional
+    @Auditable(action = "VCS.CONNECT", targetType = "VCS_CONNECTION",
+               targetIdExpr = "#result.id.toString()",
+               targetNameExpr = "#result.provider + (#result.serverUrl != null ? ' / ' + #result.serverUrl : '')")
     public VcsConnectionDto addConnection(Long userId, AddVcsConnectionRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        // Disable any existing active connection for the same provider (one per provider per user)
         repository.findByUserIdAndProviderAndActiveTrue(userId, request.getProvider())
                 .ifPresent(existing -> existing.setActive(false));
 
@@ -69,5 +74,7 @@ public class VcsConnectionService {
             throw new SecurityException("본인의 연결만 삭제할 수 있습니다.");
         }
         conn.setActive(false);
+        auditLogService.log("VCS.DISCONNECT", "VCS_CONNECTION", connectionId.toString(),
+                conn.getProvider() + (conn.getServerUrl() != null ? " / " + conn.getServerUrl() : ""), null);
     }
 }

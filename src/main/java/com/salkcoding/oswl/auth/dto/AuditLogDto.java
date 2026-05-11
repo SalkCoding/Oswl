@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class AuditLogDto {
     private Long id;
+    private String actorDisplayName;
     private String actorEmail;
+    private String actorIp;
     private String action;
     private String targetType;
     private String targetName;

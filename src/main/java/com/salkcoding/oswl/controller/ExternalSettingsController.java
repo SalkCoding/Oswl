@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.domain.entity.ExternalApiSetting;
 import com.salkcoding.oswl.controller.spec.ExternalSettingsControllerSpec;
 import com.salkcoding.oswl.repository.ExternalApiSettingRepository;
+import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -39,6 +40,9 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
     // ── PUT /nvd ──────────────────────────────────────────────────────────
 
     @PutMapping("/nvd")
+    @Auditable(action = "EXTERNAL_SETTING.NVD_UPDATE", targetType = "EXTERNAL_SETTING",
+               targetIdExpr = "'nvd'", targetNameExpr = "'NVD API Key'",
+               detailExpr = "#body['nvdApiKey'] != null && !#body['nvdApiKey'].toString().isBlank() ? 'Key updated' : 'Key cleared'")
     public ResponseEntity<Map<String, Object>> updateNvd(
             @RequestBody Map<String, String> body) {
 
@@ -53,6 +57,9 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
     // ── PUT /cache ────────────────────────────────────────────────────────
 
     @PutMapping("/cache")
+    @Auditable(action = "EXTERNAL_SETTING.CACHE_POLICY_UPDATE", targetType = "EXTERNAL_SETTING",
+               targetIdExpr = "'cache'", targetNameExpr = "'Library Cache Policy'",
+               detailExpr = "#body['permanentCache'] == true ? 'Permanent cache' : 'TTL: ' + #body['cacheTtlDays'] + 'd'")
     public ResponseEntity<Map<String, Object>> updateCache(
             @RequestBody Map<String, Object> body) {
 
@@ -89,6 +96,8 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
     }
 
     @PutMapping("/github")
+    @Auditable(action = "EXTERNAL_SETTING.GITHUB_UPDATE", targetType = "EXTERNAL_SETTING",
+               targetIdExpr = "'github'", targetNameExpr = "'GitHub OAuth'")
     public ResponseEntity<Map<String, Object>> updateGithubSettings(
             @RequestBody Map<String, String> body) {
 
