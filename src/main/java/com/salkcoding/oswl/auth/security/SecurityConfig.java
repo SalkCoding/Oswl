@@ -41,8 +41,17 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) ->
+        AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) -> {
+            String accept = request.getHeader("Accept");
+            String uri = request.getRequestURI();
+            if (uri.startsWith("/api/") || (accept != null && accept.contains("application/json"))) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"error\":\"Forbidden\",\"status\":403}");
+            } else {
                 request.getRequestDispatcher("/error/403").forward(request, response);
+            }
+        };
 
         http
             .csrf(csrf -> csrf
@@ -54,7 +63,7 @@ public class SecurityConfig {
                     .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
                     .maximumSessions(1))
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/login", "/setup", "/error/**").permitAll()
+                    .requestMatchers("/login", "/login/otp-verify", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/data/**").permitAll()
