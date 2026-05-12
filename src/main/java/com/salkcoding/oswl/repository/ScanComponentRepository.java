@@ -35,4 +35,14 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
                                               @Param("status") LicenseStatus status);
 
     long countByScanResultId(Long scanResultId);
+
+    /** Count distinct projects referencing each library (in completed scans across the workspace) */
+    @Query("""
+            SELECT sc.library.id, COUNT(DISTINCT sc.scanResult.project.id)
+            FROM ScanComponent sc
+            WHERE sc.library.id IN :libraryIds
+              AND sc.scanResult.status = 'COMPLETED'
+            GROUP BY sc.library.id
+            """)
+    List<Object[]> countDistinctProjectsByLibraryIds(@Param("libraryIds") List<Long> libraryIds);
 }

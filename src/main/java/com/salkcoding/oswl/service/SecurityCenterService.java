@@ -88,6 +88,15 @@ public class SecurityCenterService {
             libToSc.put(sc.getLibrary().getId(), sc);
         }
 
+        // Batch-compute how many distinct projects reference each library across all completed scans
+        List<Long> libraryIds = libraries.stream().map(Library::getId).toList();
+        java.util.Map<Long, Long> projectCounts = new java.util.HashMap<>();
+        if (!libraryIds.isEmpty()) {
+            for (Object[] row : scanComponentRepository.countDistinctProjectsByLibraryIds(libraryIds)) {
+                projectCounts.put((Long) row[0], (Long) row[1]);
+            }
+        }
+
         int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secUnscored = 0;
         int licCritical = 0, licHigh = 0, licMedium = 0, licLow = 0;
         List<ComponentRowDto> rows = new ArrayList<>();
@@ -117,11 +126,20 @@ public class SecurityCenterService {
             boolean ignored  = sc != null && sc.isIgnored();
             Long componentId = sc != null ? sc.getId() : null;
 
+            // Build dependencyInfo: stored string + "· Projects (N)"
+            String depInfo = sc != null ? sc.getDependencyInfo() : null;
+            long projCount = projectCounts.getOrDefault(lib.getId(), 0L);
+            if (depInfo != null && projCount > 0) {
+                depInfo = depInfo + " · Projects (" + projCount + ")";
+            } else if (depInfo == null && projCount > 0) {
+                depInfo = "Projects (" + projCount + ")";
+            }
+
             rows.add(ComponentRowDto.builder()
                     .id(componentId)
                     .name(lib.getName())
                     .version(lib.getVersion())
-                    .dependencyInfo(sc != null ? sc.getDependencyInfo() : null)
+                    .dependencyInfo(depInfo)
                     .reviewed(reviewed)
                     .ignored(ignored)
                     .securityCritical(c)

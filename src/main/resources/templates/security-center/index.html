@@ -206,13 +206,11 @@
 
     <main class="flex flex-col flex-1 min-h-0">
 
-        <!-- Risk Graph Summary Row -->
-        <section class="w-full flex items-center px-[60px] py-[24px] flex-shrink-0 bg-white">
-            <div class="flex flex-wrap gap-x-[120px] gap-y-[16px] w-full items-center">
-                <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, 'Unscored')}"></div>
-                <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
+        <!-- Risk Graph Summary Row: 1행 2열 그리드 -->
+        <section class="w-full px-[60px] py-[24px] flex-shrink-0 bg-white">
+            <div class="grid grid-cols-2 gap-x-[60px] w-full">
+                <div th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, 'Unscored')}"></div>
+                <div th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
             </div>
         </section>
 
