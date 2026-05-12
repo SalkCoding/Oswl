@@ -9,14 +9,14 @@
     <header th:replace="~{fragments/topbar :: versiondiff-topbar(${projectId}, ${projectName})}"></header>
 
     <!-- ── Compare bar ──────────────────────────────────────────────────── -->
-    <div class="bg-white border-b border-[var(--grayscale-15)] px-[60px] py-[16px] flex items-center gap-[16px] shrink-0">
+    <div class="bg-[var(--grayscale-10)] border-b border-[var(--grayscale-20)] px-[60px] py-[16px] flex items-center gap-[16px] shrink-0">
         <span class="text-[14px] font-medium text-[var(--grayscale-60)] tracking-[-0.14px] shrink-0">Compare</span>
 
         <!-- From version selector -->
         <div class="relative" x-data="{ open: false }" @click.outside="open = false">
             <button type="button"
                     @click="open = !open"
-                    class="flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[6px] px-[12px] py-[7px] text-[14px] font-medium text-[var(--grayscale-90)] tracking-[-0.14px] hover:border-[var(--grayscale-40)] transition min-w-[160px]">
+                    class="flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[4px] px-[14px] py-[8px] text-[16px] font-medium text-[var(--grayscale-100)] tracking-[-0.16px] hover:border-[var(--grayscale-50)] transition min-w-[160px]">
                 <span th:text="${fromVersion}">-</span>
                 <svg class="ml-auto transition-transform" :class="open && 'rotate-180'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -41,7 +41,7 @@
         <div class="relative" x-data="{ open: false }" @click.outside="open = false">
             <button type="button"
                     @click="open = !open"
-                    class="flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[6px] px-[12px] py-[7px] text-[14px] font-medium text-[var(--grayscale-90)] tracking-[-0.14px] hover:border-[var(--grayscale-40)] transition min-w-[160px]">
+                    class="flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[4px] px-[14px] py-[8px] text-[16px] font-medium text-[var(--grayscale-100)] tracking-[-0.16px] hover:border-[var(--grayscale-50)] transition min-w-[160px]">
                 <span th:text="${toVersion}">-</span>
                 <svg class="ml-auto transition-transform" :class="open && 'rotate-180'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -75,28 +75,25 @@
         <div class="grid grid-cols-4 gap-[20px]">
             <!-- Added -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
-                <span class="text-[36px] font-bold text-[var(--secondary-100)] tracking-[-0.5px]"
+                <span class="text-[36px] font-bold text-[#5af596] tracking-[-0.5px]"
                       th:text="'+' + ${addedCount}">+0</span>
-                <span class="text-[14px] font-medium text-white/60 tracking-[-0.14px]">Added</span>
+                <span class="text-[14px] font-normal text-white tracking-[-0.14px]">Added</span>
             </div>
             <!-- Removed -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
-                <span class="text-[36px] font-bold text-[#f47a29] tracking-[-0.5px]"
+                <span class="text-[36px] font-bold text-[#ff837a] tracking-[-0.5px]"
                       th:text="'-' + ${removedCount}">-0</span>
-                <span class="text-[14px] font-medium text-white/60 tracking-[-0.14px]">Removed</span>
+                <span class="text-[14px] font-normal text-white tracking-[-0.14px]">Removed</span>
             </div>
             <!-- Updated -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
-                <div class="flex items-center gap-[4px]">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-100)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                    <span class="text-[36px] font-bold text-[var(--secondary-100)] tracking-[-0.5px]"
-                          th:text="${updatedCount}">0</span>
-                </div>
-                <span class="text-[14px] font-medium text-white/60 tracking-[-0.14px]">Updated</span>
+                <span class="text-[36px] font-bold text-[#6dc2ff] tracking-[-0.5px]"
+                      th:text="'↑' + ${updatedCount}">↑0</span>
+                <span class="text-[14px] font-normal text-white tracking-[-0.14px]">Updated</span>
             </div>
             <!-- New Threats -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
-                <span class="text-[36px] font-bold text-[#f47a29] tracking-[-0.5px]"
+                <span class="text-[36px] font-bold text-[#ffc732] tracking-[-0.5px]"
                       th:text="${newThreatCount}">0</span>
                 <span class="text-[14px] font-medium text-white/60 tracking-[-0.14px]">New Threats</span>
             </div>
@@ -107,52 +104,62 @@
              x-data="{ tab: 'all' }">
 
             <!-- Filter tabs -->
-            <div class="flex items-center gap-[0px] border-b border-[var(--grayscale-15)] px-[24px]">
+            <div class="flex items-center gap-[0px] border-b border-[var(--grayscale-20)] px-[24px]">
                 <button type="button"
                         @click="tab = 'all'"
-                        class="flex items-center gap-[6px] px-[4px] py-[16px] mr-[24px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2 -mb-px"
-                        :class="tab === 'all' ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
+                        :class="tab === 'all' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     ALL
-                    <span class="text-[var(--grayscale-50)] font-normal" th:text="${totalCount}">0</span>
+                    <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
+                          :class="tab === 'all' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          th:text="${totalCount}">0</span>
                 </button>
                 <button type="button"
                         @click="tab = 'added'"
-                        class="flex items-center gap-[6px] px-[4px] py-[16px] mr-[24px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2 -mb-px"
-                        :class="tab === 'added' ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
+                        :class="tab === 'added' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     Added
-                    <span class="text-[var(--grayscale-50)] font-normal" th:text="${addedCount}">0</span>
+                    <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
+                          :class="tab === 'added' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          th:text="${addedCount}">0</span>
                 </button>
                 <button type="button"
                         @click="tab = 'removed'"
-                        class="flex items-center gap-[6px] px-[4px] py-[16px] mr-[24px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2 -mb-px"
-                        :class="tab === 'removed' ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
+                        :class="tab === 'removed' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     Removed
-                    <span class="text-[var(--grayscale-50)] font-normal" th:text="${removedCount}">0</span>
+                    <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
+                          :class="tab === 'removed' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          th:text="${removedCount}">0</span>
                 </button>
                 <button type="button"
                         @click="tab = 'updated'"
-                        class="flex items-center gap-[6px] px-[4px] py-[16px] mr-[24px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2 -mb-px"
-                        :class="tab === 'updated' ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
+                        :class="tab === 'updated' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     Updated
-                    <span class="text-[var(--grayscale-50)] font-normal" th:text="${updatedCount}">0</span>
+                    <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
+                          :class="tab === 'updated' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          th:text="${updatedCount}">0</span>
                 </button>
                 <button type="button"
                         @click="tab = 'newThreat'"
-                        class="flex items-center gap-[6px] px-[4px] py-[16px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2 -mb-px"
-                        :class="tab === 'newThreat' ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        class="flex items-center gap-[8px] px-[14px] py-[12px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
+                        :class="tab === 'newThreat' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     New Threats
-                    <span class="text-[var(--grayscale-50)] font-normal" th:text="${newThreatCount}">0</span>
+                    <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
+                          :class="tab === 'newThreat' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          th:text="${newThreatCount}">0</span>
                 </button>
             </div>
 
             <!-- Column headers row — Figma 481-46547 style -->
-            <div class="flex border-b border-[var(--grayscale-15)] bg-[var(--grayscale-5)]">
-                <div class="flex-1 flex items-center gap-[8px] px-[24px] py-[10px] border-r border-[var(--grayscale-10)]">
-                    <span class="text-[13px] font-semibold text-[var(--grayscale-70)] tracking-[-0.13px]"
+            <div class="flex border-b border-[var(--grayscale-20)]">
+                <div class="flex-1 flex items-center justify-center px-[20px] py-[13px] bg-[var(--grayscale-5)] border-r border-[var(--grayscale-20)] rounded-tl-[12px]">
+                    <span class="text-[18px] font-bold text-[var(--background-dark)] tracking-[-0.18px]"
                           th:text="${fromVersion}">From</span>
                 </div>
-                <div class="flex-1 flex items-center gap-[8px] px-[24px] py-[10px]">
-                    <span class="text-[13px] font-semibold text-[var(--grayscale-70)] tracking-[-0.13px]"
+                <div class="flex-1 flex items-center justify-center px-[20px] py-[13px] bg-[var(--grayscale-5)] rounded-tr-[12px]">
+                    <span class="text-[18px] font-bold text-[var(--background-dark)] tracking-[-0.18px]"
                           th:text="${toVersion}">To</span>
                 </div>
             </div>
@@ -191,12 +198,15 @@
                               class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] shrink-0"
                               th:text="${row.fromVersion}">-</span>
                         <span th:if="${row.fromRiskLevel != null and row.fromRiskLevel != 'NONE'}"
-                              class="ml-auto shrink-0 px-[8px] py-[2px] rounded-[20px] text-[11px] font-medium tracking-[-0.11px]"
-                              th:classappend="${row.fromRiskLevel == 'CRITICAL'} ? ' bg-red-100 text-red-700'
-                                           : (${row.fromRiskLevel == 'HIGH'}     ? ' bg-orange-100 text-orange-700'
-                                           : (${row.fromRiskLevel == 'MEDIUM'}   ? ' bg-yellow-100 text-yellow-700'
-                                           : ' bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'))"
-                              th:text="${#strings.capitalize(#strings.toLowerCase(row.fromRiskLevel))} + ' Risk'">Low Risk</span>
+                              class="ml-auto shrink-0 inline-flex items-center gap-[8px] px-[12px] py-[4px] rounded-[40px] text-[11px] font-normal tracking-[-0.11px] text-[var(--grayscale-80)] border"
+                              th:classappend="${row.fromRiskLevel == 'CRITICAL'} ? ' bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
+                                           : (${row.fromRiskLevel == 'HIGH'}     ? ' bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]'
+                                           : (${row.fromRiskLevel == 'MEDIUM'}   ? ' bg-[rgba(245,189,38,0.05)] border-[rgba(245,189,38,0.2)]'
+                                           : ' bg-[var(--grayscale-5)] border-[var(--grayscale-20)]'))"><span class="w-[6px] h-[6px] rounded-full shrink-0"
+                                  th:classappend="${row.fromRiskLevel == 'CRITICAL'} ? ' bg-[var(--risk-critical)]'
+                                               : (${row.fromRiskLevel == 'HIGH'}     ? ' bg-[var(--risk-high)]'
+                                               : (${row.fromRiskLevel == 'MEDIUM'}   ? ' bg-[var(--risk-medium)]'
+                                               : ' bg-[var(--grayscale-30)]'))"></span><span th:text="${#strings.capitalize(#strings.toLowerCase(row.fromRiskLevel))} + ' Risk'">Low Risk</span></span>
                     </div>
 
                     <!-- Right column (toScan) -->
@@ -216,23 +226,26 @@
                               class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] shrink-0"
                               th:text="${row.toVersion}">-</span>
                         <span th:if="${row.toRiskLevel != null and row.toRiskLevel != 'NONE'}"
-                              class="shrink-0 px-[8px] py-[2px] rounded-[20px] text-[11px] font-medium tracking-[-0.11px]"
-                              th:classappend="${row.toRiskLevel == 'CRITICAL'} ? ' bg-red-100 text-red-700'
-                                           : (${row.toRiskLevel == 'HIGH'}     ? ' bg-orange-100 text-orange-700'
-                                           : (${row.toRiskLevel == 'MEDIUM'}   ? ' bg-yellow-100 text-yellow-700'
-                                           : ' bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'))"
-                              th:text="${#strings.capitalize(#strings.toLowerCase(row.toRiskLevel))} + ' Risk'">Low Risk</span>
+                              class="shrink-0 inline-flex items-center gap-[8px] px-[12px] py-[4px] rounded-[40px] text-[11px] font-normal tracking-[-0.11px] text-[var(--grayscale-80)] border"
+                              th:classappend="${row.toRiskLevel == 'CRITICAL'} ? ' bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
+                                           : (${row.toRiskLevel == 'HIGH'}     ? ' bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]'
+                                           : (${row.toRiskLevel == 'MEDIUM'}   ? ' bg-[rgba(245,189,38,0.05)] border-[rgba(245,189,38,0.2)]'
+                                           : ' bg-[var(--grayscale-5)] border-[var(--grayscale-20)]'))"><span class="w-[6px] h-[6px] rounded-full shrink-0"
+                                  th:classappend="${row.toRiskLevel == 'CRITICAL'} ? ' bg-[var(--risk-critical)]'
+                                               : (${row.toRiskLevel == 'HIGH'}     ? ' bg-[var(--risk-high)]'
+                                               : (${row.toRiskLevel == 'MEDIUM'}   ? ' bg-[var(--risk-medium)]'
+                                               : ' bg-[var(--grayscale-30)]'))"></span><span th:text="${#strings.capitalize(#strings.toLowerCase(row.toRiskLevel))} + ' Risk'">Low Risk</span></span>
 
                         <!-- Change type tag (right-most) -->
-                        <span class="ml-auto shrink-0 text-[12px] font-semibold tracking-[-0.12px] whitespace-nowrap"
-                              th:classappend="${row.changeType.name() == 'ADDED'}      ? ' text-[var(--secondary-60)]'
-                                           : (${row.changeType.name() == 'REMOVED'}    ? ' text-red-500'
-                                           : (${row.changeType.name() == 'NEW_THREAT'} ? ' text-[#f47a29]'
-                                           : ' text-[#3b82f6]'))">
+                        <span class="ml-auto shrink-0 text-[14px] font-bold tracking-[-0.14px] whitespace-nowrap"
+                              th:classappend="${row.changeType.name() == 'ADDED'}      ? ' text-[#00b258]'
+                                           : (${row.changeType.name() == 'REMOVED'}    ? ' text-[#e62727]'
+                                           : (${row.changeType.name() == 'NEW_THREAT'} ? ' text-[var(--risk-high)]'
+                                           : ' text-[#0086e5]'))">
                             <th:block th:switch="${row.changeType.name()}">
                                 <span th:case="'ADDED'">+ Added</span>
                                 <span th:case="'REMOVED'">- Removed</span>
-                                <span th:case="'UPDATED'">↑ Updated</span>
+                                <span th:case="'UPDATED'">↑Updated</span>
                                 <span th:case="'NEW_THREAT'">⚠ New Threat</span>
                             </th:block>
                         </span>

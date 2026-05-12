@@ -32,7 +32,7 @@
                      th:if="${unknown != null and unknown > 0}"
                      th:style="'width: ' + (${unknown} * 100.0 / ${total}) + '%'"></div>
             </th:block>
-            <div class="risk-graph-segment bg-[var(--risk-low)] w-full" th:if="${total == 0}"></div>
+            <div class="risk-graph-segment bg-[var(--risk-unknown)] w-full" th:if="${total == 0}"></div>
         </div>
 
         <div class="flex flex-wrap gap-y-[12px] gap-x-[24px] items-center w-full pr-[8px]">

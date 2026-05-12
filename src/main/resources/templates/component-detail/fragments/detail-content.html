@@ -1,4 +1,4 @@
-<div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative w-full h-full" x-data="{ modal: null }">
+<div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative" x-data="{ modal: null }">
 
     <!-- Modals -->
     <div th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"></div>
@@ -21,84 +21,87 @@
         </div>
 
         <div class="flex flex-wrap gap-[10px]">
-            <span class="bg-white border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
-                <img th:src="@{/icon/icon-check-circle.svg}" class="w-[14px] h-[14px]"
-                     th:style="${reviewed} ? 'filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);' : 'filter: brightness(0) saturate(100%) invert(44%) sepia(8%) saturate(503%) hue-rotate(153deg) brightness(95%) contrast(90%);'"
-                     alt="" aria-hidden="true">
-                <span class="text-[12px] tracking-[-0.12px]"
+            <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[8px] py-[4px] rounded-[4px]">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"
+                     class="w-[14px] h-[14px] shrink-0"
+                     th:style="${reviewed} ? 'color:#00A093' : 'color:#dbe4e7'" aria-hidden="true">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M10 15.5C11.4587 15.5 12.8576 14.9205 13.8891 13.8891C14.9205 12.8576 15.5 11.4587 15.5 10C15.5 8.54131 14.9205 7.14236 13.8891 6.11091C12.8576 5.07946 11.4587 4.5 10 4.5C8.54131 4.5 7.14236 5.07946 6.11091 6.11091C5.07946 7.14236 4.5 8.54131 4.5 10C4.5 11.4587 5.07946 12.8576 6.11091 13.8891C7.14236 14.9205 8.54131 15.5 10 15.5ZM10 17C11.8565 17 13.637 16.2625 14.9497 14.9497C16.2625 13.637 17 11.8565 17 10C17 8.14348 16.2625 6.36301 14.9497 5.05025C13.637 3.7375 11.8565 3 10 3C8.14348 3 6.36301 3.7375 5.05025 5.05025C3.7375 6.36301 3 8.14348 3 10C3 11.8565 3.7375 13.637 5.05025 14.9497C6.36301 16.2625 8.14348 17 10 17Z" fill="currentColor"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M12.9773 7.42085C13.0534 7.48348 13.1163 7.56047 13.1626 7.64744C13.2089 7.73441 13.2376 7.82965 13.2471 7.92772C13.2566 8.02578 13.2466 8.12475 13.2178 8.21898C13.189 8.3132 13.142 8.40082 13.0793 8.47685L9.92231 12.3099C9.79599 12.5357 9.58701 12.7038 9.33931 12.7789C9.10033 12.8588 8.83997 12.8456 8.61031 12.7418C8.46458 12.6741 8.33732 12.5722 8.23931 12.4448C8.1818 12.3714 8.12774 12.2953 8.07731 12.2168L6.87631 10.4159C6.76858 10.2503 6.73048 10.049 6.77027 9.85558C6.81006 9.66215 6.92454 9.49222 7.08886 9.38267C7.25318 9.27313 7.45407 9.23281 7.64793 9.27048C7.84179 9.30814 8.01297 9.42075 8.12431 9.58385L9.06431 10.9939L11.9213 7.52385C11.9839 7.44772 12.0608 7.38466 12.1477 7.33828C12.2347 7.2919 12.3299 7.26311 12.428 7.25354C12.526 7.24398 12.625 7.25383 12.7193 7.28254C12.8135 7.31124 12.9012 7.35824 12.9773 7.42085Z" fill="currentColor"/>
+                </svg>
+                <span class="text-[11px] tracking-[-0.11px]"
                       th:classappend="${reviewed} ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'"
                       th:text="${reviewed} ? 'Reviewed' : 'Not Reviewed'">Not Reviewed</span>
             </span>
-            <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[5px] rounded-[40px]">
-                <span class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
+            <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[4px] rounded-[40px]">
+                <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                       th:text="${projectsCount} + ' Projects'">7 Projects</span>
             </span>
             <!-- Patchability: when CVEs exist show patchability; when no CVEs show version health -->
             <span th:if="${hasVulnerabilities}"
-                  th:class="${patchability == 'patchable'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : (${patchability == 'non-patchable'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]')">
+                  th:class="${patchability == 'patchable'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                           : (${patchability == 'non-patchable'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                           : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]')">
                 <span class="w-[6px] h-[6px] rounded-full"
                       th:classappend="${patchability == 'patchable'} ? 'bg-[var(--semantic-patchable)]'
                                      : (${patchability == 'non-patchable'} ? 'bg-[var(--risk-critical)]' : 'bg-[var(--grayscale-30)]')"></span>
-                <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${patchability == 'patchable'} ? 'Patchable' : (${patchability == 'non-patchable'} ? 'Non-Patchable' : 'Unknown')">Patchable</span>
             </span>
             <!-- No CVEs: show version currency (Deprecated / Outdated / hidden-if-latest) -->
             <span th:if="${!hasVulnerabilities and isDeprecated}"
-                  class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                  class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
-                <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]">Deprecated</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Deprecated</span>
             </span>
             <span th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion == false}"
-                  class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                  class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-caution)]"></span>
-                <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${latestVersion != null} ? 'Outdated → v' + ${latestVersion} : 'Outdated'">Outdated</span>
             </span>
             <span th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion != false}"
-                  class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]">
+                  class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
-                <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]">Up to date</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Up to date</span>
             </span>
-            <span th:class="${licenseRisk == 'RESTRICTED'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : (${licenseRisk == 'CAUTION'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'
-                           : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px]'))">
+            <span th:class="${licenseRisk == 'RESTRICTED'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                           : (${licenseRisk == 'CAUTION'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                           : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(132,220,165,0.08)] border border-[rgba(132,220,165,0.32)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                           : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'))">
                 <span class="w-[6px] h-[6px] rounded-full"
                       th:classappend="${licenseRisk == 'RESTRICTED'} ? 'bg-[var(--risk-critical)]'
                                      : (${licenseRisk == 'CAUTION'} ? 'bg-[var(--risk-high)]'
-                                     : (${licenseRisk == 'PERMITTED'} ? 'bg-[var(--semantic-patchable)]' : 'bg-[var(--grayscale-30)]'))"></span>
-                <span class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
+                                     : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(132,220,165,1)]' : 'bg-[var(--grayscale-30)]'))"></span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${licenseRiskLabel}">A High Risk License</span>
             </span>
         </div>
 
         <div class="flex flex-wrap items-center gap-[12px]">
-            <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">Security Issues</p>
+            <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Security Issues</p>
             <span th:if="${securityCritical > 0}"
-                  class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                  class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' Critical'">8 Critical</span>
             </span>
             <span th:if="${securityHigh > 0}"
-                  class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                  class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityHigh} + ' High'">20 High</span>
             </span>
             <span th:if="${securityMedium > 0}"
-                  class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                  class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityMedium} + ' Medium'">150 Medium</span>
             </span>
             <span th:if="${securityLow > 0}"
-                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-low)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${securityLow >= 1000 ? #numbers.formatDecimal(securityLow / 1000.0, 1, 1) + 'k' : securityLow} + ' Low'">1.1k Low</span>
             </span>
             <span th:if="${securityUnscored > 0}"
-                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]">
+                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityUnscored} + ' Unscored'">4 Unscored</span>
             </span>
@@ -125,7 +128,7 @@
             <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]">No known CVEs, but this version is no longer maintained. Upgrade to a supported release.</p>
             <div class="pt-[6px]">
                 <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                     Defer (Exception)
                 </button>
@@ -147,7 +150,7 @@
             </div>
             <div class="flex flex-col gap-[6px]">
                 <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                     Defer (Exception)
                 </button>
@@ -166,7 +169,7 @@
             </div>
             <div th:if="${licenseRisk == 'RESTRICTED' or licenseRisk == 'CAUTION'}" class="pt-[0px]">
                 <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                     Defer (Exception)
                 </button>
@@ -213,8 +216,8 @@
                         Apply Patch (Create PR)
                     </button>
                     <button type="button" @click="modal = 'defer'"
-                            class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
-                        <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-10)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(40%) sepia(96%) saturate(502%) hue-rotate(148deg) brightness(96%);">
                         Defer (Exception)
                     </button>
                 </div>
@@ -242,19 +245,22 @@
                 <button type="button"
                         @click="open = !open"
                         class="w-full flex items-center gap-[12px] px-[20px] py-[16px] text-left">
-                    <img th:src="@{/icon/icon-chevron-down.svg}" class="w-[14px] h-[14px] transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);">
-                    <p class="font-bold text-[15px] text-[var(--grayscale-100)] tracking-[-0.15px]" th:text="${cve.id}">CVE-2024-11053</p>
+                    <svg width="19" height="17" viewBox="0 0 19 17" fill="none" xmlns="http://www.w3.org/2000/svg"
+                         class="w-[14px] h-[14px] transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''" aria-hidden="true">
+                        <path d="M13.2578 4H5.74222C4.78379 4 4.21212 5.06818 4.74376 5.86564L8.50154 11.5023C8.97653 12.2148 10.0235 12.2148 10.4985 11.5023L14.2562 5.86564C14.7879 5.06817 14.2162 4 13.2578 4Z" fill="#00A093"/>
+                    </svg>
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]" th:text="${cve.id}">CVE-2024-11053</p>
                     <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
                                           : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
                                           : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]'
                                           : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-30)]' : 'bg-[var(--risk-unknown)]')))"
-                          class="w-[8px] h-[8px] rounded-full"></span>
+                          class="w-[6px] h-[6px] rounded-full"></span>
                     <p th:if="${cve.title}" class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="${cve.title}">Vulnerability Title</p>
-                    <span th:class="${cve.severity == 'CRITICAL'} ? 'ml-auto bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]'
-                                    : (${cve.severity == 'HIGH'} ? 'ml-auto bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]'
-                                    : (${cve.severity == 'MEDIUM'} ? 'ml-auto bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]'
-                                    : (${cve.severity == 'LOW'} ? 'ml-auto bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]'
-                                    : 'ml-auto bg-[rgba(39,45,48,0.05)] border border-[rgba(39,45,48,0.2)] flex items-center gap-[6px] px-[10px] py-[3px] rounded-[40px]')))">
+                    <span th:class="${cve.severity == 'CRITICAL'} ? 'ml-auto bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                                    : (${cve.severity == 'HIGH'} ? 'ml-auto bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                                    : (${cve.severity == 'MEDIUM'} ? 'ml-auto bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                                    : (${cve.severity == 'LOW'} ? 'ml-auto bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
+                                    : 'ml-auto bg-[rgba(39,45,48,0.05)] border border-[rgba(39,45,48,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]')))">
                         <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
                                                : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
                                                : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]'
@@ -305,12 +311,12 @@
                    th:text="${licenseName != null ? licenseName : 'Unknown'}">Apache-2.0</p>
                 <span th:class="${licenseRisk == 'RESTRICTED'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
                                : (${licenseRisk == 'CAUTION'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
-                               : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
+                               : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(132,220,165,0.08)] border border-[rgba(132,220,165,0.32)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'
                                : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[3px] rounded-[40px]'))">
                     <span class="w-[6px] h-[6px] rounded-full"
                           th:classappend="${licenseRisk == 'RESTRICTED'} ? 'bg-[var(--risk-critical)]'
                                          : (${licenseRisk == 'CAUTION'} ? 'bg-[var(--risk-high)]'
-                                         : (${licenseRisk == 'PERMITTED'} ? 'bg-[var(--semantic-patchable)]' : 'bg-[var(--grayscale-30)]'))"></span>
+                                         : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(132,220,165,1)]' : 'bg-[var(--grayscale-30)]'))"></span>
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${licenseRiskLabel}">High Risk</span>
                 </span>
             </div>
@@ -326,8 +332,8 @@
 
             <!-- OK: permissive -->
             <div th:if="${licenseRisk == 'PERMITTED'}"
-                 class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[8px]">
-                <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
+                 class="bg-[rgba(132,220,165,0.08)] border border-[rgba(132,220,165,0.32)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[8px]">
+                <span class="w-[8px] h-[8px] rounded-full bg-[rgba(132,220,165,1)] shrink-0"></span>
                 <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
                     Permissive license — free to use commercially, modify, and distribute without restrictions.
                 </p>

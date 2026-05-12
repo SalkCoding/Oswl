@@ -7,7 +7,7 @@
 
     <!-- Table Header / Description Bar -->
     <div class="flex items-center w-full bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] sticky top-0 z-10">
-        <div class="flex h-[40px] items-center justify-center w-[60px] min-w-[60px]">
+        <div class="flex h-[40px] items-center w-[60px] min-w-[60px] pl-[20px] pr-[4px]">
             <label class="cursor-pointer relative flex items-center justify-center p-2">
                 <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
@@ -75,7 +75,7 @@
            }"
            class="flex items-center w-full border-b border-[var(--grayscale-20)] hover:bg-[var(--grayscale-10)] transition-colors no-underline text-inherit cursor-pointer">
 
-            <div class="flex h-[48px] items-center justify-center w-[60px] min-w-[60px]"
+            <div class="flex h-[48px] items-center w-[60px] min-w-[60px] pl-[20px] pr-[4px]"
                  th:attr="data-row-id=${comp.id}"
                  @click.stop>
                 <label class="cursor-pointer relative flex items-center justify-center p-2">
@@ -112,11 +112,13 @@
                 <img x-show="!reviewed" th:src="@{/icon/icon-check-circle.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
             </div>
 
-            <div class="flex flex-1 flex-col h-[48px] justify-center px-[12px] min-w-[300px]">
-                <p class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]"
-                   th:text="${comp.name + ' ' + comp.version}">Library Name</p>
-                <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3]"
-                   th:text="${comp.dependencyInfo}">Direct (6) + Transitive (1)</p>
+            <div class="flex flex-1 flex-col justify-center pb-[16px] pl-[12px] pr-[16px] pt-[15px] min-w-[300px]">
+                <div class="flex flex-wrap gap-x-[24px] gap-y-[4px] items-center w-full">
+                    <p class="flex-1 font-medium text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3] min-w-[152px]"
+                       th:text="${comp.name + ' ' + comp.version}">Library Name</p>
+                    <p class="shrink-0 font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3] min-w-[140px]"
+                       th:text="${comp.dependencyInfo}">Direct (6) + Transitive (1)</p>
+                </div>
             </div>
 
             <div class="flex h-[48px] items-center gap-[6px] px-[16px] w-[230px] min-w-[230px]">
@@ -130,10 +132,10 @@
                       class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-medium)] rounded-[4px] items-center justify-center text-[11px] font-medium text-white tracking-[-0.11px]"
                       th:text="${comp.securityMedium >= 1000} ? ${#numbers.formatDecimal(comp.securityMedium / 1000.0, 1, 1)} + 'k' : ${comp.securityMedium}">150</span>
                 <span th:if="${comp.securityLow > 0}"
-                      class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-low)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-50)] tracking-[-0.11px]"
+                      class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-low)] rounded-[4px] items-center justify-center text-[11px] font-medium text-white tracking-[-0.11px]"
                       th:text="${comp.securityLow >= 1000} ? ${#numbers.formatDecimal(comp.securityLow / 1000.0, 1, 1)} + 'k' : ${comp.securityLow}">1.1k</span>
                 <span th:if="${comp.securityUnscored > 0}"
-                      class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-white tracking-[-0.11px]"
+                      class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-50)] tracking-[-0.11px]"
                       th:text="${comp.securityUnscored}">3</span>
             </div>
 
@@ -153,7 +155,7 @@
                 <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
                     <span th:if="${comp.deprecated != null}"
                           class="flex items-center gap-[6px]">
-                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-critical)]"></span>
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-70)]"></span>
                         <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Deprecated</p>
                     </span>
                     <span th:if="${comp.deprecated == null and comp.isLatestVersion == false}"
@@ -168,7 +170,7 @@
                     </span>
                     <span th:if="${comp.deprecated == null and comp.isLatestVersion != false}"
                           class="flex items-center gap-[6px]">
-                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)]"></span>
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-15)]"></span>
                         <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Up to date</p>
                     </span>
                 </th:block>
@@ -176,10 +178,10 @@
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[200px] min-w-[200px]">
                 <span th:classappend="${
-                          comp.licenseStatus == 'PERMITTED'        ? 'bg-[var(--primary-80)]' :
-                          comp.licenseStatus == 'CAUTION'      ? 'bg-[var(--semantic-caution)]' :
-                          comp.licenseStatus == 'RESTRICTED' ? 'bg-[var(--risk-critical)]' :
-                                                              'bg-[var(--grayscale-30)]'
+                          comp.licenseStatus == 'PERMITTED'   ? 'bg-[var(--risk-permitted)]' :
+                          comp.licenseStatus == 'CAUTION'     ? 'bg-[var(--semantic-caution)]' :
+                          comp.licenseStatus == 'RESTRICTED'  ? 'bg-[var(--risk-critical)]' :
+                                                                'bg-[var(--grayscale-20)]'
                       }"
                       class="w-[8px] h-[8px] rounded-full shrink-0"></span>
                 <!-- Non-standard: show original name with italic label -->

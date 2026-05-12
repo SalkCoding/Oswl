@@ -1,112 +1,220 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <!-- Filter Sidebar Fragment -->
-<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb]">
+<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb] overflow-hidden">
     <!-- Title -->
-    <div class="bg-[#001d35] flex items-center gap-[8px] h-[40px] px-[20px] w-full text-white">
-        <svg class="size-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-        </svg>
-        <p class="font-bold text-[12px] uppercase">
+    <div class="bg-[#001d35] flex items-center gap-[8px] h-[40px] px-[20px] w-full text-white shrink-0">
+        <img th:src="@{/icon/icon-fillter.svg}" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+        <p class="font-bold text-[12px] tracking-[-0.12px] whitespace-nowrap">
             Filters
         </p>
     </div>
-    
-    <div class="flex flex-col gap-[17px] p-[20px] w-full overflow-y-auto">
-        <!-- Review Filter (Non-Reviewed = unassessed risk → top) -->
+
+    <div class="flex flex-col gap-[17px] p-[20px] w-full overflow-y-auto flex-1 min-h-0">
+
+        <!-- Review Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.nonReviewed" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Non-Reviewed</span>
-            </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.reviewed" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.reviewed" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.reviewed ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.reviewed ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Reviewed</span>
             </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.nonReviewed" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.nonReviewed ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.nonReviewed ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black">Non-Reviewed</span>
+            </label>
         </div>
 
-        <!-- Ignored Filter (Non-Ignored = active exposure → top) -->
+        <!-- Ignored Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.nonIgnored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Non-Ignored</span>
+                <input type="checkbox" x-model="filters.ignored" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.ignored ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.ignored ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black">Ignored</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.ignored" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Ignored</span>
+                <input type="checkbox" x-model="filters.nonIgnored" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.nonIgnored ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.nonIgnored ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black">Non-Ignored</span>
             </label>
         </div>
 
-        <!-- Security Severity Filter (descending risk) -->
+        <!-- Security Severity Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full">Security Severity</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secCritical" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.secCritical" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.secCritical ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.secCritical ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Critical</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secHigh" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.secHigh" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.secHigh ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.secHigh ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">High</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secMedium" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.secMedium" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.secMedium ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.secMedium ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Medium</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secLow" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.secLow" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.secLow ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.secLow ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Low</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.secUnknown" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.secUnknown" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.secUnknown ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.secUnknown ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Unscored</span>
             </label>
         </div>
 
-        <!-- License Status Filter: Restricted(VIOLATION) > Caution(WARN) > Permitted(OK) > Unknown -->
+        <!-- License Status Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full">License Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licRestricted" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.licRestricted" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.licRestricted ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.licRestricted ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Restricted</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licCaution" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.licCaution" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.licCaution ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.licCaution ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Caution</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licPermitted" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.licPermitted" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.licPermitted ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.licPermitted ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Permitted</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.licUnknown" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.licUnknown" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.licUnknown ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.licUnknown ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Unknown</span>
             </label>
         </div>
 
-        <!-- Patchability / Version Health Filter -->
+        <!-- Patchability Filter — order: Patchable, Non-Patchable, Up to date, Outdated, Deprecated -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full">Patchability</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.nonPatchable" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Non-Patchable</span>
-            </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.patchDeprecated" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Deprecated</span>
-            </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.patchOutdated" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
-                <span class="text-[13px] text-black">Outdated</span>
-            </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.patchable" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.patchable" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.patchable ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.patchable ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Patchable</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
-                <input type="checkbox" x-model="filters.patchUpToDate" class="rounded border-gray-300 text-[#00a093] focus:ring-[#00a093]" />
+                <input type="checkbox" x-model="filters.nonPatchable" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.nonPatchable ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.nonPatchable ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black">Non-Patchable</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.patchUpToDate" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.patchUpToDate ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.patchUpToDate ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
                 <span class="text-[13px] text-black">Up to date</span>
             </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.patchOutdated" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.patchOutdated ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.patchOutdated ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black">Outdated</span>
+            </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.patchDeprecated" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.patchDeprecated ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.patchDeprecated ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black">Deprecated</span>
+            </label>
         </div>
+
     </div>
 </div>
 </html>
