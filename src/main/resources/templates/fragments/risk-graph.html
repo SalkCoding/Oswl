@@ -61,10 +61,68 @@
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
-                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></div>
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)] border border-[var(--grayscale-20)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
                     <span th:text="${unknown ?: 0}">0</span>
                     <th:block th:text="' ' + ${unknownLabel}">Unscored</th:block>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!--
+        License Risk Graph fragment.
+        Categories: Restricted (red), Caution (orange), Permitted (green), Unknown (gray)
+        usage: th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"
+        params: restricted, caution, permitted, unknown
+    -->
+    <div th:fragment="licenseRiskGraph(restricted, caution, permitted, unknown)"
+         class="flex flex-col gap-[14px] items-start w-full relative shrink-0">
+
+        <p class="font-medium text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] w-full">License Risk</p>
+
+        <div class="risk-graph-bar"
+             th:with="total=${(restricted ?: 0) + (caution ?: 0) + (permitted ?: 0) + (unknown ?: 0)}">
+            <th:block th:if="${total > 0}">
+                <div class="risk-graph-segment bg-[var(--risk-critical)]"
+                     th:if="${restricted != null and restricted > 0}"
+                     th:style="'width: ' + (${restricted} * 100.0 / ${total}) + '%'"></div>
+                <div class="risk-graph-segment bg-[var(--risk-caution)]"
+                     th:if="${caution != null and caution > 0}"
+                     th:style="'width: ' + (${caution} * 100.0 / ${total}) + '%'"></div>
+                <div class="risk-graph-segment bg-[var(--risk-permitted)]"
+                     th:if="${permitted != null and permitted > 0}"
+                     th:style="'width: ' + (${permitted} * 100.0 / ${total}) + '%'"></div>
+                <div class="risk-graph-segment bg-[var(--risk-unknown)]"
+                     th:if="${unknown != null and unknown > 0}"
+                     th:style="'width: ' + (${unknown} * 100.0 / ${total}) + '%'"></div>
+            </th:block>
+            <div class="risk-graph-segment bg-[var(--risk-unknown)] w-full" th:if="${total == 0}"></div>
+        </div>
+
+        <div class="flex flex-wrap gap-y-[12px] gap-x-[24px] items-center w-full pr-[8px]">
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
+                    <span th:text="${restricted ?: 0}">0</span> Restricted
+                </p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-caution)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
+                    <span th:text="${caution ?: 0}">0</span> Caution
+                </p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-permitted)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
+                    <span th:text="${permitted ?: 0}">0</span> Permitted
+                </p>
+            </div>
+            <div class="flex gap-[8px] items-center shrink-0">
+                <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)] border border-[var(--grayscale-20)]"></div>
+                <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
+                    <span th:text="${unknown ?: 0}">0</span> Unknown
                 </p>
             </div>
         </div>

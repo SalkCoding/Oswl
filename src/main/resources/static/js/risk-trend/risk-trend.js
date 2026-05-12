@@ -11,8 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
         critical: '#e62727',
         high: '#f47a29',
         medium: '#f5bd26',
-        low: '#c2cdd1',
-        unknown: '#e8eef0'
+        low: '#97a5ab',
+        unknown: '#d0d9dd'
+    };
+
+    const licensePalette = {
+        restricted: '#e62727',
+        caution:    '#f59126',
+        permitted:  '#84dca5',
+        unknown:    '#abb8be'
     };
 
     // 백엔드에서 주입된 실제 데이터, 없으면 빈 배열로 폴백
@@ -99,15 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const createDatasets = (variant) => {
-        const d = variant === 'license' ? trendData.license : trendData.security;
-        const unknownData = variant === 'license' ? (d.unknown || []) : (d.none || []);
-        const unknownLabel = variant === 'license' ? 'Unknown' : 'Unscored';
+        if (variant === 'license') {
+            const d = trendData.license;
+            return [
+                { label: 'Restricted', data: d.restricted || [], fill: false, borderColor: licensePalette.restricted, backgroundColor: licensePalette.restricted },
+                { label: 'Caution',    data: d.caution    || [], fill: false, borderColor: licensePalette.caution,    backgroundColor: licensePalette.caution },
+                { label: 'Permitted',  data: d.permitted  || [], fill: false, borderColor: licensePalette.permitted,  backgroundColor: licensePalette.permitted },
+                { label: 'Unknown',    data: d.unknown    || [], fill: false, borderColor: licensePalette.unknown,    backgroundColor: licensePalette.unknown }
+            ];
+        }
+        const d = trendData.security;
         return [
-            { label: 'Critical',      data: d.critical,   fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
-            { label: 'High',          data: d.high,       fill: false, borderColor: palette.high,     backgroundColor: palette.high },
-            { label: 'Medium',        data: d.medium,     fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
-            { label: 'Low',           data: d.low,        fill: false, borderColor: palette.low,      backgroundColor: palette.low },
-            { label: unknownLabel,    data: unknownData,  fill: false, borderColor: palette.unknown,  backgroundColor: palette.unknown }
+            { label: 'Critical', data: d.critical, fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
+            { label: 'High',     data: d.high,     fill: false, borderColor: palette.high,     backgroundColor: palette.high },
+            { label: 'Medium',   data: d.medium,   fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
+            { label: 'Low',      data: d.low,      fill: false, borderColor: palette.low,      backgroundColor: palette.low },
+            { label: 'Unscored', data: d.none,     fill: false, borderColor: palette.unknown,  backgroundColor: palette.unknown }
         ];
     };
 

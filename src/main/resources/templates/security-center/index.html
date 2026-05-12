@@ -212,7 +212,7 @@
                 <div class="w-[480px]"
                      th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, 'Unscored')}"></div>
                 <div class="w-[480px]"
-                     th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${licenseCritical}, ${licenseHigh}, 0, ${licenseLow}, ${licenseMedium}, 'Unknown')}"></div>
+                     th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
             </div>
         </section>
 
