@@ -84,7 +84,6 @@ public class NvdClient {
 
     // ── Internal ─────────────────────────────────────────────────────────
 
-    @SuppressWarnings("unchecked")
     private NvdCveInfo parseResponse(Map<String, Object> response) {
         if (response == null) return null;
         try {

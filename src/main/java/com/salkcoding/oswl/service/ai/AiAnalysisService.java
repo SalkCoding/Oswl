@@ -1,7 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
-import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

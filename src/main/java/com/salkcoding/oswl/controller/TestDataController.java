@@ -103,8 +103,8 @@ public class TestDataController {
                 .lastScannedAt(LocalDateTime.now().minusDays(3))
                 .build());
 
-        // projectD —no scans at all (empty-state edge case)
-        Project projectD = projectRepository.save(Project.builder()
+        // projectD — no scans at all (empty-state edge case)
+        projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("new-service")
                 .build());
@@ -945,7 +945,7 @@ public class TestDataController {
         ScanResult scanAFail = scan(projectA, "3.2.0-rc1", ScanStatus.FAILED, LocalDateTime.now().minusDays(2));
         scanAFail.fail("deps.dev API timeout after 30s —retryable error");
         // Pending scan (in-progress banner edge case)
-        ScanResult scanAPending = scan(projectA, "3.3.0-SNAPSHOT", ScanStatus.PENDING, LocalDateTime.now().minusMinutes(5));
+        scan(projectA, "3.3.0-SNAPSHOT", ScanStatus.PENDING, LocalDateTime.now().minusMinutes(5));
 
         // ================================
         // 6.  SCAN RESULTS —PROJECT B & C
@@ -1129,7 +1129,7 @@ public class TestDataController {
         ScanComponent scA8SpringCore  = addComp(scanA8, springCore,      "Transitive (2)",   false, false);
         ScanComponent scA8Jackson     = addComp(scanA8, jackson,         "Direct (1)",       true,  false);
         ScanComponent scA8Guava       = addComp(scanA8, guava,           "Transitive (3)",   false, false);
-        ScanComponent scA8InternalLib = addComp(scanA8, internalLib,     "Direct (1)",       false, false);
+        addComp(scanA8, internalLib,     "Direct (1)",       false, false);
         ScanComponent scA8H2          = addComp(scanA8, h2,             "Direct (1)",       false, false);
         addComp(scanA8, commonsText,      "Direct (1)",       false, false);
         addComp(scanA8, hibernate,        "Direct (1)",       false, false);

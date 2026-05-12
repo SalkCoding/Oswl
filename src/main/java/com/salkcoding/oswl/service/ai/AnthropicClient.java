@@ -1,8 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
-import com.salkcoding.oswl.domain.enums.AiProvider;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -10,6 +8,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.core.ParameterizedTypeReference;
 
 /**
  * Anthropic Messages API implementation (claude-3-5-sonnet, etc.).
@@ -85,8 +84,9 @@ public class AnthropicClient implements AiAnalysisClient {
         );
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    ANTHROPIC_URL, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    ANTHROPIC_URL, HttpMethod.POST, new HttpEntity<>(body, headers),
+                    new ParameterizedTypeReference<>() {});
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var content = (List<?>) response.getBody().get("content");

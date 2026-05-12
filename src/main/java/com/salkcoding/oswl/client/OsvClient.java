@@ -128,7 +128,6 @@ public class OsvClient {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private OsvVuln parseVuln(Map<String, Object> vuln) {
         String osvId  = (String) vuln.get("id");
         String summary = (String) vuln.get("summary");
