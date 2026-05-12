@@ -24,6 +24,9 @@ public class SettingsTabAccess {
         if (principal.isSystemAdmin()) {
             tabs.add(new TabSpec("admin", "🔐", "Administration"));
         }
+        if (principal.isSystemAdmin()) {
+            tabs.add(new TabSpec("security", "🛡️", "Security"));
+        }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
             tabs.add(new TabSpec("ai", "🤖", "AI Settings"));
         }
