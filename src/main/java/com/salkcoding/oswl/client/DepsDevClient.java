@@ -31,7 +31,6 @@ import java.util.concurrent.Executors;
 public class DepsDevClient {
 
     private static final String BASE_URL = "https://api.deps.dev";
-    private static final int CONCURRENCY = 10;
 
     private final RestClient restClient;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -229,7 +228,6 @@ public class DepsDevClient {
         };
     }
 
-    @SuppressWarnings("unchecked")
     private List<String> extractStrings(Map<String, Object> map, String key) {
         Object val = map.get(key);
         if (val instanceof List<?> list) {

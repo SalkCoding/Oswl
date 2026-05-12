@@ -1,15 +1,16 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.Cve;
-import com.salkcoding.oswl.domain.entity.OswlComponent;
+import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
-import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,9 @@ class ProjectServiceTest {
     ProjectRepository projectRepository;
 
     @Mock
+    ProjectVersionRepository projectVersionRepository;
+
+    @Mock
     ScanResultRepository scanResultRepository;
 
     @InjectMocks
@@ -43,7 +47,7 @@ class ProjectServiceTest {
     @Test
     @DisplayName("프로젝트가 없으면 빈 리스트를 반환한다")
     void findAll_returnsEmptyList_whenNoProjects() {
-        when(projectRepository.findAll()).thenReturn(List.of());
+        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of());
 
         assertThat(projectService.findAll()).isEmpty();
     }
@@ -53,7 +57,7 @@ class ProjectServiceTest {
     void findAll_returnsDashes_whenNoCompletedScan() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        when(projectRepository.findAll()).thenReturn(List.of(project));
+        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
         when(scanResultRepository.findFirstByProjectIdAndStatusOrderByScannedAtDesc(1L, ScanStatus.COMPLETED))
                 .thenReturn(Optional.empty());
 
@@ -70,15 +74,19 @@ class ProjectServiceTest {
     void findAll_aggregatesSecurityCounts_fromCompletedScan() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        Cve critical = Cve.builder().component(null).cveId("C1").severity(RiskLevel.CRITICAL).cvssScore(9.8).build();
-        Cve high     = Cve.builder().component(null).cveId("C2").severity(RiskLevel.HIGH).cvssScore(7.5).build();
-        Cve medium   = Cve.builder().component(null).cveId("C3").severity(RiskLevel.MEDIUM).cvssScore(5.0).build();
-        Cve low      = Cve.builder().component(null).cveId("C4").severity(RiskLevel.LOW).cvssScore(2.0).build();
+        Cve critical = Cve.builder().library(null).cveId("C1").severity(RiskLevel.CRITICAL).cvssScore(9.8).build();
+        Cve high     = Cve.builder().library(null).cveId("C2").severity(RiskLevel.HIGH).cvssScore(7.5).build();
+        Cve medium   = Cve.builder().library(null).cveId("C3").severity(RiskLevel.MEDIUM).cvssScore(5.0).build();
+        Cve low      = Cve.builder().library(null).cveId("C4").severity(RiskLevel.LOW).cvssScore(2.0).build();
 
-        OswlComponent comp = OswlComponent.builder()
-                .scanResult(null).name("lib").version("1.0")
-                .licenseStatus(LicenseStatus.PERMITTED).patchability(Patchability.PATCHABLE)
+        Library lib = Library.builder()
+                .name("lib").version("1.0").ecosystem("MAVEN")
+                .licenseStatus(LicenseStatus.PERMITTED)
                 .cves(List.of(critical, high, medium, low))
+                .build();
+
+        ScanComponent comp = ScanComponent.builder()
+                .scanResult(null).library(lib)
                 .build();
 
         ScanResult scan = ScanResult.builder()
@@ -87,7 +95,7 @@ class ProjectServiceTest {
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 1, 0, 0));
 
-        when(projectRepository.findAll()).thenReturn(List.of(project));
+        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
         when(scanResultRepository.findFirstByProjectIdAndStatusOrderByScannedAtDesc(1L, ScanStatus.COMPLETED))
                 .thenReturn(Optional.of(scan));
 
@@ -104,15 +112,21 @@ class ProjectServiceTest {
     void findAll_aggregatesLicenseCounts_byLicenseStatus() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        OswlComponent violation = OswlComponent.builder()
-                .scanResult(null).name("a").version("1")
-                .licenseStatus(LicenseStatus.RESTRICTED).patchability(Patchability.UNKNOWN).build();
-        OswlComponent warn = OswlComponent.builder()
-                .scanResult(null).name("b").version("1")
-                .licenseStatus(LicenseStatus.CAUTION).patchability(Patchability.UNKNOWN).build();
-        OswlComponent ok = OswlComponent.builder()
-                .scanResult(null).name("c").version("1")
-                .licenseStatus(LicenseStatus.PERMITTED).patchability(Patchability.UNKNOWN).build();
+        ScanComponent violation = ScanComponent.builder()
+                .scanResult(null)
+                .library(Library.builder().name("a").version("1").ecosystem("MAVEN")
+                        .licenseStatus(LicenseStatus.RESTRICTED).build())
+                .build();
+        ScanComponent warn = ScanComponent.builder()
+                .scanResult(null)
+                .library(Library.builder().name("b").version("1").ecosystem("MAVEN")
+                        .licenseStatus(LicenseStatus.CAUTION).build())
+                .build();
+        ScanComponent ok = ScanComponent.builder()
+                .scanResult(null)
+                .library(Library.builder().name("c").version("1").ecosystem("MAVEN")
+                        .licenseStatus(LicenseStatus.PERMITTED).build())
+                .build();
 
         ScanResult scan = ScanResult.builder()
                 .project(project).version("2.0").status(ScanStatus.COMPLETED)
@@ -120,7 +134,7 @@ class ProjectServiceTest {
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 4, 10, 0));
 
-        when(projectRepository.findAll()).thenReturn(List.of(project));
+        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
         when(scanResultRepository.findFirstByProjectIdAndStatusOrderByScannedAtDesc(1L, ScanStatus.COMPLETED))
                 .thenReturn(Optional.of(scan));
 
@@ -142,7 +156,7 @@ class ProjectServiceTest {
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 15, 12, 0));
 
-        when(projectRepository.findAll()).thenReturn(List.of(project));
+        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
         when(scanResultRepository.findFirstByProjectIdAndStatusOrderByScannedAtDesc(1L, ScanStatus.COMPLETED))
                 .thenReturn(Optional.of(scan));
 
@@ -154,7 +168,7 @@ class ProjectServiceTest {
     void findAll_returnsZeroCounts_whenNoCompletedScan() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        when(projectRepository.findAll()).thenReturn(List.of(project));
+        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
         when(scanResultRepository.findFirstByProjectIdAndStatusOrderByScannedAtDesc(1L, ScanStatus.COMPLETED))
                 .thenReturn(Optional.empty());
 

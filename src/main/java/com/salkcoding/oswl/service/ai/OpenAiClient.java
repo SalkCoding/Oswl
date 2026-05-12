@@ -1,8 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
-import com.salkcoding.oswl.domain.enums.AiProvider;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -10,6 +8,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.core.ParameterizedTypeReference;
 
 /**
  * OpenAI Chat Completions API implementation.
@@ -97,8 +96,9 @@ public class OpenAiClient implements AiAnalysisClient {
         );
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.POST, new HttpEntity<>(body, headers),
+                    new ParameterizedTypeReference<>() {});
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var choices = (List<?>) response.getBody().get("choices");

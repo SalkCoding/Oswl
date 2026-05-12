@@ -3,7 +3,6 @@ package com.salkcoding.oswl.domain.entity;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
