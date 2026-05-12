@@ -11,25 +11,25 @@
                 th:text="${totalLicenses} + ' Licenses Found'">27 Licenses Found</h2>
             
             <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
-                <!-- Critical Risk Count -->
+                <!-- Restricted Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
-                    <span th:text="${criticalRiskCount} + ' Critical Risk'">0 Critical Risk</span>
+                    <span th:text="${restrictedCount} + ' Restricted'">0 Restricted</span>
                 </div>
-                <!-- High Risk Count -->
+                <!-- Caution Count -->
                 <div class="flex gap-2 items-center shrink-0">
-                    <div class="w-1.5 h-1.5 bg-[#f47a29] rounded-full"></div>
-                    <span th:text="${highRiskCount} + ' High Risk'">0 High Risk</span>
+                    <div class="w-1.5 h-1.5 bg-[#f59126] rounded-full"></div>
+                    <span th:text="${cautionCount} + ' Caution'">0 Caution</span>
                 </div>
-                <!-- Medium Risk Count -->
+                <!-- Permitted Count -->
                 <div class="flex gap-2 items-center shrink-0">
-                    <div class="w-1.5 h-1.5 bg-[#f5bd26] rounded-full"></div>
-                    <span th:text="${mediumRiskCount} + ' Medium Risk'">0 Medium Risk</span>
+                    <div class="w-1.5 h-1.5 bg-[#84dca5] rounded-full"></div>
+                    <span th:text="${permittedCount} + ' Permitted'">0 Permitted</span>
                 </div>
-                <!-- Low Risk Count -->
+                <!-- Unknown Count -->
                 <div class="flex gap-2 items-center shrink-0">
-                    <div class="w-1.5 h-1.5 bg-[var(--grayscale-80)] rounded-full"></div>
-                    <span th:text="${lowRiskCount} + ' Low Risk'">0 Low Risk</span>
+                    <div class="w-1.5 h-1.5 bg-[#abb8be] rounded-full"></div>
+                    <span th:text="${unknownCount} + ' Unknown'">0 Unknown</span>
                 </div>
             </div>
         </div>
@@ -57,7 +57,7 @@
                      class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
                     <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
                         <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">License Name</p>
-                        <div th:replace="~{fragments/tags :: risk-tag(level=${license.riskLevel})}"></div>
+                        <div th:replace="~{fragments/tags :: license-risk-tag(level=${license.riskLevel})}"></div>
                     </div>
                     <div class="flex items-center gap-[6px]">
                         <div th:replace="~{fragments/tags :: library-count(count=${license.libraryCount})}"></div>

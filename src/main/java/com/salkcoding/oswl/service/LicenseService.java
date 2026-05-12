@@ -64,10 +64,10 @@ public class LicenseService {
         if (scan == null) {
             model.addAttribute("projectVersion", "-");
             model.addAttribute("totalLicenses", 0);
-            model.addAttribute("criticalRiskCount", 0);
-            model.addAttribute("highRiskCount", 0);
-            model.addAttribute("mediumRiskCount", 0);
-            model.addAttribute("lowRiskCount", 0);
+            model.addAttribute("restrictedCount", 0);
+            model.addAttribute("cautionCount", 0);
+            model.addAttribute("permittedCount", 0);
+            model.addAttribute("unknownCount", 0);
             model.addAttribute("totalObligations", 0);
             model.addAttribute("licenses", List.of());
             return;
@@ -95,40 +95,37 @@ public class LicenseService {
                 .sorted(Comparator.comparingInt(dto -> riskOrdinal(dto.getRiskLevel())))
                 .collect(Collectors.toList());
 
-        long criticalCount = licenses.stream().filter(l -> "CRITICAL".equals(l.getRiskLevel())).count();
-        long highCount     = licenses.stream().filter(l -> "HIGH".equals(l.getRiskLevel())).count();
-        long mediumCount   = licenses.stream().filter(l -> "MEDIUM".equals(l.getRiskLevel())).count();
-        long lowCount      = licenses.stream().filter(l -> "LOW".equals(l.getRiskLevel())).count();
+        long restrictedCount = licenses.stream().filter(l -> "RESTRICTED".equals(l.getRiskLevel())).count();
+        long cautionCount    = licenses.stream().filter(l -> "CAUTION".equals(l.getRiskLevel())).count();
+        long permittedCount  = licenses.stream().filter(l -> "PERMITTED".equals(l.getRiskLevel())).count();
+        long unknownCount    = licenses.stream().filter(l -> "UNKNOWN".equals(l.getRiskLevel())).count();
 
         long totalObligations = libraries.stream()
                 .filter(l -> l.getLicenseStatus() != LicenseStatus.PERMITTED)
                 .count();
 
         model.addAttribute("totalLicenses", licenses.size());
-        model.addAttribute("criticalRiskCount", criticalCount);
-        model.addAttribute("highRiskCount", highCount);
-        model.addAttribute("mediumRiskCount", mediumCount);
-        model.addAttribute("lowRiskCount", lowCount);
+        model.addAttribute("restrictedCount", restrictedCount);
+        model.addAttribute("cautionCount", cautionCount);
+        model.addAttribute("permittedCount", permittedCount);
+        model.addAttribute("unknownCount", unknownCount);
         model.addAttribute("totalObligations", totalObligations);
         model.addAttribute("licenses", licenses);
     }
 
     private String computeMaxRisk(List<Library> libs) {
-        boolean hasViolation = libs.stream()
-                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.RESTRICTED);
-        if (hasViolation) return "CRITICAL";
-        boolean hasWarn = libs.stream()
-                .anyMatch(l -> l.getLicenseStatus() == LicenseStatus.CAUTION);
-        if (hasWarn) return "HIGH";
-        return "LOW";
+        if (libs.stream().anyMatch(l -> l.getLicenseStatus() == LicenseStatus.RESTRICTED)) return "RESTRICTED";
+        if (libs.stream().anyMatch(l -> l.getLicenseStatus() == LicenseStatus.CAUTION))     return "CAUTION";
+        if (libs.stream().anyMatch(l -> l.getLicenseStatus() == LicenseStatus.UNKNOWN))     return "UNKNOWN";
+        return "PERMITTED";
     }
 
     private int riskOrdinal(String risk) {
         return switch (risk) {
-            case "CRITICAL" -> 0;
-            case "HIGH"     -> 1;
-            case "MEDIUM"   -> 2;
-            default         -> 3;
+            case "RESTRICTED" -> 0;
+            case "CAUTION"    -> 1;
+            case "UNKNOWN"    -> 2;
+            default           -> 3; // PERMITTED
         };
     }
 }

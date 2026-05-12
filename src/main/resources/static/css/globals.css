@@ -26,11 +26,13 @@
     --secondary-60:  #00a093;
     --secondary-20:  #d3fcf3;
 
-    --risk-critical: #e62727;
-    --risk-high:     #f47a29;
-    --risk-medium:   #f5bd26;
-    --risk-low:      #e8eef0;
-    --risk-unknown:  #272d30;
+    --risk-critical:  #e62727;
+    --risk-high:      #f47a29;
+    --risk-medium:    #f5bd26;
+    --risk-low:       #c2cdd1;
+    --risk-unknown:   #e8eef0;
+    --risk-permitted: #84dca5;
+    --risk-caution:   #f59126;
 
     --semantic-warning: #e62727;
     --semantic-caution: #f59126;
@@ -67,7 +69,7 @@ a { color: inherit; text-decoration: none; }
     height: 20px;
     border-radius: 2px;
     overflow: hidden;
-    background-color: var(--risk-low);
+    background-color: var(--risk-unknown);
 }
 
 .risk-graph-segment { height: 100%; }
