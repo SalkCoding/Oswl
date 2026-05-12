@@ -41,6 +41,7 @@
     <!-- Tab content -->
     <div class="w-full">
         <th:block th:if="${activeTab == 'admin'}"><div th:replace="~{settings/tabs/admin :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'security'}"><div th:replace="~{settings/tabs/security :: tab}"></div></th:block>
         <th:block th:if="${activeTab == 'ai'}"><div th:replace="~{settings/tabs/ai :: tab}"></div></th:block>
         <th:block th:if="${activeTab == 'vcs'}"><div th:replace="~{settings/tabs/vcs :: tab}"></div></th:block>
         <th:block th:if="${activeTab == 'cli'}"><div th:replace="~{settings/tabs/cli :: tab}"></div></th:block>
