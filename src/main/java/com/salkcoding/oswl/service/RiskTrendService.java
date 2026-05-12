@@ -67,10 +67,10 @@ public class RiskTrendService {
         List<Integer> secMedium   = new ArrayList<>();
         List<Integer> secLow      = new ArrayList<>();
         List<Integer> secUnscored = new ArrayList<>();
-        List<Integer> licCritical = new ArrayList<>();
-        List<Integer> licHigh     = new ArrayList<>();
-        List<Integer> licUnknown  = new ArrayList<>();
-        List<Integer> licLow      = new ArrayList<>();
+        List<Integer> licRestricted = new ArrayList<>();
+        List<Integer> licCaution     = new ArrayList<>();
+        List<Integer> licUnknown     = new ArrayList<>();
+        List<Integer> licPermitted   = new ArrayList<>();
 
         for (ScanResult scan : scansAsc) {
             List<Library> libs = libraryRepository.findByScanResultIdWithCves(scan.getId());
@@ -83,10 +83,10 @@ public class RiskTrendService {
             secMedium.add(sec[2]);
             secLow.add(sec[3]);
             secUnscored.add(sec[4]);
-            licCritical.add(lic[0]);
-            licHigh.add(lic[1]);
+            licRestricted.add(lic[0]);
+            licCaution.add(lic[1]);
             licUnknown.add(lic[2]);
-            licLow.add(lic[3]);
+            licPermitted.add(lic[3]);
         }
 
         List<Library> latestLibs = libraryRepository.findByScanResultIdWithCves(latest.getId());
@@ -116,10 +116,10 @@ public class RiskTrendService {
         model.addAttribute("chartSecMedium",   secMedium);
         model.addAttribute("chartSecLow",      secLow);
         model.addAttribute("chartSecNone",     secUnscored);
-        model.addAttribute("chartLicCritical", licCritical);
-        model.addAttribute("chartLicHigh",     licHigh);
-        model.addAttribute("chartLicUnknown",  licUnknown);
-        model.addAttribute("chartLicLow",      licLow);
+        model.addAttribute("chartLicRestricted", licRestricted);
+        model.addAttribute("chartLicCaution",     licCaution);
+        model.addAttribute("chartLicUnknown",     licUnknown);
+        model.addAttribute("chartLicPermitted",   licPermitted);
     }
 
     private int[] aggregateSecurity(List<Library> libraries) {
@@ -164,10 +164,10 @@ public class RiskTrendService {
         model.addAttribute("chartSecHigh",     List.of());
         model.addAttribute("chartSecMedium",   List.of());
         model.addAttribute("chartSecLow",      List.of());
-        model.addAttribute("chartLicCritical", List.of());
-        model.addAttribute("chartLicHigh",     List.of());
-        model.addAttribute("chartLicUnknown",  List.of());
-        model.addAttribute("chartLicLow",      List.of());
+        model.addAttribute("chartLicRestricted", List.of());
+        model.addAttribute("chartLicCaution",     List.of());
+        model.addAttribute("chartLicUnknown",     List.of());
+        model.addAttribute("chartLicPermitted",   List.of());
         model.addAttribute("chartSecNone",     List.of());
     }
 }

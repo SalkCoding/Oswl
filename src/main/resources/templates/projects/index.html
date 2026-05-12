@@ -82,8 +82,27 @@
                 <button type="button" @click="openPanel = 'git'"
                    class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
-                        <img th:src="@{/icon/icon-github.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
-                        <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]">Connect to Git</span>
+                        <div class="flex items-center gap-[7px] shrink-0">
+                            <!-- GitHub -->
+                            <svg width="20" height="20" viewBox="0 0 31 31" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M15.4997 2.90234C12.4326 2.90247 9.46564 3.99395 7.12966 5.98148C4.79369 7.96901 3.24115 10.7229 2.74984 13.7504C2.25853 16.7779 2.86052 19.8814 4.44808 22.5057C6.03564 25.1299 8.50519 27.1036 11.4148 28.0737C12.0607 28.1867 12.3029 27.7992 12.3029 27.4601C12.3029 27.1534 12.2867 26.1362 12.2867 25.0544C9.04138 25.6518 8.20179 24.2633 7.94346 23.5368C7.65681 22.8301 7.2024 22.2039 6.6195 21.7122C6.16742 21.4701 5.52158 20.8727 6.60334 20.8565C7.0164 20.9014 7.41257 21.0451 7.75827 21.2756C8.10398 21.506 8.38904 21.8164 8.58929 22.1805C8.76596 22.4978 9.0035 22.7772 9.28833 23.0026C9.57315 23.228 9.89966 23.395 10.2491 23.494C10.5986 23.593 10.9642 23.622 11.3249 23.5795C11.6856 23.5369 12.0344 23.4236 12.3512 23.2461C12.4072 22.5894 12.6998 21.9755 13.1747 21.5185C10.3008 21.1956 7.29763 20.0815 7.29763 15.1409C7.27948 13.8572 7.75318 12.6152 8.62158 11.6696C8.2267 10.5539 8.2729 9.32944 8.75075 8.24665C8.75075 8.24665 9.83248 7.90758 12.3028 9.57061C14.4164 8.98933 16.6476 8.98933 18.7612 9.57061C21.2315 7.89144 22.3133 8.24665 22.3133 8.24665C22.7912 9.32942 22.8374 10.5539 22.4424 11.6696C23.3134 12.6136 23.7876 13.8567 23.7664 15.1409C23.7664 20.0977 20.7471 21.1956 17.8731 21.5185C18.1814 21.831 18.4188 22.2061 18.5693 22.6184C18.7197 23.0307 18.7796 23.4706 18.745 23.9081C18.745 25.6357 18.7289 27.0242 18.7289 27.4602C18.7289 27.7993 18.9711 28.2029 19.6169 28.0737C22.5214 27.0958 24.9839 25.1174 26.5647 22.4918C28.1455 19.8662 28.7417 16.7643 28.247 13.7397C27.7523 10.7152 26.1988 7.96487 23.8639 5.97975C21.5289 3.99464 18.5645 2.90394 15.4997 2.90234Z" fill="#A7F9E7"/>
+                            </svg>
+                            <!-- GitLab -->
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+                                <path fill="#A7F9E7" d="M9 16.5l3.3-10.2H5.7L9 16.5z"/>
+                                <path fill="#A7F9E7" d="M9 16.5L5.7 6.3H1.8L9 16.5z"/>
+                                <path fill="#A7F9E7" d="M1.8 6.3L.5 10.2c-.1.4 0 .8.3 1L9 16.5 1.8 6.3z"/>
+                                <path fill="#A7F9E7" d="M1.8 6.3h3.9L4.2 2.1c-.2-.5-.8-.5-1 0L1.8 6.3z"/>
+                                <path fill="#A7F9E7" d="M9 16.5l3.3-10.2h3.9L9 16.5z"/>
+                                <path fill="#A7F9E7" d="M16.2 6.3l1.3 3.9c.1.4 0 .8-.3 1L9 16.5l7.2-10.2z"/>
+                                <path fill="#A7F9E7" d="M16.2 6.3h-3.9l1.5-4.2c.2-.5.8-.5 1 0l1.4 4.2z"/>
+                            </svg>
+                            <!-- Bitbucket -->
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="16" height="16" aria-hidden="true">
+                                <path fill="#A7F9E7" d="M.87 1.5A.88.88 0 0 0 0 2.51L2.46 15.58a1.2 1.2 0 0 0 1.17 1H14.7a.88.88 0 0 0 .87-.73L18 2.51a.88.88 0 0 0-.87-1.01zm9.79 9.71H7.37L6.5 6.79h4.98l-.82 4.42z"/>
+                            </svg>
+                        </div>
+                        <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]">Quick Import</span>
                     </div>
                     <p class="font-normal text-[13px] leading-[1.5] text-white/80 tracking-[-0.13px] w-full">
                         Connect your GitHub, GitLab, or Bitbucket account to automatically scan your repositories in minutes.
@@ -105,27 +124,35 @@
                     <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]">Select a Project</h3>
                 </div>
 
-                <!-- Active / Trash tabs — 피그마 언더라인 스타일 -->
-                <div class="flex items-center gap-[4px]">
+                <!-- Active / Trash tabs — 피그마 탭 스타일 -->
+                <div class="flex items-center border-b border-[var(--grayscale-20)]">
                     <button type="button"
                             @click="projectTab = 'active'"
-                            class="flex items-center gap-[6px] px-[4px] pb-[4px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2"
+                            class="flex items-center gap-[8px] px-[14px] py-[8px] text-[13px] tracking-[-0.13px] transition-colors border-b-2 -mb-px"
                             :class="projectTab === 'active'
-                                ? 'text-[var(--grayscale-100)] border-[var(--grayscale-100)]'
-                                : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
-                        <span class="w-[7px] h-[7px] rounded-full bg-[#22c55e] inline-block shrink-0"></span>
+                                ? 'font-bold text-[var(--grayscale-90)] border-[var(--primary-100)] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)]'
+                                : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[#00d761] inline-block shrink-0"></span>
                         Active Projects
-                        <span x-text="activeCount" class="font-normal text-[var(--grayscale-50)]"></span>
+                        <span x-text="activeCount"
+                              class="flex items-center justify-center rounded-[100px] px-[5px] min-w-[22px] h-[18px] text-[11px] tracking-[-0.11px] transition-colors font-medium"
+                              :class="projectTab === 'active'
+                                  ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]'
+                                  : 'bg-[rgba(171,184,190,0.1)] text-[var(--grayscale-40)]'"></span>
                     </button>
                     <button type="button"
                             @click="projectTab = 'trash'"
-                            class="flex items-center gap-[6px] px-[4px] pb-[4px] text-[14px] font-medium tracking-[-0.14px] transition-colors border-b-2"
+                            class="flex items-center gap-[8px] pl-[12px] pr-[14px] py-[8px] text-[13px] tracking-[-0.13px] transition-colors border-b-2 -mb-px"
                             :class="projectTab === 'trash'
-                                ? 'text-red-500 border-red-500'
-                                : 'text-[var(--grayscale-50)] border-transparent hover:text-[var(--grayscale-80)]'">
+                                ? 'font-bold text-[var(--grayscale-90)] border-[var(--primary-100)] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)]'
+                                : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
                         Trash
-                        <span x-text="trashCount" class="font-normal text-[var(--grayscale-50)]"></span>
+                        <span x-text="trashCount"
+                              class="flex items-center justify-center rounded-[100px] px-[5px] min-w-[18px] h-[18px] text-[11px] tracking-[-0.11px] transition-colors font-medium"
+                              :class="projectTab === 'trash'
+                                  ? 'bg-[rgba(230,39,39,0.05)] text-[var(--semantic-warning)]'
+                                  : 'bg-[rgba(171,184,190,0.1)] text-[var(--grayscale-40)]'"></span>
                     </button>
                 </div>
             </div>
@@ -180,7 +207,7 @@
                         <div class="w-full"
                              th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow}, ${project.securityUnscored}, 'Unscored')}"></div>
                         <div class="w-full"
-                             th:replace="~{fragments/risk-graph :: riskGraph('License Risk', ${project.licenseCritical}, ${project.licenseHigh}, 0, ${project.licenseLow}, ${project.licenseMedium}, 'Unknown')}"></div>
+                             th:replace="~{fragments/risk-graph :: licenseRiskGraph(${project.licenseCritical}, ${project.licenseHigh}, ${project.licenseLow}, ${project.licenseMedium})}"></div>
                     </div>
                 </div>
             </div>
