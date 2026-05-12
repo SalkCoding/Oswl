@@ -1,6 +1,5 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;

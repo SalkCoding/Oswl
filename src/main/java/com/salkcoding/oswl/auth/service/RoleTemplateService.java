@@ -7,7 +7,6 @@ import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
 import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
-import com.salkcoding.oswl.auth.service.AuditLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

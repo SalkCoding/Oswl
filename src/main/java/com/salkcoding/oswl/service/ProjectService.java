@@ -15,14 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static com.salkcoding.oswl.domain.enums.LicenseStatus.*;
-import static com.salkcoding.oswl.domain.enums.RiskLevel.*;
 
 @Slf4j
 @Service

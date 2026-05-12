@@ -1,6 +1,5 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;

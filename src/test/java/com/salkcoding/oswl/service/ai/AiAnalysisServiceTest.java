@@ -53,7 +53,7 @@ class AiAnalysisServiceTest {
     void summarizeCve_returnsNull_whenNoActiveSetting() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        assertThat(aiAnalysisService.summarizeCve("CVE-X", "HIGH", 7.5, "XSS", "lib 1.0")).isNull();
+        assertThat(aiAnalysisService.summarizeCve("CVE-X", "HIGH", 7.5, "XSS")).isNull();
         verifyNoInteractions(openAiClient, anthropicClient);
     }
 
@@ -64,7 +64,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("RCE risk: critical");
 
-        String result = aiAnalysisService.summarizeCve("CVE-2024-001", "CRITICAL", 9.8, "RCE", "lib 1.0");
+        String result = aiAnalysisService.summarizeCve("CVE-2024-001", "CRITICAL", 9.8, "RCE");
 
         assertThat(result).isEqualTo("RCE risk: critical");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
@@ -79,7 +79,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("local result");
 
-        assertThat(aiAnalysisService.summarizeCve("CVE-L", "LOW", 2.0, "Info", "comp 1.0"))
+        assertThat(aiAnalysisService.summarizeCve("CVE-L", "LOW", 2.0, "Info"))
                 .isEqualTo("local result");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
         verifyNoInteractions(anthropicClient);
@@ -92,7 +92,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("gemini result");
 
-        assertThat(aiAnalysisService.summarizeCve("CVE-G", "HIGH", 7.5, "Injection", "lib 1.0"))
+        assertThat(aiAnalysisService.summarizeCve("CVE-G", "HIGH", 7.5, "Injection"))
                 .isEqualTo("gemini result");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
         verifyNoInteractions(anthropicClient);
@@ -105,7 +105,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("claude result");
 
-        String result = aiAnalysisService.summarizeCve("CVE-2024-002", "HIGH", 8.0, "XSS", "react 18");
+        String result = aiAnalysisService.summarizeCve("CVE-2024-002", "HIGH", 8.0, "XSS");
 
         assertThat(result).isEqualTo("claude result");
         verify(anthropicClient).callWithSetting(anyString(), eq(setting));
