@@ -39,5 +39,5 @@ oswl-db.mv.db
 
 ### Database ###
 *.db
-src/main/resources/.DS_Store
-src/main/resources/static/.DS_Store
+**/.DS_Store
+.gitignore
