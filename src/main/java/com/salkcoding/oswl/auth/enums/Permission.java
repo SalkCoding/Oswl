@@ -30,7 +30,8 @@ public enum Permission {
     SETTINGS_AI_MANAGE("AI 설정 관리"),
     SETTINGS_VCS_MANAGE("VCS 계정 연결 관리"),
     SETTINGS_CLI_KEY_MANAGE("CLI API 키 관리"),
-    SETTINGS_CACHE_MANAGE("캐시 설정 관리");
+    SETTINGS_CACHE_MANAGE("캐시 설정 관리"),
+    SETTINGS_SECURITY_MANAGE("보안 설정 관리");
 
     private final String description;
 }
