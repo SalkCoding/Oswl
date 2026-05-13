@@ -418,7 +418,7 @@
         <div class="flex gap-[12px] items-start w-full">
             <!-- Github Icon -->
             <div class="rounded-[8px] w-[32px] h-[32px] flex items-center justify-center shrink-0">
-                <img th:src="@{/icon/icon-github.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                <img th:src="@{/icon/icon-github.svg}" class="w-[28px] h-[28px]" alt="" aria-hidden="true">
             </div>
             
             <div class="flex-1 flex gap-[14px] items-center h-[31px]">
@@ -458,7 +458,7 @@
                     <div class="relative" @click.outside="accountDropdownOpen = false">
                         <button
                             @click="accountDropdownOpen = !accountDropdownOpen"
-                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] w-[200px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
+                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] w-[280px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
                             :class="accountDropdownOpen ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
                             <span class="font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="selectedAccount"></span>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -473,7 +473,7 @@
                              x-transition:enter="transition ease-out duration-100"
                              x-transition:enter-start="opacity-0 -translate-y-2"
                              x-transition:enter-end="opacity-100 translate-y-0"
-                             class="absolute top-full left-0 mt-[4px] w-[220px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 flex flex-col max-h-[240px]">
+                             class="absolute top-full left-0 mt-[4px] w-[280px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 flex flex-col max-h-[240px]">
 
                             <!-- Scrollable accounts list -->
                             <div class="overflow-y-auto flex-1">
@@ -694,7 +694,7 @@
 
         <!-- Table Header -->
         <div class="bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] flex items-center w-full h-[40px]">
-            <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 border-r border-[var(--grayscale-20)] h-full">
+            <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
                 <label class="cursor-pointer relative flex items-center justify-center p-2">
                     <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
                     <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
@@ -705,13 +705,13 @@
                     </div>
                 </label>
             </div>
-            <div class="flex-1 min-w-[200px] border-r border-[var(--grayscale-20)] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal">
+            <div class="flex-1 min-w-[200px] pl-[12px] pr-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal">
                 Title
             </div>
-            <div class="w-[160px] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal shrink-0 border-r border-[var(--grayscale-20)]">
+            <div class="w-[160px] px-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal shrink-0">
                 Branch
             </div>
-            <div class="w-[240px] px-[16px] h-full flex items-center text-[12px] text-[var(--grayscale-100)] font-normal shrink-0">
+            <div class="w-[240px] pl-[16px] pr-[24px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal shrink-0">
                 Last Updated
             </div>
         </div>
@@ -726,7 +726,7 @@
                      @set-branch.window="if ($event.detail.id === repo.id) $dispatch('_noop')"><!-- set-branch handled by parent -->
 
                     <!-- Checkbox -->
-                    <div class="flex items-center justify-center w-[72px] pl-[12px] pr-[12px] shrink-0 h-full">
+                    <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
                         <label class="cursor-pointer relative flex items-center justify-center p-2">
                             <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos">
                             <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
@@ -739,7 +739,7 @@
                     </div>
 
                     <!-- Title -->
-                    <div class="flex-1 min-w-[200px] px-[16px] py-[12px] flex items-center">
+                    <div class="flex-1 min-w-[200px] pl-[12px] pr-[16px] py-[12px] flex items-center">
                         <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]" x-text="repo.name"></span>
                     </div>
 
@@ -787,7 +787,7 @@
                     </div>
 
                     <!-- Last Updated / Imported status -->
-                    <div class="w-[240px] px-[16px] py-[12px] flex items-center shrink-0">
+                    <div class="w-[240px] pl-[16px] pr-[24px] py-[12px] flex items-center shrink-0">
                         <template x-if="!importedRepos.includes(repo.id)">
                             <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="formatUpdatedAt(allBranchDates[repo.id]?.[itemBranches[repo.id] || repo.defaultBranch] ?? branchUpdatedAt[repo.id] ?? repo.updatedAt)"></span>
                         </template>
