@@ -24,22 +24,16 @@
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">AI Provider</h3>
 
         <!-- ── Option 1: Do not use AI ── -->
-        <label class="flex gap-[8px] items-center cursor-pointer">
+        <label class="flex gap-[8px] items-center cursor-pointer" @click="mode='off'">
             <input type="radio" name="aiMode" value="off" x-model="mode" class="sr-only"/>
-            <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                 :class="mode==='off' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='off'"></div>
-            </div>
+            <img :src="mode==='off' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
             <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Do not use AI</span>
         </label>
 
         <!-- ── Option 2: OpenAI (GPT) ── -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='OPENAI'">
-                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                     :class="mode==='OPENAI' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='OPENAI'"></div>
-                </div>
+                <img :src="mode==='OPENAI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">OpenAI (GPT)</span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use OpenAI GPT models with an API key. Also compatible with Azure OpenAI and custom endpoints.</span>
@@ -87,10 +81,7 @@
         <!-- ── Option 3: Anthropic (Claude) ── -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='ANTHROPIC'">
-                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                     :class="mode==='ANTHROPIC' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='ANTHROPIC'"></div>
-                </div>
+                <img :src="mode==='ANTHROPIC' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Anthropic (Claude)</span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use Anthropic's Claude models via API key. Supports claude-opus, claude-sonnet, and claude-haiku families.</span>
@@ -131,10 +122,7 @@
         <!-- ── Option 4: Google Gemini ── -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='GEMINI'">
-                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                     :class="mode==='GEMINI' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='GEMINI'"></div>
-                </div>
+                <img :src="mode==='GEMINI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Google (Gemini)</span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use Google's Gemini models via API key from Google AI Studio or Vertex AI.</span>
@@ -175,10 +163,7 @@
         <!-- ── Option 5: Local / Ollama ── -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
-                <div class="mt-[2px] w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                     :class="mode==='LOCAL' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                    <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="mode==='LOCAL'"></div>
-                </div>
+                <img :src="mode==='LOCAL' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Local / Ollama</span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use a locally running Ollama instance or any OpenAI-compatible local LLM. No API key required.</span>
