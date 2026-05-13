@@ -13,15 +13,15 @@
         <span class="text-[14px] font-medium text-[var(--grayscale-60)] tracking-[-0.14px] shrink-0">Compare</span>
 
         <!-- From version selector -->
-        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+        <div class="relative min-w-[260px]" x-data="{ open: false }" @click.outside="open = false">
             <button type="button"
                     @click="open = !open"
-                    class="flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[4px] px-[14px] py-[8px] text-[16px] font-medium text-[var(--grayscale-100)] tracking-[-0.16px] hover:border-[var(--grayscale-50)] transition min-w-[160px]">
+                    class="w-full flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] px-[14px] py-[8px] text-[16px] font-medium text-[var(--grayscale-100)] tracking-[-0.16px] hover:border-[var(--grayscale-50)] transition">
                 <span th:text="${fromVersion}">-</span>
-                <svg class="ml-auto transition-transform" :class="open && 'rotate-180'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="ml-auto transition-transform shrink-0" :class="open && 'rotate-180'" width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0L10 0L5 6Z"/></svg>
             </button>
             <div x-show="open" x-transition style="display:none"
-                 class="absolute left-0 top-[40px] z-30 min-w-[180px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
+                 class="absolute left-0 top-[40px] z-30 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
                 <th:block th:each="v : ${scanVersions}">
                     <button type="button"
                             th:attr="data-scan-id=${v.scanId},data-version=${v.version}"
@@ -38,15 +38,15 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-100)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
 
         <!-- To version selector -->
-        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+        <div class="relative min-w-[260px]" x-data="{ open: false }" @click.outside="open = false">
             <button type="button"
                     @click="open = !open"
-                    class="flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[4px] px-[14px] py-[8px] text-[16px] font-medium text-[var(--grayscale-100)] tracking-[-0.16px] hover:border-[var(--grayscale-50)] transition min-w-[160px]">
+                    class="w-full flex items-center gap-[8px] bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] px-[14px] py-[8px] text-[16px] font-medium text-[var(--grayscale-100)] tracking-[-0.16px] hover:border-[var(--grayscale-50)] transition">
                 <span th:text="${toVersion}">-</span>
-                <svg class="ml-auto transition-transform" :class="open && 'rotate-180'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <svg class="ml-auto transition-transform shrink-0" :class="open && 'rotate-180'" width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0L10 0L5 6Z"/></svg>
             </button>
             <div x-show="open" x-transition style="display:none"
-                 class="absolute left-0 top-[40px] z-30 min-w-[180px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
+                 class="absolute left-0 top-[40px] z-30 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
                 <th:block th:each="v : ${scanVersions}">
                     <button type="button"
                             th:attr="data-scan-id=${v.scanId},data-version=${v.version}"
@@ -72,7 +72,7 @@
     <main class="flex-1 px-[60px] py-[40px] flex flex-col gap-[32px]">
 
         <!-- ── Summary cards ────────────────────────────────────────────── -->
-        <div class="grid grid-cols-4 gap-[20px]">
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-[20px]">
             <!-- Added -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
                 <span class="text-[36px] font-bold text-[#5af596] tracking-[-0.5px]"
@@ -182,7 +182,7 @@
                          || (tab === 'newThreat' &amp;&amp; $el.dataset.changeType === 'NEW_THREAT')">
 
                     <!-- Left column (fromScan) -->
-                    <div class="flex-1 flex items-center gap-[10px] px-[24px] py-[14px] border-r border-[var(--grayscale-10)]">
+                    <div class="flex-1 min-w-0 overflow-hidden flex items-center gap-[10px] px-[24px] py-[14px] border-r border-[var(--grayscale-10)]">
                         <!-- Risk dot -->
                         <span th:if="${row.fromRiskLevel != null}"
                               class="w-[8px] h-[8px] rounded-full shrink-0"
@@ -210,7 +210,7 @@
                     </div>
 
                     <!-- Right column (toScan) -->
-                    <div class="flex-1 flex items-center gap-[10px] px-[24px] py-[14px]">
+                    <div class="flex-1 min-w-0 overflow-hidden flex items-center gap-[10px] px-[24px] py-[14px]">
                         <!-- Risk dot -->
                         <span th:if="${row.toRiskLevel != null}"
                               class="w-[8px] h-[8px] rounded-full shrink-0"

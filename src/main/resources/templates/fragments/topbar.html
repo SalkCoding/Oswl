@@ -70,7 +70,7 @@
                     <span class="text-[14px] font-extralight tracking-[-0.14px] whitespace-nowrap"
                           th:text="${#authentication != null ? #authentication.getPrincipal().displayName : ''}"></span>
                     <span class="w-[3px] h-[3px] rounded-full bg-[#bdfaed] shrink-0"></span>
-                    <span class="text-[14px] font-thin tracking-[-0.14px] whitespace-nowrap"
+                    <span class="text-[14px] font-extralight tracking-[-0.14px] whitespace-nowrap"
                           th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}"></span>
                 </button>
                 <div x-show="open" x-transition style="display:none;"
@@ -112,10 +112,8 @@
             <div class="flex items-center gap-[24px]">
                 <a th:href="@{/projects}" class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors">Projects</a>
                 <img th:src="@{/icon/icon-chevron-right.svg}" class="w-5 h-5 shrink-0" alt="" aria-hidden="true">
-                <span class="text-white font-bold text-[18px] tracking-[-0.18px]"
+                <span class="text-white font-bold text-[18px] tracking-[-0.18px] whitespace-nowrap"
                       th:text="${projectName ?: 'Project Name'}">Project Name</span>
-
-                <!-- Version Dropdown — hidden on Scan History tab -->
                 <div th:unless="${activeTab == 'scan-history'}"
                      th:attr="data-project-id=${projectId}"
                      x-data="{ versionDropdownOpen: false }"
@@ -123,7 +121,7 @@
                      class="relative">
                     <button type="button"
                             @click="versionDropdownOpen = !versionDropdownOpen"
-                            class="bg-white/15 border border-white/30 rounded-[4px] px-[8px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors"
+                            class="bg-white/15 border border-white/30 rounded-[4px] px-[12px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors min-w-[140px] justify-between"
                             :class="versionDropdownOpen && 'bg-white/25 border-white/50'">
                         <span class="text-[var(--secondary-20)] font-medium text-[16px] tracking-[-0.16px]"
                               th:text="${projectVersion ?: '-'}">-</span>
@@ -219,7 +217,7 @@
                     <span class="text-[14px] font-extralight tracking-[-0.14px] whitespace-nowrap"
                           th:text="${#authentication != null ? #authentication.getPrincipal().displayName : ''}"></span>
                     <span class="w-[3px] h-[3px] rounded-full bg-[#bdfaed] shrink-0"></span>
-                    <span class="text-[14px] font-thin tracking-[-0.14px] whitespace-nowrap"
+                    <span class="text-[14px] font-extralight tracking-[-0.14px] whitespace-nowrap"
                           th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}"></span>
                 </button>
                 <div x-show="open" x-transition style="display:none;"
@@ -290,10 +288,10 @@
             <a th:href="@{/projects}" class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors">Projects</a>
             <img th:src="@{/icon/icon-chevron-right.svg}" class="w-5 h-5 shrink-0" alt="" aria-hidden="true">
             <a th:href="@{|/projects/${projectId}/security-center|}"
-               class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors"
+               class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors whitespace-nowrap"
                th:text="${projectName ?: 'Project'}">Project</a>
             <img th:src="@{/icon/icon-chevron-right.svg}" class="w-5 h-5 shrink-0" alt="" aria-hidden="true">
-            <span class="text-white font-bold text-[18px] tracking-[-0.18px]">Version Diff</span>
+            <span class="text-white font-bold text-[18px] tracking-[-0.18px] whitespace-nowrap">Version Diff</span>
         </div>
         <div class="flex-1"></div>
         <!-- User info (inline, matching Figma — click to log out) -->
@@ -303,7 +301,7 @@
                 <span class="text-[14px] font-extralight tracking-[-0.14px] whitespace-nowrap"
                       th:text="${#authentication != null ? #authentication.getPrincipal().displayName : ''}"></span>
                 <span class="w-[3px] h-[3px] rounded-full bg-[#bdfaed] shrink-0"></span>
-                <span class="text-[14px] font-thin tracking-[-0.14px] whitespace-nowrap"
+                <span class="text-[14px] font-extralight tracking-[-0.14px] whitespace-nowrap"
                       th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}"></span>
             </button>
             <div x-show="open" x-transition style="display:none;"
