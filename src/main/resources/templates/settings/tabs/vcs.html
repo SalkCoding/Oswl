@@ -87,13 +87,13 @@
                     <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Server URL</label>
                     <input type="url" x-model="gitlabServerUrl"
                            placeholder="https://gitlab.example.com"
-                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[var(--primary-120)] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Access Token</label>
                     <input type="password" x-model="gitlabAccessToken"
                            placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
-                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[var(--primary-120)] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex justify-end">
                     <button @click="connectGitlab()"
@@ -168,7 +168,7 @@
                 <div class="flex items-start justify-between">
                     <div class="flex flex-col gap-[4px]">
                         <h3 class="font-bold text-[16px] inline-flex items-center gap-[8px]">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <img th:src="@{/icon/icon-Add.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                             Add VCS Connection
                         </h3>
                         <p class="text-[12px] text-white/60">Access tokens are encrypted and never exposed after saving.</p>
@@ -182,7 +182,7 @@
                 <div class="flex flex-col gap-[6px]">
                     <label class="text-[12px] font-bold">Provider</label>
                     <select x-model="form.provider"
-                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white focus:outline-none focus:border-white/40">
+                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white focus:outline-none focus:border-[#33D1B7]">
                         <option value="" class="bg-[#001d35]">Select a provider</option>
                         <option value="GITHUB" class="bg-[#001d35]">GitHub</option>
                         <option value="GITLAB" class="bg-[#001d35]">GitLab</option>
@@ -194,14 +194,14 @@
                 <div class="flex flex-col gap-[6px]" x-show="form.provider === 'GITLAB'" x-cloak>
                     <label class="text-[12px] font-bold">Server URL <span class="text-white/50 font-normal">(Optional — leave blank for gitlab.com)</span></label>
                     <input type="url" x-model="form.serverUrl" placeholder="https://gitlab.example.com"
-                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Bitbucket: Username -->
                 <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
                     <label class="text-[12px] font-bold">Username</label>
                     <input type="text" x-model="form.vcsUsername" placeholder="atlassian-username"
-                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Access Token / App Password -->
@@ -212,7 +212,7 @@
                     </label>
                     <input type="password" x-model="form.accessToken"
                            :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx'"
-                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Buttons -->

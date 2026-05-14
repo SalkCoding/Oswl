@@ -59,7 +59,7 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
                     <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
                         <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
                                 :class="open ? 'border-[var(--primary-120)]' : ''">
                             <span x-text="forms.OPENAI.modelName"></span>
                             <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -100,7 +100,7 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
                     <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
                         <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
                                 :class="open ? 'border-[var(--primary-120)]' : ''">
                             <span x-text="forms.ANTHROPIC.modelName"></span>
                             <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -141,7 +141,7 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
                     <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
                         <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
                                 :class="open ? 'border-[var(--primary-120)]' : ''">
                             <span x-text="forms.GEMINI.modelName"></span>
                             <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -182,7 +182,7 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
                     <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
                         <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[var(--primary-120)] transition-colors cursor-pointer"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
                                 :class="open ? 'border-[var(--primary-120)]' : ''">
                             <span x-text="forms.LOCAL.modelName || 'Select model'"></span>
                             <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -213,7 +213,7 @@
             <button type="button"
                     @click="save()"
                     :disabled="saving"
-                    class="bg-[var(--primary-120)] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 hover:opacity-90 transition-opacity cursor-pointer">
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/>
