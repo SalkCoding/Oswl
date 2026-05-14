@@ -33,6 +33,7 @@ public class SecurityConfig {
     private final PermissionEvaluator oswlPermissionEvaluator;
     private final OswlAuthenticationFailureHandler authenticationFailureHandler;
     private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
+    private final TwoFaAuthenticationSuccessHandler twoFaAuthenticationSuccessHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -63,17 +64,16 @@ public class SecurityConfig {
                     .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
                     .maximumSessions(1))
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/login", "/login/otp-verify", "/setup", "/error/**").permitAll()
+                    .requestMatchers("/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
-                    .requestMatchers("/data/**").permitAll()
                     .anyRequest().authenticated())
             .formLogin(form -> form
                     .loginPage("/login")
                     .loginProcessingUrl("/login")
                     .usernameParameter("email")
                     .passwordParameter("password")
-                    .defaultSuccessUrl("/projects", true)
+                    .successHandler(twoFaAuthenticationSuccessHandler)
                     .failureHandler(authenticationFailureHandler)
                     .permitAll())
             .logout(logout -> logout
@@ -109,13 +109,13 @@ public class SecurityConfig {
         return handler;
     }
 
-    /** local 프로파일에서만 활성화: H2 콘솔을 인증 없이 접근 허용. */
+    /** local 프로파일에서만 활성화: H2 콘솔 및 테스트 데이터 엔드포인트를 인증 없이 접근 허용. */
     @Bean
     @Profile("local")
     @Order(1)
-    public SecurityFilterChain h2ConsoleFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain localDevFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/h2-console/**")
+            .securityMatcher("/h2-console/**", "/data/**")
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
             .csrf(csrf -> csrf.disable())
             .headers(headers -> headers.frameOptions(fo -> fo.sameOrigin()));

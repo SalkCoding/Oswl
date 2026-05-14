@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.controller.spec.AiSettingControllerSpec;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
@@ -34,6 +35,7 @@ public class AiSettingController implements AiSettingControllerSpec {
 
     private final AiSettingRepository aiSettingRepository;
     private final AuditLogService auditLogService;
+    private final EncryptionService encryptionService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -51,7 +53,11 @@ public class AiSettingController implements AiSettingControllerSpec {
         AiSetting setting = aiSettingRepository.findByProvider(request.getProvider())
                 .orElseGet(() -> AiSetting.builder().provider(request.getProvider()).build());
 
-        setting.update(request.getApiKey(), request.getModelName(), request.getBaseUrl());
+        // Encrypt the API key before persisting
+        String encryptedKey = request.getApiKey() != null && !request.getApiKey().isBlank()
+                ? encryptionService.encrypt(request.getApiKey())
+                : request.getApiKey();
+        setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
 
         if (Boolean.TRUE.equals(request.getActivate())) {
             aiSettingRepository.findByActiveTrue().ifPresent(AiSetting::deactivate);

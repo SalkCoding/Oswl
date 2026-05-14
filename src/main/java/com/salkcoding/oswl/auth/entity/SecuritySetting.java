@@ -47,8 +47,8 @@ public class SecuritySetting {
     @Column(name = "mail_username", length = 255)
     private String mailUsername;
 
-    /** Stored as plain text — never returned to clients. */
-    @Column(name = "mail_password", length = 500)
+    /** Stored AES-256-GCM encrypted. Never returned to clients. Column length 1000 for ciphertext. */
+    @Column(name = "mail_password", length = 1000)
     private String mailPassword;
 
     @Column(name = "mail_sender_name", length = 100)

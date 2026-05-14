@@ -79,7 +79,7 @@
                     </div>
                 </button>
 
-                <button type="button" @click="openPanel = 'git'"
+                <button type="button" @click="window.location.href='/projects/quick-import'"
                    class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
@@ -400,7 +400,6 @@
         </p>
     </div>
 
-    <script th:src="@{/js/projects/git-integration.js}" defer></script>
     <script th:src="@{/js/projects/projects.js}" defer></script>
 
     <!-- ── 커스텀 삭제 확인 모달 ── -->

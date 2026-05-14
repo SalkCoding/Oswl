@@ -45,3 +45,11 @@ logging:
     org.springframework.security: WARN
     org.springframework.orm: WARN
     org.springframework.transaction: WARN
+
+oswl:
+  encryption:
+    # Stable dev-only key (32 bytes, Base64-encoded). DO NOT use in production.
+    # Generate a production key with: openssl rand -base64 32
+    key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  clone:
+    temp-dir: ""   # empty = use system temp dir (java.io.tmpdir/oswl-clones)

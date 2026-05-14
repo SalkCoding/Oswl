@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.auth.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class AiAnalysisService {
     private final AiSettingRepository aiSettingRepository;
     private final OpenAiClient openAiClient;
     private final AnthropicClient anthropicClient;
+    private final EncryptionService encryptionService;
 
     // ── Public API ───────────────────────────────────────────────────────
 
@@ -85,7 +87,19 @@ public class AiAnalysisService {
     // ── Internal ─────────────────────────────────────────────────────────
 
     private AiSetting getActiveSetting() {
-        return aiSettingRepository.findByActiveTrue().orElseGet(() -> {
+        return aiSettingRepository.findByActiveTrue().map(s -> {
+            // Decrypt the stored API key before passing to AI clients
+            if (s.getApiKey() != null && !s.getApiKey().isBlank()) {
+                try {
+                    s.update(encryptionService.decrypt(s.getApiKey()), null, null);
+                } catch (Exception e) {
+                    // Backwards-compat: if decryption fails the key may be legacy plaintext.
+                    // Re-save the setting via the UI to encrypt it.
+                    log.warn("[AI] API key decryption failed for provider {}. Key may be stored in legacy plaintext. Re-save via Settings to encrypt.", s.getProvider());
+                }
+            }
+            return s;
+        }).orElseGet(() -> {
             log.debug("[AI] No active AI setting found. Skipping analysis.");
             return null;
         });

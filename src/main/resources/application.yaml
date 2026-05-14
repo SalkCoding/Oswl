@@ -11,6 +11,16 @@ spring:
 server:
   port: 8080
 
+oswl:
+  encryption:
+    # REQUIRED in production. Generate with: openssl rand -base64 32
+    # Set via environment variable: OSWL_ENCRYPTION_KEY
+    key: ${OSWL_ENCRYPTION_KEY:}
+  clone:
+    # Directory for temporary git clones during Quick Import.
+    # Defaults to system temp directory if left blank.
+    temp-dir: ${OSWL_CLONE_TEMP_DIR:}
+
 ## AI 설정 (DB에 저장된 AiSetting으로 덮어쓰기 가능)
 ## 초기 기동 시 환경변수로 주입하거나 UI에서 PUT /api/settings/ai 로 설정
 #oswl:

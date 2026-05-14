@@ -7,6 +7,7 @@ import com.salkcoding.oswl.auth.entity.SecuritySetting;
 import com.salkcoding.oswl.auth.enums.MailMode;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.repository.SecuritySettingRepository;
+import com.salkcoding.oswl.auth.security.EncryptionService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -22,6 +23,7 @@ public class SecuritySettingService {
     private static final long SETTINGS_ID = 1L;
 
     private final SecuritySettingRepository repository;
+    private final EncryptionService encryptionService;
 
     // ── Read ─────────────────────────────────────────────────────────────
 
@@ -50,9 +52,9 @@ public class SecuritySettingService {
             if (m.getUsername() != null)      s.setMailUsername(m.getUsername());
             if (m.getSenderName() != null)    s.setMailSenderName(m.getSenderName());
             if (m.getSenderAddress() != null) s.setMailSenderAddress(m.getSenderAddress());
-            // Only overwrite the stored password when a new non-blank value is sent
+            // Encrypt new password before storing; skip if blank (keep existing)
             if (m.getPassword() != null && !m.getPassword().isBlank()) {
-                s.setMailPassword(m.getPassword());
+                s.setMailPassword(encryptionService.encrypt(m.getPassword()));
             }
         }
 

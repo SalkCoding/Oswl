@@ -92,19 +92,12 @@ public class ProjectController implements ProjectControllerSpec {
         return "redirect:/projects";
     }
 
+    /** Redirect legacy git-integration URL to the new quick-import page. */
     @GetMapping("/git-integration")
     public String gitIntegration() {
-        return "projects/git-integration";
+        return "redirect:/projects/quick-import";
     }
 
-    @GetMapping("/api/branches")
-    public ResponseEntity<List<String>> getBranches() {
-        return ResponseEntity.ok(List.of());
-    }
-
-    @GetMapping("/api/accounts")
-    public ResponseEntity<List<String>> getAccounts() {
-        return ResponseEntity.ok(List.of());
-    }
+    // Stub endpoints removed — replaced by /api/quick-import/*
 }
 
