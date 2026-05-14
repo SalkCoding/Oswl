@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head('Quick Import')}"></head>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
+
+    <header th:replace="~{fragments/topbar :: simple-topbar('Quick Import')}"></header>
+
+    <main class="flex flex-col flex-1 items-center py-[48px] px-[24px]"
+          x-data="quickImportPage()" x-init="init()">
+
+        <!-- Page header -->
+        <div class="w-full max-w-[720px] flex flex-col gap-[6px] mb-[32px]">
+            <div class="flex items-center gap-[10px]">
+                <a href="/projects"
+                   class="inline-flex items-center gap-[6px] text-[13px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors no-underline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    Projects
+                </a>
+            </div>
+            <h1 class="font-bold text-[26px] text-[var(--grayscale-100)] tracking-[-0.4px] m-0">Quick Import</h1>
+            <p class="text-[14px] text-[var(--grayscale-60)] m-0">
+                Paste a repository URL to automatically clone, scan dependencies, and create a project.
+            </p>
+        </div>
+
+        <!-- ?�?� Connected Accounts ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� -->
+        <div class="w-full max-w-[720px] mb-[24px]">
+            <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] mb-[10px]">
+                Connected VCS Accounts
+            </p>
+
+            <!-- Loading skeleton -->
+            <div x-show="loadingConnections" class="flex gap-[12px]">
+                <template x-for="i in 3">
+                    <div class="flex-1 h-[60px] bg-[var(--grayscale-10)] rounded-[10px] animate-pulse"></div>
+                </template>
+            </div>
+
+            <!-- Provider cards (3 columns) -->
+            <div x-show="!loadingConnections" x-cloak class="grid grid-cols-3 gap-[12px]">
+
+                <!-- GitHub -->
+                <div class="bg-white border rounded-[10px] p-[16px] flex items-center gap-[12px]"
+                     :class="connectedProviders.includes('GITHUB')
+                             ? 'border-emerald-200 bg-emerald-50/40'
+                             : 'border-[var(--grayscale-15)] opacity-50'">
+                    <div class="w-[34px] h-[34px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-10)] shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-80)]">
+                            <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-semibold text-[13px] text-[var(--grayscale-90)] m-0 truncate">GitHub</p>
+                        <template x-if="connectionsByProvider['GITHUB']">
+                            <p class="text-[11px] text-emerald-600 font-semibold m-0 flex items-center gap-[4px]">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>
+                                <span x-text="connectionsByProvider['GITHUB']?.vcsUsername || 'Connected'"></span>
+                            </p>
+                        </template>
+                        <template x-if="!connectionsByProvider['GITHUB']">
+                            <p class="text-[11px] text-[var(--grayscale-40)] m-0">Not connected</p>
+                        </template>
+                    </div>
+                    <template x-if="!connectionsByProvider['GITHUB']">
+                        <a href="/settings?tab=vcs" class="shrink-0 text-[11px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] no-underline">Connect →</a>
+                    </template>
+                </div>
+
+                <!-- GitLab -->
+                <div class="bg-white border rounded-[10px] p-[16px] flex items-center gap-[12px]"
+                     :class="connectedProviders.includes('GITLAB')
+                             ? 'border-orange-200 bg-orange-50/40'
+                             : 'border-[var(--grayscale-15)] opacity-50'">
+                    <div class="w-[34px] h-[34px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-10)] shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 380 380" fill="currentColor" class="text-orange-500">
+                            <path d="M282.83 170.73l-.27-.69-26.14-68.22a6.81 6.81 0 0 0-2.69-3.24 7 7 0 0 0-8 .43 7 7 0 0 0-2.32 3.52l-17.65 54H154.29l-17.65-54a6.86 6.86 0 0 0-2.32-3.52 7 7 0 0 0-8-.43 6.87 6.87 0 0 0-2.69 3.24L97.44 170l-.26.69a48.54 48.54 0 0 0 16.1 56.1l.09.07.24.17 39.82 29.82 19.7 14.91 12 9.06a8.07 8.07 0 0 0 9.76 0l12-9.06 19.7-14.91 40.06-30 .1-.08a48.56 48.56 0 0 0 16.08-56.04z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-semibold text-[13px] text-[var(--grayscale-90)] m-0 truncate">GitLab</p>
+                        <template x-if="connectionsByProvider['GITLAB']">
+                            <p class="text-[11px] text-orange-500 font-semibold m-0 flex items-center gap-[4px]">
+                                <span class="w-[5px] h-[5px] rounded-full bg-orange-500 shrink-0"></span>
+                                <span x-text="connectionsByProvider['GITLAB']?.vcsUsername || 'Connected'"></span>
+                            </p>
+                        </template>
+                        <template x-if="!connectionsByProvider['GITLAB']">
+                            <p class="text-[11px] text-[var(--grayscale-40)] m-0">Not connected</p>
+                        </template>
+                    </div>
+                    <template x-if="!connectionsByProvider['GITLAB']">
+                        <a href="/settings?tab=vcs" class="shrink-0 text-[11px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] no-underline">Connect →</a>
+                    </template>
+                </div>
+
+                <!-- Bitbucket -->
+                <div class="bg-white border rounded-[10px] p-[16px] flex items-center gap-[12px]"
+                     :class="connectedProviders.includes('BITBUCKET')
+                             ? 'border-blue-200 bg-blue-50/40'
+                             : 'border-[var(--grayscale-15)] opacity-50'">
+                    <div class="w-[34px] h-[34px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-10)] shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="text-blue-500">
+                            <path d="M.778 1.213a.768.768 0 0 0-.768.892l3.263 19.81c.084.5.515.868 1.022.873H19.95a.772.772 0 0 0 .77-.646l3.27-20.03a.768.768 0 0 0-.768-.891L.778 1.213zM14.52 15.53H9.522L8.17 8.466h7.561l-1.211 7.064z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-semibold text-[13px] text-[var(--grayscale-90)] m-0 truncate">Bitbucket</p>
+                        <template x-if="connectionsByProvider['BITBUCKET']">
+                            <p class="text-[11px] text-blue-500 font-semibold m-0 flex items-center gap-[4px]">
+                                <span class="w-[5px] h-[5px] rounded-full bg-blue-500 shrink-0"></span>
+                                <span x-text="connectionsByProvider['BITBUCKET']?.vcsUsername || 'Connected'"></span>
+                            </p>
+                        </template>
+                        <template x-if="!connectionsByProvider['BITBUCKET']">
+                            <p class="text-[11px] text-[var(--grayscale-40)] m-0">Not connected</p>
+                        </template>
+                    </div>
+                    <template x-if="!connectionsByProvider['BITBUCKET']">
+                        <a href="/settings?tab=vcs" class="shrink-0 text-[11px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] no-underline">Connect →</a>
+                    </template>
+                </div>
+            </div>
+
+            <!-- No accounts connected notice -->
+            <div x-show="!loadingConnections && connectedProviders.length === 0" x-cloak
+                 class="mt-[12px] flex items-center gap-[10px] bg-amber-50 border border-amber-200 rounded-[8px] px-[14px] py-[10px]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-500 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <p class="text-[13px] text-amber-700 m-0">
+                    No VCS accounts connected yet.
+                    <a href="/settings?tab=vcs" class="font-semibold underline text-amber-700">Connect an account</a> first.
+                </p>
+            </div>
+        </div>
+
+        <!-- ?�?� Import Form ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� -->
+        <div class="w-full max-w-[720px] bg-white border border-[var(--grayscale-15)] rounded-[14px] p-[28px] flex flex-col gap-[20px]">
+
+            <!-- URL input -->
+            <div class="flex flex-col gap-[6px]">
+                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]">Repository URL</label>
+                <div class="flex gap-[10px]">
+                    <div class="relative flex-1">
+                        <!-- Provider icon (auto-detected) -->
+                        <div class="absolute left-[12px] top-1/2 -translate-y-1/2 pointer-events-none">
+                            <svg x-show="detectedProvider === 'GITHUB'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-60)]"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+                            <svg x-show="detectedProvider === 'GITLAB'" width="16" height="16" viewBox="0 0 380 380" fill="currentColor" class="text-orange-500"><path d="M282.83 170.73l-.27-.69-26.14-68.22a6.81 6.81 0 0 0-2.69-3.24 7 7 0 0 0-8 .43 7 7 0 0 0-2.32 3.52l-17.65 54H154.29l-17.65-54a6.86 6.86 0 0 0-2.32-3.52 7 7 0 0 0-8-.43 6.87 6.87 0 0 0-2.69 3.24L97.44 170l-.26.69a48.54 48.54 0 0 0 16.1 56.1l.09.07.24.17 39.82 29.82 19.7 14.91 12 9.06a8.07 8.07 0 0 0 9.76 0l12-9.06 19.7-14.91 40.06-30 .1-.08a48.56 48.56 0 0 0 16.08-56.04z"/></svg>
+                            <svg x-show="detectedProvider === 'BITBUCKET'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-blue-500"><path d="M.778 1.213a.768.768 0 0 0-.768.892l3.263 19.81c.084.5.515.868 1.022.873H19.95a.772.772 0 0 0 .77-.646l3.27-20.03a.768.768 0 0 0-.768-.891L.778 1.213zM14.52 15.53H9.522L8.17 8.466h7.561l-1.211 7.064z"/></svg>
+                            <svg x-show="!detectedProvider" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="text-[var(--grayscale-30)]" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        </div>
+                        <input type="url"
+                               x-model="repoUrl"
+                               @input="onUrlInput"
+                               @keydown.enter.prevent="canImport && startImport()"
+                               placeholder="https://github.com/owner/repository"
+                               class="w-full pl-[38px] pr-[14px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] focus:outline-none focus:border-[var(--grayscale-50)] focus:ring-1 focus:ring-[var(--grayscale-50)] transition-colors"
+                               :class="urlError ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''"
+                               :disabled="isImporting" />
+                    </div>
+                    <input type="text"
+                           x-model="branch"
+                           placeholder="Branch (optional)"
+                           class="w-[180px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] focus:outline-none focus:border-[var(--grayscale-50)] focus:ring-1 focus:ring-[var(--grayscale-50)] transition-colors"
+                           :disabled="isImporting" />
+                </div>
+                <!-- URL validation error -->
+                <p x-show="urlError" x-cloak class="text-[12px] text-red-500 m-0" x-text="urlError"></p>
+                <!-- Provider not connected warning -->
+                <p x-show="providerNotConnected" x-cloak
+                   class="text-[12px] text-amber-600 m-0 flex items-center gap-[5px]">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span x-text="'Your ' + detectedProvider + ' account is not connected.'"></span>
+                    <a href="/settings?tab=vcs" class="underline font-medium">Connect →</a>
+                </p>
+            </div>
+
+            <!-- Submit button -->
+            <button @click="startImport()"
+                    :disabled="!canImport"
+                    class="self-start inline-flex items-center gap-[8px] px-[20px] py-[10px] rounded-[8px] text-[14px] font-semibold transition-all
+                           bg-[var(--grayscale-100)] text-white hover:bg-[var(--grayscale-80)]
+                           disabled:opacity-40 disabled:cursor-not-allowed">
+                <svg x-show="!isImporting" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
+                <svg x-show="isImporting" class="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75"/></svg>
+                <span x-text="isImporting ? 'Importing…' : 'Import &amp; Scan'"></span>
+            </button>
+        </div>
+
+        <!-- ?�?� Progress Log ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� -->
+        <div x-show="showProgress" x-cloak class="w-full max-w-[720px] mt-[20px]">
+            <div class="bg-[var(--grayscale-100)] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
+                <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0">Import Log</p>
+                <template x-for="(entry, idx) in progressLog" :key="idx">
+                    <div class="flex items-start gap-[10px]">
+                        <!-- Phase icon -->
+                        <span class="shrink-0 mt-[1px]">
+                            <template x-if="entry.status === 'done'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-400"><polyline points="20 6 9 17 4 12"/></svg>
+                            </template>
+                            <template x-if="entry.status === 'error'">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-400"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </template>
+                            <template x-if="entry.status === 'running'">
+                                <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75 text-white"/></svg>
+                            </template>
+                        </span>
+                        <span class="text-[13px] text-white/80 leading-[1.5]" x-text="entry.text"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- ?�?� Success Card ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?� -->
+        <div x-show="importDone" x-cloak class="w-full max-w-[720px] mt-[20px]">
+            <div class="bg-white border border-emerald-200 rounded-[14px] p-[28px] flex flex-col gap-[20px]">
+                <div class="flex items-center gap-[12px]">
+                    <div class="w-[40px] h-[40px] rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-600"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <div>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" x-text="'Import complete — ' + (jobResult.projectName || 'project') + ' created.'"></p>
+                        <p class="text-[13px] text-[var(--grayscale-60)] m-0">
+                            <span x-text="jobResult.componentCount || 0"></span> components scanned
+                            (<span x-text="jobResult.ecosystem || 'unknown'"></span>)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- API Key box -->
+                <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] p-[16px] flex flex-col gap-[10px]">
+                    <div class="flex items-center justify-between gap-[8px]">
+                        <div class="flex items-center gap-[8px]">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-60)]" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                            <span class="text-[12px] font-semibold text-[var(--grayscale-70)]">API Key</span>
+                            <span x-show="jobResult.newApiKey"
+                                  class="px-[6px] py-[2px] bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full">New</span>
+                            <span x-show="!jobResult.newApiKey"
+                                  class="px-[6px] py-[2px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] font-semibold rounded-full">Existing</span>
+                        </div>
+                        <button @click="copyApiKey()"
+                                class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-90)] transition-colors">
+                            <svg x-show="!keyCopied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                            <svg x-show="keyCopied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-500" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span x-text="keyCopied ? 'Copied!' : 'Copy'"></span>
+                        </button>
+                    </div>
+                    <!-- Token display -->
+                    <code class="block font-mono text-[13px] text-[var(--grayscale-90)] bg-white border border-[var(--grayscale-15)] rounded-[6px] px-[12px] py-[8px] break-all select-all"
+                          x-text="jobResult.apiToken || '—'"></code>
+                    <p class="text-[11px] text-[var(--grayscale-50)] m-0">
+                        Use this key with the OsWL CLI:
+                        <code class="font-mono bg-[var(--grayscale-10)] px-[4px] py-[1px] rounded text-[var(--grayscale-80)]">
+                            oswl scan --key &lt;token&gt;
+                        </code>
+                        <span class="font-semibold text-amber-600">Save it now — it won't be shown again for existing keys.</span>
+                    </p>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-[10px]">
+                    <a :href="'/security-center/' + jobResult.projectId"
+                       class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--grayscale-100)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--grayscale-80)] no-underline transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        View Security Center
+                    </a>
+                    <button @click="resetForm()"
+                            class="inline-flex items-center gap-[7px] px-[16px] py-[9px] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[13px] font-semibold rounded-[8px] hover:bg-[var(--grayscale-5)] transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+                        Import Another
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script th:src="@{/js/projects/quick-import.js}"></script>
+</body>
+</html>

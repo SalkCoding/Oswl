@@ -21,7 +21,7 @@
         <button @click="subTab='templates'; closeSidebar()"
                 :class="subTab==='templates' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                 class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">Permission Template</button>
-        <button @click="subTab='audit'; closeSidebar(); loadAudit()"
+        <button @click="subTab='audit'; closeSidebar(); loadAudit(0)"
                 :class="subTab==='audit' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                 class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">Audit Log</button>
     </div>
@@ -455,26 +455,96 @@
     <div x-show="subTab==='audit'" x-cloak class="flex flex-col gap-[12px]">
         <div class="flex items-center justify-between gap-[8px] flex-wrap">
             <div class="flex items-center gap-[8px] flex-wrap">
-                <select x-model="auditFilter.dateRange" @change="loadAudit()"
+                <select x-model="auditFilter.dateRange" @change="loadAudit(0)"
                         class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer">
                     <option value="7">Last 7 days</option>
                     <option value="30">Last 30 days</option>
                     <option value="90">Last 90 days</option>
                     <option value="">All time</option>
                 </select>
-                <div class="relative">
-                    <input type="text" x-model="auditFilter.actorEmail" placeholder="All Users"
-                           @keydown.enter="loadAudit()"
-                           class="px-[12px] py-[8px] pr-[28px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white w-[160px]"/>
-                    <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                <!-- Actor Email — Searchable Dropdown -->
+                <div class="relative" @click.away="actorDropdownOpen=false">
+                    <button type="button" @click="actorDropdownOpen=!actorDropdownOpen"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white w-[160px] text-left relative cursor-pointer transition-colors"
+                            :class="actorDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px]"
+                              :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
+                              x-text="auditFilter.actorEmail || 'All Users'"></span>
+                        <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none transition-transform"
+                             :class="actorDropdownOpen ? 'rotate-180' : ''"
+                             width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <!-- Dropdown panel -->
+                    <div x-show="actorDropdownOpen" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 w-[220px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
+                        <!-- Search -->
+                        <div class="px-[8px] py-[6px] border-b border-[var(--grayscale-10)]">
+                            <input type="text" x-model="actorSearchQuery" placeholder="Search..."
+                                   @click.stop x-ref="actorSearch"
+                                   class="w-full px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] outline-none focus:border-[#00B9A3]"/>
+                        </div>
+                        <div class="max-h-[200px] overflow-y-auto">
+                            <!-- All Users -->
+                            <button type="button"
+                                    @click="auditFilter.actorEmail=''; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
+                                    class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="!auditFilter.actorEmail ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">All Users</button>
+                            <!-- User list -->
+                            <template x-for="u in filteredAuditUsers" :key="u.id">
+                                <button type="button"
+                                        @click="auditFilter.actorEmail=u.email; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
+                                        class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors flex items-center gap-[8px]"
+                                        :class="auditFilter.actorEmail===u.email ? 'bg-[var(--grayscale-5)] font-semibold' : 'text-[var(--grayscale-80)]'">
+                                    <div class="w-[22px] h-[22px] rounded-full inline-flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                                         :style="`background-color: ${avatarColor(u.displayName||u.email)}`"
+                                         x-text="(u.displayName||u.email||'?').trim().charAt(0).toUpperCase()"></div>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="truncate" x-text="u.displayName || u.email"></span>
+                                        <span x-show="u.displayName" class="text-[11px] text-[var(--grayscale-50)] truncate" x-text="u.email"></span>
+                                    </div>
+                                </button>
+                            </template>
+                            <div x-show="filteredAuditUsers.length===0" class="px-[12px] py-[8px] text-[12px] text-[var(--grayscale-50)]">No users found</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="relative">
-                    <input type="text" x-model="auditFilter.action" placeholder="All Actions"
-                           @keydown.enter="loadAudit()"
-                           class="px-[12px] py-[8px] pr-[28px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white w-[160px]"/>
-                    <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+
+                <!-- Action — Custom Dropdown -->
+                <div class="relative" @click.away="actionDropdownOpen=false">
+                    <button type="button" @click="actionDropdownOpen=!actionDropdownOpen"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white w-[180px] text-left relative cursor-pointer transition-colors"
+                            :class="actionDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px]"
+                              :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
+                              x-text="auditFilter.action || 'All Actions'"></span>
+                        <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none transition-transform"
+                             :class="actionDropdownOpen ? 'rotate-180' : ''"
+                             width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div x-show="actionDropdownOpen" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 w-[260px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
+                        <div class="max-h-[280px] overflow-y-auto">
+                            <button type="button"
+                                    @click="auditFilter.action=''; actionDropdownOpen=false; loadAudit(0)"
+                                    class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="!auditFilter.action ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">All Actions</button>
+                            <template x-for="group in actionGroups" :key="group.label">
+                                <div>
+                                    <div class="px-[12px] py-[3px] text-[10px] font-bold text-[var(--grayscale-50)] uppercase tracking-wider bg-[var(--grayscale-5)] border-t border-[var(--grayscale-10)]"
+                                         x-text="group.label"></div>
+                                    <template x-for="item in group.items" :key="item">
+                                        <button type="button"
+                                                @click="auditFilter.action=item; actionDropdownOpen=false; loadAudit(0)"
+                                                class="w-full text-left px-[12px] py-[6px] pl-[16px] text-[12px] font-mono hover:bg-[var(--grayscale-5)] transition-colors"
+                                                :class="auditFilter.action===item ? 'bg-[var(--grayscale-10)] font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
+                                                x-text="item"></button>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
-                <button @click="loadAudit()"
+                <button @click="loadAudit(0)"
                         class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-70)] hover:bg-[var(--grayscale-5)] inline-flex items-center gap-[6px]">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     Search
@@ -527,6 +597,30 @@
                 <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No audit records.</td></tr>
                 </tbody>
             </table>
+        </div>
+        <!-- Pagination -->
+        <div x-show="auditTotalPages > 1" x-cloak class="flex items-center justify-between px-[2px] py-[4px]">
+            <span class="text-[12px] text-[var(--grayscale-50)]">
+                Total <span class="font-semibold text-[var(--grayscale-70)]" x-text="auditTotalElements"></span> records
+                &nbsp;·&nbsp; Page <span x-text="auditPage + 1"></span> / <span x-text="auditTotalPages"></span>
+            </span>
+            <div class="flex items-center gap-[3px]">
+                <button @click="loadAudit(0)" :disabled="auditPage===0"
+                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">«</button>
+                <button @click="loadAudit(auditPage-1)" :disabled="auditPage===0"
+                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">‹</button>
+                <template x-for="p in pageRange()" :key="p">
+                    <button @click="p!=='...' && loadAudit(p-1)"
+                            :disabled="p==='...'"
+                            class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border transition-colors"
+                            :class="p-1===auditPage ? 'bg-[#00B9A3] text-white border-[#00B9A3] font-bold' : (p==='...' ? 'border-transparent cursor-default text-[var(--grayscale-40)]' : 'border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)]')"
+                            x-text="p"></button>
+                </template>
+                <button @click="loadAudit(auditPage+1)" :disabled="auditPage>=auditTotalPages-1"
+                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">›</button>
+                <button @click="loadAudit(auditTotalPages-1)" :disabled="auditPage>=auditTotalPages-1"
+                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">»</button>
+            </div>
         </div>
     </div>
 
@@ -740,6 +834,31 @@
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
             auditFilter: { dateRange: '7', actorEmail: '', action: '' },
             auditLogs: [],
+            auditPage: 0, auditTotalPages: 0, auditTotalElements: 0, auditPageSize: 20,
+            actorDropdownOpen: false,
+            actorSearchQuery: '',
+            actionDropdownOpen: false,
+            actionGroups: [
+                { label: 'Auth', items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT'] },
+                { label: 'User', items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
+                { label: 'Role Template', items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
+                { label: 'Project', items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE'] },
+                { label: 'VCS', items: ['VCS.CONNECT', 'VCS.DISCONNECT'] },
+                { label: 'CLI Key', items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
+                { label: 'Security', items: ['SECURITY_SETTING.UPDATE'] },
+                { label: 'AI Setting', items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE'] },
+                { label: 'Cache', items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
+                { label: 'External Setting', items: ['EXTERNAL_SETTING.NVD_UPDATE', 'EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
+                { label: 'Scan', items: ['SCAN.INGEST'] },
+            ],
+            get filteredAuditUsers() {
+                const q = this.actorSearchQuery.toLowerCase();
+                return this.users.filter(u =>
+                    !q ||
+                    (u.email || '').toLowerCase().includes(q) ||
+                    (u.displayName || '').toLowerCase().includes(q)
+                );
+            },
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
 
             // ── Permission grouping ──
@@ -893,7 +1012,8 @@
                 if (!r.ok) { alert('Failed: ' + await r.text()); return; }
                 await this.loadTemplates();
             },
-            async loadAudit() {
+            async loadAudit(page) {
+                if (page !== undefined) this.auditPage = page;
                 const params = new URLSearchParams();
                 if (this.auditFilter.dateRange) {
                     const days = parseInt(this.auditFilter.dateRange, 10);
@@ -903,13 +1023,28 @@
                 }
                 if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
                 if (this.auditFilter.action) params.set('action', this.auditFilter.action);
+                params.set('page', this.auditPage);
+                params.set('size', this.auditPageSize);
                 try {
                     const r = await fetch('/api/admin/audit-logs?' + params.toString());
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = `Failed to load audit logs (${r.status})`; return; }
                     const data = await r.json();
                     this.auditLogs = data.content || [];
+                    this.auditTotalPages = data.page?.totalPages || data.totalPages || 0;
+                    this.auditTotalElements = data.page?.totalElements || data.totalElements || 0;
                 } catch(e) { this.apiError = 'Failed to load audit logs.'; }
+            },
+            pageRange() {
+                const total = this.auditTotalPages;
+                const cur = this.auditPage + 1;
+                if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                const range = [1];
+                if (cur > 3) range.push('...');
+                for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) range.push(i);
+                if (cur < total - 2) range.push('...');
+                range.push(total);
+                return range;
             },
             auditExportUrl() {
                 const params = new URLSearchParams();

@@ -31,17 +31,15 @@ public class EncryptionService {
 
     @PostConstruct
     public void init() {
-        byte[] keyBytes;
         if (encryptionKeyBase64 == null || encryptionKeyBase64.isBlank()) {
-            // Dev fallback — generates an ephemeral key per app start.
-            // In production, oswl.encryption.key MUST be set via env/config.
-            keyBytes = new byte[32];
-            secureRandom.nextBytes(keyBytes);
-        } else {
-            keyBytes = Base64.getDecoder().decode(encryptionKeyBase64);
-            if (keyBytes.length != 32) {
-                throw new IllegalStateException("oswl.encryption.key must decode to 32 bytes (AES-256)");
-            }
+            throw new IllegalStateException(
+                "[OsWL] oswl.encryption.key is required but not set. " +
+                "Generate a key with: openssl rand -base64 32 " +
+                "For local dev, set a stable key in application-local.yaml under oswl.encryption.key");
+        }
+        byte[] keyBytes = Base64.getDecoder().decode(encryptionKeyBase64);
+        if (keyBytes.length != 32) {
+            throw new IllegalStateException("oswl.encryption.key must decode to exactly 32 bytes (AES-256). Got: " + keyBytes.length);
         }
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
     }
