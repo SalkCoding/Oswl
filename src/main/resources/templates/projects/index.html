@@ -229,14 +229,14 @@
                             @click="trashSelected.length > 0 && restoreSelected()"
                             :class="trashSelected.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--grayscale-10)] cursor-pointer'"
                             class="flex items-center gap-[6px] bg-white border border-[var(--grayscale-20)] rounded-[6px] px-[14px] py-[8px] text-[13px] font-medium text-[var(--grayscale-80)] tracking-[-0.13px] transition">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.7L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.3l3-2.3"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00A093" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.7L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.3l3-2.3"/></svg>
                         Restore Selected
                     </button>
                     <button type="button"
                             @click="trashSelected.length > 0 && openConfirm('Delete Selected', 'Permanently delete ' + trashSelected.length + ' selected project(s)? This cannot be undone.', () => deleteSelected())"
                             :class="trashSelected.length === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[var(--grayscale-10)] cursor-pointer'"
                             class="flex items-center gap-[6px] bg-white border border-[var(--grayscale-20)] rounded-[6px] px-[14px] py-[8px] text-[13px] font-medium text-[var(--grayscale-80)] tracking-[-0.13px] transition">
-                        <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="#E62727"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="#E62727"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="#E62727"/></svg>
                         Delete Selected
                     </button>
                     <div class="flex-1"></div>
@@ -254,8 +254,8 @@
                          th:attr="data-trash-id=${tp.id},data-trash-name=${tp.name}"
                          class="trash-card relative flex flex-col gap-[14px] items-start px-[22px] py-[22px] rounded-[10px] border transition-all"
                          :class="isTrashSelected($el.dataset.trashId)
-                             ? 'border-[var(--primary-100)] border-2 bg-[#f0fdf9]'
-                             : 'border-[var(--grayscale-20)] border bg-white'">
+                             ? 'border-[#33D1B7] bg-[#f0fdf9]'
+                             : 'border-[var(--grayscale-20)] bg-white'">
 
                         <!-- Checkbox + name row -->
                         <div class="flex gap-[10px] items-start w-full">
@@ -334,7 +334,7 @@
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 translate-y-2"
          style="display:none;"
-         class="fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[130] flex items-center gap-[10px] px-[20px] py-[12px] rounded-[100px] shadow-xl text-[13px] font-medium tracking-[-0.13px] text-white"
+         class="fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[130] flex items-center gap-[10px] pl-[20px] pr-[28px] py-[12px] rounded-[100px] shadow-xl text-[13px] font-medium tracking-[-0.13px] text-white"
          :class="{
              'bg-[var(--primary-120)]': toast && toast.type === 'success',
              'bg-[#f59126]':           toast && toast.type === 'warn',
@@ -385,7 +385,7 @@
 
     <!-- Toast -->
     <div id="project-toast" x-cloak
-         class="pointer-events-none fixed bottom-[32px] left-1/2 z-[120] -translate-x-1/2 flex gap-[16px] items-center justify-center p-[16px] rounded-[100px] opacity-0 translate-y-2 transition-all duration-300"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 z-[120] -translate-x-1/2 flex gap-[16px] items-center justify-center pl-[16px] pr-[24px] py-[16px] rounded-[100px] opacity-0 translate-y-2 transition-all duration-300"
          style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
         <!-- Check icon -->
         <div class="relative shrink-0 size-[32px]">
@@ -418,7 +418,7 @@
              x-transition:enter-start="opacity-0 scale-95"
              x-transition:enter-end="opacity-100 scale-100"
              @click.outside="confirmModal = null"
-             class="bg-white rounded-[14px] px-[28px] py-[26px] w-full max-w-[420px] shadow-2xl">
+             class="bg-white rounded-[10px] px-[28px] py-[26px] w-full max-w-[420px] shadow-2xl">
             <!-- Icon + title + message -->
             <div class="flex items-start gap-[14px] mb-[22px]">
                 <div class="w-[42px] h-[42px] rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-[1px]">

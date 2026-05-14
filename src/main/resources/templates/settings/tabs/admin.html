@@ -7,12 +7,12 @@
      class="flex flex-col gap-[20px] relative">
 
     <!-- Info Banner -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+    <div class="bg-amber-50 border border-amber-200 rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-             class="text-[var(--grayscale-60)] flex-shrink-0">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+             class="text-amber-500 flex-shrink-0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
-        <span class="text-[13px] text-[var(--grayscale-70)]">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
+        <span class="text-[13px] text-amber-700">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
     </div>
 
     <!-- API Error Banner -->
@@ -25,13 +25,13 @@
     <!-- Sub-tabs -->
     <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
         <button @click="subTab='users'; closeSidebar()"
-                :class="subTab==='users' ? 'border-[var(--grayscale-100)] text-[var(--grayscale-100)]' : 'border-transparent text-[var(--grayscale-60)]'"
+                :class="subTab==='users' ? 'border-[var(--primary-120)] text-[var(--primary-120)]' : 'border-transparent text-[var(--grayscale-60)]'"
                 class="px-[8px] py-[12px] text-[14px] font-bold border-b-[2px] transition-colors">User Management</button>
         <button @click="subTab='templates'; closeSidebar()"
-                :class="subTab==='templates' ? 'border-[var(--grayscale-100)] text-[var(--grayscale-100)]' : 'border-transparent text-[var(--grayscale-60)]'"
+                :class="subTab==='templates' ? 'border-[var(--primary-120)] text-[var(--primary-120)]' : 'border-transparent text-[var(--grayscale-60)]'"
                 class="px-[8px] py-[12px] text-[14px] font-bold border-b-[2px] transition-colors">Permission Template</button>
         <button @click="subTab='audit'; closeSidebar(); loadAudit()"
-                :class="subTab==='audit' ? 'border-[var(--grayscale-100)] text-[var(--grayscale-100)]' : 'border-transparent text-[var(--grayscale-60)]'"
+                :class="subTab==='audit' ? 'border-[var(--primary-120)] text-[var(--primary-120)]' : 'border-transparent text-[var(--grayscale-60)]'"
                 class="px-[8px] py-[12px] text-[14px] font-bold border-b-[2px] transition-colors">Audit Log</button>
     </div>
 
@@ -42,7 +42,7 @@
                 <span x-text="users.length"></span> users registered
             </div>
             <button @click="openInvite()"
-                    class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
+                    class="bg-[var(--primary-120)] hover:bg-[var(--primary-100)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 <span>Invited user</span>
             </button>
@@ -303,7 +303,7 @@
                 <span x-text="templates.length"></span> templates defined
             </div>
             <button @click="openNewTemplate()"
-                    class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
+                    class="bg-[var(--primary-120)] hover:bg-[var(--primary-100)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add a New Template
             </button>
@@ -462,7 +462,7 @@
                 </button>
             </div>
             <a :href="auditExportUrl()"
-               class="bg-[var(--grayscale-100)] hover:bg-black text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] no-underline">
+               class="bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] no-underline">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Export CSV
             </a>

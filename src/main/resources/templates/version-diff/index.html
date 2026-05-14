@@ -21,7 +21,7 @@
                 <svg class="ml-auto transition-transform shrink-0" :class="open && 'rotate-180'" width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0L10 0L5 6Z"/></svg>
             </button>
             <div x-show="open" x-transition style="display:none"
-                 class="absolute left-0 top-[40px] z-30 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
+                 class="absolute left-0 top-[46px] z-30 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
                 <th:block th:each="v : ${scanVersions}">
                     <button type="button"
                             th:attr="data-scan-id=${v.scanId},data-version=${v.version}"
@@ -46,7 +46,7 @@
                 <svg class="ml-auto transition-transform shrink-0" :class="open && 'rotate-180'" width="10" height="6" viewBox="0 0 10 6" fill="currentColor"><path d="M0 0L10 0L5 6Z"/></svg>
             </button>
             <div x-show="open" x-transition style="display:none"
-                 class="absolute left-0 top-[40px] z-30 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
+                 class="absolute left-0 top-[46px] z-30 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-xl py-[6px]">
                 <th:block th:each="v : ${scanVersions}">
                     <button type="button"
                             th:attr="data-scan-id=${v.scanId},data-version=${v.version}"
