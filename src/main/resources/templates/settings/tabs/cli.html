@@ -23,7 +23,8 @@
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
 
-    <!-- Keys table -->
+    <!-- Keys table + panel wrapper -->
+    <div class="relative">
     <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
         <table class="w-full text-[13px]">
             <thead>
@@ -96,19 +97,15 @@
         </div>
     </div>
 
-    <!-- ===================== Create New Key Slideout ===================== -->
-    <div x-show="slideout" x-cloak class="fixed inset-0 z-50"
-         x-transition:enter="transition-opacity ease-out duration-200"
-         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-         x-transition:leave="transition-opacity ease-in duration-150"
-         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-        <div class="absolute inset-0 bg-black/30" @click="closeCreate()"></div>
-
-        <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] shadow-2xl flex flex-col overflow-hidden"
-             x-transition:enter="transition transform ease-out duration-300"
-             x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-             x-transition:leave="transition transform ease-in duration-200"
-             x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+    <!-- ===================== Create New Key Panel (absolute) ===================== -->
+    <div x-show="slideout" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-x-2"
+         x-transition:enter-end="opacity-100 translate-x-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-x-0"
+         x-transition:leave-end="opacity-0 translate-x-2"
+         class="absolute top-0 right-0 w-[440px] rounded-[10px] overflow-hidden border border-[var(--grayscale-20)] shadow-[0px_8px_40px_rgba(0,29,53,0.18)] z-10 flex flex-col bg-white">
             <!-- Panel header: dark navy -->
             <div class="bg-[#001d35] text-white px-[20px] py-[14px] flex-shrink-0">
                 <div class="flex items-center justify-between gap-[8px]">
@@ -158,8 +155,8 @@
                             class="flex-1 bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[#00A093] text-[14px] font-bold py-[9px] rounded-[8px] transition-colors">Cancel</button>
                 </div>
             </div>
-        </div>
     </div>
+    </div><!-- end relative wrapper -->
 
     <script>
     function cliTab() {
