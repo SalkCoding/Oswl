@@ -167,7 +167,7 @@
             <!-- Table rows -->
             <div th:if="${#lists.isEmpty(diffRows)}"
                  class="flex flex-col items-center gap-[12px] py-[80px] text-[var(--grayscale-40)]">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <img th:src="@{/icon/icon-info2.svg}" class="w-[48px] h-[48px] opacity-40" alt="" aria-hidden="true">
                 <p class="text-[14px] font-medium">No differences found between the two versions.</p>
             </div>
 
