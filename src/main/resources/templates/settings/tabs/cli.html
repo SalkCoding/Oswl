@@ -13,8 +13,8 @@
             <p class="text-[13px] text-[var(--grayscale-60)]">Manage per-project API keys to allow the CLI tool to securely access the OsWL API.</p>
         </div>
         <button @click="openCreate()"
-                class="flex-shrink-0 bg-[var(--primary-120)] hover:bg-[var(--primary-100)] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                class="flex-shrink-0 bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
+            <img th:src="@{/icon/icon-key.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
             Create New Key
         </button>
     </div>
@@ -80,10 +80,10 @@
     </div>
 
     <!-- Footer notice -->
-    <p class="text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        API keys are only shown once. If you lose a key, generate a new one.
-    </p>
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="flex-shrink-0 text-[var(--grayscale-50)]"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span class="text-[13px] text-[var(--grayscale-70)]">API keys are only shown once. If you lose a key, generate a new one.</span>
+    </div>
 
     <!-- New key confirmation banner (shown after creation) -->
     <div x-show="newTokenBanner" x-cloak x-transition
@@ -104,52 +104,58 @@
          x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
         <div class="absolute inset-0 bg-black/30" @click="closeCreate()"></div>
 
-        <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] bg-[var(--background-dark,#001d35)] text-white shadow-2xl flex flex-col overflow-hidden"
+        <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] shadow-2xl flex flex-col overflow-hidden"
              x-transition:enter="transition transform ease-out duration-300"
              x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
              x-transition:leave="transition transform ease-in duration-200"
              x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
-            <div class="flex flex-col gap-[20px] p-[24px] overflow-y-auto h-full">
-                <!-- Header -->
-                <div class="flex items-start justify-between">
-                    <div class="flex flex-col gap-[4px]">
-                        <h3 class="font-bold text-[16px] inline-flex items-center gap-[8px]">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            Create New Key
-                        </h3>
-                        <p class="text-[12px] text-white/60">API Keys are project-scoped. Create a new one or paste an existing key below.</p>
+            <!-- Panel header: dark navy -->
+            <div class="bg-[#001d35] text-white px-[20px] py-[14px] flex-shrink-0">
+                <div class="flex items-center justify-between gap-[8px]">
+                    <div class="flex items-center gap-[6px] flex-1 min-w-0">
+                        <img th:src="@{/icon/icon-key.svg}" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
+                        <span class="font-bold text-[13px]">Create New Key</span>
                     </div>
-                    <button @click="closeCreate()" class="text-white/60 hover:text-white flex-shrink-0 mt-[2px]">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <button @click="closeCreate()" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex-shrink-0 flex items-center justify-center transition-colors">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
+                <p class="text-[12px] text-white/80 mt-[4px]">API Keys are project-scoped. Create a new one or paste an existing key below.</p>
+            </div>
 
+            <!-- Panel body: light bg -->
+            <div class="bg-[var(--grayscale-5,#fafbfb)] border-l border-[var(--grayscale-20)] flex flex-col gap-[20px] p-[20px] overflow-y-auto flex-1">
                 <!-- Project dropdown -->
-                <div class="flex flex-col gap-[6px]">
-                    <label class="text-[12px] font-bold">Project</label>
-                    <select x-model.number="form.projectId"
-                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white focus:outline-none focus:border-white/40">
-                        <option value="" class="bg-[#001d35]">Select a project</option>
-                        <template x-for="p in projects" :key="p.id">
-                            <option :value="p.id" class="bg-[#001d35]" x-text="p.name"></option>
-                        </template>
-                    </select>
+                <div class="flex flex-col gap-[8px]">
+                    <label class="text-[13px] font-bold text-[var(--grayscale-100)]">Project</label>
+                    <div class="relative">
+                        <select x-model.number="form.projectId"
+                                class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] appearance-none cursor-pointer">
+                            <option value="">Select a project</option>
+                            <template x-for="p in projects" :key="p.id">
+                                <option :value="p.id" x-text="p.name"></option>
+                            </template>
+                        </select>
+                        <div class="pointer-events-none absolute right-[12px] top-1/2 -translate-y-1/2">
+                            <img th:src="@{/icon/icon-triangle-down.svg}" class="w-[14px] h-[14px] opacity-50" alt="" aria-hidden="true">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Label -->
-                <div class="flex flex-col gap-[6px]">
-                    <label class="text-[12px] font-bold">Label <span class="text-white/50 font-normal">(Optional)</span></label>
+                <div class="flex flex-col gap-[8px]">
+                    <label class="text-[13px] font-bold text-[var(--grayscale-100)]">Label <span class="font-medium text-[var(--grayscale-60)]">(Optional)</span></label>
                     <input type="text" x-model="form.label" placeholder="CLI Key"
-                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-white/40"/>
+                           class="px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Buttons -->
-                <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                <div class="flex items-center gap-[10px] mt-auto pt-[12px]">
                     <button @click="createKey()" :disabled="!form.projectId || creating"
-                            class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                            class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-50 text-white text-[14px] font-bold py-[9px] rounded-[8px] transition-colors"
                             x-text="creating ? 'Creating...' : 'Create Key'"></button>
                     <button @click="closeCreate()"
-                            class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                            class="flex-1 bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[#00A093] text-[14px] font-bold py-[9px] rounded-[8px] transition-colors">Cancel</button>
                 </div>
             </div>
         </div>

@@ -33,9 +33,9 @@
                 <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Refreshes data after the specified period.</p>
                 <div x-show="policy==='custom'" class="ml-[28px] flex items-center gap-[8px]">
                     <input type="number" min="1" x-model.number="customAmount"
-                           class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[var(--primary-120)]"/>
+                           class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
                     <select x-model="customUnit"
-                            class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white focus:outline-none focus:border-[var(--primary-120)]">
+                            class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white focus:outline-none focus:border-[#33D1B7]">
                         <option value="hour">hour(s)</option>
                         <option value="day">day(s)</option>
                     </select>
@@ -69,7 +69,7 @@
 
         <div class="flex items-center justify-end">
             <button @click="save()" :disabled="saving"
-                    class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60">
+                    class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span x-text="saving ? 'Saving...' : 'Save'"></span>
             </button>

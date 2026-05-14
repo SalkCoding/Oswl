@@ -570,7 +570,7 @@
                     <input type="password" x-model="addAccountPat"
                            @keydown.enter="connectAddAccount()"
                            placeholder="Paste your token (ghp_… or github_pat_…)"
-                           class="flex-1 h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                           class="flex-1 h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] focus:ring-1 focus:ring-[#33D1B7] transition-colors" />
                     <button type="button"
                             @click="connectAddAccount()"
                             :disabled="!addAccountPat.trim() || addAccountConnecting"
@@ -624,7 +624,7 @@
                     <input type="password" x-model="patInput"
                            @keydown.enter="connectPAT()"
                            placeholder="Paste your token (ghp_… or github_pat_…)"
-                           class="flex-1 h-[40px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-120)] focus:ring-1 focus:ring-[var(--primary-120)] transition-colors" />
+                           class="flex-1 h-[40px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] focus:ring-1 focus:ring-[#33D1B7] transition-colors" />
                     <button type="button"
                             @click="connectPAT()"
                             :disabled="!patInput.trim() || patConnecting"
