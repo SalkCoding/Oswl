@@ -274,7 +274,21 @@ function securityTab() {
         },
 
         async load() {
-            // TODO: GET /api/settings/security — backend not yet implemented
+            try {
+                const r = await fetch('/api/settings/security');
+                if (!r.ok) return;
+                const d = await r.json();
+                if (d.mailMode)  this.mailMode  = d.mailMode;
+                if (d.twoFaMode) this.twoFaMode = d.twoFaMode;
+                if (d.mail) {
+                    if (d.mail.host          != null) this.mailForm.host          = d.mail.host;
+                    if (d.mail.port          != null) this.mailForm.port          = d.mail.port;
+                    if (d.mail.encryption    != null) this.mailForm.encryption    = d.mail.encryption;
+                    if (d.mail.username      != null) this.mailForm.username      = d.mail.username;
+                    if (d.mail.senderName    != null) this.mailForm.senderName    = d.mail.senderName;
+                    if (d.mail.senderAddress != null) this.mailForm.senderAddress = d.mail.senderAddress;
+                }
+            } catch (e) { /* ignore */ }
         },
 
         applyEncryptionDefaults(enc) {

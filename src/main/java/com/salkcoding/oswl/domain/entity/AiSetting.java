@@ -33,10 +33,11 @@ public class AiSetting {
     private AiProvider provider;
 
     /**
-     * OpenAI / Anthropic: API key
-     * LOCAL: null allowed (e.g. Ollama with no auth)
+     * OpenAI / Anthropic: API key — stored AES-256-GCM encrypted.
+     * LOCAL: null allowed (e.g. Ollama with no auth).
+     * Column length 1000 to accommodate Base64-encoded ciphertext.
      */
-    @Column(name = "api_key", length = 500)
+    @Column(name = "api_key", length = 1000)
     private String apiKey;
 
     /**

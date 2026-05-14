@@ -6,6 +6,7 @@ import com.salkcoding.oswl.repository.ExternalApiSettingRepository;
 import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/settings/external")
 @RequiredArgsConstructor
+@PreAuthorize("hasPermission(null, 'SETTINGS_CACHE_MANAGE') or hasRole('SYSTEM_ADMIN')")
 public class ExternalSettingsController implements ExternalSettingsControllerSpec {
 
     private final ExternalApiSettingRepository externalApiSettingRepository;
