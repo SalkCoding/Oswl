@@ -50,3 +50,79 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tailwind CSS production build
+//
+// Replaces the cdn.tailwindcss.com runtime in templates/fragments/head.html
+// with a precompiled, minified stylesheet served from /css/tailwind.css.
+//
+// Uses the Tailwind Standalone CLI (no Node.js required). Binary is downloaded
+// to build/tools/ on first build, cached thereafter.
+// ─────────────────────────────────────────────────────────────────────────────
+ext {
+	tailwindVersion = '3.4.17'
+	tailwindToolDir = file("${buildDir}/tools/tailwindcss-${tailwindVersion}")
+}
+
+def tailwindBinaryName() {
+	def os = System.getProperty('os.name').toLowerCase()
+	def arch = System.getProperty('os.arch').toLowerCase()
+	def aarch = (arch == 'aarch64' || arch == 'arm64')
+	if (os.contains('win')) {
+		return aarch ? 'tailwindcss-windows-arm64.exe' : 'tailwindcss-windows-x64.exe'
+	} else if (os.contains('mac')) {
+		return aarch ? 'tailwindcss-macos-arm64' : 'tailwindcss-macos-x64'
+	} else {
+		return aarch ? 'tailwindcss-linux-arm64' : 'tailwindcss-linux-x64'
+	}
+}
+
+tasks.register('downloadTailwindCli') {
+	description = 'Downloads the Tailwind CSS standalone CLI binary (cached).'
+	group = 'frontend'
+	def binName = tailwindBinaryName()
+	def target = new File(tailwindToolDir, binName)
+	outputs.file(target)
+	doLast {
+		if (!target.exists()) {
+			tailwindToolDir.mkdirs()
+			def url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v${tailwindVersion}/${binName}"
+			logger.lifecycle("[tailwind] downloading ${url}")
+			new URL(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
+				target.setExecutable(true, false)
+			}
+			logger.lifecycle("[tailwind] saved to ${target}")
+		}
+	}
+}
+
+tasks.register('buildTailwindCss', Exec) {
+	description = 'Compiles Tailwind CSS to src/main/resources/static/css/tailwind.css.'
+	group = 'frontend'
+	dependsOn 'downloadTailwindCli'
+
+	def binFile  = new File(tailwindToolDir, tailwindBinaryName())
+	def inputCss = file('tailwind/input.css')
+	def configJs = file('tailwind/tailwind.config.js')
+	def outCss   = file('src/main/resources/static/css/tailwind.css')
+
+	inputs.file(inputCss)
+	inputs.file(configJs)
+	inputs.dir('src/main/resources/templates')
+	inputs.dir('src/main/resources/static/js')
+	outputs.file(outCss)
+
+	doFirst {
+		outCss.parentFile.mkdirs()
+	}
+
+	commandLine binFile.absolutePath,
+		'-c', configJs.absolutePath,
+		'-i', inputCss.absolutePath,
+		'-o', outCss.absolutePath,
+		'--minify'
+}
+
+processResources.dependsOn 'buildTailwindCss'

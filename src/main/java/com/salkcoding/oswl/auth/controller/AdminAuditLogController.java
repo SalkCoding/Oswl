@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.AuditLogDto;
 import com.salkcoding.oswl.auth.dto.AuditLogFilter;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
@@ -20,11 +21,14 @@ public class AdminAuditLogController {
 
     private final AuditLogService auditLogService;
 
+    @Value("${oswl.audit.max-page-size:200}")
+    private int maxPageSize;
+
     @GetMapping
     public Page<AuditLogDto> list(@ModelAttribute AuditLogFilter filter,
                                   @RequestParam(defaultValue = "0") int page,
                                   @RequestParam(defaultValue = "50") int size) {
-        return auditLogService.findAll(filter, PageRequest.of(page, Math.min(size, 200)));
+        return auditLogService.findAll(filter, PageRequest.of(page, Math.min(size, maxPageSize)));
     }
 
     @GetMapping(value = "/export.csv")

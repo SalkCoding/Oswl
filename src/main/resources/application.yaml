@@ -20,6 +20,17 @@ oswl:
     # Directory for temporary git clones during Quick Import.
     # Defaults to system temp directory if left blank.
     temp-dir: ${OSWL_CLONE_TEMP_DIR:}
+  github:
+    # Override to use GitHub Enterprise Server. E.g. https://github.example.com/api/v3
+    api-base: ${OSWL_GITHUB_API_BASE:https://api.github.com}
+  risk-trend:
+    # Maximum number of recent scans shown in the risk trend chart
+    limit: ${OSWL_RISK_TREND_LIMIT:10}
+  audit:
+    # Maximum number of records returned per page in the audit log API
+    max-page-size: ${OSWL_AUDIT_MAX_PAGE_SIZE:200}
+    # Audit log records older than this many months are automatically deleted
+    retention-months: ${OSWL_AUDIT_RETENTION_MONTHS:6}
 
 ## AI 설정 (DB에 저장된 AiSetting으로 덮어쓰기 가능)
 ## 초기 기동 시 환경변수로 주입하거나 UI에서 PUT /api/settings/ai 로 설정

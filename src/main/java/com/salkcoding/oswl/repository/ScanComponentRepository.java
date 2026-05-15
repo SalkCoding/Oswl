@@ -36,6 +36,15 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
 
     long countByScanResultId(Long scanResultId);
 
+    /** Bulk-load components by ID list, restricted to a specific project (prevents IDOR). */
+    @Query("""
+            SELECT sc FROM ScanComponent sc
+            WHERE sc.id IN :ids
+              AND sc.scanResult.project.id = :projectId
+            """)
+    List<ScanComponent> findAllByIdInAndProjectId(@Param("ids") List<Long> ids,
+                                                   @Param("projectId") Long projectId);
+
     /** Count distinct projects referencing each library (in completed scans across the workspace) */
     @Query("""
             SELECT sc.library.id, COUNT(DISTINCT sc.scanResult.project.id)

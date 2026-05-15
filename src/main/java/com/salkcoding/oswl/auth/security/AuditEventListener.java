@@ -2,6 +2,7 @@ package com.salkcoding.oswl.auth.security;
 
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.auth.service.UserManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.security.authentication.event.AbstractAuthenticationFailureEvent;
@@ -25,12 +26,14 @@ public class AuditEventListener {
 
     private final AuditLogService auditLogService;
     private final UserRepository userRepository;
+    private final UserManagementService userManagementService;
 
     @EventListener
     @Transactional
     public void onLoginSuccess(InteractiveAuthenticationSuccessEvent event) {
         String email = event.getAuthentication().getName();
         userRepository.updateLastLoginAt(email, LocalDateTime.now());
+        userManagementService.resetLoginFailureCount(email);
         auditLogService.log("AUTH.LOGIN_SUCCESS", "AUTH", null, null, null);
     }
 

@@ -6,6 +6,7 @@ import com.salkcoding.oswl.dto.github.GitHubImportRequest;
 import com.salkcoding.oswl.dto.github.GitHubRepoDto;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.ProjectService;
+import com.salkcoding.oswl.service.SessionCipherService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +33,9 @@ public class GitHubApiController implements GitHubApiControllerSpec {
 
     static final String SESSION_GITHUB_TOKENS = "githubTokens";
 
-    private final GitHubService gitHubService;
-    private final ProjectService projectService;
+    private final GitHubService       gitHubService;
+    private final ProjectService      projectService;
+    private final SessionCipherService sessionCipher;
 
     // ── Connect (add PAT to session map) ─────────────────────────────────────
 
@@ -48,7 +50,7 @@ public class GitHubApiController implements GitHubApiControllerSpec {
         try {
             String login = gitHubService.getUserLogin(token.trim());
             Map<String, String> tokens = getTokensMap(session);
-            tokens.put(login, token.trim());
+            tokens.put(login, sessionCipher.encrypt(token.trim()));
             log.info("[GitHub] PAT connected for user '{}'", login);
             return ResponseEntity.ok(Map.of("connected", true, "login", login));
         } catch (GitHubService.GitHubAuthException e) {
@@ -90,7 +92,7 @@ public class GitHubApiController implements GitHubApiControllerSpec {
         // Validate first token
         Map.Entry<String, String> first = tokens.entrySet().iterator().next();
         try {
-            gitHubService.getUserLogin(first.getValue());
+            gitHubService.getUserLogin(sessionCipher.decrypt(first.getValue()));
             return ResponseEntity.ok(Map.of("connected", true, "login", first.getKey()));
         } catch (GitHubService.GitHubAuthException e) {
             session.removeAttribute(SESSION_GITHUB_TOKENS);
@@ -106,9 +108,9 @@ public class GitHubApiController implements GitHubApiControllerSpec {
         if (tokens.isEmpty()) return ResponseEntity.status(401).build();
 
         Map<String, GitHubAccountDto> accountMap = new LinkedHashMap<>();
-        for (String token : tokens.values()) {
+        for (String encryptedToken : tokens.values()) {
             try {
-                for (GitHubAccountDto acc : gitHubService.getAccounts(token)) {
+                for (GitHubAccountDto acc : gitHubService.getAccounts(sessionCipher.decrypt(encryptedToken))) {
                     accountMap.putIfAbsent(acc.getLogin(), acc);
                 }
             } catch (Exception e) {
@@ -189,14 +191,17 @@ public class GitHubApiController implements GitHubApiControllerSpec {
 
     /**
      * Finds the best token for a given account/owner.
+     * Tokens are stored encrypted; this method decrypts before returning.
      * Tries direct match first (account == user login), then falls back to any available token
      * (for org repos where the owner is an org, not a user).
      */
     private String getTokenForAccount(HttpSession session, String account) {
         Map<String, String> tokens = getTokensMap(session);
         if (tokens.isEmpty()) return null;
-        String direct = tokens.get(account);
-        if (direct != null) return direct;
-        return tokens.values().iterator().next(); // fallback: any token
+        String encrypted = tokens.get(account);
+        if (encrypted == null) {
+            encrypted = tokens.values().iterator().next(); // fallback: any token
+        }
+        return sessionCipher.decrypt(encrypted);
     }
 }

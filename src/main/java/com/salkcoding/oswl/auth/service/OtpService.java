@@ -1,10 +1,13 @@
 package com.salkcoding.oswl.auth.service;
 
+import com.salkcoding.oswl.auth.entity.User;
+import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -25,12 +28,17 @@ import java.time.Instant;
 public class OtpService {
 
     // ── Session attribute keys ────────────────────────────────────────────
-    public static final String SESSION_PRINCIPAL = "PENDING_2FA_PRINCIPAL";
-    public static final String SESSION_OTP       = "PENDING_2FA_OTP";
-    public static final String SESSION_EXPIRY    = "PENDING_2FA_EXPIRY_MS";
+    public static final String SESSION_PRINCIPAL  = "PENDING_2FA_PRINCIPAL";
+    public static final String SESSION_OTP        = "PENDING_2FA_OTP";
+    public static final String SESSION_EXPIRY     = "PENDING_2FA_EXPIRY_MS";
+    public static final String SESSION_ATTEMPTS   = "PENDING_2FA_ATTEMPTS";
+    public static final String SESSION_LAST_SENT  = "PENDING_2FA_LAST_SENT";
+    public static final String SESSION_LOCKED     = "PENDING_2FA_LOCKED";
 
-    private static final int OTP_VALID_MINUTES = 5;
-    private static final int MAX_DIGITS        = 1_000_000; // 000000–999999
+    private static final int  OTP_VALID_MINUTES  = 3;
+    private static final int  MAX_DIGITS         = 1_000_000; // 000000–999999
+    private static final int  MAX_OTP_ATTEMPTS   = 5;
+    private static final long RESEND_COOLDOWN_MS = 60_000L;   // 60 seconds
 
     /**
      * TODO: Remove test bypass before going to production.
@@ -38,8 +46,10 @@ public class OtpService {
      */
     private static final String TEST_BYPASS_CODE = "000000";
 
-    private final MailService mailService;
-    private final SecureRandom secureRandom = new SecureRandom();
+    private final MailService    mailService;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
+    private final SecureRandom   secureRandom = new SecureRandom();
 
     // ── Public API ────────────────────────────────────────────────────────
 
@@ -57,6 +67,7 @@ public class OtpService {
         session.setAttribute(SESSION_PRINCIPAL, principal);
         session.setAttribute(SESSION_OTP,       otp);
         session.setAttribute(SESSION_EXPIRY,    expiry);
+        session.setAttribute(SESSION_LAST_SENT, Instant.now().toEpochMilli());
 
         String email = principal.getUsername(); // username == email
         String name  = principal.getDisplayName();
@@ -68,7 +79,7 @@ public class OtpService {
             // TODO: surface delivery failure to the user on the OTP page.
             log.error("[OTP] Email delivery failed for '{}': {}", email, e.getMessage());
             // DEV FALLBACK: print code so local testing still works even if SMTP is unconfigured
-            log.warn("[OTP][DEV-FALLBACK] Could not email OTP — code for '{}' : {}", email, otp);
+            log.debug("[OTP][DEV-FALLBACK] Could not email OTP — code for '{}' : {}", email, otp);
         }
     }
 
@@ -81,7 +92,25 @@ public class OtpService {
     }
 
     /**
+     * Returns true if at least {@value RESEND_COOLDOWN_MS} ms have elapsed
+     * since the last OTP was sent.
+     */
+    public boolean canResend(HttpSession session) {
+        Long lastSent = (Long) session.getAttribute(SESSION_LAST_SENT);
+        if (lastSent == null) return true;
+        return (Instant.now().toEpochMilli() - lastSent) >= RESEND_COOLDOWN_MS;
+    }
+
+    /**
+     * Returns true when the account has been locked due to too many failed attempts.
+     */
+    public boolean isAccountLocked(HttpSession session) {
+        return Boolean.TRUE.equals(session.getAttribute(SESSION_LOCKED));
+    }
+
+    /**
      * Validates the submitted OTP code.
+     * Increments the attempt counter on failure; locks the account at {@value MAX_OTP_ATTEMPTS}.
      *
      * @param session the current HTTP session
      * @param code    the 6-digit code entered by the user
@@ -103,7 +132,21 @@ public class OtpService {
 
         if (stored == null || expiry == null) return false;
         if (Instant.now().toEpochMilli() > expiry)  return false;
-        return stored.equals(code);
+
+        if (stored.equals(code)) {
+            return true;
+        }
+
+        // Wrong code — track attempt count
+        Integer existing = (Integer) session.getAttribute(SESSION_ATTEMPTS);
+        int attempts = (existing == null ? 0 : existing) + 1;
+        session.setAttribute(SESSION_ATTEMPTS, attempts);
+
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+            session.setAttribute(SESSION_LOCKED, true);
+            lockAccount(session);
+        }
+        return false;
     }
 
     /** Returns the authenticated-but-not-yet-2FA-verified principal, or null. */
@@ -123,5 +166,27 @@ public class OtpService {
         session.removeAttribute(SESSION_PRINCIPAL);
         session.removeAttribute(SESSION_OTP);
         session.removeAttribute(SESSION_EXPIRY);
+        session.removeAttribute(SESSION_ATTEMPTS);
+        session.removeAttribute(SESSION_LAST_SENT);
+        session.removeAttribute(SESSION_LOCKED);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────
+
+    @Transactional
+    private void lockAccount(HttpSession session) {
+        OswlUserPrincipal principal = getPendingPrincipal(session);
+        if (principal == null) return;
+
+        String email = principal.getUsername();
+        userRepository.findByEmail(email).ifPresent(user -> {
+            if (user.isEnabled()) {
+                user.setEnabled(false);
+                auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
+                        user.getId().toString(), email,
+                        "Auto-locked: exceeded " + MAX_OTP_ATTEMPTS + " OTP attempts");
+                log.warn("[OTP] Account '{}' locked after {} failed OTP attempts", email, MAX_OTP_ATTEMPTS);
+            }
+        });
     }
 }

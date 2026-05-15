@@ -3,12 +3,15 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.domain.entity.*;
 import com.salkcoding.oswl.domain.enums.*;
 import com.salkcoding.oswl.repository.*;
+import com.salkcoding.oswl.service.ApiKeyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -53,6 +56,28 @@ public class TestDataController {
     private final ScanResultRepository      scanResultRepository;
     private final ScanComponentRepository   scanComponentRepository;
     private final DependencyPathRepository  dependencyPathRepository;
+    private final ApiKeyService             apiKeyService;
+
+    /**
+     * Issues a fresh API key for the first available project. Local-profile only.
+     * Returns plaintext token in body — for local CLI QA convenience.
+     *  GET /data/test-api-key
+     */
+    @GetMapping("/test-api-key")
+    @Transactional
+    @ResponseBody
+    public ResponseEntity<String> issueTestApiKey() {
+        return projectRepository.findAll().stream().findFirst()
+                .map(p -> {
+                    var key = apiKeyService.issue(p.getId(), "cli-qa", null);
+                    return ResponseEntity.ok(
+                            "projectId=" + p.getId() + "\n" +
+                            "projectName=" + p.getName() + "\n" +
+                            "token=" + key.getToken() + "\n");
+                })
+                .orElseGet(() -> ResponseEntity.status(404)
+                        .body("No project. Hit /data/test first.\n"));
+    }
 
     @GetMapping("/test")
     @Transactional

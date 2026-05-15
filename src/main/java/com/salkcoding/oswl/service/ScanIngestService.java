@@ -124,7 +124,16 @@ public class ScanIngestService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                enrichmentService.enrich(scanResultId);
+                try {
+                    enrichmentService.enrich(scanResultId);
+                } catch (Exception ex) {
+                    // This catches task-submission failures (e.g. executor rejected).
+                    // Mark the scan as FAILED asynchronously so the UI does not hang.
+                    log.error("[ScanIngest] Failed to submit enrichment task for scanId={}: {}",
+                            scanResultId, ex.getMessage(), ex);
+                    enrichmentService.failScan(scanResultId,
+                            "Enrichment task submission failed: " + ex.getMessage());
+                }
             }
         });
 

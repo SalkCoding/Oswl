@@ -24,59 +24,43 @@ function gitIntegrationData() {
 
         // Initialize data on component load
         async init() {
-            await this.loadBranches();
             await this.loadAccounts();
-            // Initialize branch selection for each item
-            for (let i = 1; i <= 5; i++) {
-                this.itemBranches[i] = this.branches.length > 0 ? this.branches[0] : 'main';
-            }
+            // Branch data is repo-specific; loaded on demand via loadRepoBranches(owner, repo)
         },
 
         /**
-         * Fetch branches from backend API
+         * Fetch branches for a specific repository.
+         * Call this when the user selects a repo row.
          */
-        async loadBranches() {
+        async loadRepoBranches(owner, repo) {
             try {
-                const response = await fetch('/projects/api/branches');
-                if (!response.ok) {
-                    throw new Error(`Failed to load branches: ${response.statusText}`);
-                }
+                const url = `/api/github/branches?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 this.branches = await response.json();
             } catch (error) {
                 console.error('Error loading branches:', error);
-                this.branches = [
-                    'main',
-                    'develop',
-                    'feature/new-feature',
-                    'hotfix/bug-fix',
-                    'release/v1.0.0',
-                    'staging'
-                ];
+                this.branches = ['main'];
             }
         },
 
         /**
-         * Fetch accounts from backend API
+         * Fetch connected GitHub accounts from backend API
          */
         async loadAccounts() {
             try {
-                const response = await fetch('/projects/api/accounts');
+                const response = await fetch('/api/github/accounts');
                 if (!response.ok) {
                     throw new Error(`Failed to load accounts: ${response.statusText}`);
                 }
-                this.accounts = await response.json();
+                const data = await response.json();
+                this.accounts = data.map(a => a.login || a);
                 if (this.accounts.length > 0) {
                     this.selectedAccount = this.accounts[0];
                 }
             } catch (error) {
                 console.error('Error loading accounts:', error);
-                this.accounts = [
-                    'OwlCoding',
-                    'OWL-Team',
-                    'OWL-Analytics',
-                    'OWL-Security'
-                ];
-                this.selectedAccount = this.accounts[0];
+                this.accounts = [];
             }
         },
 

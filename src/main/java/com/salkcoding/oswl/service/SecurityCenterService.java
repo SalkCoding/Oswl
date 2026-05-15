@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
@@ -30,6 +31,7 @@ public class SecurityCenterService {
     private final ScanResultRepository    scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
     private final LibraryRepository       libraryRepository;
+    private final AuditLogService         auditLogService;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long scanId, Model model) {
@@ -170,16 +172,17 @@ public class SecurityCenterService {
 
     @Transactional
     public void bulkUpdateStatus(Long projectId, BulkStatusRequest req) {
-        List<ScanComponent> comps = scanComponentRepository.findAllById(req.ids())
-                .stream()
-                .filter(sc -> sc.getScanResult().getProject().getId().equals(projectId))
-                .toList();
+        List<ScanComponent> comps = scanComponentRepository.findAllByIdInAndProjectId(req.ids(), projectId);
         for (ScanComponent sc : comps) {
             if (req.reviewed() != null) sc.markReviewed(req.reviewed());
             if (req.ignored()  != null) sc.markIgnored(req.ignored());
         }
         log.info("[SecurityCenter] bulkUpdateStatus projectId={} ids={} reviewed={} ignored={}",
                 projectId, req.ids(), req.reviewed(), req.ignored());
+        auditLogService.log("COMPONENT.BULK_STATUS_UPDATE", "COMPONENT",
+                projectId.toString(),
+                null,
+                "ids=" + req.ids() + " reviewed=" + req.reviewed() + " ignored=" + req.ignored());
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

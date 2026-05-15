@@ -7,8 +7,11 @@ import com.salkcoding.oswl.auth.repository.AuditLogRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -19,13 +22,18 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
+
+    @Value("${oswl.audit.retention-months:6}")
+    private int retentionMonths;
 
     @Transactional
     public void log(String action, String targetType, String targetId, String targetName, String detail) {
@@ -146,5 +154,20 @@ public class AuditLogService {
                 .createdAt(l.getCreatedAt())
                 .detail(l.getDetail())
                 .build();
+    }
+
+    // ── Scheduled retention cleanup ──────────────────────────────────────────
+
+    /**
+     * Deletes audit log records older than {@code oswl.audit.retention-months} (default 6).
+     * Runs daily at 02:00 AM server time.
+     */
+    @Scheduled(cron = "0 0 2 * * ?")
+    @Transactional
+    public void purgeExpiredAuditLogs() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMonths(retentionMonths);
+        int deleted = auditLogRepository.deleteOlderThan(cutoff);
+        log.info("[AuditLog] Purged {} records older than {} months (cutoff={})",
+                deleted, retentionMonths, cutoff);
     }
 }

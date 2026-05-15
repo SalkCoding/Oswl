@@ -1,8 +1,11 @@
 package com.salkcoding.oswl.auth.controller;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.auth.service.OtpService;
+import com.salkcoding.oswl.auth.service.TrustedDeviceService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,22 +28,27 @@ import java.util.Map;
  *   200   : { "redirectUrl": "/projects" }
  *   400   : { "message": "Invalid or expired code." }
  *   401   : { "message": "No pending verification." }
+ *   423   : { "message": "Account locked." }
  *
  * POST /login/otp-resend
  *   200   : { "message": "Code resent." }
  *   401   : { "message": "No pending verification." }
+ *   429   : { "message": "Please wait before requesting a new code." }
  */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
 public class OtpVerifyController {
 
-    private final OtpService otpService;
+    private final OtpService           otpService;
+    private final AuditLogService       auditLogService;
+    private final TrustedDeviceService  trustedDeviceService;
 
     @PostMapping("/login/otp-verify")
     public ResponseEntity<Map<String, String>> verifyOtp(
             @RequestBody Map<String, Object> body,
-            HttpServletRequest request) {
+            HttpServletRequest request,
+            HttpServletResponse response) {
 
         HttpSession session = request.getSession(false);
 
@@ -52,6 +60,17 @@ public class OtpVerifyController {
         String code = body.get("code") instanceof String s ? s.strip() : "";
 
         if (!otpService.verify(session, code)) {
+            OswlUserPrincipal pendingPrincipal = otpService.getPendingPrincipal(session);
+            String actorEmail = pendingPrincipal != null ? pendingPrincipal.getUsername() : "unknown";
+
+            auditLogService.logAnonymous(actorEmail, "AUTH.OTP_FAILURE", "AUTH", null, null,
+                    "IP: " + request.getRemoteAddr());
+
+            if (otpService.isAccountLocked(session)) {
+                session.invalidate();
+                return ResponseEntity.status(423)
+                        .body(Map.of("message", "Too many incorrect attempts. Your account has been locked. Please contact an administrator."));
+            }
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "Invalid or expired code. Please try again."));
         }
@@ -68,6 +87,12 @@ public class OtpVerifyController {
         session.setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
 
+        // Set trusted-device cookie if the user requested "remember this device"
+        boolean trustDevice = Boolean.TRUE.equals(body.get("trustDevice"));
+        if (trustDevice) {
+            trustedDeviceService.setTrusted(principal.getUserId(), response);
+        }
+
         log.info("[OTP] 2FA verification succeeded for user: {}", principal.getUsername());
         return ResponseEntity.ok(Map.of("redirectUrl", "/projects"));
     }
@@ -80,6 +105,11 @@ public class OtpVerifyController {
         if (session == null || !otpService.isPending(session)) {
             return ResponseEntity.status(401)
                     .body(Map.of("message", "No pending verification. Please log in again."));
+        }
+
+        if (!otpService.canResend(session)) {
+            return ResponseEntity.status(429)
+                    .body(Map.of("message", "Please wait 60 seconds before requesting a new code."));
         }
 
         OswlUserPrincipal principal = otpService.getPendingPrincipal(session);

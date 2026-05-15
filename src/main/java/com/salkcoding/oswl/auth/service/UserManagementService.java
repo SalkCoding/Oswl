@@ -119,6 +119,36 @@ public class UserManagementService {
         return userRepository.count() > 0;
     }
 
+    /**
+     * Increments the consecutive login-failure counter for the given email.
+     * At 10 failures the account is automatically disabled.
+     *
+     * @return the new failure count, or 0 when the email is not found
+     */
+    @Transactional
+    public int handleLoginFailure(String email) {
+        return userRepository.findByEmail(email.toLowerCase())
+                .map(user -> {
+                    int count = user.getLoginFailureCount() + 1;
+                    user.setLoginFailureCount(count);
+                    if (count >= 10 && user.isEnabled()) {
+                        user.setEnabled(false);
+                        auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
+                                user.getId().toString(), email,
+                                "Auto-locked: " + count + " consecutive login failures");
+                    }
+                    return count;
+                })
+                .orElse(0);
+    }
+
+    /** Resets the consecutive login-failure counter to 0 on successful login. */
+    @Transactional
+    public void resetLoginFailureCount(String email) {
+        userRepository.findByEmail(email.toLowerCase())
+                .ifPresent(u -> u.setLoginFailureCount(0));
+    }
+
     private UserSummaryDto toDto(User user) {
         List<RoleTemplateRefDto> refs = user.getRoleTemplates().stream()
                 .map(rt -> new RoleTemplateRefDto(rt.getId(), rt.getName()))

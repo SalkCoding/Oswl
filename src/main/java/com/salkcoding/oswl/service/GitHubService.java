@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.dto.github.GitHubAccountDto;
 import com.salkcoding.oswl.dto.github.GitHubRepoDto;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -18,15 +18,16 @@ import java.util.List;
 
 /**
  * GitHub REST API calls using a Personal Access Token (PAT).
- * The token is stored server-side in HttpSession — never sent to the browser.
+ * The token is stored server-side in HttpSession ??never sent to the browser.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class GitHubService {
 
-    private static final String GITHUB_API_BASE = "https://api.github.com";
-    private static final String USER_AGENT      = "OsWL-App/1.0";
+    @Value("${oswl.github.api-base:https://api.github.com}")
+    private String githubApiBase;
+
+    private static final String USER_AGENT = "OsWL-App/1.0";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -34,13 +35,13 @@ public class GitHubService {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    // ── User + Accounts ──────────────────────────────────────────────────────
+    // ?�?� User + Accounts ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
     /**
      * Returns the authenticated user's login (username).
      */
     public String getUserLogin(String accessToken) {
-        JsonNode user = getJson(accessToken, GITHUB_API_BASE + "/user");
+        JsonNode user = getJson(accessToken, githubApiBase + "/user");
         return user.path("login").asText();
     }
 
@@ -51,7 +52,7 @@ public class GitHubService {
         List<GitHubAccountDto> accounts = new ArrayList<>();
 
         // Add user account
-        JsonNode user = getJson(accessToken, GITHUB_API_BASE + "/user");
+        JsonNode user = getJson(accessToken, githubApiBase + "/user");
         accounts.add(GitHubAccountDto.builder()
                 .login(user.path("login").asText())
                 .type("User")
@@ -59,7 +60,7 @@ public class GitHubService {
                 .build());
 
         // Add organizations
-        JsonNode orgs = getJson(accessToken, GITHUB_API_BASE + "/user/orgs?per_page=100");
+        JsonNode orgs = getJson(accessToken, githubApiBase + "/user/orgs?per_page=100");
         if (orgs.isArray()) {
             for (JsonNode org : orgs) {
                 accounts.add(GitHubAccountDto.builder()
@@ -72,22 +73,22 @@ public class GitHubService {
         return accounts;
     }
 
-    // ── Repos ─────────────────────────────────────────────────────────────────
+    // ── Repos ────────────────────────────────────────────────────────────────
 
     /**
      * Returns repos for a given account (user or org), sorted by updated_at desc.
      *
      * @param accessToken GitHub access token
-     * @param account     GitHub login — if it matches the authenticated user, fetches /user/repos;
+     * @param account     GitHub login ??if it matches the authenticated user, fetches /user/repos;
      *                    otherwise fetches /orgs/{account}/repos
      */
     public List<GitHubRepoDto> getRepos(String accessToken, String account) {
         String userLogin = getUserLogin(accessToken);
         String url;
         if (account.equalsIgnoreCase(userLogin)) {
-            url = GITHUB_API_BASE + "/user/repos?per_page=100&sort=updated&affiliation=owner";
+            url = githubApiBase + "/user/repos?per_page=100&sort=updated&affiliation=owner";
         } else {
-            url = GITHUB_API_BASE + "/orgs/" + account + "/repos?per_page=100&sort=updated";
+            url = githubApiBase + "/orgs/" + account + "/repos?per_page=100&sort=updated";
         }
 
         JsonNode repos = getJson(accessToken, url);
@@ -107,13 +108,13 @@ public class GitHubService {
         return result;
     }
 
-    // ── Branches ──────────────────────────────────────────────────────────────
+    // ?�?� Branches ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
     /**
      * Returns branch names for a given repo (owner/repo).
      */
     public List<String> getBranches(String accessToken, String owner, String repo) {
-        String url = GITHUB_API_BASE + "/repos/" + owner + "/" + repo + "/branches?per_page=100";
+        String url = githubApiBase + "/repos/" + owner + "/" + repo + "/branches?per_page=100";
         JsonNode branches = getJson(accessToken, url);
         List<String> result = new ArrayList<>();
         if (branches.isArray()) {
@@ -129,7 +130,7 @@ public class GitHubService {
      * Falls back to an empty string if the branch has no commits or the request fails.
      */
     public String getBranchLastCommitDate(String accessToken, String owner, String repo, String branch) {
-        String url = GITHUB_API_BASE + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
+        String url = githubApiBase + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
         JsonNode commits = getJson(accessToken, url);
         if (commits.isArray() && !commits.isEmpty()) {
             JsonNode commit = commits.get(0).path("commit");
@@ -142,7 +143,7 @@ public class GitHubService {
         return "";
     }
 
-    // ── Internal helpers ──────────────────────────────────────────────────────
+    // ?�?� Internal helpers ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
     private JsonNode getJson(String accessToken, String url) {
         try {
@@ -174,7 +175,7 @@ public class GitHubService {
         }
     }
 
-    // ── Exception ─────────────────────────────────────────────────────────────
+    // ?�?� Exception ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
 
     public static class GitHubAuthException extends RuntimeException {
         public GitHubAuthException(String message) {

@@ -99,7 +99,10 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
 
     @PutMapping("/github")
     @Auditable(action = "EXTERNAL_SETTING.GITHUB_UPDATE", targetType = "EXTERNAL_SETTING",
-               targetIdExpr = "'github'", targetNameExpr = "'GitHub OAuth'")
+               targetIdExpr = "'github'", targetNameExpr = "'GitHub OAuth'",
+               detailExpr = "'clientId=' + (#body['clientId'] != null ? #body['clientId'] : '[unchanged]')"
+                          + " + '; secret=' + (#body['clientSecret'] != null && !#body['clientSecret'].isBlank() ? '[updated]' : '[unchanged]')"
+                          + " + '; redirectUri=' + (#body['redirectUri'] != null ? #body['redirectUri'] : '[unchanged]')")
     public ResponseEntity<Map<String, Object>> updateGithubSettings(
             @RequestBody Map<String, String> body) {
 
