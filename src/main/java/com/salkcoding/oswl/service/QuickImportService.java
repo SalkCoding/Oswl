@@ -145,16 +145,17 @@ public class QuickImportService {
             // 5. Create/find project and API key ──────────────────────────
             Project project = projectService.upsertFromGitHub(
                     parsed.owner, parsed.repo,
-                    branch != null && !branch.isBlank() ? branch : "default");
+                    branch != null && !branch.isBlank() ? branch : "default",
+                    userId);
 
             ApiKeyResult keyResult = getOrIssueApiKey(project);
 
-            // 6. Submit scan ───────────────────────────────────────────────
+            // 6. Submit scan ───────────────────────────────
             updateJob(jobId, Phase.SCANNING, "Submitting scan payload (" + deps.components.size() + " components)…",
                     project.getId(), project.getName(), null, false, deps.ecosystem, deps.components.size());
 
             ScanPayload payload = buildScanPayload(deps, parsed.owner + "/" + parsed.repo);
-            scanIngestService.ingest(project.getId(), payload);
+            scanIngestService.ingest(project.getId(), payload, userId);
 
             // 7. Done ──────────────────────────────────────────────────────
             updateJob(jobId, Phase.DONE,

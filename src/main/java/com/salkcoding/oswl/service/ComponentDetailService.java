@@ -95,7 +95,7 @@ public class ComponentDetailService {
         model.addAttribute("latestVersion", lib.getLatestVersion());
 
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
-        model.addAttribute("projectsCount", 0);
+        model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
         List<CveDto> cveDtos = lib.getCves().stream()
                 .sorted(Comparator.comparingInt(c -> c.getSeverity() == null ? 999 : c.getSeverity().ordinal()))

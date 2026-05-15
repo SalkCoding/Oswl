@@ -100,8 +100,15 @@ public class VersionDiffService {
 
             ChangeType type;
             if (fromComp == null) {
-                type = ChangeType.ADDED;
-                added++;
+                // New component: if it already has vulnerabilities, treat as a threat
+                RiskLevel toRisk = toComp.getLibrary().highestSeverity();
+                if (toRisk != RiskLevel.NONE) {
+                    type = ChangeType.NEW_THREAT;
+                    newThreat++;
+                } else {
+                    type = ChangeType.ADDED;
+                    added++;
+                }
             } else if (toComp == null) {
                 type = ChangeType.REMOVED;
                 removed++;
@@ -110,8 +117,9 @@ public class VersionDiffService {
                 RiskLevel fromRisk = fromComp.getLibrary().highestSeverity();
                 RiskLevel toRisk   = toComp.getLibrary().highestSeverity();
 
-                // NEW_THREAT: no risk before → any risk now (LOW or above)
-                boolean isNewThreat = fromRisk == RiskLevel.NONE && toRisk != RiskLevel.NONE;
+                // NEW_THREAT: (1) no risk before → risk now, OR (2) risk escalated (lower ordinal = higher severity)
+                boolean isNewThreat = (toRisk != RiskLevel.NONE)
+                        && (fromRisk == RiskLevel.NONE || toRisk.ordinal() < fromRisk.ordinal());
 
                 if (isNewThreat) {
                     type = ChangeType.NEW_THREAT;
