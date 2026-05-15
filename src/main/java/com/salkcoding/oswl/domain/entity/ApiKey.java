@@ -51,6 +51,13 @@ public class ApiKey {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    /**
+     * The user who issued this key via CLI auth (POST /api/cli/auth).
+     * Null for keys created by admins in the UI.
+     */
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
     public void revoke() {
         this.active = false;
         this.revokedAt = LocalDateTime.now();

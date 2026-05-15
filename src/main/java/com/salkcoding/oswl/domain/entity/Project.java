@@ -70,6 +70,13 @@ public class Project {
     @Column(name = "imported_at")
     private LocalDateTime importedAt;
 
+    /**
+     * The user who first registered this project (Quick Import or manual creation).
+     * Null for projects created before user-tracking was introduced, or via CLI.
+     */
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
