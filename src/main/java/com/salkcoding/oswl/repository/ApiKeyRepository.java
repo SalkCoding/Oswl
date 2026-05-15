@@ -24,4 +24,11 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
     /** Find all keys across all projects (admin use) */
     @EntityGraph(attributePaths = {"project"})
     List<ApiKey> findAllByOrderByCreatedAtDesc();
+
+    /**
+     * Find an active CLI key that was issued to a specific user for a specific project.
+     * Used by CLI auth to return (or reuse) an existing key instead of creating a new one.
+     */
+    @Query("SELECT k FROM ApiKey k WHERE k.project.id = :projectId AND k.createdByUserId = :userId AND k.active = true ORDER BY k.createdAt DESC")
+    List<ApiKey> findActiveByProjectIdAndCreatedByUserId(@Param("projectId") Long projectId, @Param("userId") Long userId);
 }

@@ -89,23 +89,18 @@
             <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Authenticate</h3>
         </div>
         <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
-            Register your API key with the CLI. Run this once per machine — credentials are saved to
-            <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">~/.oswl/config</code>.
+            Sign in with your OsWL account. Credentials are saved to
+            <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">~/.oswl/config.json</code>
+            and never need to be re-entered.
         </p>
-        <div class="bg-[#22efc3]/5 border border-[#22efc3]/20 rounded-[10px] px-[16px] py-[12px] flex gap-[8px] items-start">
-            <img th:src="@{/icon/icon-info2.svg}" class="w-[14px] h-[14px] shrink-0 mt-[1px]" alt="" aria-hidden="true">
-            <p class="text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px] m-0">
-                API keys are issued by an admin under <strong>Settings → CLI API Keys</strong>. Copy your key and use it in the command below.
-            </p>
-        </div>
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
                 <code id="code2"
                       class="text-[12px] font-mono select-all transition-colors text-[#00659c]"
-                      x-text="'oswl auth --key YOUR_API_KEY --server ' + location.origin"></code>
+                      x-text="'oswl auth --username YOUR_EMAIL --password YOUR_PASSWORD --server ' + location.origin"></code>
             </div>
             <button type="button"
-                    @click="navigator.clipboard.writeText('oswl auth --key YOUR_API_KEY --server ' + location.origin); copied2 = true; setTimeout(() => copied2 = false, 2000)"
+                    @click="navigator.clipboard.writeText('oswl auth --username YOUR_EMAIL --password YOUR_PASSWORD --server ' + location.origin); copied2 = true; setTimeout(() => copied2 = false, 2000)"
                     :class="copied2 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
                     class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
                 <img x-show="!copied2" th:src="@{/icon/icon-copy.svg}" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
@@ -127,10 +122,10 @@
         <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">Navigate to your project directory and run:</p>
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'mac'">
-                <code id="code3-mac" class="text-[12px] text-[#00659c] font-mono select-all">cd /your/project &amp;&amp; oswl scan</code>
+                <code id="code3-mac" class="text-[12px] text-[#00659c] font-mono select-all">cd /your/project &amp;&amp; oswl scan --project YOUR_PROJECT</code>
             </div>
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'windows'" x-cloak>
-                <code id="code3-win" class="text-[12px] text-[#00659c] font-mono select-all">cd C:\your\project; oswl scan</code>
+                <code id="code3-win" class="text-[12px] text-[#00659c] font-mono select-all">cd C:\your\project; oswl scan --project YOUR_PROJECT</code>
             </div>
             <button type="button"
                     @click="const el = document.getElementById('code3-' + (os === 'mac' ? 'mac' : 'win')); if (el) navigator.clipboard.writeText(el.textContent.trim()); copied3 = true; setTimeout(() => copied3 = false, 2000)"

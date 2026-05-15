@@ -36,10 +36,10 @@
           scanPollTimer: null,
           rowVisible(el) {
               const f = this.filters;
-              const anyFilter = Object.values(f).some(v => v);
-              if (!anyFilter) return true;
-
               const q = this.searchQuery.trim().toLowerCase();
+              const anyFilter = Object.values(f).some(v => v);
+              if (!anyFilter && !q) return true;
+
               if (q) {
                   const name = (el.dataset.compName || '').toLowerCase();
                   if (!name.includes(q)) return false;

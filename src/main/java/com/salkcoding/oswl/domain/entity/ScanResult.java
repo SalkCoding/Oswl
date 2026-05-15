@@ -48,6 +48,13 @@ public class ScanResult {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /**
+     * The user who submitted this scan (Quick Import or future user-level CLI auth).
+     * Null for scans submitted via a project API key (anonymous CLI scan).
+     */
+    @Column(name = "submitted_by_user_id")
+    private Long submittedByUserId;
+
     @Column(name = "scanned_at")
     private LocalDateTime scannedAt;
 

@@ -14,11 +14,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -32,6 +35,18 @@ public class SecurityConfig {
     private final OswlAuthenticationFailureHandler authenticationFailureHandler;
     private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
     private final TwoFaAuthenticationSuccessHandler twoFaAuthenticationSuccessHandler;
+    private final OswlSessionExpiredStrategy oswlSessionExpiredStrategy;
+
+    @Bean
+    public SessionRegistry sessionRegistry() {
+        return new SessionRegistryImpl();
+    }
+
+    /** Required so that SessionRegistry is notified of session lifecycle events. */
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -51,15 +66,19 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers("/api/scan/**"))
+                    .ignoringRequestMatchers("/api/scan/**", "/api/cli/**"))
             .sessionManagement(s -> s
                     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                     .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
-                    .maximumSessions(1))
+                    .maximumSessions(1)
+                        .maxSessionsPreventsLogin(false)
+                        .expiredSessionStrategy(oswlSessionExpiredStrategy)
+                        .sessionRegistry(sessionRegistry()))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
+                    .requestMatchers("/api/cli/**").permitAll()
                     .anyRequest().authenticated())
             .formLogin(form -> form
                     .loginPage("/login")

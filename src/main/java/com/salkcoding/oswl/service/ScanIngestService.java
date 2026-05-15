@@ -43,12 +43,13 @@ public class ScanIngestService {
     /**
      * Persists the scan payload and kicks off async enrichment.
      *
-     * @param projectId project ID from the authenticated API key
-     * @param payload   CLI payload
+     * @param projectId       project ID from the authenticated API key or Quick Import
+     * @param payload         CLI payload
+     * @param submittedByUserId user who submitted the scan, or null for anonymous CLI scans
      * @return persisted ScanResult (status=SCANNING before async enrichment starts)
      */
     @Transactional
-    public ScanResult ingest(Long projectId, ScanPayload payload) {
+    public ScanResult ingest(Long projectId, ScanPayload payload, Long submittedByUserId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
@@ -67,12 +68,14 @@ public class ScanIngestService {
                             .project(project)
                             .version(incomingVersion)
                             .rawPayload(payload.getRawJson())
+                            .submittedByUserId(submittedByUserId)
                             .build()));
         } else {
             scanResult = scanResultRepository.save(ScanResult.builder()
                     .project(project)
                     .version(null)
                     .rawPayload(payload.getRawJson())
+                    .submittedByUserId(submittedByUserId)
                     .build());
         }
 
@@ -141,6 +144,12 @@ public class ScanIngestService {
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
+
+    /** Backward-compat: anonymous CLI scan (no user context). */
+    @Transactional
+    public ScanResult ingest(Long projectId, ScanPayload payload) {
+        return ingest(projectId, payload, null);
+    }
 
     private Library findOrCreateLibrary(ScanPayload.ComponentPayload cp) {
         String eco = cp.getEcosystem().toUpperCase();

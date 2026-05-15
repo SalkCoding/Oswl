@@ -69,16 +69,17 @@ public class ProjectService {
      *   <li>New owner/repo → create a new Project (UUID auto-generated) and first version.</li>
      * </ul>
      *
+     * @param createdByUserId user who initiated the import; stored only on first creation
      * @return the Project (existing or newly created)
      */
     @Transactional
-    public Project upsertFromGitHub(String owner, String repo, String branch) {
+    public Project upsertFromGitHub(String owner, String repo, String branch, Long createdByUserId) {
         String repoKey = owner + "/" + repo;
 
         // 1. Find or create the logical project
         Project project = projectRepository.findByGithubRepo(repoKey)
                 .orElseGet(() -> projectRepository.save(
-                        Project.builder().name(repoKey).build()
+                        Project.builder().name(repoKey).createdByUserId(createdByUserId).build()
                 ));
 
         // 2. Upsert the branch-level version
@@ -104,6 +105,12 @@ public class ProjectService {
         Project saved = projectRepository.save(project);
         log.info("[Project] GitHub import projectId={} repo={} branch={}", saved.getId(), repoKey, branch);
         return saved;
+    }
+
+    /** Backward-compat overload — caller does not know the user (e.g. GitHubApiController). */
+    @Transactional
+    public Project upsertFromGitHub(String owner, String repo, String branch) {
+        return upsertFromGitHub(owner, repo, branch, null);
     }
 
     /** Soft-delete: moves the project to trash. */

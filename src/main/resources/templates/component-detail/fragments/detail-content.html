@@ -34,7 +34,7 @@
             </span>
             <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[4px] rounded-[40px]">
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
-                      th:text="${projectsCount} + ' Projects'">7 Projects</span>
+                      th:text="${projectsCount} + (${projectsCount} == 1 ? ' Project' : ' Projects')">7 Projects</span>
             </span>
             <!-- Patchability: when CVEs exist show patchability; when no CVEs show version health -->
             <span th:if="${hasVulnerabilities}"

@@ -60,7 +60,7 @@
     <div th:fragment="library-count(count)"
          class="bg-[var(--grayscale-10)] flex items-center px-3 py-1 rounded-[40px] shrink-0">
         <span class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap text-right"
-              th:text="${count} + ' libraries'">3 libraries</span>
+              th:text="${count} + (${count} == 1 ? ' library' : ' libraries')">3 libraries</span>
     </div>
 
 </body>
