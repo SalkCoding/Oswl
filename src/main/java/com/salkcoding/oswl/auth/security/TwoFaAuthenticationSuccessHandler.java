@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.entity.SecuritySetting;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.service.OtpService;
 import com.salkcoding.oswl.auth.service.SecuritySettingService;
+import com.salkcoding.oswl.auth.service.TrustedDeviceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -20,9 +21,9 @@ import java.io.IOException;
  * Intercepts successful form-login and enforces the configured 2FA mode.
  *
  * If TwoFaMode = EMAIL_OTP:
- *   1. Stores the authenticated principal in the session as "pending 2FA".
- *   2. Clears the SecurityContext so the session is NOT yet authenticated.
- *   3. Redirects to /login/otp-verify.
+ *   1. If the device is trusted (valid HMAC cookie) → complete auth directly.
+ *   2. Otherwise: stores the authenticated principal in the session as "pending 2FA",
+ *      clears the SecurityContext, and redirects to /login/otp-verify.
  *
  * Otherwise: redirects to /projects as normal.
  */
@@ -32,6 +33,7 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
 
     private final SecuritySettingService securitySettingService;
     private final OtpService             otpService;
+    private final TrustedDeviceService   trustedDeviceService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest  request,
@@ -42,6 +44,12 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
 
         if (settings.getTwoFaMode() == TwoFaMode.EMAIL_OTP) {
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
+
+            // Skip OTP if the device is already trusted
+            if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
+                response.sendRedirect(request.getContextPath() + "/projects");
+                return;
+            }
 
             // Store pending 2FA state before clearing the security context
             HttpSession session = request.getSession(true);
