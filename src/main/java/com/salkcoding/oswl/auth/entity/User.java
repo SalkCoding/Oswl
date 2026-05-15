@@ -49,6 +49,10 @@ public class User {
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "login_failure_count", nullable = false)
+    @Builder.Default
+    private int loginFailureCount = 0;
+
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

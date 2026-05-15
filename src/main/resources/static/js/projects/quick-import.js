@@ -36,6 +36,11 @@ function quickImportPage() {
         /* ── Copy feedback ───────────────────────── */
         keyCopied: false,
 
+        /* ── Toast ────────────────────────────── */
+        toastVisible: false,
+        toastApiKey: '',
+        toastAutoCopied: false,
+
         /* ─────────────────────────────────────────── */
 
         async init() {
@@ -208,7 +213,41 @@ function quickImportPage() {
                 this._stopPolling();
                 this.jobResult   = job;
                 this.isImporting = false;
+                if (job.phase === 'DONE' && job.apiToken) {
+                    this._showToastWithKey(job.apiToken);
+                }
             }
+        },
+
+        /* ── Toast + auto-copy ──────────────────── */
+        async _showToastWithKey(apiKey) {
+            this.toastApiKey = apiKey;
+            this.toastAutoCopied = false;
+            try {
+                await navigator.clipboard.writeText(apiKey);
+                this.toastAutoCopied = true;
+            } catch (err) {
+                // Clipboard may be blocked (insecure context, no user gesture, perms)
+                console.warn('[QuickImport] Auto-copy failed:', err);
+                this.toastAutoCopied = false;
+            }
+            this.toastVisible = true;
+            // Auto-dismiss after 12s so the user has time to read & manually copy if needed
+            setTimeout(() => { this.toastVisible = false; }, 12000);
+        },
+
+        async toastCopyAgain() {
+            if (!this.toastApiKey) return;
+            try {
+                await navigator.clipboard.writeText(this.toastApiKey);
+                this.toastAutoCopied = true;
+            } catch (err) {
+                console.error('[QuickImport] Manual copy failed:', err);
+            }
+        },
+
+        dismissToast() {
+            this.toastVisible = false;
         },
 
         _appendLog(status, text) {

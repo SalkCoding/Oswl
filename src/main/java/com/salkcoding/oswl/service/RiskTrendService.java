@@ -8,6 +8,7 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -20,7 +21,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RiskTrendService {
 
-    private static final int TREND_LIMIT = 10;
+    @Value("${oswl.risk-trend.limit:10}")
+    private int trendLimit;
 
     private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
@@ -34,7 +36,7 @@ public class RiskTrendService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> scansDesc = scanResultRepository.findRecentCompleted(projectId, TREND_LIMIT);
+        List<ScanResult> scansDesc = scanResultRepository.findRecentCompleted(projectId, trendLimit);
 
         List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
         List<VersionSummaryDto> scanVersions = allScans.stream()

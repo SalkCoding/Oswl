@@ -83,10 +83,11 @@ public class ScanController implements ScanControllerSpec {
      * Lightweight poll endpoint for the UI.
      * Returns the current scan status and component count.
      * Used for the Security Center scan progress badge (Alpine.js polling).
-     * Requires an active session — unauthenticated callers receive 401.
+     * Requires an active session with PROJECT_VIEW permission — unauthenticated
+     * callers and users lacking project access receive 401/403.
      */
     @GetMapping("/{scanId}/status")
-    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    @org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'PROJECT_VIEW')")
     public ResponseEntity<ScanStatusResponse> scanStatus(@PathVariable Long scanId) {
         return scanResultRepository.findById(scanId)
                 .map(scan -> {
