@@ -107,9 +107,15 @@
                                     <button @click="!u.systemAdmin && openEditUser(u)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit user">
                                         <img th:src="@{/icon/icon-edit.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                                     </button>
-                                    <button @click="!u.systemAdmin && deleteUser(u)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
+                                    <button x-show="deletingUser?.id !== u.id"
+                                            @click="!u.systemAdmin && (deletingUser = u)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
                                         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
                                     </button>
+                                    <div x-show="deletingUser?.id === u.id" class="flex items-center gap-[6px]">
+                                        <span class="text-[11px] text-red-600 font-semibold">Delete?</span>
+                                        <button @click="deleteUser(deletingUser)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]">Yes</button>
+                                        <button @click="deletingUser = null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]">No</button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -179,11 +185,24 @@
                                 </div>
                             </div>
                             <div class="flex flex-col gap-[8px]">
+                                <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Temporary Password</span>
+                                <div class="flex gap-[6px]">
+                                    <input type="text" x-model="invite.temporaryPassword" placeholder="8+ characters"
+                                           class="flex-1 px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
+                                           :class="inviteError && !invite.temporaryPassword.trim() ? 'border-red-400' : (inviteError && invite.temporaryPassword.trim().length < 8 ? 'border-red-400' : '')"/>
+                                    <button type="button" @click="invite.temporaryPassword=randomPwd()"
+                                            class="text-[12px] font-semibold px-[10px] bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] text-[var(--grayscale-70)] transition-colors whitespace-nowrap">Generate</button>
+                                </div>
+                                <span x-show="inviteError && invite.temporaryPassword.trim().length < 8 && invite.temporaryPassword.trim().length > 0" class="text-[11px] text-red-500">Password must be at least 8 characters.</span>
+                            </div>
+                            <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Message <span class="text-[var(--grayscale-60)] font-normal">(Optional)</span></span>
                                 <textarea x-model="invite.message" rows="3" maxlength="200" placeholder="Enter an invitation message (max 200 characters)"
                                           class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] resize-none placeholder:text-[#abb8be]"></textarea>
                             </div>
                         </div>
+                        <!-- Invite error -->
+                        <div x-show="inviteError" x-cloak class="mx-[20px] mb-[-8px] bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[6px] px-[10px] py-[7px]" x-text="inviteError"></div>
                         <!-- Footer -->
                         <div class="flex items-center gap-[10px] px-[20px] py-[20px] border-t border-[var(--grayscale-20)] flex-shrink-0 bg-[var(--grayscale-5)]">
                             <button @click="submitInvite()"
@@ -213,7 +232,7 @@
                         <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1">
                             <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">Name
                                 <input type="text" x-model="editingDisplayName" maxlength="20"
-                                       @input="editingNameError = editingDisplayName.trim().length < 1 ? '이름은 1글자 이상이어야 합니다.' : editingDisplayName.trim().length > 20 ? '이름은 최대 20글자까지 입력할 수 있습니다.' : ''"
+                                       @input="editingNameError = editingDisplayName.trim().length < 1 ? 'Name must be at least 1 character.' : editingDisplayName.trim().length > 20 ? 'Name must be 20 characters or fewer.' : ''"
                                        class="px-[12px] py-[8px] border rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"
                                        :class="editingNameError ? 'border-red-400' : 'border-[var(--grayscale-20)]'"/>
                                 <span x-show="editingNameError" x-text="editingNameError" class="text-[11px] text-red-500 font-normal"></span>
@@ -335,9 +354,9 @@
                     </tr>
                     </thead>
                     <tbody>
-                    <template x-for="t in templates" :key="t.id">
+                    <template x-for="t in pagedTemplates" :key="t.id">
                         <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 transition-colors"
-                            :class="(sidebarMode==='editTemplate' && editingTpl?.id===t.id) ? 'bg-[#e5faf5]' : 'hover:bg-[var(--grayscale-5)]'">
+                            :class="(sidebarMode==='editTemplate' && editingTpl?.id===t.id) ? 'bg-[#e5faf5]' : (deletingTemplate?.id===t.id ? 'bg-red-50' : 'hover:bg-[var(--grayscale-5)]')">
                             <td class="px-[16px] py-[12px]">
                                 <span x-show="t.builtIn" class="mr-[6px]" title="Built-in">
                                     <img th:src="@{/icon/icon-lock.svg}" class="inline w-[16px] h-[16px]" alt="" aria-hidden="true">
@@ -351,9 +370,18 @@
                                     <button @click="openEditTemplate(t)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit">
                                         <img th:src="@{/icon/icon-edit.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                                     </button>
-                                    <button x-show="!t.builtIn" @click="deleteTemplate(t)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
-                                        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
-                                    </button>
+                                    <template x-if="!t.builtIn">
+                                        <div>
+                                            <button x-show="deletingTemplate?.id !== t.id" @click="deletingTemplate=t" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
+                                                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
+                                            </button>
+                                            <div x-show="deletingTemplate?.id === t.id" class="flex items-center gap-[6px]">
+                                                <span class="text-[11px] text-red-600 font-semibold">Delete?</span>
+                                                <button @click="deleteTemplate(deletingTemplate)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]">Yes</button>
+                                                <button @click="deletingTemplate=null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]">No</button>
+                                            </div>
+                                        </div>
+                                    </template>
                                 </div>
                             </td>
                         </tr>
@@ -361,6 +389,32 @@
                     <tr x-show="templates.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No templates.</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+        <!-- Template Pagination Footer -->
+        <div class="flex items-center gap-[36px] px-[32px] py-[13px] border border-[var(--grayscale-20)] rounded-b-[8px] bg-white -mt-[1px]">
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="templates.length"></span> total</span>
+            <div class="w-[160px] shrink-0 relative">
+                <select x-model.number="tplPageSize" @change="tplPage=1"
+                        class="w-full appearance-none bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] px-[8px] py-[5px] pr-[24px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none">
+                    <option :value="10">Show 10</option>
+                    <option :value="20">Show 20</option>
+                    <option :value="50">Show 50</option>
+                </select>
+                <img th:src="@{/icon/icon-triangle-down.svg}" class="absolute right-[8px] top-1/2 -translate-y-1/2 pointer-events-none w-[10px] h-[10px]" alt="" aria-hidden="true">
+            </div>
+            <div class="flex items-center gap-[20px] shrink-0">
+                <div class="flex items-center gap-[12px]">
+                    <button @click="tplPage=1" :disabled="tplPage===1" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>
+                    <button @click="tplPage=Math.max(1,tplPage-1)" :disabled="tplPage===1" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+                </div>
+                <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
+                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="tplPage"></span>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <button @click="tplPage=Math.min(tplTotalPages,tplPage+1)" :disabled="tplPage===tplTotalPages" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+                    <button @click="tplPage=tplTotalPages" :disabled="tplPage===tplTotalPages" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></button>
+                </div>
             </div>
         </div>
             <!-- Side panel: absolute positioned outside list box -->
@@ -424,10 +478,7 @@
                                                                  :class="tplForm.permissions.includes(p.code) ? 'opacity-100' : 'opacity-0'"
                                                                  class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                                         </div>
-                                                        <span class="flex flex-col">
-                                                            <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
-                                                            <span class="font-mono text-[var(--grayscale-50)] text-[10px]" x-text="p.code"></span>
-                                                        </span>
+                                                        <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
                                                     </label>
                                                 </template>
                                             </div>
@@ -457,13 +508,27 @@
     <div x-show="subTab==='audit'" x-cloak class="flex flex-col gap-[12px]">
         <div class="flex items-center justify-between gap-[8px] flex-wrap">
             <div class="flex items-center gap-[8px] flex-wrap">
-                <select x-model="auditFilter.dateRange" @change="loadAudit(0)"
-                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer">
-                    <option value="7">Last 7 days</option>
-                    <option value="30">Last 30 days</option>
-                    <option value="90">Last 90 days</option>
-                    <option value="">All time</option>
-                </select>
+                <!-- Date Range — Custom Dropdown -->
+                <div class="relative" @click.away="dateDropdownOpen=false">
+                    <button type="button" @click="dateDropdownOpen=!dateDropdownOpen"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white w-[140px] text-left relative cursor-pointer transition-colors"
+                            :class="dateDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="dateRangeLabel()"></span>
+                        <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none transition-transform"
+                             :class="dateDropdownOpen ? 'rotate-180' : ''"
+                             width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div x-show="dateDropdownOpen" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 w-[150px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
+                        <template x-for="opt in [{value:'7',label:'Last 7 days'},{value:'30',label:'Last 30 days'},{value:'90',label:'Last 90 days'},{value:'',label:'All time'}]" :key="opt.value">
+                            <button type="button"
+                                    @click="auditFilter.dateRange=opt.value; dateDropdownOpen=false; loadAudit(0)"
+                                    class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="auditFilter.dateRange===opt.value ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
+                                    x-text="opt.label"></button>
+                        </template>
+                    </div>
+                </div>
                 <!-- Actor Email — Searchable Dropdown -->
                 <div class="relative" @click.away="actorDropdownOpen=false">
                     <button type="button" @click="actorDropdownOpen=!actorDropdownOpen"
@@ -546,11 +611,6 @@
                         </div>
                     </div>
                 </div>
-                <button @click="loadAudit(0)"
-                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-70)] hover:bg-[var(--grayscale-5)] inline-flex items-center gap-[6px]">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    Search
-                </button>
             </div>
             <a :href="auditExportUrl()"
                class="bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] no-underline">
@@ -593,7 +653,15 @@
                                 <span x-show="l.targetName" class="text-[var(--grayscale-80)] text-[13px]" x-text="l.targetName"></span>
                             </div>
                         </td>
-                        <td class="px-[16px] py-[10px] text-[var(--grayscale-60)] text-[12px] max-w-[200px] truncate" x-text="l.detail || '—'"></td>
+                        <td class="px-[16px] py-[10px] text-[var(--grayscale-60)] text-[12px] max-w-[240px]">
+                            <div x-data="{ expanded: false }" class="flex items-start gap-[4px]">
+                                <span x-text="l.detail || '—'" :class="expanded ? 'break-all whitespace-pre-wrap' : 'truncate block'" class="text-[12px] flex-1 min-w-0"></span>
+                                <button x-show="(l.detail||'').length > 50" @click.stop="expanded=!expanded"
+                                        class="shrink-0 text-[#00B9A3] hover:text-[#008f83] text-[10px] font-bold leading-none mt-[1px] transition-colors"
+                                        :title="expanded ? 'Collapse' : 'Expand'"
+                                        x-text="expanded ? '▲' : '▼'"></button>
+                            </div>
+                        </td>
                     </tr>
                 </template>
                 <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No audit records.</td></tr>
@@ -601,7 +669,7 @@
             </table>
         </div>
         <!-- Pagination -->
-        <div x-show="auditTotalPages > 1" x-cloak class="flex items-center justify-between px-[2px] py-[4px]">
+        <div x-show="auditTotalElements > 0" x-cloak class="flex items-center justify-between px-[2px] py-[4px]">
             <span class="text-[12px] text-[var(--grayscale-50)]">
                 Total <span class="font-semibold text-[var(--grayscale-70)]" x-text="auditTotalElements"></span> records
                 &nbsp;·&nbsp; Page <span x-text="auditPage + 1"></span> / <span x-text="auditTotalPages"></span>
@@ -799,10 +867,7 @@
                                             <template x-for="p in group" :key="p.code">
                                                 <label class="inline-flex items-start gap-[8px] text-[12px] py-[3px] hover:bg-[var(--grayscale-5)] rounded px-[4px] cursor-pointer">
                                                     <input type="checkbox" :value="p.code" x-model="tplForm.permissions" class="mt-[2px] w-[14px] h-[14px]"/>
-                                                    <span class="flex flex-col">
-                                                        <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
-                                                        <span class="font-mono text-[var(--grayscale-50)] text-[10px]" x-text="p.code"></span>
-                                                    </span>
+                                                    <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
                                                 </label>
                                             </template>
                                         </div>
@@ -830,7 +895,11 @@
             users: [], templates: [], allPermissions: [],
             sidebarMode: null,  // 'invite' | 'editUser' | 'newTemplate' | 'editTemplate' | null
             apiError: null,
+            inviteError: null,
             page: 1, pageSize: 10,
+            tplPage: 1, tplPageSize: 10,
+            deletingTemplate: null,
+            deletingUser: null,
             invite: { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' },
             editingUser: null, editingDisplayName: '', editingNameError: '', editingTemplateId: null, editingMessage: '',
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
@@ -840,6 +909,7 @@
             actorDropdownOpen: false,
             actorSearchQuery: '',
             actionDropdownOpen: false,
+            dateDropdownOpen: false,
             actionGroups: [
                 { label: 'Auth', items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT'] },
                 { label: 'User', items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
@@ -847,7 +917,7 @@
                 { label: 'Project', items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE'] },
                 { label: 'VCS', items: ['VCS.CONNECT', 'VCS.DISCONNECT'] },
                 { label: 'CLI Key', items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
-                { label: 'Security', items: ['SECURITY_SETTING.UPDATE'] },
+                { label: 'Security', items: ['SECURITY_SETTING.UPDATE', 'SECURITY_SETTING.MAIL_TEST'] },
                 { label: 'AI Setting', items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE'] },
                 { label: 'Cache', items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
                 { label: 'External Setting', items: ['EXTERNAL_SETTING.NVD_UPDATE', 'EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
@@ -884,6 +954,11 @@
             get pagedUsers() {
                 const start = (this.page - 1) * this.pageSize;
                 return this.users.slice(start, start + this.pageSize);
+            },
+            get tplTotalPages() { return Math.max(1, Math.ceil(this.templates.length / this.tplPageSize)); },
+            get pagedTemplates() {
+                const start = (this.tplPage - 1) * this.tplPageSize;
+                return this.templates.slice(start, start + this.tplPageSize);
             },
             // ── Avatar color from name ──
             avatarColor(s) {
@@ -925,6 +1000,7 @@
             openInvite() {
                 this.invite = { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' };
                 this.editingUser = null;
+                this.inviteError = null;
                 this.sidebarMode = 'invite';
             },
             openEditUser(u) {
@@ -964,18 +1040,26 @@
             },
 
             async submitInvite() {
+                this.inviteError = null;
+                const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!this.invite.email.trim() || !emailRe.test(this.invite.email.trim())) {
+                    this.inviteError = 'Please enter a valid email address.'; return;
+                }
+                if (!this.invite.temporaryPassword.trim() || this.invite.temporaryPassword.trim().length < 8) {
+                    this.inviteError = 'Temporary password must be at least 8 characters.'; return;
+                }
                 const { templateId, ...rest } = this.invite;
                 const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
                 const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(payload) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert('Failed: ' + await r.text()); return; }
+                if (!r.ok) { this.inviteError = 'Failed: ' + await r.text(); return; }
                 this.closeSidebar();
                 await this.loadUsers();
             },
             async saveRoles() {
                 const name = this.editingDisplayName.trim();
-                if (name.length < 1) { this.editingNameError = '이름은 1글자 이상이어야 합니다.'; return; }
-                if (name.length > 20) { this.editingNameError = '이름은 최대 20글자까지 입력할 수 있습니다.'; return; }
+                if (name.length < 1) { this.editingNameError = 'Name must be at least 1 character.'; return; }
+                if (name.length > 20) { this.editingNameError = 'Name must be 20 characters or fewer.'; return; }
                 if (name !== (this.editingUser.displayName || '').trim()) {
                     const nr = await fetch(`/api/admin/users/${this.editingUser.id}/display-name`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ displayName: name }) });
                     if (nr.status === 401) { location.href = '/login'; return; }
@@ -993,7 +1077,7 @@
                 await this.loadUsers();
             },
             async deleteUser(u) {
-                if (!confirm(`Delete user '${u.displayName}'? This cannot be undone.`)) return;
+                this.deletingUser = null;
                 const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed: ' + await r.text()); return; }
@@ -1008,10 +1092,10 @@
                 this.closeSidebar(); await this.loadTemplates();
             },
             async deleteTemplate(t) {
-                if (!confirm(`Delete template '${t.name}'?`)) return;
                 const r = await fetch(`/api/admin/role-templates/${t.id}`, { method: 'DELETE', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed: ' + await r.text()); return; }
+                this.deletingTemplate = null;
                 await this.loadTemplates();
             },
             async loadAudit(page) {
@@ -1060,6 +1144,10 @@
                 if (this.auditFilter.action) params.set('action', this.auditFilter.action);
                 const qs = params.toString();
                 return '/api/admin/audit-logs/export.csv' + (qs ? '?' + qs : '');
+            },
+            dateRangeLabel() {
+                const map = { '7': 'Last 7 days', '30': 'Last 30 days', '90': 'Last 90 days', '': 'All time' };
+                return map[this.auditFilter.dateRange] ?? 'Last 7 days';
             }
         };
     }

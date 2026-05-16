@@ -10,7 +10,7 @@
 <div th:fragment="defer"
      x-show="modal === 'defer'" x-cloak
      x-transition.opacity
-     class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+     class="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4"
      @keydown.escape.window="modal = null"
      @click.self="modal = null"
      x-data="{

@@ -23,36 +23,56 @@
     <div x-show="!loading" x-cloak class="flex flex-col gap-[12px]">
 
         <!-- ── GitHub Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px]">
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-100)]"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
                     </div>
                     <div class="flex flex-col gap-[4px]">
-                        <span class="font-bold text-[14px] text-[var(--grayscale-100)]">GitHub</span>
-                        <span x-show="connections.some(c=>c.provider==='GITHUB')"
-                              class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
-                            <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>Connected
-                        </span>
-                        <span x-show="!connections.some(c=>c.provider==='GITHUB')"
-                              class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-50)] font-semibold">
-                            <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>Not connected
-                        </span>
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]">GitHub</span>
+                            <span x-show="connections.some(c=>c.provider==='GITHUB')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>Connected
+                            </span>
+                        </div>
+                        <span class="text-[12px] text-[var(--grayscale-60)]">github.com or GitHub Enterprise</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-[8px]">
-                    <button x-show="connections.some(c=>c.provider==='GITHUB')"
-                            @click="disconnect(connections.find(c=>c.provider==='GITHUB'))"
+                <div x-show="connections.some(c=>c.provider==='GITHUB')" class="flex items-center gap-[6px]">
+                    <div x-show="confirmingDisconnect?.provider === 'GITHUB'" class="flex items-center gap-[6px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)]">Disconnect GitHub?</span>
+                        <button @click="doDisconnect()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[5px] rounded-[6px]">Yes</button>
+                        <button @click="confirmingDisconnect = null" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[5px] rounded-[6px] border border-[var(--grayscale-20)]">No</button>
+                    </div>
+                    <button x-show="!confirmingDisconnect || confirmingDisconnect.provider !== 'GITHUB'"
+                            @click="confirmingDisconnect = connections.find(c=>c.provider==='GITHUB')"
                             class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:text-red-500 hover:border-red-200 transition-colors">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         Disconnect
                     </button>
-                    <button x-show="!connections.some(c=>c.provider==='GITHUB')"
-                            @click="openCreate(); form.provider='GITHUB'"
-                            class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition-colors">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        Connect
+                </div>
+            </div>
+            <!-- Inline form: shown when not connected -->
+            <div x-show="!connections.some(c=>c.provider==='GITHUB')" class="flex flex-col gap-[12px] pt-[16px] border-t border-[var(--grayscale-10)]">
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Server URL</label>
+                    <input type="url" x-model="githubServerUrl"
+                           placeholder="https://github.example.com (leave blank for github.com)"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Access Token</label>
+                    <input type="password" x-model="githubAccessToken"
+                           placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex justify-end">
+                    <button @click="connectGithub()"
+                            :disabled="!githubAccessToken.trim() || creating"
+                            class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span x-text="creating ? 'Connecting...' : 'Save'"></span>
                     </button>
                 </div>
             </div>
@@ -66,15 +86,23 @@
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="#FC6D26"><path d="M12 22.5l4.42-13.6H7.58L12 22.5z"/><path d="M12 22.5l-4.42-13.6H1.4L12 22.5z" opacity=".7"/><path d="M1.4 8.9L0 13.2c-.13.39 0 .82.34 1.06L12 22.5 1.4 8.9z" opacity=".5"/><path d="M1.4 8.9h6.18L4.84.5C4.71.13 4.18.13 4.05.5L1.4 8.9z"/><path d="M12 22.5l4.42-13.6h6.18L12 22.5z" opacity=".7"/><path d="M22.6 8.9L24 13.2c.13.39 0 .82-.34 1.06L12 22.5l10.6-13.6z" opacity=".5"/><path d="M22.6 8.9h-6.18L19.16.5c.13-.37.66-.37.79 0L22.6 8.9z"/></svg>
                     </div>
                     <div class="flex flex-col gap-[2px]">
-                        <span class="font-bold text-[14px] text-[var(--grayscale-100)]">GitLab</span>
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]">GitLab</span>
+                            <span x-show="connections.some(c=>c.provider==='GITLAB')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>Connected
+                            </span>
+                        </div>
                         <span class="text-[12px] text-[var(--grayscale-60)]">Self-hosted or gitlab.com</span>
                     </div>
                 </div>
-                <div x-show="connections.some(c=>c.provider==='GITLAB')" class="flex items-center gap-[10px]">
-                    <span class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
-                        <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>Connected
-                    </span>
-                    <button @click="disconnect(connections.find(c=>c.provider==='GITLAB'))"
+                <div x-show="connections.some(c=>c.provider==='GITLAB')" class="flex items-center gap-[6px]">
+                    <div x-show="confirmingDisconnect?.provider === 'GITLAB'" class="flex items-center gap-[6px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)]">Disconnect GitLab?</span>
+                        <button @click="doDisconnect()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[5px] rounded-[6px]">Yes</button>
+                        <button @click="confirmingDisconnect = null" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[5px] rounded-[6px] border border-[var(--grayscale-20)]">No</button>
+                    </div>
+                    <button x-show="!confirmingDisconnect || confirmingDisconnect.provider !== 'GITLAB'"
+                            @click="confirmingDisconnect = connections.find(c=>c.provider==='GITLAB')"
                             class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:text-red-500 hover:border-red-200 transition-colors">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         Disconnect
@@ -107,37 +135,56 @@
         </div>
 
         <!-- ── Atlassian / Bitbucket Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px]">
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
                         <svg width="22" height="22" viewBox="0 0 24 24"><defs><linearGradient id="bb-card" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0052cc"/><stop offset="100%" style="stop-color:#2684ff"/></linearGradient></defs><path fill="url(#bb-card)" d="M2.65 3c-.26 0-.5.22-.47.5l2.83 17.23c.06.34.35.59.7.59h12.56c.26 0 .48-.18.53-.43L21.82 3.5c.04-.28-.2-.5-.47-.5H2.65zM14.1 14.82H9.9l-1.1-6.64h6.38L14.1 14.82z"/></svg>
                     </div>
                     <div class="flex flex-col gap-[4px]">
-                        <span class="font-bold text-[14px] text-[var(--grayscale-100)]">Atlassian</span>
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]">Atlassian</span>
+                            <span x-show="connections.some(c=>c.provider==='BITBUCKET')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>Connected
+                            </span>
+                        </div>
                         <span class="text-[12px] text-[var(--grayscale-60)]">Bitbucket Cloud &amp; Server</span>
-                        <span x-show="connections.some(c=>c.provider==='BITBUCKET')"
-                              class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
-                            <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>Connected
-                        </span>
-                        <span x-show="!connections.some(c=>c.provider==='BITBUCKET')"
-                              class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-50)] font-semibold">
-                            <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>Not connected
-                        </span>
                     </div>
                 </div>
-                <div class="flex items-center gap-[8px]">
-                    <button x-show="connections.some(c=>c.provider==='BITBUCKET')"
-                            @click="disconnect(connections.find(c=>c.provider==='BITBUCKET'))"
+                <div x-show="connections.some(c=>c.provider==='BITBUCKET')" class="flex items-center gap-[6px]">
+                    <div x-show="confirmingDisconnect?.provider === 'BITBUCKET'" class="flex items-center gap-[6px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)]">Disconnect Atlassian?</span>
+                        <button @click="doDisconnect()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[5px] rounded-[6px]">Yes</button>
+                        <button @click="confirmingDisconnect = null" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[5px] rounded-[6px] border border-[var(--grayscale-20)]">No</button>
+                    </div>
+                    <button x-show="!confirmingDisconnect || confirmingDisconnect.provider !== 'BITBUCKET'"
+                            @click="confirmingDisconnect = connections.find(c=>c.provider==='BITBUCKET')"
                             class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:text-red-500 hover:border-red-200 transition-colors">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         Disconnect
                     </button>
-                    <button x-show="!connections.some(c=>c.provider==='BITBUCKET')"
-                            @click="openCreate(); form.provider='BITBUCKET'"
-                            class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition-colors">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                        Connect
+                </div>
+            </div>
+            <!-- Inline form: shown when not connected -->
+            <div x-show="!connections.some(c=>c.provider==='BITBUCKET')" class="flex flex-col gap-[12px] pt-[16px] border-t border-[var(--grayscale-10)]">
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Username</label>
+                    <input type="text" x-model="bitbucketUsername"
+                           placeholder="atlassian-username"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">App Password</label>
+                    <input type="password" x-model="bitbucketAccessToken"
+                           placeholder="ATBB-xxxxxxxxxxxxxxxxxxxxxxxx"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex justify-end">
+                    <button @click="connectBitbucket()"
+                            :disabled="!bitbucketUsername.trim() || !bitbucketAccessToken.trim() || creating"
+                            class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span x-text="creating ? 'Connecting...' : 'Save'"></span>
                     </button>
                 </div>
             </div>
@@ -249,11 +296,16 @@
             loading: true,
             slideout: false,
             creating: false,
+            confirmingDisconnect: null,
             apiError: null,
             toastVisible: false,
             toastMsg: '',
             gitlabServerUrl: '',
             gitlabAccessToken: '',
+            githubServerUrl: '',
+            githubAccessToken: '',
+            bitbucketUsername: '',
+            bitbucketAccessToken: '',
             form: { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' },
             csrf: document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
@@ -315,8 +367,12 @@
                     this.creating = false;
                 }
             },
-            async disconnect(c) {
-                if (!confirm('Disconnect ' + this.providerLabel(c.provider) + '?')) return;
+            disconnect(c) {
+                this.confirmingDisconnect = c;
+            },
+            async doDisconnect() {
+                const c = this.confirmingDisconnect;
+                this.confirmingDisconnect = null;
                 this.apiError = null;
                 try {
                     const r = await fetch('/api/settings/vcs/' + c.id, { method: 'DELETE', headers: this.headers() });
@@ -346,6 +402,54 @@
                     this.gitlabAccessToken = '';
                     await this.loadConnections();
                     this.showToast('GitLab connected successfully.');
+                } catch (e) {
+                    this.apiError = 'Network error. Please try again.';
+                } finally {
+                    this.creating = false;
+                }
+            },
+            async connectGithub() {
+                if (!this.githubAccessToken.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                try {
+                    const body = {
+                        provider: 'GITHUB',
+                        serverUrl: this.githubServerUrl.trim() || null,
+                        vcsUsername: null,
+                        accessToken: this.githubAccessToken
+                    };
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    this.githubServerUrl = '';
+                    this.githubAccessToken = '';
+                    await this.loadConnections();
+                    this.showToast('GitHub connected successfully.');
+                } catch (e) {
+                    this.apiError = 'Network error. Please try again.';
+                } finally {
+                    this.creating = false;
+                }
+            },
+            async connectBitbucket() {
+                if (!this.bitbucketUsername.trim() || !this.bitbucketAccessToken.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                try {
+                    const body = {
+                        provider: 'BITBUCKET',
+                        serverUrl: null,
+                        vcsUsername: this.bitbucketUsername.trim(),
+                        accessToken: this.bitbucketAccessToken
+                    };
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    this.bitbucketUsername = '';
+                    this.bitbucketAccessToken = '';
+                    await this.loadConnections();
+                    this.showToast('Bitbucket connected successfully.');
                 } catch (e) {
                     this.apiError = 'Network error. Please try again.';
                 } finally {

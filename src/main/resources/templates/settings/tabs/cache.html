@@ -34,11 +34,25 @@
                 <div x-show="policy==='custom'" class="ml-[28px] flex items-center gap-[8px]">
                     <input type="number" min="1" x-model.number="customAmount"
                            class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
-                    <select x-model="customUnit"
-                            class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white focus:outline-none focus:border-[#33D1B7]">
-                        <option value="hour">hour(s)</option>
-                        <option value="day">day(s)</option>
-                    </select>
+                    <!-- Custom dropdown for time unit -->
+                    <div class="relative" @click.away="unitDropdownOpen=false">
+                        <button type="button" @click="unitDropdownOpen=!unitDropdownOpen"
+                                class="flex items-center gap-[6px] pr-[8px] pl-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer transition-colors"
+                                :class="unitDropdownOpen ? 'border-[#33D1B7]' : ''">
+                            <span x-text="customUnit === 'hour' ? 'hour(s)' : 'day(s)'"></span>
+                            <svg :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 text-[var(--grayscale-50)]"
+                                 width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="unitDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[3px] w-[100px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-md overflow-hidden">
+                            <button type="button" @click="customUnit='hour'; unitDropdownOpen=false"
+                                    class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="customUnit==='hour' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">hour(s)</button>
+                            <button type="button" @click="customUnit='day'; unitDropdownOpen=false"
+                                    class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="customUnit==='day' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">day(s)</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -96,6 +110,7 @@
         return {
             policy: 'custom',           // 'custom' | 'always' | 'permanent'
             customAmount: 7, customUnit: 'day',
+            unitDropdownOpen: false,
             items: [],
             saving: false, apiError: null, toast: null,
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',

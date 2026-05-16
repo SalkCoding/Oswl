@@ -51,7 +51,7 @@
             <!-- Dynamic license rows -->
             <div th:each="license : ${licenses}"
                  x-data="{ open: false }"
-                 class="flex flex-col w-full shrink-0 border-b border-[#DBE4E7] last:border-b-0">
+                 class="flex flex-col w-full shrink-0">
                 <!-- Row header (clickable) -->
                 <div @click="open = !open"
                      class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
