@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * GitHub REST API calls using a Personal Access Token (PAT).
@@ -143,7 +144,127 @@ public class GitHubService {
         return "";
     }
 
-    // ?�?� Internal helpers ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+    // ── Create Pull Request ─────────────────────────────────────────────────
+
+    /**
+     * Creates a version-bump branch and opens a pull request on GitHub.
+     *
+     * @param token       GitHub PAT (decrypted)
+     * @param owner       repo owner (user or org login)
+     * @param repo        repo name
+     * @param baseBranch  target branch for the PR (e.g. "main")
+     * @param libName     library identifier (e.g. "org.springframework:spring-web")
+     * @param oldVersion  current version string
+     * @param newVersion  target (patched) version string
+     * @param prTitle     PR title
+     * @param prBody      PR description / body
+     * @param reviewers   optional list of reviewer logins (may be empty)
+     * @return map with "prUrl" and "prNumber"
+     */
+    public Map<String, Object> createVersionBumpPr(String token,
+                                                    String owner,
+                                                    String repo,
+                                                    String baseBranch,
+                                                    String libName,
+                                                    String oldVersion,
+                                                    String newVersion,
+                                                    String prTitle,
+                                                    String prBody,
+                                                    List<String> reviewers) {
+        // 1. Get current SHA of base branch HEAD
+        String branchRefUrl = githubApiBase + "/repos/" + owner + "/" + repo + "/git/ref/heads/" + baseBranch;
+        JsonNode ref = getJson(token, branchRefUrl);
+        String baseSha = ref.path("object").path("sha").asText();
+
+        // 2. Create new branch
+        String safeName = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
+        String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
+        createBranch(token, owner, repo, newBranch, baseSha);
+
+        // 3. Find and update the dependency file
+        updateDependencyFile(token, owner, repo, newBranch, baseBranch, libName, oldVersion, newVersion);
+
+        // 4. Open pull request
+        String prPayload = objectMapper.createObjectNode()
+                .put("title", prTitle)
+                .put("body", prBody)
+                .put("head", newBranch)
+                .put("base", baseBranch)
+                .toString();
+
+        JsonNode pr = postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/pulls", prPayload);
+        int prNumber  = pr.path("number").asInt();
+        String prUrl  = pr.path("html_url").asText();
+
+        // 5. Optionally assign reviewers
+        if (reviewers != null && !reviewers.isEmpty()) {
+            try {
+                String rvPayload = objectMapper.createObjectNode()
+                        .set("reviewers", objectMapper.valueToTree(reviewers))
+                        .toString();
+                postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/requested_reviewers", rvPayload);
+            } catch (Exception e) {
+                log.warn("[GitHub] Failed to assign reviewers to PR #{}: {}", prNumber, e.getMessage());
+            }
+        }
+
+        log.info("[GitHub] PR #{} created: {}", prNumber, prUrl);
+        return Map.of("prUrl", prUrl, "prNumber", prNumber);
+    }
+
+    private void createBranch(String token, String owner, String repo, String branch, String sha) {
+        String payload = objectMapper.createObjectNode()
+                .put("ref", "refs/heads/" + branch)
+                .put("sha", sha)
+                .toString();
+        postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/git/refs", payload);
+    }
+
+    /**
+     * Finds the primary dependency manifest file, replaces oldVersion with newVersion,
+     * and commits the change to the given branch.
+     */
+    private void updateDependencyFile(String token, String owner, String repo,
+                                       String branch, String baseBranch,
+                                       String libName, String oldVersion, String newVersion) {
+        // Candidate dependency files to search (in priority order)
+        List<String> candidates = List.of(
+                "pom.xml", "build.gradle", "build.gradle.kts",
+                "package.json", "requirements.txt", "pyproject.toml",
+                "go.mod", "Cargo.toml"
+        );
+
+        for (String path : candidates) {
+            try {
+                String fileUrl = githubApiBase + "/repos/" + owner + "/" + repo
+                        + "/contents/" + path + "?ref=" + baseBranch;
+                JsonNode fileNode = getJson(token, fileUrl);
+                String sha  = fileNode.path("sha").asText();
+                String b64  = fileNode.path("content").asText().replace("\n", "").replace("\r", "");
+                byte[] raw  = java.util.Base64.getDecoder().decode(b64);
+                String content = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
+
+                if (!content.contains(oldVersion)) continue; // not this file
+
+                String updated = content.replace(oldVersion, newVersion);
+                String commitPayload = objectMapper.createObjectNode()
+                        .put("message", "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]")
+                        .put("content", java.util.Base64.getEncoder().encodeToString(updated.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                        .put("sha", sha)
+                        .put("branch", branch)
+                        .toString();
+                putJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/contents/" + path, commitPayload);
+                log.info("[GitHub] Updated {} in {}/{} on branch {}", path, owner, repo, branch);
+                return;
+            } catch (Exception e) {
+                log.debug("[GitHub] Skipping {} for {}/{}: {}", path, owner, repo, e.getMessage());
+            }
+        }
+        log.warn("[GitHub] No dependency file updated for {}/{} — old version '{}' not found in known manifests",
+                owner, repo, oldVersion);
+    }
+
+    // ── Internal helpers ─────────────────────────────────────────────────────
 
     private JsonNode getJson(String accessToken, String url) {
         try {
@@ -175,7 +296,43 @@ public class GitHubService {
         }
     }
 
-    // ?�?� Exception ?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�
+    private JsonNode postJson(String token, String url, String jsonBody) {
+        return sendWithBody(token, url, jsonBody, "POST");
+    }
+
+    private JsonNode putJson(String token, String url, String jsonBody) {
+        return sendWithBody(token, url, jsonBody, "PUT");
+    }
+
+    private JsonNode sendWithBody(String token, String url, String jsonBody, String method) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/vnd.github+json")
+                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .header("User-Agent", USER_AGENT)
+                    .header("Content-Type", "application/json")
+                    .method(method, HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .timeout(Duration.ofSeconds(20))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 401) throw new GitHubAuthException("GitHub access token is invalid or expired");
+            if (response.statusCode() >= 400) {
+                log.warn("[GitHub] {} {} → {} body={}", method, url, response.statusCode(), response.body());
+                throw new GitHubAuthException("GitHub API error " + response.statusCode() + ": " + response.body());
+            }
+            return objectMapper.readTree(response.body());
+        } catch (GitHubAuthException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[GitHub] {} failed for {}: {}", method, url, e.getMessage());
+            throw new GitHubAuthException("Failed to call GitHub API");
+        }
+    }
+
+    // ── Exception ───────────────────────────────────────────────────────────
 
     public static class GitHubAuthException extends RuntimeException {
         public GitHubAuthException(String message) {

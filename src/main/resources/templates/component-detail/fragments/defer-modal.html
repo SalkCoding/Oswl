@@ -19,7 +19,42 @@
         expiry: '1-week',
         customDate: '',
         scope: 'project',
-        prDescription: 'Legal team reviewing CC-BY-SA 4.0 copyleft impact.\nEstimated review completion: 2026-06-01.\nTracking ticket: JIRA-4821'
+        prDescription: 'Legal team reviewing CC-BY-SA 4.0 copyleft impact.\nEstimated review completion: 2026-06-01.\nTracking ticket: JIRA-4821',
+        submitting: false,
+        deferError: null,
+        deferDone: false,
+
+        async confirmDefer() {
+            this.submitting = true;
+            this.deferError = null;
+            const root = document.getElementById('component-detail-content');
+            const projectId   = root ? root.dataset.projectId : null;
+            const componentId = root ? root.dataset.componentId : null;
+            try {
+                const r = await fetch(`/projects/${projectId}/components/${componentId}/defer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: this.reason,
+                        otherText: this.otherText,
+                        expiry: this.expiry,
+                        customDate: this.customDate,
+                        scope: this.scope,
+                        prDescription: this.prDescription
+                    })
+                });
+                if (r.ok || r.status === 204) {
+                    this.deferDone = true;
+                    setTimeout(() => { this.modal = null; this.deferDone = false; }, 1200);
+                } else {
+                    this.deferError = 'Failed to defer (' + r.status + '). Please try again.';
+                }
+            } catch (e) {
+                this.deferError = 'Network error. Please try again.';
+            } finally {
+                this.submitting = false;
+            }
+        }
      }">
 
     <div class="bg-white border border-[rgba(0,29,53,0.14)] rounded-[10px] shadow-[0px_0px_40px_0px_rgba(0,29,53,0.03)] w-full max-w-[640px] max-h-[90vh] overflow-hidden flex flex-col"
@@ -189,15 +224,21 @@
         </div><!-- end scrollable body -->
 
         <!-- Actions -->
-        <div class="flex gap-[16px] items-center px-[36px] pt-[20px] pb-[28px] shrink-0 border-t border-[var(--grayscale-20)]">
-            <button type="button"
-                    class="bg-[var(--semantic-caution)] hover:opacity-90 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-opacity">
-                <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
-                Confirm Deferral
-            </button>
-            <button type="button" @click="modal = null"
-                    class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors">
-                Cancel
+        <div class="flex flex-col gap-[10px] px-[36px] pt-[16px] pb-[28px] shrink-0 border-t border-[var(--grayscale-20)]">
+            <!-- Error feedback -->
+            <div x-show="deferError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="deferError"></div>
+            <!-- Success feedback -->
+            <div x-show="deferDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">Deferral confirmed successfully.</div>
+
+            <div class="flex gap-[16px] items-center">
+                <button type="button" @click="confirmDefer()" :disabled="submitting || deferDone"
+                        class="bg-[var(--semantic-caution)] hover:opacity-90 disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-opacity">
+                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
+                    <span x-text="submitting ? 'Submitting...' : 'Confirm Deferral'">Confirm Deferral</span>
+                </button>
+                <button type="button" @click="modal = null"
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors">
+                    Cancel
             </button>
         </div>
     </div>

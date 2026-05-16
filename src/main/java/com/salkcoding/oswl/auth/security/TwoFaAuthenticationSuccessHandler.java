@@ -47,7 +47,8 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
 
             // Skip OTP if the device is already trusted
             if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
-                response.sendRedirect(request.getContextPath() + "/projects");
+                String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
+                response.sendRedirect(request.getContextPath() + dest);
                 return;
             }
 
@@ -61,8 +62,10 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
 
             response.sendRedirect(request.getContextPath() + "/login/otp-verify");
         } else {
-            // No 2FA configured — proceed normally
-            response.sendRedirect(request.getContextPath() + "/projects");
+            // No 2FA configured — check if password change is required
+            OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
+            String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
+            response.sendRedirect(request.getContextPath() + dest);
         }
     }
 }

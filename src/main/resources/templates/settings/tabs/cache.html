@@ -81,7 +81,19 @@
             </div>
         </div>
 
-        <div class="flex items-center justify-end">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-[8px]">
+                <button x-show="!clearConfirm" @click="clearConfirm=true"
+                        class="text-[var(--grayscale-70)] hover:text-red-600 text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] hover:border-red-300 inline-flex items-center gap-[6px] transition-colors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Clear All Cache
+                </button>
+                <div x-show="clearConfirm" x-cloak class="flex items-center gap-[8px]">
+                    <span class="text-[13px] font-medium text-[var(--grayscale-70)]">Clear all cached data?</span>
+                    <button @click="clearAll()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[12px] py-[6px] rounded-[6px] transition-colors">Yes, clear</button>
+                    <button @click="clearConfirm=false" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[10px] py-[6px] rounded-[6px] border border-[var(--grayscale-20)] transition-colors">Cancel</button>
+                </div>
+            </div>
             <button @click="save()" :disabled="saving"
                     class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -93,16 +105,19 @@
     <!-- Toast -->
     <div x-show="toast" x-cloak
          x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-[12px]"
+         x-transition:enter-start="opacity-0 translate-y-[8px]"
          x-transition:enter-end="opacity-100 translate-y-0"
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 translate-y-[12px]"
-         class="fixed bottom-[48px] left-1/2 -translate-x-1/2 z-50 flex items-center gap-[14px] bg-[rgba(0,29,53,0.92)] backdrop-blur-[12px] rounded-[100px] pl-[20px] pr-[28px] py-[14px]">
-        <div class="w-[28px] h-[28px] rounded-full bg-[#33D1B7] flex items-center justify-center shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+         x-transition:leave-end="opacity-0 translate-y-[8px]"
+         class="fixed bottom-[60px] left-1/2 -translate-x-1/2 z-50
+                bg-gradient-to-r from-[rgba(0,29,53,0.7)] via-[rgba(0,29,53,0.95)] to-[rgba(0,29,53,0.7)]
+                backdrop-blur-[10px] rounded-[100px] pl-[20px] pr-[28px] py-[16px] gap-[16px]
+                flex items-center">
+        <div class="w-[32px] h-[32px] rounded-full bg-[#33D1B7] flex items-center justify-center shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        <span class="font-medium text-[13px] text-[rgba(255,255,255,0.9)] tracking-[-0.13px] whitespace-nowrap" x-text="toast"></span>
+        <span class="font-medium text-[14px] text-[#d3fcf3] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" x-text="toast"></span>
     </div>
 
     <script>
@@ -112,7 +127,7 @@
             customAmount: 7, customUnit: 'day',
             unitDropdownOpen: false,
             items: [],
-            saving: false, apiError: null, toast: null,
+            saving: false, apiError: null, toast: null, clearConfirm: false,
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
             showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
@@ -173,7 +188,7 @@
                 } finally { this.saving = false; }
             },
             async clearAll() {
-                if (!confirm('Clear all cached library data?')) return;
+                this.clearConfirm = false;
                 const r = await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
                 await this.load();

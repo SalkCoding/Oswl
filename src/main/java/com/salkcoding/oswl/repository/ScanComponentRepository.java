@@ -63,4 +63,11 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
               AND sc.scanResult.status = 'COMPLETED'
             """)
     long countDistinctProjectsByLibraryId(@Param("libraryId") Long libraryId);
+
+    /** All ScanComponents that reference a given library (any status) — used for cross-project deferral */
+    @Query("""
+            SELECT sc FROM ScanComponent sc
+            WHERE sc.library.id = :libraryId
+            """)
+    List<ScanComponent> findAllByScanResultStatusAndLibraryId(@Param("libraryId") Long libraryId);
 }

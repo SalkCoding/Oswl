@@ -46,7 +46,8 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 user.isEnabled(),
                 authorities,
                 user.getRoleTemplates().stream().map(rt -> rt.getId()).collect(java.util.stream.Collectors.toSet()),
-                collectPermissions(user)
+                collectPermissions(user),
+                user.isMustChangePassword()
         );
     }
 

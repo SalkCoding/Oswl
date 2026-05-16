@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ProjectVersion;
 import com.salkcoding.oswl.domain.enums.ImportSource;
@@ -73,7 +74,7 @@ public class ProjectService {
      * @return the Project (existing or newly created)
      */
     @Transactional
-    public Project upsertFromGitHub(String owner, String repo, String branch, Long createdByUserId) {
+    public Project upsertFromGitHub(VcsProvider provider, String owner, String repo, String branch, Long createdByUserId) {
         String repoKey = owner + "/" + repo;
 
         // 1. Find or create the logical project
@@ -101,10 +102,15 @@ public class ProjectService {
                 );
 
         // 3. Update denormalized fields on the project
-        project.markGithubImport(owner, repo, branch);
+        project.markGithubImport(provider, owner, repo, branch);
         Project saved = projectRepository.save(project);
-        log.info("[Project] GitHub import projectId={} repo={} branch={}", saved.getId(), repoKey, branch);
+        log.info("[Project] {} import projectId={} repo={} branch={}", provider, saved.getId(), repoKey, branch);
         return saved;
+    }
+
+    @Transactional
+    public Project upsertFromGitHub(String owner, String repo, String branch, Long createdByUserId) {
+        return upsertFromGitHub(VcsProvider.GITHUB, owner, repo, branch, createdByUserId);
     }
 
     /** Backward-compat overload — caller does not know the user (e.g. GitHubApiController). */

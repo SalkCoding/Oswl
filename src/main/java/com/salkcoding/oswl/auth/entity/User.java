@@ -53,6 +53,11 @@ public class User {
     @Builder.Default
     private int loginFailureCount = 0;
 
+    /** True while the user must change the admin-issued temporary password before using the system. */
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
