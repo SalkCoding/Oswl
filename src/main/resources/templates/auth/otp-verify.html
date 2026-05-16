@@ -30,6 +30,18 @@
             <p class="font-extrabold text-[28px] text-[var(--primary-120)] tracking-[-0.28px] leading-[1.3]">Check your email</p>
         </div>
 
+        <!-- Unified notification (latest-wins, always at most one shown) -->
+        <div x-show="notice" x-cloak
+             class="w-full rounded-[8px] px-[12px] py-[10px] text-[13px] flex items-center justify-center gap-[6px]"
+             :class="notice && notice.type === 'warning'
+                 ? 'bg-amber-50 border border-amber-200 text-amber-700'
+                 : 'bg-red-50 border border-red-200 text-red-700'">
+            <svg x-show="notice && notice.type === 'warning'" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <span x-text="notice && notice.text"></span>
+        </div>
+
         <!-- Description -->
         <div class="w-full text-center flex flex-col gap-[6px]">
             <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px] leading-[1.5]">
@@ -40,14 +52,6 @@
             <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
                 The code expires in <span class="font-semibold" x-text="formatExpiry()">5:00</span>
             </p>
-        </div>
-
-        <!-- Error Banner -->
-        <div x-show="error" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-[8px] px-[12px] py-[10px] text-center" x-text="error"></div>
-
-        <!-- Expiry Banner -->
-        <div x-show="expirySeconds <= 0" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-[8px] px-[12px] py-[10px] text-center">
-            Code expired. Please request a new one.
         </div>
 
         <!-- OTP Input Boxes -->
@@ -135,13 +139,17 @@ function otpVerify() {
         verifying: false,
         resending: false,
         resendCooldown: 0,
-        error: null,
+        notice: null,   // { type: 'error'|'warning', text: String } — at most one shown
         maskedEmail: /*[[${maskedEmail}]]*/ null,
         expirySeconds: /*[[${expirySeconds != null ? expirySeconds : 300}]]*/ 300,
         _expiryTimer: null,
         _cooldownTimer: null,
 
         init() {
+            // Restore server-side mail delivery failure flag as initial notice
+            if (/*[[${mailFailed}]]*/ false) {
+                this.setNotice('warning', 'Email delivery failed. Please request a new code or check your mail settings.');
+            }
             // Focus first box
             this.$nextTick(() => {
                 document.getElementById('otp-0')?.focus();
@@ -150,9 +158,17 @@ function otpVerify() {
             this._expiryTimer = setInterval(() => {
                 if (this.expirySeconds > 0) {
                     this.expirySeconds--;
-                    if (this.expirySeconds <= 0) clearInterval(this._expiryTimer);
+                    if (this.expirySeconds <= 0) {
+                        clearInterval(this._expiryTimer);
+                        this.setNotice('error', 'Code expired. Please request a new one.');
+                    }
                 }
             }, 1000);
+        },
+
+        // Latest call always wins — replaces any existing notice
+        setNotice(type, text) {
+            this.notice = text ? { type, text } : null;
         },
 
         formatExpiry() {
@@ -205,7 +221,7 @@ function otpVerify() {
             const code = this.digits.join('');
             if (code.length < 6) return;
             this.verifying = true;
-            this.error = null;
+            this.setNotice(null, null);
             try {
                 const r = await fetch('/login/otp-verify', {
                     method: 'POST',
@@ -217,15 +233,15 @@ function otpVerify() {
                     window.location.href = data.redirectUrl || '/projects';
                 } else if (r.status === 401 || r.status === 400) {
                     const data = await r.json().catch(() => ({}));
-                    this.error = data.message || 'Invalid code. Please try again.';
+                    this.setNotice('error', data.message || 'Invalid code. Please try again.');
                     this.digits = ['', '', '', '', '', ''];
                     this.digits = [...this.digits];
                     this.$nextTick(() => document.getElementById('otp-0')?.focus());
                 } else {
-                    this.error = 'Backend not yet connected.';
+                    this.setNotice('error', 'Backend not yet connected.');
                 }
             } catch (e) {
-                this.error = 'Backend not yet connected.';
+                this.setNotice('error', 'Backend not yet connected.');
             } finally {
                 this.verifying = false;
             }
@@ -233,16 +249,23 @@ function otpVerify() {
 
         async resend() {
             this.resending = true;
-            this.error = null;
+            this.setNotice(null, null);
             try {
                 const r = await fetch('/login/otp-resend', { method: 'POST' });
                 if (r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    if (data.mailFailed) {
+                        this.setNotice('warning', 'Email delivery failed. Please request a new code or check your mail settings.');
+                    }
                     this.expirySeconds = 300;
                     clearInterval(this._expiryTimer);
                     this._expiryTimer = setInterval(() => {
                         if (this.expirySeconds > 0) {
                             this.expirySeconds--;
-                            if (this.expirySeconds <= 0) clearInterval(this._expiryTimer);
+                            if (this.expirySeconds <= 0) {
+                                clearInterval(this._expiryTimer);
+                                this.setNotice('error', 'Code expired. Please request a new one.');
+                            }
                         }
                     }, 1000);
                     this.resendCooldown = 60;
@@ -252,10 +275,10 @@ function otpVerify() {
                     }, 1000);
                 } else {
                     const data = await r.json().catch(() => ({}));
-                    this.error = data.message || 'Backend not yet connected.';
+                    this.setNotice('error', data.message || 'Backend not yet connected.');
                 }
             } catch (e) {
-                this.error = 'Backend not yet connected.';
+                this.setNotice('error', 'Backend not yet connected.');
             } finally {
                 this.resending = false;
             }

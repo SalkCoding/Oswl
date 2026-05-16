@@ -3,6 +3,7 @@ package com.salkcoding.oswl.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,6 +54,26 @@ public class ScanComponent {
     @Builder.Default
     private boolean ignored = false;
 
+    // ── Deferral (Exception) ─────────────────────────────────────────────
+
+    /** Timestamp when the deferral was confirmed; null = not deferred */
+    @Column(name = "deferred_at")
+    private LocalDateTime deferredAt;
+
+    /**
+     * Reason code: legal-review | false-positive | wont-fix | temporary | other
+     */
+    @Column(name = "deferral_reason", length = 50)
+    private String deferralReason;
+
+    /** Expiry date for this deferral; null = indefinite */
+    @Column(name = "deferral_expires_at")
+    private LocalDateTime deferralExpiresAt;
+
+    /** Free-text note (PR description or "other" reason text) */
+    @Column(name = "deferral_note", columnDefinition = "TEXT")
+    private String deferralNote;
+
     /**
      * Full dependency path trees from root to this library.
      * Populated from the CLI payload; empty for scans from older CLI versions.
@@ -70,6 +91,17 @@ public class ScanComponent {
 
     public void markIgnored(boolean ignored) {
         this.ignored = ignored;
+    }
+
+    public void applyDeferral(String reason, LocalDateTime expiresAt, String note) {
+        this.deferredAt = LocalDateTime.now();
+        this.deferralReason = reason;
+        this.deferralExpiresAt = expiresAt;
+        this.deferralNote = note;
+    }
+
+    public boolean isDeferred() {
+        return deferredAt != null;
     }
 
     // ── Convenience delegates to Library ─────────────────────────────────

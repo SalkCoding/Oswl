@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.auth.enums.VcsProvider;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -53,11 +54,20 @@ public class Project {
     private LocalDateTime lastScannedAt;
 
     /**
-     * GitHub source in "owner/repo" format — null for CLI-imported projects.
+     * Git source in "owner/repo" format — null for CLI-imported projects.
      * Unique constraint prevents duplicate projects for the same repository.
+     * NOTE: used for any VCS provider (GitHub, GitLab, Bitbucket); name kept for backward compat.
      */
     @Column(name = "github_repo", length = 300)
     private String githubRepo;
+
+    /**
+     * VCS provider that owns this repository.
+     * Null for CLI-imported projects.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vcs_provider", length = 32)
+    private VcsProvider vcsProvider;
 
     /**
      * The most recently imported branch (denormalized for fast card display).
@@ -114,13 +124,19 @@ public class Project {
     }
 
     /**
-     * Updates denormalized GitHub import fields.
+     * Updates denormalized VCS import fields.
      * Called on every upsert (both new and re-import).
      */
-    public void markGithubImport(String owner, String repo, String branch) {
+    public void markGithubImport(VcsProvider provider, String owner, String repo, String branch) {
+        this.vcsProvider = provider;
         this.githubRepo = owner + "/" + repo;
         this.latestBranch = branch;
         this.importedAt = LocalDateTime.now();
+    }
+
+    /** Backward-compat overload — defaults to GITHUB. */
+    public void markGithubImport(String owner, String repo, String branch) {
+        markGithubImport(VcsProvider.GITHUB, owner, repo, branch);
     }
 
     public void softDelete() {
