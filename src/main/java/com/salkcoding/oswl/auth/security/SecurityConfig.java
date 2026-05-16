@@ -109,7 +109,9 @@ public class SecurityConfig {
                         }
                     }))
             .addFilterBefore(new SetupRedirectFilter(userRepository),
-                    UsernamePasswordAuthenticationFilter.class);
+                    UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new MustChangePasswordFilter(),
+                    SetupRedirectFilter.class);
 
         return http.build();
     }

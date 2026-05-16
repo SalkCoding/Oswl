@@ -18,7 +18,7 @@
         <button @click="subTab='users'; closeSidebar()"
                 :class="subTab==='users' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                 class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">User Management</button>
-        <button @click="subTab='templates'; closeSidebar()"
+        <button @click="subTab='templates'; closeSidebar(); loadTemplates()"
                 :class="subTab==='templates' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                 class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">Permission Template</button>
         <button @click="subTab='audit'; closeSidebar(); loadAudit(0)"
@@ -98,9 +98,10 @@
                             </td>
                             <td class="px-[16px] py-[12px]">
                                 <div class="flex items-center gap-[10px]" :class="u.systemAdmin ? 'opacity-30 pointer-events-none' : ''">
-                                    <button @click="!u.systemAdmin && toggleEnabled(u, !u.enabled)"
-                                            class="text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]"
-                                            :title="u.enabled ? 'Deactivate' : 'Activate'">
+                                    <button @click="!u.systemAdmin && (u.enabled || (u.roleTemplates||[]).length > 0) && toggleEnabled(u, !u.enabled)"
+                                            class="text-[var(--grayscale-60)]"
+                                            :class="(!u.enabled && !(u.roleTemplates||[]).length) ? 'opacity-30 cursor-not-allowed' : 'hover:text-[var(--grayscale-100)]'"
+                                            :title="u.enabled ? 'Deactivate' : (!(u.roleTemplates||[]).length ? 'Assign a role to activate this user' : 'Activate')">
                                         <svg x-show="u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                                         <svg x-show="!u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                                     </button>
@@ -201,14 +202,15 @@
                                           class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] resize-none placeholder:text-[#abb8be]"></textarea>
                             </div>
                         </div>
-                        <!-- Invite error -->
-                        <div x-show="inviteError" x-cloak class="mx-[20px] mb-[-8px] bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[6px] px-[10px] py-[7px]" x-text="inviteError"></div>
                         <!-- Footer -->
-                        <div class="flex items-center gap-[10px] px-[20px] py-[20px] border-t border-[var(--grayscale-20)] flex-shrink-0 bg-[var(--grayscale-5)]">
-                            <button @click="submitInvite()"
-                                    class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[14px] font-bold py-[10px] rounded-[8px]">Send Invite</button>
-                            <button @click="closeSidebar()"
-                                    class="flex-1 bg-white border border-[#c5cfd3] hover:bg-[var(--grayscale-5)] text-[var(--primary-120)] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors">Cancel</button>
+                        <div class="flex flex-col gap-[10px] px-[20px] py-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0 bg-[var(--grayscale-5)]">
+                            <div x-show="inviteError" x-cloak class="bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[6px] px-[10px] py-[7px]" x-text="inviteError"></div>
+                            <div class="flex items-center gap-[10px]">
+                                <button @click="submitInvite()"
+                                        class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[14px] font-bold py-[10px] rounded-[8px]">Send Invite</button>
+                                <button @click="closeSidebar()"
+                                        class="flex-1 bg-white border border-[#c5cfd3] hover:bg-[var(--grayscale-5)] text-[var(--primary-120)] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors">Cancel</button>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -490,7 +492,8 @@
                         <!-- Footer buttons -->
                         <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
                             <button @click="saveTemplate()"
-                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                                    :disabled="!tplForm.name.trim()"
+                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold py-[10px] rounded-[8px]"
                                     x-text="sidebarMode==='editTemplate' ? 'Save Changes' : 'Create Template'"></button>
                             <button @click="closeSidebar()"
                                     class="flex-1 bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
@@ -877,7 +880,8 @@
                         </div>
                         <div class="flex items-center gap-[8px] mt-auto pt-[12px] border-t border-[var(--grayscale-20)]">
                             <button @click="saveTemplate()"
-                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                                    :disabled="!tplForm.name.trim()"
+                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold py-[10px] rounded-[8px]"
                                     x-text="sidebarMode==='editTemplate' ? 'Save Changes' : 'Create Template'"></button>
                             <button @click="closeSidebar()"
                                     class="flex-1 bg-transparent border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
@@ -1068,7 +1072,13 @@
                 const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateId ? [this.editingTemplateId] : [] }) });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { alert('Failed'); return; }
-                this.closeSidebar(); await this.loadUsers();
+                // Auto-deactivate if no role assigned and user is currently active
+                if (!this.editingTemplateId && this.editingUser.enabled) {
+                    const dr = await fetch(`/api/admin/users/${this.editingUser.id}/deactivate`, { method: 'PUT', headers: this.headers() });
+                    if (dr.status === 401) { location.href = '/login'; return; }
+                }
+                this.closeSidebar();
+                await Promise.all([this.loadUsers(), this.loadTemplates()]);
             },
             async toggleEnabled(u, enabled) {
                 const url = `/api/admin/users/${u.id}/${enabled ? 'activate' : 'deactivate'}`;

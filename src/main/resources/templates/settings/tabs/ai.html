@@ -57,21 +57,34 @@
                 </div>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
-                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
-                        <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
-                                :class="open ? 'border-[var(--primary-120)]' : ''">
-                            <span x-text="forms.OPENAI.modelName"></span>
-                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
+                    <div class="relative flex-1 max-w-[400px]"
+                         x-data="{ open: false, modelSearch: '' }"
+                         x-init="$watch('forms.OPENAI.modelName', v => modelSearch = v || ''); modelSearch = forms.OPENAI.modelName || ''"
+                         @click.away="open=false">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; $nextTick(()=>$refs.openaiModelInput.focus())">
+                            <input type="text" x-ref="openaiModelInput"
+                                   x-model="modelSearch"
+                                   @input="forms.OPENAI.modelName = modelSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false"
+                                   placeholder="e.g. gpt-4o"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <svg :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.openaiModelInput.focus())"
+                                 class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0 cursor-pointer"
+                                 width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini']" :key="opt">
-                                <button type="button" @click="forms.OPENAI.modelName = opt; open = false"
+                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
+                            <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -98,21 +111,34 @@
                 </div>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
-                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
-                        <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
-                                :class="open ? 'border-[var(--primary-120)]' : ''">
-                            <span x-text="forms.ANTHROPIC.modelName"></span>
-                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
+                    <div class="relative flex-1 max-w-[400px]"
+                         x-data="{ open: false, modelSearch: '' }"
+                         x-init="$watch('forms.ANTHROPIC.modelName', v => modelSearch = v || ''); modelSearch = forms.ANTHROPIC.modelName || ''"
+                         @click.away="open=false">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; $nextTick(()=>$refs.anthropicModelInput.focus())">
+                            <input type="text" x-ref="anthropicModelInput"
+                                   x-model="modelSearch"
+                                   @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false"
+                                   placeholder="e.g. claude-sonnet-4-6"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <svg :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.anthropicModelInput.focus())"
+                                 class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0 cursor-pointer"
+                                 width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5']" :key="opt">
-                                <button type="button" @click="forms.ANTHROPIC.modelName = opt; open = false"
+                            <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
+                            <div x-show="['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -139,21 +165,34 @@
                 </div>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
-                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
-                        <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
-                                :class="open ? 'border-[var(--primary-120)]' : ''">
-                            <span x-text="forms.GEMINI.modelName"></span>
-                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
+                    <div class="relative flex-1 max-w-[400px]"
+                         x-data="{ open: false, modelSearch: '' }"
+                         x-init="$watch('forms.GEMINI.modelName', v => modelSearch = v || ''); modelSearch = forms.GEMINI.modelName || ''"
+                         @click.away="open=false">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; $nextTick(()=>$refs.geminiModelInput.focus())">
+                            <input type="text" x-ref="geminiModelInput"
+                                   x-model="modelSearch"
+                                   @input="forms.GEMINI.modelName = modelSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false"
+                                   placeholder="e.g. gemini-2.5-flash"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <svg :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.geminiModelInput.focus())"
+                                 class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0 cursor-pointer"
+                                 width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite']" :key="opt">
-                                <button type="button" @click="forms.GEMINI.modelName = opt; open = false"
+                            <template x-for="opt in ['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.GEMINI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.GEMINI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
+                            <div x-show="['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
                         </div>
                     </div>
                 </div>

@@ -53,6 +53,7 @@ public class UserManagementService {
                 .displayName(request.getDisplayName().trim())
                 .isSystemAdmin(false)
                 .enabled(true)
+                .mustChangePassword(true)
                 .roleTemplates(templates)
                 .build();
         return toDto(userRepository.save(user));

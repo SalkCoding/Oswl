@@ -1,10 +1,12 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.OtpService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,8 +36,20 @@ public class AuthViewController {
         model.addAttribute("maskedEmail",
                 maskEmail(otpService.getPendingPrincipal(session).getUsername()));
         model.addAttribute("expirySeconds", otpService.remainingSeconds(session));
+        model.addAttribute("mailFailed",
+                Boolean.TRUE.equals(session.getAttribute(OtpService.SESSION_MAIL_FAILED)));
 
         return "auth/otp-verify";
+    }
+
+    @GetMapping("/change-password")
+    public String changePasswordPage(@AuthenticationPrincipal OswlUserPrincipal principal) {
+        // Only serve this page to users who still need to change their password.
+        // Others are redirected away to avoid confusion.
+        if (principal == null || !principal.isMustChangePassword()) {
+            return "redirect:/projects";
+        }
+        return "auth/change-password";
     }
 
     private String maskEmail(String email) {

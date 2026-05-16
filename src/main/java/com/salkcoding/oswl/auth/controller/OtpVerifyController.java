@@ -94,11 +94,12 @@ public class OtpVerifyController {
         }
 
         log.info("[OTP] 2FA verification succeeded for user: {}", principal.getUsername());
-        return ResponseEntity.ok(Map.of("redirectUrl", "/projects"));
+        String redirectUrl = principal.isMustChangePassword() ? "/change-password" : "/projects";
+        return ResponseEntity.ok(Map.of("redirectUrl", redirectUrl));
     }
 
     @PostMapping("/login/otp-resend")
-    public ResponseEntity<Map<String, String>> resendOtp(HttpServletRequest request) {
+    public ResponseEntity<?> resendOtp(HttpServletRequest request) {
 
         HttpSession session = request.getSession(false);
 
@@ -115,6 +116,10 @@ public class OtpVerifyController {
         OswlUserPrincipal principal = otpService.getPendingPrincipal(session);
         otpService.storePendingAuth(session, principal); // regenerates OTP + resets expiry
 
-        return ResponseEntity.ok(Map.of("message", "Code resent."));
+        boolean mailFailed = Boolean.TRUE.equals(session.getAttribute(OtpService.SESSION_MAIL_FAILED));
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("message", "Code resent.");
+        body.put("mailFailed", mailFailed);
+        return ResponseEntity.ok(body);
     }
 }

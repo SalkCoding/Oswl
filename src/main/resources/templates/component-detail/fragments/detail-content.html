@@ -1,4 +1,6 @@
-<div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative" x-data="{ modal: null }">
+<div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative"
+     th:attr="data-project-id=${projectId}, data-component-id=${componentId}"
+     x-data="{ modal: null }">
 
     <!-- Modals -->
     <div th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"></div>
@@ -209,9 +211,18 @@
 
             <div class="flex flex-col gap-[8px] pt-[6px]">
                 <div class="flex gap-[12px]">
-                    <button type="button" @click="modal = 'patch'"
-                            th:if="${recommendedVersion != null}"
+                    <!-- GitHub + patch available → active button -->
+                    <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
+                            th:if="${canCreatePr and recommendedVersion != null}"
                             class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                        Apply Patch (Create PR)
+                    </button>
+                    <!-- Non-GitHub or CLI project → disabled with tooltip -->
+                    <button type="button" disabled
+                            th:if="${!canCreatePr}"
+                            title="${vcsProvider != null ? vcsProvider + ' PR 자동 생성은 현재 지원되지 않습니다. (GitHub 전용)' : 'CLI 임포트 프로젝트는 PR 자동 생성을 지원하지 않습니다.'}"
+                            class="opacity-40 cursor-not-allowed bg-[var(--grayscale-20)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px]">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         Apply Patch (Create PR)
                     </button>
@@ -221,9 +232,14 @@
                         Defer (Exception)
                     </button>
                 </div>
-                <p th:if="${recommendedVersion == null}"
+                <p th:if="${canCreatePr and recommendedVersion == null}"
                    class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
                     No patch version available at this time.
+                </p>
+                <p th:if="${!canCreatePr}"
+                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
+                    <span th:if="${vcsProvider != null}" th:text="${vcsProvider} + ' 프로젝트는 PR 자동 생성을 지원하지 않습니다. (GitHub 전용)'">PR 생성은 GitHub 프로젝트에서만 지원됩니다.</span>
+                    <span th:if="${vcsProvider == null}">CLI 임포트 프로젝트는 PR 자동 생성을 지원하지 않습니다.</span>
                 </p>
             </div>
         </div>

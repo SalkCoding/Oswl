@@ -28,12 +28,13 @@ import java.time.Instant;
 public class OtpService {
 
     // ── Session attribute keys ────────────────────────────────────────────
-    public static final String SESSION_PRINCIPAL  = "PENDING_2FA_PRINCIPAL";
-    public static final String SESSION_OTP        = "PENDING_2FA_OTP";
-    public static final String SESSION_EXPIRY     = "PENDING_2FA_EXPIRY_MS";
-    public static final String SESSION_ATTEMPTS   = "PENDING_2FA_ATTEMPTS";
-    public static final String SESSION_LAST_SENT  = "PENDING_2FA_LAST_SENT";
-    public static final String SESSION_LOCKED     = "PENDING_2FA_LOCKED";
+    public static final String SESSION_PRINCIPAL   = "PENDING_2FA_PRINCIPAL";
+    public static final String SESSION_OTP         = "PENDING_2FA_OTP";
+    public static final String SESSION_EXPIRY      = "PENDING_2FA_EXPIRY_MS";
+    public static final String SESSION_ATTEMPTS    = "PENDING_2FA_ATTEMPTS";
+    public static final String SESSION_LAST_SENT   = "PENDING_2FA_LAST_SENT";
+    public static final String SESSION_LOCKED      = "PENDING_2FA_LOCKED";
+    public static final String SESSION_MAIL_FAILED = "PENDING_2FA_MAIL_FAILED";
 
     private static final int  OTP_VALID_MINUTES  = 3;
     private static final int  MAX_DIGITS         = 1_000_000; // 000000–999999
@@ -73,10 +74,11 @@ public class OtpService {
         String name  = principal.getDisplayName();
         try {
             mailService.sendOtp(email, name, otp);
+            session.removeAttribute(SESSION_MAIL_FAILED);
         } catch (Exception e) {
             // Delivery failure must not block the authentication flow;
             // the OTP is still stored in the session.
-            // TODO: surface delivery failure to the user on the OTP page.
+            session.setAttribute(SESSION_MAIL_FAILED, true);
             log.error("[OTP] Email delivery failed for '{}': {}", email, e.getMessage());
             // DEV FALLBACK: print code so local testing still works even if SMTP is unconfigured
             log.debug("[OTP][DEV-FALLBACK] Could not email OTP — code for '{}' : {}", email, otp);

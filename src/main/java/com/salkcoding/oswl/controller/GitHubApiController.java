@@ -4,6 +4,7 @@ import com.salkcoding.oswl.controller.spec.GitHubApiControllerSpec;
 import com.salkcoding.oswl.dto.github.GitHubAccountDto;
 import com.salkcoding.oswl.dto.github.GitHubImportRequest;
 import com.salkcoding.oswl.dto.github.GitHubRepoDto;
+import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.ProjectService;
 import com.salkcoding.oswl.service.SessionCipherService;
@@ -35,6 +36,7 @@ public class GitHubApiController implements GitHubApiControllerSpec {
 
     private final GitHubService       gitHubService;
     private final ProjectService      projectService;
+    private final ProjectRepository   projectRepository;
     private final SessionCipherService sessionCipher;
 
     // ── Connect (add PAT to session map) ─────────────────────────────────────
@@ -133,6 +135,8 @@ public class GitHubApiController implements GitHubApiControllerSpec {
 
     // ── Branches ─────────────────────────────────────────────────────────────
 
+    /** Spec-required signature: owner + repo required */
+    @Override
     @GetMapping("/branches")
     public ResponseEntity<List<String>> branches(
             @RequestParam String owner,
@@ -140,7 +144,32 @@ public class GitHubApiController implements GitHubApiControllerSpec {
             HttpSession session) {
         String token = getTokenForAccount(session, owner);
         if (token == null) return ResponseEntity.status(401).build();
-        return ResponseEntity.ok(gitHubService.getBranches(token, owner, repo));
+        try {
+            return ResponseEntity.ok(gitHubService.getBranches(token, owner, repo));
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of("main"));
+        }
+    }
+
+    /** Extra: resolve branches by projectId (for Apply Patch modal) */
+    @GetMapping("/branches/by-project")
+    public ResponseEntity<List<String>> branchesByProject(
+            @RequestParam Long projectId,
+            HttpSession session) {
+        var project = projectRepository.findById(projectId).orElse(null);
+        if (project == null || project.getGithubRepo() == null || !project.getGithubRepo().contains("/")) {
+            return ResponseEntity.ok(List.of("main"));
+        }
+        String[] parts = project.getGithubRepo().split("/", 2);
+        String owner = parts[0];
+        String repo  = parts[1];
+        String token = getTokenForAccount(session, owner);
+        if (token == null) return ResponseEntity.ok(List.of("main"));
+        try {
+            return ResponseEntity.ok(gitHubService.getBranches(token, owner, repo));
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of("main"));
+        }
     }
 
     @GetMapping("/branch-updated-at")

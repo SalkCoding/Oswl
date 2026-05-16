@@ -1,11 +1,15 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.CveDto;
+import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.dto.DependencyPathDto;
 import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -16,8 +20,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -29,6 +36,8 @@ public class ComponentDetailService {
     private final ProjectRepository       projectRepository;
     private final ScanComponentRepository scanComponentRepository;
     private final DependencyPathRepository dependencyPathRepository;
+    private final AuditLogService          auditLogService;
+    private final GitHubService            gitHubService;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long componentId, Model model) {
@@ -96,6 +105,12 @@ public class ComponentDetailService {
 
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
+
+        // VCS / PR-creation context
+        VcsProvider vcsProvider = project.getVcsProvider();
+        boolean canCreatePr = vcsProvider == VcsProvider.GITHUB && project.getGithubRepo() != null;
+        model.addAttribute("vcsProvider", vcsProvider != null ? vcsProvider.name() : null);
+        model.addAttribute("canCreatePr", canCreatePr);
 
         List<CveDto> cveDtos = lib.getCves().stream()
                 .sorted(Comparator.comparingInt(c -> c.getSeverity() == null ? 999 : c.getSeverity().ordinal()))
@@ -181,6 +196,128 @@ public class ComponentDetailService {
         int slash = name.lastIndexOf('/');
         if (slash >= 0) return name.substring(slash + 1);
         return name;
+    }
+
+    /**
+     * Applies a deferral exception to the given ScanComponent (and optionally
+     * to all ScanComponents that reference the same Library, when scope = "all-projects").
+     */
+    @Transactional
+    public void defer(Long projectId, Long componentId, DeferralRequest req) {
+        ScanComponent sc = scanComponentRepository
+                .findByIdAndProjectIdWithCves(componentId, projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Component not found: " + componentId));
+
+        LocalDateTime expiresAt = resolveExpiryDate(req.getExpiry(), req.getCustomDate());
+        String reasonCode = buildReasonCode(req.getReason(), req.getOtherText());
+        String note = req.getPrDescription() != null ? req.getPrDescription().strip() : null;
+
+        sc.applyDeferral(reasonCode, expiresAt, note);
+
+        String libName = sc.getLibrary().getName();
+        String libVer  = sc.getLibrary().getVersion() != null ? sc.getLibrary().getVersion() : "-";
+        String detail  = "reason=" + reasonCode
+                + (expiresAt != null ? ", expires=" + expiresAt.toLocalDate() : ", expires=indefinite")
+                + (note != null && !note.isBlank() ? ", note=" + note.substring(0, Math.min(100, note.length())) : "");
+
+        if ("all-projects".equals(req.getScope())) {
+            // Apply to all ScanComponents that reference the same library
+            List<ScanComponent> allForLib = scanComponentRepository
+                    .findAllByScanResultStatusAndLibraryId(sc.getLibrary().getId());
+            for (ScanComponent other : allForLib) {
+                other.applyDeferral(reasonCode, expiresAt, note);
+            }
+            auditLogService.log("COMPONENT.DEFER_ALL", "LIBRARY",
+                    sc.getLibrary().getId().toString(), libName + " " + libVer, detail);
+        } else {
+            auditLogService.log("COMPONENT.DEFER", "COMPONENT",
+                    componentId.toString(), libName + " " + libVer, detail);
+        }
+
+        log.info("[Defer] component={} library={} {} reason={} expires={}",
+                componentId, libName, libVer, reasonCode, expiresAt);
+    }
+
+    private LocalDateTime resolveExpiryDate(String expiry, String customDate) {
+        if (expiry == null || "indefinite".equals(expiry)) return null;
+        LocalDate today = LocalDate.now();
+        return switch (expiry) {
+            case "1-week"  -> today.plusWeeks(1).atStartOfDay();
+            case "1-month" -> today.plusMonths(1).atStartOfDay();
+            case "3-month" -> today.plusMonths(3).atStartOfDay();
+            case "6-month" -> today.plusMonths(6).atStartOfDay();
+            case "custom"  -> {
+                try { yield LocalDate.parse(customDate).atStartOfDay(); }
+                catch (Exception e) { yield today.plusMonths(1).atStartOfDay(); }
+            }
+            default -> null;
+        };
+    }
+
+    private String buildReasonCode(String reason, String otherText) {
+        if ("other".equals(reason) && otherText != null && !otherText.isBlank()) {
+            return "other:" + otherText.strip().substring(0, Math.min(80, otherText.strip().length()));
+        }
+        return reason != null ? reason : "other";
+    }
+
+    /**
+     * Creates a GitHub pull request that bumps the library version.
+     *
+     * @param projectId   project owning this scan component
+     * @param componentId ScanComponent id
+     * @param req         PR request payload (targetBranch, reviewers, prDescription)
+     * @param githubToken decrypted GitHub PAT
+     * @return map with "prUrl" (String) and "prNumber" (int)
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> createPullRequest(Long projectId, Long componentId,
+                                                  CreatePrRequest req, String githubToken) {
+        ScanComponent sc = scanComponentRepository
+                .findByIdAndProjectIdWithCves(componentId, projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Component not found: " + componentId));
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+
+        // Only GitHub projects support automated PR creation
+        VcsProvider provider = project.getVcsProvider();
+        if (provider == null) {
+            throw new IllegalStateException("이 프로젝트는 VCS 저장소와 연결되어 있지 않습니다. (CLI import는 PR 생성을 지원하지 않습니다)");
+        }
+        if (provider != VcsProvider.GITHUB) {
+            throw new IllegalStateException(provider.name() + " PR 자동 생성은 현재 지원되지 않습니다. GitHub 연결 프로젝트에서만 사용할 수 있습니다.");
+        }
+
+        String githubRepo = project.getGithubRepo();
+        if (githubRepo == null || !githubRepo.contains("/")) {
+            throw new IllegalStateException("Project does not have a connected GitHub repository.");
+        }
+        String[] parts  = githubRepo.split("/", 2);
+        String owner    = parts[0];
+        String repo     = parts[1];
+
+        Library lib     = sc.getLibrary();
+        String libName  = lib.getName();
+        String oldVer   = lib.getVersion() != null ? lib.getVersion() : "?";
+        String newVer   = lib.bestFixVersion() != null ? lib.bestFixVersion() : oldVer;
+        String base     = req.getTargetBranch() != null ? req.getTargetBranch() : "main";
+        String prTitle  = "chore: bump " + libName + " to " + newVer + " [OsWL]";
+        String body     = req.getPrDescription() != null && !req.getPrDescription().isBlank()
+                ? req.getPrDescription()
+                : "Bumps " + libName + " from " + oldVer + " to " + newVer + ".\n\nTriggered by OsWL.";
+
+        Map<String, Object> result = gitHubService.createVersionBumpPr(
+                githubToken, owner, repo, base, libName, oldVer, newVer, prTitle, body,
+                req.getReviewers() != null ? req.getReviewers() : List.of()
+        );
+
+        auditLogService.log("COMPONENT.CREATE_PR", "COMPONENT",
+                componentId.toString(), libName + " " + oldVer,
+                "repo=" + githubRepo + ", branch=" + base + ", pr=" + result.get("prNumber"));
+
+        log.info("[CreatePR] projectId={} componentId={} prUrl={}", projectId, componentId, result.get("prUrl"));
+        return result;
     }
 }
 

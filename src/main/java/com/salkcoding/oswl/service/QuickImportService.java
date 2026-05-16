@@ -144,6 +144,7 @@ public class QuickImportService {
 
             // 5. Create/find project and API key ──────────────────────────
             Project project = projectService.upsertFromGitHub(
+                    parsed.provider,
                     parsed.owner, parsed.repo,
                     branch != null && !branch.isBlank() ? branch : "default",
                     userId);

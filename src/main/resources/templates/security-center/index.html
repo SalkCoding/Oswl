@@ -164,8 +164,16 @@
               this.selectAll = false;
           },
           exportAs(format) {
-              if (!this.selectedComponents.length) return;
               this.exportOpen = false;
+              if (format === 'pdf') {
+                  window.print();
+                  return;
+              }
+              // CSV download
+              const projectId = document.body.dataset.projectId;
+              let url = '/projects/' + projectId + '/security-center/export?format=csv';
+              if (this.latestScanId) url += '&scanId=' + this.latestScanId;
+              window.location.href = url;
           },
           toggleSelectAll() {
               if (this.selectAll) {

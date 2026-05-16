@@ -20,6 +20,7 @@ public class OswlUserPrincipal extends User {
     private final boolean systemAdmin;
     private final Set<Long> roleTemplateIds;
     private final Set<Permission> permissions;
+    private final boolean mustChangePassword;
 
     public OswlUserPrincipal(Long userId,
                              String email,
@@ -29,13 +30,15 @@ public class OswlUserPrincipal extends User {
                              boolean enabled,
                              Collection<? extends GrantedAuthority> authorities,
                              Set<Long> roleTemplateIds,
-                             Set<Permission> permissions) {
+                             Set<Permission> permissions,
+                             boolean mustChangePassword) {
         super(email, passwordHash, enabled, true, true, true, authorities);
         this.userId = userId;
         this.displayName = displayName;
         this.systemAdmin = systemAdmin;
         this.roleTemplateIds = roleTemplateIds;
         this.permissions = permissions;
+        this.mustChangePassword = mustChangePassword;
     }
 
     public boolean hasPermission(Permission permission) {

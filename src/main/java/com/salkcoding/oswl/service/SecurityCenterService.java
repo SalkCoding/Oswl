@@ -209,5 +209,69 @@ public class SecurityCenterService {
             default            -> "unknown";
         };
     }
+
+    /**
+     * Builds a CSV byte array for the security-center export.
+     * If scanId is provided, exports that specific scan; otherwise uses the latest completed scan.
+     */
+    @Transactional(readOnly = true)
+    public byte[] buildExportCsv(Long projectId, Long scanId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+
+        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        if (allScans.isEmpty()) {
+            return csvHeader().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        ScanResult scan = (scanId != null)
+                ? allScans.stream().filter(s -> s.getId().equals(scanId)).findFirst().orElse(allScans.getFirst())
+                : allScans.getFirst();
+
+        List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
+
+        var sb = new StringBuilder();
+        sb.append(csvHeader()).append("\n");
+
+        for (ScanComponent sc : components) {
+            Library lib = sc.getLibrary();
+            int c = (int) lib.getCves().stream().filter(v -> v.getSeverity() != null && v.getSeverity().name().equals("CRITICAL")).count();
+            int h = (int) lib.getCves().stream().filter(v -> v.getSeverity() != null && v.getSeverity().name().equals("HIGH")).count();
+            int m = (int) lib.getCves().stream().filter(v -> v.getSeverity() != null && v.getSeverity().name().equals("MEDIUM")).count();
+            int l = (int) lib.getCves().stream().filter(v -> v.getSeverity() != null && v.getSeverity().name().equals("LOW")).count();
+            int n = (int) lib.getCves().stream().filter(v -> v.getSeverity() == null || v.getSeverity().name().equals("UNSCORED")).count();
+
+            sb.append(csvEscape(lib.getName())).append(',')
+              .append(csvEscape(lib.getVersion() != null ? lib.getVersion() : "")).append(',')
+              .append(csvEscape(lib.getEcosystem() != null ? lib.getEcosystem() : "")).append(',')
+              .append(c).append(',').append(h).append(',').append(m).append(',').append(l).append(',').append(n).append(',')
+              .append(csvEscape(patchabilityLabel(lib.computePatchability()))).append(',')
+              .append(csvEscape(lib.getLicenseName() != null ? lib.getLicenseName() : "")).append(',')
+              .append(csvEscape(lib.getLicenseStatus().name())).append(',')
+              .append(sc.isReviewed() ? "Yes" : "No").append(',')
+              .append(sc.isIgnored()  ? "Yes" : "No").append(',')
+              .append(sc.isDeferred() ? "Yes" : "No").append(',')
+              .append(csvEscape(sc.getDeferralReason() != null ? sc.getDeferralReason() : ""))
+              .append("\n");
+        }
+
+        auditLogService.log("SECURITY_CENTER.EXPORT", "PROJECT",
+                projectId.toString(), project.getName(),
+                "format=csv, scanId=" + (scanId != null ? scanId : scan.getId()));
+
+        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String csvHeader() {
+        return "Component Name,Version,Ecosystem,Critical CVEs,High CVEs,Medium CVEs,Low CVEs,Unscored CVEs,Patchability,License,License Status,Reviewed,Ignored,Deferred,Deferral Reason";
+    }
+
+    private String csvEscape(String val) {
+        if (val == null) return "";
+        if (val.contains(",") || val.contains("\"") || val.contains("\n")) {
+            return "\"" + val.replace("\"", "\"\"") + "\"";
+        }
+        return val;
+    }
 }
 
