@@ -25,6 +25,10 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
     @EntityGraph(attributePaths = {"project"})
     List<ApiKey> findAllByOrderByCreatedAtDesc();
 
+    /** Find a key by ID with its project eagerly loaded */
+    @EntityGraph(attributePaths = {"project"})
+    Optional<ApiKey> findWithProjectById(Long id);
+
     /**
      * Find an active CLI key that was issued to a specific user for a specific project.
      * Used by CLI auth to return (or reuse) an existing key instead of creating a new one.

@@ -180,21 +180,32 @@
                 </div>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
-                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false }">
-                        <button type="button" @click="open = !open" @click.away="open = false"
-                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
-                                :class="open ? 'border-[var(--primary-120)]' : ''">
-                            <span x-text="forms.LOCAL.modelName || 'Select model'"></span>
-                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
+                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false, localSearch: '' }"
+                         x-init="localSearch = forms.LOCAL.modelName || ''" @click.away="open=false">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; $nextTick(()=>$refs.localModelInput.focus())">
+                            <input type="text" x-ref="localModelInput"
+                                   x-model="localSearch"
+                                   @input="forms.LOCAL.modelName = localSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false"
+                                   placeholder="e.g. llama3.3"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <svg :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.localModelInput.focus())"
+                                 class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0 cursor-pointer"
+                                 width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama']" :key="opt">
-                                <button type="button" @click="forms.LOCAL.modelName = opt; open = false"
+                            <template x-for="opt in ['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.LOCAL.modelName = opt; localSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.LOCAL.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
+                            <div x-show="['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
                         </div>
                     </div>
                 </div>

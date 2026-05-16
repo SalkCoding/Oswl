@@ -22,8 +22,7 @@
     <div class="w-full max-w-[480px] bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[28px]
                 flex flex-col gap-[28px] items-center"
          style="filter: drop-shadow(0px 0px 20px rgba(0,29,53,0.03));"
-         x-data="otpVerify()"
-         x-init="init()">
+         x-data="otpVerify()">
 
         <!-- Brand block -->
         <div class="flex flex-col items-center gap-[4px]">
@@ -45,6 +44,11 @@
 
         <!-- Error Banner -->
         <div x-show="error" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-[8px] px-[12px] py-[10px] text-center" x-text="error"></div>
+
+        <!-- Expiry Banner -->
+        <div x-show="expirySeconds <= 0" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[13px] rounded-[8px] px-[12px] py-[10px] text-center">
+            Code expired. Please request a new one.
+        </div>
 
         <!-- OTP Input Boxes -->
         <form th:action="@{/login/otp-verify}" method="post" class="w-full flex flex-col gap-[24px] items-center"
@@ -74,7 +78,7 @@
 
             <!-- Submit Button -->
             <button type="submit"
-                    :disabled="digits.join('').length < 6 || verifying"
+                    :disabled="digits.join('').length < 6 || verifying || expirySeconds <= 0"
                     class="w-full flex items-center justify-center gap-[8px] bg-[var(--primary-120)] hover:bg-[var(--primary-140)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[15px] font-bold tracking-[-0.15px] py-[13px] rounded-[8px] transition-colors">
                 <svg x-show="verifying" x-cloak class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 <span x-text="verifying ? 'Verifying…' : 'Verify'"></span>
@@ -144,7 +148,10 @@ function otpVerify() {
             });
             // Start expiry countdown
             this._expiryTimer = setInterval(() => {
-                if (this.expirySeconds > 0) this.expirySeconds--;
+                if (this.expirySeconds > 0) {
+                    this.expirySeconds--;
+                    if (this.expirySeconds <= 0) clearInterval(this._expiryTimer);
+                }
             }, 1000);
         },
 
@@ -231,7 +238,14 @@ function otpVerify() {
                 const r = await fetch('/login/otp-resend', { method: 'POST' });
                 if (r.ok) {
                     this.expirySeconds = 300;
-                    this.resendCooldown = 30;
+                    clearInterval(this._expiryTimer);
+                    this._expiryTimer = setInterval(() => {
+                        if (this.expirySeconds > 0) {
+                            this.expirySeconds--;
+                            if (this.expirySeconds <= 0) clearInterval(this._expiryTimer);
+                        }
+                    }, 1000);
+                    this.resendCooldown = 60;
                     this._cooldownTimer = setInterval(() => {
                         this.resendCooldown--;
                         if (this.resendCooldown <= 0) clearInterval(this._cooldownTimer);

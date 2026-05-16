@@ -43,11 +43,11 @@
         <div th:if="${param.displaced}" class="w-full bg-amber-50 border border-amber-200 text-amber-800 text-[13px] rounded-[8px] px-[12px] py-[10px] flex items-start gap-[8px]">
             <svg class="shrink-0 mt-[1px]" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span th:if="${param.from != null and !#strings.isEmpty(param.from[0])}"
-                  th:text="'로그아웃되었습니다. ' + ${param.from[0]} + ' 에서 동일한 계정으로 접속하였습니다.'">
-                로그아웃되었습니다. 다른 위치에서 동일한 계정으로 접속하였습니다.
+                  th:text="'You have been signed out. Another session was opened from ' + ${param.from[0]} + '.'">
+                You have been signed out. Your account was accessed from another location.
             </span>
             <span th:unless="${param.from != null and !#strings.isEmpty(param.from[0])}">
-                로그아웃되었습니다. 다른 위치에서 동일한 계정으로 접속하였습니다.
+                You have been signed out. Your account was accessed from another location.
             </span>
         </div>
 

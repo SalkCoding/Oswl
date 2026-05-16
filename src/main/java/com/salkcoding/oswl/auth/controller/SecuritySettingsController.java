@@ -36,6 +36,8 @@ public class SecuritySettingsController {
     }
 
     @PostMapping("/mail/test")
+    @Auditable(action = "SECURITY_SETTING.MAIL_TEST", targetType = "SECURITY_SETTING",
+               targetNameExpr = "#req.host", detailExpr = "'host=' + #req.host + ' port=' + #req.port")
     public ResponseEntity<Map<String, Object>> testMail(@RequestBody MailTestRequest req) {
         try {
             securitySettingService.testMailConnection(req);

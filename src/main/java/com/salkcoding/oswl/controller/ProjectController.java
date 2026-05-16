@@ -98,6 +98,5 @@ public class ProjectController implements ProjectControllerSpec {
         return "redirect:/projects/quick-import";
     }
 
-    // Stub endpoints removed — replaced by /api/quick-import/*
 }
 
