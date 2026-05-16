@@ -25,6 +25,18 @@
 
     <!-- Keys table + panel wrapper -->
     <div class="relative">
+
+    <!-- New key confirmation banner (shown after creation) -->
+    <div x-show="newTokenBanner" x-cloak x-transition
+         class="bg-emerald-50 border border-emerald-200 rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[6px] mb-[12px]">
+        <p class="text-[13px] font-bold text-emerald-800">Key created — copy it now!</p>
+        <p class="text-[12px] text-emerald-700">This is the only time the full key is shown.</p>
+        <div class="flex items-center gap-[8px] mt-[4px]">
+            <code class="flex-1 font-mono text-[12px] bg-white border border-emerald-300 rounded-[6px] px-[10px] py-[6px] text-emerald-900 break-all" x-text="newTokenBanner"></code>
+            <button @click="copyToken()" class="text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 px-[10px] py-[6px] border border-emerald-300 rounded-[6px] bg-white flex-shrink-0">Copy</button>
+        </div>
+    </div>
+
     <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
         <table class="w-full text-[13px]">
             <thead>
@@ -84,17 +96,6 @@
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
         <img th:src="@{/icon/icon-info2.svg}" class="w-[18px] h-[18px] flex-shrink-0" alt="" aria-hidden="true">
         <span class="text-[13px] text-[var(--grayscale-70)]">API keys are only shown once. If you lose a key, generate a new one.</span>
-    </div>
-
-    <!-- New key confirmation banner (shown after creation) -->
-    <div x-show="newTokenBanner" x-cloak x-transition
-         class="bg-emerald-50 border border-emerald-200 rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[6px]">
-        <p class="text-[13px] font-bold text-emerald-800">Key created — copy it now!</p>
-        <p class="text-[12px] text-emerald-700">This is the only time the full key is shown.</p>
-        <div class="flex items-center gap-[8px] mt-[4px]">
-            <code class="flex-1 font-mono text-[12px] bg-white border border-emerald-300 rounded-[6px] px-[10px] py-[6px] text-emerald-900 break-all" x-text="newTokenBanner"></code>
-            <button @click="copyToken()" class="text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 px-[10px] py-[6px] border border-emerald-300 rounded-[6px] bg-white flex-shrink-0">Copy</button>
-        </div>
     </div>
 
     <!-- ===================== Create New Key Panel (absolute) ===================== -->

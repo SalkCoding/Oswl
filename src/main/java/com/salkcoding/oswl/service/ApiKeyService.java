@@ -113,7 +113,7 @@ public class ApiKeyService {
     /** Toggle a key's active status (admin use) */
     @Transactional
     public ApiKey toggleActive(Long keyId) {
-        ApiKey key = apiKeyRepository.findById(keyId)
+        ApiKey key = apiKeyRepository.findWithProjectById(keyId)
                 .orElseThrow(() -> new IllegalArgumentException("ApiKey not found: " + keyId));
         if (key.isActive()) {
             key.revoke();
