@@ -64,6 +64,13 @@ public class SecuritySetting {
     @Builder.Default
     private TwoFaMode twoFaMode = TwoFaMode.DISABLED;
 
+    // ── Password Policy ──────────────────────────────────────────────────
+
+    /** Minimum password length enforced on invite and password change. Defaults to 8. */
+    @Column(name = "min_password_length", nullable = false)
+    @Builder.Default
+    private int minPasswordLength = 8;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

@@ -1,6 +1,5 @@
 package com.salkcoding.oswl.auth.service;
 
-import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import jakarta.servlet.http.HttpSession;

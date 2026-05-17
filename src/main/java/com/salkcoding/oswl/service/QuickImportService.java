@@ -30,6 +30,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Orchestrates the Quick Import flow:
@@ -174,7 +175,7 @@ public class QuickImportService {
 
     private ParsedRepoUrl parseRepoUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isBlank()) return null;
-        // Normalise: remove trailing .git and trailing slash
+        // Normalize: remove trailing .git and trailing slash
         String url = rawUrl.trim().replaceAll("\\.git$", "").replaceAll("/$", "");
         // Extract host + path: handle https://host/owner/repo
         Pattern p = Pattern.compile("https?://([^/]+)/([^/]+)/([^/]+).*");
@@ -200,9 +201,9 @@ public class QuickImportService {
     }
 
     private String buildAuthUrl(ParsedRepoUrl parsed, String token) {
+        final String gitLink = "https://oauth2:" + token + "@" + parsed.host + "/" + parsed.owner + "/" + parsed.repo + ".git";
         return switch (parsed.provider) {
-            case GITHUB    -> "https://oauth2:" + token + "@" + parsed.host + "/" + parsed.owner + "/" + parsed.repo + ".git";
-            case GITLAB    -> "https://oauth2:" + token + "@" + parsed.host + "/" + parsed.owner + "/" + parsed.repo + ".git";
+            case GITHUB, GITLAB -> gitLink;
             case BITBUCKET -> "https://x-token-auth:" + token + "@" + parsed.host + "/" + parsed.owner + "/" + parsed.repo + ".git";
         };
     }
@@ -271,7 +272,7 @@ public class QuickImportService {
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             // XXE protection
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setFeature("https://apache.org/xml/features/disallow-doctype-decl", true);
             dbf.setNamespaceAware(false);
             Document doc = dbf.newDocumentBuilder().parse(dir.resolve("pom.xml").toFile());
             doc.getDocumentElement().normalize();
@@ -308,8 +309,8 @@ public class QuickImportService {
             JsonNode deps    = root.path("dependencies");
             JsonNode devDeps = root.path("devDependencies");
 
-            addNpmDeps(comps, deps, false);
-            addNpmDeps(comps, devDeps, true);
+            addNpmDeps(comps, deps);
+            addNpmDeps(comps, devDeps);
             log.info("[QuickImport][npm] Parsed {} components from package.json in '{}'", comps.size(), repoName);
         } catch (Exception e) {
             log.error("[QuickImport][npm] Failed to parse package.json: {}", e.getMessage());
@@ -317,7 +318,7 @@ public class QuickImportService {
         return new ParsedDependencies("NPM", comps);
     }
 
-    private void addNpmDeps(List<ScanPayload.ComponentPayload> comps, JsonNode depsNode, boolean isDev) {
+    private void addNpmDeps(List<ScanPayload.ComponentPayload> comps, JsonNode depsNode) {
         if (depsNode == null || depsNode.isMissingNode()) return;
         depsNode.properties().forEach(entry -> {
             String name    = entry.getKey();
@@ -338,7 +339,7 @@ public class QuickImportService {
             // Match: implementation 'group:artifact:version' or ("group:artifact:version")
             Pattern p = Pattern.compile(
                     "(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor)" +
-                    "\\s*[\\(\\\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.\\-]+)[\\\"'\\)]",
+                            "\\s*[(\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.\\-]+)[\"')]",
                     Pattern.CASE_INSENSITIVE);
             Matcher m = p.matcher(content);
             while (m.find()) {
@@ -363,7 +364,7 @@ public class QuickImportService {
                 if (line.isEmpty() || line.startsWith("#") || line.startsWith("-")) continue;
                 Matcher m = p.matcher(line);
                 if (m.find()) {
-                    String name    = m.group(1).replaceAll("\\[.*\\]", "");
+                    String name    = m.group(1).replaceAll("\\[.*]", "");
                     String version = m.group(2).isBlank() ? null : m.group(2);
                     comps.add(buildComponent(name, version, "PYPI"));
                 }
@@ -410,8 +411,8 @@ public class QuickImportService {
         try {
             List<String> lines = Files.readAllLines(dir.resolve("go.mod"), StandardCharsets.UTF_8);
             boolean inRequire = false;
-            Pattern single = Pattern.compile("^require\\s+([^\\s]+)\\s+v([^\\s]+)");
-            Pattern block  = Pattern.compile("^\\s+([^\\s]+)\\s+v([^\\s]+)");
+            Pattern single = Pattern.compile("^require\\s+(\\S+)\\s+v(\\S+)");
+            Pattern block  = Pattern.compile("^\\s+(\\S+)\\s+v(\\S+)");
             for (String line : lines) {
                 String t = line.trim();
                 if (t.startsWith("require (")) { inRequire = true; continue; }
@@ -442,7 +443,7 @@ public class QuickImportService {
 
     /**
      * Returns an existing active API key for the project, or issues a new one
-     * labelled "quick-import".
+     * labeled "quick-import".
      */
     private ApiKeyResult getOrIssueApiKey(Project project) {
         List<ApiKey> existing = apiKeyService.findByProject(project.getId())
@@ -450,7 +451,7 @@ public class QuickImportService {
                 .filter(ApiKey::isValid)
                 .toList();
         if (!existing.isEmpty()) {
-            return new ApiKeyResult(existing.get(0).getToken(), false);
+            return new ApiKeyResult(existing.getFirst().getToken(), false);
         }
         ApiKey newKey = apiKeyService.issue(project.getId(), "quick-import", null);
         return new ApiKeyResult(newKey.getToken(), true);
@@ -478,10 +479,10 @@ public class QuickImportService {
 
     private void deleteDirectory(Path dir) {
         if (dir == null || !Files.exists(dir)) return;
-        try {
-            Files.walk(dir)
-                 .sorted(Comparator.reverseOrder())
-                 .forEach(p -> { try { Files.delete(p); } catch (IOException ignored) {} });
+        try (Stream<Path> stream = Files.walk(dir)){
+            stream
+                    .sorted(Comparator.reverseOrder())
+                    .forEach(p -> { try { Files.delete(p); } catch (IOException ignored) {} });
         } catch (IOException e) {
             log.warn("[QuickImport] Could not delete temp dir '{}': {}", dir, e.getMessage());
         }

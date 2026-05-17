@@ -3,6 +3,7 @@ package com.salkcoding.oswl.auth.controller;
 import com.salkcoding.oswl.auth.dto.ChangePasswordRequest;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.ChangePasswordService;
+import com.salkcoding.oswl.auth.service.SecuritySettingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -38,10 +39,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ChangePasswordController {
 
-    private static final int MIN_PASSWORD_LENGTH = 8;
-
-    private final ChangePasswordService changePasswordService;
-    private final UserDetailsService    userDetailsService;
+    private final ChangePasswordService  changePasswordService;
+    private final UserDetailsService     userDetailsService;
+    private final SecuritySettingService securitySettingService;
 
     @PostMapping("/api/change-password")
     public ResponseEntity<Map<String, String>> changePassword(
@@ -59,9 +59,10 @@ public class ChangePasswordController {
         String newPw     = req.getNewPassword()     != null ? req.getNewPassword()     : "";
         String confirmPw = req.getConfirmPassword() != null ? req.getConfirmPassword() : "";
 
-        if (newPw.length() < MIN_PASSWORD_LENGTH) {
+        int minLen = securitySettingService.getOrCreate().getMinPasswordLength();
+        if (newPw.length() < minLen) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "New password must be at least " + MIN_PASSWORD_LENGTH + " characters."));
+                    .body(Map.of("message", "New password must be at least " + minLen + " characters."));
         }
         if (!newPw.equals(confirmPw)) {
             return ResponseEntity.badRequest()

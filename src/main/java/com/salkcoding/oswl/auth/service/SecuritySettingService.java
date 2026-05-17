@@ -115,6 +115,7 @@ public class SecuritySettingService {
                         .senderAddress(s.getMailSenderAddress())
                         .build())
                 .twoFaMode(s.getTwoFaMode().name())
+                .minPasswordLength(s.getMinPasswordLength())
                 .build();
     }
 }

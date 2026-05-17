@@ -75,8 +75,9 @@ public class SecurityConfig {
                         .expiredSessionStrategy(oswlSessionExpiredStrategy)
                         .sessionRegistry(sessionRegistry()))
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
+                    .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/landing", "/landing/**").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/api/cli/**").permitAll()
                     .anyRequest().authenticated())
