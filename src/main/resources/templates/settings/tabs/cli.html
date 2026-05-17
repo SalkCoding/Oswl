@@ -93,10 +93,10 @@
     </div>
 
     <!-- Footer notice -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
-        <img th:src="@{/icon/icon-info2.svg}" class="w-[18px] h-[18px] flex-shrink-0" alt="" aria-hidden="true">
-        <span class="text-[13px] text-[var(--grayscale-70)]">API keys are only shown once. If you lose a key, generate a new one.</span>
-    </div>
+    <p class="mt-[20px] text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
+        <img th:src="@{/icon/icon-info2.svg}" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
+        API keys are only shown once. If you lose a key, generate a new one.
+    </p>
 
     <!-- ===================== Create New Key Panel (absolute) ===================== -->
     <div x-show="slideout" x-cloak
@@ -135,7 +135,7 @@
                             </template>
                         </select>
                         <div class="pointer-events-none absolute right-[12px] top-1/2 -translate-y-1/2">
-                            <img th:src="@{/icon/icon-triangle-down.svg}" class="w-[14px] h-[14px] opacity-50" alt="" aria-hidden="true">
+                            <img th:src="@{/icon/icon-triangle-down.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                     </div>
                 </div>
