@@ -22,7 +22,6 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -31,7 +30,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * Orchestrates the Quick Import flow:
@@ -278,8 +276,8 @@ public class QuickImportService {
             Document doc = dbf.newDocumentBuilder().parse(dir.resolve("pom.xml").toFile());
             doc.getDocumentElement().normalize();
 
-            // Extract project version from <version>
-            String projectVersion = getTextContent(doc.getDocumentElement(), "version");
+            // Extract project version from <version> (reserved for future use)
+            getTextContent(doc.getDocumentElement(), "version");
 
             NodeList deps = doc.getElementsByTagName("dependency");
             for (int i = 0; i < deps.getLength(); i++) {
@@ -321,7 +319,7 @@ public class QuickImportService {
 
     private void addNpmDeps(List<ScanPayload.ComponentPayload> comps, JsonNode depsNode, boolean isDev) {
         if (depsNode == null || depsNode.isMissingNode()) return;
-        depsNode.fields().forEachRemaining(entry -> {
+        depsNode.properties().forEach(entry -> {
             String name    = entry.getKey();
             String version = entry.getValue().asText().replaceAll("^[~^>=<]+ *", "");
             comps.add(buildComponent(name, version, "NPM"));
