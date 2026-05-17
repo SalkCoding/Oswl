@@ -343,7 +343,7 @@
         </div>
         <!-- Template list box + absolute panel -->
         <div class="relative">
-        <div class="rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden bg-white min-h-[300px]">
+        <div class="rounded-t-[10px] border border-[var(--grayscale-20)] overflow-hidden bg-white min-h-[300px]">
             <!-- Table area -->
             <div class="overflow-x-auto">
                 <table class="w-full text-[13px]">
@@ -517,7 +517,7 @@
                             class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white w-[140px] text-left relative cursor-pointer transition-colors"
                             :class="dateDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="dateRangeLabel()"></span>
-                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px] opacity-50"
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
                              :class="dateDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <div x-show="dateDropdownOpen" x-cloak
@@ -539,7 +539,7 @@
                         <span class="truncate block pr-[4px]"
                               :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
                               x-text="auditFilter.actorEmail || 'All Users'"></span>
-                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px] opacity-50"
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
                              :class="actorDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <!-- Dropdown panel -->
@@ -585,7 +585,7 @@
                         <span class="truncate block pr-[4px]"
                               :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
                               x-text="auditFilter.action || 'All Actions'"></span>
-                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px] opacity-50"
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
                              :class="actionDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <div x-show="actionDropdownOpen" x-cloak
@@ -618,7 +618,8 @@
                 Export CSV
             </a>
         </div>
-        <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-x-auto">
+        <div class="flex flex-col relative">
+        <div class="bg-white rounded-t-[10px] border border-[var(--grayscale-20)] overflow-x-auto">
             <table class="w-full text-[13px] min-w-[860px]">
                 <thead>
                 <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
@@ -668,30 +669,46 @@
                 </tbody>
             </table>
         </div>
-        <!-- Pagination -->
-        <div x-show="auditTotalElements > 0" x-cloak class="flex items-center justify-between px-[2px] py-[4px]">
-            <span class="text-[12px] text-[var(--grayscale-50)]">
-                Total <span class="font-semibold text-[var(--grayscale-70)]" x-text="auditTotalElements"></span> records
-                &nbsp;·&nbsp; Page <span x-text="auditPage + 1"></span> / <span x-text="auditTotalPages"></span>
-            </span>
-            <div class="flex items-center gap-[3px]">
-                <button @click="loadAudit(0)" :disabled="auditPage===0"
-                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">«</button>
-                <button @click="loadAudit(auditPage-1)" :disabled="auditPage===0"
-                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">‹</button>
-                <template x-for="p in pageRange()" :key="p">
-                    <button @click="p!=='...' && loadAudit(p-1)"
-                            :disabled="p==='...'"
-                            class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border transition-colors"
-                            :class="p-1===auditPage ? 'bg-[#00B9A3] text-white border-[#00B9A3] font-bold' : (p==='...' ? 'border-transparent cursor-default text-[var(--grayscale-40)]' : 'border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)]')"
-                            x-text="p"></button>
-                </template>
-                <button @click="loadAudit(auditPage+1)" :disabled="auditPage>=auditTotalPages-1"
-                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">›</button>
-                <button @click="loadAudit(auditTotalPages-1)" :disabled="auditPage>=auditTotalPages-1"
-                        class="w-[28px] h-[28px] flex items-center justify-center rounded-[6px] text-[12px] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] disabled:opacity-30 disabled:cursor-not-allowed">»</button>
+        <!-- Pagination footer (matches User Management style) -->
+        <div x-show="auditTotalElements > 0" x-cloak
+             class="flex items-center gap-[36px] px-[32px] py-[13px] border-l border-r border-b border-[var(--grayscale-20)] rounded-b-[10px] bg-white">
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="auditTotalElements"></span> total</span>
+            <div class="w-[160px] shrink-0 relative">
+                <select x-model.number="auditPageSize" @change="loadAudit(0)"
+                        class="w-full appearance-none bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] px-[8px] py-[5px] pr-[24px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none">
+                    <option :value="20">Show 20</option>
+                    <option :value="50">Show 50</option>
+                    <option :value="100">Show 100</option>
+                </select>
+                <img th:src="@{/icon/icon-triangle-down.svg}" class="absolute right-[8px] top-1/2 -translate-y-1/2 pointer-events-none w-[10px] h-[10px]" alt="" aria-hidden="true">
+            </div>
+            <div class="flex items-center gap-[20px] shrink-0">
+                <div class="flex items-center gap-[12px]">
+                    <button @click="loadAudit(0)" :disabled="auditPage===0"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+                    </button>
+                    <button @click="loadAudit(Math.max(0,auditPage-1))" :disabled="auditPage===0"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                </div>
+                <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
+                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="auditPage + 1"></span>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <button @click="loadAudit(Math.min(auditTotalPages-1,auditPage+1))" :disabled="auditPage>=auditTotalPages-1"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <button @click="loadAudit(auditTotalPages-1)" :disabled="auditPage>=auditTotalPages-1"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+                    </button>
+                </div>
             </div>
         </div>
+        </div><!-- end table + footer wrapper -->
     </div>
 
     <!-- ===================== UNIFIED SLIDEOUT (legacy — hidden, panels are now inline) ===================== -->

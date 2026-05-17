@@ -40,7 +40,7 @@
                                 class="flex items-center gap-[6px] pr-[8px] pl-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer transition-colors"
                                 :class="unitDropdownOpen ? 'border-[#33D1B7]' : ''">
                             <span x-text="customUnit === 'hour' ? 'hour(s)' : 'day(s)'"></span>
-                            <img src="/icon/icon-triangle-down.svg" :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 w-[12px] h-[12px] opacity-50" alt="" aria-hidden="true">
+                            <img src="/icon/icon-triangle-down.svg" :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 w-[12px] h-[12px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="unitDropdownOpen" x-cloak
                              class="absolute z-20 top-full left-0 mt-[3px] w-[100px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-md overflow-hidden">
@@ -84,7 +84,7 @@
             <div class="flex items-center gap-[8px]">
                 <button x-show="!clearConfirm" @click="clearConfirm=true"
                         class="text-[var(--grayscale-70)] hover:text-red-600 text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] hover:border-red-300 inline-flex items-center gap-[6px] transition-colors">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    <img th:src="@{/icon/icon-delete.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
                     Clear All Cache
                 </button>
                 <div x-show="clearConfirm" x-cloak class="flex items-center gap-[8px]">
