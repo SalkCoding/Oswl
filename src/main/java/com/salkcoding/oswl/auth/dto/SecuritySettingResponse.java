@@ -16,6 +16,7 @@ public class SecuritySettingResponse {
     private String mailMode;
     private MailDto mail;
     private String twoFaMode;
+    private int minPasswordLength;
 
     @Data
     @Builder

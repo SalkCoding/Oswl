@@ -4,6 +4,7 @@ import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
@@ -11,6 +12,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final ApiKeyAuthInterceptor apiKeyAuthInterceptor;
+
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addRedirectViewController("/landing", "/landing/index.html");
+    }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
