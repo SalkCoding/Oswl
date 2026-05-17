@@ -517,9 +517,8 @@
                             class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white w-[140px] text-left relative cursor-pointer transition-colors"
                             :class="dateDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="dateRangeLabel()"></span>
-                        <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none transition-transform"
-                             :class="dateDropdownOpen ? 'rotate-180' : ''"
-                             width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px] opacity-50"
+                             :class="dateDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <div x-show="dateDropdownOpen" x-cloak
                          class="absolute z-50 top-full mt-[4px] left-0 w-[150px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
@@ -540,9 +539,8 @@
                         <span class="truncate block pr-[4px]"
                               :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
                               x-text="auditFilter.actorEmail || 'All Users'"></span>
-                        <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none transition-transform"
-                             :class="actorDropdownOpen ? 'rotate-180' : ''"
-                             width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px] opacity-50"
+                             :class="actorDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <!-- Dropdown panel -->
                     <div x-show="actorDropdownOpen" x-cloak
@@ -587,9 +585,8 @@
                         <span class="truncate block pr-[4px]"
                               :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
                               x-text="auditFilter.action || 'All Actions'"></span>
-                        <svg class="absolute right-[10px] top-1/2 -translate-y-1/2 text-[var(--grayscale-50)] pointer-events-none transition-transform"
-                             :class="actionDropdownOpen ? 'rotate-180' : ''"
-                             width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px] opacity-50"
+                             :class="actionDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <div x-show="actionDropdownOpen" x-cloak
                          class="absolute z-50 top-full mt-[4px] left-0 w-[260px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
