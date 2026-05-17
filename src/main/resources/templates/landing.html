@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OsWL — Open Source Watch List</title>
+    <meta name="description" content="OsWL은 오픈소스 컴포넌트의 보안 취약점(CVE)과 라이선스 리스크를 추적·관리하는 사내 SCA 플랫폼입니다.">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/tailwind.css}">
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: #ffffff;
+            color: #141616;
+            min-width: 0;
+            overflow-x: hidden;
+        }
+        a { text-decoration: none; color: inherit; }
+
+        /* ── Animations ── */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-12px); }
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position:  200% center; }
+        }
+        @keyframes pulse-ring {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,176,160,0.4); }
+            50%       { box-shadow: 0 0 0 16px rgba(0,176,160,0); }
+        }
+
+        .float-anim   { animation: float  5s ease-in-out infinite; }
+        .fade-up      { animation: fadeUp 0.7s ease both; }
+        .fade-up-d1   { animation-delay: 0.1s; }
+        .fade-up-d2   { animation-delay: 0.2s; }
+        .fade-up-d3   { animation-delay: 0.3s; }
+
+        /* ── Gradient text ── */
+        .gradient-text {
+            background: linear-gradient(90deg, #007a72 0%, #00a093 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        /* shimmer-text is only used on dark hero bg — keep brighter colors */
+        .shimmer-text {
+            background: linear-gradient(90deg, #00b0a0, #22efc3, #00b0a0);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s linear infinite;
+        }
+
+        /* ── Navigation ── */
+        #main-nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+            height: 68px;
+            background: rgba(0, 29, 53, 0.97);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            transition: box-shadow 0.3s;
+        }
+        #main-nav.scrolled {
+            box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+        }
+        .nav-inner {
+            max-width: 1200px; margin: 0 auto;
+            height: 100%; padding: 0 40px;
+            display: flex; align-items: center; gap: 40px;
+        }
+        .nav-link {
+            font-size: 14px; font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            transition: color 0.2s;
+            white-space: nowrap;
+        }
+        .nav-link:hover { color: #22efc3; }
+        .nav-links { display: flex; gap: 28px; flex: 1; }
+
+        /* ── Hero ── */
+        .hero {
+            background: linear-gradient(155deg, #001d35 0%, #002944 45%, #001832 100%);
+            min-height: 100vh;
+            padding-top: 68px;
+            display: flex; align-items: center;
+            position: relative; overflow: hidden;
+        }
+        .hero-glow-1 {
+            position: absolute; top: 15%; right: 8%;
+            width: 480px; height: 480px;
+            background: radial-gradient(circle, rgba(0,176,160,0.14) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-glow-2 {
+            position: absolute; bottom: 8%; left: 4%;
+            width: 320px; height: 320px;
+            background: radial-gradient(circle, rgba(34,239,195,0.07) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-inner {
+            max-width: 1200px; margin: 0 auto;
+            width: 100%; padding: 80px 40px;
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 72px; align-items: center;
+        }
+
+        /* ── Section commons ── */
+        .section-inner { max-width: 1200px; margin: 0 auto; padding: 0 40px; }
+        .section-tag {
+            display: inline-block;
+            background: rgba(0,160,147,0.1);
+            color: #00a093;
+            font-size: 12px; font-weight: 700;
+            padding: 5px 14px; border-radius: 100px;
+            border: 1px solid rgba(0,160,147,0.25);
+            margin-bottom: 18px;
+        }
+        .section-tag-light {
+            display: inline-block;
+            background: rgba(34,239,195,0.1);
+            color: #22efc3;
+            font-size: 12px; font-weight: 700;
+            padding: 5px 14px; border-radius: 100px;
+            border: 1px solid rgba(34,239,195,0.2);
+            margin-bottom: 18px;
+        }
+        .section-h2 {
+            font-size: 42px; font-weight: 900;
+            letter-spacing: -0.03em; line-height: 1.15;
+            margin: 0 0 16px 0;
+        }
+        .section-lead {
+            font-size: 17px; line-height: 1.75;
+            color: #5e6b70;
+        }
+
+        /* ── Feature cards ── */
+        .feature-card {
+            background: #fafbfb;
+            border: 1px solid #dbe4e7;
+            border-radius: 16px; padding: 32px;
+            transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+        }
+        .feature-card:hover {
+            border-color: #00b0a0;
+            box-shadow: 0 8px 36px rgba(0,176,160,0.13);
+            transform: translateY(-3px);
+        }
+        .feature-icon {
+            width: 48px; height: 48px;
+            background: rgba(0,176,160,0.1);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        /* ── Btn ── */
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: #00b0a0; color: white;
+            font-size: 15px; font-weight: 700;
+            padding: 13px 28px; border-radius: 10px;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 16px rgba(0,176,160,0.3);
+        }
+        .btn-primary:hover {
+            background: #00c4b3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,176,160,0.4);
+        }
+        .btn-primary-lg {
+            font-size: 16px; padding: 15px 40px; border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,176,160,0.35);
+        }
+        .btn-ghost {
+            display: inline-flex; align-items: center; gap: 8px;
+            color: rgba(255,255,255,0.65);
+            font-size: 14px; font-weight: 500;
+            transition: color 0.2s;
+        }
+        .btn-ghost:hover { color: #22efc3; }
+
+        /* ── Mock UI ── */
+        .mock-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 24px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.25), 0 0 60px rgba(0,176,160,0.08);
+        }
+        .mock-dark {
+            background: #011828;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px; padding: 24px;
+            box-shadow: 0 24px 64px rgba(0,29,53,0.2);
+        }
+        .mock-topbar {
+            display: flex; align-items: center; gap: 7px;
+            padding-bottom: 16px; margin-bottom: 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .mock-dot-r { width: 10px; height: 10px; border-radius: 50%; background: #e62727; }
+        .mock-dot-y { width: 10px; height: 10px; border-radius: 50%; background: #f5bd26; }
+        .mock-dot-g { width: 10px; height: 10px; border-radius: 50%; background: #00d761; }
+        .mock-label { margin-left: 10px; color: rgba(255,255,255,0.3); font-size: 12px; font-family: monospace; }
+
+        .sev-badge {
+            display: inline-block;
+            font-size: 10px; font-weight: 800;
+            padding: 2px 9px; border-radius: 5px;
+        }
+        .sev-critical { background: rgba(230,39,39,0.15); color: #e62727; border: 1px solid rgba(230,39,39,0.3); }
+        .sev-high     { background: rgba(244,122,41,0.15); color: #f47a29; border: 1px solid rgba(244,122,41,0.3); }
+        .sev-medium   { background: rgba(245,189,38,0.15); color: #d97706; border: 1px solid rgba(245,189,38,0.25); }
+        .sev-low      { background: rgba(194,205,209,0.12); color: #849197; border: 1px solid rgba(194,205,209,0.25); }
+
+        /* ── License status tags ── */
+        .lic-ok      { background: rgba(0,176,160,0.12); color: #22efc3; border: 1px solid rgba(0,176,160,0.2); }
+        .lic-caution { background: rgba(245,189,38,0.12); color: #f5bd26; border: 1px solid rgba(245,189,38,0.2); }
+        .lic-danger  { background: rgba(230,39,39,0.12); color: #e62727; border: 1px solid rgba(230,39,39,0.2); }
+
+        /* ── Check list ── */
+        .check-item { display: flex; align-items: flex-start; gap: 14px; }
+        .check-icon {
+            width: 30px; height: 30px; flex-shrink: 0;
+            background: rgba(0,176,160,0.1); border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; margin-top: 2px;
+        }
+
+        /* ── Steps ── */
+        .step-circle {
+            width: 76px; height: 76px;
+            background: linear-gradient(135deg, #00b0a0, #22efc3);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px;
+            box-shadow: 0 8px 28px rgba(0,176,160,0.35);
+            animation: pulse-ring 3s ease-in-out infinite;
+        }
+
+        /* ── Terminal mock ── */
+        .terminal {
+            background: #0d1117;
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px; padding: 22px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 13px; line-height: 2;
+        }
+
+        /* ── Risk badge row ── */
+        .risk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .risk-box {
+            border-radius: 10px; padding: 14px 10px;
+            text-align: center;
+        }
+        .risk-box-c { background: rgba(230,39,39,0.1); border: 1px solid rgba(230,39,39,0.2); }
+        .risk-box-h { background: rgba(244,122,41,0.1); border: 1px solid rgba(244,122,41,0.2); }
+        .risk-box-m { background: rgba(245,189,38,0.1); border: 1px solid rgba(245,189,38,0.2); }
+        .risk-box-l { background: rgba(194,205,209,0.1); border: 1px solid rgba(194,205,209,0.2); }
+
+        /* ── Divider ── */
+        .h-divider { height: 1px; background: linear-gradient(90deg, transparent, #dbe4e7, transparent); }
+
+        /* ── Footer ── */
+        footer { background: #00111f; border-top: 1px solid rgba(255,255,255,0.05); }
+
+        /* ── Scroll-linked connector line ── */
+        .step-connector {
+            position: absolute; top: 38px;
+            left: calc(33.33% + 24px); right: calc(33.33% + 24px);
+            height: 2px;
+            background: linear-gradient(90deg, #00b0a0, #22efc3);
+            opacity: 0.25; z-index: 0;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     NAVIGATION
+     ════════════════════════════════════════ -->
+<nav id="main-nav">
+    <div class="nav-inner">
+        <!-- Logo -->
+        <a th:href="@{/}" style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            <img th:src="@{/icon/icon-logo.svg}" alt="OsWL" style="width:20px;height:27px;">
+            <span style="font-weight:800;font-size:21px;color:#22efc3;letter-spacing:-0.03em;">OsWL</span>
+        </a>
+
+        <!-- Links -->
+        <div class="nav-links">
+            <a href="#features"     class="nav-link">기능</a>
+            <a href="#security"     class="nav-link">보안 분석</a>
+            <a href="#license"      class="nav-link">라이선스</a>
+            <a href="#integrations" class="nav-link">통합</a>
+            <a href="#how-it-works" class="nav-link">사용 방법</a>
+        </div>
+
+        <!-- CTA -->
+        <div style="display:flex;align-items:center;gap:14px;flex-shrink:0;">
+            <a th:href="@{/login}" class="nav-link">Sign In</a>
+            <a th:href="@{/login}" class="btn-primary" style="padding:8px 20px;font-size:13px;border-radius:8px;">시작하기</a>
+        </div>
+    </div>
+</nav>
+
+
+<!-- ════════════════════════════════════════
+     HERO
+     ════════════════════════════════════════ -->
+<section class="hero">
+    <div class="hero-glow-1"></div>
+    <div class="hero-glow-2"></div>
+
+    <div class="hero-inner">
+        <!-- Left: Copy -->
+        <div class="fade-up">
+            <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,176,160,0.12);border:1px solid rgba(0,176,160,0.25);border-radius:100px;padding:6px 14px;margin-bottom:28px;">
+                <span style="width:6px;height:6px;background:#22efc3;border-radius:50%;display:inline-block;"></span>
+                <span style="color:#22efc3;font-size:12px;font-weight:700;letter-spacing:0.02em;">Software Composition Analysis Platform</span>
+            </div>
+
+            <h1 style="font-size:54px;font-weight:900;color:#ffffff;line-height:1.1;letter-spacing:-0.035em;margin:0 0 22px;">
+                오픈소스의<br>
+                <span class="shimmer-text">보안 위협</span>을<br>
+                한눈에 파악하세요
+            </h1>
+
+            <p style="font-size:17px;color:rgba(255,255,255,0.6);line-height:1.75;margin:0 0 38px;max-width:460px;">
+                OsWL은 프로젝트에서 사용하는 오픈소스 컴포넌트의 CVE 취약점과
+                라이선스 리스크를 자동으로 추적·관리하는 사내 SCA 플랫폼입니다.
+            </p>
+
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+                <a th:href="@{/login}" class="btn-primary btn-primary-lg">
+                    지금 시작하기
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </a>
+                <a href="#features" class="btn-ghost">
+                    기능 살펴보기
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </a>
+            </div>
+        </div>
+
+        <!-- Right: Dashboard mock -->
+        <div class="float-anim fade-up fade-up-d2">
+            <div class="mock-card">
+                <div class="mock-topbar">
+                    <div class="mock-dot-r"></div>
+                    <div class="mock-dot-y"></div>
+                    <div class="mock-dot-g"></div>
+                    <span class="mock-label">Security Center — my-backend-service</span>
+                </div>
+
+                <!-- Risk counts -->
+                <div class="risk-grid" style="margin-bottom:18px;">
+                    <div class="risk-box risk-box-c">
+                        <div style="font-size:26px;font-weight:900;color:#e62727;">12</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;font-weight:700;">CRITICAL</div>
+                    </div>
+                    <div class="risk-box risk-box-h">
+                        <div style="font-size:26px;font-weight:900;color:#f47a29;">34</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;font-weight:700;">HIGH</div>
+                    </div>
+                    <div class="risk-box risk-box-m">
+                        <div style="font-size:26px;font-weight:900;color:#f5bd26;">67</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;font-weight:700;">MEDIUM</div>
+                    </div>
+                    <div class="risk-box risk-box-l">
+                        <div style="font-size:26px;font-weight:900;color:#c2cdd1;">89</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:3px;font-weight:700;">LOW</div>
+                    </div>
+                </div>
+
+                <!-- CVE list -->
+                <div style="display:flex;flex-direction:column;gap:7px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:7px;padding:9px 12px;">
+                        <div>
+                            <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);">CVE-2024-45492</span>
+                            <span style="font-size:11px;color:rgba(255,255,255,0.35);margin-left:7px;">log4j-core:2.14.1</span>
+                        </div>
+                        <span class="sev-badge sev-critical">9.8</span>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:7px;padding:9px 12px;">
+                        <div>
+                            <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);">CVE-2024-38374</span>
+                            <span style="font-size:11px;color:rgba(255,255,255,0.35);margin-left:7px;">spring-core:6.0.1</span>
+                        </div>
+                        <span class="sev-badge sev-high">8.1</span>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:7px;padding:9px 12px;">
+                        <div>
+                            <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.85);">CVE-2024-21634</span>
+                            <span style="font-size:11px;color:rgba(255,255,255,0.35);margin-left:7px;">jackson-databind:2.13.0</span>
+                        </div>
+                        <span class="sev-badge sev-medium">6.5</span>
+                    </div>
+                </div>
+
+                <!-- Footer row -->
+                <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:11px;color:rgba(255,255,255,0.28);">202개 컴포넌트 분석됨</span>
+                    <span style="font-size:11px;color:#22efc3;font-weight:600;">마지막 스캔: 방금 전</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll cue -->
+    <div style="position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0.35;">
+        <span style="font-size:11px;color:white;letter-spacing:0.04em;">SCROLL</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     STATS BAR
+     ════════════════════════════════════════ -->
+<section style="background:#001d35;border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);padding:44px 40px;">
+    <div class="section-inner">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;text-align:center;">
+            <div style="padding:0 20px;">
+                <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">250K+</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">추적 중인 CVE</div>
+            </div>
+            <div style="border-left:1px solid rgba(255,255,255,0.07);padding:0 20px;">
+                <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">1,500+</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">지원 라이선스 유형</div>
+            </div>
+            <div style="border-left:1px solid rgba(255,255,255,0.07);padding:0 20px;">
+                <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">실시간</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">NVD / OSV 데이터 피드</div>
+            </div>
+            <div style="border-left:1px solid rgba(255,255,255,0.07);padding:0 20px;">
+                <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">CI/CD</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">파이프라인 통합 지원</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     FEATURES
+     ════════════════════════════════════════ -->
+<section id="features" style="padding:96px 40px;background:#ffffff;scroll-margin-top:68px;">
+    <div class="section-inner">
+        <div style="text-align:center;margin-bottom:60px;">
+            <span class="section-tag">핵심 기능</span>
+            <h2 class="section-h2" style="color:#141616;">
+                소프트웨어 공급망을<br>
+                <span class="gradient-text">완전히 파악</span>하세요
+            </h2>
+            <p class="section-lead" style="max-width:540px;margin:0 auto;">
+                OsWL은 오픈소스 사용의 위험을 탐지하고, 팀이 빠르게 대응할 수 있도록 돕습니다.
+            </p>
+        </div>
+
+        <!-- Row 1 -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-bottom:22px;">
+
+            <!-- CVE -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">CVE 취약점 추적</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;">
+                    NVD·OSV 데이터베이스를 실시간 연동하여 프로젝트의 모든 컴포넌트에 영향을 주는 취약점을 자동으로 탐지합니다.
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:7px;">
+                    <span style="background:#fef2f2;color:#e62727;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fecaca;">CRITICAL</span>
+                    <span style="background:#fff7ed;color:#f47a29;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fed7aa;">HIGH</span>
+                    <span style="background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fde68a;">MEDIUM</span>
+                    <span style="background:#f3f5f6;color:#5e6b70;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #dbe4e7;">LOW</span>
+                </div>
+            </div>
+
+            <!-- License -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">라이선스 리스크 관리</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;">
+                    GPL·AGPL 등 카피레프트 라이선스 충돌을 탐지하고, 팀의 정책에 따라 허용·주의·위험으로 분류합니다.
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:7px;">
+                    <span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #bbf7d0;">허용됨</span>
+                    <span style="background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fde68a;">주의 필요</span>
+                    <span style="background:#fef2f2;color:#e62727;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fecaca;">위험</span>
+                </div>
+            </div>
+
+            <!-- Risk Trend -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">Risk Trend 분석</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;">
+                    스캔 이력을 기반으로 위험도 변화 추세를 시각화합니다. 버전별 리스크를 비교하고 개선 여부를 확인합니다.
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:7px;">
+                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);">스캔 이력</span>
+                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);">버전 비교</span>
+                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);">시각화</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px;">
+
+            <!-- SBOM -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">컴포넌트 인벤토리</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
+                    프로젝트에서 사용하는 모든 오픈소스 라이브러리를 자동 수집하고, 전체 의존성 경로를 추적합니다.
+                </p>
+            </div>
+
+            <!-- Multi-project -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">멀티 프로젝트 관리</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
+                    여러 서비스·레포지토리를 하나의 대시보드에서 통합 관리합니다. 프로젝트별 보안 현황을 빠르게 비교합니다.
+                </p>
+            </div>
+
+            <!-- AI -->
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4M8 6a4 4 0 0 1 4-4M4 10h16M12 22v-6M8 18h8"/><circle cx="12" cy="10" r="3"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">AI 기반 분석</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
+                    AI를 활용하여 취약점의 실제 영향도를 분석하고, 우선순위와 패치 방향을 자동으로 제안합니다.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="h-divider" style="margin:0 40px;"></div>
+
+
+<!-- ════════════════════════════════════════
+     SECURITY DEEP DIVE
+     ════════════════════════════════════════ -->
+<section id="security" style="padding:96px 40px;background:#ffffff;scroll-margin-top:68px;">
+    <div class="section-inner">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;">
+
+            <!-- Left: Text -->
+            <div>
+                <span class="section-tag">보안 분석</span>
+                <h2 class="section-h2" style="color:#141616;">
+                    숨겨진 취약점을<br>놓치지 마세요
+                </h2>
+                <p class="section-lead" style="margin-bottom:32px;">
+                    OsWL은 NVD와 OSV 데이터베이스를 주기적으로 동기화하여, 새로 발견된 CVE가 팀 프로젝트에 영향을 주는지 즉시 알려줍니다.
+                </p>
+
+                <div style="display:flex;flex-direction:column;gap:18px;">
+                    <div class="check-item">
+                        <div class="check-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">CVSS 점수 기반 심각도 분류</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">Critical·High·Medium·Low 4단계로 취약점을 분류하고 우선순위를 명확히 합니다.</div>
+                        </div>
+                    </div>
+                    <div class="check-item">
+                        <div class="check-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">의존성 전파 경로 추적</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">직접 의존성뿐 아니라 transitive 의존성까지 추적하여 정확한 영향 범위를 파악합니다.</div>
+                        </div>
+                    </div>
+                    <div class="check-item">
+                        <div class="check-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">패치 가능 버전 자동 탐지</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">취약점이 수정된 버전을 자동으로 탐지하여 빠른 업그레이드를 안내합니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Mock UI -->
+            <div>
+                <div class="mock-dark">
+                    <div style="margin-bottom:18px;">
+                        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.09em;">Component Detail</div>
+                        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;">
+                            <div style="font-size:15px;font-weight:700;color:white;margin-bottom:3px;">org.apache.logging.log4j:log4j-core</div>
+                            <div style="font-size:11px;color:rgba(255,255,255,0.35);">2.14.1 · Apache License 2.0</div>
+                            <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;">
+                                <span style="background:rgba(230,39,39,0.15);color:#e62727;font-size:10px;font-weight:700;padding:2px 10px;border-radius:5px;border:1px solid rgba(230,39,39,0.25);">취약 버전</span>
+                                <span style="background:rgba(0,215,97,0.1);color:#00d761;font-size:10px;font-weight:700;padding:2px 10px;border-radius:5px;border:1px solid rgba(0,215,97,0.2);">2.17.1+ 패치 가능</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.09em;">관련 CVE</div>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            <div style="background:rgba(230,39,39,0.05);border:1px solid rgba(230,39,39,0.15);border-radius:8px;padding:12px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                                    <span style="font-size:13px;font-weight:700;color:#ff6b6b;">CVE-2021-44228</span>
+                                    <span style="font-size:10px;font-weight:800;background:#e62727;color:white;padding:2px 8px;border-radius:4px;">CVSS 10.0</span>
+                                </div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.55;">Log4Shell — 원격 코드 실행(RCE) 취약점. JNDI 조회를 통한 임의 코드 실행 가능.</div>
+                            </div>
+                            <div style="background:rgba(244,122,41,0.05);border:1px solid rgba(244,122,41,0.15);border-radius:8px;padding:12px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                                    <span style="font-size:13px;font-weight:700;color:#f47a29;">CVE-2021-45046</span>
+                                    <span style="font-size:10px;font-weight:800;background:rgba(244,122,41,0.85);color:white;padding:2px 8px;border-radius:4px;">CVSS 9.0</span>
+                                </div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.55;">Log4j 2.15.0의 불완전한 패치로 인한 추가 RCE 취약점.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     LICENSE SECTION
+     ════════════════════════════════════════ -->
+<section id="license" style="padding:96px 40px;background:#f3f5f6;scroll-margin-top:68px;">
+    <div class="section-inner">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;">
+
+            <!-- Left: Mock -->
+            <div>
+                <div class="mock-dark">
+                    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.09em;">License Overview</div>
+
+                    <!-- Donut + legend -->
+                    <div style="display:flex;gap:22px;align-items:center;margin-bottom:22px;">
+                        <svg viewBox="0 0 120 120" width="108" height="108" style="flex-shrink:0;">
+                            <circle cx="60" cy="60" r="44" fill="none" stroke="#0d2a3d" stroke-width="22"/>
+                            <circle cx="60" cy="60" r="44" fill="none" stroke="#00b0a0" stroke-width="22"
+                                    stroke-dasharray="111 165" stroke-dashoffset="-28" transform="rotate(-90 60 60)"/>
+                            <circle cx="60" cy="60" r="44" fill="none" stroke="#f5bd26" stroke-width="22"
+                                    stroke-dasharray="42 234" stroke-dashoffset="-139" transform="rotate(-90 60 60)"/>
+                            <circle cx="60" cy="60" r="44" fill="none" stroke="#e62727" stroke-width="22"
+                                    stroke-dasharray="14 262" stroke-dashoffset="-181" transform="rotate(-90 60 60)"/>
+                        </svg>
+                        <div style="display:flex;flex-direction:column;gap:9px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#00b0a0;flex-shrink:0;"></div>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">허용됨 <strong style="color:white;">40%</strong></span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#f5bd26;flex-shrink:0;"></div>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">주의 필요 <strong style="color:white;">15%</strong></span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#e62727;flex-shrink:0;"></div>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">위험 <strong style="color:white;">5%</strong></span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="width:9px;height:9px;border-radius:2px;background:#5e6b70;flex-shrink:0;"></div>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">미검토 <strong style="color:white;">40%</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- List -->
+                    <div style="display:flex;flex-direction:column;gap:7px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
+                            <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">Apache License 2.0</span>
+                            <span class="sev-badge lic-ok" style="font-size:10px;">허용됨</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
+                            <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">MIT License</span>
+                            <span class="sev-badge lic-ok" style="font-size:10px;">허용됨</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
+                            <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">GPL-3.0</span>
+                            <span class="sev-badge lic-caution" style="font-size:10px;">주의 필요</span>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
+                            <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">AGPL-3.0</span>
+                            <span class="sev-badge lic-danger" style="font-size:10px;">위험</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Text -->
+            <div>
+                <span class="section-tag">라이선스 관리</span>
+                <h2 class="section-h2" style="color:#141616;">
+                    라이선스 충돌,<br>사전에 차단하세요
+                </h2>
+                <p class="section-lead" style="margin-bottom:30px;">
+                    GPL·AGPL 등 카피레프트 라이선스가 포함된 경우 소스코드 공개 의무가 발생할 수 있습니다. OsWL은 라이선스 정책을 정의하고, 위반 여부를 자동으로 검사합니다.
+                </p>
+                <div style="display:flex;flex-direction:column;gap:16px;">
+                    <div class="check-item">
+                        <div class="check-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">커스텀 라이선스 정책 설정</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">팀의 기준에 맞게 허용·주의·위험 라이선스를 직접 지정하세요.</div>
+                        </div>
+                    </div>
+                    <div class="check-item">
+                        <div class="check-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">컴포넌트별 라이선스 확인</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">각 의존성의 라이선스 정보를 개별 조회하고 정책 준수 여부를 확인합니다.</div>
+                        </div>
+                    </div>
+                    <div class="check-item">
+                        <div class="check-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                        <div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">라이선스 용어 사전 제공</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">복잡한 오픈소스 라이선스 조항을 쉽게 이해할 수 있는 용어 사전을 기본 제공합니다.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     INTEGRATIONS
+     ════════════════════════════════════════ -->
+<section id="integrations" style="padding:96px 40px;background:#001d35;scroll-margin-top:68px;">
+    <div class="section-inner">
+        <div style="text-align:center;margin-bottom:60px;">
+            <span class="section-tag-light">통합</span>
+            <h2 class="section-h2" style="color:white;">
+                기존 워크플로우에<br>자연스럽게 녹아듭니다
+            </h2>
+            <p style="font-size:17px;color:rgba(255,255,255,0.5);line-height:1.75;max-width:520px;margin:0 auto;">
+                GitHub, CLI, REST API를 통해 기존 개발 파이프라인에 OsWL을 손쉽게 연동하세요.
+            </p>
+        </div>
+
+        <!-- Cards -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-bottom:44px;">
+
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:30px;transition:border-color 0.25s,background 0.25s;"
+                 onmouseover="this.style.borderColor='rgba(34,239,195,0.3)';this.style.background='rgba(34,239,195,0.03)'"
+                 onmouseout="this.style.borderColor='rgba(255,255,255,0.09)';this.style.background='rgba(255,255,255,0.04)'">
+                <div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;">GitHub 연동</h3>
+                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;">
+                    GitHub 레포지토리를 직접 연결하여 브랜치별 의존성을 자동으로 임포트합니다. OAuth 및 Personal Access Token을 지원합니다.
+                </p>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:30px;transition:border-color 0.25s,background 0.25s;"
+                 onmouseover="this.style.borderColor='rgba(34,239,195,0.3)';this.style.background='rgba(34,239,195,0.03)'"
+                 onmouseout="this.style.borderColor='rgba(255,255,255,0.09)';this.style.background='rgba(255,255,255,0.04)'">
+                <div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;">CLI 클라이언트</h3>
+                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;">
+                    CI/CD 파이프라인에 OsWL CLI를 통합하여 빌드 시 자동으로 스캔을 실행하고 결과를 업로드합니다.
+                </p>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:16px;padding:30px;transition:border-color 0.25s,background 0.25s;"
+                 onmouseover="this.style.borderColor='rgba(34,239,195,0.3)';this.style.background='rgba(34,239,195,0.03)'"
+                 onmouseout="this.style.borderColor='rgba(255,255,255,0.09)';this.style.background='rgba(255,255,255,0.04)'">
+                <div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                </div>
+                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;">REST API</h3>
+                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;">
+                    표준 REST API로 모든 기능을 외부에서 제어합니다. API Key 인증 및 OpenAPI 문서를 기본으로 제공합니다.
+                </p>
+            </div>
+        </div>
+
+        <!-- Terminal -->
+        <div class="terminal">
+            <div class="mock-topbar">
+                <div class="mock-dot-r"></div>
+                <div class="mock-dot-y"></div>
+                <div class="mock-dot-g"></div>
+                <span class="mock-label">CI/CD Pipeline — GitHub Actions</span>
+            </div>
+            <div style="color:#6a9955;"># OsWL SCA 스캔 실행</div>
+            <div><span style="color:rgba(255,255,255,0.35);">$</span> <span style="color:#9cdcfe;">oswl-cli</span> <span style="color:#ce9178;">scan</span> \</div>
+            <div style="padding-left:22px;"><span style="color:#9cdcfe;">--project</span> <span style="color:#ce9178;">"my-backend-service"</span> \</div>
+            <div style="padding-left:22px;"><span style="color:#9cdcfe;">--sbom</span> <span style="color:#ce9178;">./build/bom.json</span> \</div>
+            <div style="padding-left:22px;"><span style="color:#9cdcfe;">--api-key</span> <span style="color:#ce9178;">$OSWL_API_KEY</span></div>
+            <div style="margin-top:10px;"><span style="color:#22efc3;">✓</span> <span style="color:rgba(255,255,255,0.65);">스캔 완료: 202 컴포넌트 · 12 Critical · 34 High 발견</span></div>
+            <div><span style="color:#22efc3;">→</span> <span style="color:rgba(255,255,255,0.35);">https://oswl.company.internal/projects/42/security-center</span></div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     HOW IT WORKS
+     ════════════════════════════════════════ -->
+<section id="how-it-works" style="padding:96px 40px;background:#ffffff;scroll-margin-top:68px;">
+    <div class="section-inner">
+        <div style="text-align:center;margin-bottom:68px;">
+            <span class="section-tag">사용 방법</span>
+            <h2 class="section-h2" style="color:#141616;">3단계로 시작하세요</h2>
+            <p class="section-lead" style="max-width:460px;margin:0 auto;">
+                복잡한 설정 없이 빠르게 프로젝트를 분석하고 보안 현황을 파악할 수 있습니다.
+            </p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:40px;position:relative;">
+            <div class="step-connector"></div>
+
+            <!-- Step 1 -->
+            <div style="text-align:center;position:relative;z-index:1;">
+                <div class="step-circle">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:#00a093;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.08em;">Step 01</div>
+                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;">프로젝트 임포트</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
+                    GitHub 레포지토리를 연결하거나 CLI로 SBOM 파일을 업로드하여 프로젝트를 등록합니다.
+                </p>
+            </div>
+
+            <!-- Step 2 -->
+            <div style="text-align:center;position:relative;z-index:1;">
+                <div class="step-circle">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:#00a093;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.08em;">Step 02</div>
+                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;">자동 분석</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
+                    OsWL이 모든 의존성을 분석하고, CVE 데이터베이스와 매칭하여 취약점과 라이선스 리스크를 자동 탐지합니다.
+                </p>
+            </div>
+
+            <!-- Step 3 -->
+            <div style="text-align:center;position:relative;z-index:1;">
+                <div class="step-circle">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:#00a093;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.08em;">Step 03</div>
+                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;">지속 모니터링</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
+                    대시보드에서 위험도 추세를 추적하고, 새로운 CVE가 발견될 때마다 팀에게 즉시 알려줍니다.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     CTA
+     ════════════════════════════════════════ -->
+<section style="padding:100px 40px;background:linear-gradient(155deg,#001d35 0%,#003050 50%,#001d35 100%);position:relative;overflow:hidden;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:700px;height:700px;background:radial-gradient(circle,rgba(0,176,160,0.11) 0%,transparent 65%);pointer-events:none;"></div>
+    <div style="max-width:660px;margin:0 auto;text-align:center;position:relative;z-index:1;">
+        <img th:src="@{/icon/icon-logo.svg}" alt="" aria-hidden="true"
+             style="width:38px;height:52px;margin-bottom:22px;filter:brightness(0) saturate(100%) invert(76%) sepia(51%) saturate(460%) hue-rotate(128deg) brightness(108%) contrast(96%);">
+        <h2 style="font-size:46px;font-weight:900;color:white;letter-spacing:-0.035em;line-height:1.15;margin:0 0 18px;">
+            지금 바로 오픈소스<br>보안을 강화하세요
+        </h2>
+        <p style="font-size:17px;color:rgba(255,255,255,0.55);line-height:1.75;margin:0 0 38px;">
+            OsWL로 팀의 모든 프로젝트를 안전하게 보호하세요.
+        </p>
+        <a th:href="@{/login}" class="btn-primary btn-primary-lg">
+            OsWL 시작하기
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════
+     FOOTER
+     ════════════════════════════════════════ -->
+<footer style="padding:60px 40px 36px;">
+    <div class="section-inner">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:56px;margin-bottom:44px;">
+
+            <!-- Brand -->
+            <div>
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;">
+                    <img th:src="@{/icon/icon-logo.svg}" alt="OsWL" style="width:17px;height:23px;">
+                    <span style="font-weight:800;font-size:19px;color:#22efc3;letter-spacing:-0.02em;">OsWL</span>
+                </div>
+                <p style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.8;max-width:240px;margin:0 0 16px;">
+                    Open Source Watch List — 오픈소스 컴포넌트의 보안 취약점과 라이선스 리스크를 관리하는 사내 SCA 플랫폼
+                </p>
+                <div style="font-size:11px;color:rgba(255,255,255,0.2);">Built with Spring Boot · Thymeleaf · Tailwind CSS</div>
+            </div>
+
+            <!-- Platform -->
+            <div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">플랫폼</div>
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">프로젝트</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">보안 센터</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">라이선스 관리</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">Risk Trend</a>
+                </div>
+            </div>
+
+            <!-- Resources -->
+            <div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">리소스</div>
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                    <a th:href="@{/glossary}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">용어 사전</a>
+                    <a href="#integrations" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">CLI 통합</a>
+                    <a href="#integrations" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">API 문서</a>
+                </div>
+            </div>
+
+            <!-- Service -->
+            <div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">서비스</div>
+                <div style="display:flex;flex-direction:column;gap:11px;">
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">로그인</a>
+                    <a th:href="@{/setup}"  style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">초기 설정</a>
+                    <a th:href="@{/settings}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">설정</a>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:24px;display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:12px;color:rgba(255,255,255,0.2);">© 2025 OsWL. Open Source Watch List.</span>
+            <span style="font-size:12px;color:rgba(255,255,255,0.2);">Powered by SalkCoding</span>
+        </div>
+    </div>
+</footer>
+
+<script>
+    // Smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            const el = document.querySelector(a.getAttribute('href'));
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+
+    // Nav shadow on scroll
+    const nav = document.getElementById('main-nav');
+    window.addEventListener('scroll', () => {
+        nav.classList.toggle('scrolled', window.scrollY > 10);
+    }, { passive: true });
+</script>
+</body>
+</html>

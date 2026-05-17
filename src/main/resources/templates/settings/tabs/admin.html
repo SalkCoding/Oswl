@@ -6,6 +6,20 @@
      x-init="init()"
      class="flex flex-col gap-[20px] relative">
 
+    <!-- Toast notification -->
+    <div x-show="toast" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="fixed bottom-[24px] right-[24px] z-[9999] flex items-center gap-[10px] bg-[#1a2940] border border-white/20 text-white text-[13px] px-[16px] py-[11px] rounded-[8px] shadow-xl"
+         style="pointer-events:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f47a29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span x-text="toast"></span>
+    </div>
+
     <!-- API Error Banner -->
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
@@ -98,7 +112,7 @@
                             </td>
                             <td class="px-[16px] py-[12px]">
                                 <div class="flex items-center gap-[10px]" :class="u.systemAdmin ? 'opacity-30 pointer-events-none' : ''">
-                                    <button @click="!u.systemAdmin && (u.enabled || (u.roleTemplates||[]).length > 0) && toggleEnabled(u, !u.enabled)"
+                                    <button @click="!u.systemAdmin && (!u.enabled && !(u.roleTemplates||[]).length ? showToast('역할을 지정해야 계정을 활성화할 수 있습니다.') : toggleEnabled(u, !u.enabled))"
                                             class="text-[var(--grayscale-60)]"
                                             :class="(!u.enabled && !(u.roleTemplates||[]).length) ? 'opacity-30 cursor-not-allowed' : 'hover:text-[var(--grayscale-100)]'"
                                             :title="u.enabled ? 'Deactivate' : (!(u.roleTemplates||[]).length ? 'Assign a role to activate this user' : 'Activate')">
@@ -154,12 +168,14 @@
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Name</span>
                                 <input type="text" x-model="invite.displayName" placeholder="Enter user's name"
-                                       class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"/>
+                                       class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
+                                       :class="inviteErrorField === 'name' ? 'border-red-400' : ''"/>
                             </div>
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Email</span>
                                 <input type="email" x-model="invite.email" placeholder="Enter email address"
-                                       class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"/>
+                                       class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
+                                       :class="inviteErrorField === 'email' ? 'border-red-400' : ''"/>
                             </div>
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Role</span>
@@ -188,13 +204,13 @@
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Temporary Password</span>
                                 <div class="flex gap-[6px]">
-                                    <input type="text" x-model="invite.temporaryPassword" placeholder="8+ characters"
+                                    <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + '+ characters'"
                                            class="flex-1 px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
-                                           :class="inviteError && !invite.temporaryPassword.trim() ? 'border-red-400' : (inviteError && invite.temporaryPassword.trim().length < 8 ? 'border-red-400' : '')"/>
+                                           :class="inviteErrorField === 'password' ? 'border-red-400' : ''"/>
                                     <button type="button" @click="invite.temporaryPassword=randomPwd()"
                                             class="text-[12px] font-semibold px-[10px] bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] text-[var(--grayscale-70)] transition-colors whitespace-nowrap">Generate</button>
                                 </div>
-                                <span x-show="inviteError && invite.temporaryPassword.trim().length < 8 && invite.temporaryPassword.trim().length > 0" class="text-[11px] text-red-500">Password must be at least 8 characters.</span>
+                                <span x-show="inviteErrorField === 'password' && invite.temporaryPassword.trim().length > 0 && invite.temporaryPassword.trim().length < minPasswordLength" class="text-[11px] text-red-500" x-text="'Password must be at least ' + minPasswordLength + ' characters.'"></span>
                             </div>
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]">Message <span class="text-[var(--grayscale-60)] font-normal">(Optional)</span></span>
@@ -511,24 +527,73 @@
     <div x-show="subTab==='audit'" x-cloak class="flex flex-col gap-[12px]">
         <div class="flex items-center justify-between gap-[8px] flex-wrap">
             <div class="flex items-center gap-[8px] flex-wrap">
-                <!-- Date Range — Custom Dropdown -->
+                <!-- Date Range — Radio Panel Dropdown -->
                 <div class="relative" @click.away="dateDropdownOpen=false">
                     <button type="button" @click="dateDropdownOpen=!dateDropdownOpen"
                             class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white w-[140px] text-left relative cursor-pointer transition-colors"
-                            :class="dateDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
+                            :class="dateDropdownOpen ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="dateRangeLabel()"></span>
                         <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
                              :class="dateDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
+                    <!-- Radio Panel -->
                     <div x-show="dateDropdownOpen" x-cloak
-                         class="absolute z-50 top-full mt-[4px] left-0 w-[150px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
-                        <template x-for="opt in [{value:'7',label:'Last 7 days'},{value:'30',label:'Last 30 days'},{value:'90',label:'Last 90 days'},{value:'',label:'All time'}]" :key="opt.value">
-                            <button type="button"
-                                    @click="auditFilter.dateRange=opt.value; dateDropdownOpen=false; loadAudit(0)"
-                                    class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
-                                    :class="auditFilter.dateRange===opt.value ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
-                                    x-text="opt.label"></button>
-                        </template>
+                         class="absolute z-50 top-full mt-[4px] left-0 bg-white border border-[#33D1B7] rounded-[8px] shadow-lg p-[20px] flex flex-col gap-[12px]"
+                         style="min-width:300px">
+                        <span class="text-[10px] font-normal text-[var(--grayscale-60)] tracking-[-0.1px]">Audit Log Range</span>
+                        <!-- Radio options -->
+                        <div class="flex flex-col gap-[14px]">
+                            <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
+                                   @click="auditFilter.dateRange=''; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">All time</span>
+                            </label>
+                            <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
+                                   @click="auditFilter.dateRange='7'; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='7' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">Last 7 days</span>
+                            </label>
+                            <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
+                                   @click="auditFilter.dateRange='30'; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='30' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">Last 30 days</span>
+                            </label>
+                            <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
+                                   @click="auditFilter.dateRange='90'; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='90' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">Last 90 days</span>
+                            </label>
+                        </div>
+                        <!-- Divider + Custom range -->
+                        <div class="border-t border-[var(--grayscale-10)] pt-[8px] flex flex-col gap-[10px]">
+                            <div class="flex items-center gap-[8px]">
+                                <img :src="auditFilter.dateRange==='custom' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'"
+                                     class="w-[20px] h-[20px] shrink-0 cursor-pointer" alt=""
+                                     @click="auditFilter.dateRange='custom'">
+                                <div class="flex items-center gap-[10px]">
+                                    <div class="flex items-center gap-[6px]">
+                                        <span class="text-[13px] font-medium tracking-[-0.13px]" style="color:#00a093">From</span>
+                                        <input type="date" x-model="auditFilter.dateFrom"
+                                               @click="auditFilter.dateRange='custom'"
+                                               @change="auditFilter.dateFrom = sanitizeDate(auditFilter.dateFrom)"
+                                               min="2000-01-01" max="2099-12-31"
+                                               class="px-[10px] py-[5px] border border-[var(--grayscale-20)] rounded-[4px] text-[12px] text-[var(--grayscale-80)] bg-white focus:outline-none focus:border-[#33D1B7]"/>
+                                    </div>
+                                    <span class="text-[18px] font-medium" style="color:#00a093">-</span>
+                                    <div class="flex items-center gap-[6px]">
+                                        <span class="text-[13px] font-medium tracking-[-0.13px]" style="color:#00a093">To</span>
+                                        <input type="date" x-model="auditFilter.dateTo"
+                                               @click="auditFilter.dateRange='custom'"
+                                               @change="auditFilter.dateTo = sanitizeDate(auditFilter.dateTo)"
+                                               min="2000-01-01" max="2099-12-31"
+                                               class="px-[10px] py-[5px] border border-[var(--grayscale-20)] rounded-[4px] text-[12px] text-[var(--grayscale-80)] bg-white focus:outline-none focus:border-[#33D1B7]"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <button x-show="auditFilter.dateRange==='custom'" x-cloak
+                                    @click="dateDropdownOpen=false; loadAudit(0)"
+                                    class="w-full py-[7px] bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[12px] font-bold rounded-[6px] transition-colors">Apply</button>
+                        </div>
                     </div>
                 </div>
                 <!-- Actor Email — Searchable Dropdown -->
@@ -765,7 +830,7 @@
                     </div>
                     <label class="flex flex-col gap-[6px] text-[12px] font-bold">Temporary Password
                         <div class="flex gap-[6px]">
-                            <input type="text" x-model="invite.temporaryPassword" placeholder="8+ characters"
+                            <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + '+ characters'"
                                    class="flex-1 px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
                             <button type="button" @click="invite.temporaryPassword=randomPwd()"
                                     class="text-[12px] font-semibold px-[10px] bg-white/10 hover:bg-white/15 border border-white/15 rounded-[8px] text-white">Generate</button>
@@ -824,8 +889,9 @@
                     <div class="flex flex-col gap-[6px] text-[12px] font-bold">Status
                         <div class="flex items-center gap-[10px] px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px]">
                             <span class="text-[12px] font-normal text-white/60" x-text="editingUser?.enabled ? 'Active' : 'Inactive'"></span>
-                            <button @click="toggleEnabled(editingUser, !editingUser.enabled).then(()=>{ if(editingUser){ editingUser.enabled = !editingUser.enabled; } })"
-                                    class="ml-auto text-[11px] font-semibold px-[8px] py-[2px] rounded-[6px] bg-white/10 hover:bg-white/20 text-white"
+                            <button @click="!editingUser?.enabled && !(editingUser?.roleTemplates||[]).length ? showToast('역할을 지정해야 계정을 활성화할 수 있습니다.') : toggleEnabled(editingUser, !editingUser.enabled).then(()=>{ if(editingUser){ editingUser.enabled = !editingUser.enabled; } })"
+                                    class="ml-auto text-[11px] font-semibold px-[8px] py-[2px] rounded-[6px] bg-white/10 text-white"
+                                    :class="!editingUser?.enabled && !(editingUser?.roleTemplates||[]).length ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/20'"
                                     x-text="editingUser?.enabled ? 'Deactivate' : 'Activate'"></button>
                         </div>
                     </div>
@@ -914,6 +980,9 @@
             sidebarMode: null,  // 'invite' | 'editUser' | 'newTemplate' | 'editTemplate' | null
             apiError: null,
             inviteError: null,
+            inviteErrorField: null,
+            toast: null,
+            _toastTimer: null,
             page: 1, pageSize: 10,
             tplPage: 1, tplPageSize: 10,
             deletingTemplate: null,
@@ -921,13 +990,14 @@
             invite: { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' },
             editingUser: null, editingDisplayName: '', editingNameError: '', editingTemplateId: null, editingMessage: '',
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
-            auditFilter: { dateRange: '7', actorEmail: '', action: '' },
+            auditFilter: { dateRange: '7', actorEmail: '', action: '', dateFrom: '', dateTo: '' },
             auditLogs: [],
             auditPage: 0, auditTotalPages: 0, auditTotalElements: 0, auditPageSize: 20,
             actorDropdownOpen: false,
             actorSearchQuery: '',
             actionDropdownOpen: false,
             dateDropdownOpen: false,
+            minPasswordLength: 8,
             actionGroups: [
                 { label: 'Auth', items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT'] },
                 { label: 'User', items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
@@ -991,6 +1061,13 @@
                 } catch(e) {
                     this.apiError = e.message || 'Failed to load data. Please verify your session.';
                 }
+                try {
+                    const r = await fetch('/api/settings/security');
+                    if (r.ok) {
+                        const s = await r.json();
+                        if (s.minPasswordLength) this.minPasswordLength = s.minPasswordLength;
+                    }
+                } catch(_) {}
             },
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
             async apiGet(url) {
@@ -1014,11 +1091,25 @@
                 this.sidebarMode = null;
                 this.editingUser = null;
                 this.editingTpl = null;
+                this.inviteError = null;
+                this.inviteErrorField = null;
+            },
+            showToast(msg, duration = 3500) {
+                this.toast = msg;
+                clearTimeout(this._toastTimer);
+                this._toastTimer = setTimeout(() => { this.toast = null; }, duration);
+            },
+            sanitizeDate(val) {
+                if (!val) return '';
+                const parts = val.split('-');
+                if (parts.length !== 3 || parts[0].length !== 4) return '';
+                return val;
             },
             openInvite() {
                 this.invite = { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' };
                 this.editingUser = null;
                 this.inviteError = null;
+                this.inviteErrorField = null;
                 this.sidebarMode = 'invite';
             },
             openEditUser(u) {
@@ -1059,18 +1150,32 @@
 
             async submitInvite() {
                 this.inviteError = null;
+                this.inviteErrorField = null;
                 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!this.invite.email.trim() || !emailRe.test(this.invite.email.trim())) {
-                    this.inviteError = 'Please enter a valid email address.'; return;
+                if (!this.invite.displayName.trim()) {
+                    this.inviteError = 'Name is required.'; this.inviteErrorField = 'name'; return;
                 }
-                if (!this.invite.temporaryPassword.trim() || this.invite.temporaryPassword.trim().length < 8) {
-                    this.inviteError = 'Temporary password must be at least 8 characters.'; return;
+                if (!this.invite.email.trim()) {
+                    this.inviteError = 'Email is required.'; this.inviteErrorField = 'email'; return;
+                }
+                if (!emailRe.test(this.invite.email.trim())) {
+                    this.inviteError = 'Please enter a valid email address.'; this.inviteErrorField = 'email'; return;
+                }
+                if (!this.invite.temporaryPassword.trim()) {
+                    this.inviteError = 'Temporary password is required.'; this.inviteErrorField = 'password'; return;
+                }
+                if (this.invite.temporaryPassword.trim().length < this.minPasswordLength) {
+                    this.inviteError = `Temporary password must be at least ${this.minPasswordLength} characters.`; this.inviteErrorField = 'password'; return;
                 }
                 const { templateId, ...rest } = this.invite;
                 const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
                 const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(payload) });
                 if (r.status === 401) { location.href = '/login'; return; }
                 if (!r.ok) { this.inviteError = 'Failed: ' + await r.text(); return; }
+                if (!templateId) {
+                    const created = await r.json();
+                    await fetch(`/api/admin/users/${created.id}/deactivate`, { method: 'PUT', headers: this.headers() });
+                }
                 this.closeSidebar();
                 await this.loadUsers();
             },
@@ -1125,7 +1230,10 @@
             async loadAudit(page) {
                 if (page !== undefined) this.auditPage = page;
                 const params = new URLSearchParams();
-                if (this.auditFilter.dateRange) {
+                if (this.auditFilter.dateRange === 'custom') {
+                    if (this.auditFilter.dateFrom) params.set('startDate', this.auditFilter.dateFrom + 'T00:00:00');
+                    if (this.auditFilter.dateTo)   params.set('endDate',   this.auditFilter.dateTo   + 'T23:59:59');
+                } else if (this.auditFilter.dateRange) {
                     const days = parseInt(this.auditFilter.dateRange, 10);
                     const start = new Date();
                     start.setDate(start.getDate() - days);
@@ -1158,7 +1266,10 @@
             },
             auditExportUrl() {
                 const params = new URLSearchParams();
-                if (this.auditFilter.dateRange) {
+                if (this.auditFilter.dateRange === 'custom') {
+                    if (this.auditFilter.dateFrom) params.set('startDate', this.auditFilter.dateFrom + 'T00:00:00');
+                    if (this.auditFilter.dateTo)   params.set('endDate',   this.auditFilter.dateTo   + 'T23:59:59');
+                } else if (this.auditFilter.dateRange) {
                     const days = parseInt(this.auditFilter.dateRange, 10);
                     const start = new Date();
                     start.setDate(start.getDate() - days);
@@ -1170,7 +1281,15 @@
                 return '/api/admin/audit-logs/export.csv' + (qs ? '?' + qs : '');
             },
             dateRangeLabel() {
-                const map = { '7': 'Last 7 days', '30': 'Last 30 days', '90': 'Last 90 days', '': 'All time' };
+                if (this.auditFilter.dateRange === 'custom') {
+                    if (this.auditFilter.dateFrom || this.auditFilter.dateTo) {
+                        const from = this.auditFilter.dateFrom || '...';
+                        const to   = this.auditFilter.dateTo   || '...';
+                        return from + ' – ' + to;
+                    }
+                    return 'Custom range';
+                }
+                const map = { '': 'All time', '7': 'Last 7 days', '30': 'Last 30 days', '90': 'Last 90 days' };
                 return map[this.auditFilter.dateRange] ?? 'Last 7 days';
             }
         };
