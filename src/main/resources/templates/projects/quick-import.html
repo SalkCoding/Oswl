@@ -123,11 +123,12 @@
 
             <!-- No accounts connected notice -->
             <div x-show="!loadingConnections && connectedProviders.length === 0" x-cloak
-                 class="mt-[12px] flex items-center gap-[10px] bg-amber-50 border border-amber-200 rounded-[8px] px-[14px] py-[10px]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-500 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <p class="text-[13px] text-amber-700 m-0">
+                 class="mt-[12px] flex items-start gap-[6px] rounded-[8px] px-[14px] py-[10px]"
+                 style="background:rgba(245,145,38,0.05);border:1px solid rgba(245,145,38,0.2);">
+                <img th:src="@{/icon/icon-alert-triangle.svg}" class="shrink-0 mt-[1px] w-[16px] h-[16px]" alt="" aria-hidden="true">
+                <p class="text-[13px] text-[#92400e] m-0">
                     No VCS accounts connected yet.
-                    <a href="/settings?tab=vcs" class="font-semibold underline text-amber-700">Connect an account</a> first.
+                    <a href="/settings?tab=vcs" class="font-semibold underline text-[#92400e]">Connect an account</a> first.
                 </p>
             </div>
         </div>

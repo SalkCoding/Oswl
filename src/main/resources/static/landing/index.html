@@ -18,7 +18,7 @@
             --primary: #00b0a0;
             --primary-hover: #00a093;
             --secondary: #22efc3;
-            --bg: #001d35;
+            --bg: #041625;
             --bg-card: rgba(255,255,255,0.04);
             --bg-card-hover: rgba(255,255,255,0.07);
             --border: rgba(255,255,255,0.09);
@@ -43,8 +43,9 @@
             --nav-bg: rgba(255,255,255,0.95);
             --section-alt: rgba(0,29,53,0.03);
             --shadow-card: 0 4px 24px rgba(0,0,0,0.08);
-            --tag-bg: rgba(0,176,160,0.1);
+            --tag-bg: rgba(0,160,147,0.1);
             --tag-color: #00877a;
+            --secondary: #00a093;
             --demo-bg: #f8fafb;
         }
 
@@ -85,11 +86,20 @@
             background: linear-gradient(135deg, #00b0a0, #22efc3);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
+        [data-theme="light"] .gradient-text {
+            background: linear-gradient(135deg, #007a72, #00b9a3);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
         .shimmer-text {
             background: linear-gradient(90deg, #00b0a0, #22efc3, #00d9b8, #00b0a0);
             background-size: 250% auto;
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
             animation: shimmer 4s linear infinite;
+        }
+        [data-theme="light"] .shimmer-text {
+            background: linear-gradient(90deg, #007a72, #00b9a3, #00a093, #007a72);
+            background-size: 250% auto;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
 
         /* ── Nav ── */
@@ -109,11 +119,15 @@
         }
         .nav-logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         .nav-logo img { width: 32px; height: 32px; }
+        .logo-light { display: none; }
+        [data-theme="light"] .logo-dark { display: none; }
+        [data-theme="light"] .logo-light { display: block; }
         .nav-logo-text {
             font-size: 20px; font-weight: 800; letter-spacing: -0.5px;
             background: linear-gradient(90deg, #00b0a0, #22efc3);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
+        [data-theme="light"] .nav-logo-text { background: linear-gradient(90deg, #007a72, #00b9a3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .nav-links { display: flex; gap: 4px; margin-left: auto; }
         .nav-link {
             padding: 6px 14px; font-size: 14px; font-weight: 500;
@@ -162,10 +176,14 @@
             font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
             color: var(--tag-color); text-transform: uppercase; margin-bottom: 28px;
         }
+        [data-theme="light"] .hero-badge {
+            background: rgba(102,224,198,0.15); border-color: rgba(51,209,183,0.4);
+        }
         .hero-badge-dot {
             width: 6px; height: 6px; border-radius: 50%;
             background: var(--secondary); animation: pulse-glow 2s ease-in-out infinite;
         }
+        [data-theme="light"] .hero-badge-dot { background: #33d1b7; }
         .hero-title {
             font-size: clamp(40px, 6vw, 72px); font-weight: 900;
             letter-spacing: -2px; line-height: 1.08; margin: 0 0 24px;
@@ -185,6 +203,7 @@
             display: inline-block;
         }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,176,160,0.5); }
+        [data-theme="light"] .btn-primary { color: #ffffff; background: linear-gradient(135deg, #00877a, #00c4b0); }
         .btn-secondary {
             padding: 14px 28px; font-size: 15px; font-weight: 600;
             background: var(--bg-card); color: var(--text-primary);
@@ -208,6 +227,7 @@
             background: linear-gradient(90deg, #00b0a0, #22efc3);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
+        [data-theme="light"] .stat-value { background: linear-gradient(90deg, #007a72, #00b9a3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-top: 2px; text-align: center; }
         .stat-divider { width: 1px; height: 40px; background: var(--border); }
 
@@ -253,12 +273,18 @@
             margin-bottom: 20px; color: var(--secondary);
         }
         .feature-icon svg { width: 24px; height: 24px; }
+        [data-theme="light"] .feature-icon {
+            background: rgba(102,224,198,0.15); border-color: rgba(51,209,183,0.4);
+        }
         .feature-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; color: var(--text-primary); margin: 0 0 10px; }
         .feature-desc { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin: 0 0 16px; }
         .feature-tag {
             display: inline-flex; padding: 4px 10px; border-radius: 6px;
             font-size: 11px; font-weight: 600;
             background: var(--tag-bg); color: var(--tag-color); border: 1px solid rgba(0,176,160,0.2);
+        }
+        [data-theme="light"] .feature-tag {
+            background: rgba(102,224,198,0.15); border-color: rgba(51,209,183,0.4);
         }
 
         /* ── Screenshot tabs ── */
@@ -328,6 +354,9 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 18px; font-weight: 900; color: var(--secondary); margin-bottom: 16px;
         }
+        [data-theme="light"] .step-num {
+            background: rgba(102,224,198,0.15); border-color: rgba(51,209,183,0.4);
+        }
         .step-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin: 0 0 10px; }
         .step-desc { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin: 0; }
 
@@ -349,6 +378,7 @@
         .footer-logo { display: flex; align-items: center; gap: 8px; }
         .footer-logo img { width: 26px; height: 26px; }
         .footer-logo-text { font-size: 16px; font-weight: 800; background: linear-gradient(90deg, #00b0a0, #22efc3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        [data-theme="light"] .footer-logo-text { background: linear-gradient(90deg, #007a72, #00b9a3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .footer-copy { font-size: 13px; color: var(--text-muted); }
         .footer-links { display: flex; gap: 24px; }
         .footer-link { font-size: 13px; color: var(--text-muted); transition: color 0.15s; }
@@ -380,7 +410,8 @@
 <nav id="main-nav">
     <div class="nav-inner">
         <a href="#" class="nav-logo">
-            <img src="/icon/icon-logo.svg" src="../static/icon/icon-logo.svg" alt="OsWL">
+            <img src="/icon/icon-logo.svg" src="../static/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
+            <img src="/graphic/symbol_w.svg" src="../static/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:32px;height:32px;">
             <span class="nav-logo-text">OsWL</span>
         </a>
         <div class="nav-links">
@@ -567,7 +598,7 @@
                         <span><strong style="color:var(--text-primary)">Critical &amp; High</strong> vulnerabilities flagged with patch targets</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
-                        <div style="width:6px;height:6px;border-radius:50%;background:#22efc3;flex-shrink:0;"></div>
+                        <div style="width:6px;height:6px;border-radius:50%;background:var(--secondary);flex-shrink:0;"></div>
                         <span><strong style="color:var(--text-primary)">Patchability status</strong> — know if a fix exists before triaging</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
@@ -708,7 +739,8 @@
 <footer>
     <div class="footer-inner">
         <div class="footer-logo">
-            <img src="/icon/icon-logo.svg" src="../static/icon/icon-logo.svg" alt="OsWL">
+            <img src="/icon/icon-logo.svg" src="../static/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
+            <img src="/graphic/symbol_w.svg" src="../static/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:26px;height:26px;">
             <span class="footer-logo-text">OsWL</span>
         </div>
         <div class="footer-links">
