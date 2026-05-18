@@ -678,7 +678,8 @@
                 </div>
             </div>
             <a :href="auditExportUrl()"
-               class="bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] no-underline">
+               class="inline-flex flex-row justify-center items-center gap-[10px] px-[14px] rounded-[6px] no-underline font-bold text-[13px]"
+               style="background:#F2FCFA; border:1px solid #33D1B7; height:32px; color:#00a093;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 Export CSV
             </a>
@@ -723,9 +724,11 @@
                             <div x-data="{ expanded: false }" class="flex items-start gap-[4px]">
                                 <span x-text="l.detail || '—'" :class="expanded ? 'break-all whitespace-pre-wrap' : 'truncate block'" class="text-[12px] flex-1 min-w-0"></span>
                                 <button x-show="(l.detail||'').length > 50" @click.stop="expanded=!expanded"
-                                        class="shrink-0 text-[#00B9A3] hover:text-[#008f83] text-[10px] font-bold leading-none mt-[1px] transition-colors"
-                                        :title="expanded ? 'Collapse' : 'Expand'"
-                                        x-text="expanded ? '▲' : '▼'"></button>
+                                        class="shrink-0 pointer-events-auto transition-transform"
+                                        :class="expanded ? 'rotate-180' : ''"
+                                        :title="expanded ? 'Collapse' : 'Expand'">
+                                    <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px]" alt="" aria-hidden="true">
+                                </button>
                             </div>
                         </td>
                     </tr>
