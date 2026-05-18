@@ -10,6 +10,7 @@ import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
+import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,14 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -53,6 +59,11 @@ import java.util.stream.Stream;
 public class QuickImportService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String USER_AGENT = "OsWL-App/1.0";
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     @Value("${oswl.clone.temp-dir:}")
     private String configuredTempDir;
@@ -62,6 +73,7 @@ public class QuickImportService {
     private final ProjectService projectService;
     private final ApiKeyService apiKeyService;
     private final ScanIngestService scanIngestService;
+    private final GitHubService gitHubService;
 
     /** In-memory job tracker. Entries are removed after 30 minutes. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -102,11 +114,162 @@ public class QuickImportService {
         return jobs.get(jobId);
     }
 
-    // ── Import pipeline ────────────────────────────────────────────────────
+    // ── Repo browser (for Quick Import list UI) ───────────────────────────
+
+    /**
+     * Returns all repositories accessible by the authenticated user for the given VCS provider.
+     *
+     * @param provider the VCS provider (GITHUB, GITLAB, BITBUCKET)
+     * @param userId   authenticated user ID
+     * @return list of repo DTOs, sorted by last updated, or empty list if no connection found
+     */
+    public List<QuickImportRepoDto> listRepos(VcsProvider provider, Long userId) {
+        Optional<UserVcsConnection> connOpt = vcsConnectionRepository.findByUserIdAndActiveTrue(userId)
+                .stream()
+                .filter(c -> c.getProvider() == provider)
+                .findFirst();
+
+        if (connOpt.isEmpty()) return List.of();
+
+        UserVcsConnection conn = connOpt.get();
+        String token;
+        try {
+            token = encryptionService.decrypt(conn.getAccessTokenEncrypted());
+        } catch (Exception e) {
+            log.warn("[RepoBrowser] Failed to decrypt token for provider {}: {}", provider, e.getMessage());
+            return List.of();
+        }
+
+        try {
+            return switch (provider) {
+                case GITHUB   -> listGitHubRepos(token);
+                case GITLAB   -> listGitLabRepos(token, conn.getServerUrl());
+                case BITBUCKET -> conn.getServerUrl() == null
+                        ? listBitbucketCloudRepos(token, conn.getVcsUsername())
+                        : listBitbucketServerRepos(token, conn.getServerUrl());
+            };
+        } catch (Exception e) {
+            log.warn("[RepoBrowser] Failed to list repos for provider {}: {}", provider, e.getMessage());
+            return List.of();
+        }
+    }
+
+    private List<QuickImportRepoDto> listGitHubRepos(String token) {
+        return gitHubService.listAllUserRepos(token).stream()
+                .map(r -> new QuickImportRepoDto(
+                        r.getName(),
+                        r.getFullName(),
+                        "https://github.com/" + r.getFullName(),
+                        r.getDefaultBranch(),
+                        r.isPrivate(),
+                        r.getUpdatedAt()))
+                .toList();
+    }
+
+    private List<QuickImportRepoDto> listGitLabRepos(String token, String serverUrl) throws Exception {
+        String base = serverUrl != null ? serverUrl.replaceAll("/+$", "") : "https://gitlab.com";
+        String url = base + "/api/v4/projects?membership=true&per_page=100&order_by=last_activity_at";
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + token)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] GitLab returned HTTP {}", resp.statusCode());
+            return List.of();
+        }
+
+        JsonNode arr = OBJECT_MAPPER.readTree(resp.body());
+        if (!arr.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode r : arr) {
+            result.add(new QuickImportRepoDto(
+                    r.path("name").asText(),
+                    r.path("path_with_namespace").asText(),
+                    r.path("web_url").asText(),
+                    r.path("default_branch").asText("main"),
+                    r.path("visibility").asText("public").equals("private"),
+                    r.path("last_activity_at").asText()));
+        }
+        return result;
+    }
+
+    private List<QuickImportRepoDto> listBitbucketCloudRepos(String appPassword, String username) throws Exception {
+        String url = "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on";
+        String basicCreds = Base64.getEncoder().encodeToString((username + ":" + appPassword).getBytes(StandardCharsets.UTF_8));
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Basic " + basicCreds)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] Bitbucket Cloud returned HTTP {}", resp.statusCode());
+            return List.of();
+        }
+
+        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
+        JsonNode values = root.path("values");
+        if (!values.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode r : values) {
+            String webUrl = r.path("links").path("html").path("href").asText();
+            String fullName = r.path("full_name").asText();
+            boolean priv = r.path("is_private").asBoolean(false);
+            String updatedAt = r.path("updated_on").asText();
+            String defaultBranch = r.path("mainbranch").path("name").asText("main");
+            result.add(new QuickImportRepoDto(r.path("name").asText(), fullName, webUrl, defaultBranch, priv, updatedAt));
+        }
+        return result;
+    }
+
+    private List<QuickImportRepoDto> listBitbucketServerRepos(String token, String serverUrl) throws Exception {
+        String base = serverUrl.replaceAll("/+$", "");
+        String url = base + "/rest/api/1.0/repos?limit=100";
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + token)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] Bitbucket Server returned HTTP {}", resp.statusCode());
+            return List.of();
+        }
+
+        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
+        JsonNode values = root.path("values");
+        if (!values.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode r : values) {
+            String repoName = r.path("name").asText();
+            String projectKey = r.path("project").path("key").asText();
+            String slug = r.path("slug").asText();
+            String fullName = projectKey + "/" + slug;
+            // Construct browse URL from self link
+            String webUrl = base + "/projects/" + projectKey + "/repos/" + slug + "/browse";
+            boolean priv = !r.path("public").asBoolean(true);
+            result.add(new QuickImportRepoDto(repoName, fullName, webUrl, "main", priv, ""));
+        }
+        return result;
+    }
+
+
 
     private void runImport(String jobId, String repoUrl, String branch, Long userId) throws Exception {
-        // 1. Parse the URL ─────────────────────────────────────────────────
-        ParsedRepoUrl parsed = parseRepoUrl(repoUrl);
+        // 1. Parse the URL (pass user connections so self-hosted hosts can be identified) ────
+        List<UserVcsConnection> userConns = vcsConnectionRepository.findByUserIdAndActiveTrue(userId);
+        ParsedRepoUrl parsed = parseRepoUrl(repoUrl, userConns);
         if (parsed == null) {
             updateJob(jobId, Phase.FAILED, "Cannot parse repository URL: " + repoUrl,
                     null, null, null, null, null, null);
@@ -154,7 +317,8 @@ public class QuickImportService {
             updateJob(jobId, Phase.SCANNING, "Submitting scan payload (" + deps.components.size() + " components)…",
                     project.getId(), project.getName(), null, false, deps.ecosystem, deps.components.size());
 
-            ScanPayload payload = buildScanPayload(deps, parsed.owner + "/" + parsed.repo);
+            String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
+            ScanPayload payload = buildScanPayload(deps, scanVersion);
             scanIngestService.ingest(project.getId(), payload, userId);
 
             // 7. Done ──────────────────────────────────────────────────────
@@ -171,40 +335,101 @@ public class QuickImportService {
 
     // ── URL parsing ────────────────────────────────────────────────────────
 
-    private record ParsedRepoUrl(VcsProvider provider, String host, String owner, String repo) {}
+    /**
+     * @param clonePath the path segment used in the authenticated clone URL (e.g. {@code /scm/proj/repo}
+     *                  for Bitbucket DC/Server, or {@code null} to fall back to {@code /owner/repo}).
+     */
+    private record ParsedRepoUrl(VcsProvider provider, String host, String owner, String repo, String clonePath) {}
 
-    private ParsedRepoUrl parseRepoUrl(String rawUrl) {
+    private ParsedRepoUrl parseRepoUrl(String rawUrl, List<UserVcsConnection> userConnections) {
         if (rawUrl == null || rawUrl.isBlank()) return null;
         // Normalize: remove trailing .git and trailing slash
         String url = rawUrl.trim().replaceAll("\\.git$", "").replaceAll("/$", "");
-        // Extract host + path: handle https://host/owner/repo
-        Pattern p = Pattern.compile("https?://([^/]+)/([^/]+)/([^/]+).*");
-        Matcher m = p.matcher(url);
+        // Extract host + full path: handle https://host/...
+        Pattern hostPattern = Pattern.compile("https?://([^/]+)(/.*)");
+        Matcher m = hostPattern.matcher(url);
         if (!m.matches()) return null;
-        String host  = m.group(1).toLowerCase();
-        String owner = m.group(2);
-        String repo  = m.group(3);
+        String host = m.group(1).toLowerCase();
+        String path = m.group(2); // starts with /
 
-        VcsProvider provider;
-        if (host.equals("github.com") || host.endsWith(".github.com")) {
-            provider = VcsProvider.GITHUB;
-        } else if (host.equals("gitlab.com") || host.contains("gitlab")) {
-            provider = VcsProvider.GITLAB;
-        } else if (host.equals("bitbucket.org") || host.endsWith(".bitbucket.org")) {
-            provider = VcsProvider.BITBUCKET;
-        } else {
-            // Unknown host — cannot determine provider
-            log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
-            return null;
+        // ── Bitbucket Cloud ──────────────────────────────────────────────
+        if (host.equals("bitbucket.org") || host.endsWith(".bitbucket.org")) {
+            String[] parts = splitTwoPathSegments(path);
+            if (parts == null) return null;
+            return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
         }
-        return new ParsedRepoUrl(provider, host, owner, repo);
+
+        // ── GitHub (cloud + enterprise) ──────────────────────────────────
+        if (host.equals("github.com") || host.endsWith(".github.com")) {
+            String[] parts = splitTwoPathSegments(path);
+            if (parts == null) return null;
+            return new ParsedRepoUrl(VcsProvider.GITHUB, host, parts[0], parts[1], null);
+        }
+
+        // ── GitLab (cloud + self-hosted) ─────────────────────────────────
+        if (host.equals("gitlab.com") || host.contains("gitlab")) {
+            String[] parts = splitTwoPathSegments(path);
+            if (parts == null) return null;
+            return new ParsedRepoUrl(VcsProvider.GITLAB, host, parts[0], parts[1], null);
+        }
+
+        // ── Self-hosted: match against stored connections ─────────────────
+        for (UserVcsConnection conn : userConnections) {
+            if (conn.getServerUrl() == null || conn.getServerUrl().isBlank()) continue;
+            try {
+                String connHost = conn.getServerUrl().replaceAll("https?://", "").split("/")[0].toLowerCase();
+                if (!connHost.equals(host)) continue;
+
+                if (conn.getProvider() == VcsProvider.BITBUCKET) {
+                    // Try /scm/{proj}/{repo} pattern (Bitbucket DC/Server HTTPS clone URL)
+                    Matcher scm = Pattern.compile("^/scm/([^/]+)/([^/]+)").matcher(path);
+                    if (scm.find()) {
+                        String proj = scm.group(1);
+                        String repo = scm.group(2);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
+                    }
+                    // Try /projects/{PROJ}/repos/{repo} pattern (Bitbucket DC/Server browse URL)
+                    Matcher projects = Pattern.compile("^/projects/([^/]+)/repos/([^/]+)").matcher(path);
+                    if (projects.find()) {
+                        String proj = projects.group(1).toLowerCase();
+                        String repo = projects.group(2);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
+                    }
+                    // Fallback: first two path segments
+                    String[] parts = splitTwoPathSegments(path);
+                    if (parts != null) {
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
+                    }
+                } else {
+                    // GitHub Enterprise or GitLab self-hosted via stored connection
+                    String[] parts = splitTwoPathSegments(path);
+                    if (parts != null) {
+                        return new ParsedRepoUrl(conn.getProvider(), host, parts[0], parts[1], null);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
+        return null;
+    }
+
+    /** Extracts the first two non-empty path segments from a path like {@code /owner/repo/...}. */
+    private static String[] splitTwoPathSegments(String path) {
+        String[] segs = path.replaceAll("^/+", "").split("/", -1);
+        if (segs.length < 2 || segs[0].isBlank() || segs[1].isBlank()) return null;
+        return new String[]{ segs[0], segs[1] };
     }
 
     private String buildAuthUrl(ParsedRepoUrl parsed, String token) {
-        final String gitLink = "https://oauth2:" + token + "@" + parsed.host + "/" + parsed.owner + "/" + parsed.repo + ".git";
-        return switch (parsed.provider) {
-            case GITHUB, GITLAB -> gitLink;
-            case BITBUCKET -> "https://x-token-auth:" + token + "@" + parsed.host + "/" + parsed.owner + "/" + parsed.repo + ".git";
+        String repoPath = parsed.clonePath() != null
+                ? parsed.clonePath()
+                : "/" + parsed.owner() + "/" + parsed.repo();
+        return switch (parsed.provider()) {
+            case GITHUB, GITLAB ->
+                    "https://oauth2:" + token + "@" + parsed.host() + "/" + parsed.owner() + "/" + parsed.repo() + ".git";
+            case BITBUCKET ->
+                    "https://x-token-auth:" + token + "@" + parsed.host() + repoPath + ".git";
         };
     }
 
@@ -327,26 +552,51 @@ public class QuickImportService {
         });
     }
 
-    // Gradle: parse build.gradle or build.gradle.kts with regex (no subprocess)
+    // Gradle: parse build.gradle / build.gradle.kts with regex (no subprocess)
+    // Supports both Groovy DSL (`implementation 'g:a:v'`) and Kotlin DSL (`implementation("g:a:v")`).
+    // Walks all build files in the repo to support multi-module projects.
     private ParsedDependencies parseGradle(Path dir, String repoName) {
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
         try {
-            Path buildFile = Files.exists(dir.resolve("build.gradle"))
-                    ? dir.resolve("build.gradle")
-                    : dir.resolve("build.gradle.kts");
-            String content = Files.readString(buildFile, StandardCharsets.UTF_8);
+            // Collect all build files; exclude generated output directories
+            List<Path> buildFiles;
+            try (Stream<Path> stream = Files.walk(dir)) {
+                buildFiles = stream
+                        .filter(p -> {
+                            String name = p.getFileName().toString();
+                            if (!name.equals("build.gradle") && !name.equals("build.gradle.kts")) return false;
+                            String rel = dir.relativize(p).toString();
+                            // Skip files inside build output or .gradle cache dirs
+                            return !rel.contains(File.separator + "build" + File.separator)
+                                    && !rel.contains(File.separator + ".gradle" + File.separator)
+                                    && !rel.startsWith("build" + File.separator)
+                                    && !rel.startsWith(".gradle" + File.separator);
+                        })
+                        .toList();
+            }
 
-            // Match: implementation 'group:artifact:version' or ("group:artifact:version")
+            // \(?  — optional opening paren  (Kotlin DSL: implementation("g:a:v"))
+            // ["'] — required opening quote   (Groovy: implementation 'g:a:v' or "g:a:v")
+            // Version is optional: BOM-managed deps (e.g. Spring Boot starters) omit the :version segment.
             Pattern p = Pattern.compile(
                     "(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor)" +
-                            "\\s*[(\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.\\-]+)[\"')]",
+                            "\\s*\\(?[\"']([\\w.\\-]+:[\\w.\\-]+)(?::([\\w.\\-]+))?[\"']",
                     Pattern.CASE_INSENSITIVE);
-            Matcher m = p.matcher(content);
-            while (m.find()) {
-                comps.add(buildComponent(m.group(1), m.group(2), "MAVEN"));
+
+            for (Path buildFile : buildFiles) {
+                String content = Files.readString(buildFile, StandardCharsets.UTF_8);
+                Matcher m = p.matcher(content);
+                while (m.find()) {
+                    String key = m.group(1);
+                    String version = m.group(2); // null when no explicit version (BOM-managed)
+                    if (seen.add(key)) {
+                        comps.add(buildComponent(key, version, "MAVEN"));
+                    }
+                }
             }
-            log.info("[QuickImport][Gradle] Parsed {} components from {} in '{}'",
-                    comps.size(), buildFile.getFileName(), repoName);
+            log.info("[QuickImport][Gradle] Parsed {} components from {} build file(s) in '{}'",
+                    comps.size(), buildFiles.size(), repoName);
         } catch (Exception e) {
             log.error("[QuickImport][Gradle] Failed to parse build.gradle: {}", e.getMessage());
         }
