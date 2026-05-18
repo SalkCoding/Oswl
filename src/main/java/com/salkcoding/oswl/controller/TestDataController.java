@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.domain.entity.*;
 import com.salkcoding.oswl.domain.enums.*;
 import com.salkcoding.oswl.repository.*;
@@ -43,6 +44,12 @@ import java.util.UUID;
  *  - Project with no scans (edge: empty state UI)
  *  - CVE with AI summary populated
  *  - Same library appearing in multiple projects (shared Library row)
+ *  - VCS provider variations: GITHUB (default) and GITLAB (non-default provider)
+ *  - Soft-deleted project (deletedAt != null) for trash/restore UI
+ *  - ScanResult lifecycle states: PENDING / SCANNING / ANALYZING / COMPLETED / FAILED
+ *  - ScanResult.submittedByUserId populated (Quick Import scan attribution)
+ *  - ScanComponent deferrals (Exceptions): legal-review / false-positive / wont-fix / temporary
+ *    including both indefinite and time-boxed (expiring) deferrals
  */
 @Controller
 @RequestMapping("/data")
@@ -106,7 +113,10 @@ public class TestDataController {
                 .name("backend-api")
                 .version("3.2.0")
                 .githubRepo("acme-corp/backend-api")
+                .vcsProvider(VcsProvider.GITHUB)
                 .latestBranch("main")
+                .importedAt(LocalDateTime.now().minusDays(90))
+                .createdByUserId(1L)
                 .lastScannedAt(LocalDateTime.now().minusHours(1))
                 .build());
 
@@ -116,7 +126,10 @@ public class TestDataController {
                 .name("frontend-dashboard")
                 .version("2.1.0")
                 .githubRepo("acme-corp/frontend-dashboard")
+                .vcsProvider(VcsProvider.GITHUB)
                 .latestBranch("release/2.1")
+                .importedAt(LocalDateTime.now().minusDays(60))
+                .createdByUserId(1L)
                 .lastScannedAt(LocalDateTime.now().minusDays(1))
                 .build());
 
@@ -134,6 +147,33 @@ public class TestDataController {
                 .name("new-service")
                 .build());
 
+        // projectE — GitLab-imported project (non-default VCS provider edge case)
+        Project projectE = projectRepository.save(Project.builder()
+                .projectUuid(UUID.randomUUID().toString())
+                .name("payment-gateway")
+                .version("1.4.2")
+                .githubRepo("acme-internal/payment-gateway")
+                .vcsProvider(VcsProvider.GITLAB)
+                .latestBranch("main")
+                .importedAt(LocalDateTime.now().minusDays(20))
+                .createdByUserId(1L)
+                .lastScannedAt(LocalDateTime.now().minusDays(2))
+                .build());
+
+        // projectF — soft-deleted (in trash) edge case for trash/restore UI
+        Project projectTrash = projectRepository.save(Project.builder()
+                .projectUuid(UUID.randomUUID().toString())
+                .name("legacy-monolith")
+                .version("0.9.0")
+                .githubRepo("acme-corp/legacy-monolith")
+                .vcsProvider(VcsProvider.GITHUB)
+                .latestBranch("main")
+                .importedAt(LocalDateTime.now().minusDays(180))
+                .lastScannedAt(LocalDateTime.now().minusDays(60))
+                .build());
+        projectTrash.softDelete();
+        projectRepository.save(projectTrash);
+
         // ================================
         // 2.  PROJECT VERSIONS
         // ================================
@@ -150,6 +190,14 @@ public class TestDataController {
                 .project(projectB).branch("release/2.1").versionNumber(2).importSource(ImportSource.GIT).build());
         projectVersionRepository.save(ProjectVersion.builder()
                 .project(projectC).branch("main").versionNumber(1).importSource(ImportSource.CLI).build());
+
+        // GitLab project — single branch import
+        projectVersionRepository.save(ProjectVersion.builder()
+                .project(projectE).branch("main").versionNumber(1).importSource(ImportSource.GIT).build());
+
+        // Trashed project — historical import retained while soft-deleted
+        projectVersionRepository.save(ProjectVersion.builder()
+                .project(projectTrash).branch("main").versionNumber(1).importSource(ImportSource.GIT).build());
 
         // ================================
         // 3.  LIBRARIES  (MAVEN × 28 · NPM × 19 · PYPI × 18)
@@ -971,6 +1019,10 @@ public class TestDataController {
         scanAFail.fail("deps.dev API timeout after 30s —retryable error");
         // Pending scan (in-progress banner edge case)
         scan(projectA, "3.3.0-SNAPSHOT", ScanStatus.PENDING, LocalDateTime.now().minusMinutes(5));
+        // SCANNING — package list saved, awaiting vulnerability analysis (edge case)
+        scan(projectA, "3.3.0-rc1", ScanStatus.SCANNING, LocalDateTime.now().minusMinutes(3));
+        // ANALYZING — fetching CVE/license data from deps.dev + OSV (edge case)
+        scan(projectA, "3.3.0-rc2", ScanStatus.ANALYZING, LocalDateTime.now().minusMinutes(1));
 
         // ================================
         // 6.  SCAN RESULTS —PROJECT B & C
@@ -979,12 +1031,22 @@ public class TestDataController {
         ScanResult scanB1 = scan(projectB, "1.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(60));
         ScanResult scanB2 = scan(projectB, "1.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(30));
         ScanResult scanB3 = scan(projectB, "2.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(14));
-        ScanResult scanB4 = scan(projectB, "2.1.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(1));
+        // Latest projectB scan attributed to a Quick Import user (submittedByUserId edge case)
+        ScanResult scanB4 = scanByUser(projectB, "2.1.0", ScanStatus.COMPLETED,
+                LocalDateTime.now().minusDays(1), 1L);
 
         ScanResult scanC1 = scan(projectC, "0.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(45));
         ScanResult scanC2 = scan(projectC, "0.6.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(30));
         ScanResult scanC3 = scan(projectC, "0.7.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(15));
         ScanResult scanC4 = scan(projectC, "0.8.3", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(3));
+
+        // GitLab project — single completed scan (sanity baseline for VCS-provider variants)
+        ScanResult scanE1 = scanByUser(projectE, "1.4.2", ScanStatus.COMPLETED,
+                LocalDateTime.now().minusDays(2), 1L);
+
+        // Trashed project — has a historical completed scan retained in the soft-deleted record
+        ScanResult scanTrash1 = scan(projectTrash, "0.9.0", ScanStatus.COMPLETED,
+                LocalDateTime.now().minusDays(60));
 
         // ================================
         // 7.  SCAN COMPONENTS —PROJECT A  (MAVEN / backend-api)
@@ -1398,6 +1460,52 @@ public class TestDataController {
         savePath(scC4Sqlalchemy, 0,
                 List.of(node("ml-pipeline", "0.8.3"), node("SQLAlchemy", "1.4.40")));
 
+        // ================================
+        // 10. SCAN COMPONENTS —PROJECT E  (GitLab / payment-gateway)
+        //     Minimal coverage so the VCS-provider variant has a visible scan.
+        // ================================
+
+        addComp(scanE1, springWeb,     "Direct (1)",     false, false); // CRIT+HIGH
+        addComp(scanE1, jackson,       "Direct (1)",     false, false); // HIGH
+        addComp(scanE1, okhttp,        "Direct (1)",     false, false); // MED
+        addComp(scanE1, guava,         "Transitive (2)", false, false); // NONE
+        addComp(scanE1, bouncycastle,  "Direct (1)",     false, false); // MED
+        addComp(scanE1, h2,            "Direct (1)",     false, false); // CAUTION lic
+
+        // ================================
+        // 11. SCAN COMPONENTS —PROJECT TRASH  (soft-deleted legacy-monolith)
+        //     Retained so restoring from trash surfaces real components in the UI.
+        // ================================
+
+        addComp(scanTrash1, log4j,     "Direct (1)",     false, false); // CRIT (Log4Shell)
+        addComp(scanTrash1, jackson,   "Direct (1)",     false, false);
+        addComp(scanTrash1, commonsIo, "Direct (1)",     false, false);
+        addComp(scanTrash1, gplLib,    "Direct (1)",     false, false); // RESTRICTED lic
+
+        // ================================
+        // 12. DEFERRALS (Exceptions) — edge cases per reason code
+        // ================================
+
+        // legal-review · indefinite (no expiry) — RESTRICTED license on current backend-api
+        deferComp(scanA8, gplLib, "legal-review", null,
+                "Legal team approved continued use until Q3 migration completes. See JIRA SEC-4521.");
+
+        // false-positive · indefinite — Spring4Shell mitigated via WAF rule
+        deferComp(scanA8, springWeb, "false-positive", null,
+                "Spring4Shell not exploitable: app runs on JDK 8 and Tomcat 8 (CVE-2022-22965 requires JDK 9+).");
+
+        // temporary · expires in 14 days — short-term waiver on h2 license
+        deferComp(scanA8, h2, "temporary", LocalDateTime.now().plusDays(14),
+                "Temporary waiver: H2 used only in local dev/test profiles, removed before GA.");
+
+        // wont-fix · already expired — surfaces the "expired deferral" UI state
+        deferComp(scanB4, qs, "wont-fix", LocalDateTime.now().minusDays(3),
+                "Cost of upgrade outweighs risk for internal-only admin UI. Re-evaluate next quarter.");
+
+        // other · indefinite — free-text reason on ml-pipeline
+        deferComp(scanC4, pillow, "other", null,
+                "Tracked via security-team backlog item ML-882; no patched version compatible with current TF stack.");
+
         return "redirect:/projects";
     }
 
@@ -1452,6 +1560,19 @@ public class TestDataController {
         return scanResultRepository.save(s);
     }
 
+    /** Variant that attributes the scan to a user (Quick Import / future user-level CLI auth). */
+    private ScanResult scanByUser(Project project, String version, ScanStatus status,
+                                  LocalDateTime scannedAt, Long submittedByUserId) {
+        ScanResult s = ScanResult.builder()
+                .project(project)
+                .version(version)
+                .status(status)
+                .submittedByUserId(submittedByUserId)
+                .build();
+        s.setScannedAt(scannedAt);
+        return scanResultRepository.save(s);
+    }
+
     private ScanComponent addComp(ScanResult scan, Library library,
                                   String depInfo, boolean reviewed, boolean ignored) {
         ScanComponent sc = ScanComponent.builder()
@@ -1475,5 +1596,20 @@ public class TestDataController {
 
     private DependencyPath.PathNode node(String name, String version) {
         return DependencyPath.PathNode.builder().name(name).version(version).build();
+    }
+
+    /**
+     * Applies a deferral exception to the ScanComponent of {@code library} in {@code scan}.
+     * The component must already have been created via {@link #addComp}.
+     */
+    private void deferComp(ScanResult scan, Library library, String reason,
+                           LocalDateTime expiresAt, String note) {
+        scanComponentRepository.findByScanResultId(scan.getId()).stream()
+                .filter(sc -> sc.getLibrary().getId().equals(library.getId()))
+                .findFirst()
+                .ifPresent(sc -> {
+                    sc.applyDeferral(reason, expiresAt, note);
+                    scanComponentRepository.save(sc);
+                });
     }
 }
