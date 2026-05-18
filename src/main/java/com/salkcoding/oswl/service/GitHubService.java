@@ -77,10 +77,33 @@ public class GitHubService {
     // ── Repos ────────────────────────────────────────────────────────────────
 
     /**
+     * Returns all repositories accessible by the authenticated user (own + org + collaborator),
+     * sorted by last updated. Used by the Quick Import repo browser.
+     */
+    public List<GitHubRepoDto> listAllUserRepos(String accessToken) {
+        String url = githubApiBase + "/user/repos?per_page=100&sort=updated";
+        JsonNode repos = getJson(accessToken, url);
+        List<GitHubRepoDto> result = new ArrayList<>();
+        if (repos.isArray()) {
+            for (JsonNode r : repos) {
+                result.add(GitHubRepoDto.builder()
+                        .id(r.path("id").asLong())
+                        .name(r.path("name").asText())
+                        .fullName(r.path("full_name").asText())
+                        .defaultBranch(r.path("default_branch").asText("main"))
+                        .updatedAt(r.path("updated_at").asText())
+                        .isPrivate(r.path("private").asBoolean())
+                        .build());
+            }
+        }
+        return result;
+    }
+
+    /**
      * Returns repos for a given account (user or org), sorted by updated_at desc.
      *
      * @param accessToken GitHub access token
-     * @param account     GitHub login ??if it matches the authenticated user, fetches /user/repos;
+     * @param account     GitHub login — if it matches the authenticated user, fetches /user/repos;
      *                    otherwise fetches /orgs/{account}/repos
      */
     public List<GitHubRepoDto> getRepos(String accessToken, String account) {

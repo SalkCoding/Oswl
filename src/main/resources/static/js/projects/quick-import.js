@@ -3,12 +3,16 @@
    Endpoint contract:
      GET  /api/quick-import/connections  → VcsConnectionDto[]
        { provider: 'GITHUB'|'GITLAB'|'BITBUCKET', vcsUsername: string }
+     GET  /api/quick-import/repos?provider=  → QuickImportRepoDto[]
+       { name, fullName, webUrl, defaultBranch, isPrivate, updatedAt }
      POST /api/quick-import/start        → { jobId: string }
        body: { repoUrl: string, branch: string|null }
      GET  /api/quick-import/job/:jobId   → QuickImportJobStatus
        { jobId, phase, message, projectId, projectName, apiToken,
          newApiKey, ecosystem, componentCount, error }
    ============================================================ */
+
+const REPO_PAGE_SIZE = 10;
 
 function quickImportPage() {
     return {
@@ -18,6 +22,13 @@ function quickImportPage() {
             GITHUB: null,
             GITLAB: null,
             BITBUCKET: null,
+        },
+
+        /* ── Repo browsers ───────────────────────── */
+        repoBrowsers: {
+            GITHUB:    { repos: [], loading: false, error: null, search: '', page: 1 },
+            GITLAB:    { repos: [], loading: false, error: null, search: '', page: 1 },
+            BITBUCKET: { repos: [], loading: false, error: null, search: '', page: 1 },
         },
 
         /* ── Form state ──────────────────────────── */
@@ -45,6 +56,9 @@ function quickImportPage() {
 
         async init() {
             await this.loadConnections();
+            for (const p of this.connectedProviders) {
+                this.loadRepoBrowser(p);
+            }
         },
 
         /* ── Derived getters ──────────────────────── */
@@ -60,6 +74,15 @@ function quickImportPage() {
             if (url.includes('github.com'))    return 'GITHUB';
             if (url.includes('gitlab'))        return 'GITLAB';
             if (url.includes('bitbucket.org')) return 'BITBUCKET';
+            // Check self-hosted Bitbucket by matching the stored connection's serverUrl
+            const bbConn = this.connectionsByProvider['BITBUCKET'];
+            if (bbConn && bbConn.serverUrl) {
+                try {
+                    const connHost = new URL(bbConn.serverUrl).hostname.toLowerCase();
+                    const urlHost  = new URL(this.repoUrl).hostname.toLowerCase();
+                    if (connHost && urlHost === connHost) return 'BITBUCKET';
+                } catch (_) {}
+            }
             return null;
         },
 
@@ -152,7 +175,10 @@ function quickImportPage() {
         },
 
         _startPolling() {
-            this._appendLog('running', 'Import job queued…');
+            // Kick off an immediate first poll so the QUEUED phase entry appears right away,
+            // then continue at 1.5s intervals. All log entries are driven by backend phases
+            // so no manual "queued" entry is needed here.
+            this._pollJob();
             this._pollTimer = setInterval(() => this._pollJob(), 1500);
         },
 
@@ -217,6 +243,106 @@ function quickImportPage() {
                     this._showToastWithKey(job.apiToken);
                 }
             }
+        },
+
+        /* ── Repo browser ───────────────────────── */
+
+        async loadRepoBrowser(provider) {
+            const b = this.repoBrowsers[provider];
+            if (!b || b.loading) return;
+            b.loading = true;
+            b.error = null;
+            try {
+                const res = await fetch('/api/quick-import/repos?provider=' + provider);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                b.repos = await res.json();
+                b.page = 1;
+            } catch (err) {
+                console.error('[RepoBrowser] Load failed for ' + provider + ':', err);
+                b.error = 'Failed to load repositories.';
+            } finally {
+                b.loading = false;
+            }
+        },
+
+        async refreshRepoBrowser(provider) {
+            const b = this.repoBrowsers[provider];
+            if (!b) return;
+            b.repos = [];
+            b.search = '';
+            b.page = 1;
+            await this.loadRepoBrowser(provider);
+        },
+
+        getBrowserFilteredRepos(provider) {
+            const b = this.repoBrowsers[provider];
+            if (!b) return [];
+            const q = (b.search || '').toLowerCase();
+            if (!q) return b.repos;
+            return b.repos.filter(r => r.fullName.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+        },
+
+        getBrowserTotalPages(provider) {
+            return Math.max(1, Math.ceil(this.getBrowserFilteredRepos(provider).length / REPO_PAGE_SIZE));
+        },
+
+        getBrowserPagedRepos(provider) {
+            const b = this.repoBrowsers[provider];
+            if (!b) return [];
+            const filtered = this.getBrowserFilteredRepos(provider);
+            const start = (b.page - 1) * REPO_PAGE_SIZE;
+            return filtered.slice(start, start + REPO_PAGE_SIZE);
+        },
+
+        browserPrevPage(provider) {
+            const b = this.repoBrowsers[provider];
+            if (b && b.page > 1) b.page--;
+        },
+
+        browserNextPage(provider) {
+            const b = this.repoBrowsers[provider];
+            if (b && b.page < this.getBrowserTotalPages(provider)) b.page++;
+        },
+
+        onBrowserSearch(provider) {
+            const b = this.repoBrowsers[provider];
+            if (b) b.page = 1;
+        },
+
+        selectRepoForImport(repo) {
+            this.repoUrl = repo.webUrl;
+            this.branch = repo.defaultBranch || '';
+            this.urlError = '';
+            // Immediately start the import without requiring the user to click the button
+            this.startImport().then(() => {
+                this.$nextTick(() => {
+                    const progress = document.getElementById('import-progress');
+                    if (progress) progress.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            });
+        },
+
+        formatRepoDate(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const d = new Date(dateStr);
+                if (isNaN(d)) return '';
+                const now = new Date();
+                const diff = Math.floor((now - d) / 1000);
+                if (diff < 60)   return 'just now';
+                if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+                if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+                if (diff < 2592000) return Math.floor(diff / 86400) + 'd ago';
+                return d.toLocaleDateString();
+            } catch (_) { return ''; }
+        },
+
+        providerLabel(provider) {
+            return { GITHUB: 'GitHub', GITLAB: 'GitLab', BITBUCKET: 'Bitbucket' }[provider] || provider;
+        },
+
+        providerBrandColor(provider) {
+            return { GITHUB: '#24292f', GITLAB: '#fc6d26', BITBUCKET: '#0052cc' }[provider] || '#6b7280';
         },
 
         /* ── Toast + auto-copy ──────────────────── */

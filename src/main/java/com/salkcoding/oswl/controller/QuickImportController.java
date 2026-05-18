@@ -1,9 +1,11 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.dto.VcsConnectionDto;
+import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.VcsConnectionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.QuickImportRequest;
 import com.salkcoding.oswl.service.QuickImportService;
 import jakarta.validation.Valid;
@@ -22,6 +24,7 @@ import java.util.Map;
  *
  * GET  /projects/quick-import               — Thymeleaf page
  * GET  /api/quick-import/connections        — user's connected VCS accounts
+ * GET  /api/quick-import/repos?provider=    — list repos for a VCS provider
  * POST /api/quick-import/start              — start an async import job
  * GET  /api/quick-import/job/{jobId}        — poll job status
  */
@@ -53,6 +56,22 @@ public class QuickImportController {
     public ResponseEntity<List<VcsConnectionDto>> connections(
             @AuthenticationPrincipal OswlUserPrincipal principal) {
         return ResponseEntity.ok(vcsConnectionService.findByCurrentUser(principal.getUserId()));
+    }
+
+    /**
+     * Lists all repositories accessible by the authenticated user for the given VCS provider.
+     * Used by the Quick Import repo browser UI.
+     *
+     * @param provider one of GITHUB, GITLAB, BITBUCKET
+     */
+    @GetMapping("/api/quick-import/repos")
+    @ResponseBody
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<QuickImportRepoDto>> listRepos(
+            @RequestParam VcsProvider provider,
+            @AuthenticationPrincipal OswlUserPrincipal principal) {
+        List<QuickImportRepoDto> repos = quickImportService.listRepos(provider, principal.getUserId());
+        return ResponseEntity.ok(repos);
     }
 
     /**

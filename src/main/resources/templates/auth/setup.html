@@ -41,7 +41,7 @@
         </div>
 
         <!-- Form -->
-        <form th:action="@{/setup}" th:object="${setupRequest}" method="post" novalidate class="w-full flex flex-col gap-[16px]">
+        <form th:action="@{/setup}" th:object="${setupRequest}" method="post" class="w-full flex flex-col gap-[16px]">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
 
             <!-- Name -->

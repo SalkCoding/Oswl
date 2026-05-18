@@ -168,20 +168,29 @@
             <!-- Inline form: shown when not connected -->
             <div x-show="!connections.some(c=>c.provider==='BITBUCKET')" class="flex flex-col gap-[12px] pt-[16px] border-t border-[var(--grayscale-10)]">
                 <div class="flex items-center gap-[12px]">
-                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Username</label>
-                    <input type="text" x-model="bitbucketUsername"
-                           placeholder="atlassian-username"
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Server URL</label>
+                    <input type="url" x-model="bitbucketServerUrl"
+                           placeholder="https://bitbucket.example.com (leave blank for Bitbucket Cloud)"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex items-center gap-[12px]">
-                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">App Password</label>
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Username</label>
+                    <input type="text" x-model="bitbucketUsername"
+                           :placeholder="bitbucketServerUrl.trim() ? 'username (optional for Data Center/Server)' : 'atlassian-username'"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
+                        <span x-show="!bitbucketServerUrl.trim()">App Password</span>
+                        <span x-show="bitbucketServerUrl.trim()">Access Token</span>
+                    </label>
                     <input type="password" x-model="bitbucketAccessToken"
-                           placeholder="ATBB-xxxxxxxxxxxxxxxxxxxxxxxx"
+                           :placeholder="bitbucketServerUrl.trim() ? 'Personal Access Token' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx'"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex justify-end">
                     <button @click="connectBitbucket()"
-                            :disabled="!bitbucketUsername.trim() || !bitbucketAccessToken.trim() || creating"
+                            :disabled="(!bitbucketServerUrl.trim() && !bitbucketUsername.trim()) || !bitbucketAccessToken.trim() || creating"
                             class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         <span x-text="creating ? 'Connecting...' : 'Save'"></span>
@@ -240,17 +249,24 @@
                     </div>
                 </div>
 
-                <!-- GitLab: Server URL (optional) -->
-                <div class="flex flex-col gap-[6px]" x-show="form.provider === 'GITLAB'" x-cloak>
-                    <label class="text-[12px] font-bold">Server URL <span class="text-white/50 font-normal">(Optional — leave blank for gitlab.com)</span></label>
-                    <input type="url" x-model="form.serverUrl" placeholder="https://gitlab.example.com"
+                <!-- GitLab / Bitbucket: Server URL (optional) -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider === 'GITLAB' || form.provider === 'BITBUCKET'" x-cloak>
+                    <label class="text-[12px] font-bold">Server URL
+                        <span class="text-white/50 font-normal" x-show="form.provider === 'GITLAB'">(Optional — leave blank for gitlab.com)</span>
+                        <span class="text-white/50 font-normal" x-show="form.provider === 'BITBUCKET'">(Optional — leave blank for Bitbucket Cloud)</span>
+                    </label>
+                    <input type="url" x-model="form.serverUrl"
+                           :placeholder="form.provider === 'GITLAB' ? 'https://gitlab.example.com' : 'https://bitbucket.example.com'"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Bitbucket: Username -->
                 <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
-                    <label class="text-[12px] font-bold">Username</label>
-                    <input type="text" x-model="form.vcsUsername" placeholder="atlassian-username"
+                    <label class="text-[12px] font-bold">Username
+                        <span class="text-white/50 font-normal" x-show="form.serverUrl.trim()">(Optional for Data Center/Server)</span>
+                    </label>
+                    <input type="text" x-model="form.vcsUsername"
+                           :placeholder="form.serverUrl.trim() ? 'username (optional)' : 'atlassian-username'"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
@@ -258,16 +274,17 @@
                 <div class="flex flex-col gap-[6px]" x-show="form.provider" x-cloak>
                     <label class="text-[12px] font-bold">
                         <span x-show="form.provider !== 'BITBUCKET'">Personal Access Token</span>
-                        <span x-show="form.provider === 'BITBUCKET'">App Password</span>
+                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()">App Password</span>
+                        <span x-show="form.provider === 'BITBUCKET' && form.serverUrl.trim()">Personal Access Token</span>
                     </label>
                     <input type="password" x-model="form.accessToken"
-                           :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx'"
+                           :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : (form.serverUrl.trim() ? 'Personal Access Token' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx')"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Buttons -->
                 <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
-                    <button @click="addConnection()" :disabled="!form.provider || !form.accessToken.trim() || creating"
+                    <button @click="addConnection()" :disabled="!form.provider || !form.accessToken.trim() || (form.provider === 'BITBUCKET' && !form.serverUrl.trim() && !form.vcsUsername.trim()) || creating"
                             class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-bold py-[10px] rounded-[8px]"
                             x-text="creating ? 'Connecting...' : 'Connect'"></button>
                     <button @click="closeCreate()"
@@ -307,11 +324,12 @@
             gitlabAccessToken: '',
             githubServerUrl: '',
             githubAccessToken: '',
+            bitbucketServerUrl: '',
             bitbucketUsername: '',
             bitbucketAccessToken: '',
             form: { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' },
             csrf: document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            headers() { return { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
             formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
             providerLabel(p) {
                 return p === 'GITHUB' ? 'GitHub' : p === 'GITLAB' ? 'GitLab' : p === 'BITBUCKET' ? 'Atlassian' : p;
@@ -347,6 +365,7 @@
             },
             async addConnection() {
                 if (!this.form.provider || !this.form.accessToken.trim()) return;
+                if (this.form.provider === 'BITBUCKET' && !this.form.serverUrl.trim() && !this.form.vcsUsername.trim()) return;
                 this.creating = true;
                 this.apiError = null;
                 const providerName = this.providerLabel(this.form.provider);
@@ -360,7 +379,11 @@
                     };
                     const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || ('Failed to connect. (' + r.status + ')');
+                        return;
+                    }
                     this.closeCreate();
                     await this.loadConnections();
                     this.showToast(providerName + ' connected successfully.');
@@ -400,7 +423,11 @@
                     };
                     const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || ('Failed to connect. (' + r.status + ')');
+                        return;
+                    }
                     this.gitlabServerUrl = '';
                     this.gitlabAccessToken = '';
                     await this.loadConnections();
@@ -424,7 +451,11 @@
                     };
                     const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || ('Failed to connect. (' + r.status + ')');
+                        return;
+                    }
                     this.githubServerUrl = '';
                     this.githubAccessToken = '';
                     await this.loadConnections();
@@ -436,19 +467,26 @@
                 }
             },
             async connectBitbucket() {
-                if (!this.bitbucketUsername.trim() || !this.bitbucketAccessToken.trim()) return;
+                const isCloud = !this.bitbucketServerUrl.trim();
+                if (isCloud && !this.bitbucketUsername.trim()) return;
+                if (!this.bitbucketAccessToken.trim()) return;
                 this.creating = true;
                 this.apiError = null;
                 try {
                     const body = {
                         provider: 'BITBUCKET',
-                        serverUrl: null,
-                        vcsUsername: this.bitbucketUsername.trim(),
+                        serverUrl: this.bitbucketServerUrl.trim() || null,
+                        vcsUsername: this.bitbucketUsername.trim() || null,
                         accessToken: this.bitbucketAccessToken
                     };
                     const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to connect. (' + r.status + ')'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || ('Failed to connect. (' + r.status + ')');
+                        return;
+                    }
+                    this.bitbucketServerUrl = '';
                     this.bitbucketUsername = '';
                     this.bitbucketAccessToken = '';
                     await this.loadConnections();
