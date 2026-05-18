@@ -8,6 +8,7 @@ import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.aop.Auditable;
+import com.salkcoding.oswl.client.VcsTokenValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ public class VcsConnectionService {
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
     private final AuditLogService auditLogService;
+    private final VcsTokenValidator vcsTokenValidator;
 
     @Transactional(readOnly = true)
     public List<VcsConnectionDto> findByCurrentUser(Long userId) {
@@ -42,6 +44,8 @@ public class VcsConnectionService {
                targetIdExpr = "#result.id.toString()",
                targetNameExpr = "#result.provider + (#result.serverUrl != null ? ' / ' + #result.serverUrl : '')")
     public VcsConnectionDto addConnection(Long userId, AddVcsConnectionRequest request) {
+        vcsTokenValidator.validate(request.getProvider(), request.getServerUrl(),
+                request.getAccessToken(), request.getVcsUsername());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         repository.findByUserIdAndProviderAndActiveTrue(userId, request.getProvider())
