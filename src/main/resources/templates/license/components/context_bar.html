@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!--
+        Deployment context bar + export actions.
+        Submits as a GET so the URL captures the current scenario and the page is shareable.
+        The form preserves `scanId` when present.
+    -->
+    <div th:fragment="context_bar"
+         class="w-full bg-white border border-[#DBE4E7] rounded-[10px] px-5 py-4 flex flex-wrap items-center gap-x-8 gap-y-3 justify-between">
+
+        <form th:action="@{|/projects/${projectId}/license|}" method="get"
+              class="flex flex-wrap items-end gap-x-6 gap-y-3">
+
+            <!-- preserve current scan when set -->
+            <input type="hidden" name="scanId" th:value="${currentScanId}" th:if="${currentScanId != null}"/>
+
+            <div class="flex flex-col gap-1">
+                <label for="ctx-deployment" class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Deployment</label>
+                <select id="ctx-deployment" name="deployment"
+                        onchange="this.form.submit()"
+                        class="text-[12px] border border-[#DBE4E7] rounded-md px-2 py-[6px] bg-white focus:outline-none focus:ring-1 focus:ring-black/40 min-w-[160px]">
+                    <option value="SAAS"     th:selected="${context.deployment == 'SAAS'}">SaaS / Hosted only</option>
+                    <option value="BINARY"   th:selected="${context.deployment == 'BINARY'}">On-Premise Binary</option>
+                    <option value="LIBRARY"  th:selected="${context.deployment == 'LIBRARY'}">Library / SDK</option>
+                    <option value="EMBEDDED" th:selected="${context.deployment == 'EMBEDDED'}">Embedded Device</option>
+                </select>
+            </div>
+
+            <div class="flex flex-col gap-1">
+                <label for="ctx-linking" class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Linking</label>
+                <select id="ctx-linking" name="linking"
+                        onchange="this.form.submit()"
+                        class="text-[12px] border border-[#DBE4E7] rounded-md px-2 py-[6px] bg-white focus:outline-none focus:ring-1 focus:ring-black/40 min-w-[140px]">
+                    <option value="DYNAMIC" th:selected="${context.linking == 'DYNAMIC'}">Dynamic linking</option>
+                    <option value="STATIC"  th:selected="${context.linking == 'STATIC'}">Static linking</option>
+                </select>
+            </div>
+
+            <label class="flex items-center gap-2 text-[12px] text-[var(--grayscale-70)] cursor-pointer select-none mb-[6px]">
+                <!--
+                  Spring binds the FIRST occurrence of a duplicated request param.
+                  So we put the hidden "false" companion AFTER a tiny script: if the checkbox
+                  is unchecked nothing is submitted (controller default = false). If it is
+                  checked, only "true" is submitted. No duplicate keys, no binding ambiguity.
+                -->
+                <input type="checkbox" name="modified" value="true"
+                       th:checked="${context.modified}"
+                       onchange="this.form.submit()"
+                       class="w-4 h-4 rounded border-[#DBE4E7] cursor-pointer"/>
+                <span>Upstream sources modified</span>
+            </label>
+        </form>
+
+        <!-- Export actions + summary -->
+        <div class="flex items-center gap-2">
+            <a th:href="@{/projects/{pid}/license/export/notice(pid=${projectId},scanId=${currentScanId})}"
+               class="inline-flex items-center gap-2 text-[12px] font-medium text-[var(--grayscale-80)] border border-[#DBE4E7] rounded-md px-3 py-[7px] hover:bg-[var(--grayscale-5)] transition-colors">
+                <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                NOTICE.txt
+            </a>
+            <a th:href="@{/projects/{pid}/license/export/spdx(pid=${projectId},scanId=${currentScanId})}"
+               class="inline-flex items-center gap-2 text-[12px] font-medium text-[var(--grayscale-80)] border border-[#DBE4E7] rounded-md px-3 py-[7px] hover:bg-[var(--grayscale-5)] transition-colors">
+                <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                SPDX SBOM
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

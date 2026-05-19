@@ -6,11 +6,71 @@
     <div th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'license')}"></div>
 
     <main class="flex-1 w-full max-w-[1440px] mx-auto px-[80px] py-[40px]">
-        <div class="flex gap-[48px] items-start w-full">
+
+        <!-- Deployment context + exports bar -->
+        <div th:replace="~{license/components/context_bar :: context_bar}"></div>
+
+        <div class="flex gap-[48px] items-start w-full mt-6">
             <div class="flex-1 flex flex-col min-w-[248px]"
                  th:replace="~{license/components/licenses_found :: licenses_found}"></div>
-            <div class="flex-1 flex flex-col min-w-[248px]"
-                 th:replace="~{license/components/obligations_found :: obligations_found}"></div>
+
+            <!-- Tabbed right column: Obligations / Conflicts / Review -->
+            <div class="flex-1 flex flex-col min-w-[248px] w-full"
+                 x-data="{ tab: 'obligations' }">
+
+                <!-- Tab strip -->
+                <div class="flex items-center gap-1 border-b border-[#DBE4E7] mb-3" role="tablist">
+                    <button type="button" role="tab"
+                            @click="tab = 'obligations'"
+                            :aria-selected="tab === 'obligations'"
+                            :class="tab === 'obligations' ? 'text-black border-b-2 border-black -mb-px' : 'text-[var(--grayscale-50)] hover:text-black'"
+                            class="px-3 py-2 text-[13px] font-medium tracking-[-0.13px] transition-colors flex items-center gap-2">
+                        <span>Obligations</span>
+                        <span class="bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] px-[6px] py-[1px] rounded-[10px]"
+                              th:text="${totalObligations}">0</span>
+                    </button>
+                    <button type="button" role="tab"
+                            @click="tab = 'conflicts'"
+                            :aria-selected="tab === 'conflicts'"
+                            :class="tab === 'conflicts' ? 'text-black border-b-2 border-black -mb-px' : 'text-[var(--grayscale-50)] hover:text-black'"
+                            class="px-3 py-2 text-[13px] font-medium tracking-[-0.13px] transition-colors flex items-center gap-2">
+                        <span>Conflicts</span>
+                        <span th:with="cnt=${#lists.size(conflicts)}"
+                              th:classappend="${cnt > 0 ? 'bg-[rgba(230,39,39,0.1)] text-[#e62727]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'}"
+                              class="text-[10px] px-[6px] py-[1px] rounded-[10px]"
+                              th:text="${cnt}">0</span>
+                    </button>
+                    <button type="button" role="tab"
+                            @click="tab = 'review'"
+                            :aria-selected="tab === 'review'"
+                            :class="tab === 'review' ? 'text-black border-b-2 border-black -mb-px' : 'text-[var(--grayscale-50)] hover:text-black'"
+                            class="px-3 py-2 text-[13px] font-medium tracking-[-0.13px] transition-colors flex items-center gap-2">
+                        <span>Review Needed</span>
+                        <span th:with="cnt=${#lists.size(reviewItems)}"
+                              th:classappend="${cnt > 0 ? 'bg-[rgba(245,189,38,0.15)] text-[#a76f00]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'}"
+                              class="text-[10px] px-[6px] py-[1px] rounded-[10px]"
+                              th:text="${cnt}">0</span>
+                    </button>
+                </div>
+
+                <!-- Tab panels -->
+                <div x-show="tab === 'obligations'" x-cloak
+                     th:replace="~{license/components/obligations_found :: obligations_found}"></div>
+                <div x-show="tab === 'conflicts'" x-cloak
+                     th:replace="~{license/components/license_conflicts :: license_conflicts}"></div>
+                <div x-show="tab === 'review'" x-cloak
+                     th:replace="~{license/components/license_review :: license_review}"></div>
+            </div>
+        </div>
+
+        <!-- Legal disclaimer -->
+        <div class="mt-10 border-t border-[#DBE4E7] pt-4">
+            <p class="text-[11px] text-[var(--grayscale-50)] leading-relaxed max-w-[1000px]">
+                <span class="font-semibold text-[var(--grayscale-60)]">Disclaimer.</span>
+                Obligation classifications, conflict warnings and exported artifacts are generated automatically from SPDX metadata
+                and represent best-effort guidance only. They do not constitute legal advice. Consult qualified counsel before
+                relying on this output for distribution, M&amp;A due diligence, regulatory disclosure or customer contracts.
+            </p>
         </div>
     </main>
 

@@ -67,11 +67,15 @@ public class QuickImportController {
     @GetMapping("/api/quick-import/repos")
     @ResponseBody
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<QuickImportRepoDto>> listRepos(
+    public ResponseEntity<?> listRepos(
             @RequestParam VcsProvider provider,
             @AuthenticationPrincipal OswlUserPrincipal principal) {
-        List<QuickImportRepoDto> repos = quickImportService.listRepos(provider, principal.getUserId());
-        return ResponseEntity.ok(repos);
+        try {
+            List<QuickImportRepoDto> repos = quickImportService.listRepos(provider, principal.getUserId());
+            return ResponseEntity.ok(repos);
+        } catch (Exception e) {
+            return ResponseEntity.status(502).body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**

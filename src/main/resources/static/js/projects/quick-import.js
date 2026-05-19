@@ -47,10 +47,6 @@ function quickImportPage() {
         /* ── Copy feedback ───────────────────────── */
         keyCopied: false,
 
-        /* ── Toast ────────────────────────────── */
-        toastVisible: false,
-        toastApiKey: '',
-        toastAutoCopied: false,
 
         /* ─────────────────────────────────────────── */
 
@@ -239,9 +235,6 @@ function quickImportPage() {
                 this._stopPolling();
                 this.jobResult   = job;
                 this.isImporting = false;
-                if (job.phase === 'DONE' && job.apiToken) {
-                    this._showToastWithKey(job.apiToken);
-                }
             }
         },
 
@@ -254,12 +247,16 @@ function quickImportPage() {
             b.error = null;
             try {
                 const res = await fetch('/api/quick-import/repos?provider=' + provider);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
+                if (!res.ok) {
+                    let msg = 'Failed to load repositories.';
+                    try { const body = await res.json(); if (body.error) msg = body.error; } catch (_) {}
+                    throw new Error(msg);
+                }
                 b.repos = await res.json();
                 b.page = 1;
             } catch (err) {
                 console.error('[RepoBrowser] Load failed for ' + provider + ':', err);
-                b.error = 'Failed to load repositories.';
+                b.error = err.message;
             } finally {
                 b.loading = false;
             }
@@ -309,11 +306,11 @@ function quickImportPage() {
             if (b) b.page = 1;
         },
 
-        selectRepoForImport(repo) {
+        selectRepoForImport(repo, branch) {
             this.repoUrl = repo.webUrl;
-            this.branch = repo.defaultBranch || '';
+            this.branch  = branch !== undefined ? branch : (repo.defaultBranch || '');
             this.urlError = '';
-            // Immediately start the import without requiring the user to click the button
+            // Immediately start import with the selected (or default) branch
             this.startImport().then(() => {
                 this.$nextTick(() => {
                     const progress = document.getElementById('import-progress');
@@ -343,37 +340,6 @@ function quickImportPage() {
 
         providerBrandColor(provider) {
             return { GITHUB: '#24292f', GITLAB: '#fc6d26', BITBUCKET: '#0052cc' }[provider] || '#6b7280';
-        },
-
-        /* ── Toast + auto-copy ──────────────────── */
-        async _showToastWithKey(apiKey) {
-            this.toastApiKey = apiKey;
-            this.toastAutoCopied = false;
-            try {
-                await navigator.clipboard.writeText(apiKey);
-                this.toastAutoCopied = true;
-            } catch (err) {
-                // Clipboard may be blocked (insecure context, no user gesture, perms)
-                console.warn('[QuickImport] Auto-copy failed:', err);
-                this.toastAutoCopied = false;
-            }
-            this.toastVisible = true;
-            // Auto-dismiss after 12s so the user has time to read & manually copy if needed
-            setTimeout(() => { this.toastVisible = false; }, 12000);
-        },
-
-        async toastCopyAgain() {
-            if (!this.toastApiKey) return;
-            try {
-                await navigator.clipboard.writeText(this.toastApiKey);
-                this.toastAutoCopied = true;
-            } catch (err) {
-                console.error('[QuickImport] Manual copy failed:', err);
-            }
-        },
-
-        dismissToast() {
-            this.toastVisible = false;
         },
 
         _appendLog(status, text) {

@@ -114,7 +114,7 @@
                 <div class="flex items-center gap-[12px]">
                     <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Server URL</label>
                     <input type="url" x-model="gitlabServerUrl"
-                           placeholder="https://gitlab.example.com"
+                           placeholder="Leave blank for gitlab.com"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex items-center gap-[12px]">
@@ -174,23 +174,31 @@
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex items-center gap-[12px]">
-                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">Username</label>
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
+                        <span x-show="!bitbucketServerUrl.trim()">Workspace Slug</span>
+                        <span x-show="bitbucketServerUrl.trim()">Username</span>
+                    </label>
                     <input type="text" x-model="bitbucketUsername"
-                           :placeholder="bitbucketServerUrl.trim() ? 'username (optional for Data Center/Server)' : 'atlassian-username'"
+                           :placeholder="bitbucketServerUrl.trim() ? 'username (optional)' : 'e.g. salkcoding · Required for HTTP access tokens'"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
-                        <span x-show="!bitbucketServerUrl.trim()">App Password</span>
+                        <span x-show="!bitbucketServerUrl.trim()">API Token</span>
                         <span x-show="bitbucketServerUrl.trim()">Access Token</span>
                     </label>
                     <input type="password" x-model="bitbucketAccessToken"
-                           :placeholder="bitbucketServerUrl.trim() ? 'Personal Access Token' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx'"
+                           :placeholder="bitbucketServerUrl.trim() ? 'Personal Access Token' : 'ATATT3x... or ATBB-...'"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <!-- Cloud-only hint -->
+                <div x-show="!bitbucketServerUrl.trim()" class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed">
+                    <span class="font-medium">HTTP access token (ATATT)</span> — enter workspace slug + token &nbsp;·&nbsp;
+                    <span class="font-medium">App password</span> — enter Bitbucket username + app password
                 </div>
                 <div class="flex justify-end">
                     <button @click="connectBitbucket()"
-                            :disabled="(!bitbucketServerUrl.trim() && !bitbucketUsername.trim()) || !bitbucketAccessToken.trim() || creating"
+                            :disabled="!bitbucketAccessToken.trim() || creating"
                             class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         <span x-text="creating ? 'Connecting...' : 'Save'"></span>
@@ -263,10 +271,10 @@
                 <!-- Bitbucket: Username -->
                 <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
                     <label class="text-[12px] font-bold">Username
-                        <span class="text-white/50 font-normal" x-show="form.serverUrl.trim()">(Optional for Data Center/Server)</span>
+                        <span class="text-white/50 font-normal">(Optional)</span>
                     </label>
                     <input type="text" x-model="form.vcsUsername"
-                           :placeholder="form.serverUrl.trim() ? 'username (optional)' : 'atlassian-username'"
+                           :placeholder="form.serverUrl.trim() ? 'username (optional)' : 'Leave blank to use HTTP access token'"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
@@ -274,7 +282,7 @@
                 <div class="flex flex-col gap-[6px]" x-show="form.provider" x-cloak>
                     <label class="text-[12px] font-bold">
                         <span x-show="form.provider !== 'BITBUCKET'">Personal Access Token</span>
-                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()">App Password</span>
+                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()">App Password / Token</span>
                         <span x-show="form.provider === 'BITBUCKET' && form.serverUrl.trim()">Personal Access Token</span>
                     </label>
                     <input type="password" x-model="form.accessToken"
@@ -284,7 +292,7 @@
 
                 <!-- Buttons -->
                 <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
-                    <button @click="addConnection()" :disabled="!form.provider || !form.accessToken.trim() || (form.provider === 'BITBUCKET' && !form.serverUrl.trim() && !form.vcsUsername.trim()) || creating"
+                    <button @click="addConnection()" :disabled="!form.provider || !form.accessToken.trim() || creating"
                             class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-bold py-[10px] rounded-[8px]"
                             x-text="creating ? 'Connecting...' : 'Connect'"></button>
                     <button @click="closeCreate()"
@@ -365,7 +373,6 @@
             },
             async addConnection() {
                 if (!this.form.provider || !this.form.accessToken.trim()) return;
-                if (this.form.provider === 'BITBUCKET' && !this.form.serverUrl.trim() && !this.form.vcsUsername.trim()) return;
                 this.creating = true;
                 this.apiError = null;
                 const providerName = this.providerLabel(this.form.provider);
@@ -468,7 +475,6 @@
             },
             async connectBitbucket() {
                 const isCloud = !this.bitbucketServerUrl.trim();
-                if (isCloud && !this.bitbucketUsername.trim()) return;
                 if (!this.bitbucketAccessToken.trim()) return;
                 this.creating = true;
                 this.apiError = null;
