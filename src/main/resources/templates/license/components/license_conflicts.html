@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <div th:fragment="license_conflicts"
+         class="flex flex-col items-start min-w-[248px] w-full max-w-[616px] rounded-[10px] overflow-hidden border border-[#DBE4E7]">
+
+        <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0">
+            <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0"
+                th:text="${#lists.size(conflicts)} + ' Potential Conflict' + (${#lists.size(conflicts)} != 1 ? 's' : '')">0 Conflicts</h2>
+            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0 mt-1">
+                Cross-license incompatibilities detected when both sides appear in the same scan.
+            </p>
+        </div>
+
+        <div class="flex flex-col w-full bg-white divide-y divide-[#DBE4E7]">
+
+            <div th:if="${conflicts == null or #lists.isEmpty(conflicts)}"
+                 class="flex flex-col items-center justify-center gap-[12px] px-6 py-[48px] text-center">
+                <svg class="w-[32px] h-[32px] text-[#84dca5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0">No license conflicts detected.</p>
+                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0">Detected licenses appear compatible under standard interpretations.</p>
+            </div>
+
+            <div th:each="conflict : ${conflicts}"
+                 x-data="{ open: false }"
+                 class="flex flex-col w-full shrink-0">
+
+                <div @click="open = !open"
+                     class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
+                    <div class="flex flex-1 flex-wrap gap-3 items-center min-w-[224px]">
+                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
+                           th:text="${conflict.title}">Conflict title</p>
+                        <div th:replace="~{fragments/tags :: risk-tag(level=${conflict.severity})}"></div>
+                    </div>
+                    <div class="flex items-center gap-[6px]">
+                        <span class="text-[11px] text-[var(--grayscale-50)]"
+                              th:text="${conflict.licenseA} + ' ↔ ' + ${conflict.licenseB}">A ↔ B</span>
+                        <svg class="w-[14px] h-[14px] text-[var(--grayscale-40)] transition-transform shrink-0"
+                             :class="open ? 'rotate-180' : ''"
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <div x-show="open" x-cloak
+                     class="flex flex-col gap-3 bg-[var(--grayscale-5)] border-t border-[#DBE4E7] px-6 py-4">
+
+                    <div>
+                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] m-0">Why it conflicts</p>
+                        <p class="text-[12px] text-[var(--grayscale-70)] leading-relaxed m-0 mt-1"
+                           th:text="${conflict.explanation}">Explanation</p>
+                    </div>
+
+                    <div>
+                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] m-0">Recommended mitigation</p>
+                        <p class="text-[12px] text-[var(--grayscale-70)] leading-relaxed m-0 mt-1"
+                           th:text="${conflict.recommendation}">Recommendation</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+                        <div class="bg-white border border-[#DBE4E7] rounded-md p-3">
+                            <p class="text-[11px] font-semibold text-black m-0" th:text="${conflict.licenseA}">A</p>
+                            <p class="text-[10px] text-[var(--grayscale-50)] m-0 mb-2"
+                               th:text="${#lists.size(conflict.librariesA)} + ' affected libraries'">0 libraries</p>
+                            <ul class="m-0 pl-3 list-disc text-[12px] text-[var(--grayscale-70)] leading-relaxed">
+                                <li th:each="lib : ${conflict.librariesA}" th:text="${lib}">lib</li>
+                            </ul>
+                        </div>
+                        <div class="bg-white border border-[#DBE4E7] rounded-md p-3">
+                            <p class="text-[11px] font-semibold text-black m-0" th:text="${conflict.licenseB}">B</p>
+                            <p class="text-[10px] text-[var(--grayscale-50)] m-0 mb-2"
+                               th:text="${#lists.size(conflict.librariesB)} + ' affected libraries'">0 libraries</p>
+                            <ul class="m-0 pl-3 list-disc text-[12px] text-[var(--grayscale-70)] leading-relaxed">
+                                <li th:each="lib : ${conflict.librariesB}" th:text="${lib}">lib</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
