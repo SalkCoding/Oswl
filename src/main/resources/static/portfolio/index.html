@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OsWL — SCA Platform UI/UX Case Study</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body { font-family: 'Inter', sans-serif; color: #141616; background: #ffffff; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --teal: #00b9a3;
+      --teal-light: #22efc3;
+      --teal-dark: #008f82;
+      --dark: #061525;
+      --dark-2: #0a1e30;
+      --text: #141616;
+      --text-sec: #5a6472;
+      --text-muted: #8a9ba8;
+      --bg-light: #f7f9fb;
+      --border: rgba(0,0,0,0.08);
+      --teal-bg: rgba(0,185,163,0.08);
+      --teal-border: rgba(0,185,163,0.2);
+    }
+
+    /* ── Progress Bar ── */
+    #progress-bar {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(90deg, var(--teal), var(--teal-light));
+      width: 0%; z-index: 1001; transition: width 0.08s linear;
+    }
+
+    /* ── Navigation ── */
+    nav {
+      position: fixed; top: 3px; left: 0; right: 0; height: 60px;
+      background: rgba(6,21,37,0.96); backdrop-filter: blur(14px);
+      display: flex; align-items: center; padding: 0 40px;
+      z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: white; font-size: 18px; font-weight: 700; flex-shrink: 0;
+    }
+    .nav-logo img { width: 26px; height: 26px; }
+    .nav-links { display: flex; gap: 2px; margin-left: 36px; list-style: none; }
+    .nav-links a {
+      color: rgba(255,255,255,0.5); text-decoration: none;
+      font-size: 13px; font-weight: 500; padding: 6px 11px; border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active {
+      color: var(--teal-light); background: rgba(34,239,195,0.08);
+    }
+    .nav-badge {
+      margin-left: auto; background: rgba(0,185,163,0.12); color: var(--teal-light);
+      font-size: 11px; font-weight: 600; padding: 4px 11px; border-radius: 20px;
+      border: 1px solid rgba(0,185,163,0.22); white-space: nowrap;
+    }
+
+    /* ── Layout ── */
+    main { padding-top: 63px; }
+    section { padding: 96px 0; }
+    .container { max-width: 900px; margin: 0 auto; padding: 0 40px; }
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--teal); margin-bottom: 14px;
+    }
+    .section-label::before {
+      content: ''; display: block; width: 18px; height: 2px;
+      background: var(--teal); border-radius: 2px;
+    }
+    h2.section-title {
+      font-size: 40px; font-weight: 800; letter-spacing: -0.04em;
+      line-height: 1.15; color: var(--text); margin-bottom: 14px;
+    }
+    p.section-desc { font-size: 16.5px; color: var(--text-sec); line-height: 1.75; max-width: 620px; }
+
+    /* ── HERO ── */
+    .hero {
+      background: var(--dark); padding: 110px 0 0; overflow: hidden; position: relative;
+    }
+    .hero::before {
+      content: ''; position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 900px; height: 700px;
+      background: radial-gradient(ellipse, rgba(0,185,163,0.13) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero-content { max-width: 900px; margin: 0 auto; padding: 0 40px; position: relative; z-index: 1; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(0,185,163,0.1); border: 1px solid rgba(0,185,163,0.25);
+      color: var(--teal-light); font-size: 12px; font-weight: 600;
+      padding: 5px 14px; border-radius: 20px; margin-bottom: 26px;
+    }
+    .hero-badge-dot {
+      width: 7px; height: 7px; background: var(--teal-light);
+      border-radius: 50%; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    .hero h1 {
+      font-size: 54px; font-weight: 900; letter-spacing: -0.05em;
+      line-height: 1.1; color: #fff; margin-bottom: 22px;
+    }
+    .hero h1 .accent {
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-desc { font-size: 17px; color: rgba(255,255,255,0.52); line-height: 1.75; max-width: 560px; margin-bottom: 48px; }
+    .hero-meta {
+      display: flex; border-top: 1px solid rgba(255,255,255,0.07);
+      border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 56px;
+    }
+    .hero-meta-item { flex: 1; padding: 22px 28px 22px 0; border-right: 1px solid rgba(255,255,255,0.07); }
+    .hero-meta-item:first-child { padding-left: 0; }
+    .hero-meta-item:last-child { border-right: none; }
+    .hero-meta-label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 5px; }
+    .hero-meta-value { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.82); line-height: 1.45; }
+    .hero-meta-sub { font-size: 11.5px; color: rgba(255,255,255,0.32); margin-top: 2px; }
+
+    /* Browser Mockup */
+    .browser-mockup {
+      background: #1a2540; border-radius: 12px 12px 0 0; overflow: hidden;
+      box-shadow: 0 -16px 64px rgba(0,185,163,0.14), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .browser-chrome {
+      height: 36px; background: #101b28; display: flex; align-items: center; padding: 0 14px; gap: 7px;
+    }
+    .browser-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .browser-dot:nth-child(1){background:#ff5f57} .browser-dot:nth-child(2){background:#ffbd2e} .browser-dot:nth-child(3){background:#28c840}
+    .browser-url {
+      flex: 1; height: 20px; background: rgba(255,255,255,0.06); border-radius: 4px;
+      margin: 0 14px; display: flex; align-items: center; padding: 0 8px; gap: 5px;
+    }
+    .browser-url-lock { width: 7px; height: 7px; border-radius: 1px; border: 1.5px solid rgba(255,255,255,0.25); }
+    .browser-url-text { font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .browser-mockup img { width: 100%; display: block; }
+
+    /* ── OVERVIEW ── */
+    .overview { background: var(--bg-light); }
+    .meta-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; margin-top: 44px; }
+    .meta-card { background: white; border-radius: 14px; padding: 26px 22px; border: 1px solid var(--border); }
+    .meta-card-icon {
+      width: 38px; height: 38px; background: var(--teal-bg); border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 13px;
+    }
+    .meta-card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 5px; }
+    .meta-card-value { font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.4; }
+    .meta-card-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── PROBLEM ── */
+    .problem { background: white; }
+    .stat-banner {
+      background: linear-gradient(135deg, #061525 0%, #0b2440 100%);
+      border-radius: 20px; padding: 44px 48px; margin: 44px 0;
+      display: flex; align-items: center; gap: 36px; position: relative; overflow: hidden;
+    }
+    .stat-banner::after {
+      content: ''; position: absolute; top: -50px; right: -50px;
+      width: 260px; height: 260px;
+      background: radial-gradient(ellipse, rgba(0,185,163,0.18), transparent 70%);
+    }
+    .stat-banner-number {
+      font-size: 72px; font-weight: 900; letter-spacing: -0.06em;
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      flex-shrink: 0; line-height: 1;
+    }
+    .stat-banner-text { color: rgba(255,255,255,0.8); font-size: 20px; font-weight: 600; line-height: 1.45; }
+    .stat-banner-text span { color: rgba(255,255,255,0.42); font-size: 14px; font-weight: 400; display: block; margin-top: 8px; }
+    .problem-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-top: 36px; }
+    .problem-card {
+      background: var(--bg-light); border-radius: 16px; padding: 30px 26px;
+      border: 1px solid var(--border); position: relative; overflow: hidden;
+    }
+    .problem-card-num {
+      font-size: 52px; font-weight: 900; letter-spacing: -0.06em;
+      color: rgba(0,185,163,0.12); position: absolute; top: 12px; right: 18px; line-height: 1;
+    }
+    .problem-card-icon { font-size: 26px; margin-bottom: 14px; }
+    .problem-card h3 { font-size: 15.5px; font-weight: 700; color: var(--text); margin-bottom: 9px; line-height: 1.4; }
+    .problem-card p { font-size: 13.5px; color: var(--text-sec); line-height: 1.65; }
+
+    /* ── PAIN POINTS ── */
+    .pain-points { background: var(--bg-light); }
+    .pain-block { background: white; border-radius: 18px; padding: 38px; margin-bottom: 22px; border: 1px solid var(--border); }
+    .pain-block-header { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 20px; }
+    .pain-num-badge {
+      width: 38px; height: 38px; background: #fef3e2; border: 1.5px solid #f9a825; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; color: #e65100; flex-shrink: 0;
+    }
+    .pain-block h3 { font-size: 19px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .pain-block-meta { font-size: 12.5px; color: var(--text-muted); }
+    .callout {
+      background: #fff8f0; border-left: 3px solid #f57c00; border-radius: 0 10px 10px 0;
+      padding: 15px 18px; font-size: 13.5px; color: #5d4037; line-height: 1.65; margin-top: 18px;
+    }
+    .callout strong { color: #e65100; }
+    .step-list { list-style: none; margin-top: 18px; display: flex; flex-direction: column; gap: 9px; }
+    .step-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 13.5px; color: var(--text-sec); }
+    .step-num {
+      width: 22px; height: 22px; background: var(--teal-bg); border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10.5px; font-weight: 700; color: var(--teal); flex-shrink: 0; margin-top: 2px;
+    }
+
+    /* ── MARKET ── */
+    .market { background: white; }
+    .market-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin: 44px 0; }
+    .market-stat-card {
+      background: var(--dark); border-radius: 16px; padding: 30px 26px; position: relative; overflow: hidden;
+    }
+    .market-stat-card::after {
+      content: ''; position: absolute; bottom: -24px; right: -24px; width: 100px; height: 100px;
+      background: radial-gradient(ellipse, rgba(0,185,163,0.22), transparent 70%);
+    }
+    .market-stat-num {
+      font-size: 38px; font-weight: 900; letter-spacing: -0.04em; line-height: 1;
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px;
+    }
+    .market-stat-label { font-size: 13.5px; color: rgba(255,255,255,0.52); line-height: 1.4; }
+    .why-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+    .why-card { background: var(--bg-light); border-radius: 14px; padding: 26px 22px; border: 1px solid var(--border); }
+    .why-num { font-size: 28px; font-weight: 900; display: block; margin-bottom: 10px; -webkit-text-stroke: 1.5px var(--teal); color: transparent; }
+    .why-card h4 { font-size: 14.5px; font-weight: 700; color: var(--text); margin-bottom: 7px; }
+    .why-card p { font-size: 13px; color: var(--text-sec); line-height: 1.6; }
+    .swot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 44px; }
+    .swot-card { border-radius: 16px; padding: 28px; }
+    .swot-card.s{background:#e8faf5;border:1px solid #a8e6db} .swot-card.w{background:#fff8f0;border:1px solid #f9d29c}
+    .swot-card.o{background:#e8f4ff;border:1px solid #a8d4f5} .swot-card.t{background:#fef0f0;border:1px solid #f8b8b8}
+    .swot-title { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }
+    .swot-card.s .swot-title{color:#008f82} .swot-card.w .swot-title{color:#e65100}
+    .swot-card.o .swot-title{color:#1565c0} .swot-card.t .swot-title{color:#c62828}
+    .swot-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .swot-list li { font-size: 13px; line-height: 1.55; display: flex; gap: 8px; }
+    .swot-list li::before { content:'·'; font-weight:900; flex-shrink:0; }
+    .swot-card.s .swot-list li{color:#1b5e20} .swot-card.s .swot-list li::before{color:var(--teal)}
+    .swot-card.w .swot-list li{color:#4e342e} .swot-card.w .swot-list li::before{color:#f57c00}
+    .swot-card.o .swot-list li{color:#0d47a1} .swot-card.o .swot-list li::before{color:#1976d2}
+    .swot-card.t .swot-list li{color:#b71c1c} .swot-card.t .swot-list li::before{color:#e53935}
+
+    /* ── COMPETITION ── */
+    .competition { background: var(--bg-light); }
+    .comp-table {
+      width: 100%; border-collapse: collapse; background: white;
+      border-radius: 14px; overflow: hidden; border: 1px solid var(--border); margin-top: 36px; font-size: 13px;
+    }
+    .comp-table thead tr { background: var(--dark); }
+    .comp-table th { padding: 14px 18px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+    .comp-table th.hl { color: var(--teal-light); }
+    .comp-table td { padding: 13px 18px; border-bottom: 1px solid var(--border); color: var(--text-sec); vertical-align: middle; }
+    .comp-table td:first-child { font-weight: 600; color: var(--text); }
+    .comp-table tr.oswl-row { background: rgba(0,185,163,0.03); }
+    .comp-table tr.oswl-row td { color: var(--text); }
+    .comp-table td.hl { color: var(--teal-dark); font-weight: 600; }
+    .comp-table tr:last-child td { border-bottom: none; }
+    .bc { display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px; }
+    .bc.yes{background:#e8faf5;color:#1b8163} .bc.no{background:#f8d7da;color:#842029} .bc.partial{background:#fff3cd;color:#856404}
+
+    /* ── USERS ── */
+    .users { background: white; }
+    .persona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 44px; }
+    .persona-card { border-radius: 18px; overflow: hidden; border: 1px solid var(--border); }
+    .persona-header { background: var(--dark-2); padding: 26px; display: flex; align-items: center; gap: 14px; }
+    .persona-avatar {
+      width: 50px; height: 50px; border-radius: 13px; background: rgba(0,185,163,0.18);
+      display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
+    }
+    .persona-name { font-size: 15.5px; font-weight: 700; color: white; }
+    .persona-role { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .persona-body { padding: 26px; background: white; }
+    .persona-section-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 9px; margin-top: 16px; }
+    .persona-section-label:first-child { margin-top: 0; }
+    .persona-pains { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+    .persona-pains li { font-size: 13px; color: var(--text-sec); line-height: 1.55; display: flex; gap: 8px; }
+    .persona-pains li::before { content:'→'; color: var(--teal); font-weight: 700; flex-shrink: 0; }
+    .hypothesis-box {
+      background: var(--teal-bg); border: 1px solid var(--teal-border);
+      border-radius: 10px; padding: 13px 15px; font-size: 12.5px; color: #004d44; line-height: 1.6;
+    }
+
+    /* ── SOLUTION ── */
+    .solution { background: var(--bg-light); }
+    .feature-block {
+      background: white; border-radius: 18px; overflow: hidden;
+      border: 1px solid var(--border); margin-bottom: 28px;
+    }
+    .feature-block-header { padding: 34px 38px 0; display: flex; align-items: flex-start; gap: 18px; }
+    .feature-icon-box {
+      width: 46px; height: 46px; background: var(--teal-bg); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .feature-block h3 { font-size: 19px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .feature-block p { font-size: 13.5px; color: var(--text-sec); line-height: 1.65; }
+    .feature-tags { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 11px; }
+    .feature-tag { font-size: 10.5px; font-weight: 600; color: var(--teal-dark); background: var(--teal-bg); padding: 3px 9px; border-radius: 5px; }
+    .feature-screenshot { padding: 22px 38px 38px; }
+    .feature-screenshot .browser-mockup { border-radius: 10px; }
+
+    /* ── DESIGN SYSTEM ── */
+    .design-system { background: white; }
+    .color-palette { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 28px; }
+    .color-swatch { flex: 1; min-width: 110px; }
+    .color-swatch-block { height: 72px; border-radius: 10px; margin-bottom: 9px; }
+    .color-swatch-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .color-swatch-hex { font-size: 11px; color: var(--text-muted); font-family: 'SF Mono', monospace; }
+    .ds-divider { height: 1px; background: var(--border); margin: 44px 0 0; }
+    .ds-section-title { font-size: 17px; font-weight: 700; color: var(--text); margin: 36px 0 18px; }
+    .component-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .b-critical{background:rgba(229,57,53,.1);color:#c62828;border:1px solid rgba(229,57,53,.2)} .b-critical .badge-dot{background:#e53935}
+    .b-high{background:rgba(245,124,0,.1);color:#e65100;border:1px solid rgba(245,124,0,.2)} .b-high .badge-dot{background:#f57c00}
+    .b-medium{background:rgba(249,168,37,.1);color:#f57f17;border:1px solid rgba(249,168,37,.2)} .b-medium .badge-dot{background:#f9a825}
+    .b-low{background:rgba(94,107,112,.08);color:#455a64;border:1px solid rgba(94,107,112,.15)} .b-low .badge-dot{background:#78909c}
+    .b-restricted{background:rgba(229,57,53,.07);color:#b71c1c;border:1px solid rgba(229,57,53,.17)} .b-restricted .badge-dot{background:#e53935}
+    .b-caution{background:rgba(245,124,0,.08);color:#bf360c;border:1px solid rgba(245,124,0,.17)} .b-caution .badge-dot{background:#f57c00}
+    .b-permitted{background:rgba(0,185,163,.08);color:#00695c;border:1px solid rgba(0,185,163,.2)} .b-permitted .badge-dot{background:var(--teal)}
+    .b-unknown{background:rgba(94,107,112,.06);color:#607d8b;border:1px solid rgba(94,107,112,.12)} .b-unknown .badge-dot{background:#90a4ae}
+
+    /* ── OUTCOMES ── */
+    .outcomes { background: var(--dark); position: relative; overflow: hidden; }
+    .outcomes::before {
+      content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 500px;
+      background: radial-gradient(ellipse, rgba(0,185,163,0.09), transparent 68%);
+    }
+    .outcomes .section-label { color: var(--teal-light); }
+    .outcomes .section-label::before { background: var(--teal-light); }
+    .outcomes h2.section-title { color: white; }
+    .outcomes p.section-desc { color: rgba(255,255,255,0.5); }
+    .outcome-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; margin-top: 44px; }
+    .outcome-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 30px 26px;
+    }
+    .outcome-card-num {
+      font-size: 44px; font-weight: 900; letter-spacing: -0.04em; line-height: 1;
+      background: linear-gradient(135deg, var(--teal), var(--teal-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px;
+    }
+    .outcome-card-label { font-size: 14.5px; font-weight: 600; color: rgba(255,255,255,0.72); margin-bottom: 7px; }
+    .outcome-card-desc { font-size: 12.5px; color: rgba(255,255,255,0.38); line-height: 1.6; }
+
+    /* ── LEARNINGS ── */
+    .learnings { background: var(--bg-light); }
+    .learning-list { display: flex; flex-direction: column; gap: 18px; margin-top: 38px; }
+    .learning-item {
+      background: white; border-radius: 14px; padding: 26px 30px;
+      border: 1px solid var(--border); display: flex; gap: 18px;
+    }
+    .learning-icon {
+      width: 42px; height: 42px; background: var(--teal-bg); border-radius: 11px;
+      display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0;
+    }
+    .learning-item h4 { font-size: 14.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .learning-item p { font-size: 13px; color: var(--text-sec); line-height: 1.65; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--dark); padding: 56px 40px;
+      text-align: center; border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .footer-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+    .footer-logo img { width: 26px; height: 26px; }
+    .footer-logo span { font-size: 17px; font-weight: 700; color: white; }
+    footer p { font-size: 12.5px; color: rgba(255,255,255,0.28); }
+
+    /* ── Fade-in ── */
+    .fade-in { opacity: 0; transform: translateY(18px); transition: opacity 0.55s ease, transform 0.55s ease; }
+    .fade-in.visible { opacity: 1; transform: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 800px) {
+      nav .nav-links { display: none; }
+      .hero h1 { font-size: 34px; }
+      h2.section-title { font-size: 28px; }
+      .meta-grid, .problem-cards, .market-stats, .why-grid,
+      .swot-grid, .persona-grid, .outcome-grid { grid-template-columns: 1fr; }
+      .stat-banner { flex-direction: column; }
+      .hero-meta { flex-wrap: wrap; }
+      .hero-meta-item { flex: 1 1 45%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); }
+      .container { padding: 0 20px; }
+      section { padding: 64px 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="progress-bar"></div>
+
+  <nav>
+    <a href="#hero" class="nav-logo">
+      <img src="../icon/icon-logo.svg" alt="OsWL">
+      OsWL
+    </a>
+    <ul class="nav-links">
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#research">Research</a></li>
+      <li><a href="#market">Market</a></li>
+      <li><a href="#users">Users</a></li>
+      <li><a href="#solution">Solution</a></li>
+      <li><a href="#design">Design</a></li>
+      <li><a href="#outcomes">Outcomes</a></li>
+    </ul>
+    <span class="nav-badge">UI/UX Case Study</span>
+  </nav>
+
+  <main>
+
+    <!-- ══════════════════ HERO ══════════════════ -->
+    <section class="hero" id="hero">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <div class="hero-badge-dot"></div>
+          Enterprise SCA Platform &nbsp;·&nbsp; UI/UX Case Study
+        </div>
+        <h1>숨겨진 취약점을 탐지하고,<br><span class="accent">해결 방법까지</span> 제시하다</h1>
+        <p class="hero-desc">
+          기업 소프트웨어의 70~90%를 차지하는 오픈소스 라이브러리의 보안 취약점과
+          라이선스 리스크를 AI로 분석하고, 즉시 실행 가능한 해결 방법까지 안내하는
+          Enterprise SCA(Software Composition Analysis) 플랫폼
+        </p>
+        <div class="hero-meta">
+          <div class="hero-meta-item">
+            <div class="hero-meta-label">Product</div>
+            <div class="hero-meta-value">OsWL</div>
+            <div class="hero-meta-sub">Open Source Watch List</div>
+          </div>
+          <div class="hero-meta-item">
+            <div class="hero-meta-label">Category</div>
+            <div class="hero-meta-value">Enterprise SaaS</div>
+            <div class="hero-meta-sub">Security / DevSecOps</div>
+          </div>
+          <div class="hero-meta-item">
+            <div class="hero-meta-label">Platform</div>
+            <div class="hero-meta-value">Web Application</div>
+            <div class="hero-meta-sub">Spring Boot · Thymeleaf</div>
+          </div>
+          <div class="hero-meta-item">
+            <div class="hero-meta-label">Target</div>
+            <div class="hero-meta-value">4가지 페르소나</div>
+            <div class="hero-meta-sub">개발자 · 보안 · DevOps · CTO</div>
+          </div>
+        </div>
+      </div>
+      <div style="max-width:900px;margin:0 auto;padding:0 40px">
+        <div class="browser-mockup">
+          <div class="browser-chrome">
+            <div class="browser-dot"></div><div class="browser-dot"></div><div class="browser-dot"></div>
+            <div class="browser-url">
+              <div class="browser-url-lock"></div>
+              <span class="browser-url-text">app.oswl.io / projects / backend-api / security-center</span>
+            </div>
+          </div>
+          <img src="../img/screenshots/security-center.png" alt="OsWL Security Center">
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ OVERVIEW ══════════════════ -->
+    <section class="overview" id="overview">
+      <div class="container">
+        <div class="section-label">Project Overview</div>
+        <h2 class="section-title">프로젝트 개요</h2>
+        <p class="section-desc">
+          OsWL은 기업의 소프트웨어 공급망 보안과 라이선스 컴플라이언스를 통합 관리하는
+          SCA 플랫폼입니다. 탐지에서 멈추는 기존 도구들과 달리, 해결 방법까지 원스톱으로 제공합니다.
+        </p>
+        <div class="meta-grid fade-in">
+          <div class="meta-card">
+            <div class="meta-card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00b9a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div class="meta-card-label">Core Mission</div>
+            <div class="meta-card-value">탐지 + 해결 방법</div>
+            <div class="meta-card-sub">원스톱 SCA 플랫폼</div>
+          </div>
+          <div class="meta-card">
+            <div class="meta-card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00b9a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div class="meta-card-label">Market Size</div>
+            <div class="meta-card-value">₩7조 규모</div>
+            <div class="meta-card-sub">CAGR 19~24%</div>
+          </div>
+          <div class="meta-card">
+            <div class="meta-card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00b9a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div class="meta-card-label">Target Users</div>
+            <div class="meta-card-value">4가지 페르소나</div>
+            <div class="meta-card-sub">개발 · 보안 · DevOps · 경영</div>
+          </div>
+          <div class="meta-card">
+            <div class="meta-card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00b9a3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="meta-card-label">Core Modules</div>
+            <div class="meta-card-value">5개 핵심 모듈</div>
+            <div class="meta-card-sub">보안 · 라이선스 · 추이 · 이력 · 비교</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ PROBLEM ══════════════════ -->
+    <section class="problem" id="problem">
+      <div class="container">
+        <div class="section-label">Problem Statement</div>
+        <h2 class="section-title">왜 지금 이 문제인가?</h2>
+        <p class="section-desc">
+          오늘날 기업 소프트웨어의 대부분은 외부 오픈소스 라이브러리로 구성됩니다.
+          개발자가 Spring 하나를 추가하면 수백 개의 라이브러리가 자동으로 따라옵니다.
+        </p>
+        <div class="stat-banner fade-in">
+          <div class="stat-banner-number">70~90%</div>
+          <div class="stat-banner-text">
+            기업 소프트웨어는 직접 만든 코드가 아닌<br>외부 오픈소스 라이브러리
+            <span>
+              대부분의 기업은 자신의 소프트웨어에 어떤 라이브러리가 들어있는지조차 파악하지 못합니다.
+              SBOM(소프트웨어 자재 명세서) 부재가 심각한 보안·법적 리스크로 이어집니다.
+            </span>
+          </div>
+        </div>
+        <div class="problem-cards fade-in">
+          <div class="problem-card">
+            <div class="problem-card-num">01</div>
+            <div class="problem-card-icon">🔍</div>
+            <h3>어디에 무엇이 있는지 모른다</h3>
+            <p>의존성 트리가 수백 개로 확장되어 개발자도 파악이 불가능합니다. Log4Shell은 4년이 지난 2025년에도 4,000만 건이 패치되지 않은 채 방치되고 있습니다.</p>
+          </div>
+          <div class="problem-card">
+            <div class="problem-card-num">02</div>
+            <div class="problem-card-icon">🔧</div>
+            <h3>찾아도 어떻게 고쳐야 할지 모른다</h3>
+            <p>기존 SCA 도구는 "취약점 있음"까지만 알려줍니다. CVE 검색부터 안전 버전 탐색, 호환성 검증까지 모든 과정을 담당자가 수동으로 처리해야 합니다.</p>
+          </div>
+          <div class="problem-card">
+            <div class="problem-card-num">03</div>
+            <div class="problem-card-icon">⚖️</div>
+            <h3>저작권 위반인지 모르고 사용한다</h3>
+            <p>GPL 라이브러리가 Transitive Dependency로 몰래 포함됩니다. 한컴은 GPL 무단 사용으로 미국 소송에서 약 23억 원을 합의 지불했습니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ RESEARCH ══════════════════ -->
+    <section class="pain-points" id="research">
+      <div class="container">
+        <div class="section-label">User Research</div>
+        <h2 class="section-title">페인포인트 심층 분석</h2>
+        <p class="section-desc">각 사용자 유형이 실제 업무에서 겪는 구체적인 상황을 분석했습니다.</p>
+
+        <div style="margin-top:44px">
+          <!-- Pain 1 -->
+          <div class="pain-block fade-in">
+            <div class="pain-block-header">
+              <div class="pain-num-badge">P1</div>
+              <div>
+                <h3>어디에 뭐가 있는지 모른다</h3>
+                <div class="pain-block-meta">Log4Shell 사례 · 의존성 파악 불가</div>
+              </div>
+            </div>
+            <p style="font-size:13.5px;color:var(--text-sec);line-height:1.7">
+              개발자가 Spring 프레임워크를 추가하면 자동으로 수백 개의 라이브러리가 따라옵니다.
+              각각의 버전, 라이선스, 취약점을 개발자가 전부 파악하는 것은 물리적으로 불가능합니다.
+            </p>
+            <div class="callout">
+              <strong>Log4Shell 사례 (CVE-2021-44228, CVSS 10.0):</strong>
+              안전한 버전이 4년 전에 배포되었음에도 2025년 현재 약 <strong>4,000만 건</strong>이 여전히
+              취약한 버전을 사용 중입니다. 이유는 단 하나 — <strong>"어디서 쓰고 있는지 몰라서"</strong>
+            </div>
+          </div>
+
+          <!-- Pain 2 -->
+          <div class="pain-block fade-in">
+            <div class="pain-block-header">
+              <div class="pain-num-badge">P2</div>
+              <div>
+                <h3>찾아도 어떻게 고쳐야 할지 모른다</h3>
+                <div class="pain-block-meta">보안 담당자의 하루 · 수동 처리 한계</div>
+              </div>
+            </div>
+            <p style="font-size:13.5px;color:var(--text-sec);line-height:1.7">
+              기존 도구들은 "이 라이브러리에 취약점 있음"까지만 알려줍니다.
+              이후의 판단과 대응은 전적으로 사람에게 맡겨집니다.
+            </p>
+            <ul class="step-list">
+              <li><span class="step-num">①</span>취약점 목록 수백 개 수령</li>
+              <li><span class="step-num">②</span>하나하나 CVE 번호 검색</li>
+              <li><span class="step-num">③</span>어느 버전이 안전한지 공식 문서 확인</li>
+              <li><span class="step-num">④</span>업그레이드 시 호환성 문제 없는지 추가 확인</li>
+              <li><span class="step-num">⑤</span>개발팀에 전달 → "어떻게 고쳐요?" 역질문 수신</li>
+              <li><span class="step-num">⑥</span>처음부터 반복</li>
+            </ul>
+            <div class="callout">
+              이 과정이 취약점 <strong>1개당 평균 수십 분~수 시간</strong>.
+              수백 개면 사람이 물리적으로 처리 불가능한 양입니다.
+            </div>
+          </div>
+
+          <!-- Pain 3 -->
+          <div class="pain-block fade-in">
+            <div class="pain-block-header">
+              <div class="pain-num-badge">P3</div>
+              <div>
+                <h3>저작권 위반인지 모르고 사용한다</h3>
+                <div class="pain-block-meta">라이선스 리스크 · 실제 소송 사례</div>
+              </div>
+            </div>
+            <p style="font-size:13.5px;color:var(--text-sec);line-height:1.7">
+              Transitive Dependency로 GPL 라이브러리가 개발자 모르게 포함되는 경우가 빈번합니다.
+              "몰랐다"는 변명은 법정에서 통하지 않습니다.
+            </p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px">
+              <div style="background:#e8faf5;border:1px solid #a8e6db;border-radius:10px;padding:15px">
+                <div style="font-size:11px;font-weight:700;color:#008f82;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">MIT / Apache</div>
+                <div style="font-size:13px;color:#1b5e20;line-height:1.55">조건 없이 상업적 사용 가능. 기업 친화적 라이선스</div>
+              </div>
+              <div style="background:#fef0f0;border:1px solid #f8b8b8;border-radius:10px;padding:15px">
+                <div style="font-size:11px;font-weight:700;color:#c62828;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">GPL</div>
+                <div style="font-size:13px;color:#b71c1c;line-height:1.55">사용하면 내 소스코드도 전부 공개 의무. 기업에게 가장 위험한 라이선스</div>
+              </div>
+            </div>
+            <div class="callout" style="margin-top:16px">
+              <strong>한컴(한국)</strong> → GPL 라이브러리 무단 사용 → 미국 소송 → <strong>약 23억 원 합의</strong><br>
+              <strong>Orange(프랑스 통신사)</strong> → GPL 위반 → 법원 손해배상 판결
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ MARKET ══════════════════ -->
+    <section class="market" id="market">
+      <div class="container">
+        <div class="section-label">Market Analysis</div>
+        <h2 class="section-title">시장 규모 & SWOT</h2>
+
+        <div class="market-stats fade-in">
+          <div class="market-stat-card">
+            <div class="market-stat-num">₩7조</div>
+            <div class="market-stat-label">글로벌 SCA 시장<br><span style="font-size:11px;opacity:.45">2024 기준</span></div>
+          </div>
+          <div class="market-stat-card">
+            <div class="market-stat-num">19~24%</div>
+            <div class="market-stat-label">연평균 성장률 CAGR<br><span style="font-size:11px;opacity:.45">지속 상승 중</span></div>
+          </div>
+          <div class="market-stat-card">
+            <div class="market-stat-num">2026.9</div>
+            <div class="market-stat-label">EU CRA 규제 시행<br><span style="font-size:11px;opacity:.45">강제 수요 발생 예정</span></div>
+          </div>
+        </div>
+
+        <h3 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:20px">왜 지금인가?</h3>
+        <div class="why-grid fade-in">
+          <div class="why-card">
+            <span class="why-num">①</span>
+            <h4>규제가 강제함</h4>
+            <p>EU CRA 2026년 9월 시행. 취약점 발견 시 24시간 내 보고 의무. 한국 수출 기업도 직격</p>
+          </div>
+          <div class="why-card">
+            <span class="why-num">②</span>
+            <h4>수요가 폭발함</h4>
+            <p>오픈소스 사용 비율 매년 증가. SolarWinds 등 공급망 공격 사례로 기업 인식 전환 중</p>
+          </div>
+          <div class="why-card">
+            <span class="why-num">③</span>
+            <h4>공급이 부족함</h4>
+            <p>대응 방안까지 제시하는 서비스 사실상 없음. 한국어 지원 공백. 중소기업 가격대 부재</p>
+          </div>
+        </div>
+
+        <div class="swot-grid fade-in">
+          <div class="swot-card s">
+            <div class="swot-title">S — Strengths 강점</div>
+            <ul class="swot-list">
+              <li>탐지 + 대응 방안까지 원스톱 (경쟁사 모두 탐지까지만)</li>
+              <li>보안 취약점 + 저작권 분석을 하나의 플랫폼에 통합</li>
+              <li>AI가 오탐지를 걸러내 수동 검토 노동 대폭 감소</li>
+              <li>라이선스 고지문 자동 생성 (경쟁사 미지원)</li>
+            </ul>
+          </div>
+          <div class="swot-card w">
+            <div class="swot-title">W — Weaknesses 약점</div>
+            <ul class="swot-list">
+              <li>신규 서비스라 브랜드 신뢰 부재</li>
+              <li>기업 보안 정책상 코드 외부 업로드 금지 이슈</li>
+              <li>누적 데이터량이 Black Duck 대비 적음</li>
+            </ul>
+          </div>
+          <div class="swot-card o">
+            <div class="swot-title">O — Opportunities 기회</div>
+            <ul class="swot-list">
+              <li>EU CRA 2026년 9월 시행 → 강제 수요 발생</li>
+              <li>한국어 지원 서비스 사실상 없음 → 국내 시장 공백</li>
+              <li>오픈소스 사용 비율 매년 연속 증가</li>
+            </ul>
+          </div>
+          <div class="swot-card t">
+            <div class="swot-title">T — Threats 위협</div>
+            <ul class="swot-list">
+              <li>경쟁사도 AI 빠르게 통합 중</li>
+              <li>GitHub Dependabot 무료로 기본 기능 제공</li>
+              <li>"AI가 틀릴 수 있다"는 보안 분야 신뢰 이슈</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ COMPETITION ══════════════════ -->
+    <section class="competition" id="competition">
+      <div class="container">
+        <div class="section-label">Competitive Analysis</div>
+        <h2 class="section-title">경쟁사 비교 분석</h2>
+        <p class="section-desc">5개 주요 경쟁사 대비 OsWL의 차별화 포지셔닝을 정의했습니다.</p>
+
+        <table class="comp-table fade-in">
+          <thead>
+            <tr>
+              <th>제품</th>
+              <th>CVE 탐지</th>
+              <th>라이선스 분석</th>
+              <th>AI 대응 방안</th>
+              <th>고지문 생성</th>
+              <th>가격대</th>
+              <th class="hl">한계 / 차별점</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="oswl-row">
+              <td>OsWL <span style="font-size:10.5px;background:var(--teal);color:white;padding:2px 7px;border-radius:10px;margin-left:5px;font-weight:600">우리</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td class="hl">중소기업 친화적</td>
+              <td class="hl">탐지 + 대응 + 고지문 완전 원스톱</td>
+            </tr>
+            <tr>
+              <td>Black Duck</td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc no">✗ 없음</span></td>
+              <td><span class="bc partial">△ 제한적</span></td>
+              <td>수천만 원+/년</td>
+              <td>오탐지 多 / AI 없음 / 구식 UI</td>
+            </tr>
+            <tr>
+              <td>Snyk</td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc partial">△ 제한적</span></td>
+              <td><span class="bc partial">△ 일부만</span></td>
+              <td><span class="bc no">✗ 없음</span></td>
+              <td>$25/개발자/월~</td>
+              <td>라이선스 분석 약함 / 규모 커지면 비용 폭발</td>
+            </tr>
+            <tr>
+              <td>FOSSA</td>
+              <td><span class="bc partial">△ 제한적</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc no">✗ 없음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td>$207/월~</td>
+              <td>CVE 탐지 기능 부족</td>
+            </tr>
+            <tr>
+              <td>Mend.io</td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc yes">✓ 있음</span></td>
+              <td><span class="bc no">✗ 없음</span></td>
+              <td>$650/월 (10인)</td>
+              <td>고가 / 중소기업 진입 불가</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ══════════════════ USERS ══════════════════ -->
+    <section class="users" id="users">
+      <div class="container">
+        <div class="section-label">Target Users</div>
+        <h2 class="section-title">사용자 페르소나 & 핵심 가설</h2>
+        <p class="section-desc">각 사용자의 페인포인트에서 출발해 검증할 핵심 가설을 도출했습니다.</p>
+
+        <div class="persona-grid fade-in">
+          <!-- Persona 1 -->
+          <div class="persona-card">
+            <div class="persona-header">
+              <div class="persona-avatar">👩‍💻</div>
+              <div>
+                <div class="persona-name">개발자</div>
+                <div class="persona-role">Software Developer</div>
+              </div>
+            </div>
+            <div class="persona-body">
+              <div class="persona-section-label">페인포인트</div>
+              <ul class="persona-pains">
+                <li>Spring 추가 시 수백 개 라이브러리 자동 포함, 파악 불가</li>
+                <li>CVE 번호만 받고 어떤 버전으로 올려야 할지 직접 찾아야 함</li>
+                <li>경고 수십 개 쏟아지면 결국 전부 무시</li>
+              </ul>
+              <div class="persona-section-label">핵심 가설</div>
+              <div class="hypothesis-box">
+                AI가 선별한 Top 3 우선순위 + 즉시 실행 가능한 버전 업그레이드 가이드를 제공하면,
+                개발자는 보안 경고를 무시하지 않고 직접 패치를 적용할 것이다.
+              </div>
+            </div>
+          </div>
+
+          <!-- Persona 2 -->
+          <div class="persona-card">
+            <div class="persona-header">
+              <div class="persona-avatar">🛡️</div>
+              <div>
+                <div class="persona-name">보안 엔지니어</div>
+                <div class="persona-role">Security Engineer</div>
+              </div>
+            </div>
+            <div class="persona-body">
+              <div class="persona-section-label">페인포인트</div>
+              <ul class="persona-pains">
+                <li>오탐지가 많아 수백 개 결과를 전부 수동 검토</li>
+                <li>개발팀의 "어떻게요?" 역질문 — 보안팀이 답까지 제공해야 함</li>
+                <li>여러 프로젝트 상태를 스프레드시트로 수동 관리</li>
+              </ul>
+              <div class="persona-section-label">핵심 가설</div>
+              <div class="hypothesis-box">
+                AI의 1차 오탐지 필터링 + 대응 방안 제시 + 전사 통합 현황을 제공하면,
+                보안 엔지니어의 수동 검수 시간이 크게 단축될 것이다.
+              </div>
+            </div>
+          </div>
+
+          <!-- Persona 3 -->
+          <div class="persona-card">
+            <div class="persona-header">
+              <div class="persona-avatar">⚙️</div>
+              <div>
+                <div class="persona-name">DevOps 엔지니어</div>
+                <div class="persona-role">DevOps Engineer</div>
+              </div>
+            </div>
+            <div class="persona-body">
+              <div class="persona-section-label">페인포인트</div>
+              <ul class="persona-pains">
+                <li>보안 스캔이 빌드 시간 20~30분 추가 — 팀이 skip 압력</li>
+                <li>오탐지로 멀쩡한 배포까지 차단되는 상황 발생</li>
+                <li>CI/CD 연동 설정 복잡, 도구마다 방식이 달라 시간 낭비</li>
+              </ul>
+              <div class="persona-section-label">핵심 가설</div>
+              <div class="hypothesis-box">
+                5분 이내 CLI 연동 + 오탐지 필터링 + 유연한 차단 정책을 제공하면,
+                DevOps 팀은 보안 스캔을 skip하지 않고 파이프라인에 정착시킬 것이다.
+              </div>
+            </div>
+          </div>
+
+          <!-- Persona 4 -->
+          <div class="persona-card">
+            <div class="persona-header">
+              <div class="persona-avatar">🏢</div>
+              <div>
+                <div class="persona-name">CTO / 기술 리드</div>
+                <div class="persona-role">CTO / Tech Lead</div>
+              </div>
+            </div>
+            <div class="persona-body">
+              <div class="persona-section-label">페인포인트</div>
+              <ul class="persona-pains">
+                <li>전사 취약점 현황 통합 조회 방법 없어 보안팀 보고만 의존</li>
+                <li>GPL 사용 여부가 개발자 개인 인지에만 의존 — 소송 리스크</li>
+                <li>EU CRA 등 규제 강화로 컴플라이언스 비용 증가</li>
+              </ul>
+              <div class="persona-section-label">핵심 가설</div>
+              <div class="hypothesis-box">
+                경영진 언어로 시각화한 리스크 대시보드 + GPL 즉시 알림 + 규제 보고서 자동 생성을 제공하면,
+                CTO가 소송·규제 리스크를 사전에 차단하는 의사결정을 내릴 수 있다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ SOLUTION ══════════════════ -->
+    <section class="solution" id="solution">
+      <div class="container">
+        <div class="section-label">Solution</div>
+        <h2 class="section-title">핵심 기능 설계</h2>
+        <p class="section-desc">
+          각 페르소나의 페인포인트를 해결하는 5개 핵심 모듈.
+          탐지부터 대응까지, 보안에서 라이선스까지 원스톱으로.
+        </p>
+      </div>
+
+      <div class="container" style="margin-top:44px">
+
+        <!-- Feature 1: Security Center -->
+        <div class="feature-block fade-in">
+          <div class="feature-block-header">
+            <div class="feature-icon-box">🔒</div>
+            <div>
+              <h3>Security Center — 보안 취약점 분석</h3>
+              <p>
+                스캔된 라이브러리의 CVE 취약점을 Critical · High · Medium · Low 심각도로 분류합니다.
+                Security Risk와 License Risk를 상단 스택바로 즉각 시각화하며,
+                Bulk Actions로 여러 항목을 일괄 처리할 수 있습니다.
+                필터·검색·Export CSV 기능으로 보안 감사 보고서를 즉시 생성합니다.
+              </p>
+              <div class="feature-tags">
+                <span class="feature-tag">CVE 탐지</span>
+                <span class="feature-tag">심각도 분류</span>
+                <span class="feature-tag">Bulk 처리</span>
+                <span class="feature-tag">Export CSV</span>
+                <span class="feature-tag">필터 & 검색</span>
+                <span class="feature-tag">Patchability</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-screenshot">
+            <div class="browser-mockup">
+              <div class="browser-chrome">
+                <div class="browser-dot"></div><div class="browser-dot"></div><div class="browser-dot"></div>
+                <div class="browser-url">
+                  <div class="browser-url-lock"></div>
+                  <span class="browser-url-text">projects / backend-api / security-center</span>
+                </div>
+              </div>
+              <img src="../img/screenshots/security-center.png" alt="Security Center">
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 2: License -->
+        <div class="feature-block fade-in">
+          <div class="feature-block-header">
+            <div class="feature-icon-box">⚖️</div>
+            <div>
+              <h3>License — 라이선스 리스크 관리</h3>
+              <p>
+                오픈소스 라이선스를 Restricted · Caution · Permitted · Unknown으로 자동 분류합니다.
+                GPL, LGPL 등 기업 위험 라이선스를 탐지하고, 각 라이브러리의 라이선스 영향 범위를
+                직관적으로 시각화합니다. 향후 라이선스 의무사항(Obligations) 자동 분석 기능이 추가 예정입니다.
+              </p>
+              <div class="feature-tags">
+                <span class="feature-tag">라이선스 분류 4단계</span>
+                <span class="feature-tag">GPL 위험 감지</span>
+                <span class="feature-tag">Restricted 즉시 알림</span>
+                <span class="feature-tag">의무사항 분석 예정</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-screenshot">
+            <div class="browser-mockup">
+              <div class="browser-chrome">
+                <div class="browser-dot"></div><div class="browser-dot"></div><div class="browser-dot"></div>
+                <div class="browser-url">
+                  <div class="browser-url-lock"></div>
+                  <span class="browser-url-text">projects / backend-api / license</span>
+                </div>
+              </div>
+              <img src="../img/screenshots/license.png" alt="License Analysis">
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 3: Risk Trend -->
+        <div class="feature-block fade-in">
+          <div class="feature-block-header">
+            <div class="feature-icon-box">📈</div>
+            <div>
+              <h3>Risk Trend — 버전별 리스크 추이</h3>
+              <p>
+                프로젝트의 버전별 Security Risk · License Risk 변화를 시계열 차트로 시각화합니다.
+                "이전 버전 대비 -2" 같은 개선 지표를 직관적으로 표시해 CTO·기술 리드가
+                경영진 언어로 보안 현황을 파악하고 보고할 수 있습니다.
+              </p>
+              <div class="feature-tags">
+                <span class="feature-tag">시계열 차트</span>
+                <span class="feature-tag">버전별 비교</span>
+                <span class="feature-tag">개선 델타 지표</span>
+                <span class="feature-tag">최대 10개 스캔</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-screenshot">
+            <div class="browser-mockup">
+              <div class="browser-chrome">
+                <div class="browser-dot"></div><div class="browser-dot"></div><div class="browser-dot"></div>
+                <div class="browser-url">
+                  <div class="browser-url-lock"></div>
+                  <span class="browser-url-text">projects / backend-api / risk-trend</span>
+                </div>
+              </div>
+              <img src="../img/screenshots/risk-trend.png" alt="Risk Trend">
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 4: Projects -->
+        <div class="feature-block fade-in">
+          <div class="feature-block-header">
+            <div class="feature-icon-box">🚀</div>
+            <div>
+              <h3>Projects — 프로젝트 등록 & 스캔 진입</h3>
+              <p>
+                두 가지 방법으로 프로젝트를 등록할 수 있습니다.
+                소스코드 업로드 없이 로컬 환경에서 스캔하는 <strong>CLI Integration</strong>과
+                GitHub·GitLab·Bitbucket을 연동해 레포지토리를 직접 가져오는 <strong>Quick Import</strong>.
+                코드를 외부 서버에 올리지 않으므로 기업 보안 정책을 준수합니다.
+              </p>
+              <div class="feature-tags">
+                <span class="feature-tag">CLI 로컬 스캔</span>
+                <span class="feature-tag">GitHub 연동</span>
+                <span class="feature-tag">GitLab 연동</span>
+                <span class="feature-tag">Bitbucket 연동</span>
+                <span class="feature-tag">소스코드 미업로드</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-screenshot">
+            <div class="browser-mockup">
+              <div class="browser-chrome">
+                <div class="browser-dot"></div><div class="browser-dot"></div><div class="browser-dot"></div>
+                <div class="browser-url">
+                  <div class="browser-url-lock"></div>
+                  <span class="browser-url-text">app.oswl.io / projects</span>
+                </div>
+              </div>
+              <img src="../img/screenshots/projects.png" alt="Projects">
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 5: Settings -->
+        <div class="feature-block fade-in">
+          <div class="feature-block-header">
+            <div class="feature-icon-box">⚙️</div>
+            <div>
+              <h3>Settings — 엔터프라이즈 관리 기능</h3>
+              <p>
+                시스템 관리자를 위한 통합 관리 인터페이스. 사용자 관리, 권한 템플릿, 보안 정책,
+                AI 설정, VCS 연결, CLI API 키 관리까지 엔터프라이즈 운영에 필요한 모든 기능을
+                탭 기반 UI로 통합 제공합니다. Audit Log로 모든 관리자 액션을 추적·감사할 수 있습니다.
+              </p>
+              <div class="feature-tags">
+                <span class="feature-tag">사용자 관리</span>
+                <span class="feature-tag">권한 템플릿</span>
+                <span class="feature-tag">2FA / 보안 정책</span>
+                <span class="feature-tag">AI 설정</span>
+                <span class="feature-tag">Audit Log</span>
+                <span class="feature-tag">VCS 연결</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-screenshot">
+            <div class="browser-mockup">
+              <div class="browser-chrome">
+                <div class="browser-dot"></div><div class="browser-dot"></div><div class="browser-dot"></div>
+                <div class="browser-url">
+                  <div class="browser-url-lock"></div>
+                  <span class="browser-url-text">app.oswl.io / settings?tab=admin</span>
+                </div>
+              </div>
+              <img src="../img/screenshots/settings.png" alt="Settings">
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════════════ DESIGN SYSTEM ══════════════════ -->
+    <section class="design-system" id="design">
+      <div class="container">
+        <div class="section-label">Design System</div>
+        <h2 class="section-title">디자인 시스템</h2>
+        <p class="section-desc">보안 플랫폼의 신뢰성과 명확성을 전달하는 일관된 시각 언어</p>
+
+        <div class="ds-section-title">Color Palette</div>
+        <div class="color-palette fade-in">
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#061525"></div>
+            <div class="color-swatch-name">Dark Navy</div>
+            <div class="color-swatch-hex">#061525</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#0a1e30"></div>
+            <div class="color-swatch-name">Dark 2</div>
+            <div class="color-swatch-hex">#0A1E30</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#00b9a3"></div>
+            <div class="color-swatch-name">Teal Primary</div>
+            <div class="color-swatch-hex">#00B9A3</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#22efc3"></div>
+            <div class="color-swatch-name">Teal Light</div>
+            <div class="color-swatch-hex">#22EFC3</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#141616"></div>
+            <div class="color-swatch-name">Text Primary</div>
+            <div class="color-swatch-hex">#141616</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#5a6472"></div>
+            <div class="color-swatch-name">Text Secondary</div>
+            <div class="color-swatch-hex">#5A6472</div>
+          </div>
+          <div class="color-swatch">
+            <div class="color-swatch-block" style="background:#f7f9fb;border:1px solid #e3e8ed"></div>
+            <div class="color-swatch-name">Surface Light</div>
+            <div class="color-swatch-hex">#F7F9FB</div>
+          </div>
+        </div>
+
+        <div class="ds-divider"></div>
+        <div class="ds-section-title">Severity Badges — 보안 심각도</div>
+        <div class="component-row fade-in">
+          <span class="badge b-critical"><span class="badge-dot"></span>Critical</span>
+          <span class="badge b-high"><span class="badge-dot"></span>High</span>
+          <span class="badge b-medium"><span class="badge-dot"></span>Medium</span>
+          <span class="badge b-low"><span class="badge-dot"></span>Low</span>
+          <span class="badge b-low" style="background:rgba(94,107,112,.06);color:#78909c"><span class="badge-dot" style="background:#b0bec5"></span>Unscored</span>
+        </div>
+
+        <div class="ds-section-title">License Risk Badges — 라이선스 리스크</div>
+        <div class="component-row fade-in">
+          <span class="badge b-restricted"><span class="badge-dot"></span>Restricted</span>
+          <span class="badge b-caution"><span class="badge-dot"></span>Caution</span>
+          <span class="badge b-permitted"><span class="badge-dot"></span>Permitted</span>
+          <span class="badge b-unknown"><span class="badge-dot"></span>Unknown</span>
+        </div>
+
+        <div class="ds-divider"></div>
+        <div class="ds-section-title">Design Principles</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px" class="fade-in">
+          <div style="background:var(--bg-light);border-radius:14px;padding:24px;border:1px solid var(--border)">
+            <div style="font-size:22px;margin-bottom:11px">🎯</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:7px">정보 위계</div>
+            <div style="font-size:13px;color:var(--text-sec);line-height:1.6">Critical 항목이 시각적으로 먼저 눈에 들어오도록 색상과 위치를 설계. 스택바로 전체 리스크 현황을 1초 안에 파악</div>
+          </div>
+          <div style="background:var(--bg-light);border-radius:14px;padding:24px;border:1px solid var(--border)">
+            <div style="font-size:22px;margin-bottom:11px">🧩</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:7px">일관성</div>
+            <div style="font-size:13px;color:var(--text-sec);line-height:1.6">탭 내비게이션, 공통 뱃지/버튼/테이블 컴포넌트를 전 페이지에서 일관 적용해 학습 비용을 최소화</div>
+          </div>
+          <div style="background:var(--bg-light);border-radius:14px;padding:24px;border:1px solid var(--border)">
+            <div style="font-size:22px;margin-bottom:11px">🌙</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:7px">다크/라이트 모드</div>
+            <div style="font-size:13px;color:var(--text-sec);line-height:1.6">CSS 변수 기반 테마 시스템. 보안 도구 특성상 장시간 사용 환경을 고려해 다크 모드를 기본으로 설계</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ OUTCOMES ══════════════════ -->
+    <section class="outcomes" id="outcomes">
+      <div class="container" style="position:relative;z-index:1">
+        <div class="section-label">Outcomes</div>
+        <h2 class="section-title">성과 & 차별화 가치</h2>
+        <p class="section-desc">
+          기존 SCA 도구들이 탐지에서 멈추는 동안,
+          OsWL은 탐지에서 대응까지 원스톱으로 제공합니다.
+        </p>
+
+        <div class="outcome-grid fade-in">
+          <div class="outcome-card">
+            <div class="outcome-card-num">5개</div>
+            <div class="outcome-card-label">핵심 분석 모듈</div>
+            <div class="outcome-card-desc">Security · License · Risk Trend · Scan History · Version Diff — 완전한 원스톱 SCA</div>
+          </div>
+          <div class="outcome-card">
+            <div class="outcome-card-num">4가지</div>
+            <div class="outcome-card-label">스캔 입력 방식</div>
+            <div class="outcome-card-desc">CLI / GitHub / GitLab / Bitbucket. 소스코드 업로드 없는 로컬 스캔으로 보안 정책 준수</div>
+          </div>
+          <div class="outcome-card">
+            <div class="outcome-card-num">유일</div>
+            <div class="outcome-card-label">원스톱 커버리지</div>
+            <div class="outcome-card-desc">CVE 탐지 + 라이선스 분석 + AI 대응 방안 + 고지문 생성을 동시 제공하는 경쟁사 없음</div>
+          </div>
+        </div>
+
+        <!-- Core Value Proposition -->
+        <div style="margin-top:44px;background:rgba(0,185,163,0.08);border:1px solid rgba(0,185,163,0.2);border-radius:18px;padding:44px;position:relative;z-index:1" class="fade-in">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal-light);margin-bottom:18px">Core Value Proposition</div>
+          <div style="font-size:24px;font-weight:700;color:white;line-height:1.55;letter-spacing:-.03em">
+            "코드를 올리면, AI가 숨겨진 모든 오픈소스를 분석하고<br>
+            취약점·저작권 위반을 탐지해 <span style="color:var(--teal-light)">지금 바로 할 수 있는<br>
+            해결 방법까지</span> 알려줍니다."
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ LEARNINGS ══════════════════ -->
+    <section class="learnings" id="learnings">
+      <div class="container">
+        <div class="section-label">Design Decisions & Learnings</div>
+        <h2 class="section-title">주요 디자인 결정과 회고</h2>
+
+        <div class="learning-list fade-in">
+
+          <div class="learning-item">
+            <div class="learning-icon">🎨</div>
+            <div>
+              <h4>다크 네이비 + 틸(Teal) — 신뢰감과 기술력의 균형</h4>
+              <p>보안 플랫폼에서 가장 중요한 감성은 '신뢰'입니다. 어두운 네이비 계열은 안정감과 전문성을 주고, 틸 액센트는 기술 혁신성을 표현합니다. Black Duck의 딱딱한 블루, Snyk의 차가운 보라와 차별화된 — 친근하면서도 전문적인 톤을 목표로 했습니다.</p>
+            </div>
+          </div>
+
+          <div class="learning-item">
+            <div class="learning-icon">📊</div>
+            <div>
+              <h4>스택바 차트로 리스크 분포를 1초에 파악</h4>
+              <p>Security Center 상단의 스택바는 Critical/High/Medium/Low 비율을 즉각적으로 전달합니다. 수백 개의 목록을 스크롤하기 전에 "지금 상황이 얼마나 위험한가"를 단번에 판단할 수 있도록 설계했습니다. 색상 선택은 국제적 심각도 컨벤션(빨강→주황→노랑→회색)을 따랐습니다.</p>
+            </div>
+          </div>
+
+          <div class="learning-item">
+            <div class="learning-icon">🔐</div>
+            <div>
+              <h4>소스코드 미업로드 — 보안 우려 해소가 곧 UX</h4>
+              <p>기업 보안팀의 가장 큰 우려는 "소스코드를 외부 서버에 올려도 되나?"입니다. CLI 통합 방식으로 로컬에서만 분석하고 결과만 서버로 전송하도록 설계했으며, Projects 페이지에서 "No Source Code Upload" 태그로 이 점을 명확히 전달했습니다.</p>
+            </div>
+          </div>
+
+          <div class="learning-item">
+            <div class="learning-icon">🧩</div>
+            <div>
+              <h4>탭 기반 내비게이션 — 프로젝트 컨텍스트 유지</h4>
+              <p>Security Center · License · Risk Trend · Scan History를 같은 프로젝트 내 탭으로 배치해, 사용자가 컨텍스트를 잃지 않고 다양한 분석 뷰를 탐색할 수 있습니다. 헤더의 버전 선택기도 탭과 독립적으로 작동해 같은 뷰에서 버전 간 비교가 가능합니다.</p>
+            </div>
+          </div>
+
+          <div class="learning-item">
+            <div class="learning-icon">🔮</div>
+            <div>
+              <h4>Next Step — 로드맵에 있는 기능들</h4>
+              <p>라이선스 의무사항(Obligations) 자동 분석, AI 기반 패치 우선순위 추천, 경영진용 통합 리스크 대시보드, EU CRA 대응 규제 감사 보고서 자동 생성이 로드맵에 있습니다. 각 페르소나의 가설을 실 데이터로 검증한 뒤 우선순위를 결정할 예정입니다.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="footer-logo">
+      <img src="../icon/icon-logo.svg" alt="OsWL">
+      <span>OsWL</span>
+    </div>
+    <p>Open Source Watch List — Enterprise SCA Platform</p>
+    <p style="margin-top:5px">UI/UX Case Study Portfolio</p>
+  </footer>
+
+  <script>
+    // Reading progress bar
+    window.addEventListener('scroll', () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      document.getElementById('progress-bar').style.width = (scrollTop / docHeight * 100) + '%';
+    });
+
+    // Fade-in on scroll
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // Active nav link
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-links a');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; });
+      navLinks.forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+      });
+    });
+  </script>
+</body>
+</html>
