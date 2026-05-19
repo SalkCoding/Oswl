@@ -54,7 +54,7 @@
                         <template x-if="connectionsByProvider['GITHUB']">
                             <p class="text-[11px] text-emerald-600 font-semibold m-0 flex items-center gap-[4px]">
                                 <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>
-                                <span x-text="connectionsByProvider['GITHUB']?.vcsUsername || 'Connected'"></span>
+                                <span>Connected</span>
                             </p>
                         </template>
                         <template x-if="!connectionsByProvider['GITHUB']">
@@ -81,7 +81,7 @@
                         <template x-if="connectionsByProvider['GITLAB']">
                             <p class="text-[11px] text-orange-500 font-semibold m-0 flex items-center gap-[4px]">
                                 <span class="w-[5px] h-[5px] rounded-full bg-orange-500 shrink-0"></span>
-                                <span x-text="connectionsByProvider['GITLAB']?.vcsUsername || 'Connected'"></span>
+                                <span>Connected</span>
                             </p>
                         </template>
                         <template x-if="!connectionsByProvider['GITLAB']">
@@ -108,7 +108,7 @@
                         <template x-if="connectionsByProvider['BITBUCKET']">
                             <p class="text-[11px] text-blue-500 font-semibold m-0 flex items-center gap-[4px]">
                                 <span class="w-[5px] h-[5px] rounded-full bg-blue-500 shrink-0"></span>
-                                <span x-text="connectionsByProvider['BITBUCKET']?.vcsUsername || 'Connected'"></span>
+                                <span>Connected</span>
                             </p>
                         </template>
                         <template x-if="!connectionsByProvider['BITBUCKET']">
@@ -292,6 +292,7 @@
                         </template>
                         <span class="text-[13px] font-semibold text-[var(--grayscale-80)]" x-text="providerLabel(provider)"></span>
                         <span class="text-[12px] text-[var(--grayscale-45)]"
+                              x-show="connectionsByProvider[provider]?.vcsUsername && !connectionsByProvider[provider].vcsUsername.includes('@')"
                               x-text="'@' + (connectionsByProvider[provider]?.vcsUsername || '')"></span>
                         <!-- Repo count badge -->
                         <template x-if="!repoBrowsers[provider].loading && repoBrowsers[provider].repos.length > 0">
@@ -361,7 +362,9 @@
                     <template x-if="!repoBrowsers[provider].loading && !repoBrowsers[provider].error && getBrowserFilteredRepos(provider).length > 0">
                         <div class="divide-y divide-[var(--grayscale-8)]">
                             <template x-for="repo in getBrowserPagedRepos(provider)" :key="repo.fullName">
-                                <div class="flex items-center gap-[12px] px-[16px] py-[13px] hover:bg-[var(--grayscale-3)] transition-colors">
+                                <div x-data="{ pendingBranch: null }"
+                                     class="flex items-center gap-[12px] px-[16px] py-[13px] transition-colors"
+                                     :class="pendingBranch !== null ? 'bg-[var(--grayscale-3)]' : 'hover:bg-[var(--grayscale-3)]'">
                                     <!-- Repo icon: amber = private, neutral = public -->
                                     <div class="w-[34px] h-[34px] rounded-[7px] flex items-center justify-center shrink-0"
                                          :class="repo.isPrivate ? 'bg-amber-50 border border-amber-200' : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-15)]'">
@@ -386,12 +389,34 @@
                                             </template>
                                         </div>
                                     </div>
-                                    <!-- Import button — always visible -->
-                                    <button @click="selectRepoForImport(repo)"
-                                            class="shrink-0 inline-flex items-center gap-[5px] px-[12px] py-[7px] bg-[var(--grayscale-100)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--grayscale-80)] transition-colors">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
-                                        Import
-                                    </button>
+                                    <!-- Import button / inline branch selector -->
+                                    <template x-if="pendingBranch === null">
+                                        <button @click="pendingBranch = repo.defaultBranch || 'main'"
+                                                class="shrink-0 inline-flex items-center gap-[5px] px-[12px] py-[7px] bg-[var(--grayscale-100)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--grayscale-80)] transition-colors">
+                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+                                            Import
+                                        </button>
+                                    </template>
+                                    <template x-if="pendingBranch !== null">
+                                        <div class="flex items-center gap-[6px] shrink-0">
+                                            <input type="text"
+                                                   x-model="pendingBranch"
+                                                   x-init="$nextTick(() => $el.focus())"
+                                                   placeholder="Branch"
+                                                   @keydown.enter="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
+                                                   @keydown.escape="pendingBranch = null"
+                                                   class="w-[120px] px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] focus:outline-none focus:border-[var(--grayscale-50)] focus:ring-1 focus:ring-[var(--grayscale-50)]" />
+                                            <button @click="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
+                                                    class="shrink-0 inline-flex items-center gap-[4px] px-[10px] py-[5px] bg-[var(--grayscale-100)] text-white text-[12px] font-semibold rounded-[6px] hover:bg-[var(--grayscale-80)] transition-colors">
+                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+                                                Import
+                                            </button>
+                                            <button @click="pendingBranch = null"
+                                                    class="w-[24px] h-[24px] flex items-center justify-center text-[var(--grayscale-40)] hover:text-[var(--grayscale-80)] transition-colors rounded">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>
@@ -423,51 +448,8 @@
             </div>
         </template>
 
-        <!-- ── Toast: API key delivery on import success ───────────────── -->
-        <div x-show="toastVisible"
-             x-cloak
-             x-transition:enter="transition ease-out duration-200"
-             x-transition:enter-start="opacity-0 translate-y-2"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             x-transition:leave="transition ease-in duration-150"
-             x-transition:leave-start="opacity-100 translate-y-0"
-             x-transition:leave-end="opacity-0 translate-y-2"
-             class="fixed bottom-[24px] right-[24px] z-[1000] w-[380px] max-w-[calc(100vw-48px)]">
-            <div class="bg-[var(--grayscale-100)] text-white rounded-[12px] shadow-2xl border border-white/10 overflow-hidden">
-                <div class="flex items-start gap-[12px] p-[16px]">
-                    <div class="w-[32px] h-[32px] rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-400" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-[14px] m-0">Import complete</p>
-                        <p class="text-[12px] text-white/70 m-0 mt-[2px]" x-show="toastAutoCopied">
-                            Your API key was copied to clipboard.
-                        </p>
-                        <p class="text-[12px] text-amber-300 m-0 mt-[2px]" x-show="!toastAutoCopied">
-                            Auto-copy blocked — please copy manually.
-                        </p>
-                        <code class="block mt-[10px] font-mono text-[12px] text-white bg-black/40 border border-white/10 rounded-[6px] px-[10px] py-[7px] break-all select-all"
-                              x-text="toastApiKey"></code>
-                        <div class="flex items-center gap-[6px] mt-[10px]">
-                            <button @click="toastCopyAgain()"
-                                    class="inline-flex items-center gap-[5px] text-[12px] text-white/80 hover:text-white transition-colors px-[8px] py-[4px] rounded-[6px] border border-white/15 hover:border-white/30">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                Copy again
-                            </button>
-                        </div>
-                    </div>
-                    <button @click="dismissToast()"
-                            class="text-white/50 hover:text-white transition-colors shrink-0 -mt-[4px] -mr-[4px]"
-                            aria-label="Dismiss">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-            </div>
-        </div>
 
     </main>
-
-    <!-- (toast was inserted above, inside the x-data scope) -->
 
     <script th:src="@{/js/projects/quick-import.js}"></script>
 </body>

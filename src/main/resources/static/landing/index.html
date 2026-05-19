@@ -7,8 +7,8 @@
     <meta name="description" content="OsWL is an enterprise-grade Software Composition Analysis platform that continuously tracks CVE vulnerabilities and license risks across your open source dependencies.">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/tailwind.css" href="../static/css/tailwind.css">
-    <link rel="icon" href="/icon/icon-logo.svg" href="../static/icon/icon-logo.svg">
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <link rel="icon" href="/icon/icon-logo.svg">
 
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -410,8 +410,8 @@
 <nav id="main-nav">
     <div class="nav-inner">
         <a href="#" class="nav-logo">
-            <img src="/icon/icon-logo.svg" src="../static/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
-            <img src="/graphic/symbol_w.svg" src="../static/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:32px;height:32px;">
+            <img src="/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
+            <img src="/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:32px;height:32px;">
             <span class="nav-logo-text">OsWL</span>
         </a>
         <div class="nav-links">
@@ -431,7 +431,6 @@
                 <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
             </svg>
         </button>
-        <a href="/login" class="nav-cta">Sign In &rarr;</a>
     </div>
 </nav>
 
@@ -447,12 +446,12 @@
             Know Every Vulnerability<br>in Your <span class="gradient-text">Open Source Stack</span>
         </h1>
         <p class="hero-subtitle fade-up fade-up-d2">
-            OsWL continuously scans your dependencies for CVEs, license violations, and transitive risks —
-            giving security and compliance teams complete SBOM visibility from a single platform.
+            OsWL continuously scans your dependencies for CVEs, license obligations, and transitive risks —
+            giving security and compliance teams complete SBOM visibility from a single self-hosted platform.
         </p>
         <div class="hero-actions fade-up fade-up-d3">
-            <a href="/login" class="btn-primary">Get Started Free</a>
-            <a href="#platform" class="btn-secondary">Explore the Platform</a>
+            <a href="#features" class="btn-primary">Explore Capabilities</a>
+            <a href="#platform" class="btn-secondary">See the Platform</a>
         </div>
     </div>
 </section>
@@ -461,22 +460,22 @@
 <div class="stats-bar">
     <div class="stats-inner">
         <div style="text-align:center">
-            <div class="stat-value">270K+</div>
-            <div class="stat-label">CVE Advisories Tracked</div>
+            <div class="stat-value">Multi-source</div>
+            <div class="stat-label">GHSA · NVD · OSV Advisories</div>
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
-            <div class="stat-value">12+</div>
+            <div class="stat-value">7</div>
             <div class="stat-label">Package Ecosystems</div>
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
-            <div class="stat-value">Real-time</div>
-            <div class="stat-label">NVD &amp; OSV Enrichment</div>
+            <div class="stat-value">On-demand</div>
+            <div class="stat-label">deps.dev &amp; NVD Enrichment</div>
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
-            <div class="stat-value">CVSS 4.0</div>
+            <div class="stat-value">CVSS 3.x</div>
             <div class="stat-label">Scoring Supported</div>
         </div>
         <div class="stat-divider"></div>
@@ -500,8 +499,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
                 <div class="feature-title">CVE Vulnerability Tracking</div>
-                <p class="feature-desc">Real-time enrichment from NVD and OSV feeds. Every component is cross-referenced against CVSS scores, CWE classifications, and exploit availability indicators.</p>
-                <span class="feature-tag">NVD · OSV · CVSS 3.1 / 4.0</span>
+                <p class="feature-desc">On-demand enrichment from deps.dev, NVD, and OSV. Every component is cross-referenced against CVSS 3.x scores, CWE classifications, and patch availability.</p>
+                <span class="feature-tag">deps.dev · NVD · OSV · GHSA</span>
             </div>
 
             <div class="feature-card">
@@ -509,8 +508,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
                 <div class="feature-title">License Risk Management</div>
-                <p class="feature-desc">Automatic classification of OSS licenses — copyleft, permissive, proprietary — with compliance obligation tracking and policy enforcement at the project level.</p>
-                <span class="feature-tag">GPL · LGPL · Apache · MIT · AGPL</span>
+                <p class="feature-desc">Automatic SPDX classification of OSS licenses — copyleft, permissive, proprietary — with obligation rules, conflict detection, and NOTICE / SPDX SBOM export per scan.</p>
+                <span class="feature-tag">GPL · LGPL · Apache · MIT · AGPL · MPL</span>
             </div>
 
             <div class="feature-card">
@@ -518,7 +517,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 </div>
                 <div class="feature-title">Risk Trend Analysis</div>
-                <p class="feature-desc">Track your security posture across versions. Visualize critical, high, medium, and low severity trends over time with AI-powered deviation insights.</p>
+                <p class="feature-desc">Track your security posture across scans. Visualize critical, high, medium, and low severity trends over time, with optional AI-generated deviation insights when an LLM provider is configured.</p>
                 <span class="feature-tag">Version-over-version delta</span>
             </div>
 
@@ -527,8 +526,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
                 </div>
                 <div class="feature-title">Transitive Dependency Traversal</div>
-                <p class="feature-desc">Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath analysis traces both direct and transitive exposure across all package managers.</p>
-                <span class="feature-tag">Maven · npm · PyPI · Go · Cargo</span>
+                <p class="feature-desc">Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath analysis traces both direct and transitive exposure across every supported manifest.</p>
+                <span class="feature-tag">Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems</span>
             </div>
 
             <div class="feature-card">
@@ -536,7 +535,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
                 <div class="feature-title">Git-Native Repository Integration</div>
-                <p class="feature-desc">Connect GitHub, GitLab, or Bitbucket repositories in minutes. Branch-level scanning, version-pinned SBOM snapshots, and per-project scan history out of the box.</p>
+                <p class="feature-desc">Connect GitHub, GitLab, or Bitbucket via Personal Access Token. Branch-aware imports, per-version snapshots, and per-project scan history out of the box.</p>
                 <span class="feature-tag">GitHub · GitLab · Bitbucket</span>
             </div>
 
@@ -545,8 +544,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
                 </div>
                 <div class="feature-title">CLI &amp; CI/CD Pipeline Scanning</div>
-                <p class="feature-desc">Integrate OsWL into any build pipeline with a single CLI command. No source code upload required — scans run on local manifests with API key authentication.</p>
-                <span class="feature-tag">Zero source-code upload</span>
+                <p class="feature-desc">Integrate OsWL into any build pipeline with a single CLI command. Only parsed manifest metadata is uploaded — no source code leaves your build host. Bearer-token API keys per project or organization-wide.</p>
+                <span class="feature-tag">Manifest-only upload</span>
             </div>
         </div>
     </div>
@@ -566,16 +565,16 @@
             <button class="tab-btn" onclick="showTab('risk',this)">Risk Trend</button>
         </div>
         <div class="screenshot-frame active" id="tab-sc">
-            <img src="/img/screenshots/security-center.png" src="../static/img/screenshots/security-center.png" alt="OsWL Security Center — real-time CVE triage with CVSS scores">
+            <img src="/img/screenshots/security-center.png" alt="OsWL Security Center — CVE triage with CVSS scores">
         </div>
         <div class="screenshot-frame" id="tab-projects">
-            <img src="/img/screenshots/projects.png" src="../static/img/screenshots/projects.png" alt="OsWL Projects Dashboard — multi-project risk overview">
+            <img src="/img/screenshots/projects.png" alt="OsWL Projects Dashboard — multi-project risk overview">
         </div>
         <div class="screenshot-frame" id="tab-license">
-            <img src="/img/screenshots/license.png" src="../static/img/screenshots/license.png" alt="OsWL License Analysis — copyleft and compliance risk tracking">
+            <img src="/img/screenshots/license.png" alt="OsWL License Analysis — copyleft and compliance risk tracking">
         </div>
         <div class="screenshot-frame" id="tab-risk">
-            <img src="/img/screenshots/risk-trend.png" src="../static/img/screenshots/risk-trend.png" alt="OsWL Risk Trend — version-over-version security posture">
+            <img src="/img/screenshots/risk-trend.png" alt="OsWL Risk Trend — scan-over-scan security posture">
         </div>
     </div>
 </section>
@@ -599,7 +598,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:var(--secondary);flex-shrink:0;"></div>
-                        <span><strong style="color:var(--text-primary)">Patchability status</strong> — know if a fix exists before triaging</span>
+                        <span><strong style="color:var(--text-primary)">Fix version surfaced</strong> — know if a patched release exists before triaging</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:#f47a29;flex-shrink:0;"></div>
@@ -607,7 +606,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:#f5bd26;flex-shrink:0;"></div>
-                        <span><strong style="color:var(--text-primary)">Bulk review</strong> and remediation workflow built in</span>
+                        <span><strong style="color:var(--text-primary)">Bulk status updates</strong> — mark findings reviewed or ignored in one action</span>
                     </div>
                 </div>
             </div>
@@ -670,7 +669,7 @@
                 <p class="section-label">License Intelligence</p>
                 <h2 class="section-title" style="font-size:clamp(24px,3vw,38px);">Eliminate<br>Compliance Blind Spots</h2>
                 <p style="font-size:15px; line-height:1.7; color:var(--text-secondary); margin:0 0 28px;">
-                    Automatically classify every OSS license across your dependency tree. Identify copyleft obligations, proprietary conflicts, and dual-licensed components before they reach production.
+                    Automatically classify every SPDX license across your dependency tree. Identify copyleft obligations, license conflicts, and components that need manual legal review before they reach production.
                 </p>
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
@@ -703,22 +702,22 @@
             <div>
                 <div class="step-num">01</div>
                 <h3 class="step-title">Connect Your Repository</h3>
-                <p class="step-desc">Authenticate with GitHub, GitLab, or Bitbucket. OsWL auto-discovers repositories and branches, importing manifests — no source code upload required.</p>
+                <p class="step-desc">Add a GitHub, GitLab, or Bitbucket Personal Access Token. OsWL discovers repositories and branches and imports manifests — no source code upload required.</p>
             </div>
             <div>
                 <div class="step-num">02</div>
                 <h3 class="step-title">Run a Dependency Scan</h3>
-                <p class="step-desc">OsWL parses your lock files and build manifests, resolves the full transitive dependency graph, and cross-references every component against NVD, OSV, and your license policy database.</p>
+                <p class="step-desc">OsWL parses your lock files and build manifests, resolves the transitive dependency graph, and cross-references every component against deps.dev, NVD, OSV, and your license policy.</p>
             </div>
             <div>
                 <div class="step-num">03</div>
                 <h3 class="step-title">Triage &amp; Remediate</h3>
-                <p class="step-desc">Review findings in the Security Center, filter by severity or patchability, bulk-update statuses, and track your risk posture version-over-version in the Risk Trend dashboard.</p>
+                <p class="step-desc">Review findings in the Security Center, filter by severity, bulk-update statuses, and track your risk posture scan-over-scan in the Risk Trend dashboard.</p>
             </div>
             <div>
                 <div class="step-num">04</div>
                 <h3 class="step-title">Automate in CI/CD</h3>
-                <p class="step-desc">Gate pull requests with the OsWL CLI. A single API key per project enables automated scanning in any pipeline — Jenkins, GitHub Actions, GitLab CI, or custom build servers.</p>
+                <p class="step-desc">Gate pull requests with the OsWL CLI. Bearer-token API keys enable automated scanning in any pipeline — Jenkins, GitHub Actions, GitLab CI, or custom build servers.</p>
             </div>
         </div>
     </div>
@@ -730,7 +729,7 @@
     <h2 class="cta-title">Secure Your<br><span class="shimmer-text">Open Source Stack</span></h2>
     <p class="cta-sub">Deploy OsWL on-premise and gain full SBOM visibility across every project, team, and dependency in your organization.</p>
     <div class="cta-actions">
-        <a href="/login" class="btn-primary">Start Scanning &rarr;</a>
+        <a href="#how-it-works" class="btn-primary">See How It Works &rarr;</a>
         <a href="#features" class="btn-secondary">Explore Features</a>
     </div>
 </section>
@@ -739,17 +738,16 @@
 <footer>
     <div class="footer-inner">
         <div class="footer-logo">
-            <img src="/icon/icon-logo.svg" src="../static/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
-            <img src="/graphic/symbol_w.svg" src="../static/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:26px;height:26px;">
+            <img src="/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
+            <img src="/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:26px;height:26px;">
             <span class="footer-logo-text">OsWL</span>
         </div>
         <div class="footer-links">
             <a href="#features" class="footer-link">Features</a>
             <a href="#platform" class="footer-link">Platform</a>
             <a href="#how-it-works" class="footer-link">How It Works</a>
-            <a href="/login" class="footer-link">Sign In</a>
         </div>
-        <div class="footer-copy">&copy; 2025 OsWL &middot; Open Source Watch List</div>
+        <div class="footer-copy">&copy; 2026 OsWL &middot; Open Source Watch List</div>
     </div>
 </footer>
 

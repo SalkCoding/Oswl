@@ -8,21 +8,139 @@
         <!-- Header -->
         <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0">
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0"
-                th:text="${totalObligations} + ' Obligations'">0 Obligations</h2>
+                th:text="${totalObligations} + ' Obligation' + (${totalObligations} != 1 ? 's' : '')">0 Obligations</h2>
         </div>
 
-        <!-- Empty state -->
+        <!-- Obligation groups -->
         <div class="flex flex-col w-full bg-white divide-y divide-[#DBE4E7]">
-            <div class="flex flex-col items-center justify-center gap-[12px] px-6 py-[48px] text-center">
+
+            <!-- Empty state -->
+            <div th:if="${obligations == null or #lists.isEmpty(obligations)}"
+                 class="flex flex-col items-center justify-center gap-[12px] px-6 py-[48px] text-center">
                 <svg class="w-[32px] h-[32px] text-[var(--grayscale-30)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M9 11l3 3L22 4"/>
                     <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
                 </svg>
-                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0">Obligation analysis not yet available.</p>
-                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0">
-                    License obligation detection is coming in a future update.
-                </p>
+                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0">No obligations found.</p>
+                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0">Run a scan to detect license obligations for this project.</p>
             </div>
+
+            <!-- Each obligation type (one accordion per obligation) -->
+            <div th:each="obligation : ${obligations}"
+                 x-data="{ open: false }"
+                 class="flex flex-col w-full shrink-0">
+
+                <!-- Row header (clickable) -->
+                <div @click="open = !open"
+                     class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
+                    <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
+                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
+                           th:text="${obligation.label}">Obligation Label</p>
+                        <div th:replace="~{fragments/tags :: risk-tag(level=${obligation.riskLevel})}"></div>
+                    </div>
+                    <div class="flex items-center gap-[6px]">
+                        <span class="text-[11px] text-[var(--grayscale-50)]"
+                              th:text="${#lists.size(obligation.entries)} + ' license' + (${#lists.size(obligation.entries)} != 1 ? 's' : '')">1 license</span>
+                        <svg class="w-[14px] h-[14px] text-[var(--grayscale-40)] transition-transform shrink-0"
+                             :class="open ? 'rotate-180' : ''"
+                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Expanded body -->
+                <div x-show="open" x-cloak
+                     class="flex flex-col bg-[var(--grayscale-5)] border-t border-[#DBE4E7]">
+
+                    <!-- Obligation description -->
+                    <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-relaxed px-6 pt-4 pb-0 m-0"
+                       th:text="${obligation.description}">Description</p>
+
+                    <!-- Clause citation -->
+                    <div th:if="${obligation.clauseCitation != null and !#strings.isEmpty(obligation.clauseCitation)}"
+                         class="flex items-start gap-2 px-6 pt-2 pb-0">
+                        <span class="text-[10px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] shrink-0 mt-[1px]">Clause</span>
+                        <span class="text-[11px] text-[var(--grayscale-60)] leading-relaxed"
+                              th:text="${obligation.clauseCitation}">§ 3</span>
+                    </div>
+
+                    <!-- Copy NOTICE snippet -->
+                    <div th:if="${obligation.noticeTemplate != null and !#strings.isEmpty(obligation.noticeTemplate)}"
+                         class="px-6 pt-3 pb-0"
+                         x-data="{ copied: false, copy(t){ navigator.clipboard.writeText(t).then(()=>{ this.copied=true; setTimeout(()=>this.copied=false, 1500); }); } }">
+                        <div class="bg-white border border-[#DBE4E7] rounded-md p-2">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-[10px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)]">Suggested NOTICE snippet</span>
+                                <button type="button"
+                                        @click="copy($refs.snippet.innerText)"
+                                        class="text-[11px] text-[var(--grayscale-60)] hover:text-black flex items-center gap-1">
+                                    <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                                    </svg>
+                                    <span x-text="copied ? 'Copied!' : 'Copy'">Copy</span>
+                                </button>
+                            </div>
+                            <pre x-ref="snippet" class="text-[11px] text-[var(--grayscale-80)] whitespace-pre-wrap font-mono m-0 leading-snug" th:text="${obligation.noticeTemplate}">notice</pre>
+                        </div>
+                    </div>
+
+                    <!-- Per-license entries -->
+                    <div th:each="entry : ${obligation.entries}"
+                         x-data="{ libsOpen: false }"
+                         class="flex flex-col border-t border-[#DBE4E7] mt-3 first:mt-3">
+
+                        <!-- License label + library count toggle -->
+                        <button @click="libsOpen = !libsOpen"
+                                class="flex items-center justify-between gap-[8px] px-6 py-3 w-full text-left hover:bg-white/60 transition-colors">
+                            <div class="flex items-center gap-[8px]">
+                                <span class="bg-[#F3F5F6] border border-[#DBE4E7] text-[11px] text-[#425055] px-3 py-1 rounded-[40px] font-normal"
+                                      th:text="${entry.spdxId}">MIT</span>
+                                <a th:if="${entry.spdxUrl != null and !#strings.isEmpty(entry.spdxUrl)}"
+                                   th:href="${entry.spdxUrl}" target="_blank" rel="noopener"
+                                   @click.stop=""
+                                   class="inline-flex items-center text-[var(--grayscale-50)] hover:text-black"
+                                   title="View full SPDX license text">
+                                    <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                                    </svg>
+                                </a>
+                                <span th:if="${entry.orChoice}"
+                                      class="text-[9px] font-semibold tracking-[0.6px] uppercase bg-[var(--grayscale-5)] text-[var(--grayscale-60)] border border-[var(--grayscale-15)] px-[6px] py-[1px] rounded-[40px]"
+                                      title="License offered as one option in an OR expression — you may comply by selecting any single branch">OR choice</span>
+                            </div>
+                            <div class="flex items-center gap-[6px]">
+                                <div th:replace="~{fragments/tags :: library-count(count=${#lists.size(entry.libraries)})}"></div>
+                                <svg class="w-[12px] h-[12px] text-[var(--grayscale-40)] transition-transform shrink-0"
+                                     :class="libsOpen ? 'rotate-180' : ''"
+                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </div>
+                        </button>
+
+                        <!-- Library list -->
+                        <div x-show="libsOpen" x-cloak
+                             class="flex flex-col gap-0 px-6 pb-3">
+                            <div th:each="libName : ${entry.libraries}"
+                                 class="flex items-center gap-[8px] py-[5px]">
+                                <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
+                                <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] m-0"
+                                   th:text="${libName}">library-name 1.0.0</p>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Bottom padding -->
+                    <div class="h-3"></div>
+
+                </div>
+
+            </div>
+
         </div>
 
     </div>
