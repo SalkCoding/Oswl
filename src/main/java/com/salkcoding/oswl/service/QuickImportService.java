@@ -1471,7 +1471,7 @@ public class QuickImportService {
         if (dir == null || !Files.exists(dir)) return;
         try (Stream<Path> stream = Files.walk(dir)){
             stream
-                    ㄴ.sorted(Comparator.reverseOrder())
+                    .sorted(Comparator.reverseOrder())
                     .forEach(p -> { try { Files.delete(p); } catch (IOException ignored) {} });
         } catch (IOException e) {
             log.warn("[QuickImport] Could not delete temp dir '{}': {}", dir, e.getMessage());
