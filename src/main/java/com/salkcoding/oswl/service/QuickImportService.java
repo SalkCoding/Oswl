@@ -63,6 +63,11 @@ public class QuickImportService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String USER_AGENT = "OsWL-App/1.0";
+    /** Directory name segments to prune when recursively walking for build manifests. */
+    private static final Set<String> MANIFEST_SKIP_DIRS = Set.of(
+            ".git", "node_modules", "vendor", "target", ".gradle", "__pycache__",
+            ".venv", "venv", ".tox", "dist", ".cargo", "build", "out", "bin",
+            "obj", ".idea", ".dart_tool", "bower_components", "generated");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -604,51 +609,139 @@ public class QuickImportService {
     private record GradleComponent(String name, String version, List<List<ScanPayload.DependencyNodeRef>> paths) {}
 
     private ParsedDependencies parseDependencies(Path cloneDir, String repoName) {
-        // Detect by presence of build files (ordered by priority)
-        if (Files.exists(cloneDir.resolve("pom.xml"))) {
-            return parseMaven(cloneDir, repoName);
+        List<ScanPayload.ComponentPayload> allComps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        List<String> ecosystems = new ArrayList<>();
+
+        // ── Maven: walk all pom.xml files ──────────────────────────────────────
+        List<Path> pomFiles = walkManifests(cloneDir, Set.of("pom.xml"), MANIFEST_SKIP_DIRS);
+        if (!pomFiles.isEmpty()) {
+            ecosystems.add("MAVEN");
+            List<ScanPayload.ComponentPayload> mvnComps = runMvnDependencyList(cloneDir, repoName);
+            if (mvnComps != null && !mvnComps.isEmpty()) {
+                mergeComponents(allComps, seen, mvnComps, "MAVEN");
+            } else {
+                for (Path pom : pomFiles) {
+                    mergeComponents(allComps, seen, parseSingleMavenPom(pom, repoName), "MAVEN");
+                }
+            }
+            log.info("[QuickImport][Multi] Maven: {} pom.xml → {} components so far", pomFiles.size(), allComps.size());
         }
-        // Gradle before npm — a Gradle project might have a package.json/lock file for frontend tooling
-        if (Files.exists(cloneDir.resolve("build.gradle")) ||
-                Files.exists(cloneDir.resolve("build.gradle.kts"))) {
-            return parseGradle(cloneDir, repoName);
+
+        // ── Gradle: build.gradle / build.gradle.kts ────────────────────────────
+        List<Path> gradleFiles = walkManifests(cloneDir,
+                Set.of("build.gradle", "build.gradle.kts"), MANIFEST_SKIP_DIRS);
+        if (!gradleFiles.isEmpty()) {
+            if (!ecosystems.contains("MAVEN")) ecosystems.add("MAVEN");
+            List<ScanPayload.ComponentPayload> gradleDeps = runGradleDependencies(cloneDir, repoName);
+            if (gradleDeps == null || gradleDeps.isEmpty()) {
+                gradleDeps = parseGradleStatic(cloneDir, repoName).components();
+            }
+            mergeComponents(allComps, seen, gradleDeps, "MAVEN");
+            // Version catalogs cover libs.xxx references not captured by static regex
+            mergeComponents(allComps, seen, parseVersionCatalogs(cloneDir, repoName), "MAVEN");
+            log.info("[QuickImport][Multi] Gradle: {} build files → {} components so far", gradleFiles.size(), allComps.size());
         }
-        if (Files.exists(cloneDir.resolve("package.json")) ||
-                Files.exists(cloneDir.resolve("package-lock.json")) ||
-                Files.exists(cloneDir.resolve("yarn.lock")) ||
-                Files.exists(cloneDir.resolve("pnpm-lock.yaml"))) {
-            return parseNpm(cloneDir, repoName);
+
+        // ── npm: lock files first (full transitive), then package.json ──────────
+        for (Path lock : walkManifests(cloneDir,
+                Set.of("package-lock.json", "yarn.lock", "pnpm-lock.yaml"), MANIFEST_SKIP_DIRS)) {
+            String fn = lock.getFileName().toString();
+            Path d = lock.getParent();
+            List<ScanPayload.ComponentPayload> npmComps = switch (fn) {
+                case "package-lock.json" -> parseNpmLock(d, repoName);
+                case "yarn.lock"         -> parseYarnLock(d, repoName);
+                case "pnpm-lock.yaml"    -> parsePnpmLock(d, repoName);
+                default                  -> null;
+            };
+            if (npmComps != null && !npmComps.isEmpty()) {
+                if (!ecosystems.contains("NPM")) ecosystems.add("NPM");
+                mergeComponents(allComps, seen, npmComps, "NPM");
+            }
         }
-        // Python — check lock files first (full transitive), then requirements.txt
-        if (Files.exists(cloneDir.resolve("poetry.lock")) ||
-                Files.exists(cloneDir.resolve("Pipfile.lock")) ||
-                Files.exists(cloneDir.resolve("uv.lock")) ||
-                Files.exists(cloneDir.resolve("requirements.txt"))) {
-            return parsePython(cloneDir, repoName);
+        if (!ecosystems.contains("NPM")) {
+            for (Path pkg : walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS)) {
+                List<ScanPayload.ComponentPayload> npmComps = parseNpmPackageJson(pkg.getParent(), repoName).components();
+                if (!npmComps.isEmpty()) {
+                    ecosystems.add("NPM");
+                    mergeComponents(allComps, seen, npmComps, "NPM");
+                }
+            }
         }
-        // Cargo — Cargo.lock has full transitive tree
-        if (Files.exists(cloneDir.resolve("Cargo.toml")) ||
-                Files.exists(cloneDir.resolve("Cargo.lock"))) {
-            return parseCargo(cloneDir, repoName);
+
+        // ── Python: lock files first, then requirements.txt ────────────────────
+        for (Path lock : walkManifests(cloneDir,
+                Set.of("poetry.lock", "uv.lock", "Pipfile.lock"), MANIFEST_SKIP_DIRS)) {
+            String fn = lock.getFileName().toString();
+            List<ScanPayload.ComponentPayload> pyComps = fn.equals("Pipfile.lock")
+                    ? parsePipfileLock(lock.getParent(), repoName)
+                    : parseTomlPackageLock(lock, "PYPI", repoName);
+            if (pyComps != null && !pyComps.isEmpty()) {
+                if (!ecosystems.contains("PYPI")) ecosystems.add("PYPI");
+                mergeComponents(allComps, seen, pyComps, "PYPI");
+            }
         }
-        // Go — go.sum has full transitive list
-        if (Files.exists(cloneDir.resolve("go.mod")) ||
-                Files.exists(cloneDir.resolve("go.sum"))) {
-            return parseGoMod(cloneDir, repoName);
+        if (!ecosystems.contains("PYPI")) {
+            for (Path req : walkManifests(cloneDir, Set.of("requirements.txt"), MANIFEST_SKIP_DIRS)) {
+                ParsedDependencies pd = parsePython(req.getParent(), repoName);
+                if (!pd.components().isEmpty()) {
+                    ecosystems.add("PYPI");
+                    mergeComponents(allComps, seen, pd.components(), "PYPI");
+                    break;
+                }
+            }
         }
-        // NuGet / .NET
-        if (Files.exists(cloneDir.resolve("packages.lock.json")) ||
-                Files.exists(cloneDir.resolve("packages.config")) ||
-                hasCsprojFiles(cloneDir)) {
-            return parseNuGet(cloneDir, repoName);
+
+        // ── Cargo: Cargo.lock ──────────────────────────────────────────────────
+        for (Path lock : walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
+            List<ScanPayload.ComponentPayload> cargoComps = parseTomlPackageLock(lock, "CARGO", repoName);
+            if (cargoComps != null && !cargoComps.isEmpty()) {
+                if (!ecosystems.contains("CARGO")) ecosystems.add("CARGO");
+                mergeComponents(allComps, seen, cargoComps, "CARGO");
+            }
         }
-        // Ruby / RubyGems
-        if (Files.exists(cloneDir.resolve("Gemfile.lock")) ||
-                Files.exists(cloneDir.resolve("Gemfile"))) {
-            return parseRuby(cloneDir, repoName);
+
+        // ── Go: go.sum ────────────────────────────────────────────────────────
+        for (Path sum : walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
+            List<ScanPayload.ComponentPayload> goComps = parseGoSum(sum.getParent(), repoName);
+            if (goComps != null && !goComps.isEmpty()) {
+                if (!ecosystems.contains("GO")) ecosystems.add("GO");
+                mergeComponents(allComps, seen, goComps, "GO");
+            }
         }
-        log.warn("[QuickImport] No recognized build file in repo '{}' — returning empty component list.", repoName);
-        return new ParsedDependencies("UNKNOWN", List.of());
+
+        // ── NuGet: packages.lock.json / .csproj ────────────────────────────────
+        for (Path lock : walkManifests(cloneDir, Set.of("packages.lock.json"), MANIFEST_SKIP_DIRS)) {
+            List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
+            if (nugetComps != null && !nugetComps.isEmpty()) {
+                if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
+                mergeComponents(allComps, seen, nugetComps, "NUGET");
+            }
+        }
+        if (!ecosystems.contains("NUGET") && hasCsprojFiles(cloneDir)) {
+            ParsedDependencies nd = parseNuGetStatic(cloneDir, repoName);
+            if (!nd.components().isEmpty()) {
+                ecosystems.add("NUGET");
+                mergeComponents(allComps, seen, nd.components(), "NUGET");
+            }
+        }
+
+        // ── Ruby: Gemfile.lock ────────────────────────────────────────────────
+        for (Path lock : walkManifests(cloneDir, Set.of("Gemfile.lock"), MANIFEST_SKIP_DIRS)) {
+            List<ScanPayload.ComponentPayload> rubyComps = parseGemfileLock(lock.getParent(), repoName);
+            if (rubyComps != null && !rubyComps.isEmpty()) {
+                if (!ecosystems.contains("RUBYGEMS")) ecosystems.add("RUBYGEMS");
+                mergeComponents(allComps, seen, rubyComps, "RUBYGEMS");
+            }
+        }
+
+        if (allComps.isEmpty()) {
+            log.warn("[QuickImport] No recognized manifests in '{}' — empty component list.", repoName);
+            return new ParsedDependencies("UNKNOWN", List.of());
+        }
+        String primary = ecosystems.get(0);
+        log.info("[QuickImport] Multi-scan '{}': {} components across ecosystems={}", repoName, allComps.size(), ecosystems);
+        return new ParsedDependencies(primary, allComps);
     }
 
     // Maven: parse pom.xml <dependencies>
@@ -746,6 +839,206 @@ public class QuickImportService {
         }
         m.appendTail(sb);
         return sb.toString();
+    }
+
+    // ── Multi-manifest helpers ─────────────────────────────────────────────
+
+    /** Parses a single {@code pom.xml} file and returns its non-test, non-system direct dependencies. */
+    private List<ScanPayload.ComponentPayload> parseSingleMavenPom(Path pomFile, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setNamespaceAware(false);
+            Document doc = dbf.newDocumentBuilder().parse(pomFile.toFile());
+            doc.getDocumentElement().normalize();
+            Element project = doc.getDocumentElement();
+            Map<String, String> props = new HashMap<>();
+            String projectVersion = getDirectChildText(project, "version");
+            Element parent = getDirectChild(project, "parent");
+            if (parent != null) {
+                String parentVersion = getDirectChildText(parent, "version");
+                if (projectVersion == null) projectVersion = parentVersion;
+                String parentGroup = getDirectChildText(parent, "groupId");
+                if (parentGroup != null) props.put("project.parent.groupId", parentGroup);
+                if (parentVersion != null) props.put("project.parent.version", parentVersion);
+            }
+            if (projectVersion != null) {
+                props.put("project.version", projectVersion);
+                props.put("version", projectVersion);
+                props.put("pom.version", projectVersion);
+            }
+            Element properties = getDirectChild(project, "properties");
+            if (properties != null) {
+                NodeList children = properties.getChildNodes();
+                for (int i = 0; i < children.getLength(); i++) {
+                    if (children.item(i) instanceof Element pe) {
+                        props.put(pe.getTagName(), pe.getTextContent().trim());
+                    }
+                }
+            }
+            Element depsRoot = getDirectChild(project, "dependencies");
+            if (depsRoot == null) return comps;
+            NodeList deps = depsRoot.getChildNodes();
+            for (int i = 0; i < deps.getLength(); i++) {
+                if (!(deps.item(i) instanceof Element dep) || !"dependency".equals(dep.getTagName())) continue;
+                String groupId    = resolveProp(getDirectChildText(dep, "groupId"), props);
+                String artifactId = resolveProp(getDirectChildText(dep, "artifactId"), props);
+                String version    = resolveProp(getDirectChildText(dep, "version"), props);
+                String scope      = getDirectChildText(dep, "scope");
+                if (groupId == null || artifactId == null) continue;
+                if ("test".equalsIgnoreCase(scope) || "system".equalsIgnoreCase(scope)
+                        || "provided".equalsIgnoreCase(scope)) continue;
+                comps.add(buildComponent(groupId + ":" + artifactId, version, "MAVEN"));
+            }
+            log.debug("[QuickImport][Maven] Parsed {} deps from {}", comps.size(), pomFile);
+        } catch (Exception e) {
+            log.warn("[QuickImport][Maven] Failed to parse {}: {}", pomFile, e.getMessage());
+        }
+        return comps;
+    }
+
+    /**
+     * Attempts {@code ./mvnw dependency:list} for full transitive Maven resolution.
+     * Returns {@code null} if the wrapper is absent, exits non-zero, or times out.
+     */
+    private List<ScanPayload.ComponentPayload> runMvnDependencyList(Path dir, String repoName) {
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        Path wrapper = dir.resolve(isWindows ? "mvnw.cmd" : "mvnw");
+        if (!Files.exists(wrapper)) {
+            log.debug("[QuickImport][Maven] No mvnw in '{}', using static pom.xml parse", repoName);
+            return null;
+        }
+        try {
+            if (!isWindows) wrapper.toFile().setExecutable(true, false);
+            List<String> cmd = isWindows
+                    ? List.of("cmd", "/c", wrapper.toString(),
+                              "dependency:list", "-DincludeScope=runtime", "-q", "--batch-mode")
+                    : List.of(wrapper.toString(),
+                              "dependency:list", "-DincludeScope=runtime", "-q", "--batch-mode");
+            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
+            String javaHome = System.getProperty("java.home");
+            if (javaHome != null && !javaHome.isBlank()) pb.environment().put("JAVA_HOME", javaHome);
+            log.info("[QuickImport][Maven] Running mvnw dependency:list for '{}'", repoName);
+            Process proc = pb.start();
+            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
+            if (!finished) { proc.destroyForcibly(); log.warn("[QuickImport][Maven] mvnw timed out for '{}'", repoName); return null; }
+            if (proc.exitValue() != 0) {
+                log.warn("[QuickImport][Maven] mvnw exited {} for '{}', falling back to static parse", proc.exitValue(), repoName);
+                return null;
+            }
+            // [INFO]    groupId:artifactId:jar:version:scope
+            Pattern lineP = Pattern.compile("^\\[INFO\\]\\s+([\\w.\\-]+:[\\w.\\-]+):[\\w.\\-]+:([\\w.+\\-]+):(compile|runtime)\\s*$");
+            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            Set<String> seen = new LinkedHashSet<>();
+            for (String line : output.split("\r?\n")) {
+                Matcher m = lineP.matcher(line.trim());
+                if (m.matches()) {
+                    String coord = m.group(1); String version = m.group(2);
+                    if (seen.add(coord + ":" + version)) comps.add(buildComponent(coord, version, "MAVEN"));
+                }
+            }
+            log.info("[QuickImport][Maven] mvnw \u2192 {} components for '{}'", comps.size(), repoName);
+            return comps.isEmpty() ? null : comps;
+        } catch (Exception e) {
+            log.warn("[QuickImport][Maven] mvnw failed for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Recursively finds all files whose name is in {@code fileNames} under {@code root},
+     * skipping any path segment listed in {@code skipDirs}.
+     */
+    private List<Path> walkManifests(Path root, Set<String> fileNames, Set<String> skipDirs) {
+        List<Path> result = new ArrayList<>();
+        try (Stream<Path> stream = Files.walk(root)) {
+            stream.filter(path -> {
+                if (Files.isDirectory(path)) return false;
+                Path rel = root.relativize(path);
+                for (int i = 0; i < rel.getNameCount() - 1; i++) {
+                    if (skipDirs.contains(rel.getName(i).toString())) return false;
+                }
+                return fileNames.contains(path.getFileName().toString());
+            }).forEach(result::add);
+        } catch (IOException e) {
+            log.warn("[QuickImport] walkManifests error under '{}': {}", root, e.getMessage());
+        }
+        return result;
+    }
+
+    /** Merges {@code src} into {@code target}, deduplicating on name+version+ecosystem. */
+    private void mergeComponents(List<ScanPayload.ComponentPayload> target,
+                                  Set<String> seen,
+                                  List<ScanPayload.ComponentPayload> src,
+                                  String fallbackEcosystem) {
+        if (src == null) return;
+        for (ScanPayload.ComponentPayload c : src) {
+            String key = (c.getName() != null ? c.getName() : "?") + ":"
+                    + (c.getVersion() != null ? c.getVersion() : "") + ":"
+                    + (c.getEcosystem() != null ? c.getEcosystem() : fallbackEcosystem);
+            if (seen.add(key)) target.add(c);
+        }
+    }
+
+    /**
+     * Parses Gradle version catalog files ({@code *.versions.toml}) found up to 3 levels deep.
+     * Resolves {@code version.ref} references and returns all {@code [libraries]} entries as
+     * Maven ecosystem components (Gradle uses Maven coordinates).
+     */
+    private List<ScanPayload.ComponentPayload> parseVersionCatalogs(Path dir, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        List<Path> catalogs = new ArrayList<>();
+        try (Stream<Path> walk = Files.walk(dir, 3)) {
+            walk.filter(p -> !Files.isDirectory(p) && p.getFileName().toString().endsWith(".versions.toml"))
+                .forEach(catalogs::add);
+        } catch (IOException e) {
+            log.warn("[QuickImport][Gradle] Error finding version catalogs: {}", e.getMessage());
+            return comps;
+        }
+        if (catalogs.isEmpty()) { log.debug("[QuickImport][Gradle] No *.versions.toml in '{}'", repoName); return comps; }
+        for (Path catalog : catalogs) {
+            try {
+                List<String> lines = Files.readAllLines(catalog, StandardCharsets.UTF_8);
+                Map<String, String> versions = new LinkedHashMap<>();
+                boolean inVersions = false, inLibraries = false;
+                for (String rawLine : lines) {
+                    String line = rawLine.trim();
+                    if (line.isEmpty() || line.startsWith("#")) continue;
+                    if (line.equals("[versions]"))  { inVersions = true;  inLibraries = false; continue; }
+                    if (line.equals("[libraries]")) { inLibraries = true; inVersions = false;  continue; }
+                    if (line.startsWith("["))       { inVersions = false; inLibraries = false; continue; }
+                    if (inVersions) {
+                        Matcher vm = Pattern.compile("^([\\w.\\-]+)\\s*=\\s*[\"']([^\"']+)[\"']").matcher(line);
+                        if (vm.find()) versions.put(vm.group(1), vm.group(2));
+                    } else if (inLibraries) {
+                        // Short form: alias = "group:artifact:version"
+                        Matcher shortM = Pattern.compile(
+                                "^[\\w.\\-]+\\s*=\\s*[\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.+\\-]+)[\"']").matcher(line);
+                        if (shortM.find()) { comps.add(buildComponent(shortM.group(1), shortM.group(2), "MAVEN")); continue; }
+                        // Table form: alias = { module = "g:a", version.ref = "key" | version = "x" }
+                        Matcher tableM = Pattern.compile("^[\\w.\\-]+\\s*=\\s*\\{(.+)\\}").matcher(line);
+                        if (tableM.find()) {
+                            String body = tableM.group(1);
+                            Matcher modM = Pattern.compile("module\\s*=\\s*[\"']([\\w.\\-]+:[\\w.\\-]+)[\"']").matcher(body);
+                            if (modM.find()) {
+                                String module = modM.group(1); String version = null;
+                                Matcher vRefM = Pattern.compile("version\\.ref\\s*=\\s*[\"']([\\w.\\-]+)[\"']").matcher(body);
+                                Matcher vM    = Pattern.compile("(?<![.\\w])version\\s*=\\s*[\"']([\\w.+\\-]+)[\"']").matcher(body);
+                                if (vRefM.find()) version = versions.get(vRefM.group(1));
+                                else if (vM.find()) version = vM.group(1);
+                                if (version != null && !version.isBlank()) comps.add(buildComponent(module, version, "MAVEN"));
+                            }
+                        }
+                    }
+                }
+                log.info("[QuickImport][Gradle] Version catalog {} \u2192 {} entries", catalog.getFileName(), comps.size());
+            } catch (Exception e) {
+                log.warn("[QuickImport][Gradle] Failed to parse {}: {}", catalog, e.getMessage());
+            }
+        }
+        return comps;
     }
 
     // npm: try package-lock.json first (full transitive tree), then yarn.lock, then pnpm-lock.yaml,
@@ -952,43 +1245,39 @@ public class QuickImportService {
             if (!isWindows) {
                 wrapper.toFile().setExecutable(true, false);
             }
-            List<String> cmd = isWindows
-                    ? List.of("cmd", "/c", wrapper.toString(), "dependencies",
-                              "--configuration", "runtimeClasspath", "-q", "--no-daemon")
-                    : List.of(wrapper.toString(), "dependencies",
-                              "--configuration", "runtimeClasspath", "-q", "--no-daemon");
-
-            ProcessBuilder pb = new ProcessBuilder(cmd)
-                    .directory(dir.toFile())
-                    .redirectErrorStream(true);
-
-            // Propagate the server JVM's java.home so gradlew can locate Java
+            List<String> baseArgs = isWindows
+                    ? List.of("cmd", "/c", wrapper.toString(), "dependencies", "-q", "--no-daemon")
+                    : List.of(wrapper.toString(), "dependencies", "-q", "--no-daemon");
+            // Try configurations in priority order; fall through on failure or empty result
+            List<String> configurations = List.of("runtimeClasspath", "compileClasspath");
             String javaHome = System.getProperty("java.home");
-            if (javaHome != null && !javaHome.isBlank()) {
-                pb.environment().put("JAVA_HOME", javaHome);
-                String pathSep = isWindows ? ";" : ":";
-                String javaBin = javaHome + File.separator + "bin";
-                pb.environment().merge("PATH", javaBin,
-                        (existing, added) -> added + pathSep + existing);
+            for (String config : configurations) {
+                List<String> cmd = new ArrayList<>(baseArgs);
+                cmd.add("--configuration"); cmd.add(config);
+                ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
+                if (javaHome != null && !javaHome.isBlank()) {
+                    pb.environment().put("JAVA_HOME", javaHome);
+                    String pathSep = isWindows ? ";" : ":";
+                    pb.environment().merge("PATH", javaHome + File.separator + "bin",
+                            (existing, added) -> added + pathSep + existing);
+                }
+                log.info("[QuickImport][Gradle] Running gradlew dependencies --configuration {} for '{}'", config, repoName);
+                Process proc = pb.start();
+                String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
+                if (!finished) { proc.destroyForcibly(); log.warn("[QuickImport][Gradle] gradlew timed out for '{}'", repoName); return null; }
+                if (proc.exitValue() != 0) {
+                    log.debug("[QuickImport][Gradle] gradlew --configuration {} exited {} for '{}', trying next", config, proc.exitValue(), repoName);
+                    continue;
+                }
+                List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(output, repoName);
+                if (!comps.isEmpty()) {
+                    log.info("[QuickImport][Gradle] gradlew --configuration {} resolved {} components for '{}'", config, comps.size(), repoName);
+                    return comps;
+                }
             }
-
-            log.info("[QuickImport][Gradle] Running gradlew dependencies for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[QuickImport][Gradle] gradlew timed out for '{}', falling back to static parse", repoName);
-                return null;
-            }
-            if (proc.exitValue() != 0) {
-                log.warn("[QuickImport][Gradle] gradlew exited {} for '{}', falling back to static parse",
-                        proc.exitValue(), repoName);
-                return null;
-            }
-            List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(output, repoName);
-            log.info("[QuickImport][Gradle] gradlew resolved {} components for '{}'", comps.size(), repoName);
-            return comps;
+            log.warn("[QuickImport][Gradle] gradlew produced no components for '{}', falling back to static parse", repoName);
+            return null;
         } catch (Exception e) {
             log.warn("[QuickImport][Gradle] Failed to run gradlew for '{}': {}", repoName, e.getMessage());
             return null;

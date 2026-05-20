@@ -107,6 +107,10 @@ public class DepsDevClient {
 
     private VersionInfo getVersion(ComponentKey key) {
         try {
+            if (key.version() == null || key.version().isBlank()) {
+                log.debug("[DepsDevClient] GetVersion SKIPPED {}:{} — null/blank version", key.name(), key.version());
+                return new VersionInfo(List.of(), List.of(), false, null, null);
+            }
             String encodedName = encodePackageName(key.ecosystem(), key.name());
             String encodedVersion = URLEncoder.encode(key.version(), StandardCharsets.UTF_8).replace("+", "%20");
 

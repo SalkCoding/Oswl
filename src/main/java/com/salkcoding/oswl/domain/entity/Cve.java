@@ -87,4 +87,8 @@ public class Cve {
     public void setAiSummary(String summary) {
         this.aiSummary = summary;
     }
+
+    public void updateFixVersion(String fixVersion) {
+        this.fixVersion = fixVersion;
+    }
 }
