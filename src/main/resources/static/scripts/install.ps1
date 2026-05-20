@@ -213,7 +213,8 @@ function Get-Components {
             Write-Dbg "Falling back to static build.gradle parse"
             $content = Get-Content $gradleFile -Raw
             $seen2   = @{}
-            $rx      = [regex]'(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|annotationProcessor|kapt)\s*[\(\s][''"]([A-Za-z0-9._\-]+):([A-Za-z0-9._\-]+)(?::([A-Za-z0-9._\-]+))?[''"]'
+            # Configurations: standard JVM, Kotlin (kapt/ksp), Android variants, custom *Implementation.
+            $rx      = [regex]'(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|testCompileOnly|annotationProcessor|kapt|ksp|developmentOnly|(?:androidTest|debug|release)Implementation|[A-Za-z][A-Za-z0-9_]*Implementation)\s*[\(\s][''"]([A-Za-z0-9._\-]+):([A-Za-z0-9._\-]+)(?::([A-Za-z0-9._+\-]+))?[''"]'
             foreach ($m in $rx.Matches($content)) {
                 $name = "$($m.Groups[1].Value):$($m.Groups[2].Value)"
                 $ver  = if ($m.Groups[3].Success) { $m.Groups[3].Value } else { "unspecified" }
@@ -354,12 +355,19 @@ function Get-Components {
         Write-Dbg "PYPI: Pipfile.lock"
         try {
             $lock = Get-Content $pipfileLock -Raw | ConvertFrom-Json
+            $seenPipfile = @{}
             foreach ($section in @("default","develop")) {
                 $deps = $lock.$section; if (-not $deps) { continue }
                 $info = if ($section -eq "develop") { "pipenv devDependency" } else { "pipenv dependency" }
                 foreach ($prop in $deps.PSObject.Properties) {
                     $ver = ($prop.Value.version -replace '^==', '')
-                    if ($ver) { [void]$c.Add([ordered]@{ name=$prop.Name; version=$ver; ecosystem="PYPI"; dependencyInfo=$info }) }
+                    if ($ver) {
+                        $key = "$($prop.Name):$ver"
+                        if (-not $seenPipfile.ContainsKey($key)) {
+                            $seenPipfile[$key] = $true
+                            [void]$c.Add([ordered]@{ name=$prop.Name; version=$ver; ecosystem="PYPI"; dependencyInfo=$info })
+                        }
+                    }
                 }
             }
         } catch { Write-Dbg "Pipfile.lock exception: $_" }
