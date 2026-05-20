@@ -68,15 +68,26 @@ public class OsvClient {
     @SuppressWarnings("unchecked")
     private List<OsvResult> doQueryBatch(List<OsvQuery> queries) {
         try {
-            List<Map<String, Object>> requestBody = queries.stream()
-                    .map(q -> (Map<String, Object>) Map.of(
+            // Map.of() rejects null values — pre-filter queries with any null field
+            // and track their original indices to re-align the result list.
+            List<Integer> validIndices = new ArrayList<>();
+            List<Map<String, Object>> requestBody = new ArrayList<>();
+            for (int i = 0; i < queries.size(); i++) {
+                OsvQuery q = queries.get(i);
+                if (q.version() != null && q.name() != null && q.ecosystem() != null) {
+                    validIndices.add(i);
+                    requestBody.add(Map.of(
                             "version", q.version(),
-                            "package", Map.of(
-                                    "name", q.name(),
-                                    "ecosystem", q.ecosystem())))
-                    .toList();
+                            "package", Map.of("name", q.name(), "ecosystem", q.ecosystem())));
+                }
+            }
 
-            log.debug("[OsvClient] querybatch REQUEST size={} queries={}", queries.size(), queries);
+            if (requestBody.isEmpty()) {
+                return Collections.nCopies(queries.size(), new OsvResult(List.of()));
+            }
+
+            log.debug("[OsvClient] querybatch REQUEST size={} valid={} queries={}",
+                    queries.size(), validIndices.size(), queries);
 
             Map<String, Object> response = restClient.post()
                     .uri("/v1/querybatch")
@@ -116,12 +127,18 @@ public class OsvClient {
             log.debug("[OsvClient] querybatch PARSED results count={} totalVulns={}",
                     parsed.size(),
                     parsed.stream().mapToInt(r -> r.vulns().size()).sum());
-            for (int i = 0; i < Math.min(parsed.size(), queries.size()); i++) {
-                OsvResult r = parsed.get(i);
-                OsvQuery q = queries.get(i);
-                log.debug("[OsvClient] querybatch RESULT[{}] {}:{} vulns={}", i, q.name(), q.version(), r.vulns());
+
+            // Re-expand to full queries.size(), placing empty results where version was null
+            OsvResult[] finalResults = new OsvResult[queries.size()];
+            java.util.Arrays.fill(finalResults, new OsvResult(List.of()));
+            for (int i = 0; i < validIndices.size() && i < parsed.size(); i++) {
+                finalResults[validIndices.get(i)] = parsed.get(i);
             }
-            return parsed;
+            for (int i = 0; i < finalResults.length; i++) {
+                OsvQuery q = queries.get(i);
+                log.debug("[OsvClient] querybatch RESULT[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
+            }
+            return java.util.Arrays.asList(finalResults);
         } catch (RestClientException e) {
             log.error("[OsvClient] querybatch failed: {}", e.getMessage());
             return Collections.nCopies(queries.size(), new OsvResult(List.of()));
