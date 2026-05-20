@@ -58,4 +58,12 @@ public class ProjectSummaryDto {
 
     @Schema(description = "Stable project UUID used as the CLI API key identifier", example = "550e8400-e29b-41d4-a716-446655440000")
     private final String projectUuid;
+
+    /**
+     * Status of the most recent scan for this project.
+     * Null means the project has never been scanned.
+     * One of: PENDING, SCANNING, ANALYZING, COMPLETED, FAILED.
+     */
+    @Schema(description = "Latest scan status — null if never scanned", example = "COMPLETED")
+    private final String scanStatus;
 }

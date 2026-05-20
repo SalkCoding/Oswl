@@ -84,6 +84,26 @@ public class AiAnalysisService {
         return aiSettingRepository.findByActiveTrue().isPresent();
     }
 
+    /**
+     * Sends a minimal ping prompt to the given provider using the supplied (plaintext) setting.
+     * No persistence — used only for the Settings > AI > Test Connection button.
+     *
+     * @return true if the provider responded successfully, false otherwise
+     */
+    public boolean testConnection(AiSetting setting) {
+        String prompt = "Reply with only the word OK.";
+        try {
+            String result = switch (setting.getProvider()) {
+                case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
+                case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            };
+            return result != null;
+        } catch (Exception e) {
+            log.warn("[AI] Test connection failed for provider {}: {}", setting.getProvider(), e.getMessage());
+            return false;
+        }
+    }
+
     // ── Internal ─────────────────────────────────────────────────────────
 
     private AiSetting getActiveSetting() {

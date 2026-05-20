@@ -191,40 +191,62 @@ public class ProjectService {
                   + (project.getLatestBranch() != null ? "#" + project.getLatestBranch() : "")
                 : null;
 
-        // Extract aggregate values from the latest completed scan
-        return scanResultRepository
-                .findFirstByProjectIdAndStatusOrderByScannedAtDesc(
-                        project.getId(),
-                        com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED)
-                .map(scan -> {
-                    int[] sec = aggregateSecurity(scan);
-                    int[] lic = aggregateLicense(scan);
-                    String lastScanned = scan.getScannedAt() != null
-                            ? scan.getScannedAt().toLocalDate().toString().replace("-", ".")
-                            : "-";
-                    return ProjectSummaryDto.builder()
-                            .id(project.getId())
-                            .name(project.getName())
-                            .version(scan.getVersion())
-                            .lastScanned(lastScanned)
-                            .securityCritical(sec[0]).securityHigh(sec[1])
-                            .securityMedium(sec[2]).securityLow(sec[3]).securityUnscored(sec[4])
-                            .licenseCritical(lic[0]).licenseHigh(lic[1])
-                            .licenseMedium(lic[2]).licenseLow(lic[3])
-                            .githubRepo(githubDisplayRepo)
-                            .importedAt(importedAt)
-                            .projectUuid(project.getProjectUuid())
-                            .build();
-                })
-                .orElseGet(() -> ProjectSummaryDto.builder()
-                        .id(project.getId())
-                        .name(project.getName())
-                        .version("-")
-                        .lastScanned("-")
-                        .githubRepo(githubDisplayRepo)
-                        .importedAt(importedAt)
-                        .projectUuid(project.getProjectUuid())
-                        .build());
+        // Get the most recent scan regardless of status so we can display in-progress and
+        // failed states on the project card (not just COMPLETED scans).
+        var latestScanOpt = scanResultRepository.findLatestByProjectId(project.getId());
+
+        // No scan at all → truly unsaved / zombie project
+        if (latestScanOpt.isEmpty()) {
+            return ProjectSummaryDto.builder()
+                    .id(project.getId())
+                    .name(project.getName())
+                    .version("-")
+                    .lastScanned("-")
+                    .githubRepo(githubDisplayRepo)
+                    .importedAt(importedAt)
+                    .projectUuid(project.getProjectUuid())
+                    .scanStatus(null)
+                    .build();
+        }
+
+        var latestScan = latestScanOpt.get();
+        var status = latestScan.getStatus();
+
+        // For completed scans: aggregate full security/license data
+        if (status == com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED) {
+            int[] sec = aggregateSecurity(latestScan);
+            int[] lic = aggregateLicense(latestScan);
+            String lastScanned = latestScan.getScannedAt() != null
+                    ? latestScan.getScannedAt().toLocalDate().toString().replace("-", ".")
+                    : "-";
+            return ProjectSummaryDto.builder()
+                    .id(project.getId())
+                    .name(project.getName())
+                    .version(latestScan.getVersion())
+                    .lastScanned(lastScanned)
+                    .securityCritical(sec[0]).securityHigh(sec[1])
+                    .securityMedium(sec[2]).securityLow(sec[3]).securityUnscored(sec[4])
+                    .licenseCritical(lic[0]).licenseHigh(lic[1])
+                    .licenseMedium(lic[2]).licenseLow(lic[3])
+                    .githubRepo(githubDisplayRepo)
+                    .importedAt(importedAt)
+                    .projectUuid(project.getProjectUuid())
+                    .scanStatus(status.name())
+                    .build();
+        }
+
+        // For in-progress (SCANNING / ANALYZING) or FAILED scans: show the state without
+        // risk counts so the UI can render an appropriate indicator.
+        return ProjectSummaryDto.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .version(latestScan.getVersion() != null ? latestScan.getVersion() : "-")
+                .lastScanned("-")
+                .githubRepo(githubDisplayRepo)
+                .importedAt(importedAt)
+                .projectUuid(project.getProjectUuid())
+                .scanStatus(status.name())
+                .build();
     }
 
     private int[] aggregateSecurity(com.salkcoding.oswl.domain.entity.ScanResult scan) {
