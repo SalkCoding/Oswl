@@ -50,30 +50,6 @@ public class ApiKeyService {
         return saved;
     }
 
-    /**
-     * Returns the user's existing active CLI key for a project, or issues a new one.
-     * Called by the CLI auth endpoint — ensures each user has at most one active CLI
-     * key per project, avoiding runaway key creation on repeated `oswl auth` calls.
-     */
-    @Transactional
-    public ApiKey getOrIssueCliKey(Long projectId, Long userId) {
-        List<ApiKey> existing = apiKeyRepository.findActiveByProjectIdAndCreatedByUserId(projectId, userId);
-        if (!existing.isEmpty()) {
-            return existing.get(0);
-        }
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
-        ApiKey apiKey = ApiKey.builder()
-                .project(project)
-                .token(generateToken())
-                .label("cli")
-                .createdByUserId(userId)
-                .build();
-        ApiKey saved = apiKeyRepository.save(apiKey);
-        log.info("[ApiKey] CLI 키 발급 projectId={} userId={} keyId={}", projectId, userId, saved.getId());
-        return saved;
-    }
-
     /** Find a valid key by token value (used by the interceptor) */
     @Transactional
     public ApiKey validateAndRecord(String rawToken) {

@@ -55,11 +55,11 @@
 
                 <!-- Tab panels -->
                 <div x-show="tab === 'obligations'" x-cloak
-                     th:replace="~{license/components/obligations_found :: obligations_found}"></div>
+                     th:insert="~{license/components/obligations_found :: obligations_found}"></div>
                 <div x-show="tab === 'conflicts'" x-cloak
-                     th:replace="~{license/components/license_conflicts :: license_conflicts}"></div>
+                     th:insert="~{license/components/license_conflicts :: license_conflicts}"></div>
                 <div x-show="tab === 'review'" x-cloak
-                     th:replace="~{license/components/license_review :: license_review}"></div>
+                     th:insert="~{license/components/license_review :: license_review}"></div>
             </div>
         </div>
 

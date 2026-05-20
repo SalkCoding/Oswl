@@ -43,6 +43,7 @@ function quickImportPage() {
         progressLog: [],     // [{ status: 'running'|'done'|'error', text: string }]
         _pollTimer: null,
         _lastPhase: null,
+        _pollInFlight: false,
 
         /* ── Copy feedback ───────────────────────── */
         keyCopied: false,
@@ -103,6 +104,10 @@ function quickImportPage() {
 
         get importDone() {
             return this.jobResult && this.jobResult.phase === 'DONE';
+        },
+
+        get importFailed() {
+            return this.jobResult && this.jobResult.phase === 'FAILED';
         },
 
         /* ── Actions ──────────────────────────────── */
@@ -172,18 +177,20 @@ function quickImportPage() {
 
         _startPolling() {
             // Kick off an immediate first poll so the QUEUED phase entry appears right away,
-            // then continue at 1.5s intervals. All log entries are driven by backend phases
-            // so no manual "queued" entry is needed here.
+            // then continue at 1.5s intervals. Guard against concurrent in-flight polls.
+            this._pollInFlight = false;
             this._pollJob();
-            this._pollTimer = setInterval(() => this._pollJob(), 1500);
+            this._pollTimer = setInterval(() => { if (!this._pollInFlight) this._pollJob(); }, 1500);
         },
 
         async _pollJob() {
+            if (this._pollInFlight) return;
+            this._pollInFlight = true;
             try {
                 const res = await fetch('/api/quick-import/job/' + this.jobId);
                 if (res.status === 404) {
                     this._stopPolling();
-                    this._appendLog('error', 'Job not found.');
+                    this._appendLog('error', 'Import session expired. The server may have been restarted — please try again.');
                     this.isImporting = false;
                     return;
                 }
@@ -193,6 +200,8 @@ function quickImportPage() {
                 this._applyJobUpdate(job);
             } catch (err) {
                 console.error('[QuickImport] Poll error:', err);
+            } finally {
+                this._pollInFlight = false;
             }
         },
 
@@ -367,15 +376,16 @@ function quickImportPage() {
 
         resetForm() {
             this._stopPolling();
-            this.repoUrl      = '';
-            this.branch       = '';
-            this.urlError     = '';
-            this.isImporting  = false;
-            this.jobId        = null;
-            this.jobResult    = {};
-            this.progressLog  = [];
-            this._lastPhase   = null;
-            this.keyCopied    = false;
+            this.repoUrl       = '';
+            this.branch        = '';
+            this.urlError      = '';
+            this.isImporting   = false;
+            this.jobId         = null;
+            this.jobResult     = {};
+            this.progressLog   = [];
+            this._lastPhase    = null;
+            this._pollInFlight = false;
+            this.keyCopied     = false;
         },
     };
 }

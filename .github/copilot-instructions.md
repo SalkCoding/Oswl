@@ -2,6 +2,13 @@
 
 OsWL는 OSS 컴포넌트의 보안 취약점(CVE)과 라이선스 리스크를 추적·관리하는 사내 SCA(Software Composition Analysis) 플랫폼입니다.
 
+# Test account rule
+테스트 계정은 무조건
+이메일: test@test.com
+비밀번호: 1q2w3e4r
+로 진행하며 이름은 test로 통일한다.
+OTP는 개발용이라 000000으로 통과 가능하며, 테스트용으로 발급할 때는 123456을 사용한다.
+
 ## Tech Stack
 
 - **Backend:** Spring Boot 4.0.5 (Java 25) — WebMVC, Data JPA, Security, Mail, Validation, AspectJ

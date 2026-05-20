@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
@@ -25,6 +27,27 @@ public class ScanPayload {
     @Schema(hidden = true)
     @Setter
     private String rawJson;
+
+    /**
+     * Submitter email — required for all CLI scans.
+     * Used for authentication, attribution, and audit logging.
+     */
+    @Schema(description = "Submitter email for authentication and audit attribution", example = "dev@company.com")
+    @NotBlank(message = "submitterEmail is required")
+    @Setter
+    private String submitterEmail;
+
+    /**
+     * Submitter password — validated server-side via BCrypt before the scan is accepted.
+     * WRITE_ONLY: never included in serialized output or stored rawJson.
+     * Never logged by Lombok toString.
+     */
+    @Schema(hidden = true)
+    @NotBlank(message = "submitterPassword is required")
+    @Setter
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @ToString.Exclude
+    private String submitterPassword;
 
     // ── Inner DTOs ────────────────────────────────────────────────────────
 

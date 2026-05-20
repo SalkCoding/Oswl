@@ -3,6 +3,8 @@ package com.salkcoding.oswl.controller.spec;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
+import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
+import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -133,5 +135,26 @@ public interface AiSettingControllerSpec {
             required = true
         )
         @PathVariable AiProvider provider
+    );
+
+    @Operation(
+        summary = "Test connection to an AI provider",
+        description = "Sends a minimal ping to the specified provider using the supplied credentials. No data is persisted. If `apiKey` is omitted the stored (encrypted) key is used."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Test result",
+            content = @Content(
+                examples = {
+                    @ExampleObject(name = "success", value = """
+                        { "success": true, "message": "Connection successful!" }
+                        """),
+                    @ExampleObject(name = "failure", value = """
+                        { "success": false, "message": "Connection failed. Check your API key and model name." }
+                        """)
+                })),
+        @ApiResponse(responseCode = "400", description = "API key not configured and not provided", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> testConnection(
+        @Valid @org.springframework.web.bind.annotation.RequestBody AiTestConnectionRequest request
     );
 }

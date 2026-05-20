@@ -361,10 +361,32 @@
             async testConnection() {
                 if (this.mode === 'off') return;
                 this.testing = true;
+                this.apiError = null;
                 try {
-                    await new Promise(resolve => setTimeout(resolve, 800));
-                    this.showToast('Connection test is not yet supported from the UI.');
-                } finally { this.testing = false; }
+                    const f = this.forms[this.mode];
+                    const body = {
+                        provider:  this.mode,
+                        apiKey:    f.apiKey    || null,
+                        modelName: f.modelName || null,
+                        baseUrl:   f.baseUrl   || null
+                    };
+                    const r = await fetch('/api/settings/ai/test-connection', {
+                        method: 'POST',
+                        headers: this.headers(),
+                        body: JSON.stringify(body)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    const data = await r.json();
+                    if (r.ok && data.success) {
+                        this.showToast('Connection successful!');
+                    } else {
+                        this.apiError = data.message || 'Connection test failed.';
+                    }
+                } catch (e) {
+                    this.apiError = 'Test connection error: ' + e.message;
+                } finally {
+                    this.testing = false;
+                }
             }
         };
     }

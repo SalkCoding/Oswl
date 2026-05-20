@@ -64,7 +64,7 @@ public class OtpVerifyController {
             String actorEmail = pendingPrincipal != null ? pendingPrincipal.getUsername() : "unknown";
 
             auditLogService.logAnonymous(actorEmail, "AUTH.OTP_FAILURE", "AUTH", null, null,
-                    "IP: " + request.getRemoteAddr());
+                    "IP: " + normalizeIp(request.getRemoteAddr()));
 
             if (otpService.isAccountLocked(session)) {
                 session.invalidate();
@@ -121,5 +121,10 @@ public class OtpVerifyController {
         body.put("message", "Code resent.");
         body.put("mailFailed", mailFailed);
         return ResponseEntity.ok(body);
+    }
+
+    private static String normalizeIp(String ip) {
+        if ("::1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip)) return "127.0.0.1";
+        return ip;
     }
 }

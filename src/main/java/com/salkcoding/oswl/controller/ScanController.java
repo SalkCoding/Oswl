@@ -1,6 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import tools.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.auth.enums.Permission;
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.controller.spec.ScanControllerSpec;
 import com.salkcoding.oswl.auth.service.AuditLogService;
@@ -8,6 +10,8 @@ import com.salkcoding.oswl.dto.api.PingResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.exception.ForbiddenException;
+import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.service.ScanIngestService;
@@ -16,6 +20,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -38,10 +45,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ScanController implements ScanControllerSpec {
 
-    private final ScanIngestService      scanIngestService;
-    private final ScanResultRepository   scanResultRepository;
+    private final ScanIngestService       scanIngestService;
+    private final ScanResultRepository    scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
-    private final AuditLogService        auditLogService;
+    private final AuditLogService         auditLogService;
+    private final UserDetailsService      userDetailsService;
+    private final PasswordEncoder         passwordEncoder;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -62,12 +71,29 @@ public class ScanController implements ScanControllerSpec {
 
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
 
-        // Preserve raw JSON for audit
+        // Authenticate the submitter — credentials are mandatory for all CLI scans.
+        // Validation happens BEFORE scan data is ingested.
+        OswlUserPrincipal principal;
+        try {
+            principal = (OswlUserPrincipal) userDetailsService.loadUserByUsername(payload.getSubmitterEmail());
+        } catch (UsernameNotFoundException e) {
+            throw new UnauthorizedException("Invalid credentials");
+        }
+        if (!passwordEncoder.matches(payload.getSubmitterPassword(), principal.getPassword())) {
+            throw new UnauthorizedException("Invalid credentials");
+        }
+        if (!principal.hasPermission(Permission.SCAN_SUBMIT)) {
+            throw new ForbiddenException("User does not have SCAN_SUBMIT permission");
+        }
+        String actorEmail = payload.getSubmitterEmail();
+
+        // Preserve raw JSON for audit — submitterPassword is @JsonProperty(WRITE_ONLY)
+        // so it is never included in the serialized output stored here.
         payload.setRawJson(MAPPER.writeValueAsString(payload));
 
         ScanResult result = scanIngestService.ingest(projectId, payload);
 
-        auditLogService.logAnonymous("system", "SCAN.INGEST", "PROJECT",
+        auditLogService.logAnonymous(actorEmail, "SCAN.INGEST", "PROJECT",
                 projectId.toString(), payload.getVersion(), null);
 
         return ResponseEntity.ok(ScanResponse.builder()

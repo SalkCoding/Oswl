@@ -2,7 +2,7 @@
      class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full"
      x-data="{
          os: 'mac',
-         copied1: false, copied2: false, copied3: false
+         copied1: false, copied3: false
      }">
 
     <!-- Header -->
@@ -28,7 +28,7 @@
         </div>
         <div class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[10px] px-[18px] py-[12px] flex gap-[6px] shrink-0 w-full items-center">
             <img th:src="@{/icon/icon-warning.svg}" class="w-[18px] h-[18px] shrink-0" alt="" aria-hidden="true">
-            <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[-0.13px]">This step requires a technical user</span>
+            <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[-0.13px]">API keys are project-scoped — issue one from the project settings before scanning</span>
         </div>
     </div>
 
@@ -80,36 +80,27 @@
         </div>
     </div>
 
-    <!-- Step 2: Authenticate -->
+    <!-- Step 2: Get an API Key -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full">
         <div class="flex gap-[8px] items-center w-full shrink-0">
             <div class="bg-[var(--primary-120)] rounded-full w-[16px] h-[16px] flex items-center justify-center shrink-0">
                 <span class="text-[11px] font-bold text-white leading-none select-none pb-[1px]">2</span>
             </div>
-            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Authenticate</h3>
+            <h3 class="text-[16px] font-bold text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3] m-0">Get an <span class="text-[var(--primary-120)]">API Key</span></h3>
         </div>
         <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
-            Sign in with your OsWL account. Credentials are saved to
-            <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">~/.oswl/config.json</code>
-            and never need to be re-entered.
+            Open the target project &rarr; <strong class="font-semibold text-[var(--grayscale-80)]">Settings</strong> &rarr; <strong class="font-semibold text-[var(--grayscale-80)]">CLI Keys</strong> tab &rarr; issue a new key.
+            Each key is linked to exactly one project and identifies the scan target automatically.
+            No other configuration is stored on your machine.
         </p>
-        <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
-            <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap">
-                <code id="code2"
-                      class="text-[12px] font-mono select-all transition-colors text-[#00659c]"
-                      x-text="'oswl auth --username YOUR_EMAIL --password YOUR_PASSWORD --server ' + location.origin"></code>
-            </div>
-            <button type="button"
-                    @click="navigator.clipboard.writeText('oswl auth --username YOUR_EMAIL --password YOUR_PASSWORD --server ' + location.origin); copied2 = true; setTimeout(() => copied2 = false, 2000)"
-                    :class="copied2 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
-                    class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
-                <img x-show="!copied2" th:src="@{/icon/icon-copy.svg}" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
-                <img x-show="copied2" x-cloak th:src="@{/icon/icon-check.svg}" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
-                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copied2 ? 'Copied!' : 'Copy to clipboard'"></span>
-            </button>
+        <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[10px] px-[16px] py-[12px] flex gap-[10px] items-start w-full shrink-0">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0 mt-[1px]" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 2a8 8 0 1 0 0 16A8 8 0 0 0 10 2Zm0 3.5a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0v-4A.75.75 0 0 1 10 5.5Zm0 8.25a.875.875 0 1 0 0-1.75.875.875 0 0 0 0 1.75Z" fill="#00a093"/></svg>
+            <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">
+                Keys can be revoked at any time from the same settings page. For CI/CD pipelines, store the key in an environment variable
+                <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">OSWL_API_KEY</code> instead of passing it on the command line.
+            </p>
         </div>
     </div>
-
 
     <!-- Step 3: Run your first scan -->
     <div class="bg-white border-b border-[var(--grayscale-15)] flex flex-col gap-[16px] px-[40px] py-[32px] shrink-0 w-full overflow-hidden">
@@ -122,13 +113,15 @@
         <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] m-0">Navigate to your project directory and run:</p>
         <div class="bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] flex items-center justify-between p-[8px] pl-[12px] w-full">
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'mac'">
-                <code id="code3-mac" class="text-[12px] text-[#00659c] font-mono select-all">cd /your/project &amp;&amp; oswl scan --project YOUR_PROJECT</code>
+                <code id="code3-mac" class="text-[12px] text-[#00659c] font-mono select-all"
+                      x-text="'cd /your/project &amp;&amp; oswl scan -k YOUR_API_KEY -u YOUR_EMAIL --server ' + location.origin"></code>
             </div>
             <div class="overflow-x-auto pr-[10px] custom-scrollbar flex-1 whitespace-nowrap" x-show="os === 'windows'" x-cloak>
-                <code id="code3-win" class="text-[12px] text-[#00659c] font-mono select-all">cd C:\your\project; oswl scan --project YOUR_PROJECT</code>
+                <code id="code3-win" class="text-[12px] text-[#00659c] font-mono select-all"
+                      x-text="'cd C:\\your\\project; oswl scan -k YOUR_API_KEY -u YOUR_EMAIL --server ' + location.origin"></code>
             </div>
             <button type="button"
-                    @click="const el = document.getElementById('code3-' + (os === 'mac' ? 'mac' : 'win')); if (el) navigator.clipboard.writeText(el.textContent.trim()); copied3 = true; setTimeout(() => copied3 = false, 2000)"
+                    @click="const text = os === 'mac' ? ('cd /your/project &amp;&amp; oswl scan -k YOUR_API_KEY -u YOUR_EMAIL --server ' + location.origin) : ('cd C:\\your\\project; oswl scan -k YOUR_API_KEY -u YOUR_EMAIL --server ' + location.origin); navigator.clipboard.writeText(text); copied3 = true; setTimeout(() => copied3 = false, 2000)"
                     :class="copied3 ? 'bg-[var(--primary-20)] border-[var(--primary-120)]' : 'bg-white border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)]'"
                     class="border rounded-[8px] flex gap-[6px] items-center px-[14px] py-[6px] shrink-0 transition-colors active:scale-[0.98] focus:outline-none">
                 <img x-show="!copied3" th:src="@{/icon/icon-copy.svg}" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
@@ -136,6 +129,10 @@
                 <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]" x-text="copied3 ? 'Copied!' : 'Copy to clipboard'"></span>
             </button>
         </div>
+        <p class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
+            Password is prompted interactively if <code class="font-mono text-[11px] bg-[var(--grayscale-10)] px-[5px] py-[1px] rounded">-p</code> is omitted.
+            It is never stored on disk and never appears in scan records or audit logs.
+        </p>
     </div>
 
     <!-- Footer -->

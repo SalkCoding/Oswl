@@ -6,13 +6,16 @@ import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
+import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 /**
  * AI provider settings REST endpoint.
@@ -36,6 +39,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final AiSettingRepository aiSettingRepository;
     private final AuditLogService auditLogService;
     private final EncryptionService encryptionService;
+    private final AiAnalysisService aiAnalysisService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -94,6 +98,45 @@ public class AiSettingController implements AiSettingControllerSpec {
         auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
                 provider.name(), provider.name(), setting.getModelName());
         return ResponseEntity.ok(toResponse(setting));
+    }
+
+    @PostMapping("/test-connection")
+    public ResponseEntity<Map<String, Object>> testConnection(
+            @Valid @RequestBody AiTestConnectionRequest request) {
+
+        // Resolve the API key: plain-text from form takes priority;
+        // if blank, fall back to the stored (encrypted) key.
+        String resolvedKey;
+        if (request.getApiKey() != null && !request.getApiKey().isBlank()) {
+            resolvedKey = request.getApiKey();
+        } else if (request.getProvider() == AiProvider.LOCAL) {
+            resolvedKey = null; // LOCAL may not need an API key
+        } else {
+            var stored = aiSettingRepository.findByProvider(request.getProvider());
+            if (stored.isEmpty() || stored.get().getApiKey() == null
+                    || stored.get().getApiKey().isBlank()) {
+                return ResponseEntity.badRequest().body(
+                        Map.of("success", false,
+                               "message", "API key is not configured. Enter a key to test."));
+            }
+            try {
+                resolvedKey = encryptionService.decrypt(stored.get().getApiKey());
+            } catch (Exception e) {
+                resolvedKey = stored.get().getApiKey(); // legacy plaintext fallback
+            }
+        }
+
+        AiSetting tempSetting = AiSetting.builder()
+                .provider(request.getProvider())
+                .apiKey(resolvedKey)
+                .modelName(request.getModelName())
+                .baseUrl(request.getBaseUrl())
+                .build();
+
+        boolean ok = aiAnalysisService.testConnection(tempSetting);
+        return ResponseEntity.ok(ok
+                ? Map.of("success", true,  "message", "Connection successful!")
+                : Map.of("success", false, "message", "Connection failed. Check your API key and model name."));
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────────

@@ -3,19 +3,18 @@
 # Usage (PowerShell as Administrator or scoped to user):
 #   iex ((New-Object System.Net.WebClient).DownloadString('https://<your-server>/scripts/install.ps1'))
 #
-# After install, authenticate once:
-#   oswl auth --username your@email.com --password yourpassword [--server https://your-server]
-#
-# Then scan your project:
+# After install, scan your project:
 #   cd C:\your\project
-#   oswl scan --project <project-name>
+#   oswl scan --key <api_key> --server https://your-server
+#
+# Optional user attribution:
+#   oswl scan --key <api_key> -u user@example.com -p secret
 # ─────────────────────────────────────────────────────────────────────────────
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $InstallDir = if ($env:OSWL_INSTALL_DIR) { $env:OSWL_INSTALL_DIR } else { "$env:USERPROFILE\.oswl\bin" }
-$ConfigDir  = "$env:USERPROFILE\.oswl"
 $ScriptPath = "$InstallDir\oswl.ps1"
 $ShimPath   = "$InstallDir\oswl.cmd"
 $ServerUrl  = if ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL } else { "http://localhost:8080" }
@@ -27,7 +26,6 @@ function Write-Err    { param($msg) Write-Host "[OsWL] $msg" -ForegroundColor Re
 Write-Info "Starting OsWL CLI installation..."
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-New-Item -ItemType Directory -Force -Path $ConfigDir  | Out-Null
 
 # ── Generate main script (oswl.ps1) ──────────────────────────────────────────
 $MainScript = @'
@@ -35,72 +33,7 @@ $MainScript = @'
 $ErrorActionPreference = "Stop"
 $script:DebugMode = $false
 
-$ConfigDir  = "$env:USERPROFILE\.oswl"
-$ConfigFile = "$ConfigDir\config.json"
-
 function Write-Dbg { param($msg) if ($script:DebugMode) { Write-Host "[OsWL][DEBUG] $msg" -ForegroundColor Cyan } }
-
-# ── Config ─────────────────────────────────────────────────────────────────
-# Stored as JSON: { serverUrl, userId, displayName, projects: [{id,name,apiKey}] }
-function Load-Config {
-    if (Test-Path $ConfigFile) {
-        try { return Get-Content $ConfigFile -Raw | ConvertFrom-Json }
-        catch { Write-Host "[OsWL] Warning: corrupt config at $ConfigFile" -ForegroundColor Yellow }
-    }
-    return $null
-}
-
-function Save-Config {
-    param([string]$ServerUrl, [long]$UserId, [string]$DisplayName, [array]$Projects)
-    if (-not (Test-Path $ConfigDir)) { New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null }
-    @{
-        serverUrl   = $ServerUrl
-        userId      = $UserId
-        displayName = $DisplayName
-        projects    = $Projects
-    } | ConvertTo-Json -Depth 5 | Set-Content -Path $ConfigFile -Encoding UTF8
-}
-
-# ── auth ──────────────────────────────────────────────────────────────────────
-function Invoke-Auth {
-    param([string]$Username = "", [string]$Password = "", [string]$Server = "")
-
-    if (-not $Username) { Write-Host "Error: --username <email> is required." -ForegroundColor Red; exit 1 }
-    if (-not $Password) { Write-Host "Error: --password <password> is required." -ForegroundColor Red; exit 1 }
-
-    if (-not $Server) {
-        $cfg    = Load-Config
-        $Server = if ($cfg -and $cfg.serverUrl) { $cfg.serverUrl } else { "http://localhost:8080" }
-    }
-
-    $body = @{ username = $Username; password = $Password } | ConvertTo-Json
-
-    try {
-        $response = Invoke-RestMethod -Uri "$Server/api/cli/auth" -Method POST `
-            -Body $body -ContentType "application/json" -TimeoutSec 15
-    } catch {
-        $resp       = $null; try { $resp = $_.Exception.Response } catch {}
-        $statusCode = if ($resp) { [int]$resp.StatusCode } else { 0 }
-        if ($statusCode -eq 401) {
-            Write-Host "[OsWL] Error: Invalid username or password." -ForegroundColor Red; exit 1
-        }
-        Write-Host "[OsWL] Error: Could not reach server at $Server ($($_.Exception.Message))" -ForegroundColor Red; exit 1
-    }
-
-    $projects = @($response.projects)
-    Save-Config -ServerUrl $Server -UserId ([long]$response.userId) `
-                -DisplayName $response.displayName -Projects $projects
-
-    Write-Host "[OsWL] Authenticated as $($response.displayName) ($Username)" -ForegroundColor Green
-    Write-Host "       Server: $Server"
-    if ($projects.Count -eq 0) {
-        Write-Host "[OsWL] No projects found. Create a project first, then re-run 'oswl auth'." -ForegroundColor Yellow
-    } else {
-        Write-Host "[OsWL] $($projects.Count) project(s) available:"
-        foreach ($p in $projects) { Write-Host "         * [$($p.id)] $($p.name)" }
-        Write-Host "[OsWL] Run 'oswl scan --project <name>' to scan a project."
-    }
-}
 
 # ── Dependency collection ───────────────────────────────────────────────────
 function Find-JavaHome {
@@ -549,75 +482,62 @@ function Get-ProjectVersion {
 
 # ── scan ─────────────────────────────────────────────────────────────────────
 function Invoke-Scan {
-    param([string]$ProjectDir = $PWD, [string]$ProjectName = "")
+    param(
+        [string]$ProjectDir = $PWD,
+        [string]$ApiKey     = "",
+        [string]$Username   = "",
+        [string]$Password   = "",
+        [string]$Server     = ""
+    )
 
-    $cfg = Load-Config
-    if (-not $cfg) {
-        Write-Host "[OsWL] Not authenticated. Run 'oswl auth --username <email> --password <pass>' first." -ForegroundColor Red; exit 1
+    # Fall back to environment variables
+    if (-not $ApiKey)   { $ApiKey   = if ($env:OSWL_API_KEY)    { $env:OSWL_API_KEY }    else { "" } }
+    if (-not $Username) { $Username = if ($env:OSWL_USERNAME)   { $env:OSWL_USERNAME }   else { "" } }
+    if (-not $Password) { $Password = if ($env:OSWL_PASSWORD)   { $env:OSWL_PASSWORD }   else { "" } }
+    if (-not $Server)   { $Server   = if ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL } else { "http://localhost:8080" } }
+
+    if (-not $ApiKey) {
+        Write-Host "[OsWL] Error: --key <api_key> is required (or set OSWL_API_KEY)." -ForegroundColor Red; exit 1
+    }
+    if (-not $Username) {
+        Write-Host "[OsWL] Error: -u <email> is required (or set OSWL_USERNAME)." -ForegroundColor Red; exit 1
     }
 
-    $serverUrl = $cfg.serverUrl
-    $projects  = @($cfg.projects)
-
-    if ($projects.Count -eq 0) {
-        Write-Host "[OsWL] No projects in config. Run 'oswl auth' again after creating a project." -ForegroundColor Red; exit 1
+    # Prompt for password interactively if not provided on the command line
+    if (-not $Password) {
+        $securePass = Read-Host "Password for $Username" -AsSecureString
+        $bstr       = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePass)
+        $Password   = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr)
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
-
-    $target = $null
-    if ($ProjectName) {
-        $target = $projects | Where-Object { $_.name -eq $ProjectName -or [string]$_.id -eq $ProjectName } | Select-Object -First 1
-        if (-not $target) {
-            Write-Host "[OsWL] Error: No project named '$ProjectName' found in config." -ForegroundColor Red
-            Write-Host "       Available projects:"
-            foreach ($p in $projects) { Write-Host "         * [$($p.id)] $($p.name)" }
-            exit 1
-        }
-    } elseif ($projects.Count -eq 1) {
-        $target = $projects[0]
-    } else {
-        Write-Host "[OsWL] Multiple projects available. Specify one with --project <name>:" -ForegroundColor Yellow
-        foreach ($p in $projects) { Write-Host "         * $($p.name)" }
-        exit 1
-    }
-
-    $apiKey = $target.apiKey
-    Write-Host "[OsWL] Scanning project: $($target.name)"
 
     $version    = Get-ProjectVersion -ProjectDir $ProjectDir
     $components = Get-Components -ProjectDir $ProjectDir
 
     Write-Host "[OsWL] Found $($components.Count) component(s). (version: $version)"
-    Write-Host "[OsWL] Sending to server: $serverUrl"
+    Write-Host "[OsWL] Sending to server: $Server"
 
-    $payload = @{ version = $version; components = $components } | ConvertTo-Json -Depth 10
+    $payloadMap = [ordered]@{ version = $version; components = $components }
+    $payloadMap["submitterEmail"]    = $Username
+    $payloadMap["submitterPassword"] = $Password
+    $payload = $payloadMap | ConvertTo-Json -Depth 10
 
     try {
-        $headers  = @{ "Authorization" = "Bearer $apiKey"; "Content-Type" = "application/json" }
-        $response = Invoke-RestMethod -Uri "$serverUrl/api/scan" -Method POST `
+        $headers  = @{ "Authorization" = "Bearer $ApiKey"; "Content-Type" = "application/json" }
+        $response = Invoke-RestMethod -Uri "$Server/api/scan" -Method POST `
             -Headers $headers -Body $payload -ContentType "application/json"
-        Write-Host "[OsWL] Scan submitted! scanId=$($response.scanId) project=$($target.name)" -ForegroundColor Green
-        Write-Host "       View results: $serverUrl/projects/$($target.id)/security-center"
+        Write-Host "[OsWL] Scan submitted! scanId=$($response.scanId)" -ForegroundColor Green
+        Write-Host "       View results at: $Server"
     } catch {
         $resp       = $null; try { $resp = $_.Exception.Response } catch {}
         $statusCode = if ($resp) { [int]$resp.StatusCode.Value__ } else { 0 }
-        if ($statusCode -eq 401) {
-            Write-Host "[OsWL] Error: API key rejected. Run 'oswl auth' to refresh keys." -ForegroundColor Red; exit 1
+        switch ($statusCode) {
+            401     { Write-Host "[OsWL] Error: API key rejected or invalid credentials." -ForegroundColor Red }
+            403     { Write-Host "[OsWL] Error: User does not have SCAN_SUBMIT permission." -ForegroundColor Red }
+            default { Write-Host "[OsWL] Error: Server responded HTTP $statusCode" -ForegroundColor Red }
         }
-        Write-Host "[OsWL] Error: Server responded HTTP $statusCode" -ForegroundColor Red
         if ($null -ne $_.ErrorDetails) { Write-Host $_.ErrorDetails.Message }
         exit 1
-    }
-}
-
-# ── projects ─────────────────────────────────────────────────────────────────
-function Show-Projects {
-    $cfg = Load-Config
-    if (-not $cfg -or -not $cfg.projects -or @($cfg.projects).Count -eq 0) {
-        Write-Host "[OsWL] No projects. Run 'oswl auth' first." -ForegroundColor Yellow; return
-    }
-    Write-Host "[OsWL] Configured projects (server: $($cfg.serverUrl)):"
-    foreach ($p in @($cfg.projects)) {
-        Write-Host "  [$($p.id)] $($p.name)"
     }
 }
 
@@ -627,24 +547,40 @@ function Show-Help {
 OsWL CLI - Software Composition Analysis
 
 Usage:
-  oswl auth --username <email> --password <pass> [--server <url>]
-      Authenticate and cache API keys for all your projects.
-
-  oswl scan [<project_dir>] [--project <name>]
-      Scan dependencies and upload results to the server.
-      If only one project is configured, --project is optional.
-
-  oswl projects
-      List configured projects and their IDs.
+  oswl scan [<project_dir>]
+              --key|-k    <api_key>       API key linked to the target project
+                                           (or env OSWL_API_KEY)
+              -u|--username <email>       Your OsWL account email (required)
+                                           (or env OSWL_USERNAME)
+              -p|--password <password>    Your OsWL account password (required; prompted if omitted)
+                                           (or env OSWL_PASSWORD)
+              --server|-s <url>           OsWL server URL
+                                           (or env OSWL_SERVER_URL, default: http://localhost:8080)
 
   oswl help
       Show this help.
 
+Examples:
+  # minimal
+  oswl scan --key oswl_abc123 -u dev@company.com
+
+  # full (password on command line — not recommended for interactive shells)
+  oswl scan -k oswl_abc123 -u dev@company.com -p secret --server https://sca.company.com
+
+  # CI/CD via env vars (credentials not in shell history)
+  `$env:OSWL_API_KEY    = 'oswl_abc123'
+  `$env:OSWL_USERNAME   = 'ci@company.com'
+  `$env:OSWL_PASSWORD   = 'secret'
+  `$env:OSWL_SERVER_URL = 'https://sca.company.com'
+  oswl scan
+
+Notes:
+  - Credentials are authenticated server-side before scan data is accepted.
+  - The password is NEVER stored on disk and NEVER included in audit logs.
+  - For CI/CD, use env vars so credentials do not appear in shell history.
+
 Global flags:
   --debug    Verbose debug output.
-
-Environment:
-  OSWL_SERVER_URL   Override server URL (default: http://localhost:8080)
 "@
 }
 
@@ -656,28 +592,19 @@ foreach ($a in $args) {
 $cmd = if ($cmdArgs.Count -gt 0) { $cmdArgs[0] } else { "help" }
 
 switch ($cmd) {
-    "auth" {
-        $user = ""; $pass = ""; $server = ""
-        for ($i = 1; $i -lt $cmdArgs.Count; $i++) {
-            switch ($cmdArgs[$i]) {
-                { $_ -in "--username","-u" } { $user   = $cmdArgs[++$i] }
-                { $_ -in "--password","-p" } { $pass   = $cmdArgs[++$i] }
-                { $_ -in "--server","-s" }   { $server = $cmdArgs[++$i] }
-            }
-        }
-        Invoke-Auth -Username $user -Password $pass -Server $server
-    }
     "scan" {
-        $dir = $PWD; $proj = ""
+        $key = ""; $user = ""; $pass = ""; $server = ""; $dir = $PWD
         for ($i = 1; $i -lt $cmdArgs.Count; $i++) {
             switch ($cmdArgs[$i]) {
-                { $_ -in "--project","-p" } { $proj = $cmdArgs[++$i] }
+                { $_ -in "--key","-k" }          { $key    = $cmdArgs[++$i] }
+                { $_ -in "--username","-u" }     { $user   = $cmdArgs[++$i] }
+                { $_ -in "--password","-p" }     { $pass   = $cmdArgs[++$i] }
+                { $_ -in "--server","-s" }       { $server = $cmdArgs[++$i] }
                 default { if (-not $cmdArgs[$i].StartsWith("-")) { $dir = $cmdArgs[$i] } }
             }
         }
-        Invoke-Scan -ProjectDir $dir -ProjectName $proj
+        Invoke-Scan -ProjectDir $dir -ApiKey $key -Username $user -Password $pass -Server $server
     }
-    "projects"                       { Show-Projects }
     { $_ -in "help","--help","-h" }  { Show-Help }
     default {
         Write-Host "Unknown command: $cmd. Run 'oswl help' for usage." -ForegroundColor Red; exit 1
@@ -700,5 +627,5 @@ if ($userPath -notlike "*$InstallDir*") {
     Write-Warn "Added $InstallDir to PATH. Please restart your terminal."
 }
 
-Write-Info "Installation complete! Authenticate with:"
-Write-Info "  oswl auth --username your@email.com --password yourpassword --server $ServerUrl"
+Write-Info "Installation complete! Scan a project with:"
+Write-Info "  oswl scan --key <your_api_key> --server $ServerUrl"

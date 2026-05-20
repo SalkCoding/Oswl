@@ -28,6 +28,10 @@ public class LoginIpCaptureListener {
         if (ip == null || ip.isBlank()) {
             return;
         }
+        // Normalize IPv6 loopback to IPv4
+        if ("::1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip)) {
+            ip = "127.0.0.1";
+        }
         String email = event.getAuthentication().getName();
         lastLoginIpStore.put(email, ip);
     }
