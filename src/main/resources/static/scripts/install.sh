@@ -173,11 +173,39 @@ _collect_gradle() {
     local result
     result=$(
         (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) \
-        | grep -E '^[[:space:]|]*[+\\]---' \
-        | grep -oP '[+\\]--- \K[^: ]+:[^: ]+:[^ (\r\n]+' \
-        | sed 's/ ->.*//;s/ \*$//' \
-        | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Gradle runtimeClasspath\"}\n",$1,$2,$3}' \
-        | jq -s '.' 2>/dev/null
+        | awk '
+            # Lines look like: "+--- g:a:declaredVer" or "+--- g:a:declaredVer -> resolvedVer"
+            # or "+--- g:a:ver (*)" (already expanded marker)
+            /[+\\]---/ {
+                # find the +--- or \--- and grab the rest
+                idx = index($0, "+---")
+                if (idx == 0) idx = index($0, "\\---")
+                if (idx == 0) next
+                rest = substr($0, idx + 5)
+                sub(/[[:space:]]*\(\*\)[[:space:]]*$/, "", rest)   # strip (*) marker
+                sub(/^[[:space:]]+/, "", rest); sub(/[[:space:]]+$/, "", rest)
+                if (rest == "") next
+                # version conflict resolution: "g:a:oldVer -> newVer"
+                resolved = ""
+                arrowIdx = index(rest, " -> ")
+                if (arrowIdx > 0) {
+                    resolved = substr(rest, arrowIdx + 4)
+                    rest = substr(rest, 1, arrowIdx - 1)
+                    gsub(/[[:space:]*()]/, "", resolved)
+                }
+                n = split(rest, parts, ":")
+                if (n < 2) next
+                name = parts[1] ":" parts[2]
+                ver  = (resolved != "") ? resolved : (n >= 3 ? parts[3] : "")
+                gsub(/[[:space:]*()]/, "", ver)
+                key = name ":" ver
+                if (!seen[key]++) {
+                    print name "\t" ver
+                }
+            }' \
+        | jq -Rn '[inputs | split("\t") | select(length==2 and .[0] != "" and .[1] != "") |
+                   {name: .[0], version: .[1], ecosystem: "MAVEN", dependencyInfo: "Gradle runtimeClasspath"}]' \
+            2>/dev/null
     ) || result="[]"
     dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
     echo "${result}"
@@ -185,10 +213,31 @@ _collect_gradle() {
 
 _collect_maven() {
     local dir="$1"
+    # mvn dependency:list output: "[INFO]    g:a:type:version:scope" (5 colon-separated tokens)
+    # or with classifier: "[INFO]    g:a:type:classifier:version:scope" (6 tokens).
+    # We skip test/system/provided to match Quick Import server-side behavior.
     mvn -f "${dir}/pom.xml" dependency:list -q 2>/dev/null \
-    | grep -oP '^\[INFO\]\s+\K[^:]+:[^:]+:jar:[^:]+' \
-    | awk -F: '{printf "{\"name\":\"%s:%s\",\"version\":\"%s\",\"ecosystem\":\"MAVEN\",\"dependencyInfo\":\"Maven\"}\n",$1,$2,$4}' \
-    | jq -s '.' 2>/dev/null || echo "[]"
+    | awk '
+        /^\[INFO\][[:space:]]+[^[:space:]]+:[^[:space:]]+:/ {
+            line = $0
+            sub(/^\[INFO\][[:space:]]+/, "", line)
+            n = split(line, p, ":")
+            if (n < 5) next
+            # last field is scope (may have trailing whitespace)
+            scope = p[n]; sub(/[[:space:]]+.*$/, "", scope)
+            if (scope == "test" || scope == "system" || scope == "provided") next
+            if (n == 5) {            # g:a:type:version:scope
+                name = p[1] ":" p[2]; ver = p[4]
+            } else {                 # g:a:type:classifier:version:scope (n >= 6)
+                name = p[1] ":" p[2]; ver = p[n-1]
+            }
+            sub(/[[:space:]]+.*$/, "", ver)
+            if (ver != "") print name "\t" ver
+        }' \
+    | sort -u \
+    | jq -Rn '[inputs | split("\t") | select(length==2) |
+               {name: .[0], version: .[1], ecosystem: "MAVEN", dependencyInfo: "Maven"}]' \
+        2>/dev/null || echo "[]"
 }
 
 _collect_npm() {
@@ -217,9 +266,37 @@ _collect_npm_pkg() {
 
 _collect_pip() {
     local dir="$1"
-    grep -E '^[A-Za-z0-9_.-]+==[^ ]+' "${dir}/requirements.txt" 2>/dev/null \
-    | awk -F'==' '{printf "{\"name\":\"%s\",\"version\":\"%s\",\"ecosystem\":\"PYPI\",\"dependencyInfo\":\"pip\"}\n",$1,$2}' \
-    | jq -s '.' 2>/dev/null || echo "[]"
+    # Handle ==, ===, >=, <=, ~=, !=, <, > and PEP 508 markers ("pkg==1.0; python_version<'3.10'").
+    # Strip extras ("pkg[a,b]==1.0" → "pkg==1.0"). Use awk for portability across BSD/gawk.
+    awk '
+        {
+            sub(/#.*$/, "")        # strip comment
+            sub(/;.*$/, "")        # strip env marker
+            sub(/^[[:space:]]+/, "")
+            sub(/[[:space:]]+$/, "")
+        }
+        $0 == "" || /^-/ { next }
+        {
+            # strip extras [a,b]
+            gsub(/\[[^]]*\]/, "")
+            # try to extract: name<op>version
+            if (match($0, /^[A-Za-z0-9_.-]+[[:space:]]*(===|==|>=|<=|~=|!=|<|>)[[:space:]]*[0-9][^[:space:],]*/)) {
+                token = substr($0, RSTART, RLENGTH)
+                # split into name and version by the operator
+                if (match(token, /(===|==|>=|<=|~=|!=|<|>)/)) {
+                    name = substr(token, 1, RSTART - 1)
+                    ver  = substr(token, RSTART + RLENGTH)
+                    sub(/[[:space:]]+$/, "", name)
+                    sub(/^[[:space:]]+/, "", ver)
+                    if (name != "" && ver != "") print name "\t" ver
+                }
+            }
+        }
+    ' "${dir}/requirements.txt" 2>/dev/null \
+    | sort -u \
+    | jq -Rn '[inputs | split("\t") | select(length==2 and .[0] != "" and .[1] != "") |
+               {name: .[0], version: .[1], ecosystem: "PYPI", dependencyInfo: "pip"}]' \
+        2>/dev/null || echo "[]"
 }
 
 _collect_yarn() {
