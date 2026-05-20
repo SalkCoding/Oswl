@@ -272,6 +272,28 @@
             </div>
         </div>
 
+        <!-- ── Failure Card ─────────────────────────────────────────────── -->
+        <div x-show="importFailed" x-cloak class="w-full max-w-[800px] mt-[20px]">
+            <div class="bg-white border border-red-200 rounded-[14px] p-[28px] flex flex-col gap-[20px]">
+                <div class="flex items-center gap-[12px]">
+                    <div class="w-[40px] h-[40px] rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-600"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </div>
+                    <div>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0">Import failed</p>
+                        <p class="text-[13px] text-[var(--grayscale-60)] m-0" x-text="jobResult.message || 'An unexpected error occurred.'"></p>
+                    </div>
+                </div>
+                <div class="flex gap-[10px]">
+                    <button @click="resetForm()"
+                            class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--grayscale-100)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--grayscale-80)] transition-colors">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Repo Browsers (per connected VCS provider) ──────────────── -->
         <template x-for="provider in connectedProviders" :key="provider">
             <div class="w-full max-w-[800px] mt-[24px]">

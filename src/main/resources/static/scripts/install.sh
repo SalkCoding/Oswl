@@ -4,11 +4,11 @@
 # Usage:
 #   curl -fsSL https://<your-server>/scripts/install.sh | bash
 #
-# After install, authenticate once:
+# After install, save your API key once:
 #   oswl auth --key <your_api_key> [--server https://your-server]
 #
-# Then scan your project:
-#   cd /your/project && oswl scan
+# Then scan your project (user credentials required):
+#   cd /your/project && oswl scan -k YOUR_API_KEY -u YOUR_EMAIL
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -104,12 +104,44 @@ cmd_auth() {
 cmd_scan() {
     load_config
 
+    local project_dir="" key="" server=""
+    local username="${OSWL_USERNAME:-}" password="${OSWL_PASSWORD:-}"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --key|-k)        key="$2";        shift 2 ;;
+            --server|-s)     server="$2";     shift 2 ;;
+            -u|--username)   username="$2";   shift 2 ;;
+            -p|--password)   password="$2";   shift 2 ;;
+            -*)              echo "[OsWL] Unknown option: $1" >&2; exit 1 ;;
+            *)               project_dir="$1"; shift ;;
+        esac
+    done
+
+    # Flag overrides take precedence over saved config / env vars
+    [[ -n "${key}"    ]] && OSWL_API_KEY="${key}"
+    [[ -n "${server}" ]] && OSWL_SERVER_URL="${server}"
+    OSWL_SERVER_URL="${OSWL_SERVER_URL:-http://localhost:8080}"
+
     if [[ -z "${OSWL_API_KEY:-}" ]]; then
-        echo "[OsWL] Error: API key not set. Run 'oswl auth --key <key>' first." >&2
+        echo "[OsWL] Error: --key <api_key> is required (or set OSWL_API_KEY / run 'oswl auth')." >&2
         exit 1
     fi
 
-    local project_dir="${1:-$PWD}"
+    # User credentials are mandatory — authenticate before uploading scan data
+    if [[ -z "${username}" ]]; then
+        echo "[OsWL] Error: -u <email> is required (or set OSWL_USERNAME)." >&2
+        exit 1
+    fi
+
+    # Prompt for password interactively if not provided on the command line / env
+    if [[ -z "${password}" ]]; then
+        printf "Password for %s: " "${username}" >&2
+        IFS= read -rs password </dev/tty
+        echo >&2
+    fi
+
+    project_dir="${project_dir:-${PWD}}"
     local version="${OSWL_VERSION:-unknown}"
 
     # Auto-detect version (Maven, Gradle, npm, Cargo, Python)
@@ -127,8 +159,13 @@ cmd_scan() {
 
     echo "[OsWL] Scanning dependencies... (version: ${version})"
 
+    # Build dependency payload and inject mandatory credentials
     local payload
     payload=$(build_payload "${project_dir}" "${version}")
+    payload=$(printf '%s' "${payload}" | jq \
+        --arg email "${username}" \
+        --arg pass  "${password}" \
+        '. + {submitterEmail: $email, submitterPassword: $pass}')
 
     echo "[OsWL] Sending to server: ${OSWL_SERVER_URL}"
 
@@ -145,13 +182,15 @@ cmd_scan() {
     body=$(echo "${response}" | head -n -1)
 
     if [[ "${http_code}" == "200" ]]; then
-        local scan_id status
+        local scan_id
         scan_id=$(echo "${body}" | jq -r '.scanId // "?"')
-        status=$(echo "${body}"  | jq -r '.status  // "?"')
         echo "[OsWL] Scan submitted! scanId=${scan_id}"
         echo "       Analysis is running on the server. Check the Security Center for results."
     elif [[ "${http_code}" == "401" ]]; then
-        echo "[OsWL] Error: API key rejected. Run 'oswl auth --key <new_key>'." >&2
+        echo "[OsWL] Error: Authentication failed. Check your API key and credentials." >&2
+        exit 1
+    elif [[ "${http_code}" == "403" ]]; then
+        echo "[OsWL] Error: User does not have SCAN_SUBMIT permission." >&2
         exit 1
     else
         echo "[OsWL] Error: Server responded HTTP ${http_code}" >&2
@@ -537,17 +576,44 @@ cmd_help() {
 OsWL CLI - Open-source Software Composition Analysis tool
 
 Usage:
-  oswl auth --key <api_key> [--server <url>]   Save API key and verify server connection
-  oswl scan [<project_dir>]                    Scan dependencies and upload results to server
-  oswl help                                    Show this help message
+  oswl auth --key <api_key> [--server <url>]            Save API key and verify server connection
+  oswl scan [<project_dir>] -k <key> -u <email>         Scan dependencies and upload to server
+  oswl help                                             Show this help message
+
+Scan flags:
+  --key|-k    <api_key>   API key for the target project  (required; or env OSWL_API_KEY)
+  -u|--username <email>   Your OsWL account email         (required; or env OSWL_USERNAME)
+  -p|--password <pass>    Your OsWL account password      (required; prompted if omitted; or env OSWL_PASSWORD)
+  --server|-s   <url>     OsWL server URL                 (or env OSWL_SERVER_URL, default: http://localhost:8080)
 
 Global flags:
   --debug    Print detailed debug output (build system detection, component resolution, etc.)
 
 Environment variables:
   OSWL_API_KEY      API key (can be used instead of config file)
+  OSWL_USERNAME     OsWL account email for scan authentication
+  OSWL_PASSWORD     OsWL account password for scan authentication
   OSWL_SERVER_URL   Server URL (default: http://localhost:8080)
   OSWL_VERSION      Specify version manually if auto-detection fails
+
+Examples:
+  # minimal (password prompted interactively)
+  oswl scan --key oswl_abc123 -u dev@company.com
+
+  # full
+  oswl scan -k oswl_abc123 -u dev@company.com -p secret --server https://sca.company.com
+
+  # CI/CD via env vars (credentials not in shell history)
+  export OSWL_API_KEY=oswl_abc123
+  export OSWL_USERNAME=ci@company.com
+  export OSWL_PASSWORD=secret
+  export OSWL_SERVER_URL=https://sca.company.com
+  oswl scan
+
+Notes:
+  - Credentials are authenticated server-side before scan data is accepted.
+  - The password is NEVER stored on disk and NEVER included in scan records or audit logs.
+  - For CI/CD, use env vars so credentials do not appear in shell history.
 HELP
 }
 

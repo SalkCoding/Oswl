@@ -66,7 +66,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers("/api/scan/**", "/api/cli/**"))
+                    .ignoringRequestMatchers("/api/scan/**"))
             .sessionManagement(s -> s
                     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                     .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
@@ -79,7 +79,6 @@ public class SecurityConfig {
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/landing", "/landing/**").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
-                    .requestMatchers("/api/cli/**").permitAll()
                     .anyRequest().authenticated())
             .formLogin(form -> form
                     .loginPage("/login")

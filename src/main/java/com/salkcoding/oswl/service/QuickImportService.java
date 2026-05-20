@@ -32,12 +32,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.springframework.scheduling.annotation.Scheduled;
 
 /**
  * Orchestrates the Quick Import flow:
@@ -76,8 +78,12 @@ public class QuickImportService {
     private final ScanIngestService scanIngestService;
     private final GitHubService gitHubService;
 
-    /** In-memory job tracker. Entries are removed after 30 minutes. */
+    /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
+    /** Tracks job creation times for TTL-based eviction. */
+    private final ConcurrentHashMap<String, Instant> jobCreatedAt = new ConcurrentHashMap<>();
+    /** Prevents concurrent imports for the same user (at most one active job per user). */
+    private final ConcurrentHashMap<Long, String> activeJobByUser = new ConcurrentHashMap<>();
 
     // ── Public API ────────────────────────────────────────────────────────
 
@@ -90,12 +96,25 @@ public class QuickImportService {
      * @return job ID (UUID string)
      */
     public String startImport(String repoUrl, String branch, Long userId) {
+        // Reject if the user already has a non-terminal job in flight
+        String existingJobId = activeJobByUser.get(userId);
+        if (existingJobId != null) {
+            QuickImportJobStatus existing = jobs.get(existingJobId);
+            if (existing != null && existing.getPhase() != Phase.DONE && existing.getPhase() != Phase.FAILED) {
+                log.info("[QuickImport] User {} already has active job {}, returning it", userId, existingJobId);
+                return existingJobId;
+            }
+            activeJobByUser.remove(userId);
+        }
+
         String jobId = UUID.randomUUID().toString();
         jobs.put(jobId, QuickImportJobStatus.builder()
                 .jobId(jobId)
                 .phase(Phase.QUEUED)
                 .message("Import queued…")
                 .build());
+        jobCreatedAt.put(jobId, Instant.now());
+        activeJobByUser.put(userId, jobId);
 
         Thread.ofVirtual().name("quick-import-" + jobId).start(() -> {
             try {
@@ -104,6 +123,8 @@ public class QuickImportService {
                 log.error("[QuickImport][{}] Unhandled error: {}", jobId, e.getMessage(), e);
                 updateJob(jobId, Phase.FAILED, "Unexpected error: " + e.getMessage(),
                         null, null, null, null, null, null);
+            } finally {
+                activeJobByUser.remove(userId, jobId);
             }
         });
 
@@ -408,7 +429,21 @@ public class QuickImportService {
 
             String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
             ScanPayload payload = buildScanPayload(deps, scanVersion);
-            scanIngestService.ingest(project.getId(), payload, userId);
+            try {
+                scanIngestService.ingest(project.getId(), payload, userId);
+            } catch (Exception ingestEx) {
+                // Project row was already committed; scan could not be saved.
+                // The project will appear on the Projects page with a "No scan data" indicator.
+                // The user can re-import to retry.
+                log.error("[QuickImport][{}] Scan ingest failed for project {}: {}",
+                        jobId, project.getId(), ingestEx.getMessage(), ingestEx);
+                updateJob(jobId, Phase.FAILED,
+                        "Scan submission failed: " + ingestEx.getMessage(),
+                        project.getId(), project.getName(),
+                        keyResult.token, keyResult.isNew,
+                        deps.ecosystem, deps.components.size());
+                return;
+            }
 
             // 7. Done ──────────────────────────────────────────────────────
             updateJob(jobId, Phase.DONE,
@@ -541,8 +576,20 @@ public class QuickImportService {
                 authUrl.replaceAll("(https?://)([^@]+@)", "$1***@"));
 
         Process proc = pb.start();
-        String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        int exitCode = proc.waitFor();
+        // Drain output in a virtual thread to prevent pipe-buffer deadlock on large clones
+        final String[] outputHolder = {""};
+        Thread outputReader = Thread.ofVirtual().start(() -> {
+            try { outputHolder[0] = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8); }
+            catch (IOException ignored) {}
+        });
+        boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
+        if (!finished) {
+            proc.destroyForcibly();
+            throw new RuntimeException("git clone timed out after 5 minutes");
+        }
+        try { outputReader.join(2_000); } catch (InterruptedException ignored) {}
+        String output = outputHolder[0];
+        int exitCode = proc.exitValue();
 
         if (exitCode != 0) {
             String safe = output.replaceAll("(https?://)([^@]+@)", "$1***@");
@@ -561,15 +608,16 @@ public class QuickImportService {
         if (Files.exists(cloneDir.resolve("pom.xml"))) {
             return parseMaven(cloneDir, repoName);
         }
+        // Gradle before npm — a Gradle project might have a package.json/lock file for frontend tooling
+        if (Files.exists(cloneDir.resolve("build.gradle")) ||
+                Files.exists(cloneDir.resolve("build.gradle.kts"))) {
+            return parseGradle(cloneDir, repoName);
+        }
         if (Files.exists(cloneDir.resolve("package.json")) ||
                 Files.exists(cloneDir.resolve("package-lock.json")) ||
                 Files.exists(cloneDir.resolve("yarn.lock")) ||
                 Files.exists(cloneDir.resolve("pnpm-lock.yaml"))) {
             return parseNpm(cloneDir, repoName);
-        }
-        if (Files.exists(cloneDir.resolve("build.gradle")) ||
-                Files.exists(cloneDir.resolve("build.gradle.kts"))) {
-            return parseGradle(cloneDir, repoName);
         }
         // Python — check lock files first (full transitive), then requirements.txt
         if (Files.exists(cloneDir.resolve("poetry.lock")) ||
@@ -1492,6 +1540,20 @@ public class QuickImportService {
                 .ecosystem(ecosystem)
                 .componentCount(componentCount)
                 .build());
+    }
+
+    /** Removes jobs older than 30 minutes from memory. Runs every 5 minutes. */
+    @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
+    public void evictExpiredJobs() {
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(30));
+        jobCreatedAt.entrySet().removeIf(entry -> {
+            if (entry.getValue().isBefore(cutoff)) {
+                jobs.remove(entry.getKey());
+                log.debug("[QuickImport] Evicted expired job {}", entry.getKey());
+                return true;
+            }
+            return false;
+        });
     }
 
     // ── Reflective builder helper ─────────────────────────────────────────
