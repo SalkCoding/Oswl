@@ -23,7 +23,6 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -734,7 +733,7 @@ public class QuickImportService {
 
             if (root.has("packages")) {
                 // lockfileVersion 2/3 (npm 7+): "packages" → { "node_modules/x": { version, ... } }
-                root.path("packages").fields().forEachRemaining(e -> {
+                root.path("packages").properties().forEach(e -> {
                     String pkgPath = e.getKey();
                     if (pkgPath.isEmpty()) return; // skip root entry
                     String name = pkgPath.startsWith("node_modules/")
@@ -749,7 +748,7 @@ public class QuickImportService {
             } else if (root.has("dependencies")) {
                 // lockfileVersion 1 (npm 5/6): flat + nested "dependencies" tree
                 Deque<Map.Entry<String, JsonNode>> queue = new ArrayDeque<>();
-                root.path("dependencies").fields().forEachRemaining(queue::add);
+                root.path("dependencies").properties().forEach(queue::add);
                 while (!queue.isEmpty()) {
                     Map.Entry<String, JsonNode> entry = queue.poll();
                     String name    = entry.getKey();
@@ -759,7 +758,7 @@ public class QuickImportService {
                         comps.add(buildComponent(name, version, "NPM"));
                     }
                     if (val.has("dependencies")) {
-                        val.path("dependencies").fields().forEachRemaining(queue::add);
+                        val.path("dependencies").properties().forEach(queue::add);
                     }
                 }
             }
@@ -1266,7 +1265,7 @@ public class QuickImportService {
             for (String section : new String[]{"default", "develop"}) {
                 JsonNode deps = root.path(section);
                 if (deps.isMissingNode()) continue;
-                deps.fields().forEachRemaining(e -> {
+                deps.properties().forEach(e -> {
                     String name = e.getKey();
                     String ver  = e.getValue().path("version").asText("").replaceAll("^==", "");
                     if (!name.isBlank() && !ver.isBlank() && seen.add(name + ":" + ver)) {
@@ -1321,8 +1320,8 @@ public class QuickImportService {
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
             JsonNode deps = root.path("dependencies");
             if (!deps.isMissingNode()) {
-                deps.fields().forEachRemaining(fw ->
-                    fw.getValue().fields().forEachRemaining(pkg -> {
+                deps.properties().forEach(fw ->
+                    fw.getValue().properties().forEach(pkg -> {
                         String name = pkg.getKey();
                         String ver  = pkg.getValue().path("resolved").asText(null);
                         if (name != null && ver != null && !ver.isBlank() && seen.add(name)) {
