@@ -5,7 +5,7 @@
     <!-- Title -->
     <div class="bg-[#001d35] flex items-center gap-[8px] h-[40px] px-[20px] w-full text-white shrink-0">
         <img th:src="@{/icon/icon-fillter.svg}" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-        <p class="font-bold text-[12px] tracking-[-0.12px] whitespace-nowrap">
+        <p class="font-bold text-[12px] tracking-[-0.12px] whitespace-nowrap" th:text="#{securityCenter.filter.filters}">
             Filters
         </p>
     </div>
@@ -22,7 +22,7 @@
                          :class="filters.reviewed ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Reviewed</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.reviewed}">Reviewed</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonReviewed" class="sr-only">
@@ -32,7 +32,7 @@
                          :class="filters.nonReviewed ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Non-Reviewed</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.nonReviewed}">Non-Reviewed</span>
             </label>
         </div>
 
@@ -46,7 +46,7 @@
                          :class="filters.ignored ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Ignored</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.ignored}">Ignored</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonIgnored" class="sr-only">
@@ -56,13 +56,13 @@
                          :class="filters.nonIgnored ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Non-Ignored</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.nonIgnored}">Non-Ignored</span>
             </label>
         </div>
 
         <!-- Security Severity Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
-            <p class="font-semibold text-[14px] text-black w-full">Security Severity</p>
+            <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.securitySeverity}">Security Severity</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.secCritical" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
@@ -71,7 +71,7 @@
                          :class="filters.secCritical ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Critical</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.critical}">Critical</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.secHigh" class="sr-only">
@@ -81,7 +81,7 @@
                          :class="filters.secHigh ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">High</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.high}">High</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.secMedium" class="sr-only">
@@ -91,7 +91,7 @@
                          :class="filters.secMedium ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Medium</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.medium}">Medium</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.secLow" class="sr-only">
@@ -101,7 +101,7 @@
                          :class="filters.secLow ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Low</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.low}">Low</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.secUnknown" class="sr-only">
@@ -111,13 +111,13 @@
                          :class="filters.secUnknown ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Unscored</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.unscored}">Unscored</span>
             </label>
         </div>
 
         <!-- License Status Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
-            <p class="font-semibold text-[14px] text-black w-full">License Status</p>
+            <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.licenseStatus}">License Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licRestricted" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
@@ -126,7 +126,7 @@
                          :class="filters.licRestricted ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Restricted</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.restricted}">Restricted</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licCaution" class="sr-only">
@@ -136,7 +136,7 @@
                          :class="filters.licCaution ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Caution</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.caution}">Caution</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licPermitted" class="sr-only">
@@ -146,7 +146,7 @@
                          :class="filters.licPermitted ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Permitted</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.permitted}">Permitted</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.licUnknown" class="sr-only">
@@ -156,13 +156,13 @@
                          :class="filters.licUnknown ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Unknown</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.unknown}">Unknown</span>
             </label>
         </div>
 
         <!-- Patchability Filter — order: Patchable, Non-Patchable, Up to date, Outdated, Deprecated -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
-            <p class="font-semibold text-[14px] text-black w-full">Patchability</p>
+            <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.patchabilityLabel}">Patchability</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.patchable" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
@@ -171,7 +171,7 @@
                          :class="filters.patchable ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Patchable</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.patchable}">Patchable</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.nonPatchable" class="sr-only">
@@ -181,7 +181,7 @@
                          :class="filters.nonPatchable ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Non-Patchable</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.nonPatchable}">Non-Patchable</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.patchUpToDate" class="sr-only">
@@ -191,7 +191,7 @@
                          :class="filters.patchUpToDate ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Up to date</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.upToDate}">Up to date</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.patchOutdated" class="sr-only">
@@ -201,7 +201,7 @@
                          :class="filters.patchOutdated ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Outdated</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.outdated}">Outdated</span>
             </label>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.patchDeprecated" class="sr-only">
@@ -211,7 +211,7 @@
                          :class="filters.patchDeprecated ? 'opacity-100' : 'opacity-0'"
                          class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 </div>
-                <span class="text-[13px] text-black">Deprecated</span>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.deprecated}">Deprecated</span>
             </label>
         </div>
 

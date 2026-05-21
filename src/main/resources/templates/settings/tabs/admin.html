@@ -31,13 +31,13 @@
     <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
         <button @click="subTab='users'; closeSidebar()"
                 :class="subTab==='users' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
-                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">User Management</button>
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.heading}">User Management</button>
         <button @click="subTab='templates'; closeSidebar(); loadTemplates()"
                 :class="subTab==='templates' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
-                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">Permission Template</button>
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.roleTemplate.heading}">Permission Template</button>
         <button @click="subTab='audit'; closeSidebar(); loadAudit(0)"
                 :class="subTab==='audit' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
-                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors">Audit Log</button>
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.auditLog.heading}">Audit Log</button>
     </div>
 
     <!-- ===================== USERS ===================== -->
@@ -51,7 +51,7 @@
             <button @click="openInvite()"
                     class="flex-shrink-0 bg-[var(--background-dark,#001d35)] hover:bg-[#00334d] text-white text-[13px] font-bold px-[20px] py-[11px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
                 <img th:src="@{/icon/icon-person-add.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
-                <span>Invited user</span>
+                <span th:text="#{settings.admin.inviteUser.btn}">Invited user</span>
             </button>
         </div>
         <!-- Table + footer wrapper (no gap between them) -->
@@ -63,12 +63,12 @@
                 <table class="w-full text-[13px]">
                     <thead>
                     <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                        <th class="px-[16px] py-[12px] font-bold">Name</th>
-                        <th class="px-[16px] py-[12px] font-bold">Email</th>
-                        <th class="px-[16px] py-[12px] font-bold">Role</th>
-                        <th class="px-[16px] py-[12px] font-bold">Status</th>
-                        <th class="px-[16px] py-[12px] font-bold">Last Login</th>
-                        <th class="px-[16px] py-[12px] font-bold w-[140px]">Actions</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.name}">Name</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.email}">Email</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.role}">Role</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.status}">Status</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.lastLogin}">Last Login</th>
+                        <th class="px-[16px] py-[12px] font-bold w-[140px]" th:text="#{settings.admin.users.col.actions}">Actions</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -683,7 +683,7 @@
                class="inline-flex flex-row justify-center items-center gap-[10px] px-[14px] rounded-[6px] no-underline font-bold text-[13px]"
                style="background:#F2FCFA; border:1px solid #33D1B7; height:32px; color:#00a093;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export CSV
+                <span th:text="#{settings.admin.auditLog.btn.export}">Export CSV</span>
             </a>
         </div>
         <div class="flex flex-col relative">
@@ -694,9 +694,9 @@
                     <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">Time</th>
                     <th class="px-[16px] py-[12px] font-bold">Actor</th>
                     <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">IP</th>
-                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">Action</th>
-                    <th class="px-[16px] py-[12px] font-bold">Target</th>
-                    <th class="px-[16px] py-[12px] font-bold">Detail</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.action}">Action</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.target}">Target</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.detail}">Detail</th>
                 </tr>
                 </thead>
                 <tbody>

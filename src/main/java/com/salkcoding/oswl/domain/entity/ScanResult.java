@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A bundle of results from a single CLI scan.
- * Tracks the CLI version, scan time, and status (PENDING → COMPLETED, etc.).
+ * CLI 단일 스캔에서 나온 결과 번들.
+ * CLI 버전, 스캔 시간, 상태(PENDING → COMPLETED 등)를 추적한다.
  */
 @Entity
 @Table(name = "scan_results")
@@ -30,7 +30,7 @@ public class ScanResult {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    /** Project version at the time of the scan */
+    /** 스캔 시점의 프로젝트 버전 */
     @Column(length = 50)
     private String version;
 
@@ -39,30 +39,30 @@ public class ScanResult {
     @Builder.Default
     private ScanStatus status = ScanStatus.PENDING;
 
-    /** Raw JSON payload sent by the CLI (for audit purposes) */
+    /** CLI가 전송한 원시 JSON 페이로드 (감사 목적) */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_payload", columnDefinition = "jsonb")
     private String rawPayload;
 
-    /** Error message for AI analysis failures, etc. */
+    /** AI 분석 실패 시 오류 메시지 등 */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    /** AI-generated security risk trend insight (pre-generated during enrichment) */
+    /** AI 생성 보안 리스크 트렌드 인사이트 (열거 중 생성) */
     @Column(name = "security_ai_insight", columnDefinition = "TEXT")
     private String securityAiInsight;
 
-    /** AI-generated license risk trend insight (pre-generated during enrichment) */
+    /** AI 생성 라이선스 리스크 트렌드 인사이트 (열거 중 생성) */
     @Column(name = "license_ai_insight", columnDefinition = "TEXT")
     private String licenseAiInsight;
 
-    /** AI-generated security posture insight summarising current CVE counts (pre-generated during enrichment) */
+    /** AI 생성 보안 포스쳒 인사이트 - 현재 CVE 수 요약 (열거 중 생성) */
     @Column(name = "security_posture_insight", columnDefinition = "TEXT")
     private String securityPostureInsight;
 
     /**
-     * The user who submitted this scan (Quick Import or future user-level CLI auth).
-     * Null for scans submitted via a project API key (anonymous CLI scan).
+     * 이 스캔을 제출한 사용자 (Quick Import 또는 사용자도 CLI 인증 이후).
+     * 프로젝트 API 키로 제출된 익명 CLI 스캔은 null이다.
      */
     @Column(name = "submitted_by_user_id")
     private Long submittedByUserId;
@@ -77,7 +77,7 @@ public class ScanResult {
         }
     }
 
-    /** Used when injecting test data from DataInitializer etc. */
+    /** DataInitializer 등에서 테스트 데이터 주입 시 사용 */
     public void setScannedAt(LocalDateTime scannedAt) {
         this.scannedAt = scannedAt;
     }
@@ -113,9 +113,9 @@ public class ScanResult {
     }
 
     /**
-     * Resets this scan for a re-scan of the same version.
-     * Clears old payload/status so new component data can be ingested fresh.
-     * Callers must clear the components collection before calling this.
+     * 동일 버전 재스캔을 위해 스캔을 초기화한다.
+     * 이전 페이로드/상태를 지워서 새 컴포넌트 데이터를 새로 수신할 수 있도록 한다.
+     * 호출자는 이 메서드를 호출하기 전에 components 콜렉션을 비워야 한다.
      */
     public void resetForRescan(String newRawPayload) {
         this.rawPayload = newRawPayload;

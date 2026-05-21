@@ -10,8 +10,8 @@ import org.springframework.web.client.RestClientException;
 import java.util.Base64;
 
 /**
- * Validates VCS access tokens by calling the provider's user endpoint before saving.
- * Throws IllegalStateException on invalid token or unreachable server.
+ * 저장 전에 프로바이더의 사용자 엔드포인트를 호출하여 VCS 액세스 토큰을 검증한다.
+ * 토큰이 유효하지 않거나 서버에 도달할 수 없으면 IllegalStateException을 던진다.
  */
 @Slf4j
 @Component
@@ -41,12 +41,12 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
-                throw new IllegalStateException("GitHub token is invalid or lacks required permissions.");
+                throw new IllegalStateException("GitHub 토큰이 유효하지 않거나 필요한 권한이 없습니다.");
             }
-            throw new IllegalStateException("GitHub returned an error: " + status);
+            throw new IllegalStateException("GitHub 오류 응답: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach GitHub ({}): {}", base, e.getMessage());
-            throw new IllegalStateException("Could not reach GitHub to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] GitHub에 도달할 수 없음 ({}): {}", base, e.getMessage());
+            throw new IllegalStateException("GitHub에 연결하여 토큰을 확인할 수 없습니다. 서버 URL을 확인하고 다시 시도하세요.");
         }
     }
 
@@ -56,8 +56,8 @@ public class VcsTokenValidator {
                 : "https://gitlab.com";
         RestClient client = RestClient.builder().baseUrl(base).build();
         try {
-            // Standard PATs: /personal_access_tokens/self works without any scope.
-            // Fine-grained project-scoped tokens may return 403 here — fall through to project list.
+            // 일반 PAT: /personal_access_tokens/self는 스코프 없이 동작.
+            // 세분화된 프로젝트 스코프 토큰은 403을 반환할 수 있음 — 이 경우 프로젝트 목록으로 폴백.
             client.get().uri("/api/v4/personal_access_tokens/self")
                     .header("PRIVATE-TOKEN", token)
                     .retrieve()
@@ -65,18 +65,18 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401) {
-                throw new IllegalStateException("GitLab token is invalid or lacks required permissions.");
+                throw new IllegalStateException("GitLab 토큰이 유효하지 않거나 필요한 권한이 없습니다.");
             }
             if (status == 403) {
-                // Fine-grained tokens scoped to a project cannot access personal endpoints.
-                // Validate instead via the projects list which requires read_api.
+                // 프로젝트 스코프 세분화 토큰은 사용자 엔드포인트에 접근할 수 없음.
+                // 프로젝트 목록으로 확인.
                 validateGitLabViaProjects(client, token);
                 return;
             }
-            throw new IllegalStateException("GitLab returned an error: " + status);
+            throw new IllegalStateException("GitLab 오류 응답: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach GitLab ({}): {}", base, e.getMessage());
-            throw new IllegalStateException("Could not reach GitLab to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] GitLab에 도달할 수 없음 ({}): {}", base, e.getMessage());
+            throw new IllegalStateException("GitLab에 연결하여 토큰을 확인할 수 없습니다. 서버 URL을 확인하고 다시 시도하세요.");
         }
     }
 
@@ -89,15 +89,15 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401) {
-                throw new IllegalStateException("GitLab token is invalid or expired.");
+                throw new IllegalStateException("GitLab 토큰이 유효하지 않거나 만료되었습니다.");
             }
-            // 403 on all endpoints = token is structurally valid but lacks read_api scope.
-            // Fine-grained tokens with only resource-level roles (no API scope) hit this path.
-            // Allow the connection — missing scopes will surface as errors at import time.
-            log.warn("[VcsTokenValidator] GitLab fine-grained token may lack read_api scope (HTTP {}). Connection will be saved anyway.", status);
+            // 403 전체 = 토큰은 구조적으로 유효하지만 read_api 스코프 부족.
+            // API 스코프 없는 세분화 토큰이 이 경로를 탈.
+            // 연결은 허용 — 스코프 부족은 임포트 시에 오류로 표면됨.
+            log.warn("[VcsTokenValidator] GitLab 세분화 토큰에 read_api 스코프가 없을 수 있음 (HTTP {}). 연결은 저장됩니다.", status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] GitLab project list fallback failed: {}", e.getMessage());
-            throw new IllegalStateException("Could not reach GitLab to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] GitLab 프로젝트 목록 폴백 실패: {}", e.getMessage());
+            throw new IllegalStateException("GitLab에 연결하여 토큰을 확인할 수 없습니다. 서버 URL을 확인하고 다시 시도하세요.");
         }
     }
 
@@ -112,10 +112,10 @@ public class VcsTokenValidator {
 
     private void validateBitbucketCloud(String tokenOrAppPassword, String username) {
         boolean hasUsername = username != null && !username.isBlank();
-        // App Password → Basic auth (username required).
-        // HTTP Access Token (ATATT, entity-scoped) → Bearer auth (no username).
-        // NOTE: /2.0/user requires user-level auth and returns 403 (not 401) for entity-scoped
-        // tokens, so we skip it entirely for token-only mode and validate via /2.0/workspaces.
+        // 앱 비밀번호 → Basic 인증 (username 필수).
+        // HTTP 액세스 토큰 (ATATT, 엔티티 스코프) → Bearer 인증 (username 없음).
+        // NOTE: /2.0/user는 사용자 수준 인증 필요, 엔티티 스코프 토큰에는 403 반환.
+        // 토큰 전용 모드에서는 /2.0/workspaces로 검증.
         String authHeader = hasUsername
                 ? "Basic " + Base64.getEncoder().encodeToString((username + ":" + tokenOrAppPassword).getBytes())
                 : "Bearer " + tokenOrAppPassword;
@@ -124,15 +124,15 @@ public class VcsTokenValidator {
                 .build();
         try {
             if (hasUsername) {
-                // App Password with Basic auth — validate against the user endpoint.
+                // Basic 인증 앱 비밀번호 — 사용자 엔드포인트로 검증.
                 client.get().uri("/2.0/user")
                         .header("Authorization", authHeader)
                         .retrieve()
                         .toBodilessEntity();
             } else {
-                // Bearer token (ATATT) — entity-scoped tokens cannot call /2.0/user.
-                // Validate via /2.0/workspaces; 403 means the token is valid but scoped below
-                // workspace level (project/repo token) — allow with a warning.
+                // Bearer 토큰 (ATATT) — 엔티티 스코프 토큰은 /2.0/user 호출 불가.
+                // /2.0/workspaces로 검증; 403은 토큰은 유효하지만
+                // 워크스페이스 수준보다 제한된 스코프 (프로젝트/리포 토큰) 의맸 — 경고와 함께 허용.
                 try {
                     client.get().uri("/2.0/workspaces?pagelen=1")
                             .header("Authorization", authHeader)
@@ -140,17 +140,15 @@ public class VcsTokenValidator {
                             .toBodilessEntity();
                 } catch (HttpClientErrorException e) {
                     if (e.getStatusCode().value() == 403) {
-                        log.warn("[VcsTokenValidator] Bitbucket HTTP Access Token is valid but lacks workspace scope (HTTP 403). Connection will be saved.");
+                        log.warn("[VcsTokenValidator] Bitbucket HTTP 액세스 토큰은 유효하지만 워크스페이스 스코프 부족 (HTTP 403). 연결을 저장합니다.");
                         return;
                     }
                     if (e.getStatusCode().value() == 401) {
-                        // 401 on /2.0/workspaces with Bearer auth usually means this is a
-                        // user-level API Token (replacing App Passwords) that requires Basic auth.
-                        // Provide a helpful message guiding the user to enter their username.
+                        // /2.0/workspaces에 Bearer 인증 실패(401) = 사용자 수준 API 토큰 (App Passwords 대체)일 수 있음.
+                        // username을 입력하도록 안내.
                         throw new IllegalStateException(
-                                "Token invalid or requires Basic authentication. " +
-                                "If this is a Bitbucket API token (replacing App Passwords), " +
-                                "please also enter your Bitbucket username.");
+                                "토큰이 유효하지 않거나 Basic 인증이 필요합니다. " +
+                                "Bitbucket API 토큰(App Passwords 대체)인 경우 Bitbucket 사용자 이름도 입력하세요.");
                     }
                     throw e;
                 }
@@ -158,16 +156,16 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
-                throw new IllegalStateException("Bitbucket credentials are invalid or lack required permissions.");
+                throw new IllegalStateException("Bitbucket 자격증명이 유효하지 않거나 필요한 권한이 없습니다.");
             }
-            throw new IllegalStateException("Bitbucket returned an error: " + status);
+            throw new IllegalStateException("Bitbucket 오류 응답: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach Bitbucket Cloud: {}", e.getMessage());
-            throw new IllegalStateException("Could not reach Bitbucket to verify the credentials. Please try again.");
+            log.warn("[VcsTokenValidator] Bitbucket Cloud에 도달할 수 없음: {}", e.getMessage());
+            throw new IllegalStateException("Bitbucket에 연결하여 자격증명을 확인할 수 없습니다. 다시 시도하세요.");
         }
     }
 
-    /** Validates a Personal Access Token against a Bitbucket Data Center / Server instance. */
+    /** Bitbucket Data Center / Server 인스턴스에 Personal Access Token을 검증한다. */
     private void validateBitbucketServer(String serverUrl, String personalAccessToken) {
         String base = serverUrl.replaceAll("/+$", "");
         RestClient client = RestClient.builder().baseUrl(base).build();
@@ -179,12 +177,12 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
-                throw new IllegalStateException("Bitbucket Server token is invalid or lacks required permissions.");
+                throw new IllegalStateException("Bitbucket Server 토큰이 유효하지 않거나 필요한 권한이 없습니다.");
             }
-            throw new IllegalStateException("Bitbucket Server returned an error: " + status);
+            throw new IllegalStateException("Bitbucket Server 오류 응답: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach Bitbucket Server ({}): {}", base, e.getMessage());
-            throw new IllegalStateException("Could not reach Bitbucket Server to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] Bitbucket Server에 도달할 수 없음 ({}): {}", base, e.getMessage());
+            throw new IllegalStateException("Bitbucket Server에 연결하여 토큰을 확인할 수 없습니다. 서버 URL을 확인하고 다시 시도하세요.");
         }
     }
 }

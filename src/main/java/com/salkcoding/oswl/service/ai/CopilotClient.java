@@ -11,12 +11,12 @@ import java.util.Map;
 import org.springframework.core.ParameterizedTypeReference;
 
 /**
- * GitHub Copilot Chat API implementation.
- * Uses the OpenAI-compatible chat completions endpoint provided by GitHub Copilot.
- * Authentication is via a GitHub personal access token (PAT) or GitHub Copilot token
- * with the {@code copilot} scope.
+ * GitHub Copilot Chat API 구현체.
+ * GitHub Copilot에서 제공하는 OpenAI 호환 chat completions 엔드포인트를 사용한다.
+ * 인증은 GitHub PAT(개인 액세스 토큰) 또는 {@code copilot} 스코프를 가진
+ * GitHub Copilot 토큰으로 수행한다.
  *
- * <p>API endpoint: {@code https://api.githubcopilot.com/chat/completions}
+ * <p>API 엔드포인트: {@code https://api.githubcopilot.com/chat/completions}
  */
 @Slf4j
 @Component
@@ -64,7 +64,7 @@ public class CopilotClient implements AiAnalysisClient {
         return call(prompt, setting);
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────────────
+    // ── 내부 ─────────────────────────────────────────────────────────────────
 
     private String call(String userPrompt, AiSetting setting) {
         String apiKey = setting != null ? setting.getApiKey() : null;
@@ -72,7 +72,7 @@ public class CopilotClient implements AiAnalysisClient {
                         ? setting.getModelName() : "gpt-4o";
 
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("[AI][Copilot] GitHub token is not configured. Skipping.");
+            log.warn("[AI][Copilot] GitHub 토큰이 설정되지 않음. 건너덗.");
             return null;
         }
 
@@ -109,14 +109,14 @@ public class CopilotClient implements AiAnalysisClient {
                 if (choices != null && !choices.isEmpty()) {
                     var message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
                     String result = message != null ? (String) message.get("content") : null;
-                    log.debug("[AI][Copilot] Parsed result resultLen={}", result != null ? result.length() : 0);
+                    log.debug("[AI][Copilot] 파싱 결과 resultLen={}", result != null ? result.length() : 0);
                     return result;
                 }
-                log.warn("[AI][Copilot] Response body had no 'choices' — keys={}", response.getBody().keySet());
+                log.warn("[AI][Copilot] 응답 본문에 'choices'가 없음 — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AI][Copilot] Call failed after {}ms — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
+            log.error("[AI][Copilot] {}ms 후 호출 실패 — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
         }
         return null;
     }

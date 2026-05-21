@@ -6,11 +6,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Provides the {@link PasswordEncoder} bean independently of {@link SecurityConfig}.
+ * {@link PasswordEncoder} 빈을 {@link SecurityConfig}와 독립적으로 제공한다.
  *
- * Keeping the encoder in its own configuration class breaks the circular dependency
- * that occurs when authentication-flow components (e.g. failure handlers) inject
- * services that themselves need a PasswordEncoder.
+ * 인코더를 별도 설정 클래스에 드는 이유는, 인증 핀로우 컴포넌트(예: 실패 핸들러)가
+ * PasswordEncoder가 필요한 서비스를 주입할 때 발생하는 순환 의존성을 해결하기 위해서다.
  */
 @Configuration
 public class PasswordEncoderConfig {
