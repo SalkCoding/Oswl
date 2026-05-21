@@ -56,6 +56,10 @@ public class ScanResult {
     @Column(name = "license_ai_insight", columnDefinition = "TEXT")
     private String licenseAiInsight;
 
+    /** AI-generated security posture insight summarising current CVE counts (pre-generated during enrichment) */
+    @Column(name = "security_posture_insight", columnDefinition = "TEXT")
+    private String securityPostureInsight;
+
     /**
      * The user who submitted this scan (Quick Import or future user-level CLI auth).
      * Null for scans submitted via a project API key (anonymous CLI scan).
@@ -89,6 +93,10 @@ public class ScanResult {
     public void updateAiInsights(String securityInsight, String licenseInsight) {
         this.securityAiInsight = securityInsight;
         this.licenseAiInsight  = licenseInsight;
+    }
+
+    public void updateSecurityPostureInsight(String insight) {
+        this.securityPostureInsight = insight;
     }
 
     public void startAnalyzing() {

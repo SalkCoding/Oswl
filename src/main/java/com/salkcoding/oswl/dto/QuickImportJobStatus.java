@@ -19,6 +19,8 @@ public class QuickImportJobStatus {
         PARSING,
         /** Sending results to the scan pipeline */
         SCANNING,
+        /** Vulnerability and AI enrichment running asynchronously */
+        ENRICHING,
         /** Import and scan completed */
         DONE,
         /** Import or scan failed */
@@ -54,4 +56,7 @@ public class QuickImportJobStatus {
 
     /** Error detail — set when phase = FAILED */
     private final String error;
+
+    /** ScanResult ID — set during ENRICHING phase so the poller can check completion */
+    private final Long scanResultId;
 }
