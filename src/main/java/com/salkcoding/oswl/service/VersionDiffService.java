@@ -10,6 +10,7 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ public class VersionDiffService {
     private final ProjectRepository       projectRepository;
     private final ScanResultRepository    scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
+    private final AiAnalysisService       aiAnalysisService;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long fromScanId, Long toScanId, Model model) {
@@ -154,6 +156,16 @@ public class VersionDiffService {
         model.addAttribute("removedCount",   removed);
         model.addAttribute("updatedCount",   updated);
         model.addAttribute("newThreatCount", newThreat);
+
+        // Live AI diff summary (synchronous; skipped when AI not configured)
+        String diffAiInsight = null;
+        try {
+            diffAiInsight = aiAnalysisService.summarizeVersionDiff(
+                    project.getName(), fromVersion, toVersion, added, removed, updated, newThreat);
+        } catch (Exception e) {
+            log.warn("[VersionDiff] AI diff summary failed for projectId={}: {}", projectId, e.getMessage());
+        }
+        model.addAttribute("diffAiInsight", diffAiInsight);
     }
 
     private Map<String, ScanComponent> buildMap(Long scanId) {

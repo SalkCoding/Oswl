@@ -8,10 +8,13 @@ import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,7 +84,9 @@ public class QuickImportService {
     private final ProjectService projectService;
     private final ApiKeyService apiKeyService;
     private final ScanIngestService scanIngestService;
+    private final ScanResultRepository scanResultRepository;
     private final GitHubService gitHubService;
+    private final EnrichmentProgressHolder enrichmentProgressHolder;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -138,7 +143,53 @@ public class QuickImportService {
 
     /** Returns the current status of a job, or null if the jobId is unknown. */
     public QuickImportJobStatus getJobStatus(String jobId) {
-        return jobs.get(jobId);
+        QuickImportJobStatus job = jobs.get(jobId);
+        if (job == null) return null;
+
+        // While in ENRICHING, check the ScanResult status and advance to DONE/FAILED once complete.
+        if (job.getPhase() == Phase.ENRICHING && job.getScanResultId() != null) {
+            // Read live progress message from enrichment pipeline
+            String progressMsg = enrichmentProgressHolder.get(job.getScanResultId());
+            return scanResultRepository.findById(job.getScanResultId())
+                    .map(sr -> {
+                        if (sr.getStatus() == ScanStatus.COMPLETED) {
+                            QuickImportJobStatus done = QuickImportJobStatus.builder()
+                                    .jobId(job.getJobId()).phase(Phase.DONE)
+                                    .message("Import complete \u2014 " + job.getComponentCount() + " components scanned.")
+                                    .projectId(job.getProjectId()).projectName(job.getProjectName())
+                                    .apiToken(job.getApiToken()).newApiKey(job.getNewApiKey())
+                                    .ecosystem(job.getEcosystem()).componentCount(job.getComponentCount())
+                                    .build();
+                            jobs.put(jobId, done);
+                            return done;
+                        } else if (sr.getStatus() == ScanStatus.FAILED) {
+                            QuickImportJobStatus failed = QuickImportJobStatus.builder()
+                                    .jobId(job.getJobId()).phase(Phase.FAILED)
+                                    .message("Enrichment failed.")
+                                    .projectId(job.getProjectId()).projectName(job.getProjectName())
+                                    .apiToken(job.getApiToken()).newApiKey(job.getNewApiKey())
+                                    .ecosystem(job.getEcosystem()).componentCount(job.getComponentCount())
+                                    .error("Enrichment pipeline failed.")
+                                    .build();
+                            jobs.put(jobId, failed);
+                            return failed;
+                        }
+                        // Still running — return job with live progress message if available
+                        if (progressMsg != null) {
+                            return QuickImportJobStatus.builder()
+                                    .jobId(job.getJobId()).phase(Phase.ENRICHING)
+                                    .message(progressMsg)
+                                    .projectId(job.getProjectId()).projectName(job.getProjectName())
+                                    .apiToken(job.getApiToken()).newApiKey(job.getNewApiKey())
+                                    .ecosystem(job.getEcosystem()).componentCount(job.getComponentCount())
+                                    .scanResultId(job.getScanResultId())
+                                    .build();
+                        }
+                        return job; // still running, no progress update yet
+                    })
+                    .orElse(job);
+        }
+        return job;
     }
 
     // ── Repo browser (for Quick Import list UI) ───────────────────────────
@@ -434,8 +485,9 @@ public class QuickImportService {
 
             String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
             ScanPayload payload = buildScanPayload(deps, scanVersion);
+            ScanResult scanResult;
             try {
-                scanIngestService.ingest(project.getId(), payload, userId);
+                scanResult = scanIngestService.ingest(project.getId(), payload, userId);
             } catch (Exception ingestEx) {
                 // Project row was already committed; scan could not be saved.
                 // The project will appear on the Projects page with a "No scan data" indicator.
@@ -450,12 +502,12 @@ public class QuickImportService {
                 return;
             }
 
-            // 7. Done ──────────────────────────────────────────────────────
-            updateJob(jobId, Phase.DONE,
-                    "Import complete — " + deps.components.size() + " components scanned.",
+            // 7. Wait for async enrichment (vulnerability analysis + AI) ──
+            updateJob(jobId, Phase.ENRICHING,
+                    "Analyzing components…",
                     project.getId(), project.getName(),
                     keyResult.token, keyResult.isNew,
-                    deps.ecosystem, deps.components.size());
+                    deps.ecosystem, deps.components.size(), scanResult.getId());
 
         } finally {
             deleteDirectory(cloneDir);
@@ -1825,6 +1877,14 @@ public class QuickImportService {
                            Long projectId, String projectName,
                            String apiToken, Boolean newApiKey,
                            String ecosystem, Integer componentCount) {
+        updateJob(jobId, phase, message, projectId, projectName, apiToken, newApiKey, ecosystem, componentCount, null);
+    }
+
+    private void updateJob(String jobId, Phase phase, String message,
+                           Long projectId, String projectName,
+                           String apiToken, Boolean newApiKey,
+                           String ecosystem, Integer componentCount,
+                           Long scanResultId) {
         jobs.put(jobId, QuickImportJobStatus.builder()
                 .jobId(jobId)
                 .phase(phase)
@@ -1835,6 +1895,7 @@ public class QuickImportService {
                 .newApiKey(newApiKey)
                 .ecosystem(ecosystem)
                 .componentCount(componentCount)
+                .scanResultId(scanResultId)
                 .build());
     }
 
