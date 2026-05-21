@@ -7,6 +7,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -14,6 +15,7 @@ import org.springframework.ui.Model;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ScanHistoryService {
@@ -51,5 +53,6 @@ public class ScanHistoryService {
 
         model.addAttribute("scanRows",   rows);
         model.addAttribute("totalScans", rows.size());
+        log.debug("[ScanHistory] projectId={} loaded {} scan records", projectId, rows.size());
     }
 }

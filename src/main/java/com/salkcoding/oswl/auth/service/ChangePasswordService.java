@@ -41,10 +41,12 @@ public class ChangePasswordService {
                 .orElseThrow(() -> new IllegalStateException("User not found: " + userId));
 
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            log.warn("[ChangePassword] Wrong current password for userId={}", userId);
             throw new IllegalArgumentException("CURRENT_PASSWORD_WRONG");
         }
 
         if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            log.debug("[ChangePassword] Rejected: new password same as current for userId={}", userId);
             throw new IllegalArgumentException("SAME_AS_CURRENT");
         }
 
