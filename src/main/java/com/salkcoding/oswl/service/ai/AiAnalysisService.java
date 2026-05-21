@@ -33,7 +33,8 @@ public class AiAnalysisService {
     public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
-
+        log.debug("[AI] summarizeCve cveId='{}' severity={} cvss={} component='{}' provider={}",
+                cveId, severity, cvssScore, component, setting.getProvider());
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(
                     buildCvePrompt(cveId, severity, cvssScore, component), setting);
@@ -59,6 +60,44 @@ public class AiAnalysisService {
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
             case ANTHROPIC      -> anthropicClient.callWithSetting(prompt, setting);
+        };
+    }
+
+    @Transactional(readOnly = true)
+    public String generateSecurityTrendInsight(String projectName, int secDelta, String recentVersions) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null) return null;
+        log.debug("[AI] generateSecurityTrendInsight project='{}' secDelta={} versions='{}' provider={}",
+                projectName, secDelta, recentVersions, setting.getProvider());
+        String prompt = String.format(
+                "Project '%s' has security issues %s by %d across versions [%s]. " +
+                "In one sentence, give a concise security risk trend insight for a security engineer.",
+                projectName,
+                secDelta >= 0 ? "increased" : "decreased", Math.abs(secDelta),
+                recentVersions);
+
+        return switch (setting.getProvider()) {
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+        };
+    }
+
+    @Transactional(readOnly = true)
+    public String generateLicenseTrendInsight(String projectName, int licDelta, String recentVersions) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null) return null;
+        log.debug("[AI] generateLicenseTrendInsight project='{}' licDelta={} versions='{}' provider={}",
+                projectName, licDelta, recentVersions, setting.getProvider());
+        String prompt = String.format(
+                "Project '%s' has license issues %s by %d across versions [%s]. " +
+                "In one sentence, give a concise license compliance trend insight for a security engineer.",
+                projectName,
+                licDelta >= 0 ? "increased" : "decreased", Math.abs(licDelta),
+                recentVersions);
+
+        return switch (setting.getProvider()) {
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
         };
     }
 
@@ -92,12 +131,17 @@ public class AiAnalysisService {
      */
     public boolean testConnection(AiSetting setting) {
         String prompt = "Reply with only the word OK.";
+        log.debug("[AI] testConnection provider={} model='{}' baseUrl='{}'",
+                setting.getProvider(), setting.getModelName(), setting.getBaseUrl());
         try {
             String result = switch (setting.getProvider()) {
                 case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
                 case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
             };
-            return result != null;
+            boolean ok = result != null;
+            log.debug("[AI] testConnection result={} response='{}'", ok ? "OK" : "FAIL",
+                    result != null ? result.trim() : "null");
+            return ok;
         } catch (Exception e) {
             log.warn("[AI] Test connection failed for provider {}: {}", setting.getProvider(), e.getMessage());
             return false;
@@ -118,6 +162,8 @@ public class AiAnalysisService {
                     log.warn("[AI] API key decryption failed for provider {}. Key may be stored in legacy plaintext. Re-save via Settings to encrypt.", s.getProvider());
                 }
             }
+            log.debug("[AI] Active provider={} model='{}' baseUrl='{}'",
+                    s.getProvider(), s.getModelName(), s.getBaseUrl());
             return s;
         }).orElseGet(() -> {
             log.debug("[AI] No active AI setting found. Skipping analysis.");

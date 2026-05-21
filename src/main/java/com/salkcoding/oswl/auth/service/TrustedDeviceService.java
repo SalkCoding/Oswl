@@ -59,7 +59,9 @@ public class TrustedDeviceService {
 
         for (Cookie c : cookies) {
             if (COOKIE_NAME.equals(c.getName())) {
-                return validate(userId, c.getValue());
+                boolean trusted = validate(userId, c.getValue());
+                if (trusted) log.debug("[TrustedDevice] Bypass granted for userId={}", userId);
+                return trusted;
             }
         }
         return false;
@@ -87,6 +89,7 @@ public class TrustedDeviceService {
                 COOKIE_NAME + "=" + value
                 + "; Path=/; Max-Age=" + MAX_AGE_SECONDS
                 + "; HttpOnly; SameSite=Strict");
+        log.debug("[TrustedDevice] Cookie issued for userId={} maxAge={}days", userId, MAX_AGE_SECONDS / 86400);
     }
 
     /** Clears the trusted-device cookie (e.g., on explicit logout). */
