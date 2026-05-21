@@ -5,8 +5,8 @@ import lombok.Builder;
 import lombok.Getter;
 
 /**
- * Lightweight scan-result summary used to populate the version dropdown in the topbar.
- * Each completed ScanResult for a project becomes one entry.
+ * 프로젝트 통바의 버전 드롭다운을 채우는 가벼운 스캔 요약.
+ * 프로젝트의 완료된 각 ScanResult마다 한 항목이 생성된다.
  */
 @Schema(description = "Completed scan summary entry — used to populate the version dropdown in the project topbar")
 @Getter

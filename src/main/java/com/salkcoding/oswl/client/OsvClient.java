@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Client for the OSV.dev REST API.
+ * OSV.dev REST API 클라이언트.
  *
- * Uses the querybatch endpoint (POST /v1/querybatch) exclusively —
- * single-item looping over /v1/query is intentionally avoided.
- * One batch call can carry up to 1,000 queries with no rate limit.
+ * querybatch 엔드포인트(POST /v1/querybatch)만 사용한다 —
+ * /v1/query에 대한 단일 항목 반복 호출은 의도적으로 피한다.
+ * 하나의 배치 호출에 위 1,000개 쿼리를 실어 보낼 수 있으며 속도 제한 없음.
  */
 @Slf4j
 @Component
@@ -33,23 +33,23 @@ public class OsvClient {
                 .build();
     }
 
-    // ── DTOs ────────────────────────────────────────────────────────────
+    // ── DTO ────────────────────────────────────────────────────────────
 
-    /** Extracted vulnerability details from a single OSV vuln entry */
+    /** 단일 OSV 취약점 항목에서 추출된 취약점 세부 정보 */
     public record OsvVuln(
             String osvId,
             String cveId,
             String summary,
             String fixVersion) {}
 
-    /** Result set for one query (aligned with the input batch index) */
+    /** 하나의 쿼리에 대한 결과 세트 (입력 배치 인덱스와 정렬) */
     public record OsvResult(List<OsvVuln> vulns) {}
 
-    // ── Public API ───────────────────────────────────────────────────────
+    // ── 공개 API ───────────────────────────────────────────────────────
 
     /**
-     * Sends components in batches of up to 1,000 and returns results aligned with the input list.
-     * An empty OsvResult (vulns = []) means no vulnerabilities found for that component.
+     * 컴포넌트를 최대 1,000개 단위로 배치 전송하고 입력 목록과 정렬된 결과를 반환한다.
+     * 빈 OsvResult(vulns = [])는 해당 컴포넌트에 취약점이 없다는 의미이다.
      */
     public List<OsvResult> queryBatch(List<OsvQuery> queries) {
         if (queries.isEmpty()) return Collections.emptyList();
@@ -63,13 +63,13 @@ public class OsvClient {
         return allResults;
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────
+    // ── 내부 ─────────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
     private List<OsvResult> doQueryBatch(List<OsvQuery> queries) {
         try {
-            // Map.of() rejects null values — pre-filter queries with any null field
-            // and track their original indices to re-align the result list.
+            // Map.of()는 null 값을 거부 — null 필드를 가진 쿼리를 사전 필터링하고
+            // 결과 목록 재정렬을 위해 원본 인덱스를 추적.
             List<Integer> validIndices = new ArrayList<>();
             List<Map<String, Object>> requestBody = new ArrayList<>();
             for (int i = 0; i < queries.size(); i++) {
@@ -86,7 +86,7 @@ public class OsvClient {
                 return Collections.nCopies(queries.size(), new OsvResult(List.of()));
             }
 
-            log.debug("[OsvClient] querybatch REQUEST size={} valid={} queries={}",
+            log.debug("[OsvClient] querybatch 요청 size={} valid={} queries={}",
                     queries.size(), validIndices.size(), queries);
 
             Map<String, Object> response = restClient.post()
@@ -96,10 +96,10 @@ public class OsvClient {
                     .retrieve()
                     .body(Map.class);
 
-            log.debug("[OsvClient] querybatch RESPONSE raw={}", response);
+            log.debug("[OsvClient] querybatch 응답 raw={}", response);
 
             if (response == null || !response.containsKey("results")) {
-                log.debug("[OsvClient] querybatch RESPONSE empty or missing 'results' key");
+                log.debug("[OsvClient] querybatch 응답 비어있거나 'results' 키 없음");
                 return Collections.nCopies(queries.size(), new OsvResult(List.of()));
             }
 
@@ -124,11 +124,11 @@ public class OsvClient {
                 }
                 parsed.add(new OsvResult(vulns));
             }
-            log.debug("[OsvClient] querybatch PARSED results count={} totalVulns={}",
+            log.debug("[OsvClient] querybatch 파싱 results count={} totalVulns={}",
                     parsed.size(),
                     parsed.stream().mapToInt(r -> r.vulns().size()).sum());
 
-            // Re-expand to full queries.size(), placing empty results where version was null
+            // 정에 맞게 queries.size()로 확장, 버전이 null인 경우 빈 결과 삽입
             OsvResult[] finalResults = new OsvResult[queries.size()];
             java.util.Arrays.fill(finalResults, new OsvResult(List.of()));
             for (int i = 0; i < validIndices.size() && i < parsed.size(); i++) {
@@ -136,11 +136,11 @@ public class OsvClient {
             }
             for (int i = 0; i < finalResults.length; i++) {
                 OsvQuery q = queries.get(i);
-                log.debug("[OsvClient] querybatch RESULT[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
+                log.debug("[OsvClient] querybatch 결과[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
             }
             return java.util.Arrays.asList(finalResults);
         } catch (RestClientException e) {
-            log.error("[OsvClient] querybatch failed: {}", e.getMessage());
+            log.error("[OsvClient] querybatch 실패: {}", e.getMessage());
             return Collections.nCopies(queries.size(), new OsvResult(List.of()));
         }
     }
@@ -149,7 +149,7 @@ public class OsvClient {
         String osvId  = (String) vuln.get("id");
         String summary = (String) vuln.get("summary");
 
-        // Extract CVE ID from aliases
+        // aliases에서 CVE ID 추출
         String cveId = null;
         Object aliasesObj = vuln.get("aliases");
         if (aliasesObj instanceof List<?> aliases) {
@@ -161,7 +161,7 @@ public class OsvClient {
                     .orElse(null);
         }
 
-        // Extract fix version from affected[].ranges[].events[fixed]
+        // affected[].ranges[].events[fixed]에서 수정 버전 추출
         String fixVersion = null;
         Object affectedObj = vuln.get("affected");
         outer:
@@ -189,7 +189,7 @@ public class OsvClient {
         return new OsvVuln(osvId, cveId, summary, fixVersion);
     }
 
-    // ── Value types ───────────────────────────────────────────────────────
+    // ── 값 타입 ───────────────────────────────────────────────────────
 
     public record OsvQuery(String ecosystem, String name, String version) {}
 }

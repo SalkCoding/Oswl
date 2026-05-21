@@ -8,7 +8,7 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
 
 /**
- * AOP-based logging aspect for the service layer.
+ * 서비스 레이어 대상 AOP 기반 로깅 애스펙트.
  *
  * 동작:
  *  - 모든 service 패키지 메서드의 실행 시간을 측정
@@ -40,7 +40,7 @@ public class LoggingAspect {
             return result;
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AOP] {}.{}() FAILED ({}ms) — {}: {}",
+            log.error("[AOP] {}.{}() 실패 ({}ms) — {}: {}",
                     className, methodName, elapsed,
                     e.getClass().getSimpleName(), e.getMessage());
             throw e;
@@ -49,9 +49,9 @@ public class LoggingAspect {
 
     private void logElapsed(String className, String methodName, long elapsed) {
         if (elapsed >= WARN_THRESHOLD_MS) {
-            log.warn("[AOP] {}.{}() {}ms — is too slow", className, methodName, elapsed);
+            log.warn("[AOP] {}.{}() {}ms — 매우 느린 호출", className, methodName, elapsed);
         } else if (elapsed >= SLOW_THRESHOLD_MS) {
-            log.info("[AOP] {}.{}() {}ms — slow call", className, methodName, elapsed);
+            log.info("[AOP] {}.{}() {}ms — 느린 호출", className, methodName, elapsed);
         } else {
             log.debug("[AOP] {}.{}() {}ms", className, methodName, elapsed);
         }

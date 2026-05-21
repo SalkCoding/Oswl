@@ -1,10 +1,10 @@
 package com.salkcoding.oswl.domain.enums;
 
-/** Supported AI providers */
+/** 지원하는 AI 프로바이더 */
 public enum AiProvider {
     OPENAI,     // GPT
     GEMINI,     // Gemini
     ANTHROPIC,  // Claude
-    COPILOT,    // GitHub Copilot (OpenAI-compatible, GitHub token auth)
-    LOCAL       // Ollama and similar local LLMs (OpenAI-compatible endpoint)
+    COPILOT,    // GitHub Copilot (OpenAI 호환, GitHub 토큰 인증)
+    LOCAL       // Ollama 등 로컈 LLM (OpenAI 호환 엔드포인트)
 }

@@ -8,8 +8,8 @@
 
     <!-- Heading -->
     <div class="flex flex-col gap-[8px]">
-        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]">Cache Settings</h2>
-        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]">Configure caching policies for library vulnerability data.</p>
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.cache.heading}">Cache Settings</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.cache.description}">Configure caching policies for library vulnerability data.</p>
     </div>
 
     <!-- API Error -->
@@ -18,7 +18,7 @@
 
     <!-- Policy card -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
-        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">Automatic Cache Policy</h3>
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.cache.policy.heading}">Automatic Cache Policy</h3>
 
         <div class="flex flex-col gap-[24px]">
             <!-- Custom TTL -->
@@ -28,9 +28,9 @@
                          :class="policy==='custom' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                         <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='custom'"></div>
                     </div>
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Custom TTL</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.custom}">Custom TTL</span>
                 </div>
-                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Refreshes data after the specified period.</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]" th:text="#{settings.cache.policy.custom.description}">Refreshes data after the specified period.</p>
                 <div x-show="policy==='custom'" class="ml-[28px] flex items-center gap-[8px]">
                     <input type="number" min="1" x-model.number="customAmount"
                            class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
@@ -62,9 +62,9 @@
                          :class="policy==='always' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                         <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='always'"></div>
                     </div>
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Always Refresh</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.always}">Always Refresh</span>
                 </div>
-                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Fetches the latest data from deps.dev and OSV on every scan.</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]" th:text="#{settings.cache.policy.always.description}">Fetches the latest data from deps.dev and OSV on every scan.</p>
             </div>
 
             <!-- Permanent -->
@@ -74,9 +74,9 @@
                          :class="policy==='permanent' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                         <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='permanent'"></div>
                     </div>
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Permanent Cache</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.permanent}">Permanent Cache</span>
                 </div>
-                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]">Once fetched, library data will not be refreshed automatically.</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]" th:text="#{settings.cache.policy.permanent.description}">Once fetched, library data will not be refreshed automatically.</p>
             </div>
         </div>
 
@@ -85,10 +85,10 @@
                 <button x-show="!clearConfirm" @click="clearConfirm=true"
                         class="text-[var(--grayscale-70)] hover:text-red-600 text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] hover:border-red-300 inline-flex items-center gap-[6px] transition-colors">
                     <img th:src="@{/icon/icon-delete.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    Clear All Cache
+                    <span th:text="#{settings.cache.btn.clearAll}">Clear All Cache</span>
                 </button>
                 <div x-show="clearConfirm" x-cloak class="flex items-center gap-[8px]">
-                    <span class="text-[13px] font-medium text-[var(--grayscale-70)]">Clear all cached data?</span>
+                    <span class="text-[13px] font-medium text-[var(--grayscale-70)]" th:text="#{settings.cache.clearConfirm}">Clear all cached data?</span>
                     <button @click="clearAll()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[12px] py-[6px] rounded-[6px] transition-colors">Yes, clear</button>
                     <button @click="clearConfirm=false" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[10px] py-[6px] rounded-[6px] border border-[var(--grayscale-20)] transition-colors">Cancel</button>
                 </div>

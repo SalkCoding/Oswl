@@ -11,8 +11,8 @@ import java.util.Map;
 import org.springframework.core.ParameterizedTypeReference;
 
 /**
- * OpenAI Chat Completions API implementation.
- * The LOCAL provider also works with this client by simply changing the baseUrl to an OpenAI-compatible endpoint.
+ * OpenAI Chat Completions API 구현체.
+ * LOCAL 프로바이더도 baseUrl을 OpenAI 호환 엔드포인트로 변경하면 이 클라이언트로 동작한다.
  */
 @Slf4j
 @Component
@@ -61,8 +61,8 @@ public class OpenAiClient implements AiAnalysisClient {
     }
 
     /**
-     * Calls using the apiKey / baseUrl / modelName stored in AiSetting.
-     * Invoked by AiAnalysisService with the injected setting.
+     * AiSetting에 저장된 apiKey / baseUrl / modelName을 사용하여 호출한다.
+     * AiAnalysisService가 주입한 설정과 함께 실행된다.
      */
     public String callWithSetting(String prompt, AiSetting setting) {
         return call(prompt, setting);
@@ -81,7 +81,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        // LOCAL (e.g. Ollama) does not require an API key — only set Authorization when present
+        // LOCAL(예: Ollama)는 API 키가 필요하지 않음 — 키가 있을 때만 Authorization 설정
         if (hasAuth) {
             headers.setBearerAuth(apiKey);
         }
@@ -111,21 +111,21 @@ public class OpenAiClient implements AiAnalysisClient {
                 if (choices != null && !choices.isEmpty()) {
                     var message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
                     String result = message != null ? (String) message.get("content") : null;
-                    log.debug("[AI][OpenAI] Parsed result resultLen={}", result != null ? result.length() : 0);
+                    log.debug("[AI][OpenAI] 파싱 결과 resultLen={}", result != null ? result.length() : 0);
                     return result;
                 }
-                log.warn("[AI][OpenAI] Response body had no 'choices' — keys={}", response.getBody().keySet());
+                log.warn("[AI][OpenAI] 응답 본문에 'choices'가 없음 — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AI][OpenAI] Call failed after {}ms — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
+            log.error("[AI][OpenAI] {}ms 후 호출 실패 — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
         }
         return null;
     }
 
     private String resolveUrl(AiSetting setting) {
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {
-            // LOCAL: e.g. "http://localhost:11434/v1/chat/completions"
+            // LOCAL: 예: "http://localhost:11434/v1/chat/completions"
             String base = setting.getBaseUrl();
             return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         }

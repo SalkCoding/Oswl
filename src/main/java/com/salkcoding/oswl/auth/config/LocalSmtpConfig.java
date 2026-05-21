@@ -20,16 +20,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import java.io.ByteArrayOutputStream;
 
 /**
- * Local-profile-only config that spins up an embedded GreenMail SMTP server
- * and auto-configures security_settings to point at it.
+ * 로컈 프로파일에서만 실행되는 설정으로, 임베디드 GreenMail SMTP 서버를 기동하고
+ * security_settings가 해당 서버를 가리키도록 자동 설정한다.
  *
- * <p>On startup:
+ * <p>기동 시:
  * <ul>
- *   <li>GreenMail listens on localhost:3025 (no auth).</li>
- *   <li>security_settings.mail_mode is set to SMTP with host=localhost, port=3025.</li>
+ *   <li>GreenMail은 localhost:3025에서 대기한다 (인증 없음).</li>
+ *   <li>security_settings.mail_mode가 SMTP(host=localhost, port=3025)로 설정된다.</li>
  * </ul>
- * Received mails are printed to the log every 3 seconds so you can see the OTP
- * code (and HTML content) without any real mail client.
+ * 수신된 메일은 3초마다 로그에 출력되며 실제 메일 클라이언트 없이도 OTP 코드를 확인할 수 있다.
  */
 @Slf4j
 @Profile("local")
@@ -45,7 +44,7 @@ public class LocalSmtpConfig implements ApplicationRunner {
     private GreenMail greenMail;
     private int lastSeenCount = 0;
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────
+    // ── 라이프사이클 ─────────────────────────────────────────────────────────
 
     @Bean
     public GreenMail greenMail() {
@@ -55,7 +54,7 @@ public class LocalSmtpConfig implements ApplicationRunner {
         greenMail.start();
         log.info("╔══════════════════════════════════════════════════════╗");
         log.info("║  [LocalSMTP] GreenMail started on localhost:{}      ║", SMTP_PORT);
-        log.info("║  All outgoing mail is captured here — no real SMTP. ║");
+        log.info("║  모든 송신 메일은 여기서 가로채집됩니다 — 실제 SMTP 미사용. ║");
         log.info("╚══════════════════════════════════════════════════════╝");
         return greenMail;
     }
@@ -64,14 +63,13 @@ public class LocalSmtpConfig implements ApplicationRunner {
     public void stopGreenMail() {
         if (greenMail != null) {
             greenMail.stop();
-            log.info("[LocalSMTP] GreenMail stopped.");
+            log.info("[LocalSMTP] GreenMail 정지.");
         }
     }
 
     /**
-     * After Spring context is fully up, patch security_settings so the mail
-     * server always points to GreenMail. This lets you enable Email OTP from
-     * the Settings UI without manually entering SMTP details every time.
+     * Spring 컨텍스트가 완전히 실행된 후 security_settings가 GreenMail을 가리키도록 패치한다.
+     * Settings UI에서 SMTP 세부정보를 매번 입력하지 않아도 Email OTP를 활성화할 수 있다.
      */
     @Override
     public void run(ApplicationArguments args) {
@@ -88,15 +86,14 @@ public class LocalSmtpConfig implements ApplicationRunner {
         s.setMailSenderName("OsWL (local)");
         settingRepository.save(s);
 
-        log.info("[LocalSMTP] security_settings patched → SMTP localhost:{} (no auth)", SMTP_PORT);
+        log.info("[LocalSMTP] security_settings 패치 → SMTP localhost:{} (인증 없음)", SMTP_PORT);
     }
 
-    // ── Mail watcher ─────────────────────────────────────────────────────
+    // ── 메일 감시 ─────────────────────────────────────────────────────
 
     /**
-     * Polls GreenMail every 3 s and logs any newly received messages.
-     * The full raw message is printed so you can see Subject, To, and the
-     * HTML body (including the OTP code).
+     * 3초마다 GreenMail을 폴링하여 새로 수신된 메일을 로깅한다.
+     * 전체 원시 메시지가 출력되도록 제목근, 수신자, HTML 본문(OTP 코드 포함)이 도시된다.
      */
     @Scheduled(fixedDelay = 3_000)
     public void printNewMails() {
@@ -113,7 +110,7 @@ public class LocalSmtpConfig implements ApplicationRunner {
                 log.info("│  From    : {}", msgs[i].getFrom() != null
                         ? java.util.Arrays.toString(msgs[i].getFrom()) : "(none)");
 
-                // Extract plain-text OTP from subject (e.g. "[OsWL] Your verification code: 123456")
+                // 제목에서 OTP 코드 추출 (예: "[OsWL] Your verification code: 123456")
                 String subject = msgs[i].getSubject();
                 if (subject != null && subject.contains("verification code:")) {
                     String code = subject.substring(subject.lastIndexOf(":") + 1).trim();
@@ -122,16 +119,16 @@ public class LocalSmtpConfig implements ApplicationRunner {
                     log.info("│");
                 }
 
-                // Dump raw message for full HTML inspection
+                // 로그 가독성을 위해 매우 긴 HTML 본문을 잘라냄
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 msgs[i].writeTo(baos);
                 String raw = baos.toString(java.nio.charset.StandardCharsets.UTF_8);
-                // Truncate very long HTML bodies to keep log readable
+                // 로그 가독성을 위해 너무 긴 HTML 본문 잘라냄
                 if (raw.length() > 3000) raw = raw.substring(0, 3000) + "\n... (truncated)";
                 log.info("│  Raw message:\n{}", raw);
                 log.info("└────────────────────────────────────────────────────────");
             } catch (Exception e) {
-                log.warn("[LocalSMTP] Could not read message #{}: {}", i + 1, e.getMessage());
+                log.warn("[LocalSMTP] 메시지 #{} 읽기 실패: {}", i + 1, e.getMessage());
             }
         }
         lastSeenCount = msgs.length;

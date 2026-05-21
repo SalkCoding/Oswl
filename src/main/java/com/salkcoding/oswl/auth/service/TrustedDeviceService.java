@@ -13,13 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * Issues and validates HMAC-signed "trusted device" cookies for 30-day 2FA bypass.
+ * 30일간 2FA 두러마기를 위한 HMAC 서명 "신뢰 기기" 쿠키를 발급하고 검증한다.
  *
- * Cookie value format: Base64(userId ":" expiryMs ":" hmac)
- *   where hmac = HMAC-SHA256(userId + ":" + expiryMs, key)
+ * 쿠키 값 포맷: Base64(userId ":" expiryMs ":" hmac)
+ *   여기서 hmac = HMAC-SHA256(userId + ":" + expiryMs, key)
  *
- * If {@code oswl.encryption.key} is absent the service is disabled — no cookies are
- * issued and {@link #isTrusted} always returns {@code false}.
+ * {@code oswl.encryption.key}가 없으면 서비스가 비활성화됩니다 —
+ * 쿠키가 발급되지 않으며 {@link #isTrusted}는 항상 {@code false}를 반환합니다.
  */
 @Slf4j
 @Service
@@ -35,22 +35,22 @@ public class TrustedDeviceService {
             @Value("${oswl.encryption.key:}") String base64Key) {
 
         if (base64Key == null || base64Key.isBlank()) {
-            log.warn("[TrustedDevice] No encryption key configured — trusted-device feature is disabled.");
+            log.warn("[TrustedDevice] 암호화 키 미설정 — 신뢰 기기 기능이 비활성화되었습니다.");
             this.keyBytes = null;
         } else {
             this.keyBytes = Base64.getDecoder().decode(base64Key);
         }
     }
 
-    /** Returns true if the feature is enabled (key is configured). */
+    /** 서비스 활성화 여부(키 설정 시 true)를 반환한다. */
     public boolean isEnabled() {
         return keyBytes != null;
     }
 
     /**
-     * Validates the trusted-device cookie for the given user.
+     * 주어진 사용자의 신뢰 기기 쿠키를 검증한다.
      *
-     * @return true only when the cookie is present, the signature is valid and it has not expired.
+     * @return 쿠키가 존재하고 서명이 유효하며 만료되지 않은 경우만 true.
      */
     public boolean isTrusted(Long userId, HttpServletRequest request) {
         if (!isEnabled()) return false;
@@ -60,7 +60,7 @@ public class TrustedDeviceService {
         for (Cookie c : cookies) {
             if (COOKIE_NAME.equals(c.getName())) {
                 boolean trusted = validate(userId, c.getValue());
-                if (trusted) log.debug("[TrustedDevice] Bypass granted for userId={}", userId);
+                if (trusted) log.debug("[TrustedDevice] userId={} 두러마기 허용", userId);
                 return trusted;
             }
         }
@@ -68,8 +68,8 @@ public class TrustedDeviceService {
     }
 
     /**
-     * Issues a 30-day trusted-device cookie for the given user.
-     * Does nothing if the feature is disabled.
+     * 주어진 사용자에게 30일짜리 신뢰 기기 쿠키를 발급한다.
+     * 서비스 비활성화 시는 아무 작업도 하지 않는다.
      */
     public void setTrusted(Long userId, HttpServletResponse response) {
         if (!isEnabled()) return;
@@ -84,21 +84,21 @@ public class TrustedDeviceService {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(MAX_AGE_SECONDS);
-        // SameSite=Strict is set via the Set-Cookie header attribute
+        // SameSite=Strict는 Set-Cookie 헤더 속성으로 설정됨
         response.addHeader("Set-Cookie",
                 COOKIE_NAME + "=" + value
                 + "; Path=/; Max-Age=" + MAX_AGE_SECONDS
                 + "; HttpOnly; SameSite=Strict");
-        log.debug("[TrustedDevice] Cookie issued for userId={} maxAge={}days", userId, MAX_AGE_SECONDS / 86400);
+        log.debug("[TrustedDevice] userId={} 쿠키 발급 maxAge={}days", userId, MAX_AGE_SECONDS / 86400);
     }
 
-    /** Clears the trusted-device cookie (e.g., on explicit logout). */
+    /** 신뢰 기기 쿠키를 지운다 (예: 명시적 로그아웃 시). */
     public void clearTrusted(HttpServletResponse response) {
         response.addHeader("Set-Cookie",
                 COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
     }
 
-    // ── Internal helpers ─────────────────────────────────────────────────────
+    // ── 내부 헬퍼 ─────────────────────────────────────────────────────
 
     private boolean validate(Long userId, String cookieValue) {
         try {
@@ -111,7 +111,7 @@ public class TrustedDeviceService {
             String payload  = raw.substring(0, lastColon);
             String suppliedHmac = raw.substring(lastColon + 1);
 
-            // Verify userId prefix matches
+            // userId 프리픽스가 일치하는지 확인
             String[] parts = payload.split(":", 2);
             if (parts.length != 2) return false;
 
@@ -121,12 +121,12 @@ public class TrustedDeviceService {
             if (cookieUserId != userId) return false;
             if (System.currentTimeMillis() > expiryMs) return false;
 
-            // Constant-time HMAC comparison
+            // 상수 시간 HMAC 비교
             String expectedHmac = hmac(payload);
             return constantTimeEquals(expectedHmac, suppliedHmac);
 
         } catch (Exception e) {
-            log.debug("[TrustedDevice] Cookie validation failed: {}", e.getMessage());
+            log.debug("[TrustedDevice] 쿠키 검증 실패: {}", e.getMessage());
             return false;
         }
     }
@@ -138,11 +138,11 @@ public class TrustedDeviceService {
             byte[] bytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         } catch (Exception e) {
-            throw new IllegalStateException("HMAC computation failed", e);
+            throw new IllegalStateException("HMAC 계산 실패", e);
         }
     }
 
-    /** Prevent timing attacks by comparing all characters regardless of early mismatch. */
+    /** 조기 불일치 무관하게 모든 문자를 비교하여 타이밍 코미갑 연간을 방지한다. */
     private boolean constantTimeEquals(String a, String b) {
         byte[] ba = a.getBytes(StandardCharsets.UTF_8);
         byte[] bb = b.getBytes(StandardCharsets.UTF_8);
