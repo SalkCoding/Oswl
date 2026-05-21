@@ -222,12 +222,13 @@ function quickImportPage() {
                 }
 
                 const phaseLabels = {
-                    QUEUED:   'Queued',
-                    CLONING:  'Cloning repository…',
-                    PARSING:  'Parsing dependencies…',
-                    SCANNING: 'Running security scan…',
-                    DONE:     'Done',
-                    FAILED:   'Failed',
+                    QUEUED:    'Queued',
+                    CLONING:   'Cloning repository…',
+                    PARSING:   'Parsing dependencies…',
+                    SCANNING:  'Running security scan…',
+                    ENRICHING: 'Analyzing components…',
+                    DONE:      'Done',
+                    FAILED:    'Failed',
                 };
                 const label  = phaseLabels[job.phase] || job.phase;
                 const text   = job.message ? label + ' — ' + job.message : label;

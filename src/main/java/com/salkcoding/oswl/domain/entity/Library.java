@@ -82,6 +82,10 @@ public class Library {
     @Column(name = "fetched_at")
     private LocalDateTime fetchedAt;
 
+    /** AI-generated one-sentence compliance risk summary for this library's license (pre-generated during enrichment) */
+    @Column(name = "ai_license_summary", columnDefinition = "TEXT")
+    private String aiLicenseSummary;
+
     @OneToMany(mappedBy = "library", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Cve> cves = new ArrayList<>();
@@ -101,6 +105,10 @@ public class Library {
 
     public void markFetched() {
         this.fetchedAt = LocalDateTime.now();
+    }
+
+    public void updateAiLicenseSummary(String summary) {
+        this.aiLicenseSummary = summary;
     }
 
     // ── Computed properties ──────────────────────────────────────────────
