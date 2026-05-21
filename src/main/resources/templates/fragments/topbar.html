@@ -121,11 +121,11 @@
                      class="relative">
                     <button type="button"
                             @click="versionDropdownOpen = !versionDropdownOpen"
-                            class="bg-white/15 border border-white/30 rounded-[4px] px-[12px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors min-w-[140px] justify-between"
+                            class="bg-white/15 border border-white/30 rounded-[4px] px-[12px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors min-w-[200px] justify-between"
                             :class="versionDropdownOpen && 'bg-white/25 border-white/50'">
                         <span class="text-[var(--secondary-20)] font-medium text-[16px] tracking-[-0.16px]"
                               th:text="${projectVersion ?: '-'}">-</span>
-                        <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="versionDropdownOpen && 'rotate-180'" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
+                        <img th:src="@{/icon/icon-chevron-down.svg}" class="w-4 h-4 transition-transform" :class="versionDropdownOpen && 'rotate-180'" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(84%) sepia(40%) saturate(400%) hue-rotate(118deg) brightness(100%) contrast(95%)">
                     </button>
 
                     <!-- Dropdown Menu -->

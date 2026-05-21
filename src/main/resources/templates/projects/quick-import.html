@@ -123,12 +123,11 @@
 
             <!-- No accounts connected notice -->
             <div x-show="!loadingConnections && connectedProviders.length === 0" x-cloak
-                 class="mt-[12px] flex items-start gap-[6px] rounded-[8px] px-[14px] py-[10px]"
-                 style="background:rgba(245,145,38,0.05);border:1px solid rgba(245,145,38,0.2);">
+                 class="mt-[12px] flex items-start gap-[6px] rounded-[8px] px-[14px] py-[10px] bg-amber-50 border border-amber-200">
                 <img th:src="@{/icon/icon-alert-triangle.svg}" class="shrink-0 mt-[1px] w-[16px] h-[16px]" alt="" aria-hidden="true">
-                <p class="text-[13px] text-[#92400e] m-0">
+                <p class="text-[13px] text-amber-800 m-0">
                     No VCS accounts connected yet.
-                    <a href="/settings?tab=vcs" class="font-semibold underline text-[#92400e]">Connect an account</a> first.
+                    <a href="/settings?tab=vcs" class="font-semibold underline text-amber-800">Connect an account</a> first.
                 </p>
             </div>
         </div>
@@ -153,14 +152,14 @@
                                @input="onUrlInput"
                                @keydown.enter.prevent="canImport && startImport()"
                                placeholder="https://github.com/owner/repository"
-                               class="w-full pl-[38px] pr-[14px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] focus:outline-none focus:border-[var(--grayscale-50)] focus:ring-1 focus:ring-[var(--grayscale-50)] transition-colors"
+                               class="w-full pl-[38px] pr-[14px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)] transition-colors"
                                :class="urlError ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''"
                                :disabled="isImporting" />
                     </div>
                     <input type="text"
                            x-model="branch"
                            placeholder="Branch (optional)"
-                           class="w-[180px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] focus:outline-none focus:border-[var(--grayscale-50)] focus:ring-1 focus:ring-[var(--grayscale-50)] transition-colors"
+                           class="w-[180px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)] transition-colors"
                            :disabled="isImporting" />
                 </div>
                 <!-- URL validation error -->
@@ -178,7 +177,7 @@
             <button @click="startImport()"
                     :disabled="!canImport"
                     class="self-start inline-flex items-center gap-[8px] px-[20px] py-[10px] rounded-[8px] text-[14px] font-semibold transition-all
-                           bg-[var(--grayscale-100)] text-white hover:bg-[var(--grayscale-80)]
+                           bg-[var(--primary-120)] text-white hover:bg-[var(--primary-100)]
                            disabled:opacity-40 disabled:cursor-not-allowed">
                 <svg x-show="!isImporting" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 8 12 12 14 14"/></svg>
                 <svg x-show="isImporting" class="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75"/></svg>
@@ -188,7 +187,7 @@
 
         <!-- ── Progress Log ──────────────────────────────────────────────── -->
         <div x-show="showProgress" x-cloak id="import-progress" class="w-full max-w-[800px] mt-[20px]">
-            <div class="bg-[var(--grayscale-100)] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
+            <div class="bg-[#001D35] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
                 <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0">Import Log</p>
                 <template x-for="(entry, idx) in progressLog" :key="idx">
                     <div class="flex items-start gap-[10px]">
@@ -259,7 +258,7 @@
                 <!-- Actions -->
                 <div class="flex gap-[10px]">
                     <a :href="'/projects/' + jobResult.projectId + '/security-center'"
-                       class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--grayscale-100)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--grayscale-80)] no-underline transition-colors">
+                       class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--primary-120)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--primary-100)] no-underline transition-colors">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                         View Security Center
                     </a>
@@ -286,7 +285,7 @@
                 </div>
                 <div class="flex gap-[10px]">
                     <button @click="resetForm()"
-                            class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--grayscale-100)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--grayscale-80)] transition-colors">
+                            class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--primary-120)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--primary-100)] transition-colors">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
                         Try Again
                     </button>
@@ -302,7 +301,7 @@
                     <div class="flex items-center gap-[8px]">
                         <!-- GitHub icon -->
                         <template x-if="provider === 'GITHUB'">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-[#24292f] shrink-0"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-90)] shrink-0"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
                         </template>
                         <!-- GitLab icon -->
                         <template x-if="provider === 'GITLAB'">
@@ -339,24 +338,26 @@
                 <div class="bg-white border border-[var(--grayscale-15)] rounded-[14px] overflow-hidden">
 
                     <!-- Search bar -->
-                    <div class="flex items-center gap-[8px] px-[16px] py-[12px] border-b border-[var(--grayscale-10)]">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--grayscale-35)] shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <input type="text"
-                               :placeholder="'Search ' + providerLabel(provider) + ' repositories…'"
-                               x-model="repoBrowsers[provider].search"
-                               @input="onBrowserSearch(provider)"
-                               class="flex-1 text-[13px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] border-none outline-none bg-transparent" />
+                    <div class="px-[16px] py-[14px] border-b border-[var(--grayscale-20)]">
+                        <div class="bg-[var(--grayscale-10)] flex gap-[9px] h-[32px] items-center px-[12px] rounded-[75px] border border-transparent focus-within:border-[var(--primary-120)]">
+                            <img src="/icon/icon-search.svg" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
+                            <input type="text"
+                                   :placeholder="'Search ' + providerLabel(provider) + ' repositories…'"
+                                   x-model="repoBrowsers[provider].search"
+                                   @input="onBrowserSearch(provider)"
+                                   class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
+                        </div>
                     </div>
 
                     <!-- Loading state -->
                     <template x-if="repoBrowsers[provider].loading">
-                        <div class="flex flex-col divide-y divide-[var(--grayscale-8)]">
+                        <div class="flex flex-col divide-y divide-[var(--grayscale-20)]">
                             <template x-for="i in 5">
                                 <div class="flex items-center gap-[12px] px-[16px] py-[13px]">
                                     <div class="w-[34px] h-[34px] rounded-[7px] bg-[var(--grayscale-10)] animate-pulse shrink-0"></div>
                                     <div class="flex-1 flex flex-col gap-[6px]">
                                         <div class="h-[13px] bg-[var(--grayscale-10)] rounded animate-pulse w-[45%]"></div>
-                                        <div class="h-[11px] bg-[var(--grayscale-8)] rounded animate-pulse w-[28%]"></div>
+                                        <div class="h-[11px] bg-[var(--grayscale-10)] rounded animate-pulse w-[28%]"></div>
                                     </div>
                                     <div class="w-[70px] h-[30px] bg-[var(--grayscale-10)] rounded-[7px] animate-pulse"></div>
                                 </div>
@@ -374,7 +375,7 @@
 
                     <!-- Empty state -->
                     <template x-if="!repoBrowsers[provider].loading && !repoBrowsers[provider].error && getBrowserFilteredRepos(provider).length === 0">
-                        <div class="px-[16px] py-[20px] text-[13px] text-[var(--grayscale-45)] text-center">
+                        <div class="px-[16px] py-[20px] text-[13px] text-[var(--grayscale-50)] text-center">
                             <span x-show="repoBrowsers[provider].search">No repositories matching "<span x-text="repoBrowsers[provider].search"></span>"</span>
                             <span x-show="!repoBrowsers[provider].search">No repositories found.</span>
                         </div>
@@ -382,11 +383,11 @@
 
                     <!-- Repository list -->
                     <template x-if="!repoBrowsers[provider].loading && !repoBrowsers[provider].error && getBrowserFilteredRepos(provider).length > 0">
-                        <div class="divide-y divide-[var(--grayscale-8)]">
+                        <div class="divide-y divide-[var(--grayscale-20)]">
                             <template x-for="repo in getBrowserPagedRepos(provider)" :key="repo.fullName">
                                 <div x-data="{ pendingBranch: null }"
                                      class="flex items-center gap-[12px] px-[16px] py-[13px] transition-colors"
-                                     :class="pendingBranch !== null ? 'bg-[var(--grayscale-3)]' : 'hover:bg-[var(--grayscale-3)]'">
+                                     :class="pendingBranch !== null ? 'bg-[var(--grayscale-10)]' : 'hover:bg-[var(--grayscale-5)]'">
                                     <!-- Repo icon: amber = private, neutral = public -->
                                     <div class="w-[34px] h-[34px] rounded-[7px] flex items-center justify-center shrink-0"
                                          :class="repo.isPrivate ? 'bg-amber-50 border border-amber-200' : 'bg-[var(--grayscale-5)] border border-[var(--grayscale-15)]'">
@@ -414,22 +415,23 @@
                                     <!-- Import button / inline branch selector -->
                                     <template x-if="pendingBranch === null">
                                         <button @click="pendingBranch = repo.defaultBranch || 'main'"
-                                                class="shrink-0 inline-flex items-center gap-[5px] px-[12px] py-[7px] bg-[var(--grayscale-100)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--grayscale-80)] transition-colors">
+                                                    class="shrink-0 inline-flex items-center gap-[5px] px-[20px] py-[7px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--primary-100)] transition-colors">
                                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
                                             Import
                                         </button>
                                     </template>
                                     <template x-if="pendingBranch !== null">
                                         <div class="flex items-center gap-[6px] shrink-0">
+                                            <span class="text-[12px] text-[var(--grayscale-60)] font-medium shrink-0">Branch:</span>
                                             <input type="text"
                                                    x-model="pendingBranch"
                                                    x-init="$nextTick(() => $el.focus())"
-                                                   placeholder="Branch"
+                                                   placeholder="e.g. main"
                                                    @keydown.enter="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
                                                    @keydown.escape="pendingBranch = null"
-                                                   class="w-[120px] px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-35)] focus:outline-none focus:border-[var(--grayscale-50)] focus:ring-1 focus:ring-[var(--grayscale-50)]" />
+                                                   class="w-[120px] px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)]" />
                                             <button @click="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
-                                                    class="shrink-0 inline-flex items-center gap-[4px] px-[10px] py-[5px] bg-[var(--grayscale-100)] text-white text-[12px] font-semibold rounded-[6px] hover:bg-[var(--grayscale-80)] transition-colors">
+                                                    class="shrink-0 inline-flex items-center gap-[4px] px-[10px] py-[5px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[6px] hover:bg-[var(--primary-100)] transition-colors">
                                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
                                                 Import
                                             </button>
@@ -446,7 +448,7 @@
 
                     <!-- Pagination footer -->
                     <template x-if="!repoBrowsers[provider].loading && getBrowserTotalPages(provider) > 1">
-                        <div class="flex items-center justify-between px-[16px] py-[10px] border-t border-[var(--grayscale-10)] bg-[var(--grayscale-3)]">
+                        <div class="flex items-center justify-between px-[16px] py-[10px] border-t border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
                             <span class="text-[12px] text-[var(--grayscale-50)]">
                                 Page <span x-text="repoBrowsers[provider].page"></span>
                                 of <span x-text="getBrowserTotalPages(provider)"></span>
