@@ -3,12 +3,26 @@
 <body>
 
     <!-- Right Column: Obligations Found Fragment -->
-    <div th:fragment="obligations_found" class="flex flex-col items-start min-w-[248px] w-full max-w-[616px] rounded-[10px] overflow-hidden border border-[#DBE4E7]">
+    <div th:fragment="obligations_found" class="flex flex-col items-start w-full rounded-[10px] overflow-hidden border border-[#DBE4E7]">
 
         <!-- Header -->
-        <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0">
+        <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0 gap-2">
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0"
                 th:text="${totalObligations} + ' Obligation' + (${totalObligations} != 1 ? 's' : '')">0 Obligations</h2>
+            <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
+                    <span th:text="${obligationRestrictedCount} + ' Restricted'">0 Restricted</span>
+                </div>
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#f59126] rounded-full"></div>
+                    <span th:text="${obligationCautionCount} + ' Caution'">0 Caution</span>
+                </div>
+                <div class="flex gap-2 items-center shrink-0">
+                    <div class="w-1.5 h-1.5 bg-[#84dca5] rounded-full"></div>
+                    <span th:text="${obligationPermittedCount} + ' Permitted'">0 Permitted</span>
+                </div>
+            </div>
         </div>
 
         <!-- Obligation groups -->
@@ -36,11 +50,13 @@
                     <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
                         <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
                            th:text="${obligation.label}">Obligation Label</p>
-                        <div th:replace="~{fragments/tags :: risk-tag(level=${obligation.riskLevel})}"></div>
+                        <div th:replace="~{fragments/tags :: license-risk-tag(level=${obligation.riskLevel})}"></div>
                     </div>
                     <div class="flex items-center gap-[6px]">
-                        <span class="text-[11px] text-[var(--grayscale-50)]"
-                              th:text="${#lists.size(obligation.entries)} + ' license' + (${#lists.size(obligation.entries)} != 1 ? 's' : '')">1 license</span>
+                        <div class="bg-[var(--grayscale-10)] flex items-center px-3 py-1 rounded-[40px] shrink-0">
+                            <span class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap"
+                                  th:text="${#lists.size(obligation.entries)} + ' license' + (${#lists.size(obligation.entries)} != 1 ? 's' : '')">1 license</span>
+                        </div>
                         <svg class="w-[14px] h-[14px] text-[var(--grayscale-40)] transition-transform shrink-0"
                              :class="open ? 'rotate-180' : ''"
                              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

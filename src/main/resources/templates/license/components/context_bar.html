@@ -8,47 +8,88 @@
         The form preserves `scanId` when present.
     -->
     <div th:fragment="context_bar"
-         class="w-full bg-white border border-[#DBE4E7] rounded-[10px] px-5 py-4 flex flex-wrap items-center gap-x-8 gap-y-3 justify-between">
+         class="w-full border-b border-[#DBE4E7] flex flex-wrap items-center gap-x-8 gap-y-3 justify-between">
 
         <form th:action="@{|/projects/${projectId}/license|}" method="get"
-              class="flex flex-wrap items-end gap-x-6 gap-y-3">
+              class="flex flex-wrap items-center gap-x-6 gap-y-3">
 
             <!-- preserve current scan when set -->
             <input type="hidden" name="scanId" th:value="${currentScanId}" th:if="${currentScanId != null}"/>
 
-            <div class="flex flex-col gap-1">
-                <label for="ctx-deployment" class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Deployment</label>
-                <select id="ctx-deployment" name="deployment"
-                        onchange="this.form.submit()"
-                        class="text-[12px] border border-[#DBE4E7] rounded-md px-2 py-[6px] bg-white focus:outline-none focus:ring-1 focus:ring-black/40 min-w-[160px]">
-                    <option value="SAAS"     th:selected="${context.deployment == 'SAAS'}">SaaS / Hosted only</option>
-                    <option value="BINARY"   th:selected="${context.deployment == 'BINARY'}">On-Premise Binary</option>
-                    <option value="LIBRARY"  th:selected="${context.deployment == 'LIBRARY'}">Library / SDK</option>
-                    <option value="EMBEDDED" th:selected="${context.deployment == 'EMBEDDED'}">Embedded Device</option>
-                </select>
+            <div class="flex flex-col gap-1 mb-[16px]">
+                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Deployment</span>
+                <div class="relative"
+                     th:attr="data-init-value=${context.deployment}"
+                     x-data="{ open: false, value: '', options: [{ value: 'SAAS', label: 'SaaS / Hosted only' }, { value: 'BINARY', label: 'On-Premise Binary' }, { value: 'LIBRARY', label: 'Library / SDK' }, { value: 'EMBEDDED', label: 'Embedded Device' }], get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
+                     x-init="value = $el.dataset.initValue"
+                     @click.away="open = false">
+                    <input type="hidden" name="deployment" :value="value"/>
+                    <button type="button" @click="open = !open"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white min-w-[160px] text-left relative cursor-pointer transition-colors"
+                            :class="open ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="label"></span>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
+                             :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="open" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 bg-white rounded-[8px] shadow-lg overflow-hidden" style="min-width:100%">
+                        <template x-for="opt in options" :key="opt.value">
+                            <button type="button"
+                                    @click="value = opt.value; open = false; $nextTick(() => $el.closest('form').submit())"
+                                    class="w-full px-[12px] py-[8px] text-left text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="value === opt.value ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-80)]'"
+                                    x-text="opt.label">
+                            </button>
+                        </template>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex flex-col gap-1">
-                <label for="ctx-linking" class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Linking</label>
-                <select id="ctx-linking" name="linking"
-                        onchange="this.form.submit()"
-                        class="text-[12px] border border-[#DBE4E7] rounded-md px-2 py-[6px] bg-white focus:outline-none focus:ring-1 focus:ring-black/40 min-w-[140px]">
-                    <option value="DYNAMIC" th:selected="${context.linking == 'DYNAMIC'}">Dynamic linking</option>
-                    <option value="STATIC"  th:selected="${context.linking == 'STATIC'}">Static linking</option>
-                </select>
+            <div class="flex flex-col gap-1 mb-[16px]">
+                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Linking</span>
+                <div class="relative"
+                     th:attr="data-init-value=${context.linking}"
+                     x-data="{ open: false, value: '', options: [{ value: 'DYNAMIC', label: 'Dynamic linking' }, { value: 'STATIC', label: 'Static linking' }], get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
+                     x-init="value = $el.dataset.initValue"
+                     @click.away="open = false">
+                    <input type="hidden" name="linking" :value="value"/>
+                    <button type="button" @click="open = !open"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white min-w-[140px] text-left relative cursor-pointer transition-colors"
+                            :class="open ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="label"></span>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
+                             :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="open" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 bg-white rounded-[8px] shadow-lg overflow-hidden" style="min-width:100%">
+                        <template x-for="opt in options" :key="opt.value">
+                            <button type="button"
+                                    @click="value = opt.value; open = false; $nextTick(() => $el.closest('form').submit())"
+                                    class="w-full px-[12px] py-[8px] text-left text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="value === opt.value ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-80)]'"
+                                    x-text="opt.label">
+                            </button>
+                        </template>
+                    </div>
+                </div>
             </div>
 
-            <label class="flex items-center gap-2 text-[12px] text-[var(--grayscale-70)] cursor-pointer select-none mb-[6px]">
-                <!--
-                  Spring binds the FIRST occurrence of a duplicated request param.
-                  So we put the hidden "false" companion AFTER a tiny script: if the checkbox
-                  is unchecked nothing is submitted (controller default = false). If it is
-                  checked, only "true" is submitted. No duplicate keys, no binding ambiguity.
-                -->
+            <label class="flex items-center gap-2 text-[12px] text-[var(--grayscale-70)] cursor-pointer select-none mt-[4px]"
+                   th:attr="x-data='{ checked: ' + ${context.modified} + ' }'"
+                   @click="checked = !checked">
                 <input type="checkbox" name="modified" value="true"
                        th:checked="${context.modified}"
                        onchange="this.form.submit()"
-                       class="w-4 h-4 rounded border-[#DBE4E7] cursor-pointer"/>
+                       class="sr-only"/>
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="checked ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"
+                         stroke-linecap="round" stroke-linejoin="round"
+                         :class="checked ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
                 <span>Upstream sources modified</span>
             </label>
         </form>
@@ -56,18 +97,14 @@
         <!-- Export actions + summary -->
         <div class="flex items-center gap-2">
             <a th:href="@{/projects/{pid}/license/export/notice(pid=${projectId},scanId=${currentScanId})}"
-               class="inline-flex items-center gap-2 text-[12px] font-medium text-[var(--grayscale-80)] border border-[#DBE4E7] rounded-md px-3 py-[7px] hover:bg-[var(--grayscale-5)] transition-colors">
-                <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                NOTICE.txt
+               class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] inline-flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
+                <img src="/icon/icon-download.svg" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">NOTICE.txt</span>
             </a>
             <a th:href="@{/projects/{pid}/license/export/spdx(pid=${projectId},scanId=${currentScanId})}"
-               class="inline-flex items-center gap-2 text-[12px] font-medium text-[var(--grayscale-80)] border border-[#DBE4E7] rounded-md px-3 py-[7px] hover:bg-[var(--grayscale-5)] transition-colors">
-                <svg class="w-[14px] h-[14px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                </svg>
-                SPDX SBOM
+               class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] inline-flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
+                <img src="/icon/icon-page.svg" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">SPDX SBOM</span>
             </a>
         </div>
     </div>

@@ -92,9 +92,9 @@
                 <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]">Add Projects</h3>
             </div>
 
-            <div class="flex flex-wrap gap-[24px] items-stretch w-full">
+            <div class="grid grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
                 <button type="button" @click="openPanel = 'cli'"
-                   class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
+                   class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-terminal.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
                         <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]">CLI Integration</span>
@@ -109,7 +109,7 @@
                 </button>
 
                 <button type="button" @click="window.location.href='/projects/quick-import'"
-                   class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
+                   class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
                             <!-- GitHub -->
@@ -146,7 +146,7 @@
                 <button type="button"
                         th:if="${#authorization.expression('hasPermission(null, ''PROJECT_CREATE'') or hasRole(''SYSTEM_ADMIN'')')}"
                         @click="newProjectName = ''; newProjectError = ''; newProjectSaving = false; openPanel = 'newProject'; $nextTick(() => $refs.newProjectInput && $refs.newProjectInput.focus())"
-                        class="bg-[var(--background-dark)] flex flex-1 flex-col gap-[14px] items-start min-w-[320px] p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none">
+                        class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-plus.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
                         <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]">New Project</span>
