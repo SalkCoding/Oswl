@@ -12,21 +12,21 @@ import java.security.SecureRandom;
 import java.time.Instant;
 
 /**
- * Manages the in-session state for the Email OTP two-factor authentication flow.
+ * Email OTP 2단계 인증 흐름의 세션 내 상태를 관리한다.
  *
- * Flow:
- *  1. After credentials are verified, TwoFaAuthenticationSuccessHandler calls
- *     storePendingAuth() to store the principal + one-time code in the session.
- *  2. The browser is redirected to /login/otp-verify.
- *  3. OtpVerifyController validates the submitted code via verify().
- *     On success it promotes the session to fully-authenticated.
+ * 흐름:
+ *  1. 자격증명 성공 후 TwoFaAuthenticationSuccessHandler가
+ *     storePendingAuth()를 호출하여 세션에 principal + 일회성 코드를 저장한다.
+ *  2. 브라우저는 /login/otp-verify로 리다이렉트된다.
+ *  3. OtpVerifyController는 verify()를 통해 제출된 코드를 검증한다.
+ *     성공 시 세션을 완전 인증 상태로 승격시킨다.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OtpService {
 
-    // ── Session attribute keys ────────────────────────────────────────────
+    // ── 세션 속성 키 ────────────────────────────────────────────
     public static final String SESSION_PRINCIPAL   = "PENDING_2FA_PRINCIPAL";
     public static final String SESSION_OTP         = "PENDING_2FA_OTP";
     public static final String SESSION_EXPIRY      = "PENDING_2FA_EXPIRY_MS";
@@ -41,8 +41,8 @@ public class OtpService {
     private static final long RESEND_COOLDOWN_MS = 60_000L;   // 60 seconds
 
     /**
-     * TODO: Remove test bypass before going to production.
-     *       "000000" is always accepted as a valid OTP for local development.
+     * TODO: 프로덕션 배포 전에 테스트 우회를 제거할 것.
+     *       로컈 개발용으로 "000000"은 항상 유효한 OTP로 인정된다.
      */
     private static final String TEST_BYPASS_CODE = "000000";
 
@@ -51,14 +51,13 @@ public class OtpService {
     private final AuditLogService auditLogService;
     private final SecureRandom   secureRandom = new SecureRandom();
 
-    // ── Public API ────────────────────────────────────────────────────────
+    // ── 공개 API ────────────────────────────────────────────────────────
 
     /**
-     * Generates a 6-digit OTP, stores it (along with the principal and expiry)
-     * in the given session, then sends it to the user's registered email address.
+     * 6자리 OTP를 생성하여 세션에 저장한 후 사용자의 등록된 이메일로 전송한다.
      *
-     * Falls back to console logging when mail is DISABLED in SecuritySetting
-     * (development convenience).
+     * SecuritySetting에서 메일이 DISABLED일 때는 콘솔 로깅으로 대체한다
+     * (개발 편의 기능).
      */
     public void storePendingAuth(HttpSession session, OswlUserPrincipal principal) {
         String otp     = String.format("%06d", secureRandom.nextInt(MAX_DIGITS));
@@ -74,28 +73,27 @@ public class OtpService {
         try {
             mailService.sendOtp(email, name, otp);
             session.removeAttribute(SESSION_MAIL_FAILED);
-            log.info("[OTP] Code issued for user='{}' valid={}min", email, OTP_VALID_MINUTES);
+            log.info("[OTP] user='{}' OTP 발급 완료, 유효={}min", email, OTP_VALID_MINUTES);
         } catch (Exception e) {
-            // Delivery failure must not block the authentication flow;
-            // the OTP is still stored in the session.
+            // 전송 실패 시도 인증 흐름을 막지 않음;
+            // OTP는 세션에 여전히 저장되어 있음.
             session.setAttribute(SESSION_MAIL_FAILED, true);
-            log.error("[OTP] Email delivery failed for '{}': {}", email, e.getMessage());
-            // DEV FALLBACK: print code so local testing still works even if SMTP is unconfigured
-            log.debug("[OTP][DEV-FALLBACK] Could not email OTP — code for '{}' : {}", email, otp);
+            log.error("[OTP] '{}' OTP 이메일 전송 실패: {}", email, e.getMessage());
+            // DEV 폴백: SMTP 미설정 시도 로컈 테스트를 위해 코드를 출력
+            log.debug("[OTP][DEV-FALLBACK] OTP 이메일 전송 실패 — '{}' 코드: {}", email, otp);
         }
     }
 
     /**
-     * Returns true if a pending 2FA entry exists in the session (i.e. the user
-     * passed password auth but has not yet completed OTP verification).
+     * 세션에 포뉲 2FA 항목이 있는 경우(=비밀번호 인증은 되었지만
+     * OTP 검증은 안 된 상태) true를 반환한다.
      */
     public boolean isPending(HttpSession session) {
         return session.getAttribute(SESSION_PRINCIPAL) != null;
     }
 
     /**
-     * Returns true if at least {@value RESEND_COOLDOWN_MS} ms have elapsed
-     * since the last OTP was sent.
+     * 마지막 OTP 전송 이후 {@value RESEND_COOLDOWN_MS}ms 이상 지난 경우 true를 반환한다.
      */
     public boolean canResend(HttpSession session) {
         Long lastSent = (Long) session.getAttribute(SESSION_LAST_SENT);
@@ -104,27 +102,27 @@ public class OtpService {
     }
 
     /**
-     * Returns true when the account has been locked due to too many failed attempts.
+     * OTP 실패 횟수 초과로 계정이 잠긴 경우 true를 반환한다.
      */
     public boolean isAccountLocked(HttpSession session) {
         return Boolean.TRUE.equals(session.getAttribute(SESSION_LOCKED));
     }
 
     /**
-     * Validates the submitted OTP code.
-     * Increments the attempt counter on failure; locks the account at {@value MAX_OTP_ATTEMPTS}.
+     * 제출된 OTP 코드를 검증한다.
+     * 실패 시 시도 횟수를 증가하며; {@value MAX_OTP_ATTEMPTS}회에 이르면 계정을 잠근다.
      *
-     * @param session the current HTTP session
-     * @param code    the 6-digit code entered by the user
-     * @return true if the code is correct AND not yet expired
+     * @param session 현재 HTTP 세션
+     * @param code    사용자가 입력한 6자리 코드
+     * @return 코드가 올바르고 아직 만료되지 않았으면 true
      */
     public boolean verify(HttpSession session, String code) {
         if (code == null) return false;
 
-        // TODO: Remove test bypass — "000000" always passes for local development only
+        // TODO: 테스트 우회 제거 — "000000"은 로컈 개발용으로만 통과
         if (TEST_BYPASS_CODE.equals(code)) {
             OswlUserPrincipal p = getPendingPrincipal(session);
-            log.warn("[OTP][TEST-ONLY] Test bypass '000000' accepted for user '{}'",
+            log.warn("[OTP][테스트용] 테스트 우회 '000000' 사용자 '{}' 수락",
                     p != null ? p.getUsername() : "unknown");
             return true;
         }
@@ -137,17 +135,17 @@ public class OtpService {
 
         if (stored.equals(code)) {
             OswlUserPrincipal verified = getPendingPrincipal(session);
-            log.info("[OTP] Verified successfully for user='{}'", verified != null ? verified.getUsername() : "unknown");
+            log.info("[OTP] user='{}' OTP 검증 성공", verified != null ? verified.getUsername() : "unknown");
             return true;
         }
 
-        // Wrong code — track attempt count
+        // 잘못된 코드 — 시도 횟수 추적
         Integer existing = (Integer) session.getAttribute(SESSION_ATTEMPTS);
         int attempts = (existing == null ? 0 : existing) + 1;
         session.setAttribute(SESSION_ATTEMPTS, attempts);
 
         OswlUserPrincipal failed = getPendingPrincipal(session);
-        log.warn("[OTP] Wrong code attempt {}/{} for user='{}'",
+        log.warn("[OTP] user='{}' 잘못된 코드 {}/{} 시도",
                 attempts, MAX_OTP_ATTEMPTS, failed != null ? failed.getUsername() : "unknown");
 
         if (attempts >= MAX_OTP_ATTEMPTS) {
@@ -157,19 +155,19 @@ public class OtpService {
         return false;
     }
 
-    /** Returns the authenticated-but-not-yet-2FA-verified principal, or null. */
+    /** 인증됨(세션 포뉨)지만 2FA 미완료 상태의 principal을 반환하거나 null. */
     public OswlUserPrincipal getPendingPrincipal(HttpSession session) {
         return (OswlUserPrincipal) session.getAttribute(SESSION_PRINCIPAL);
     }
 
-    /** Returns remaining validity in seconds (0 if expired or not set). */
+    /** 남은 유효 시간(초 단위)을 반환한다(만료 또는 미설정 시 0). */
     public long remainingSeconds(HttpSession session) {
         Long expiry = (Long) session.getAttribute(SESSION_EXPIRY);
         if (expiry == null) return 0;
         return Math.max(0, (expiry - Instant.now().toEpochMilli()) / 1000);
     }
 
-    /** Removes all pending 2FA attributes from the session. */
+    /** 세션에서 모든 포뉨 2FA 속성을 제거한다. */
     public void clearPending(HttpSession session) {
         session.removeAttribute(SESSION_PRINCIPAL);
         session.removeAttribute(SESSION_OTP);
@@ -179,7 +177,7 @@ public class OtpService {
         session.removeAttribute(SESSION_LOCKED);
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────
+    // ── 비공개 헬퍼 ───────────────────────────────────────────────────
 
     @Transactional
     private void lockAccount(HttpSession session) {
@@ -192,8 +190,8 @@ public class OtpService {
                 user.setEnabled(false);
                 auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
                         user.getId().toString(), email,
-                        "Auto-locked: exceeded " + MAX_OTP_ATTEMPTS + " OTP attempts");
-                log.warn("[OTP] Account '{}' locked after {} failed OTP attempts", email, MAX_OTP_ATTEMPTS);
+                        "OTP " + MAX_OTP_ATTEMPTS + "회 실패로 자동 잠김");
+                log.warn("[OTP] 계정 '{}' OTP {}회 실패로 잠김", email, MAX_OTP_ATTEMPTS);
             }
         });
     }

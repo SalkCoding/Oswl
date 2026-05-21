@@ -17,7 +17,7 @@
             <input type="hidden" name="scanId" th:value="${currentScanId}" th:if="${currentScanId != null}"/>
 
             <div class="flex flex-col gap-1 mb-[16px]">
-                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Deployment</span>
+                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]" th:text="#{license.context.deployment}">Deployment</span>
                 <div class="relative"
                      th:attr="data-init-value=${context.deployment}"
                      x-data="{ open: false, value: '', options: [{ value: 'SAAS', label: 'SaaS / Hosted only' }, { value: 'BINARY', label: 'On-Premise Binary' }, { value: 'LIBRARY', label: 'Library / SDK' }, { value: 'EMBEDDED', label: 'Embedded Device' }], get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
@@ -46,7 +46,7 @@
             </div>
 
             <div class="flex flex-col gap-1 mb-[16px]">
-                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]">Linking</span>
+                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]" th:text="#{license.context.linking}">Linking</span>
                 <div class="relative"
                      th:attr="data-init-value=${context.linking}"
                      x-data="{ open: false, value: '', options: [{ value: 'DYNAMIC', label: 'Dynamic linking' }, { value: 'STATIC', label: 'Static linking' }], get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
@@ -90,7 +90,7 @@
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
                 </div>
-                <span>Upstream sources modified</span>
+                <span th:text="#{license.context.upstreamModified}">Upstream sources modified</span>
             </label>
         </form>
 

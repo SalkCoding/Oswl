@@ -17,15 +17,15 @@
                     Projects
                 </a>
             </div>
-            <h1 class="font-bold text-[26px] text-[var(--grayscale-100)] tracking-[-0.4px] m-0">Quick Import</h1>
-            <p class="text-[14px] text-[var(--grayscale-60)] m-0">
+            <h1 class="font-bold text-[26px] text-[var(--grayscale-100)] tracking-[-0.4px] m-0" th:text="#{quickImport.heading}">Quick Import</h1>
+            <p class="text-[14px] text-[var(--grayscale-60)] m-0" th:text="#{quickImport.description}">
                 Paste a repository URL to automatically clone, scan dependencies, and create a project.
             </p>
         </div>
 
         <!-- ── Connected Accounts ────────────────────────────────────────── -->
         <div class="w-full max-w-[800px] mb-[24px]">
-            <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] mb-[10px]">
+            <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] mb-[10px]" th:text="#{quickImport.connectedAccounts}">
                 Connected VCS Accounts
             </p>
 
@@ -137,7 +137,7 @@
 
             <!-- URL input -->
             <div class="flex flex-col gap-[6px]">
-                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]">Repository URL</label>
+                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]" th:text="#{quickImport.url.label}">Repository URL</label>
                 <div class="flex gap-[10px]">
                     <div class="relative flex-1">
                         <!-- Provider icon (auto-detected) -->
@@ -188,7 +188,7 @@
         <!-- ── Progress Log ──────────────────────────────────────────────── -->
         <div x-show="showProgress" x-cloak id="import-progress" class="w-full max-w-[800px] mt-[20px]">
             <div class="bg-[#001D35] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
-                <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0">Import Log</p>
+                <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0" th:text="#{quickImport.log.title}">Import Log</p>
                 <template x-for="(entry, idx) in progressLog" :key="idx">
                     <div class="flex items-start gap-[10px]">
                         <!-- Phase icon -->
@@ -230,11 +230,11 @@
                     <div class="flex items-center justify-between gap-[8px]">
                         <div class="flex items-center gap-[8px]">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-60)]" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                            <span class="text-[12px] font-semibold text-[var(--grayscale-70)]">API Key</span>
+                            <span class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{quickImport.label.apiKey}">API Key</span>
                             <span x-show="jobResult.newApiKey"
-                                  class="px-[6px] py-[2px] bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full">New</span>
+                                  class="px-[6px] py-[2px] bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full" th:text="#{quickImport.label.new}">New</span>
                             <span x-show="!jobResult.newApiKey"
-                                  class="px-[6px] py-[2px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] font-semibold rounded-full">Existing</span>
+                                  class="px-[6px] py-[2px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] font-semibold rounded-full" th:text="#{quickImport.label.existing}">Existing</span>
                         </div>
                         <button @click="copyApiKey()"
                                 class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-90)] transition-colors">
@@ -279,7 +279,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-600"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </div>
                     <div>
-                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0">Import failed</p>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" th:text="#{quickImport.failed.title}">Import failed</p>
                         <p class="text-[13px] text-[var(--grayscale-60)] m-0" x-text="jobResult.message || 'An unexpected error occurred.'"></p>
                     </div>
                 </div>

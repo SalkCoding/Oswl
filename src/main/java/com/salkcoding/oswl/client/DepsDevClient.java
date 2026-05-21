@@ -17,14 +17,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Client for the deps.dev REST API v3.
+ * deps.dev REST API v3 클라이언트.
  *
- * Endpoints used:
- *   GET /v3/systems/{system}/packages/{packageName}/versions/{version}  → licenses + advisoryKeys
- *   GET /v3/advisories/{advisoryId}                                       → CVE details + CVSS score
+ * 사용하는 엔드포인트:
+ *   GET /v3/systems/{system}/packages/{packageName}/versions/{version}  → 라이선스 + advisoryKeys
+ *   GET /v3/advisories/{advisoryId}                                       → CVE 세부정보 + CVSS 점수
  *
- * deps.dev has no batch endpoint, so GetVersion calls are parallelised with a
- * virtual-thread executor limited to 10 concurrent requests.
+ * deps.dev는 배치 엔드포인트가 없으므로 GetVersion 호출은
+ * 가상 쓰레드 실행기를 통해 병렬 처리된다 (10개 동시 요청 제한).
  */
 @Slf4j
 @Component
@@ -42,12 +42,12 @@ public class DepsDevClient {
                 .build();
     }
 
-    // ── DTOs ────────────────────────────────────────────────────────────
+    // ── DTO ────────────────────────────────────────────────────────────
 
     /**
-     * @param isDefault     true if this is the default (latest stable) version for the package
-     * @param deprecated    non-null/non-blank deprecation reason when the version is deprecated; null otherwise
-     * @param latestVersion the latest stable version string when this is NOT the default; null if already latest
+     * @param isDefault     패키지의 기본(latest stable) 버전이면 true
+     * @param deprecated    버전이 더이상 사용되지 않을 경우 비고 문자열(비어있지 않음); 그렇지 않으면 null
+     * @param latestVersion 이미 최신이 아닐 경우 최신 stable 버전 문자열; 최신이면 null
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
                               boolean isDefault, String deprecated, String latestVersion) {}
@@ -59,11 +59,11 @@ public class DepsDevClient {
             Double cvss3Score,
             String cvss3Vector) {}
 
-    // ── Public API ───────────────────────────────────────────────────────
+    // ── 공개 API ───────────────────────────────────────────────────────
 
     /**
-     * Calls GetVersion for every component in parallel (max 10 concurrent).
-     * Returns a list aligned with the input list; nulls indicate a failed/missing package.
+     * 모든 컴포넌트에 대해 GetVersion을 병렬 호출한다 (최대 10개 동시).
+     * 입력 목록과 정렬된 목록을 반환한다; null은 패키지 조회 실패를 의미한다.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
         List<CompletableFuture<VersionInfo>> futures = components.stream()
@@ -75,7 +75,7 @@ public class DepsDevClient {
             try {
                 results.add(f.join());
             } catch (Exception e) {
-                log.warn("[DepsDevClient] getVersion failed: {}", e.getMessage());
+                log.warn("[DepsDevClient] getVersion 실패: {}", e.getMessage());
                 results.add(null);
             }
         }
@@ -83,8 +83,8 @@ public class DepsDevClient {
     }
 
     /**
-     * Calls GetAdvisory for every GHSA ID in parallel.
-     * Returns a list aligned with the input list; nulls indicate a failed lookup.
+     * 모든 GHSA ID에 대해 GetAdvisory를 병렬 호출한다.
+     * 입력 목록과 정렬된 목록을 반환한다; null은 조회 실패를 의미한다.
      */
     public List<AdvisoryInfo> getAdvisoriesBatch(List<String> ghsaIds) {
         List<CompletableFuture<AdvisoryInfo>> futures = ghsaIds.stream()
@@ -96,25 +96,25 @@ public class DepsDevClient {
             try {
                 results.add(f.join());
             } catch (Exception e) {
-                log.warn("[DepsDevClient] getAdvisory failed: {}", e.getMessage());
+                log.warn("[DepsDevClient] getAdvisory 실패: {}", e.getMessage());
                 results.add(null);
             }
         }
         return results;
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────
+    // ── 내부 ─────────────────────────────────────────────────────────
 
     private VersionInfo getVersion(ComponentKey key) {
         try {
             if (key.version() == null || key.version().isBlank()) {
-                log.debug("[DepsDevClient] GetVersion SKIPPED {}:{} — null/blank version", key.name(), key.version());
+                log.debug("[DepsDevClient] GetVersion 건너땀 {}:{} — 버전 null/빈 문자열", key.name(), key.version());
                 return new VersionInfo(List.of(), List.of(), false, null, null);
             }
             String encodedName = encodePackageName(key.ecosystem(), key.name());
             String encodedVersion = URLEncoder.encode(key.version(), StandardCharsets.UTF_8).replace("+", "%20");
 
-            log.debug("[DepsDevClient] GetVersion REQUEST ecosystem={} name={} version={}",
+            log.debug("[DepsDevClient] GetVersion 요청 ecosystem={} name={} version={}",
                     key.ecosystem(), key.name(), key.version());
 
             // 이미 percent-encode된 문자열을 URI 템플릿 변수로 넘기면 %25XX로 이중 인코딩됨.
@@ -130,7 +130,7 @@ public class DepsDevClient {
                     .body(Map.class);
 
             if (body == null) {
-                log.debug("[DepsDevClient] GetVersion RESPONSE null body for {}:{}", key.name(), key.version());
+                log.debug("[DepsDevClient] GetVersion 응답 body null {}:{}", key.name(), key.version());
                 return new VersionInfo(List.of(), List.of(), false, null, null);
             }
 
@@ -151,7 +151,7 @@ public class DepsDevClient {
             Object depRaw = body.get("deprecated");
             String deprecated = (depRaw instanceof String s && !s.isBlank()) ? s : null;
 
-            // Extract the latest stable version from relatedVersions (relationshipType == "DEFAULT")
+            // relatedVersions에서 최신 stable 버전 추출 (relationshipType == "DEFAULT")
             String latestVersion = null;
             if (!isDefault) {
                 Object rvRaw = body.get("relatedVersions");
@@ -172,18 +172,18 @@ public class DepsDevClient {
                 }
             }
 
-            log.debug("[DepsDevClient] GetVersion RESPONSE {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
+            log.debug("[DepsDevClient] GetVersion 응답 {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
                     key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion);
             return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion);
         } catch (RestClientException e) {
-            log.debug("[DepsDevClient] GetVersion 404/error for {}:{} - {}", key.name(), key.version(), e.getMessage());
+            log.debug("[DepsDevClient] GetVersion 404/오류 {}:{} - {}", key.name(), key.version(), e.getMessage());
             return new VersionInfo(List.of(), List.of(), false, null, null);
         }
     }
 
     private AdvisoryInfo getAdvisory(String ghsaId) {
         try {
-            log.debug("[DepsDevClient] GetAdvisory REQUEST ghsaId={}", ghsaId);
+            log.debug("[DepsDevClient] GetAdvisory 요청 ghsaId={}", ghsaId);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> body = restClient.get()
@@ -192,7 +192,7 @@ public class DepsDevClient {
                     .body(Map.class);
 
             if (body == null) {
-                log.debug("[DepsDevClient] GetAdvisory RESPONSE null body for ghsaId={}", ghsaId);
+                log.debug("[DepsDevClient] GetAdvisory 응답 body null ghsaId={}", ghsaId);
                 return null;
             }
 
@@ -207,17 +207,17 @@ public class DepsDevClient {
                     aliases,
                     score,
                     (String) body.get("cvss3Vector"));
-            log.debug("[DepsDevClient] GetAdvisory RESPONSE ghsaId={} title={} cvssScore={} aliases={}",
+            log.debug("[DepsDevClient] GetAdvisory 응답 ghsaId={} title={} cvssScore={} aliases={}",
                     ghsaId, result.title(), result.cvss3Score(), result.aliases());
             return result;
         } catch (RestClientException e) {
-            log.debug("[DepsDevClient] GetAdvisory error for {} - {}", ghsaId, e.getMessage());
+            log.debug("[DepsDevClient] GetAdvisory {} 오류 - {}", ghsaId, e.getMessage());
             return null;
         }
     }
 
     /**
-     * Encodes a package name as a single URL path segment.
+     * 패키지 이름을 단일 URL 경로 세그먼트로 인코딩한다.
      * Maven: groupId:artifactId → groupId%3AartifactId
      * npm scope: @org/pkg → %40org%2Fpkg
      * Go: github.com/x/y → github.com%2Fx%2Fy
@@ -243,7 +243,7 @@ public class DepsDevClient {
         return Collections.emptyList();
     }
 
-    // ── Value types ───────────────────────────────────────────────────────
+    // ── 값 타입 ───────────────────────────────────────────────────────
 
     public record ComponentKey(String ecosystem, String name, String version) {}
 }

@@ -32,11 +32,11 @@
                 </svg>
                 <span class="text-[11px] tracking-[-0.11px]"
                       th:classappend="${reviewed} ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'"
-                      th:text="${reviewed} ? 'Reviewed' : 'Not Reviewed'">Not Reviewed</span>
+                      th:text="${reviewed} ? #messages.msg('componentDetail.status.reviewed') : #messages.msg('componentDetail.status.notReviewed')">Not Reviewed</span>
             </span>
             <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[4px] rounded-[40px]">
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
-                      th:text="${projectsCount} + (${projectsCount} == 1 ? ' Project' : ' Projects')">7 Projects</span>
+                      th:text="${projectsCount} + ' ' + (${projectsCount} == 1 ? #{common.project} : #{common.projects})">7 Projects</span>
             </span>
             <!-- Patchability: when CVEs exist show patchability; when no CVEs show version health -->
             <span th:if="${hasVulnerabilities}"
@@ -47,24 +47,24 @@
                       th:classappend="${patchability == 'patchable'} ? 'bg-[var(--semantic-patchable)]'
                                      : (${patchability == 'non-patchable'} ? 'bg-[var(--risk-critical)]' : 'bg-[var(--grayscale-30)]')"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                      th:text="${patchability == 'patchable'} ? 'Patchable' : (${patchability == 'non-patchable'} ? 'Non-Patchable' : 'Unknown')">Patchable</span>
+                      th:text="${patchability == 'patchable'} ? #messages.msg('common.patchable') : (${patchability == 'non-patchable'} ? #messages.msg('common.nonPatchable') : #messages.msg('common.unknown'))">Patchable</span>
             </span>
             <!-- No CVEs: show version currency (Deprecated / Outdated / hidden-if-latest) -->
             <span th:if="${!hasVulnerabilities and isDeprecated}"
                   class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Deprecated</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{common.deprecated}">Deprecated</span>
             </span>
             <span th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion == false}"
                   class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-caution)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                      th:text="${latestVersion != null} ? 'Outdated → v' + ${latestVersion} : 'Outdated'">Outdated</span>
+                      th:text="${latestVersion != null} ? #{common.outdated} + ' → v' + ${latestVersion} : #{common.outdated}">Outdated</span>
             </span>
             <span th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion != false}"
                   class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Up to date</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{common.upToDate}">Up to date</span>
             </span>
             <span th:class="${licenseRisk == 'RESTRICTED'} ? 'bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
                            : (${licenseRisk == 'CAUTION'} ? 'bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
@@ -80,32 +80,32 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-[12px]">
-            <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Security Issues</p>
+            <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.label.securityIssues}">Security Issues</p>
             <span th:if="${securityCritical > 0}"
                   class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' Critical'">8 Critical</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' ' + #{riskTrend.legend.critical}">8 Critical</span>
             </span>
             <span th:if="${securityHigh > 0}"
                   class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityHigh} + ' High'">20 High</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityHigh} + ' ' + #{riskTrend.legend.high}">20 High</span>
             </span>
             <span th:if="${securityMedium > 0}"
                   class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityMedium} + ' Medium'">150 Medium</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityMedium} + ' ' + #{riskTrend.legend.medium}">150 Medium</span>
             </span>
             <span th:if="${securityLow > 0}"
                   class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-low)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                      th:text="${securityLow >= 1000 ? #numbers.formatDecimal(securityLow / 1000.0, 1, 1) + 'k' : securityLow} + ' Low'">1.1k Low</span>
+                      th:text="${securityLow >= 1000 ? #numbers.formatDecimal(securityLow / 1000.0, 1, 1) + 'k' : securityLow} + ' ' + #{riskTrend.legend.low}">1.1k Low</span>
             </span>
             <span th:if="${securityUnscored > 0}"
                   class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityUnscored} + ' Unscored'">4 Unscored</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityUnscored} + ' ' + #{riskTrend.legend.unscored}">4 Unscored</span>
             </span>
         </div>
     </section>
@@ -114,7 +114,7 @@
     <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
         <div class="flex items-center gap-[8px] mb-[14px]">
             <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
-            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">Recommendation</h2>
+            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.heading.recommendation}">Recommendation</h2>
         </div>
 
         <!-- No vulnerabilities: clean / outdated / deprecated state -->
@@ -124,15 +124,15 @@
              class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[10px]">
             <div class="flex items-center gap-[10px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--risk-critical)] shrink-0"></span>
-                <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]">This version has been deprecated.</p>
+                <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.deprecated.title}">This version has been deprecated.</p>
             </div>
             <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] leading-[1.5]" th:text="${deprecatedReason}">Deprecated reason</p>
-            <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]">No known CVEs, but this version is no longer maintained. Upgrade to a supported release.</p>
+            <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]" th:text="#{componentDetail.deprecated.hint}">No known CVEs, but this version is no longer maintained. Upgrade to a supported release.</p>
             <div class="pt-[6px]">
                 <button type="button" @click="modal = 'defer'"
                         class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    Defer (Exception)
+                    <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                 </button>
             </div>
         </div>
@@ -143,20 +143,20 @@
             <div class="flex items-center gap-[12px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-caution)] shrink-0"></span>
                 <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">
-                    No known vulnerabilities detected, but this is not the latest version.
+                    <th:block th:text="#{componentDetail.outdated.hint}">No known vulnerabilities detected, but this is not the latest version.</th:block>
                     <th:block th:if="${latestVersion != null}">
-                        Latest is <span class="font-bold text-[var(--semantic-caution)]" th:text="'v' + ${latestVersion}">v2.17.0</span>.
+                        <th:block th:text="#{componentDetail.outdated.latestIs}">Latest is</th:block> <span class="font-bold text-[var(--semantic-caution)]" th:text="'v' + ${latestVersion}">v2.17.0</span>.
                     </th:block>
-                    Consider upgrading to reduce exposure risk.
+                    <th:block th:text="#{componentDetail.outdated.upgradeHint}">Consider upgrading to reduce exposure risk.</th:block>
                 </p>
             </div>
             <div class="flex flex-col gap-[6px]">
                 <button type="button" @click="modal = 'defer'"
                         class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    Defer (Exception)
+                    <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                 </button>
-                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
+                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.outdated.noPatchNote}">
                     No patch PR can be created for version-only issues — you can defer this review instead.
                 </p>
             </div>
@@ -167,13 +167,13 @@
              class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[14px]">
             <div class="flex items-center gap-[12px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
-                <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">No known vulnerabilities detected. This component is safe to use.</p>
+                <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]" th:text="#{componentDetail.safe.hint}">No known vulnerabilities detected. This component is safe to use.</p>
             </div>
             <div th:if="${licenseRisk == 'RESTRICTED' or licenseRisk == 'CAUTION'}" class="pt-[0px]">
                 <button type="button" @click="modal = 'defer'"
                         class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    Defer (Exception)
+                    <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                 </button>
             </div>
         </div>
@@ -183,11 +183,11 @@
              class="bg-white border border-[var(--grayscale-15)] rounded-[10px] p-[24px] flex flex-col gap-[18px]">
             <p class="text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.5]">
                 <span th:if="${recommendedVersion != null}">
-                    Upgrade to version
+                    <th:block th:text="#{componentDetail.vuln.upgradeHint}">Upgrade to version</th:block>
                     <span class="font-bold text-[var(--primary-120)]" th:text="${recommendedVersion}">...</span>
-                    to resolve known CVEs.
+                    <th:block th:text="#{componentDetail.vuln.upgradeHint2}">to resolve known CVEs.</th:block>
                 </span>
-                <span th:if="${recommendedVersion == null}">
+                <span th:if="${recommendedVersion == null}" th:text="#{componentDetail.vuln.noFix}">
                     No patched version is currently available. Monitor this library for security updates.
                 </span>
             </p>
@@ -196,16 +196,16 @@
                 <li class="flex items-start gap-[8px]">
                     <img th:src="@{/icon/icon-check.svg}" class="w-[16px] h-[16px] mt-[2px] shrink-0" alt="" aria-hidden="true">
                     <span>
-                        <span class="font-bold">Vulnerabilities :</span>
-                        <span th:text="${securityCritical}">0</span> Critical,
-                        <span th:text="${securityHigh}">0</span> High,
-                        <span th:text="${securityMedium}">0</span> Medium,
-                        <span th:text="${securityLow}">0</span> Low.
+                        <span class="font-bold" th:text="#{componentDetail.cve.vulnCount} + ' :'">Vulnerabilities :</span>
+                        <span th:text="${securityCritical}">0</span> <th:block th:text="#{riskTrend.legend.critical}">Critical</th:block>,
+                        <span th:text="${securityHigh}">0</span> <th:block th:text="#{riskTrend.legend.high}">High</th:block>,
+                        <span th:text="${securityMedium}">0</span> <th:block th:text="#{riskTrend.legend.medium}">Medium</th:block>,
+                        <span th:text="${securityLow}">0</span> <th:block th:text="#{riskTrend.legend.low}">Low</th:block>.
                     </span>
                 </li>
                 <li th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}" class="flex items-start gap-[8px]">
                     <img th:src="@{/icon/icon-check.svg}" class="w-[16px] h-[16px] mt-[2px] shrink-0" alt="" aria-hidden="true">
-                    <span><span class="font-bold">License note :</span> <span th:text="${licenseName}">-</span> — legal review may be required.</span>
+                    <span><span class="font-bold" th:text="#{componentDetail.cve.licenseNote} + ' :'">License note :</span> <span th:text="${licenseName}">-</span> — <span th:text="#{componentDetail.cve.legalReview}">legal review may be required.</span></span>
                 </li>
             </ul>
 
@@ -216,30 +216,29 @@
                             th:if="${canCreatePr and recommendedVersion != null}"
                             class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                        Apply Patch (Create PR)
+                        <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
                     </button>
                     <!-- Non-GitHub or CLI project → disabled with tooltip -->
                     <button type="button" disabled
                             th:if="${!canCreatePr}"
-                            title="${vcsProvider != null ? vcsProvider + ' PR 자동 생성은 현재 지원되지 않습니다. (GitHub 전용)' : 'CLI 임포트 프로젝트는 PR 자동 생성을 지원하지 않습니다.'}"
+                            th:title="#{componentDetail.vuln.noPrSupport}"
                             class="opacity-40 cursor-not-allowed bg-[var(--grayscale-20)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px]">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                        Apply Patch (Create PR)
+                        <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
                     </button>
                     <button type="button" @click="modal = 'defer'"
                             class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-10)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                        Defer (Exception)
+                        <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                     </button>
                 </div>
                 <p th:if="${canCreatePr and recommendedVersion == null}"
-                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
+                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPatchNow}">
                     No patch version available at this time.
                 </p>
                 <p th:if="${!canCreatePr}"
                    class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
-                    <span th:if="${vcsProvider != null}" th:text="${vcsProvider} + ' 프로젝트는 PR 자동 생성을 지원하지 않습니다. (GitHub 전용)'">PR 생성은 GitHub 프로젝트에서만 지원됩니다.</span>
-                    <span th:if="${vcsProvider == null}">CLI 임포트 프로젝트는 PR 자동 생성을 지원하지 않습니다.</span>
+                    <span th:text="#{componentDetail.vuln.noPrSupport}">CLI import projects do not support automatic PR creation.</span>
                 </p>
             </div>
         </div>
@@ -249,11 +248,11 @@
     <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
         <div class="flex items-center gap-[8px] mb-[14px]">
             <img th:src="@{/icon/icon-shield.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
-            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">Vulnerability Details</h2>
+            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.section.vulnerabilityDetails}">Vulnerability Details</h2>
         </div>
 
         <div class="flex flex-col gap-[12px]">
-            <p th:if="${#lists.isEmpty(cves)}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]">No security vulnerabilities detected for this component.</p>
+            <p th:if="${#lists.isEmpty(cves)}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]" th:text="#{componentDetail.cve.empty}">No security vulnerabilities detected for this component.</p>
             <div th:each="cve, it : ${cves}"
                  x-data="{ open: false }"
                  class="bg-white border border-[var(--grayscale-15)] rounded-[10px] overflow-hidden">
@@ -292,20 +291,20 @@
                     <div th:if="${cve.aiSummary}" class="bg-[rgba(51,209,183,0.08)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
                         <div class="flex items-center gap-[6px]">
                             <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                            <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]">AI Plain Summary</p>
+                            <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.aiSummary}">AI Plain Summary</p>
                         </div>
                         <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.aiSummary}"></p>
                     </div>
                     <div th:if="${cve.aiSummary == null and cve.summary != null}" class="bg-[var(--grayscale-5)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
-                        <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]">Summary</p>
+                        <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.summary}">Summary</p>
                         <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.summary}"></p>
                     </div>
                     <div class="flex flex-wrap gap-x-[24px] gap-y-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
-                        <span th:if="${cve.cweId}"><span class="font-medium">Type:</span> <span th:text="${cve.cweId}">CWE-20</span></span>
-                        <span><span class="font-medium">Affects:</span> <span th:text="${dependencyInfo}">-</span></span>
-                        <span><span class="font-medium">Fix:</span>
+                        <span th:if="${cve.cweId}"><span class="font-medium" th:text="#{componentDetail.cve.type} + ':'" >Type:</span> <span th:text="${cve.cweId}">CWE-20</span></span>
+                        <span><span class="font-medium" th:text="#{componentDetail.cve.affects} + ':'" >Affects:</span> <span th:text="${dependencyInfo}">-</span></span>
+                        <span><span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'" >Fix:</span>
                             <span th:class="${cve.fixVersion} ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)]'"
-                                  th:text="${cve.fixVersion} ?: 'No fix available'">2.2.1-alpha01</span>
+                                  th:text="${cve.fixVersion} ?: #{componentDetail.cve.noFix}">2.2.1-alpha01</span>
                         </span>
                     </div>
                 </div>
@@ -317,7 +316,7 @@
     <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
         <div class="flex items-center gap-[8px] mb-[14px]">
             <img th:src="@{/icon/icon-scale.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
-            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">License Info</h2>
+            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.section.licenseInfo}">License Info</h2>
         </div>
 
         <div class="bg-white border border-[var(--grayscale-15)] rounded-[10px] p-[24px] flex flex-col gap-[12px]">
@@ -341,7 +340,7 @@
             <div th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}"
                  class="bg-[rgba(245,145,38,0.05)] border border-[rgba(245,145,38,0.2)] rounded-[8px] px-[14px] py-[10px] flex items-start gap-[8px]">
                 <img th:src="@{/icon/icon-warning.svg}" class="w-[20px] h-[20px] mt-[1px] shrink-0" alt="" aria-hidden="true">
-                <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
+                <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.license.copyleftWarning}">
                     Copyleft or restrictive license — derivative works may need to be released under the same terms. Legal review is recommended.
                 </p>
             </div>
@@ -350,7 +349,7 @@
             <div th:if="${licenseRisk == 'PERMITTED'}"
                  class="bg-[rgba(132,220,165,0.08)] border border-[rgba(132,220,165,0.32)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[8px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[rgba(132,220,165,1)] shrink-0"></span>
-                <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
+                <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.license.permissive}">
                     Permissive license — free to use commercially, modify, and distribute without restrictions.
                 </p>
             </div>
@@ -360,11 +359,11 @@
                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-start gap-[8px]">
                 <img th:src="@{/icon/icon-warning.svg}" class="w-[20px] h-[20px] mt-[1px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[4px]">
-                    <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
+                    <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.license.nonStandard}">
                         Non-standard license identifier — not found in the SPDX policy list.
                     </p>
                     <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.3]">
-                        The identifier <span class="font-medium" th:text="${licenseName}"></span> is not a recognised SPDX expression. Manual review is required before production use.
+                        <th:block th:text="#{componentDetail.license.nonStandardHint1}">The identifier</th:block> <span class="font-medium" th:text="${licenseName}"></span> <th:block th:text="#{componentDetail.license.nonStandardHint2}">is not a recognised SPDX expression. Manual review is required before production use.</th:block>
                     </p>
                 </div>
             </div>
@@ -373,13 +372,13 @@
             <div th:if="${licenseRisk == 'UNKNOWN' and !licenseIsNonStandard}"
                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-start gap-[8px]">
                 <img th:src="@{/icon/icon-warning.svg}" class="w-[20px] h-[20px] mt-[1px] shrink-0" alt="" aria-hidden="true">
-                <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]">
+                <p class="text-[13px] text-[var(--grayscale-90)] font-medium tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.license.unknown}">
                     No license information found — manual review is recommended before production use.
                 </p>
             </div>
 
             <p th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}"
-               class="font-medium text-[11px] text-[var(--semantic-caution)] tracking-[-0.11px] leading-[1.3]">
+               class="font-medium text-[11px] text-[var(--semantic-caution)] tracking-[-0.11px] leading-[1.3]" th:text="#{componentDetail.license.legalRisk}">
                 Legal risk — recommend legal review before shipping.
             </p>
         </div>
@@ -392,7 +391,7 @@
                 <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
             </svg>
-            <h2 class="font-bold text-[16px] text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3]">Where did this come from? (Dependency Path)</h2>
+            <h2 class="font-bold text-[16px] text-[var(--grayscale-80)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.section.dependencyPath}">Where did this come from? (Dependency Path)</h2>
         </div>
 
         <!-- ── Full tree view (CLI sent path data) ── -->
@@ -411,16 +410,16 @@
                     <span th:if="${path.direct}"
                           class="inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-[20px] bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] text-[11px] font-semibold text-[var(--primary-120)] tracking-[-0.11px]">
                         <svg class="w-[10px] h-[10px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                        Direct
+                        <span th:text="#{componentDetail.badge.direct}">Direct</span>
                     </span>
                     <span th:unless="${path.direct}"
                           class="inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-[20px] bg-[rgba(91,102,107,0.08)] border border-[rgba(91,102,107,0.2)] text-[11px] font-semibold text-[var(--grayscale-70)] tracking-[-0.11px]">
                         <svg class="w-[10px] h-[10px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 8 18 11 3 11 3 13 18 13 18 16 22 12"/></svg>
-                        Transitive
+                        <span th:text="#{componentDetail.badge.transitive}">Transitive</span>
                     </span>
                     <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
-                          th:text="${path.depth == 2} ? 'Direct dependency (depth 1)'
-                                 : 'Via ' + (${path.depth - 2}) + (${path.depth - 2 == 1} ? ' intermediate' : ' intermediates') + ' (depth ' + (${path.depth - 1}) + ')'">
+                          th:text="${path.depth == 2} ? #{componentDetail.depPath.direct}
+                                 : (${path.depth - 2 == 1} ? #messages.msg('componentDetail.depPath.viaIntermediate', path.depth - 2, path.depth - 1) : #messages.msg('componentDetail.depPath.viaIntermediates', path.depth - 2, path.depth - 1))">
                         Direct dependency (depth 1)
                     </span>
                 </button>
@@ -494,13 +493,13 @@
                                       class="shrink-0 bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[8px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                                       th:text="'v' + ${node.version}">v1.0.0</span>
                                 <span th:if="${node.root}"
-                                      class="shrink-0 bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] px-[8px] py-[2px] rounded-[40px] text-[10px] font-semibold text-[var(--primary-120)] tracking-[-0.1px]">
+                                      class="shrink-0 bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] px-[8px] py-[2px] rounded-[40px] text-[10px] font-semibold text-[var(--primary-120)] tracking-[-0.1px]" th:text="#{componentDetail.badge.yourProject}">
                                     Your project
                                 </span>
                                 <span th:if="${node.target and !node.root and hasVulnerabilities}"
                                       class="shrink-0 bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] px-[8px] py-[2px] rounded-[40px] flex items-center gap-[4px]">
                                     <img th:src="@{/icon/icon-warning.svg}" class="w-[10px] h-[10px]" alt="" aria-hidden="true">
-                                    <span class="text-[10px] text-[var(--grayscale-80)] tracking-[-0.1px]">Vulnerable</span>
+                                    <span class="text-[10px] text-[var(--grayscale-80)] tracking-[-0.1px]" th:text="#{componentDetail.badge.vulnerable}">Vulnerable</span>
                                 </span>
                             </div>
                         </div>
@@ -515,7 +514,7 @@
             <div class="flex items-center gap-[6px]">
                 <img th:src="@{/icon/icon-folder.svg}" class="w-[20px] h-[20px]" style="filter: brightness(0) saturate(100%) invert(44%) sepia(8%) saturate(503%) hue-rotate(153deg) brightness(95%) contrast(90%);" alt="" aria-hidden="true">
                 <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="${projectName}">project-name</p>
-                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]">(our project)</p>
+                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" th:text="#{componentDetail.depPath.fallbackOurProject}">(our project)</p>
             </div>
             <div class="flex items-center flex-wrap gap-[6px] pl-[20px]">
                 <span class="w-[6px] h-[6px] rounded-full border border-[var(--grayscale-40)]"></span>
@@ -532,10 +531,10 @@
                 <span th:if="${hasVulnerabilities}"
                       class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] px-[10px] py-[2px] rounded-[40px] flex items-center gap-[4px]">
                     <img th:src="@{/icon/icon-warning.svg}" class="w-[12px] h-[12px]" alt="" aria-hidden="true">
-                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]">Problem Lib</span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.badge.problemLib}">Problem Lib</span>
                 </span>
             </div>
-            <p class="text-[11px] text-[var(--grayscale-40)] tracking-[-0.11px] mt-[4px] pl-[2px]">
+            <p class="text-[11px] text-[var(--grayscale-40)] tracking-[-0.11px] mt-[4px] pl-[2px]" th:text="#{componentDetail.depPath.noPathData}">
                 Full path tree not available — rescan with an updated CLI version to see the complete dependency tree.
             </p>
         </div>
@@ -550,24 +549,24 @@
                 <line x1="16" y1="13" x2="8" y2="13"/>
                 <line x1="16" y1="17" x2="8" y2="17"/>
             </svg>
-            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]">Component Description</h2>
+            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.section.description}">Component Description</h2>
         </div>
 
         <div class="flex flex-col gap-[8px] text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.6]">
             <p>
                 <span class="font-medium" th:text="${componentName}">Component</span>
                 (<span th:text="${ecosystem}">MAVEN</span>, v<span th:text="${componentVersion}">-</span>)
-                is included in this project.
+                <th:block th:text="#{componentDetail.desc.included}">is included in this project.</th:block>
             </p>
             <p th:if="${hasVulnerabilities}">
-                This version has known security vulnerabilities.
+                <th:block th:text="#{componentDetail.desc.hasVulnerabilities}">This version has known security vulnerabilities.</th:block>
                 <span th:if="${recommendedVersion != null}">
-                    Upgrading to <span class="font-medium text-[var(--primary-120)]" th:text="${recommendedVersion}">-</span> is recommended to resolve the known issues.
+                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">Upgrading to</th:block> <span class="font-medium text-[var(--primary-120)]" th:text="${recommendedVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">is recommended to resolve the known issues.</th:block>
                 </span>
-                <span th:if="${recommendedVersion == null}">No patched version is currently available.</span>
+                <span th:if="${recommendedVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
             </p>
-            <p th:if="${!hasVulnerabilities}">No known security vulnerabilities have been detected for this version.</p>
-            <p>License: <span class="font-medium" th:text="${licenseName ?: 'Unknown'}">-</span>
+            <p th:if="${!hasVulnerabilities}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
+            <p><th:block th:text="#{componentDetail.desc.licenseLabel} + ': '">License: </th:block><span class="font-medium" th:text="${licenseName ?: 'Unknown'}">-</span>
                (<span th:text="${licenseRiskLabel}">-</span>).</p>
         </div>
     </section>

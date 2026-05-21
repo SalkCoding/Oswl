@@ -9,19 +9,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Optional client for the NVD (National Vulnerability Database) CVE API v2.
+ * NVD(National Vulnerability Database) CVE API v2 선택적 클라이언트.
  *
- * Only called when an NVD API key is configured in ExternalApiSetting.
- * Enriches LibraryCve entries with:
- *   - CVSS 3.x base score  (overwrites deps.dev value)
- *   - Base severity label
+ * ExternalApiSetting에 NVD API 키가 설정된 경우에만 호출된다.
+ * LibraryCve 항목을 다음으로 수정(enrichment)한다:
+ *   - CVSS 3.x 기본 점수  (deps.dev 값 덧어쓰기)
+ *   - 기본 심각도 레이블
  *   - CWE ID
  *
- * Rate limits:
- *   - Without key: 5 requests / 30 s
- *   - With key:    50 requests / 30 s  → 700 ms delay between calls enforced here
+ * 속도 제한:
+ *   - API 키 없음: 5요청 / 30초
+ *   - API 키 있음:    50요청 / 30초  → 여기서 700ms 지연 적용
  *
- * Only CVE-prefixed IDs are sent to NVD; GHSA-only advisories are skipped.
+ * CVE- 접두사 ID만 NVD로 전송한다; GHSA 전용 어드바이저리는 건너뎇.
  */
 @Slf4j
 @Component
@@ -39,26 +39,26 @@ public class NvdClient {
                 .build();
     }
 
-    // ── DTOs ────────────────────────────────────────────────────────────
+    // ── DTO ────────────────────────────────────────────────────────────
 
     public record NvdCveInfo(Double cvssScore, String severity, String cweId) {}
 
-    // ── Public API ───────────────────────────────────────────────────────
+    // ── 공개 API ───────────────────────────────────────────────────────
 
     /**
-     * Fetches NVD metadata for a single CVE ID.
-     * Returns null if the CVE is not found or NVD returns an error.
-     * Caller is responsible for honouring rate limits (call sequentially with delay).
+     * 단일 CVE ID에 대한 NVD 메타데이터를 가져온다.
+     * CVE를 찾지 못거나 NVD가 오류를 반환하면 null을 리턴한다.
+     * 호출자는 속도 제한을 준수해야 한다 (지연을 두고 순차적으로 호출).
      */
     public NvdCveInfo fetchCve(String cveId, String apiKey) {
         if (cveId == null || !cveId.startsWith("CVE-")) {
-            log.debug("[NvdClient] Skipping non-CVE ID: {}", cveId);
+            log.debug("[NvdClient] CVE가 아닌 ID 건너덗: {}", cveId);
             return null;
         }
         try {
             enforceRateLimit();
 
-            log.debug("[NvdClient] fetchCve REQUEST cveId={}", cveId);
+            log.debug("[NvdClient] fetchCve 요청 cveId={}", cveId);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.get()
@@ -67,22 +67,22 @@ public class NvdClient {
                     .retrieve()
                     .body(Map.class);
 
-            log.debug("[NvdClient] fetchCve RESPONSE raw cveId={} response={}", cveId, response);
+            log.debug("[NvdClient] fetchCve 응답 raw cveId={} response={}", cveId, response);
 
             NvdCveInfo result = parseResponse(response);
-            log.debug("[NvdClient] fetchCve PARSED cveId={} cvssScore={} severity={} cweId={}",
+            log.debug("[NvdClient] fetchCve 파싱 cveId={} cvssScore={} severity={} cweId={}",
                     cveId,
                     result != null ? result.cvssScore() : null,
                     result != null ? result.severity() : null,
                     result != null ? result.cweId() : null);
             return result;
         } catch (RestClientException e) {
-            log.warn("[NvdClient] Failed to fetch {}: {}", cveId, e.getMessage());
+            log.warn("[NvdClient] {} 가져오기 실패: {}", cveId, e.getMessage());
             return null;
         }
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────
+    // ── 내부 ─────────────────────────────────────────────────────────
 
     private NvdCveInfo parseResponse(Map<String, Object> response) {
         if (response == null) return null;
@@ -94,7 +94,7 @@ public class NvdClient {
             Map<?, ?> cve = (Map<?, ?>) cveWrapper.get("cve");
             if (cve == null) return null;
 
-            // CVSS v3.1 metrics
+            // CVSS v3.1 메트릭스
             Map<?, ?> metrics = (Map<?, ?>) cve.get("metrics");
             Double cvssScore = null;
             String severity  = null;
@@ -127,7 +127,7 @@ public class NvdClient {
 
             return new NvdCveInfo(cvssScore, severity, cweId);
         } catch (ClassCastException e) {
-            log.warn("[NvdClient] Unexpected response structure: {}", e.getMessage());
+            log.warn("[NvdClient] 예상치 못한 응답 구조: {}", e.getMessage());
             return null;
         }
     }

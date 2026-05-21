@@ -6,16 +6,16 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * Payload for POST /projects/{projectId}/components/{componentId}/create-pr
+ * POST /projects/{projectId}/components/{componentId}/create-pr 페이로드
  */
 @Getter
 @NoArgsConstructor
 public class CreatePrRequest {
 
-    /** Target base branch for the PR */
+    /** PR의 대상 베이스 브랜치 */
     private String targetBranch;
 
-    /** Optional reviewer GitHub logins */
+    /** 선택적 리빰우어 GitHub 로그인 목록 */
     private List<String> reviewers;
 
     /** PR body / description (freeform text) */

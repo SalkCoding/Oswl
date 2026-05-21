@@ -24,10 +24,10 @@
         <!-- Legal disclaimer -->
         <div class="mt-10 border-t border-[#DBE4E7] pt-4">
             <p class="text-[11px] text-[var(--grayscale-50)] leading-relaxed max-w-[1000px]">
-                <span class="font-semibold text-[var(--grayscale-60)]">Disclaimer.</span>
-                Obligation classifications, conflict warnings and exported artifacts are generated automatically from SPDX metadata
+                <span class="font-semibold text-[var(--grayscale-60)]" th:text="#{license.disclaimer.prefix}">Disclaimer.</span>
+                <span th:text="#{license.disclaimer}">Obligation classifications, conflict warnings and exported artifacts are generated automatically from SPDX metadata
                 and represent best-effort guidance only. They do not constitute legal advice. Consult qualified counsel before
-                relying on this output for distribution, M&amp;A due diligence, regulatory disclosure or customer contracts.
+                relying on this output for distribution, M&amp;A due diligence, regulatory disclosure or customer contracts.</span>
             </p>
         </div>
     </main>

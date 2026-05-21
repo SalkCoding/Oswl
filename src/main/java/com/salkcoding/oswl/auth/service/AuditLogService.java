@@ -159,8 +159,8 @@ public class AuditLogService {
     // ── Scheduled retention cleanup ──────────────────────────────────────────
 
     /**
-     * Deletes audit log records older than {@code oswl.audit.retention-months} (default 6).
-     * Runs daily at 02:00 AM server time.
+     * {@code oswl.audit.retention-months}(기본 6개월)보다 오래된 감사 로그 레코드를 삭제한다.
+     * 매일 오전 2시에 실행된다.
      */
     @Scheduled(cron = "0 0 2 * * ?")
     @Transactional

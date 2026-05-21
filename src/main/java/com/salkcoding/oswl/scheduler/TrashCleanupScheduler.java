@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Permanently deletes projects that have been in the trash for 30 or more days.
- * Runs daily at 02:00 (server local time).
+ * 휴지통에 들어온 지 30일 이상 지난 프로젝트를 영구 삭제한다.
+ * 매일 오전 2시(서버 로컈 시간)에 실행한다.
  */
 @Slf4j
 @Component

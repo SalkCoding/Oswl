@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Setup')}"></head>
+<head th:replace="~{fragments/head :: head(#{auth.setup.pageTitle})}"></head>
 <body class="min-h-screen flex flex-col font-sans antialiased relative" style="background: transparent;">
 
 <!-- Background image -->
@@ -13,7 +13,7 @@
         <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
         <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
     </div>
-    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap">Setup</h2>
+    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap" th:text="#{auth.setup.pageTitle}">Setup</h2>
 </header>
 
 <!-- Centered card -->
@@ -31,12 +31,8 @@
                 <p class="font-extrabold text-[28px] text-[var(--primary-120)] tracking-[-0.28px] leading-[1.3] whitespace-nowrap">OsWL</p>
             </div>
             <div class="flex flex-col items-center gap-[6px]">
-                <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3] whitespace-nowrap">
-                    Create System Admin Account
-                </p>
-                <p class="text-[12px] font-normal text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3] text-center">
-                    Set up the system admin account to manage this instance.
-                </p>
+                <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="#{auth.setup.heading}">시스템 관리자 계정 만들기</p>
+                <p class="text-[12px] font-normal text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3] text-center" th:text="#{auth.setup.subheading}">이 인스턴스를 관리할 시스템 관리자 계정을 설정합니다.</p>
             </div>
         </div>
 
@@ -47,14 +43,13 @@
             <!-- Name -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="setup-name"
-                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
-                    Name
-                </label>
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="#{auth.setup.label.name}">이름</label>
                 <div class="w-full border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-center
                             focus-within:border-[var(--primary-100)] transition-colors"
                      th:classappend="${#fields.hasErrors('displayName')} ? ' border-red-300' : ''">
                     <input id="setup-name" type="text" th:field="*{displayName}" required maxlength="100"
-                           placeholder="Enter your name"
+                           th:placeholder="#{auth.setup.placeholder.name}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
                 </div>
@@ -65,9 +60,8 @@
             <!-- Email -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="setup-email"
-                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
-                    Email
-                </label>
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="#{auth.setup.label.email}">이메일</label>
                 <div class="w-full border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-center
                             focus-within:border-[var(--primary-100)] transition-colors"
                      th:classappend="${#fields.hasErrors('email')} ? ' border-red-300' : ''">
@@ -83,16 +77,15 @@
             <!-- Password -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="setup-password"
-                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
-                    Password
-                </label>
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="#{auth.setup.label.password}">비밀번호</label>
                 <div class="w-full border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[10px]
                             focus-within:border-[var(--primary-100)] transition-colors"
                      th:classappend="${#fields.hasErrors('password')} ? ' border-red-300' : ''">
                     <input id="setup-password" :type="showPwd ? 'text' : 'password'"
                            th:field="*{password}" required minlength="8" maxlength="100"
                            autocomplete="new-password"
-                           placeholder="Enter a password"
+                           th:placeholder="#{auth.setup.placeholder.password}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
                     <button type="button" tabindex="-1" @click="showPwd = !showPwd"
@@ -113,16 +106,15 @@
             <!-- Confirm Password -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="setup-password-confirm"
-                       class="w-full font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
-                    Confirm Password
-                </label>
+                       class="w-full font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]"
+                       th:text="#{auth.setup.label.passwordConfirm}">비밀번호 확인</label>
                 <div class="w-full border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[10px] flex items-center gap-[10px]
                             focus-within:border-[var(--primary-100)] transition-colors"
                      th:classappend="${#fields.hasErrors('passwordConfirm')} ? ' border-red-300' : ''">
                     <input id="setup-password-confirm" :type="showPwd2 ? 'text' : 'password'"
                            th:field="*{passwordConfirm}" required minlength="8"
                            autocomplete="new-password"
-                           placeholder="Re-enter your password"
+                           th:placeholder="#{auth.setup.placeholder.passwordConfirm}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
                     <button type="button" tabindex="-1" @click="showPwd2 = !showPwd2"
@@ -145,7 +137,7 @@
                     class="w-full bg-[var(--primary-120)] hover:bg-[var(--primary-100)]
                            text-white font-bold text-[14px] tracking-[-0.14px] leading-[1.3]
                            rounded-[8px] px-[14px] py-[9px] transition-colors flex items-center justify-center gap-[4px]">
-                <span>Create Account</span>
+                <span th:text="#{auth.setup.btn.create}">계정 만들기</span>
                 <span aria-hidden="true">→</span>
             </button>
         </form>

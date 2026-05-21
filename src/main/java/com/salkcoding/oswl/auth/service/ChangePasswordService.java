@@ -9,13 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Handles the forced password-change flow for admin-invited users.
+ * 관리자 초대 사용자의 강제 비밀번호 변경 플로우를 처리한다.
  *
- * <p>Security invariants enforced here:
+ * <p>보안 불변조건:
  * <ul>
- *   <li>Current (temporary) password must be verified before any change is applied.</li>
- *   <li>New password must not be identical to the current one.</li>
- *   <li>{@code mustChangePassword} is cleared atomically in the same transaction as the hash update.</li>
+ *   <li>변경 적용 전에 현재(임시) 비밀번호를 검증해야 한다.</li>
+ *   <li>새 비밀번호는 현재 비밀번호와 동일하면 안 된다.</li>
+ *   <li>{@code mustChangePassword}는 해시 업데이트와 동일한 트랜잭션 내에서 원자적으로 해제된다.</li>
  * </ul>
  */
 @Slf4j
@@ -28,37 +28,37 @@ public class ChangePasswordService {
     private final AuditLogService auditLogService;
 
     /**
-     * Verifies {@code currentPassword}, encodes and stores {@code newPassword}, and clears the
-     * {@code mustChangePassword} flag — all within a single transaction.
+     * {@code currentPassword}를 검증하고 {@code newPassword}를 인코딩하여 저장하고,
+     * {@code mustChangePassword} 플래그를 제거한다 — 단일 트랜잭션 내에서 수행.
      *
-     * @throws IllegalArgumentException with code {@code CURRENT_PASSWORD_WRONG} or
-     *                                  {@code SAME_AS_CURRENT} on validation failure.
-     * @throws IllegalStateException    if the user row cannot be found.
+     * @throws IllegalArgumentException 검증 실패 시 {@code CURRENT_PASSWORD_WRONG} 또는
+     *                                  {@code SAME_AS_CURRENT} 코드 내포.
+     * @throws IllegalStateException    사용자 행을 찾지 못할 때.
      */
     @Transactional
     public void changePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalStateException("User not found: " + userId));
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾지 못함: " + userId));
 
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            log.warn("[ChangePassword] Wrong current password for userId={}", userId);
+            log.warn("[ChangePassword] userId={}의 현재 비밀번호가 올바르지 않음", userId);
             throw new IllegalArgumentException("CURRENT_PASSWORD_WRONG");
         }
 
         if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
-            log.debug("[ChangePassword] Rejected: new password same as current for userId={}", userId);
+            log.debug("[ChangePassword] 거부: userId={}의 새 비밀번호가 현재와 동일함", userId);
             throw new IllegalArgumentException("SAME_AS_CURRENT");
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
-        // Dirty-check flush within the transaction — explicit save is not required
-        // but kept for clarity.
+        // 트랜잭션 내 Dirty-check flush — 명시적 save가 없어도 되지만
+        // 명확성을 위해 유지.
         userRepository.save(user);
 
         auditLogService.log("AUTH.PASSWORD_CHANGE", "USER",
-                userId.toString(), user.getEmail(), "Forced password change completed");
+                userId.toString(), user.getEmail(), "강제 비밀번호 변경 완료");
 
-        log.info("[ChangePassword] Password updated for userId={}", userId);
+        log.info("[ChangePassword] userId={}의 비밀번호를 업데이트함", userId);
     }
 }

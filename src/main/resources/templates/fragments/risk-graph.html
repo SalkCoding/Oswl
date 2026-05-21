@@ -39,25 +39,25 @@
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${critical ?: 0}">0</span> Critical
+                    <span th:text="${critical ?: 0}">0</span> <th:block th:text="#{riskTrend.legend.critical}">Critical</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${high ?: 0}">0</span> High
+                    <span th:text="${high ?: 0}">0</span> <th:block th:text="#{riskTrend.legend.high}">High</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${medium ?: 0}">0</span> Medium
+                    <span th:text="${medium ?: 0}">0</span> <th:block th:text="#{riskTrend.legend.medium}">Medium</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-low)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${low ?: 0}">0</span> Low
+                    <span th:text="${low ?: 0}">0</span> <th:block th:text="#{riskTrend.legend.low}">Low</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
@@ -79,7 +79,7 @@
     <div th:fragment="licenseRiskGraph(restricted, caution, permitted, unknown)"
          class="flex flex-col gap-[14px] items-start w-full relative shrink-0">
 
-        <p class="font-medium text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] w-full">License Risk</p>
+        <p class="font-medium text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] w-full" th:text="#{riskTrend.chart.license}">License Risk</p>
 
         <div class="risk-graph-bar"
              th:with="total=${(restricted ?: 0) + (caution ?: 0) + (permitted ?: 0) + (unknown ?: 0)}">
@@ -104,25 +104,25 @@
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${restricted ?: 0}">0</span> Restricted
+                    <span th:text="${restricted ?: 0}">0</span> <th:block th:text="#{license.status.restricted}">Restricted</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-caution)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${caution ?: 0}">0</span> Caution
+                    <span th:text="${caution ?: 0}">0</span> <th:block th:text="#{license.status.caution}">Caution</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-permitted)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${permitted ?: 0}">0</span> Permitted
+                    <span th:text="${permitted ?: 0}">0</span> <th:block th:text="#{license.status.permitted}">Permitted</th:block>
                 </p>
             </div>
             <div class="flex gap-[8px] items-center shrink-0">
                 <div class="w-[6px] h-[6px] rounded-full bg-[var(--risk-unknown)] border border-[var(--grayscale-20)]"></div>
                 <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] whitespace-nowrap">
-                    <span th:text="${unknown ?: 0}">0</span> Unknown
+                    <span th:text="${unknown ?: 0}">0</span> <th:block th:text="#{riskTrend.legend.unknown}">Unknown</th:block>
                 </p>
             </div>
         </div>

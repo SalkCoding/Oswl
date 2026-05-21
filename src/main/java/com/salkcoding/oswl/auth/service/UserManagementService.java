@@ -104,7 +104,7 @@ public class UserManagementService {
         }
         user.setEnabled(enabled);
         String action = enabled ? "USER.ACTIVATE" : "USER.DEACTIVATE";
-        log.info("[User] {} userId={} email='{}'", enabled ? "Activated" : "Deactivated", userId, user.getEmail());
+        log.info("[User] {} userId={} email='{}'", enabled ? "활성화" : "비활성화", userId, user.getEmail());
         auditLogService.log(action, "USER", userId.toString(), user.getEmail(), user.getDisplayName());
     }
 
@@ -119,7 +119,7 @@ public class UserManagementService {
         String displayName = user.getDisplayName();
         user.getRoleTemplates().clear();
         userRepository.delete(user);
-        log.info("[User] Deleted userId={} email='{}'", userId, email);
+        log.info("[User] userId={} email='{}' 삭제", userId, email);
         auditLogService.log("USER.DELETE", "USER", userId.toString(), email, displayName);
     }
 
@@ -128,10 +128,10 @@ public class UserManagementService {
     }
 
     /**
-     * Increments the consecutive login-failure counter for the given email.
-     * At 10 failures the account is automatically disabled.
+     * 주어진 이메일의 연속 로그인 실패 횟수를 1 증가한다.
+     * 10회 실패 시 계정이 자동으로 비활성화된다.
      *
-     * @return the new failure count, or 0 when the email is not found
+     * @return 새 실패 횟수, 또는 이메일을 찾지 못으면 0
      */
     @Transactional
     public int handleLoginFailure(String email) {
@@ -143,17 +143,17 @@ public class UserManagementService {
                         user.setEnabled(false);
                         auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
                                 user.getId().toString(), email,
-                                "Auto-locked: " + count + " consecutive login failures");
-                        log.warn("[User] Account auto-locked email='{}' after {} consecutive login failures", email, count);
+                                "자동 잠김: 연속 " + count + "회 로그인 실패");
+                        log.warn("[User] email='{}' 계정 자동 잠김, 연속 로그인 실패 {}회", email, count);
                     } else {
-                        log.debug("[User] Login failure email='{}' count={}", email, count);
+                        log.debug("[User] 로그인 실패 email='{}' count={}", email, count);
                     }
                     return count;
                 })
                 .orElse(0);
     }
 
-    /** Resets the consecutive login-failure counter to 0 on successful login. */
+    /** 로그인 성공 시 연속 로그인 실패 횟수를 0으로 완전 초기화한다. */
     @Transactional
     public void resetLoginFailureCount(String email) {
         userRepository.findByEmail(email.toLowerCase())

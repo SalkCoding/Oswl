@@ -11,18 +11,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Intercepts every request for a fully-authenticated user whose {@code mustChangePassword}
- * flag is still {@code true} and redirects them to {@code /change-password}.
+ * {@code mustChangePassword} 플래그가 여전히 {@code true}인 완전 인증 사용자의
+ * 모든 요청을 가로막고 {@code /change-password}로 리다이렉트한다.
  *
- * <p>API calls (path starts with {@code /api/} or Accept contains {@code application/json})
- * receive a JSON 403 with a {@code redirectUrl} hint instead of an HTTP redirect.
+ * <p>API 호출(path가 {@code /api/}로 시작하거나 Accept에 {@code application/json} 포함)은
+ * HTTP 리다이렉트 대신 {@code redirectUrl} 힌트가 담긴 JSON 403을 반환한다.
  *
- * <p>The following paths are whitelisted so the change-password flow itself always works:
+ * <p>다음 경로는 비밀번호 변경 흐름이 항상 작동하도록 화이트리스트된다:
  * <ul>
- *   <li>{@code /change-password} and {@code /api/change-password}</li>
+ *   <li>{@code /change-password} 및 {@code /api/change-password}</li>
  *   <li>{@code /logout}</li>
  *   <li>{@code /login}, {@code /setup}, {@code /error/}</li>
- *   <li>Static assets ({@code /css/}, {@code /js/}, {@code /icon/}, {@code /img/},
+ *   <li>정적 자산({@code /css/}, {@code /js/}, {@code /icon/}, {@code /img/},
  *       {@code /graphic/}, {@code /scripts/}, {@code /webjars/}, {@code /favicon.ico})</li>
  * </ul>
  */

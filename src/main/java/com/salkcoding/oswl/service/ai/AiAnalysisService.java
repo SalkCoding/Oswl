@@ -9,13 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Entry point for AI analysis.
- * Reads the currently active setting from AiSettingRepository and delegates to the appropriate client.
+ * AI 분석의 진입점.
+ * AiSettingRepository에서 현재 활성 설정을 읽고 적절한 클라이언트에 위임한다.
  *
- * To add a new provider:
- *  1. Add an entry to the AiProvider enum
- *  2. Implement the AiAnalysisClient interface
- *  3. Add a branch to the switch statement in this class
+ * 새 프로바이더 추가 방법:
+ *  1. AiProvider 열거형에 항목 추가
+ *  2. AiAnalysisClient 인터페이스 구현
+ *  3. 이 클래스의 switch 문에 분기 추가
  */
 @Slf4j
 @Service
@@ -28,7 +28,7 @@ public class AiAnalysisService {
     private final CopilotClient copilotClient;
     private final EncryptionService encryptionService;
 
-    // ── Public API ───────────────────────────────────────────────────────
+    // ── 공개 API ───────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
@@ -160,17 +160,17 @@ public class AiAnalysisService {
         };
     }
 
-    /** Check whether an AI provider is configured (for displaying guidance in the UI) */
+    /** AI 프로바이더가 설정되어 있는지 확인한다 (UI에 안내용 표시용) */
     @Transactional(readOnly = true)
     public boolean isAiConfigured() {
         return aiSettingRepository.findByActiveTrue().isPresent();
     }
 
     /**
-     * Sends a minimal ping prompt to the given provider using the supplied (plaintext) setting.
-     * No persistence — used only for the Settings > AI > Test Connection button.
+     * 주어진 졌팅(plaintext)으로 제시된 설정으로 프로바이더에 미니말 핑 프롬프트를 전송한다.
+     * 영속성 없음 — Settings > AI > 연결 테스트 버튼 전용.
      *
-     * @return true if the provider responded successfully, false otherwise
+     * @return 프로바이더가 성공적으로 응답하면 true, 그렇지 않으면 false
      */
     public boolean testConnection(AiSetting setting) {
         String prompt = "Reply with only the word OK.";
@@ -183,16 +183,16 @@ public class AiAnalysisService {
                 case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
             };
             boolean ok = result != null;
-            log.debug("[AI] testConnection result={} response='{}'", ok ? "OK" : "FAIL",
+            log.debug("[AI] testConnection 결과={} 응답='{}'", ok ? "OK" : "FAIL",
                     result != null ? result.trim() : "null");
             return ok;
         } catch (Exception e) {
-            log.warn("[AI] Test connection failed for provider {}: {}", setting.getProvider(), e.getMessage());
+            log.warn("[AI] {} 프로바이더 연결 테스트 실패: {}", setting.getProvider(), e.getMessage());
             return false;
         }
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────
+    // ── 내부 ─────────────────────────────────────────────────────────
 
     private AiSetting getActiveSetting() {
         return aiSettingRepository.findByActiveTrue().map(s -> {
@@ -201,16 +201,16 @@ public class AiAnalysisService {
                 try {
                     s.update(encryptionService.decrypt(s.getApiKey()), null, null);
                 } catch (Exception e) {
-                    // Backwards-compat: if decryption fails the key may be legacy plaintext.
-                    // Re-save the setting via the UI to encrypt it.
-                    log.warn("[AI] API key decryption failed for provider {}. Key may be stored in legacy plaintext. Re-save via Settings to encrypt.", s.getProvider());
+                    // 하위 호환성: 복호화 실패 시 키가 레거시 평문텍스트일 수 있음.
+                    // Settings에서 설정을 재저장하여 암호화하세요.
+                    log.warn("[AI] {} 프로바이더 API 키 복호화 실패. 키가 레거시 평문텍스트로 저장되어 있을 수 있음. Settings에서 재저장하여 암호화하세요.", s.getProvider());
                 }
             }
             log.debug("[AI] Active provider={} model='{}' baseUrl='{}'",
                     s.getProvider(), s.getModelName(), s.getBaseUrl());
             return s;
         }).orElseGet(() -> {
-            log.debug("[AI] No active AI setting found. Skipping analysis.");
+            log.debug("[AI] 활성 AI 설정 없음. 분석 건너덗.");
             return null;
         });
     }

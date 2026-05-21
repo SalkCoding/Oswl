@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.controller.spec.ComponentDetailControllerSpec;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.DeferralRequest;
@@ -10,6 +11,7 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -56,23 +58,24 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
     public ResponseEntity<Map<String, Object>> createPr(@PathVariable Long projectId,
                                                          @PathVariable Long componentId,
                                                          @RequestBody CreatePrRequest req,
-                                                         HttpSession session) {
-        String token = getDecryptedToken(session);
-        if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "No GitHub account connected. Please connect one in Settings."));
-        }
+                                                         HttpSession session,
+                                                         @AuthenticationPrincipal OswlUserPrincipal principal) {
+        // GitHub token comes from session; GitLab/Bitbucket tokens are resolved from DB in the service
+        String githubToken = getDecryptedGithubToken(session);
+        Long userId = principal != null ? principal.getUserId() : null;
         try {
-            Map<String, Object> result = componentDetailService.createPullRequest(projectId, componentId, req, token);
+            Map<String, Object> result = componentDetailService.createPullRequest(
+                    projectId, componentId, req, userId, githubToken);
             return ResponseEntity.ok(result);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(502).body(Map.of("error", "GitHub error: " + e.getMessage()));
+            return ResponseEntity.status(502).body(Map.of("error", "VCS error: " + e.getMessage()));
         }
     }
 
     @SuppressWarnings("unchecked")
-    private String getDecryptedToken(HttpSession session) {
+    private String getDecryptedGithubToken(HttpSession session) {
         Object obj = session.getAttribute(SESSION_GITHUB_TOKENS);
         if (!(obj instanceof Map<?, ?> tokens) || tokens.isEmpty()) return null;
         String encrypted = ((Map<String, String>) tokens).values().iterator().next();

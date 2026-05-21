@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public String handleUnexpected(Exception ex) {
-        log.error("Unhandled exception reached GlobalExceptionHandler", ex);
+        log.error("처리되지 않은 예외가 GlobalExceptionHandler에 도달했습니다", ex);
         return "error/500";
     }
 }
