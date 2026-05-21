@@ -57,12 +57,7 @@
                             <span class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap"
                                   th:text="${#lists.size(obligation.entries)} + ' license' + (${#lists.size(obligation.entries)} != 1 ? 's' : '')">1 license</span>
                         </div>
-                        <svg class="w-[14px] h-[14px] text-[var(--grayscale-40)] transition-transform shrink-0"
-                             :class="open ? 'rotate-180' : ''"
-                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <polyline points="6 9 12 15 18 9"/>
-                        </svg>
+                        <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px] shrink-0 pointer-events-none transition-transform" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </div>
                 </div>
 
@@ -128,12 +123,7 @@
                             </div>
                             <div class="flex items-center gap-[6px]">
                                 <div th:replace="~{fragments/tags :: library-count(count=${#lists.size(entry.libraries)})}"></div>
-                                <svg class="w-[12px] h-[12px] text-[var(--grayscale-40)] transition-transform shrink-0"
-                                     :class="libsOpen ? 'rotate-180' : ''"
-                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <polyline points="6 9 12 15 18 9"/>
-                                </svg>
+                                <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px] shrink-0 pointer-events-none transition-transform" :class="libsOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                             </div>
                         </button>
 

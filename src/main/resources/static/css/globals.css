@@ -68,6 +68,12 @@ a { color: inherit; text-decoration: none; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #c5cfd3; border-radius: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #849197; }
 
+.thin-scrollbar { scrollbar-width: thin; scrollbar-color: #c5cfd3 #f0f3f4; }
+.thin-scrollbar::-webkit-scrollbar { width: 4px; }
+.thin-scrollbar::-webkit-scrollbar-track { background: #f0f3f4; border-radius: 4px; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: #c5cfd3; border-radius: 4px; }
+.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #849197; }
+
 .risk-graph-bar {
     display: flex;
     width: 100%;
