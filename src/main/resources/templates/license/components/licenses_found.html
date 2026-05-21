@@ -71,6 +71,16 @@
                 <!-- Expanded: list of libraries using this license -->
                 <div x-show="open" x-cloak
                      class="flex flex-col gap-0 px-6 pb-3 bg-[var(--grayscale-5)] border-t border-[#DBE4E7]">
+
+                    <!-- AI compliance risk summary -->
+                    <div th:if="${license.aiLicenseSummary != null}"
+                         class="flex items-start gap-[8px] mt-3 mb-1 px-[12px] py-[10px] rounded-[8px] bg-[var(--primary-5)] border border-[var(--primary-20)]">
+                        <svg class="w-[14px] h-[14px] text-[var(--primary-100)] shrink-0 mt-[1px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+                        </svg>
+                        <p class="text-[12px] text-[var(--primary-120)] tracking-[-0.12px] m-0 leading-relaxed" th:text="${license.aiLicenseSummary}">AI summary</p>
+                    </div>
+
                     <p class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0">Libraries</p>
                     <div th:each="libName : ${license.libraryNames}"
                          class="flex items-center gap-[8px] py-[5px]">

@@ -99,6 +99,16 @@
             </div>
         </div>
 
+        <!-- AI version diff insight -->
+        <div th:if="${diffAiInsight != null}"
+             class="flex items-start gap-[10px] px-[16px] py-[12px] rounded-[10px] bg-[var(--primary-5)] border border-[var(--primary-20)]">
+            <svg class="w-[15px] h-[15px] text-[var(--primary-100)] shrink-0 mt-[2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+            </svg>
+            <p class="text-[13px] text-[var(--primary-120)] tracking-[-0.13px] m-0 leading-relaxed"
+               th:text="${diffAiInsight}">AI diff insight</p>
+        </div>
+
         <!-- ── Diff table ────────────────────────────────────────────────── -->
         <div class="bg-white rounded-[12px] border border-[var(--grayscale-15)] overflow-hidden"
              x-data="{ tab: 'all' }">
