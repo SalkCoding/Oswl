@@ -106,6 +106,11 @@ public class LicenseService {
                                 .map(l -> l.getName() + " " + l.getVersion())
                                 .sorted()
                                 .collect(Collectors.toList()))
+                        .aiLicenseSummary(entry.getValue().stream()
+                                .map(Library::getAiLicenseSummary)
+                                .filter(s -> s != null && !s.isBlank())
+                                .findFirst()
+                                .orElse(null))
                         .build())
                 .sorted(Comparator.comparingInt(dto -> riskOrdinal(dto.getRiskLevel())))
                 .collect(Collectors.toList());

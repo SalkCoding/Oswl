@@ -168,6 +168,7 @@ public class SecurityCenterService {
         model.addAttribute("licenseMedium", licMedium);
         model.addAttribute("licenseLow", licLow);
         model.addAttribute("components", rows);
+        model.addAttribute("securityPostureInsight", scan.getSecurityPostureInsight());
     }
 
     @Transactional

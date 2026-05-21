@@ -25,6 +25,7 @@ public class AiAnalysisService {
     private final AiSettingRepository aiSettingRepository;
     private final OpenAiClient openAiClient;
     private final AnthropicClient anthropicClient;
+    private final CopilotClient copilotClient;
     private final EncryptionService encryptionService;
 
     // ── Public API ───────────────────────────────────────────────────────
@@ -39,6 +40,8 @@ public class AiAnalysisService {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(
                     buildCvePrompt(cveId, severity, cvssScore, component), setting);
             case ANTHROPIC -> anthropicClient.callWithSetting(
+                    buildCvePrompt(cveId, severity, cvssScore, component), setting);
+            case COPILOT   -> copilotClient.callWithSetting(
                     buildCvePrompt(cveId, severity, cvssScore, component), setting);
         };
     }
@@ -59,7 +62,8 @@ public class AiAnalysisService {
 
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
-            case ANTHROPIC      -> anthropicClient.callWithSetting(prompt, setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
         };
     }
 
@@ -79,6 +83,7 @@ public class AiAnalysisService {
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
             case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
         };
     }
 
@@ -98,6 +103,7 @@ public class AiAnalysisService {
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
             case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
         };
     }
 
@@ -113,7 +119,44 @@ public class AiAnalysisService {
 
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
-            case ANTHROPIC      -> anthropicClient.callWithSetting(prompt, setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
+        };
+    }
+
+    @Transactional(readOnly = true)
+    public String summarizeSecurityPosture(String projectName, int critical, int high, int totalComponents) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null) return null;
+        log.debug("[AI] summarizeSecurityPosture project='{}' critical={} high={} total={} provider={}",
+                projectName, critical, high, totalComponents, setting.getProvider());
+        String prompt = String.format(
+                "Project '%s' has %d components with %d critical and %d high severity vulnerabilities. " +
+                "In one sentence, give a concise security posture summary for a security engineer.",
+                projectName, totalComponents, critical, high);
+        return switch (setting.getProvider()) {
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
+        };
+    }
+
+    @Transactional(readOnly = true)
+    public String summarizeVersionDiff(String projectName, String fromVersion, String toVersion,
+                                        int added, int removed, int updated, int newThreats) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null) return null;
+        log.debug("[AI] summarizeVersionDiff project='{}' from='{}' to='{}' added={} removed={} updated={} newThreats={} provider={}",
+                projectName, fromVersion, toVersion, added, removed, updated, newThreats, setting.getProvider());
+        String prompt = String.format(
+                "Project '%s' changed from version '%s' to '%s': %d components added, %d removed, " +
+                "%d updated, %d new threats introduced. " +
+                "In one sentence, summarise the security impact of this version change.",
+                projectName, fromVersion, toVersion, added, removed, updated, newThreats);
+        return switch (setting.getProvider()) {
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
         };
     }
 
@@ -137,6 +180,7 @@ public class AiAnalysisService {
             String result = switch (setting.getProvider()) {
                 case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
                 case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
+                case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
             };
             boolean ok = result != null;
             log.debug("[AI] testConnection result={} response='{}'", ok ? "OK" : "FAIL",

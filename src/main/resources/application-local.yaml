@@ -32,7 +32,7 @@ logging:
   level:
     root: INFO
     # Business logic: INFO/WARN/ERROR 기본, 내부 세부는 코드에서 log.debug로 처리
-    com.salkcoding.oswl: INFO
+    com.salkcoding.oswl: DEBUG
     # 취약점·라이선스 API 통신 및 DB upsert 디버깅
     com.salkcoding.oswl.client: DEBUG
     com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG

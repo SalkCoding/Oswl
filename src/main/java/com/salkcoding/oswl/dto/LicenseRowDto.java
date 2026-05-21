@@ -26,4 +26,7 @@ public class LicenseRowDto {
 
     @Schema(description = "Names of components using this license")
     private final List<String> libraryNames;
+
+    @Schema(description = "AI-generated one-sentence compliance risk summary for this license (null if AI not configured or not yet generated)")
+    private final String aiLicenseSummary;
 }
