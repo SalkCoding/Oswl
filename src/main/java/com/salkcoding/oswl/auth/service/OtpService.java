@@ -74,6 +74,7 @@ public class OtpService {
         try {
             mailService.sendOtp(email, name, otp);
             session.removeAttribute(SESSION_MAIL_FAILED);
+            log.info("[OTP] Code issued for user='{}' valid={}min", email, OTP_VALID_MINUTES);
         } catch (Exception e) {
             // Delivery failure must not block the authentication flow;
             // the OTP is still stored in the session.
@@ -135,6 +136,8 @@ public class OtpService {
         if (Instant.now().toEpochMilli() > expiry)  return false;
 
         if (stored.equals(code)) {
+            OswlUserPrincipal verified = getPendingPrincipal(session);
+            log.info("[OTP] Verified successfully for user='{}'", verified != null ? verified.getUsername() : "unknown");
             return true;
         }
 
@@ -142,6 +145,10 @@ public class OtpService {
         Integer existing = (Integer) session.getAttribute(SESSION_ATTEMPTS);
         int attempts = (existing == null ? 0 : existing) + 1;
         session.setAttribute(SESSION_ATTEMPTS, attempts);
+
+        OswlUserPrincipal failed = getPendingPrincipal(session);
+        log.warn("[OTP] Wrong code attempt {}/{} for user='{}'",
+                attempts, MAX_OTP_ATTEMPTS, failed != null ? failed.getUsername() : "unknown");
 
         if (attempts >= MAX_OTP_ATTEMPTS) {
             session.setAttribute(SESSION_LOCKED, true);

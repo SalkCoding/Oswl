@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -27,6 +28,7 @@ import java.io.IOException;
  *
  * Otherwise: redirects to /projects as normal.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -48,6 +50,7 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
             // Skip OTP if the device is already trusted
             if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
                 String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
+                log.info("[Auth] Login success user='{}' trusted-device bypass → {}", principal.getUsername(), dest);
                 response.sendRedirect(request.getContextPath() + dest);
                 return;
             }
@@ -60,11 +63,13 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
             SecurityContextHolder.clearContext();
             session.removeAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
 
+            log.info("[Auth] Login success user='{}' → 2FA challenge", principal.getUsername());
             response.sendRedirect(request.getContextPath() + "/login/otp-verify");
         } else {
             // No 2FA configured — check if password change is required
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
             String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
+            log.info("[Auth] Login success user='{}' (2FA disabled) → {}", principal.getUsername(), dest);
             response.sendRedirect(request.getContextPath() + dest);
         }
     }

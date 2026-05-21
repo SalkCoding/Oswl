@@ -71,18 +71,20 @@ public class OpenAiClient implements AiAnalysisClient {
     // ── Internal ─────────────────────────────────────────────────────────────────
 
     private String call(String userPrompt, AiSetting setting) {
-        String url = resolveUrl(setting);
+        String url   = resolveUrl(setting);
         String model = resolveModel(setting);
         String apiKey = setting != null ? setting.getApiKey() : null;
+        boolean hasAuth = apiKey != null && !apiKey.isBlank();
 
-        if (apiKey == null || apiKey.isBlank()) {
-            log.warn("[AI] API key is not configured. Skipping AI analysis.");
-            return null;
-        }
+        log.debug("[AI][OpenAI] → url='{}' model='{}' auth={} promptLen={}",
+                url, model, hasAuth ? "Bearer" : "none", userPrompt.length());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(apiKey);
+        // LOCAL (e.g. Ollama) does not require an API key — only set Authorization when present
+        if (hasAuth) {
+            headers.setBearerAuth(apiKey);
+        }
 
         Map<String, Object> body = Map.of(
                 "model", model,
@@ -95,20 +97,28 @@ public class OpenAiClient implements AiAnalysisClient {
                 "temperature", 0.3
         );
 
+        long start = System.currentTimeMillis();
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url, HttpMethod.POST, new HttpEntity<>(body, headers),
                     new ParameterizedTypeReference<>() {});
 
+            long elapsed = System.currentTimeMillis() - start;
+            log.debug("[AI][OpenAI] ← status={} elapsedMs={}", response.getStatusCode(), elapsed);
+
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var choices = (List<?>) response.getBody().get("choices");
                 if (choices != null && !choices.isEmpty()) {
                     var message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
-                    return message != null ? (String) message.get("content") : null;
+                    String result = message != null ? (String) message.get("content") : null;
+                    log.debug("[AI][OpenAI] Parsed result resultLen={}", result != null ? result.length() : 0);
+                    return result;
                 }
+                log.warn("[AI][OpenAI] Response body had no 'choices' — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
-            log.error("[AI] Call failed: {}", e.getMessage());;
+            long elapsed = System.currentTimeMillis() - start;
+            log.error("[AI][OpenAI] Call failed after {}ms — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
         }
         return null;
     }

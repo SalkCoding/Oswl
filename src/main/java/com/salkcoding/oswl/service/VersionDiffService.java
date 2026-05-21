@@ -11,6 +11,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -18,6 +19,7 @@ import org.springframework.ui.Model;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VersionDiffService {
@@ -28,6 +30,7 @@ public class VersionDiffService {
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long fromScanId, Long toScanId, Model model) {
+        log.debug("[VersionDiff] projectId={} fromScanId={} toScanId={}", projectId, fromScanId, toScanId);
         Project project = projectRepository.findByIdAndDeletedAtIsNull(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
@@ -143,6 +146,8 @@ public class VersionDiffService {
                     .build());
         }
 
+        log.debug("[VersionDiff] projectId={} from='{}' to='{}': total={} added={} removed={} updated={} newThreat={}",
+                projectId, fromVersion, toVersion, rows.size(), added, removed, updated, newThreat);
         model.addAttribute("diffRows",       rows);
         model.addAttribute("totalCount",     rows.size());
         model.addAttribute("addedCount",     added);

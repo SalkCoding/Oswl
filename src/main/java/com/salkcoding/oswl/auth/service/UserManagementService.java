@@ -9,6 +9,7 @@ import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserManagementService {
@@ -56,7 +58,9 @@ public class UserManagementService {
                 .mustChangePassword(true)
                 .roleTemplates(templates)
                 .build();
-        return toDto(userRepository.save(user));
+        UserSummaryDto created = toDto(userRepository.save(user));
+        log.info("[User] Created userId={} email='{}'", created.getId(), created.getEmail());
+        return created;
     }
 
     @Transactional
@@ -70,6 +74,7 @@ public class UserManagementService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         user.setDisplayName(displayName.trim());
+        log.debug("[User] Display name updated userId={}", userId);
         auditLogService.log("USER.UPDATE_NAME", "USER", userId.toString(), user.getEmail(), displayName.trim());
     }
 
@@ -99,6 +104,7 @@ public class UserManagementService {
         }
         user.setEnabled(enabled);
         String action = enabled ? "USER.ACTIVATE" : "USER.DEACTIVATE";
+        log.info("[User] {} userId={} email='{}'", enabled ? "Activated" : "Deactivated", userId, user.getEmail());
         auditLogService.log(action, "USER", userId.toString(), user.getEmail(), user.getDisplayName());
     }
 
@@ -113,6 +119,7 @@ public class UserManagementService {
         String displayName = user.getDisplayName();
         user.getRoleTemplates().clear();
         userRepository.delete(user);
+        log.info("[User] Deleted userId={} email='{}'", userId, email);
         auditLogService.log("USER.DELETE", "USER", userId.toString(), email, displayName);
     }
 
@@ -137,6 +144,9 @@ public class UserManagementService {
                         auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
                                 user.getId().toString(), email,
                                 "Auto-locked: " + count + " consecutive login failures");
+                        log.warn("[User] Account auto-locked email='{}' after {} consecutive login failures", email, count);
+                    } else {
+                        log.debug("[User] Login failure email='{}' count={}", email, count);
                     }
                     return count;
                 })

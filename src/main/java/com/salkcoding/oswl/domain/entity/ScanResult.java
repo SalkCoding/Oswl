@@ -48,6 +48,14 @@ public class ScanResult {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /** AI-generated security risk trend insight (pre-generated during enrichment) */
+    @Column(name = "security_ai_insight", columnDefinition = "TEXT")
+    private String securityAiInsight;
+
+    /** AI-generated license risk trend insight (pre-generated during enrichment) */
+    @Column(name = "license_ai_insight", columnDefinition = "TEXT")
+    private String licenseAiInsight;
+
     /**
      * The user who submitted this scan (Quick Import or future user-level CLI auth).
      * Null for scans submitted via a project API key (anonymous CLI scan).
@@ -76,6 +84,11 @@ public class ScanResult {
 
     public void complete() {
         this.status = ScanStatus.COMPLETED;
+    }
+
+    public void updateAiInsights(String securityInsight, String licenseInsight) {
+        this.securityAiInsight = securityInsight;
+        this.licenseAiInsight  = licenseInsight;
     }
 
     public void startAnalyzing() {

@@ -7,7 +7,9 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RiskTrendService {
@@ -27,6 +30,7 @@ public class RiskTrendService {
     private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
     private final LibraryRepository    libraryRepository;
+    private final AiAnalysisService    aiAnalysisService;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Model model) {
@@ -112,6 +116,10 @@ public class RiskTrendService {
         model.addAttribute("licenseIssues",  currentLicIssues);
         model.addAttribute("licenseDelta",   licDelta);
 
+        model.addAttribute("securityAiInsight", latest.getSecurityAiInsight());
+        model.addAttribute("licenseAiInsight",  latest.getLicenseAiInsight());
+        model.addAttribute("aiConfigured",      aiAnalysisService.isAiConfigured());
+
         model.addAttribute("chartVersions",    versions);
         model.addAttribute("chartSecCritical", secCritical);
         model.addAttribute("chartSecHigh",     secHigh);
@@ -171,5 +179,8 @@ public class RiskTrendService {
         model.addAttribute("chartLicUnknown",     List.of());
         model.addAttribute("chartLicPermitted",   List.of());
         model.addAttribute("chartSecNone",     List.of());
+        model.addAttribute("securityAiInsight", null);
+        model.addAttribute("licenseAiInsight",  null);
+        model.addAttribute("aiConfigured",      aiAnalysisService.isAiConfigured());
     }
 }

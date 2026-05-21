@@ -67,9 +67,12 @@ public class AnthropicClient implements AiAnalysisClient {
                         ? setting.getModelName() : "claude-3-5-sonnet-20241022";
 
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("[AI] Anthropic API key is not configured. Skipping.");
+            log.warn("[AI][Anthropic] API key is not configured. Skipping.");
             return null;
         }
+
+        log.debug("[AI][Anthropic] → url='{}' model='{}' promptLen={}",
+                ANTHROPIC_URL, model, userPrompt.length());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -83,19 +86,27 @@ public class AnthropicClient implements AiAnalysisClient {
                 "messages", List.of(Map.of("role", "user", "content", userPrompt))
         );
 
+        long start = System.currentTimeMillis();
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     ANTHROPIC_URL, HttpMethod.POST, new HttpEntity<>(body, headers),
                     new ParameterizedTypeReference<>() {});
 
+            long elapsed = System.currentTimeMillis() - start;
+            log.debug("[AI][Anthropic] ← status={} elapsedMs={}", response.getStatusCode(), elapsed);
+
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var content = (List<?>) response.getBody().get("content");
                 if (content != null && !content.isEmpty()) {
-                    return (String) ((Map<?, ?>) content.get(0)).get("text");
+                    String result = (String) ((Map<?, ?>) content.get(0)).get("text");
+                    log.debug("[AI][Anthropic] Parsed result resultLen={}", result != null ? result.length() : 0);
+                    return result;
                 }
+                log.warn("[AI][Anthropic] Response body had no 'content' — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
-            log.error("[AI] Anthropic call failed: {}", e.getMessage());
+            long elapsed = System.currentTimeMillis() - start;
+            log.error("[AI][Anthropic] Call failed after {}ms — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
         }
         return null;
     }
