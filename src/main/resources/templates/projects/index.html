@@ -108,7 +108,7 @@
                     </div>
                 </button>
 
-                <button type="button" @click="window.location.href='/projects/quick-import'"
+                <button type="button" @click="openPanel = 'quickImport'"
                    class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
@@ -456,6 +456,19 @@
          class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
          style="display: none;">
         <div th:replace="~{projects/git-integration :: slideout}"></div>
+    </div>
+
+    <!-- Quick Import Panel -->
+    <div x-show="openPanel === 'quickImport'"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
+         style="display: none;">
+        <div th:replace="~{projects/quick-import :: slideout}"></div>
     </div>
 
     <!-- New Project Panel -->

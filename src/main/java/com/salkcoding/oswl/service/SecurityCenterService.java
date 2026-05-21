@@ -81,6 +81,18 @@ public class SecurityCenterService {
 
         model.addAttribute("projectVersion", scan.getVersion() != null ? scan.getVersion() : "-");
 
+        // Update banner: show when viewing an older scan and a newer completed scan exists
+        ScanResult latestCompleted = allScans.get(0);
+        if (!scan.getId().equals(latestCompleted.getId())) {
+            String fromVer = scan.getVersion() != null ? scan.getVersion()
+                    : scan.getScannedAt().toLocalDate().toString().replace("-", ".");
+            String toVer = latestCompleted.getVersion() != null ? latestCompleted.getVersion()
+                    : latestCompleted.getScannedAt().toLocalDate().toString().replace("-", ".");
+            model.addAttribute("updateFromVersion", fromVer);
+            model.addAttribute("updateToVersion", toVer);
+            model.addAttribute("updateToScanId", latestCompleted.getId());
+        }
+
         // Eagerly load libraries + CVEs via the join query
         List<Library> libraries = libraryRepository.findByScanResultIdWithCves(scan.getId());
         // Map library.id → ScanComponent for reviewed/ignored flags
