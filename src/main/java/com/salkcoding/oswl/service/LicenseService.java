@@ -78,6 +78,9 @@ public class LicenseService {
             model.addAttribute("permittedCount", 0);
             model.addAttribute("unknownCount", 0);
             model.addAttribute("totalObligations", 0);
+            model.addAttribute("obligationRestrictedCount", 0);
+            model.addAttribute("obligationCautionCount", 0);
+            model.addAttribute("obligationPermittedCount", 0);
             model.addAttribute("obligations", List.of());
             model.addAttribute("conflicts", List.of());
             model.addAttribute("reviewItems", List.of());
@@ -122,6 +125,12 @@ public class LicenseService {
         model.addAttribute("permittedCount", permittedCount);
         model.addAttribute("unknownCount", unknownCount);
         model.addAttribute("totalObligations", obligations.size());
+        long obligationRestrictedCount = obligations.stream().filter(o -> "RESTRICTED".equals(o.getRiskLevel())).count();
+        long obligationCautionCount    = obligations.stream().filter(o -> "CAUTION".equals(o.getRiskLevel())).count();
+        long obligationPermittedCount  = obligations.stream().filter(o -> "PERMITTED".equals(o.getRiskLevel())).count();
+        model.addAttribute("obligationRestrictedCount", obligationRestrictedCount);
+        model.addAttribute("obligationCautionCount", obligationCautionCount);
+        model.addAttribute("obligationPermittedCount", obligationPermittedCount);
         model.addAttribute("obligations", obligations);
         model.addAttribute("conflicts", conflicts);
         model.addAttribute("reviewItems", reviewItems);
@@ -168,7 +177,7 @@ public class LicenseService {
                 "INCLUDE_LICENSE_NOTICE",
                 "Include License Notice",
                 "Include the complete license text and copyright notices in all copies and distributions of the software.",
-                "LOW",
+                "PERMITTED",
                 "MIT §1 · Apache-2.0 §4(a)(b) · BSD §1-3 · GPL §1 · LGPL §6 · MPL-2.0 §3.3",
                 "This product includes software licensed under the following terms:\n\n{LIBRARY_LIST}\n\nThe full license text is reproduced in LICENSES/ directory.",
                 Set.of("MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "BSD-4-Clause", "ISC", "Zlib", "BSL-1.0",
@@ -182,7 +191,7 @@ public class LicenseService {
                 "INCLUDE_COPYRIGHT_NOTICE",
                 "Preserve Copyright Notices",
                 "Reproduce each upstream copyright line verbatim — even when the rest of the license header is omitted.",
-                "LOW",
+                "PERMITTED",
                 "MIT §1 · BSD §1 · Apache-2.0 §4(c) · ISC",
                 "Copyright (c) <YEAR> <AUTHOR> — see LICENSES/{LICENSE_FILE} for the full notice.\n\nApplies to:\n{LIBRARY_LIST}",
                 Set.of("MIT", "BSD-2-Clause", "BSD-3-Clause", "BSD-4-Clause", "ISC", "Zlib",
@@ -193,7 +202,7 @@ public class LicenseService {
                 "STATE_CHANGES",
                 "State Significant Changes",
                 "Mark each modified file with a prominent notice describing what was changed and on which date.",
-                "MEDIUM",
+                "CAUTION",
                 "Apache-2.0 §4(b) · MPL-2.0 §3.3 · GPL §2(a) · LGPL §2(a) · EPL §3(a)(ii)",
                 "Modified by <ORG>, <YYYY-MM-DD>: <SHORT_DESCRIPTION>\n\nFiles changed under:\n{LIBRARY_LIST}",
                 Set.of("Apache-2.0", "MPL-1.0", "MPL-1.1", "MPL-2.0", "EPL-1.0", "EPL-2.0",
@@ -205,7 +214,7 @@ public class LicenseService {
                 "DISCLOSE_SOURCE",
                 "Disclose Corresponding Source",
                 "Provide — or offer in writing — the complete corresponding source code (including build scripts) for the covered libraries.",
-                "HIGH",
+                "RESTRICTED",
                 "GPL-2.0 §3 · GPL-3.0 §6 · AGPL-3.0 §13 · LGPL §6 · MPL-2.0 §3.2",
                 "Source code for the following components is available at <URL> or by written request to <CONTACT>:\n\n{LIBRARY_LIST}",
                 Set.of("GPL-2.0", "GPL-3.0", "AGPL-1.0", "AGPL-3.0", "SSPL-1.0",
@@ -218,7 +227,7 @@ public class LicenseService {
                 "SAME_LICENSE_COPYLEFT",
                 "Derivatives Must Use Same License",
                 "Any derivative work that combines with these components must be distributed under the same (or a compatible later) license.",
-                "HIGH",
+                "RESTRICTED",
                 "GPL-2.0 §2(b) · GPL-3.0 §5 · AGPL-3.0 §5 · LGPL §2 (combined work)",
                 "<DERIVATIVE_WORK_NAME> incorporates components licensed under <SPDX_ID> and is therefore distributed under <SPDX_ID>.\n\nCovered components:\n{LIBRARY_LIST}",
                 Set.of("GPL-2.0", "GPL-3.0", "AGPL-1.0", "AGPL-3.0", "SSPL-1.0",
@@ -229,7 +238,7 @@ public class LicenseService {
                 "WEAK_COPYLEFT_FILE_SCOPE",
                 "File-Scope Copyleft (Modified Files Only)",
                 "Modifications to the licensed files themselves remain copyleft, but the rest of your project may stay proprietary.",
-                "MEDIUM",
+                "CAUTION",
                 "MPL-2.0 §3.1-3.3 · EPL-2.0 §3.1 · CDDL-1.0 §3.1",
                 "The following files originate from MPL/EPL/CDDL projects. Modifications to these files must be released under the original license:\n\n{LIBRARY_LIST}",
                 Set.of("MPL-1.0", "MPL-1.1", "MPL-2.0", "EPL-1.0", "EPL-2.0", "CDDL-1.0", "CDDL-1.1"),
@@ -239,7 +248,7 @@ public class LicenseService {
                 "ALLOW_RELINKING",
                 "Allow Library Replacement (Relinking)",
                 "When statically linking an LGPL library you must provide object code or a build mechanism so users can replace the library with a modified version.",
-                "MEDIUM",
+                "CAUTION",
                 "LGPL-2.1 §6 · LGPL-3.0 §4(d)",
                 "Object files / build scripts required to relink the following LGPL components are bundled in <PATH> or available on request:\n\n{LIBRARY_LIST}",
                 Set.of("LGPL-2.0", "LGPL-2.1", "LGPL-3.0"),
@@ -249,7 +258,7 @@ public class LicenseService {
                 "NETWORK_USE_DISCLOSURE",
                 "Network-Use Source Disclosure",
                 "If users interact with the modified component over a network, you must offer them the complete corresponding source code — even when no binary is distributed.",
-                "HIGH",
+                "RESTRICTED",
                 "AGPL-3.0 §13 · SSPL-1.0 §13 · EUPL-1.2 §5",
                 "Users interacting with <SERVICE_NAME> may obtain the corresponding source code (including modifications) at <URL>.\n\nCovered components:\n{LIBRARY_LIST}",
                 Set.of("AGPL-1.0", "AGPL-3.0", "SSPL-1.0", "EUPL-1.1", "EUPL-1.2"),
@@ -259,7 +268,7 @@ public class LicenseService {
                 "PATENT_GRANT",
                 "Express Patent Grant",
                 "These licenses grant you (and your downstream users) a royalty-free patent license covering the contributions.",
-                "LOW",
+                "PERMITTED",
                 "Apache-2.0 §3 · MPL-2.0 §2.1 · EPL-2.0 §2 · GPL-3.0 §11 · AGPL-3.0 §11",
                 "Patent grants from the following components apply to this distribution:\n\n{LIBRARY_LIST}",
                 Set.of("Apache-2.0", "MPL-2.0", "EPL-2.0", "GPL-3.0", "AGPL-3.0", "LGPL-3.0"),
@@ -269,7 +278,7 @@ public class LicenseService {
                 "PATENT_RETALIATION",
                 "Patent-Litigation Termination",
                 "If you initiate a patent infringement claim against contributors, your rights under the license terminate automatically.",
-                "MEDIUM",
+                "CAUTION",
                 "Apache-2.0 §3 (last sentence) · MPL-2.0 §5.2 · EPL-2.0 §7 · GPL-3.0 §10 · AGPL-3.0 §10",
                 "Initiating patent litigation against contributors of these components will terminate your license:\n\n{LIBRARY_LIST}",
                 Set.of("Apache-2.0", "MPL-2.0", "EPL-2.0", "GPL-3.0", "AGPL-3.0"),
@@ -279,7 +288,7 @@ public class LicenseService {
                 "NO_TRADEMARK_USE",
                 "No Trademark Use",
                 "You may not use the names, trademarks or logos of the upstream project for endorsement or promotion of your derivative.",
-                "LOW",
+                "PERMITTED",
                 "Apache-2.0 §6 · BSD-3-Clause §3",
                 "<ORG> does not use the trademarks of the following projects to endorse or promote derivative products:\n\n{LIBRARY_LIST}",
                 Set.of("Apache-2.0", "BSD-3-Clause", "BSD-4-Clause", "MPL-2.0"),
@@ -289,7 +298,7 @@ public class LicenseService {
                 "ANTI_TIVOIZATION",
                 "Anti-Tivoization (Installation Information)",
                 "When shipping these components in a User Product (consumer device), you must also provide the Installation Information needed to run a modified version on that device.",
-                "HIGH",
+                "RESTRICTED",
                 "GPL-3.0 §6 · AGPL-3.0 §6",
                 "Installation information for <DEVICE_MODEL> — including signing keys and flashing instructions — is published at <URL> in compliance with GPLv3 §6:\n\n{LIBRARY_LIST}",
                 Set.of("GPL-3.0", "AGPL-3.0", "LGPL-3.0"),
@@ -299,7 +308,7 @@ public class LicenseService {
                 "ADVERTISING_CLAUSE",
                 "Advertising Acknowledgement (Obsolete)",
                 "Legacy 4-clause BSD requires advertising materials to include an acknowledgement of the upstream project.",
-                "MEDIUM",
+                "CAUTION",
                 "BSD-4-Clause §3",
                 "All advertising materials mentioning features or use of this software must display the following acknowledgement:\n\"This product includes software developed by <ORG>.\"\n\n{LIBRARY_LIST}",
                 Set.of("BSD-4-Clause"),
