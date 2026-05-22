@@ -21,37 +21,37 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * 종합 테스트 데이터를 시딩하는 개발 전용 콘트롤러.
- * "local" 프로파일에서만 활성화되며, 운영에서는 노출되지 않습니다.
+ * Development-only controller that seeds comprehensive test data.
+ * Enabled only in the "local" profile and never exposed in production.
  *
- * 접근: GET /data/test
- * 시딩 후 메인 프로젝트 페이지로 리다이렉트합니다.
+ * Access: GET /data/test
+ * Redirects to the main project page after seeding.
  *
- * 엣지 케이스 커버리지:
- *  - 스캔당 다중 심각도 혼합 (CRITICAL/HIGH/MEDIUM/LOW/NONE)
- *  - 다양한 심각도 CVE를 가진 라이브러리
- *  - fixVersion 없는(NON_PATCHABLE) CVE가 있는 라이브러리
- *  - CVE id 없음, GHSA id만 있는 라이브러리
- *  - 이유 설명이 있는 려테시 라이브러리
- *  - fetchedAt 없는 라이브러리 (아직 엔리치먼트 전)
- *  - 라이선스 UNKNOWN(비표준 이름), CAUTION, RESTRICTED, PERMITTED
- *  - Reviewed=true 및 ignored=true 컴포넌트
- *  - 전체 DependencyPath 트리가 있는 컴포넌트 (직접 + 2단계 전이적)
- *  - DependencyPath 없는 컴포넌트 (레거시 스캔)
- *  - FAILED 상태 + 오류 메시지가 있는 ScanResult
- *  - PENDING 상태의 ScanResult (진행 중 스캔)
- *  - 풍부한 Risk Trend 차트를 위한 프로젝트당 8점의 스캔 히스토리
- *  - Version Diff: 스캔 간 added/removed/updated/new-threat 변경
- *  - GitHub 리포지토리 연결 프로젝트 vs CLI 전용 프로젝트
- *  - 스캔 없는 프로젝트 (빈 상태 UI 엣지 케이스)
- *  - AI 요약이 적용된 CVE
- *  - 여러 프로젝트에 동일 라이브러리 (공유 Library 행)
- *  - VCS 프로바이더 방식: GITHUB(기본)와 GITLAB(비기본 프로바이더)
- *  - 소프트 삭제된 프로젝트 (deletedAt != null) — 휴지통/복원 UI
- *  - ScanResult 생명주기 상태: PENDING / SCANNING / ANALYZING / COMPLETED / FAILED
- *  - ScanResult.submittedByUserId 설정 (Quick Import 스캔 규명)
- *  - ScanComponent 유예(Exceptions): legal-review / false-positive / wont-fix / temporary
- *    (무기한 + 만료일 있는 유예 포함)
+ * Edge-case coverage:
+ *  - Mixed severities per scan (CRITICAL/HIGH/MEDIUM/LOW/NONE)
+ *  - Libraries with CVEs across multiple severities
+ *  - Libraries with CVEs that have no fixVersion (NON_PATCHABLE)
+ *  - Libraries with no CVE ID and only a GHSA ID
+ *  - Legacy libraries with explanatory reasons
+ *  - Libraries without fetchedAt (not yet enriched)
+ *  - License states UNKNOWN (non-standard name), CAUTION, RESTRICTED, PERMITTED
+ *  - Components with reviewed=true and ignored=true
+ *  - Components with full DependencyPath trees (direct + two-hop transitive)
+ *  - Components without DependencyPath entries (legacy scan)
+ *  - ScanResults in FAILED state with an error message
+ *  - ScanResults in PENDING state (scan in progress)
+ *  - Eight scan-history points per project for rich Risk Trend charts
+ *  - Version Diff changes across scans: added/removed/updated/new-threat
+ *  - GitHub-connected projects vs CLI-only projects
+ *  - Projects with no scans (empty-state UI edge case)
+ *  - CVEs with AI summaries applied
+ *  - The same library across multiple projects (shared Library row)
+ *  - VCS provider modes: GITHUB (default) and GITLAB (non-default provider)
+ *  - Soft-deleted projects (deletedAt != null) — trash/restore UI
+ *  - ScanResult lifecycle states: PENDING / SCANNING / ANALYZING / COMPLETED / FAILED
+ *  - ScanResult.submittedByUserId set (identify Quick Import scans)
+ *  - ScanComponent deferrals (exceptions): legal-review / false-positive / wont-fix / temporary
+ *    (including indefinite and expiring deferrals)
  */
 @Controller
 @RequestMapping("/data")
@@ -83,8 +83,8 @@ public class TestDataController {
     }
 
     /**
-     * 첫 번째로 사용 가능한 프로젝트에 새 API 키를 발급한다. local 프로파일 전용.
-     * 로컈 CLI QA 편의를 위해 본문에 평문 토큰을 반환한다.
+     * Issues a new API key for the first available project. Local profile only.
+     * Returns the plain-text token in the response body for local CLI QA convenience.
      *  GET /data/test-api-key
      */
     @GetMapping("/test-api-key")
@@ -108,10 +108,10 @@ public class TestDataController {
     public String insertTestData() {
 
         // ================================
-        // 0.  정리 — 이 엔드포인트가 멱등성을 갖도록 모든 기존 데이터 삭제
+        // 0. Cleanup — delete all existing data so this endpoint is idempotent
         // ================================
-        // Project에 cascade ALL — ProjectVersion, ScanResult — ScanComponent — DependencyPath
-        // Library에 cascade ALL — Cve
+        // Project cascades ALL — ProjectVersion, ScanResult — ScanComponent — DependencyPath
+        // Library cascades ALL — Cve
         List<Project> existingProjects = projectRepository.findAll();
         projectRepository.deleteAll(existingProjects);
         projectRepository.flush();
@@ -121,10 +121,10 @@ public class TestDataController {
         libraryRepository.flush();
 
         // ================================
-        // 1.  프로젝트
+        // 1. Projects
         // ================================
 
-        // projectA — Java/Maven, GitHub, 스캔 히스토리 8점
+        // projectA — Java/Maven, GitHub, 8 scan-history points
         Project projectA = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("backend-api")
@@ -137,7 +137,7 @@ public class TestDataController {
                 .lastScannedAt(LocalDateTime.now().minusHours(1))
                 .build());
 
-        // projectB — TypeScript/NPM, GitHub, 다중 브랜치
+        // projectB — TypeScript/NPM, GitHub, multiple branches
         Project projectB = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("frontend-dashboard")
@@ -150,7 +150,7 @@ public class TestDataController {
                 .lastScannedAt(LocalDateTime.now().minusDays(1))
                 .build());
 
-        // projectC — Python, CLI 전용, 중간 수준 히스토리
+        // projectC — Python, CLI-only, medium-depth history
         Project projectC = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("ml-pipeline")
@@ -158,13 +158,13 @@ public class TestDataController {
                 .lastScannedAt(LocalDateTime.now().minusDays(3))
                 .build());
 
-        // projectD — 스캔 없음 (빈 상태 엣지 케이스)
+        // projectD — no scans (empty-state edge case)
         projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("new-service")
                 .build());
 
-        // projectE — GitLab 임포트 프로젝트 (비기본 VCS 프로바이더 엣지 케이스)
+        // projectE — GitLab-imported project (non-default VCS provider edge case)
         Project projectE = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("payment-gateway")
@@ -177,7 +177,7 @@ public class TestDataController {
                 .lastScannedAt(LocalDateTime.now().minusDays(2))
                 .build());
 
-        // projectF — 소프트 삭제(휴지통) 엣지 케이스 — 휴지통/복원 UI
+        // projectF — soft-delete (trash) edge case — trash/restore UI
         Project projectTrash = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("legacy-monolith")
@@ -192,7 +192,7 @@ public class TestDataController {
         projectRepository.save(projectTrash);
 
         // ================================
-        // 2.  프로젝트 버전
+        // 2. Project versions
         // ================================
 
         projectVersionRepository.save(ProjectVersion.builder()
@@ -208,38 +208,38 @@ public class TestDataController {
         projectVersionRepository.save(ProjectVersion.builder()
                 .project(projectC).branch("main").versionNumber(1).importSource(ImportSource.CLI).build());
 
-        // GitLab 프로젝트 — 단일 브랜치 임포트
+        // GitLab project — single-branch import
         projectVersionRepository.save(ProjectVersion.builder()
                 .project(projectE).branch("main").versionNumber(1).importSource(ImportSource.GIT).build());
 
-        // 휴지통 프로젝트 — 소프트 삭제 중에도 히스토리 남아둥
+        // Trash project — retain history even while soft-deleted
         projectVersionRepository.save(ProjectVersion.builder()
                 .project(projectTrash).branch("main").versionNumber(1).importSource(ImportSource.GIT).build());
 
         // ================================
-        // 3.  라이브러리  (MAVEN × 28 · NPM × 19 · PYPI × 18)
+        // 3. Libraries (MAVEN × 28 · NPM × 19 · PYPI × 18)
         // ================================
 
         // ── MAVEN ecosystem ─────────────────────────────────────────────
-        // 기존
+        // Existing
         Library log4j = lib("org.apache.logging.log4j:log4j-core", "2.16.0",
                 "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, "Deprecated: use log4j 2.17.1+", "2.17.1",
                 LocalDateTime.now().minusDays(1));
 
-        // CRITICAL x1 + HIGH x1 — 라이브러리당 다중 CVE
+        // CRITICAL x1 + HIGH x1 — multiple CVEs per library
         Library springWeb = lib("org.springframework:spring-web", "5.3.20",
                 "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "6.1.6",
                 LocalDateTime.now().minusDays(2));
 
-        // HIGH x1, 수정 없음 (NON_PATCHABLE 엣지 케이스)
+        // HIGH x1, no fix (NON_PATCHABLE edge case)
         Library springCore = lib("org.springframework:spring-core", "5.3.20",
                 "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "6.1.6",
                 LocalDateTime.now().minusDays(2));
 
-        // HIGH x1, fixVersion 있음 (PATCHABLE)
+        // HIGH x1, has fixVersion (PATCHABLE)
         Library jackson = lib("com.fasterxml.jackson.core:jackson-databind", "2.13.0",
                 "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.17.0",
@@ -251,49 +251,49 @@ public class TestDataController {
                 false, null, "1.11.0",
                 LocalDateTime.now().minusDays(3));
 
-        // CRITICAL, 수정 없음 (NON_PATCHABLE)
+        // CRITICAL, no fix (NON_PATCHABLE)
         Library snakeYaml = lib("org.yaml:snakeyaml", "1.30",
                 "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 false, null, "2.2",
                 LocalDateTime.now().minusDays(3));
 
-        // 라이선스 CAUTION + CVE 없음 (라이선스 전용 리스크)
+        // License CAUTION + no CVE (license-only risk)
         Library h2 = lib("com.h2database:h2", "2.1.214",
                 "MAVEN", "MPL-2.0", LicenseStatus.CAUTION,
                 false, null, "2.2.224",
                 LocalDateTime.now().minusDays(4));
 
-        // 라이선스 RESTRICTED
+        // License RESTRICTED
         Library gplLib = lib("net.sf.jsqlparser:jsqlparser", "4.6",
                 "MAVEN", "GPL-2.0-only", LicenseStatus.RESTRICTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(5));
 
-        // 라이선스 UNKNOWN — 비표준 이름
+        // License UNKNOWN — non-standard name
         Library internalLib = lib("com.internal:crypto-util", "1.0.0",
                 "MAVEN", "Internal-Proprietary-1.0", LicenseStatus.UNKNOWN,
                 true, null, null,
                 LocalDateTime.now().minusDays(1));
 
-        // 라이선스 UNKNOWN — 이름 없음 (완전히 알 수 없음)
+        // License UNKNOWN — no name (completely unknown)
         Library unknownLic = lib("com.legacy:old-codec", "0.3.2",
                 "MAVEN", null, LicenseStatus.UNKNOWN,
                 false, null, "1.0.0",
                 LocalDateTime.now().minusDays(8));
 
-        // NONE 심각도 (클린, 최신버전, 안전)
+        // NONE severity (clean, up to date, safe)
         Library guava = lib("com.google.guava:guava", "32.1.3-jre",
                 "MAVEN", "Apache-2.0", LicenseStatus.PERMITTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(1));
 
-        // 아직 엔리치먼트되지 않음 (fetchedAt = null)
+        // Not yet enriched (fetchedAt = null)
         Library notFetched = lib("org.example:not-enriched-yet", "1.0.0",
                 "MAVEN", null, LicenseStatus.UNKNOWN,
                 null, null, null,
                 null);
 
-        // CRITICAL — H2 RCE, 라이선스 CAUTION (이중 리스크)
+        // CRITICAL — H2 RCE, license CAUTION (double risk)
         Library h2Rce = lib("com.h2database:h2", "1.4.200",
                 "MAVEN", "MPL-2.0", LicenseStatus.CAUTION,
                 false, null, "2.2.224",
@@ -301,13 +301,13 @@ public class TestDataController {
 
         // ── NPM ecosystem ──────────────────────────────────────────────
 
-        // HIGH + 수정 없음 (NON_PATCHABLE)
+        // HIGH + no fix (NON_PATCHABLE)
         Library lodash = lib("lodash", "4.17.20",
                 "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "4.17.21",
                 LocalDateTime.now().minusDays(2));
 
-        // LOW 전용
+        // LOW only
         Library axios = lib("axios", "1.2.0",
                 "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "1.6.8",
@@ -319,19 +319,19 @@ public class TestDataController {
                 false, null, "2.30.1",
                 LocalDateTime.now().minusDays(3));
 
-        // 라이선스 CAUTION (NPM)
+        // License CAUTION (NPM)
         Library angularCore = lib("@angular/core", "15.0.0",
                 "NPM", "MIT", LicenseStatus.PERMITTED,
                 false, null, "17.3.0",
                 LocalDateTime.now().minusDays(2));
 
-        // CRITICAL (프로토타입 오염)
+        // CRITICAL (prototype pollution)
         Library qs = lib("qs", "6.5.2",
                 "NPM", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "6.11.0",
                 LocalDateTime.now().minusDays(2));
 
-        // 클린 + 최신버전
+        // Clean + latest version
         Library reactDom = lib("react-dom", "18.2.0",
                 "NPM", "MIT", LicenseStatus.PERMITTED,
                 true, null, null,
@@ -351,19 +351,19 @@ public class TestDataController {
                 false, null, "10.3.0",
                 LocalDateTime.now().minusDays(5));
 
-        // MEDIUM + CAUTION 라이선스
+        // MEDIUM + CAUTION license
         Library urllib3 = lib("urllib3", "1.26.5",
                 "PYPI", "MIT", LicenseStatus.PERMITTED,
                 false, null, "2.2.1",
                 LocalDateTime.now().minusDays(5));
 
-        // 클린
+        // Clean
         Library numpy = lib("numpy", "1.26.4",
                 "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 true, null, null,
                 LocalDateTime.now().minusDays(3));
 
-        // CRITICAL — 역직렬화
+        // CRITICAL — deserialization
         Library pyyaml = lib("PyYAML", "5.3.1",
                 "PYPI", "MIT", LicenseStatus.PERMITTED,
                 false, null, "6.0.1",
@@ -536,8 +536,8 @@ public class TestDataController {
                 "PYPI", "BSD-3-Clause", LicenseStatus.PERMITTED,
                 false, null, "5.3.6", LocalDateTime.now().minusDays(5));
 
-        // 모두 저장 ??????????????????????????????????????????????????
-        // 기존 MAVEN
+        // Save everything
+        // Existing MAVEN
         log4j             = libraryRepository.save(log4j);
         springWeb         = libraryRepository.save(springWeb);
         springCore        = libraryRepository.save(springCore);
@@ -551,7 +551,7 @@ public class TestDataController {
         guava             = libraryRepository.save(guava);
         notFetched        = libraryRepository.save(notFetched);
         h2Rce             = libraryRepository.save(h2Rce);
-        // 신규 MAVEN
+        // New MAVEN
         nettyHandler      = libraryRepository.save(nettyHandler);
         commonsCollections= libraryRepository.save(commonsCollections);
         commonsIo         = libraryRepository.save(commonsIo);
@@ -567,14 +567,14 @@ public class TestDataController {
         groovyAll         = libraryRepository.save(groovyAll);
         pdfbox            = libraryRepository.save(pdfbox);
         hsqldb            = libraryRepository.save(hsqldb);
-        // 기존 NPM
+        // Existing NPM
         lodash            = libraryRepository.save(lodash);
         axios             = libraryRepository.save(axios);
         momentJs          = libraryRepository.save(momentJs);
         angularCore       = libraryRepository.save(angularCore);
         qs                = libraryRepository.save(qs);
         reactDom          = libraryRepository.save(reactDom);
-        // 신규 NPM
+        // New NPM
         express           = libraryRepository.save(express);
         bodyParser        = libraryRepository.save(bodyParser);
         minimist          = libraryRepository.save(minimist);
@@ -588,13 +588,13 @@ public class TestDataController {
         passport          = libraryRepository.save(passport);
         webpack           = libraryRepository.save(webpack);
         socketIoParser    = libraryRepository.save(socketIoParser);
-        // 기존 PYPI
+        // Existing PYPI
         requests          = libraryRepository.save(requests);
         pillow            = libraryRepository.save(pillow);
         urllib3           = libraryRepository.save(urllib3);
         numpy             = libraryRepository.save(numpy);
         pyyaml            = libraryRepository.save(pyyaml);
-        // 신규 PYPI
+        // New PYPI
         django            = libraryRepository.save(django);
         flask             = libraryRepository.save(flask);
         jinja2            = libraryRepository.save(jinja2);
@@ -613,7 +613,7 @@ public class TestDataController {
         // 4.  CVEs
         // ================================
 
-        // log4j — CRITICAL CVE 2개 (다중 CVE 라이브러리)
+        // log4j — 2 CRITICAL CVEs (multi-CVE library)
         cve(log4j, "GHSA-jfh8-c2jp-hdp8", "CVE-2021-44228", RiskLevel.CRITICAL, 10.0,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
                 "Log4Shell: RCE via JNDI lookup",
@@ -627,7 +627,7 @@ public class TestDataController {
                 "The fix for CVE-2021-44228 was incomplete in certain non-default configurations allowing RCE or information leakage.",
                 "2.16.0", "CWE-917", null);
 
-        // springWeb — CRITICAL + HIGH 콤비
+        // springWeb — CRITICAL + HIGH combo
         cve(springWeb, "GHSA-45brp-9m3c-2q2c", "CVE-2022-22965", RiskLevel.CRITICAL, 9.8,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                 "Spring4Shell: RCE via Data Binding on JDK 9+",
@@ -641,14 +641,14 @@ public class TestDataController {
                 "Spring Framework contains a vulnerability which causes a Denial of Service (DoS) via SpEL (Spring Expression Language) expression.",
                 "5.3.17", "CWE-400", null);
 
-        // springCore — HIGH, 수정 없음 (NON_PATCHABLE 엣지)
+        // springCore — HIGH, no fix (NON_PATCHABLE edge case)
         cve(springCore, "GHSA-r4c4-5w5h-v4h9", "CVE-2023-20860", RiskLevel.HIGH, 7.4,
                 "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N",
                 "Spring Security Authorization Bypass",
                 "Spring Security when using MVC pattern matching, could be bypassed via a specially crafted request URI.",
                 null, "CWE-285", null);
 
-        // jackson — HIGH, 수정 있음
+        // jackson — HIGH, fix available
         cve(jackson, "GHSA-57j2-w4cx-9rqm", "CVE-2022-42003", RiskLevel.HIGH, 7.5,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
                 "Jackson Databind Resource Exhaustion",
@@ -675,7 +675,7 @@ public class TestDataController {
                 "Minor information exposure possible in some configurations.",
                 "1.10.0", null, null);
 
-        // snakeYaml — CRITICAL, fixVersion 없음
+        // snakeYaml — CRITICAL, no fixVersion
         cve(snakeYaml, "GHSA-3mc7-4q67-w48m", "CVE-2022-1471", RiskLevel.CRITICAL, 9.8,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                 "SnakeYaml Constructor Deserialization RCE",
@@ -683,21 +683,21 @@ public class TestDataController {
                 null, "CWE-502",
                 "No official patch available for this version series. Migrate to a safe constructor or replace with Jackson YAML.");
 
-        // h2Rce — CRITICAL + CAUTION 라이선스 이중 리스크
+        // h2Rce — CRITICAL + CAUTION license double risk
         cve(h2Rce, "GHSA-h376-j262-vhq6", "CVE-2022-23221", RiskLevel.CRITICAL, 9.8,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                 "H2 Console RCE via JDBC URL",
                 "H2 Console before 2.1.210 allows remote attackers to execute arbitrary code via a JDBC URL containing the INIT parameter.",
                 "2.1.210", "CWE-94", null);
 
-        // lodash — HIGH, 수정 없음
+        // lodash — HIGH, no fix
         cve(lodash, "GHSA-jf85-cpcp-j695", "CVE-2021-23337", RiskLevel.HIGH, 7.2,
                 "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
                 "Lodash Command Injection via template",
                 "Lodash versions prior to 4.17.21 are vulnerable to Command Injection via the template function.",
                 "4.17.21", null, null);
 
-        // axios — LOW 전용
+        // axios — LOW only
         cve(axios, "GHSA-42xw-2xvc-qx8m", "CVE-2023-45857", RiskLevel.LOW, 3.8,
                 "CVSS:3.1/AV:N/AC:H/PR:H/UI:R/S:U/C:L/I:L/A:N",
                 "Axios CSRF Token Exposure in Cross-Site Requests",
@@ -711,7 +711,7 @@ public class TestDataController {
                 "Moment.js vulnerable to path traversal when user-provided locale strings are passed to moment.locale().",
                 "2.29.2", "CWE-22", null);
 
-        // qs — CRITICAL (프로토타입 오염)
+        // qs — CRITICAL (prototype pollution)
         cve(qs, "GHSA-gqgv-6jq5-jjj9", "CVE-2022-24999", RiskLevel.CRITICAL, 9.8,
                 "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                 "qs Library Prototype Pollution",
@@ -1012,43 +1012,43 @@ public class TestDataController {
                 "5.2.2", "CWE-78", null);
 
         // ================================
-        // 5.  스캔 결과 — 프로젝트 A (8개 히스토리 포인트, 풍부한 Trend)
+        // 5. Scan results — project A (8 history points, rich trend)
         // ================================
 
-        // 가장 오래된: jackson 이슈만
+        // Oldest: only jackson issue
         ScanResult scanA1 = scan(projectA, "1.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(90));
-        // 취약점 증가 중
+        // Vulnerabilities increasing
         ScanResult scanA2 = scan(projectA, "1.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(70));
-        // log4shell 도입
+        // Introduce Log4Shell
         ScanResult scanA3 = scan(projectA, "2.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(50));
-        // 핸드픽 적용 — log4j + groovy 제거
+        // Apply hotfix — remove log4j + groovy
         ScanResult scanA4 = scan(projectA, "2.0.1-hotfix", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(40));
-        // Spring4Shell + 새 인프라 라이브러리
+        // Spring4Shell + new infrastructure libraries
         ScanResult scanA5 = scan(projectA, "2.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(25));
-        // 대규모 보안 정리
+        // Large security cleanup
         ScanResult scanA6 = scan(projectA, "3.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(14));
-        // 소규모 회귀 (groovy 재유입)
+        // Small regression (groovy reintroduced)
         ScanResult scanA7 = scan(projectA, "3.1.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(7));
-        // 현재 — 정리
+        // Current — cleaned up
         ScanResult scanA8 = scan(projectA, "3.2.0", ScanStatus.COMPLETED, LocalDateTime.now().minusHours(1));
-        // 스캔 실패 (오류 상태 엣지 케이스)
+        // Scan failure (error-state edge case)
         ScanResult scanAFail = scan(projectA, "3.2.0-rc1", ScanStatus.FAILED, LocalDateTime.now().minusDays(2));
-        scanAFail.fail("deps.dev API 30초 후 타임아웃 — 재시도 가능한 오류");
-        // 대기 중 스캔 (진행 중 배너 엣지 케이스)
+        scanAFail.fail("deps.dev API timed out after 30 seconds — retryable error");
+        // Pending scan (in-progress banner edge case)
         scan(projectA, "3.3.0-SNAPSHOT", ScanStatus.PENDING, LocalDateTime.now().minusMinutes(5));
-        // SCANNING — 패키지 목록 저장됨, 취약점 분석 대기 중 (엣지 케이스)
+        // SCANNING — package list saved, waiting for vulnerability analysis (edge case)
         scan(projectA, "3.3.0-rc1", ScanStatus.SCANNING, LocalDateTime.now().minusMinutes(3));
-        // ANALYZING — deps.dev + OSV에서 CVE/라이선스 데이터 가져오는 중 (엣지 케이스)
+        // ANALYZING — fetching CVE/license data from deps.dev + OSV (edge case)
         scan(projectA, "3.3.0-rc2", ScanStatus.ANALYZING, LocalDateTime.now().minusMinutes(1));
 
         // ================================
-        // 6.  스캔 결과 — 프로젝트 B & C
+        // 6. Scan results — projects B & C
         // ================================
 
         ScanResult scanB1 = scan(projectB, "1.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(60));
         ScanResult scanB2 = scan(projectB, "1.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(30));
         ScanResult scanB3 = scan(projectB, "2.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(14));
-        // 최신 projectB 스캔이 Quick Import 사용자에게 연결됨 (submittedByUserId 엣지 케이스)
+        // Latest projectB scan linked to Quick Import user (submittedByUserId edge case)
         ScanResult scanB4 = scanByUser(projectB, "2.1.0", ScanStatus.COMPLETED,
                 LocalDateTime.now().minusDays(1), 1L);
 
@@ -1057,28 +1057,28 @@ public class TestDataController {
         ScanResult scanC3 = scan(projectC, "0.7.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(15));
         ScanResult scanC4 = scan(projectC, "0.8.3", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(3));
 
-        // GitLab 프로젝트 — 단일 완료 스캔 (VCS 프로바이더 변형에 대한 정상성 체크)
+        // GitLab project — single completed scan (sanity check for VCS provider variation)
         ScanResult scanE1 = scanByUser(projectE, "1.4.2", ScanStatus.COMPLETED,
                 LocalDateTime.now().minusDays(2), 1L);
 
-        // 휴지통 프로젝트 — 소프트 삭제된 레코드에 히스토리컴 스캔 보존
+        // Trash project — preserve historical scans on soft-deleted records
         ScanResult scanTrash1 = scan(projectTrash, "0.9.0", ScanStatus.COMPLETED,
                 LocalDateTime.now().minusDays(60));
 
         // ================================
-        // 7.  스캔 컴포넌트 — 프로젝트 A  (MAVEN / backend-api)
-        //     Risk Trend 목표:
-        //       v1.0.0: 0C  3H  4M 1L  (베이스라인, 클린)
-        //       v1.5.0: 3C  3H  5M 2L  (불량 의존성 도입)
-        //       v2.0.0: 9C  5H  5M 2L  (Log4Shell 급증 — 정점)
-        //       v2.0.1: 5C  5H  5M 2L  (핫픽스, 부분 개선)
-        //       v2.5.0: 7C  7H  6M 2L  (신규 기능, Spring4Shell)
-        //       v3.0.0: 2C  5H  4M 1L  (대규모 정리)
-        //       v3.1.0: 3C  6H  4M 1L  (소규모 회귀)
-        //       v3.2.0: 2C  4H  3M 1L  (현재 상태)
+        // 7. Scan components — project A (MAVEN / backend-api)
+        //     Risk Trend target:
+        //       v1.0.0: 0C  3H  4M 1L  (baseline, clean)
+        //       v1.5.0: 3C  3H  5M 2L  (bad dependencies introduced)
+        //       v2.0.0: 9C  5H  5M 2L  (Log4Shell spike — peak)
+        //       v2.0.1: 5C  5H  5M 2L  (hotfix, partial improvement)
+        //       v2.5.0: 7C  7H  6M 2L  (new feature, Spring4Shell)
+        //       v3.0.0: 2C  5H  4M 1L  (large cleanup)
+        //       v3.1.0: 3C  6H  4M 1L  (small regression)
+        //       v3.2.0: 2C  4H  3M 1L  (current state)
         // ================================
 
-        // scanA1 —11개 라이브러리, 0C 3H 4M 1L
+        // scanA1 — 11 libraries, 0C 3H 4M 1L
         addComp(scanA1, jackson,          "Direct (1)",       false, false); // HIGH
         addComp(scanA1, hibernate,        "Direct (1)",       false, false); // MED + CAUTION lic
         addComp(scanA1, okhttp,           "Direct (1)",       false, false); // MED
@@ -1091,7 +1091,7 @@ public class TestDataController {
         addComp(scanA1, unknownLic,       "Transitive (1)",   false, false); // UNKNOWN lic
         addComp(scanA1, gplLib,           "Direct (1)",       false, false); // RESTRICTED lic
 
-        // scanA2 —15개 라이브러리, 3C 3H 5M 2L
+        // scanA2 — 15 libraries, 3C 3H 5M 2L
         addComp(scanA2, jackson,          "Direct (1)",       false, false);
         addComp(scanA2, hibernate,        "Direct (1)",       false, false);
         addComp(scanA2, okhttp,           "Direct (1)",       false, false);
@@ -1108,7 +1108,7 @@ public class TestDataController {
         addComp(scanA2, commonsCollections, "Transitive (2)", false, false); // +CRIT
         addComp(scanA2, poiOoxml,         "Direct (1)",       false, false); // +MED
 
-        // scanA3 —22개 라이브러리, 9C 5H 5M 2L  [정점]
+        // scanA3 — 22 libraries, 9C 5H 5M 2L [peak]
         addComp(scanA3, jackson,          "Direct (1)",       false, false);
         addComp(scanA3, hibernate,        "Direct (1)",       false, false);
         addComp(scanA3, okhttp,           "Direct (1)",       false, false);
@@ -1132,8 +1132,8 @@ public class TestDataController {
         addComp(scanA3, h2Rce,            "Direct (1)",       false, false); // +CRIT
         addComp(scanA3, tomcatEmbed,      "Direct (1)",       false, false); // +HIGH
 
-        // scanA4 —20개 라이브러리, 5C 5H 5M 2L  (핫픽스)
-        // 제거: log4j(2C), groovyAll(1C)
+        // scanA4 — 20 libraries, 5C 5H 5M 2L (hotfix)
+        // Removed: log4j (2C), groovyAll (1C)
         addComp(scanA4, jackson,          "Direct (1)",       false, false);
         addComp(scanA4, hibernate,        "Direct (1)",       false, false);
         addComp(scanA4, okhttp,           "Direct (1)",       false, false);
@@ -1155,8 +1155,8 @@ public class TestDataController {
         addComp(scanA4, h2Rce,            "Direct (1)",       false, false);
         addComp(scanA4, tomcatEmbed,      "Direct (1)",       false, false);
 
-        // scanA5 —24개 라이브러리, 7C 7H 6M 2L  (신규 기능)
-        // 추가: hsqldb(1C), springSecCore(1H), nettyHandler(1H), notFetched
+        // scanA5 — 24 libraries, 7C 7H 6M 2L (new feature)
+        // Added: hsqldb (1C), springSecCore (1H), nettyHandler (1H), notFetched
         addComp(scanA5, jackson,          "Direct (1)",       false, false);
         addComp(scanA5, hibernate,        "Direct (1)",       false, false);
         addComp(scanA5, okhttp,           "Direct (1)",       false, false);
@@ -1182,9 +1182,9 @@ public class TestDataController {
         addComp(scanA5, nettyHandler,     "Transitive (3)",   false, false); // +HIGH
         addComp(scanA5, notFetched,       "Transitive (1)",   false, false); // not enriched
 
-        // scanA6 —19개 라이브러리, 2C 5H 4M 1L  [대규모 정리]
-        // 제거: snakeYaml, commonsCollections, xstream, h2Rce, gplLib, notFetched, hsqldb, woodstox, tomcatEmbed
-        // 추가: internalLib, h2
+        // scanA6 — 19 libraries, 2C 5H 4M 1L [large cleanup]
+        // Removed: snakeYaml, commonsCollections, xstream, h2Rce, gplLib, notFetched, hsqldb, woodstox, tomcatEmbed
+        // Added: internalLib, h2
         addComp(scanA6, jackson,          "Direct (1)",       true,  false); // reviewed=true
         addComp(scanA6, hibernate,        "Direct (1)",       false, false);
         addComp(scanA6, okhttp,           "Direct (1)",       false, false);
@@ -1203,8 +1203,8 @@ public class TestDataController {
         addComp(scanA6, internalLib,      "Direct (1)",       false, false); // UNKNOWN lic
         addComp(scanA6, h2,              "Direct (1)",       false, false); // CAUTION lic
 
-        // scanA7 —21개 라이브러리, 3C 6H 4M 1L  [소규모 회귀]
-        // 추가: groovyAll 재유입, commonsCollections 재도입
+        // scanA7 — 21 libraries, 3C 6H 4M 1L [small regression]
+        // Added: groovyAll reintroduced, commonsCollections brought back
         addComp(scanA7, jackson,          "Direct (1)",       true,  false);
         addComp(scanA7, hibernate,        "Direct (1)",       false, false);
         addComp(scanA7, okhttp,           "Direct (1)",       false, false);
@@ -1227,8 +1227,8 @@ public class TestDataController {
         addComp(scanA7, woodstox,         "Transitive (2)",   false, false); // +HIGH
         addComp(scanA7, notFetched,       "Transitive (1)",   false, false);
 
-        // scanA8 —19개 라이브러리, 2C 4H 3M 1L  [현재]
-        // 제거: groovyAll, commonsCollections, woodstox, notFetched
+        // scanA8 — 19 libraries, 2C 4H 3M 1L [current]
+        // Removed: groovyAll, commonsCollections, woodstox, notFetched
         ScanComponent scA8SpringWeb   = addComp(scanA8, springWeb,       "Direct (1)",       false, false);
         ScanComponent scA8SpringCore  = addComp(scanA8, springCore,      "Transitive (2)",   false, false);
         ScanComponent scA8Jackson     = addComp(scanA8, jackson,         "Direct (1)",       true,  false);
@@ -1279,15 +1279,15 @@ public class TestDataController {
                         node("com.h2database:h2", "2.1.214")));
 
         // ================================
-        // 8.  스캔 컴포넌트 — 프로젝트 B  (NPM / frontend-dashboard)
-        //     Risk Trend 목표:
-        //       v1.0.0:  0C  1H  3M 2L  (베이스라인)
-        //       v1.5.0:  1C  4H  4M 2L  (공격 라이브러리 추가)
-        //       v2.0.0:  3C  7H  5M 2L  (정점 — 빌드 도구 취약점)
-        //       v2.1.0:  1C  3H  4M 2L  (정리)
+        // 8. Scan components — project B (NPM / frontend-dashboard)
+        //     Risk Trend target:
+        //       v1.0.0:  0C  1H  3M 2L  (baseline)
+        //       v1.5.0:  1C  4H  4M 2L  (dangerous libraries added)
+        //       v2.0.0:  3C  7H  5M 2L  (peak — build-tool vulnerabilities)
+        //       v2.1.0:  1C  3H  4M 2L  (cleaned up)
         // ================================
 
-        // scanB1 —8개 라이브러리, 0C 1H 3M 2L
+        // scanB1 — 8 libraries, 0C 1H 3M 2L
         addComp(scanB1, lodash,        "Direct (1)",     false, false); // HIGH
         addComp(scanB1, axios,         "Direct (1)",     false, false); // LOW
         addComp(scanB1, reactDom,      "Direct (1)",     false, false); // NONE
@@ -1297,7 +1297,7 @@ public class TestDataController {
         addComp(scanB1, semver,        "Transitive (2)", false, false); // MED
         addComp(scanB1, nodeFetch,     "Transitive (2)", false, false); // MED
 
-        // scanB2 —14개 라이브러리, 1C 4H 4M 2L
+        // scanB2 — 14 libraries, 1C 4H 4M 2L
         addComp(scanB2, lodash,        "Direct (1)",     false, false);
         addComp(scanB2, axios,         "Direct (1)",     false, false);
         addComp(scanB2, reactDom,      "Direct (1)",     false, false);
@@ -1313,7 +1313,7 @@ public class TestDataController {
         addComp(scanB2, json5,         "Transitive (4)", false, false); // +HIGH
         addComp(scanB2, toughCookie,   "Transitive (3)", false, false); // +HIGH
 
-        // scanB3 —19개 라이브러리, 3C 7H 5M 2L  [정점]
+        // scanB3 — 19 libraries, 3C 7H 5M 2L [peak]
         addComp(scanB3, lodash,        "Direct (1)",     false, false);
         addComp(scanB3, axios,         "Direct (1)",     false, false);
         addComp(scanB3, reactDom,      "Direct (1)",     false, false);
@@ -1334,8 +1334,8 @@ public class TestDataController {
         addComp(scanB3, socketIoParser,"Transitive (2)", false, false); // +HIGH
         addComp(scanB3, passport,      "Direct (1)",     false, false); // MED
 
-        // scanB4 —15개 라이브러리, 1C 3H 4M 2L  [정리]
-        // 제거: babelTraverse, loaderUtils, ansiRegex, socketIoParser
+        // scanB4 — 15 libraries, 1C 3H 4M 2L [cleaned up]
+        // Removed: babelTraverse, loaderUtils, ansiRegex, socketIoParser
         ScanComponent scB4Lodash     = addComp(scanB4, lodash,      "Direct (1)",     true,  false); // reviewed
         ScanComponent scB4Axios      = addComp(scanB4, axios,       "Direct (1)",     false, false);
         ScanComponent scB4React      = addComp(scanB4, reactDom,    "Direct (1)",     false, false);
@@ -1385,15 +1385,15 @@ public class TestDataController {
                 List.of(node("frontend-dashboard", "2.1.0"), node("@angular/core", "15.0.0")));
 
         // ================================
-        // 9.  스캔 컴포넌트 — 프로젝트 C  (Python / CLI / ml-pipeline)
-        //     Risk Trend 목표:
-        //       v0.5.0:  1C  1H  1M 2L  (베이스라인)
-        //       v0.6.0:  1C  3H  3M 3L  (의존성 증가)
-        //       v0.7.0:  2C  7H  5M 3L  (정점 — 이미지 + 웹 라이브러리)
-        //       v0.8.3:  2C  4H  4M 3L  (부분 정리)
+        // 9. Scan components — project C (Python / CLI / ml-pipeline)
+        //     Risk Trend target:
+        //       v0.5.0:  1C  1H  1M 2L  (baseline)
+        //       v0.6.0:  1C  3H  3M 3L  (dependency growth)
+        //       v0.7.0:  2C  7H  5M 3L  (peak — image + web libraries)
+        //       v0.8.3:  2C  4H  4M 3L  (partial cleanup)
         // ================================
 
-        // scanC1 —7개 라이브러리, 1C 1H 1M 2L
+        // scanC1 — 7 libraries, 1C 1H 1M 2L
         addComp(scanC1, requests, "Direct (1)",   false, false); // HIGH
         addComp(scanC1, numpy,    "Direct (1)",   false, false); // NONE
         addComp(scanC1, pyyaml,   "Direct (1)",   false, false); // CRIT
@@ -1402,7 +1402,7 @@ public class TestDataController {
         addComp(scanC1, flask,    "Direct (1)",   false, false); // MED
         addComp(scanC1, httpx,    "Transitive (1)",false, false);// LOW
 
-        // scanC2 —11개 라이브러리, 1C 3H 3M 3L
+        // scanC2 — 11 libraries, 1C 3H 3M 3L
         addComp(scanC2, requests,     "Direct (1)",    false, false);
         addComp(scanC2, numpy,        "Direct (1)",    false, false);
         addComp(scanC2, pyyaml,       "Direct (1)",    false, false);
@@ -1415,7 +1415,7 @@ public class TestDataController {
         addComp(scanC2, cryptography, "Direct (1)",    false, false); // +HIGH
         addComp(scanC2, celery,       "Direct (1)",    false, false); // +MED
 
-        // scanC3 —17개 라이브러리, 2C 7H 5M 3L  [정점]
+        // scanC3 — 17 libraries, 2C 7H 5M 3L [peak]
         addComp(scanC3, requests,     "Direct (1)",    false, false);
         addComp(scanC3, numpy,        "Direct (1)",    false, false);
         addComp(scanC3, pyyaml,       "Direct (1)",    false, false);
@@ -1434,8 +1434,8 @@ public class TestDataController {
         addComp(scanC3, certifi,      "Transitive (1)",false, false); // +MED (CAUTION lic)
         addComp(scanC3, paramiko,     "Direct (1)",    false, false); // +MED (CAUTION lic)
 
-        // scanC4 —15개 라이브러리, 2C 4H 4M 3L  [부분 정리]
-        // 제거: jinja2, werkzeug, paramiko
+        // scanC4 — 15 libraries, 2C 4H 4M 3L [partial cleanup]
+        // Removed: jinja2, werkzeug, paramiko
         ScanComponent scC4Requests = addComp(scanC4, requests,     "Direct (1)",    true,  false);
         ScanComponent scC4Numpy    = addComp(scanC4, numpy,        "Direct (1)",    false, false);
         ScanComponent scC4Pyyaml   = addComp(scanC4, pyyaml,       "Direct (1)",    false, false);
@@ -1478,8 +1478,8 @@ public class TestDataController {
                 List.of(node("ml-pipeline", "0.8.3"), node("SQLAlchemy", "1.4.40")));
 
         // ================================
-        // 10. 스캔 컴포넌트 — 프로젝트 E  (GitLab / payment-gateway)
-        //     VCS 프로바이더 변형에 스캔이 보이도록 최소 커버리지.
+        // 10. Scan components — project E (GitLab / payment-gateway)
+        //     Minimal coverage so scans appear for VCS provider variation.
         // ================================
 
         addComp(scanE1, springWeb,     "Direct (1)",     false, false); // CRIT+HIGH
@@ -1490,8 +1490,8 @@ public class TestDataController {
         addComp(scanE1, h2,            "Direct (1)",     false, false); // CAUTION lic
 
         // ================================
-        // 11. 스캔 컴포넌트 — 프로젝트 TRASH  (소프트 삭제된 legacy-monolith)
-        //     휴지통에서 복원 시 UI에 실제 컴포넌트가 표시되도록 보존.
+        // 11. Scan components — project TRASH (soft-deleted legacy-monolith)
+        //     Preserve so real components appear in the UI when restored from trash.
         // ================================
 
         addComp(scanTrash1, log4j,     "Direct (1)",     false, false); // CRIT (Log4Shell)
@@ -1500,34 +1500,34 @@ public class TestDataController {
         addComp(scanTrash1, gplLib,    "Direct (1)",     false, false); // RESTRICTED lic
 
         // ================================
-        // 12. 유예(Exceptions) — 이유 코드별 엣지 케이스
+        // 12. Deferrals (exceptions) — edge cases by reason code
         // ================================
 
-        // legal-review - 무기한 (만료일 없음) — 현재 backend-api의 RESTRICTED 라이선스
+        // legal-review - indefinite (no expiration) — current backend-api RESTRICTED license
         deferComp(scanA8, gplLib, "legal-review", null,
-                "법무팀이 Q3 마이그레이션 완료 전까지 계속 사용을 승인함. JIRA SEC-4521 참고.");
+                "Legal approved continued use until the Q3 migration is complete. See JIRA SEC-4521.");
 
-        // false-positive - 무기한 — WAF 규칙으로 Spring4Shell 방어됨
+        // false-positive - indefinite — Spring4Shell mitigated by WAF rules
         deferComp(scanA8, springWeb, "false-positive", null,
-                "Spring4Shell 비취약: 앱이 JDK 8 및 Tomcat 8에서 실행됨 (CVE-2022-22965는 JDK 9+ 필요).");
+                "Not vulnerable to Spring4Shell: the app runs on JDK 8 and Tomcat 8 (CVE-2022-22965 requires JDK 9+).");
 
-        // temporary - 14일 후 만료 — h2 라이선스 단기 유예
+        // temporary - expires in 14 days — short-term h2 license deferral
         deferComp(scanA8, h2, "temporary", LocalDateTime.now().plusDays(14),
-                "임시 유예: H2는 로컬 개발/테스트 프로필에서만 사용되며 GA 전에 제거됨.");
+                "Temporary deferral: H2 is used only in local development/test profiles and will be removed before GA.");
 
-        // wont-fix - 이미 만료 — "만료된 유예" UI 상태 표시
+        // wont-fix - already expired — show the "expired deferral" UI state
         deferComp(scanB4, qs, "wont-fix", LocalDateTime.now().minusDays(3),
-                "업그레이드 비용이 내부 전용 관리 UI의 리스크보다 큼. 다음 분기에 재평가 예정.");
+                "Upgrade cost is greater than the risk for an internal-only admin UI. Re-evaluate next quarter.");
 
-        // other - 무기한 — ml-pipeline에 자유 텍스트 이유
+        // other - indefinite — free-text reason for ml-pipeline
         deferComp(scanC4, pillow, "other", null,
-                "보안팀 백로그 항목 ML-882를 통해 추적 중; 현재 TF 스택과 호환되는 패치 버전 없음.");
+                "Tracked through security backlog item ML-882; no patched version is currently compatible with the TF stack.");
 
         return "redirect:/projects";
     }
 
     // ================================
-    // 전용 헬퍼 메서드
+    // Dedicated helper methods
     // ================================
 
     private Library lib(String name, String version, String ecosystem,
@@ -1577,7 +1577,7 @@ public class TestDataController {
         return scanResultRepository.save(s);
     }
 
-    /** 스캔을 사용자에게 귀속시키는 변형 (Quick Import / 향후 사용자 수준 CLI 인증). */
+    /** Variant that attributes the scan to a user (Quick Import / future user-level CLI auth). */
     private ScanResult scanByUser(Project project, String version, ScanStatus status,
                                   LocalDateTime scannedAt, Long submittedByUserId) {
         ScanResult s = ScanResult.builder()
@@ -1616,8 +1616,8 @@ public class TestDataController {
     }
 
     /**
-     * {@code scan} 내의 {@code library} ScanComponent에 유예 예외를 적용한다.
-     * 컴포넌트는 {@link #addComp}를 통해 이미 생성되어 있어야 한다.
+     * Applies a deferral exception to the {@code library} ScanComponent within {@code scan}.
+     * The component must already have been created through {@link #addComp}.
      */
     private void deferComp(ScanResult scan, Library library, String reason,
                            LocalDateTime expiresAt, String note) {

@@ -44,7 +44,7 @@ public class SetupController {
         if (userRepository.existsByIsSystemAdminTrue()) return "redirect:/login";
 
         if (!request.getPassword().equals(request.getPasswordConfirm())) {
-            bindingResult.rejectValue("passwordConfirm", "mismatch", "비밀번호가 일치하지 않습니다.");
+            bindingResult.rejectValue("passwordConfirm", "mismatch", "Passwords do not match.");
         }
         if (bindingResult.hasErrors()) {
             return "auth/setup";

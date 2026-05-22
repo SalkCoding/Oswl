@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * 로그아웃 성공 시 감사 로그를 기록하고 /login?logout 으로 리다이렉트한다.
- * SecurityConfig 의 .logoutSuccessHandler() 에 주입된다.
+ * Records an audit log on successful logout and redirects to /login?logout.
+ * Injected into SecurityConfig via .logoutSuccessHandler().
  */
 @Component
 @RequiredArgsConstructor
