@@ -25,7 +25,7 @@ public class SecuritySettingService {
     private final SecuritySettingRepository repository;
     private final EncryptionService encryptionService;
 
-    // ── 읽기 ─────────────────────────────────────────────────────────────
+    // ── Read ────────────────────────────────────────────────────────────
 
     @Transactional
     public SecuritySetting getOrCreate() {
@@ -34,7 +34,7 @@ public class SecuritySettingService {
                         SecuritySetting.builder().id(SETTINGS_ID).build()));
     }
 
-    // ── 쓰기 ────────────────────────────────────────────────────────────
+    // ── Write ───────────────────────────────────────────────────────────
 
     @Transactional
     public SecuritySetting update(SecuritySettingUpdateRequest req) {
@@ -52,7 +52,7 @@ public class SecuritySettingService {
             if (m.getUsername() != null)      s.setMailUsername(m.getUsername());
             if (m.getSenderName() != null)    s.setMailSenderName(m.getSenderName());
             if (m.getSenderAddress() != null) s.setMailSenderAddress(m.getSenderAddress());
-            // 저장 전에 새 비밀번호를 암호화; 비어 있으면 기존 비밀번호 유지
+            // Encrypt the new password before saving; keep the existing password if blank
             if (m.getPassword() != null && !m.getPassword().isBlank()) {
                 s.setMailPassword(encryptionService.encrypt(m.getPassword()));
             }
@@ -65,11 +65,11 @@ public class SecuritySettingService {
         return repository.save(s);
     }
 
-    // ── 메일 연결 테스트 ──────────────────────────────────────────────
+    // ── Mail connection test ───────────────────────────────────────────
 
     /**
-     * 제공된 파라미터를 사용하여 SMTP 세션을 여는 것을 시도한다.
-     * 연결에 실패하면 {@link MessagingException}을 던진다.
+     * Attempts to open an SMTP session using the provided parameters.
+     * Throws {@link MessagingException} if the connection fails.
      */
     public void testMailConnection(MailTestRequest req) throws MessagingException {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
@@ -94,14 +94,14 @@ public class SecuritySettingService {
             props.put("mail.smtp.auth",               "true");
             props.put("mail.smtp.ssl.enable",         "true");
         } else {
-            // NONE — 인증 없는 릴레이 허용
+            // NONE — allow unauthenticated relay
             props.put("mail.smtp.auth", req.getUsername() != null && !req.getUsername().isBlank() ? "true" : "false");
         }
 
         sender.testConnection();
     }
 
-    // ── 응답 매핑 ──────────────────────────────────────────────────
+    // ── Response mapping ─────────────────────────────────────────────
 
     public SecuritySettingResponse toResponse(SecuritySetting s) {
         return SecuritySettingResponse.builder()

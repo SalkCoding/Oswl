@@ -3,8 +3,8 @@ package com.salkcoding.oswl.auth.dto;
 import lombok.Data;
 
 /**
- * POST /api/settings/security/mail/test 요청 본문.
- * UI mailForm 필드를 미러링한다.
+ * POST /api/settings/security/mail/test request body.
+ * Mirrors the UI mailForm fields.
  */
 @Data
 public class MailTestRequest {

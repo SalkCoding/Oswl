@@ -87,7 +87,7 @@ public class ComponentDetailService {
         model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
         model.addAttribute("ecosystem", lib.getEcosystem());
 
-        // 전체 의존성 경로 트리 (이 기능 도입 이전 스캔은 비어 있을 수 있음)
+        // Full dependency path tree (may be empty for scans created before this feature was introduced)
         List<DependencyPathDto> pathDtos = buildPathDtos(
                 dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(sc.getId()),
                 project.getName());
@@ -96,7 +96,7 @@ public class ComponentDetailService {
         model.addAttribute("licenseName",
                 lib.getLicenseName() != null ? lib.getLicenseName() : null);
         model.addAttribute("licenseRisk", lib.getLicenseStatus().name());
-        // UNKNOWN 상태: 비표준(이름 있음) vs 완전 미상(이름 없음) 구분
+        // UNKNOWN state: distinguish non-standard (name present) vs fully unknown (no name)
         boolean licenseIsNonStandard = lib.getLicenseStatus() == LicenseStatus.UNKNOWN
                 && lib.getLicenseName() != null && !lib.getLicenseName().isBlank();
         model.addAttribute("licenseIsNonStandard", licenseIsNonStandard);
@@ -113,7 +113,7 @@ public class ComponentDetailService {
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
-        // VCS / PR 생성 컨텍스트
+        // VCS / PR creation context
         VcsProvider vcsProvider = project.getVcsProvider();
         boolean canCreatePr = project.getGithubRepo() != null && (
                 vcsProvider == VcsProvider.GITHUB ||
@@ -173,7 +173,7 @@ public class ComponentDetailService {
                     DependencyPath.PathNode n = rawNodes.get(i);
                     boolean isRoot   = (i == 0);
                     boolean isTarget = (i == rawNodes.size() - 1);
-                    // 루트 노드의 경우 더 나은 표시를 위해 프로젝트 이름 사용
+                    // For the root node, use the project name for a better display label
                     String displayName = isRoot && (n.getName() == null || n.getName().isBlank())
                             ? rootProjectName : n.getName();
                     return DependencyPathDto.PathNodeDto.builder()
@@ -196,9 +196,9 @@ public class ComponentDetailService {
     }
 
     /**
-     * ':' 또는 '/' 뒤의 마지막 부분을 반환한다. 없으면 전체 문자열 반환.
-     * 예: "org.springframework:spring-web" → "spring-web",
-     *     "github.com/user/repo" → "repo", "lodash" → "lodash"
+     * Returns the last part after ':' or '/'. Returns the full string if neither exists.
+     * Example: "org.springframework:spring-web" → "spring-web",
+     *          "github.com/user/repo" → "repo", "lodash" → "lodash"
      */
     private String deriveShortName(String name) {
         if (name == null || name.isBlank()) return "-";
@@ -210,8 +210,8 @@ public class ComponentDetailService {
     }
 
     /**
-     * 주어진 ScanComponent(및 scope = "all-projects"인 경우 동일 Library를 참조하는
-     * 모든 ScanComponent)에 유예 예외를 적용한다.
+     * Applies a deferral exception to the given ScanComponent (and, when scope = "all-projects",
+     * to every ScanComponent referencing the same Library).
      */
     @Transactional
     public void defer(Long projectId, Long componentId, DeferralRequest req) {
@@ -232,7 +232,7 @@ public class ComponentDetailService {
                 + (note != null && !note.isBlank() ? ", note=" + note.substring(0, Math.min(100, note.length())) : "");
 
         if ("all-projects".equals(req.getScope())) {
-            // 동일 라이브러리를 참조하는 모든 ScanComponent에 적용
+            // Apply to every ScanComponent referencing the same library
             List<ScanComponent> allForLib = scanComponentRepository
                     .findAllByScanResultStatusAndLibraryId(sc.getLibrary().getId());
             for (ScanComponent other : allForLib) {
@@ -273,15 +273,15 @@ public class ComponentDetailService {
     }
 
     /**
-     * 라이브러리 버전을 업그레이드하는 VCS PR/MR을 생성한다.
-     * GitHub, GitLab(MR), Bitbucket을 지원한다.
+     * Creates a VCS PR/MR that upgrades the library version.
+     * Supports GitHub, GitLab (MR), and Bitbucket.
      *
-     * @param projectId   스캔 컴포넌트를 소유한 프로젝트
+     * @param projectId   Project that owns the scanned component
      * @param componentId ScanComponent id
-     * @param req         PR 요청 페이로드 (targetBranch, reviewers, prDescription)
-     * @param userId      인증된 사용자 ID (DB에서 GitLab/Bitbucket 토큰 조회용)
-     * @param githubToken 세션에서 복호화된 GitHub PAT (GitHub 프로젝트가 아닌 경우 null)
-     * @return "prUrl"(String)과 "prNumber"(int)이 담긴 map
+     * @param req         PR request payload (targetBranch, reviewers, prDescription)
+     * @param userId      Authenticated user ID (used to look up GitLab/Bitbucket tokens in the DB)
+     * @param githubToken GitHub PAT decrypted from the session (null for non-GitHub projects)
+     * @return map containing "prUrl" (String) and "prNumber" (int)
      */
     @Transactional(readOnly = true)
     public Map<String, Object> createPullRequest(Long projectId, Long componentId,
@@ -295,12 +295,12 @@ public class ComponentDetailService {
 
         VcsProvider provider = project.getVcsProvider();
         if (provider == null) {
-            throw new IllegalStateException("이 프로젝트는 VCS 저장소와 연결되어 있지 않습니다. (CLI import는 PR 생성을 지원하지 않습니다)");
+            throw new IllegalStateException("This project is not connected to a VCS repository. (CLI imports do not support PR creation.)");
         }
 
         String repoPath = project.getGithubRepo();
         if (repoPath == null || !repoPath.contains("/")) {
-            throw new IllegalStateException("이 프로젝트에는 연결된 VCS 저장소가 없습니다.");
+            throw new IllegalStateException("This project does not have a connected VCS repository.");
         }
 
         Library lib    = sc.getLibrary();
@@ -317,7 +317,7 @@ public class ComponentDetailService {
         Map<String, Object> result = switch (provider) {
             case GITHUB -> {
                 if (githubToken == null) {
-                    throw new IllegalStateException("GitHub 계정이 연결되어 있지 않습니다. 설정 페이지에서 연결해 주세요.");
+                    throw new IllegalStateException("No GitHub account is connected. Please connect one from the Settings page.");
                 }
                 String[] parts = repoPath.split("/", 2);
                 yield gitHubService.createVersionBumpPr(
@@ -327,7 +327,7 @@ public class ComponentDetailService {
                 UserVcsConnection conn = vcsConnectionRepository
                         .findByUserIdAndProviderAndActiveTrue(userId, VcsProvider.GITLAB)
                         .orElseThrow(() -> new IllegalStateException(
-                                "GitLab 연결이 없습니다. 설정 페이지에서 GitLab 토큰을 연결해 주세요."));
+                                "No GitLab connection found. Please connect a GitLab token on the Settings page."));
                 String token     = encryptionService.decrypt(conn.getAccessTokenEncrypted());
                 String serverUrl = conn.getServerUrl();
                 yield gitLabService.createVersionBumpMr(
@@ -337,7 +337,7 @@ public class ComponentDetailService {
                 UserVcsConnection conn = vcsConnectionRepository
                         .findByUserIdAndProviderAndActiveTrue(userId, VcsProvider.BITBUCKET)
                         .orElseThrow(() -> new IllegalStateException(
-                                "Bitbucket 연결이 없습니다. 설정 페이지에서 Bitbucket 토큰을 연결해 주세요."));
+                                "No Bitbucket connection found. Please connect a Bitbucket token on the Settings page."));
                 String token     = encryptionService.decrypt(conn.getAccessTokenEncrypted());
                 String username  = conn.getVcsUsername();
                 String serverUrl = conn.getServerUrl();

@@ -4,29 +4,29 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * POST /projects/{projectId}/components/{componentId}/defer 페이로드
+ * POST /projects/{projectId}/components/{componentId}/defer payload
  */
 @Getter
 @NoArgsConstructor
 public class DeferralRequest {
 
-    /** 사유 코드: legal-review | false-positive | wont-fix | temporary | other */
+    /** Reason code: legal-review | false-positive | wont-fix | temporary | other */
     private String reason;
 
-    /** reason = "other"일 때의 자유 텍스트 */
+    /** Free-form text when reason = "other" */
     private String otherText;
 
     /**
-     * 만료 프리셋: 1-week | 1-month | 3-month | 6-month | custom | indefinite
+     * Expiry preset: 1-week | 1-month | 3-month | 6-month | custom | indefinite
      */
     private String expiry;
 
-    /** expiry = "custom"일 때 사용하는 ISO 날짜 문자열 (YYYY-MM-DD) */
+    /** ISO date string used when expiry = "custom" (YYYY-MM-DD) */
     private String customDate;
 
     /**
-     * 유예 범위: "project"(해당 scan component만) 또는
-     * "all-projects"(동일 Library를 참조하는 모든 ScanComponent 행).
+     * Deferral scope: "project" (this scan component only) or
+     * "all-projects" (all ScanComponent rows referencing the same Library).
      */
     private String scope;
 

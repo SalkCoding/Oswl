@@ -20,11 +20,11 @@ import java.util.Base64;
 import java.util.Properties;
 
 /**
- * 저장된 SecuritySetting에서 동적 JavaMailSender를 생성하고
- * 트랜잭션 이메일(OTP 코드, 알림)을 전송한다.
+ * Creates a dynamic JavaMailSender from the stored SecuritySetting and
+ * sends transactional emails (OTP codes, notifications).
  *
- * SecuritySetting에 저장된 메일 비밀번호는 AES-256-GCM으로 암호화되어 있으며;
- * 이 서비스는 사용 전에 복호화하며 외부에 노입하지 않는다.
+ * The mail password stored in SecuritySetting is encrypted with AES-256-GCM;
+ * this service decrypts it before use and does not expose it externally.
  */
 @Slf4j
 @Service
@@ -44,34 +44,34 @@ public class MailService {
         try {
             byte[] bytes = logoSvgResource.getInputStream().readAllBytes();
             logoDataUri = "data:image/svg+xml;base64," + Base64.getEncoder().encodeToString(bytes);
-            log.debug("[Mail] 로고 SVG 로드 완료 ({} bytes)", bytes.length);
+            log.debug("[Mail] Logo SVG loaded successfully ({} bytes)", bytes.length);
         } catch (Exception e) {
-            log.warn("[Mail] 로고 SVG 로드 실패 — 이메일 헤더에 로고가 표시되지 않습니다: {}", e.getMessage());
+            log.warn("[Mail] Failed to load logo SVG — the logo will not be shown in the email header: {}", e.getMessage());
         }
     }
 
-    // ── 공개 API ────────────────────────────────────────────────────────
+    // ── Public API ─────────────────────────────────────────────────────
 
     /**
-     * 주어진 주소로 6자리 OTP 이메일을 전송한다.
+     * Sends a 6-digit OTP email to the given address.
      *
-     * @param toAddress   수신자 이메일
-     * @param displayName 수신자 표시 이름 (인사말에 사용)
-     * @param otp         6자리 OTP 코드
-     * @throws RuntimeException 메일이 DISABLED이거나 SMTP 전송이 실패한 경우
+     * @param toAddress   Recipient email
+     * @param displayName Recipient display name (used in the greeting)
+     * @param otp         6-digit OTP code
+     * @throws RuntimeException if mail is DISABLED or SMTP sending fails
      */
     public void sendOtp(String toAddress, String displayName, String otp) {
         SecuritySetting settings = securitySettingService.getOrCreate();
 
         if (settings.getMailMode() == MailMode.DISABLED) {
-            log.warn("[Mail] SecuritySetting에서 메일 DISABLED — '{}'에 OTP 전송 안 됨. " +
-                     "Settings → Security에서 SMTP를 활성화하세요.", toAddress);
+            log.warn("[Mail] Mail is DISABLED in SecuritySetting — OTP not sent to '{}'. " +
+                     "Enable SMTP in Settings → Security.", toAddress);
             return;
         }
 
         if (settings.getMailHost() == null || settings.getMailHost().isBlank()) {
-            log.error("[Mail] SMTP 호스트 미설정 — '{}'에 OTP 전송 불가.", toAddress);
-            throw new IllegalStateException("SMTP 호스트가 설정되지 않았습니다. Settings → Security에서 설정하세요.");
+            log.error("[Mail] SMTP host is not configured — cannot send OTP to '{}'.", toAddress);
+            throw new IllegalStateException("SMTP host is not configured. Configure it in Settings → Security.");
         }
 
         JavaMailSenderImpl sender = buildSender(settings);
@@ -92,17 +92,17 @@ public class MailService {
             helper.setText(buildOtpHtml(displayName, otp, null), true);
 
             sender.send(message);
-            log.info("[Mail] '{}'에 OTP 전송 완료", toAddress);
+            log.info("[Mail] OTP sent to '{}'", toAddress);
         } catch (MessagingException e) {
-            log.error("[Mail] '{}'에 OTP 전송 실패: {}", toAddress, e.getMessage());
-            throw new RuntimeException("인증 이메일 전송 실패: " + e.getMessage(), e);
+            log.error("[Mail] Failed to send OTP to '{}': {}", toAddress, e.getMessage());
+            throw new RuntimeException("Failed to send authentication email: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("[Mail] '{}'에 OTP 전송 중 예상치 못한 오류: {}", toAddress, e.getMessage());
-            throw new RuntimeException("인증 이메일 전송 실패", e);
+            log.error("[Mail] Unexpected error while sending OTP to '{}': {}", toAddress, e.getMessage());
+            throw new RuntimeException("Failed to send authentication email", e);
         }
     }
 
-    // ── 비공개 헬퍼 ───────────────────────────────────────────────────
+    // ── Private helpers ───────────────────────────────────────────────
 
     private JavaMailSenderImpl buildSender(SecuritySetting s) {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
@@ -115,7 +115,7 @@ public class MailService {
             try {
                 sender.setPassword(encryptionService.decrypt(s.getMailPassword()));
             } catch (Exception e) {
-                log.warn("[Mail] 메일 비밀번호 복호화 실패; 평문텍스트로 시도합니다 (레거시 지원).");
+                log.warn("[Mail] Failed to decrypt mail password; trying plaintext instead (legacy support).");
                 sender.setPassword(s.getMailPassword());
             }
         }
@@ -152,7 +152,7 @@ public class MailService {
         return templateEngine.process("mail/otp", ctx);
     }
 
-    /** 로컬 개발용 — OTP 이메일 템플릿을 더미 데이터로 렌더링해 반환한다. */
+    /** For local development — renders and returns the OTP email template with dummy data. */
     public String buildOtpEmailPreview(String name, boolean withAi) {
         String ai = withAi
                 ? "This sign-in request originates from a device and location consistent with your previous sessions."

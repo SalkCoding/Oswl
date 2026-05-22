@@ -8,8 +8,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 /**
- * Spring @Async 지원을 활성화하고 가상 스레드 실행기를 제공한다.
- * 애플리케이션의 모든 @Async 메서드는 이 실행기를 사용한다.
+ * Enables Spring @Async support and provides a virtual-thread executor.
+ * All @Async methods in the application use this executor.
  */
 @Configuration
 @EnableAsync

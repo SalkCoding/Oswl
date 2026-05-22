@@ -16,10 +16,10 @@ import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
 
 /**
- * @Auditable 어노테이션이 붙은 메서드를 인터셉트해 AuditLogService.log()를 호출한다.
+ * Intercepts methods annotated with @Auditable and calls AuditLogService.log().
  *
- * 메서드가 예외를 던지면 감사 로그를 남기지 않는다 (롤백된 작업은 기록하지 않음).
- * SpEL 평가 실패 시 WARN 로그만 남기고 비즈니스 흐름에는 영향을 주지 않는다.
+ * If the method throws an exception, no audit log is recorded (rolled-back work is not logged).
+ * If SpEL evaluation fails, only a WARN log is written and the business flow is not affected.
  */
 @Slf4j
 @Aspect
@@ -35,14 +35,14 @@ public class AuditAspect {
     @Around("@annotation(auditable)")
     public Object around(ProceedingJoinPoint pjp, Auditable auditable) throws Throwable {
         if (auditable.when() == Auditable.When.BEFORE) {
-            // BEFORE: SpEL 컨텍스트를 메서드 실행 전에 빌드 (삭제 등)
+            // BEFORE: build the SpEL context before method execution (for deletes, etc.)
             EvaluationContext ctx = buildContext(pjp, null);
             Object result = pjp.proceed();
             fire(auditable, ctx);
             return result;
         }
 
-        // AFTER (기본): 메서드가 정상 반환된 경우에만 로그
+        // AFTER (default): log only when the method returns successfully
         Object result = pjp.proceed();
         EvaluationContext ctx = buildContext(pjp, result);
         fire(auditable, ctx);
@@ -59,7 +59,7 @@ public class AuditAspect {
             String detail     = eval(a.detailExpr(), ctx);
             auditLogService.log(action, a.targetType(), targetId, targetName, detail);
         } catch (Exception e) {
-            log.warn("[AuditAspect] 감사 로그 기록 실패 action={} (비즈니스 흐름에 영향 없음): {}", a.action(), e.getMessage(), e);
+            log.warn("[AuditAspect] Failed to record audit log action={} (business flow unaffected): {}", a.action(), e.getMessage(), e);
         }
     }
 
@@ -69,7 +69,7 @@ public class AuditAspect {
 
         MethodSignature sig   = (MethodSignature) pjp.getSignature();
         String[]        names = sig.getParameterNames();
-        // -parameters 플래그 없는 환경을 위한 폴백
+        // Fallback for environments without the -parameters flag
         if (names == null || names.length == 0) {
             names = NAME_DISCOVERER.getParameterNames(sig.getMethod());
         }

@@ -3,22 +3,22 @@ package com.salkcoding.oswl.auth.dto;
 import lombok.Data;
 
 /**
- * PUT /api/settings/security 요청 본문.
+ * PUT /api/settings/security request body.
  *
- * {@code mailMode}/{@code mail}과 {@code twoFaMode}는 모두 선택 사항이며,
- * UI는 별도 저장 호출로 전송한다:
+ * Both {@code mailMode}/{@code mail} and {@code twoFaMode} are optional,
+ * and the UI sends them in separate save calls:
  *   • saveMail()  → { mailMode, mail: { ... } }
  *   • saveTwoFa() → { twoFaMode }
  */
 @Data
 public class SecuritySettingUpdateRequest {
 
-    /** MailMode 열거지 이름: DISABLED | SMTP */
+    /** MailMode enum name: DISABLED | SMTP */
     private String mailMode;
 
     private MailDto mail;
 
-    /** TwoFaMode 열거지 이름: DISABLED | EMAIL_OTP | TOTP */
+    /** TwoFaMode enum name: DISABLED | EMAIL_OTP | TOTP */
     private String twoFaMode;
 
     @Data
