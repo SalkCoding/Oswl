@@ -47,7 +47,7 @@ public class VcsConnectionService {
         vcsTokenValidator.validate(request.getProvider(), request.getServerUrl(),
                 request.getAccessToken(), request.getVcsUsername());
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
         repository.findByUserIdAndProviderAndActiveTrue(userId, request.getProvider())
                 .ifPresent(existing -> existing.setActive(false));
 
@@ -72,9 +72,9 @@ public class VcsConnectionService {
     @Transactional
     public void removeConnection(Long connectionId, Long requestingUserId) {
         UserVcsConnection conn = repository.findById(connectionId)
-                .orElseThrow(() -> new IllegalArgumentException("연결을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Connection not found."));
         if (!conn.getUser().getId().equals(requestingUserId)) {
-            throw new SecurityException("본인의 연결만 삭제할 수 있습니다.");
+            throw new SecurityException("You can only delete your own connections.");
         }
         conn.setActive(false);
         auditLogService.log("VCS.DISCONNECT", "VCS_CONNECTION", connectionId.toString(),

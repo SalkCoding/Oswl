@@ -15,8 +15,8 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * API 키 발급과 취소를 처리한다.
- * 발급된 키는 CLI가 스캔 결과를 서버에 전송할 때 인증 자격증명으로 사용한다.
+ * Handles API key issuance and revocation.
+ * Issued keys are used by the CLI as authentication credentials when sending scan results to the server.
  */
 @Slf4j
 @Service
@@ -24,17 +24,17 @@ import java.util.List;
 public class ApiKeyService {
 
     private static final String PREFIX = "oswl_";
-    private static final int TOKEN_BYTES = 32; // 256비트 엔트로피
+    private static final int TOKEN_BYTES = 32; // 256-bit entropy
 
     private final ApiKeyRepository apiKeyRepository;
     private final ProjectRepository projectRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    /** 새 API 키 발급 */
+    /** Issues a new API key. */
     @Transactional
     public ApiKey issue(Long projectId, String label, LocalDateTime expiresAt) {
         Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("프로젝트를 찾지 못함: " + projectId));
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
         String token = generateToken();
 
@@ -46,31 +46,31 @@ public class ApiKeyService {
                 .build();
 
         ApiKey saved = apiKeyRepository.save(apiKey);
-        log.info("[ApiKey] 발급 projectId={} label={} keyId={}", projectId, label, saved.getId());
+        log.info("[ApiKey] Issued projectId={} label={} keyId={}", projectId, label, saved.getId());
         return saved;
     }
 
-    /** 토큰 값으로 유효한 키를 조회한다 (인터셉터 사용) */
+    /** Looks up a valid key by token value (used by the interceptor). */
     @Transactional
     public ApiKey validateAndRecord(String rawToken) {
         ApiKey key = apiKeyRepository.findByToken(rawToken)
-                .orElseThrow(() -> new com.salkcoding.oswl.exception.UnauthorizedException("API 키가 유효하지 않습니다."));
+                .orElseThrow(() -> new com.salkcoding.oswl.exception.UnauthorizedException("API key is invalid."));
 
         if (!key.isValid()) {
-            throw new com.salkcoding.oswl.exception.UnauthorizedException("API 키가 취소되었거나 만료되었습니다.");
+            throw new com.salkcoding.oswl.exception.UnauthorizedException("API key has been revoked or expired.");
         }
 
         key.recordUsage();
         return key;
     }
 
-    /** 키 취소 */
+    /** Revokes a key. */
     @Transactional
     public void revoke(Long keyId, Long projectId) {
         ApiKey key = apiKeyRepository.findById(keyId)
-                .orElseThrow(() -> new IllegalArgumentException("ApiKey를 찾지 못함: " + keyId));
+                .orElseThrow(() -> new IllegalArgumentException("ApiKey not found: " + keyId));
         if (!key.getProject().getId().equals(projectId)) {
-            throw new IllegalArgumentException("키가 프로젝트 " + projectId + "에 속하지 않습니다.");
+            throw new IllegalArgumentException("Key does not belong to project " + projectId + ".");
         }
         key.revoke();
     }
@@ -80,17 +80,17 @@ public class ApiKeyService {
         return apiKeyRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
     }
 
-    /** 모든 프로젝트의 키 조회 (관리자 전용) */
+    /** Retrieves keys for all projects (admin only). */
     @Transactional(readOnly = true)
     public List<ApiKey> findAll() {
         return apiKeyRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    /** 키 활성화 상태 토글 (관리자 전용) */
+    /** Toggles key active state (admin only). */
     @Transactional
     public ApiKey toggleActive(Long keyId) {
         ApiKey key = apiKeyRepository.findWithProjectById(keyId)
-                .orElseThrow(() -> new IllegalArgumentException("ApiKey를 찾지 못함: " + keyId));
+                .orElseThrow(() -> new IllegalArgumentException("ApiKey not found: " + keyId));
         if (key.isActive()) {
             key.revoke();
         } else {
@@ -99,12 +99,12 @@ public class ApiKeyService {
         return key;
     }
 
-    // ── 내부 ─────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────
 
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);
-        // URL-safe Base64, 패딩 없음
+        // URL-safe Base64, without padding
         return PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

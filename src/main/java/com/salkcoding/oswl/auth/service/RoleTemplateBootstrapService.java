@@ -18,10 +18,10 @@ public class RoleTemplateBootstrapService {
 
     @Transactional
     public void ensureBuiltInTemplates() {
-        upsert("Admin", "모든 관리 권한",
+        upsert("Admin", "Full administrative permissions",
                 EnumSet.allOf(Permission.class));
 
-        upsert("Developer", "프로젝트 조회/제출 및 분석 화면 접근",
+        upsert("Developer", "Project viewing/submission and analysis screen access",
                 EnumSet.of(
                         Permission.PROJECT_VIEW,
                         Permission.PROJECT_CREATE,
@@ -38,7 +38,7 @@ public class RoleTemplateBootstrapService {
                         Permission.SETTINGS_CLI_KEY_MANAGE
                 ));
 
-        upsert("Viewer", "읽기 전용",
+        upsert("Viewer", "Read-only",
                 EnumSet.of(
                         Permission.PROJECT_VIEW,
                         Permission.SCAN_VIEW,

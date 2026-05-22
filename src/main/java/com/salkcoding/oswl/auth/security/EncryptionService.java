@@ -13,8 +13,8 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * VCS 토큰 등 민감한 비밀을 저장할 때 사용하는 AES-256-GCM 대칭 암호화.
- * 포맷: Base64( IV(12) || 암호문 )
+ * AES-256-GCM symmetric encryption used to store sensitive secrets such as VCS tokens.
+ * Format: Base64( IV(12) || ciphertext )
  */
 @Service
 public class EncryptionService {
@@ -33,13 +33,13 @@ public class EncryptionService {
     public void init() {
         if (encryptionKeyBase64 == null || encryptionKeyBase64.isBlank()) {
             throw new IllegalStateException(
-                "[OsWL] oswl.encryption.key가 설정되지 않았습니다. " +
-                "다음 명령으로 키를 생성하세요: openssl rand -base64 32 " +
-                "로여드에서는 application-local.yaml의 oswl.encryption.key에 안정적인 키를 설정하세요");
+                "[OsWL] oswl.encryption.key is not configured. " +
+                "Generate a key with: openssl rand -base64 32 " +
+                "For local development, set a stable key in application-local.yaml under oswl.encryption.key");
         }
         byte[] keyBytes = Base64.getDecoder().decode(encryptionKeyBase64);
         if (keyBytes.length != 32) {
-            throw new IllegalStateException("oswl.encryption.key는 정확히 32바이트(AES-256)로 디코딩되어야 합니다. 현재 값: " + keyBytes.length);
+            throw new IllegalStateException("oswl.encryption.key must decode to exactly 32 bytes (AES-256). Current length: " + keyBytes.length);
         }
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
     }
@@ -56,7 +56,7 @@ public class EncryptionService {
             System.arraycopy(ct, 0, out, iv.length, ct.length);
             return Base64.getEncoder().encodeToString(out);
         } catch (Exception e) {
-            throw new IllegalStateException("암호화 실패", e);
+            throw new IllegalStateException("Encryption failed", e);
         }
     }
 
@@ -71,7 +71,7 @@ public class EncryptionService {
             cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(TAG_LENGTH_BITS, iv));
             return new String(cipher.doFinal(ct), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new IllegalStateException("복호화 실패", e);
+            throw new IllegalStateException("Decryption failed", e);
         }
     }
 }

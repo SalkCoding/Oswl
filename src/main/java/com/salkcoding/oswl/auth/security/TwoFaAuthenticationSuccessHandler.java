@@ -19,14 +19,14 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * 성공한 폼 로그인을 가로체서 설정된 2FA 모드를 적용한다.
+ * Intercepts successful form login and applies the configured 2FA mode.
  *
- * TwoFaMode = EMAIL_OTP일 때:
- *   1. 신뢰하는 기기(HMAC 쿠키 유효)면 직접 인증 완료.
- *   2. 그 외: 세션에 포늘링 2FA 상태를 저장하고, SecurityContext를 지우고,
- *      /login/otp-verify로 리다이렉트한다.
+ * When TwoFaMode = EMAIL_OTP:
+ *   1. If the device is trusted (valid HMAC cookie), complete authentication directly.
+ *   2. Otherwise, store pending 2FA state in the session, clear the SecurityContext,
+ *      and redirect to /login/otp-verify.
  *
- * 그 외: /projects로 정상 리다이렉트한다.
+ * Otherwise, redirect normally to /projects.
  */
 @Slf4j
 @Component
@@ -47,10 +47,10 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
         if (settings.getTwoFaMode() == TwoFaMode.EMAIL_OTP) {
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
 
-            // 기기가 신뢰되면 OTP 생략
+            // Skip OTP when the device is trusted
             if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
                 String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
-                log.info("[Auth] 로그인 성공 user='{}' 신뢰 기기 우회 → {}", principal.getUsername(), dest);
+                log.info("[Auth] Login succeeded for user='{}' via trusted-device bypass → {}", principal.getUsername(), dest);
                 response.sendRedirect(request.getContextPath() + dest);
                 return;
             }
@@ -59,17 +59,17 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
             HttpSession session = request.getSession(true);
             otpService.storePendingAuth(session, principal);
 
-            // SecurityContext 제거 — 사용자가 아직 완전히 인증되지 않은 상태
+            // Clear the SecurityContext — the user is not yet fully authenticated
             SecurityContextHolder.clearContext();
             session.removeAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
 
-            log.info("[Auth] 로그인 성공 user='{}' → 2FA 채린지", principal.getUsername());
+            log.info("[Auth] Login succeeded for user='{}' → 2FA challenge", principal.getUsername());
             response.sendRedirect(request.getContextPath() + "/login/otp-verify");
         } else {
-            // 2FA 미설정 — 비밀번호 변경 필요 여부 확인
+            // 2FA not configured — check whether a password change is required
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
             String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
-            log.info("[Auth] 로그인 성공 user='{}' (2FA 미사용) → {}", principal.getUsername(), dest);
+            log.info("[Auth] Login succeeded for user='{}' (2FA disabled) → {}", principal.getUsername(), dest);
             response.sendRedirect(request.getContextPath() + dest);
         }
     }
