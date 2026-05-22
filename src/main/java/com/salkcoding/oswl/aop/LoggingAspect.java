@@ -40,7 +40,7 @@ public class LoggingAspect {
             return result;
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AOP] {}.{}() failed ({}ms) — {}: {}", 
+            log.error("[AOP] {}.{}() failed ({}ms) — {}: {}",
                     className, methodName, elapsed,
                     e.getClass().getSimpleName(), e.getMessage());
             throw e;

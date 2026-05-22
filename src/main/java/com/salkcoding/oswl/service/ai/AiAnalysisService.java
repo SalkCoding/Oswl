@@ -183,7 +183,7 @@ public class AiAnalysisService {
                 case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
             };
             boolean ok = result != null;
-            log.debug("[AI] testConnection result={} response='{}'", ok ? "OK" : "FAIL", 
+            log.debug("[AI] testConnection result={} response='{}'", ok ? "OK" : "FAIL",
                     result != null ? result.trim() : "null");
             return ok;
         } catch (Exception e) {
