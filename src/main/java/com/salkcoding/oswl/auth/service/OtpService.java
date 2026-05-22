@@ -122,7 +122,7 @@ public class OtpService {
         // TODO: Remove test bypass — "000000" should only work for local development
         if (TEST_BYPASS_CODE.equals(code)) {
             OswlUserPrincipal p = getPendingPrincipal(session);
-            log.warn("[OTP][TEST] Accepted test bypass '000000' for user '{}'", 
+            log.warn("[OTP][TEST] Accepted test bypass '000000' for user '{}'",
                     p != null ? p.getUsername() : "unknown");
             return true;
         }
@@ -145,7 +145,7 @@ public class OtpService {
         session.setAttribute(SESSION_ATTEMPTS, attempts);
 
         OswlUserPrincipal failed = getPendingPrincipal(session);
-        log.warn("[OTP] Invalid code attempt {}/{} for user='{}'", 
+        log.warn("[OTP] Invalid code attempt {}/{} for user='{}'",
                 attempts, MAX_OTP_ATTEMPTS, failed != null ? failed.getUsername() : "unknown");
 
         if (attempts >= MAX_OTP_ATTEMPTS) {
