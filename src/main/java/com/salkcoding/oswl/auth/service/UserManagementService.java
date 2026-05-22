@@ -43,7 +43,7 @@ public class UserManagementService {
     public UserSummaryDto createUser(CreateUserRequest request) {
         String email = request.getEmail().trim().toLowerCase();
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+            throw new IllegalArgumentException("Email is already in use.");
         }
         Set<RoleTemplate> templates = new HashSet<>();
         if (request.getTemplateIds() != null && !request.getTemplateIds().isEmpty()) {
@@ -66,13 +66,13 @@ public class UserManagementService {
     @Transactional
     public void updateDisplayName(Long userId, String displayName) {
         if (displayName == null || displayName.trim().isEmpty()) {
-            throw new IllegalArgumentException("이름은 1글자 이상이어야 합니다.");
+            throw new IllegalArgumentException("Name must contain at least 1 character.");
         }
         if (displayName.trim().length() > 20) {
-            throw new IllegalArgumentException("이름은 최대 20글자까지 입력할 수 있습니다.");
+            throw new IllegalArgumentException("Name can be at most 20 characters long.");
         }
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
         user.setDisplayName(displayName.trim());
         log.debug("[User] Display name updated userId={}", userId);
         auditLogService.log("USER.UPDATE_NAME", "USER", userId.toString(), user.getEmail(), displayName.trim());
@@ -81,9 +81,9 @@ public class UserManagementService {
     @Transactional
     public void updateUserRoles(Long userId, List<Long> templateIds) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
         if (user.isSystemAdmin()) {
-            throw new IllegalStateException("최고 관리자의 권한은 변경할 수 없습니다.");
+            throw new IllegalStateException("System administrator permissions cannot be changed.");
         }
         Set<RoleTemplate> templates = new HashSet<>();
         if (templateIds != null && !templateIds.isEmpty()) {
@@ -98,28 +98,28 @@ public class UserManagementService {
     @Transactional
     public void setUserEnabled(Long userId, boolean enabled) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
         if (user.isSystemAdmin()) {
-            throw new IllegalStateException("최고 관리자의 상태는 변경할 수 없습니다.");
+            throw new IllegalStateException("System administrator status cannot be changed.");
         }
         user.setEnabled(enabled);
         String action = enabled ? "USER.ACTIVATE" : "USER.DEACTIVATE";
-        log.info("[User] {} userId={} email='{}'", enabled ? "활성화" : "비활성화", userId, user.getEmail());
+        log.info("[User] {} userId={} email='{}'", enabled ? "Activated" : "Deactivated", userId, user.getEmail());
         auditLogService.log(action, "USER", userId.toString(), user.getEmail(), user.getDisplayName());
     }
 
     @Transactional
     public void deleteUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
         if (user.isSystemAdmin()) {
-            throw new IllegalStateException("최고 관리자는 삭제할 수 없습니다.");
+            throw new IllegalStateException("System administrator cannot be deleted.");
         }
         String email = user.getEmail();
         String displayName = user.getDisplayName();
         user.getRoleTemplates().clear();
         userRepository.delete(user);
-        log.info("[User] userId={} email='{}' 삭제", userId, email);
+        log.info("[User] Deleted userId={} email='{}'", userId, email);
         auditLogService.log("USER.DELETE", "USER", userId.toString(), email, displayName);
     }
 
@@ -128,10 +128,10 @@ public class UserManagementService {
     }
 
     /**
-     * 주어진 이메일의 연속 로그인 실패 횟수를 1 증가한다.
-     * 10회 실패 시 계정이 자동으로 비활성화된다.
+     * Increments the consecutive login failure count for the given email by 1.
+     * The account is automatically disabled after 10 failures.
      *
-     * @return 새 실패 횟수, 또는 이메일을 찾지 못으면 0
+     * @return the new failure count, or 0 if the email cannot be found
      */
     @Transactional
     public int handleLoginFailure(String email) {
@@ -143,17 +143,17 @@ public class UserManagementService {
                         user.setEnabled(false);
                         auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
                                 user.getId().toString(), email,
-                                "자동 잠김: 연속 " + count + "회 로그인 실패");
-                        log.warn("[User] email='{}' 계정 자동 잠김, 연속 로그인 실패 {}회", email, count);
+                                "Auto-locked after " + count + " consecutive login failures");
+                        log.warn("[User] email='{}' account auto-locked after {} consecutive login failures", email, count);
                     } else {
-                        log.debug("[User] 로그인 실패 email='{}' count={}", email, count);
+                        log.debug("[User] Login failure email='{}' count={}", email, count);
                     }
                     return count;
                 })
                 .orElse(0);
     }
 
-    /** 로그인 성공 시 연속 로그인 실패 횟수를 0으로 완전 초기화한다. */
+    /** Fully resets the consecutive login failure count to 0 on successful login. */
     @Transactional
     public void resetLoginFailureCount(String email) {
         userRepository.findByEmail(email.toLowerCase())

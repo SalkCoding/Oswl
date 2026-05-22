@@ -5,8 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * 공유 Library에 연결된 CVE(또는 GHSA 어드바이저리).
- * 데이터는 deps.dev GetAdvisory + OSV querybatch + NVD(선택)에서 가져온다.
+ * CVE (or GHSA advisory) attached to a shared Library.
+ * Data is fetched from deps.dev GetAdvisory + OSV querybatch + NVD (optional).
  */
 @Entity
 @Table(name = "library_cves",

@@ -56,7 +56,7 @@ public class ProjectService {
     public Project create(String name) {
         Project project = Project.builder().name(name).build();
         Project saved = projectRepository.save(project);
-        log.info("[Project] 생성 id={} name={}", saved.getId(), saved.getName());
+        log.info("[Project] Created id={} name={}", saved.getId(), saved.getName());
         return saved;
     }
 
@@ -128,7 +128,7 @@ public class ProjectService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
         project.softDelete();
         projectRepository.save(project);
-        log.info("[Project] 소프트삭제 id={}", id);
+        log.info("[Project] Soft-deleted id={}", id);
     }
 
     @Transactional
@@ -139,7 +139,7 @@ public class ProjectService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
         project.restore();
         projectRepository.save(project);
-        log.info("[Project] 복구 id={}", id);
+        log.info("[Project] Restored id={}", id);
     }
 
     @Transactional
@@ -147,14 +147,14 @@ public class ProjectService {
                targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void permanentDelete(Long id) {
         projectRepository.deleteById(id);
-        log.info("[Project] 영구삭제 id={}", id);
+        log.info("[Project] Permanently deleted id={}", id);
     }
 
     @Transactional
     public void permanentDeleteAll() {
         List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc();
         projectRepository.deleteAll(trash);
-        log.info("[Project] 휴지통 전체 영구삭제 count={}", trash.size());
+        log.info("[Project] Permanently deleted entire trash count={}", trash.size());
     }
 
     @Transactional
@@ -162,7 +162,7 @@ public class ProjectService {
         ids.forEach(id -> {
             if (projectRepository.existsById(id)) {
                 projectRepository.deleteById(id);
-                log.info("[Project] 선택 영구삭제 id={}", id);
+                log.info("[Project] Permanently deleted selected id={}", id);
             }
         });
     }
@@ -172,7 +172,7 @@ public class ProjectService {
         ids.forEach(id -> projectRepository.findById(id).ifPresent(p -> {
             p.restore();
             projectRepository.save(p);
-            log.info("[Project] 선택 복구 id={}", id);
+            log.info("[Project] Restored selected id={}", id);
         }));
     }
 

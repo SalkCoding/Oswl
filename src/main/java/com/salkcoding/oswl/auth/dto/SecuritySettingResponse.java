@@ -5,8 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 
 /**
- * GET /api/settings/security 응답.
- * mailPassword는 의도적으로 제외한다.
+ * GET /api/settings/security response.
+ * mailPassword is intentionally excluded.
  */
 @Data
 @Builder

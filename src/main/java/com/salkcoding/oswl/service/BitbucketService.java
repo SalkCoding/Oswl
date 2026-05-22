@@ -18,14 +18,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Pull Request 생성 및 브랜치 조작을 위한 Bitbucket REST API 클라이언트.
+ * Bitbucket REST API client for creating pull requests and manipulating branches.
  *
- * Bitbucket Cloud(api.bitbucket.org/2.0)와 Bitbucket Server / Data Center를 모두 지원한다.
+ * Supports both Bitbucket Cloud (api.bitbucket.org/2.0) and Bitbucket Server / Data Center.
  *
- * 인증 방식:
- *   - Cloud + username  → Basic 인증 (Base64(username:token))
- *   - Cloud, username 없음 → Bearer 토큰 (HTTP Access Token / ATATT…)
- *   - Server             → Bearer 토큰
+ * Authentication modes:
+ *   - Cloud + username   → Basic auth (Base64(username:token))
+ *   - Cloud, no username → Bearer token (HTTP Access Token / ATATT…)
+ *   - Server             → Bearer token
  */
 @Slf4j
 @Service
@@ -42,20 +42,20 @@ public class BitbucketService {
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
-     * 라이브러리 버전을 업그레이드하는 Bitbucket Pull Request를 생성한다.
+     * Creates a Bitbucket pull request that upgrades a library version.
      *
-     * @param token       Bitbucket 액세스 토큰 또는 앱 비밀번호
-     * @param username    Bitbucket 사용자명 (앱 비밀번호/Basic 인증 시 필수; HTTP Access Token인 경우 null)
-     * @param serverUrl   null/빈칸 = Bitbucket Cloud; 이외의 경우 Bitbucket Server 브스 URL
-     * @param repoPath    {@code Project.githubRepo}에 저장된 "workspace/repo-slug"
-     * @param baseBranch  PR 대상 브랜치
-     * @param libName     라이브러리 이름
-     * @param oldVersion  현재 버전
-     * @param newVersion  목표 버전
-     * @param prTitle     PR 제목
-     * @param prBody      PR 설명
-     * @param reviewers   리뷰어 계정 ID 또는 사용자명 목록 (선택사항, 최선)
-     * @return "prUrl"(String)과 "prNumber"(int)이 담긴 map
+     * @param token       Bitbucket access token or app password
+     * @param username    Bitbucket username (required for app password/Basic auth; null for HTTP Access Token)
+     * @param serverUrl   null/blank = Bitbucket Cloud; otherwise Bitbucket Server base URL
+     * @param repoPath    "workspace/repo-slug" stored in {@code Project.githubRepo}
+     * @param baseBranch  target branch for the PR
+     * @param libName     library name
+     * @param oldVersion  current version
+     * @param newVersion  target version
+     * @param prTitle     PR title
+     * @param prBody      PR description
+     * @param reviewers   list of reviewer account IDs or usernames (optional, best effort)
+     * @return map containing "prUrl" (String) and "prNumber" (int)
      */
     public Map<String, Object> createVersionBumpPr(String token,
                                                     String username,
@@ -81,7 +81,7 @@ public class BitbucketService {
     }
 
     /**
-     * Bitbucket 리포지토리의 브랜치 이름 목록을 반환한다.
+     * Returns the list of branch names in a Bitbucket repository.
      */
     public List<String> getBranches(String token, String username, String serverUrl, String repoPath) {
         String authHeader = buildAuthHeader(token, username);
@@ -97,7 +97,7 @@ public class BitbucketService {
                 return getServerBranches(authHeader, serverUrl, repoPath);
             }
         } catch (Exception e) {
-            log.warn("[Bitbucket] {} 브랜치 목록 조회 실패: {}", repoPath, e.getMessage());
+            log.warn("[Bitbucket] Failed to fetch branch list for {}: {}", repoPath, e.getMessage());
             return List.of("main");
         }
     }
@@ -114,19 +114,19 @@ public class BitbucketService {
         String repoSlug    = parts[1];
         String apiBase     = CLOUD_API_BASE + "/repositories/" + workspace + "/" + repoSlug;
 
-        // 1. 베이스 브랜치 HEAD 코밋 해시 조회
+        // 1. Fetch the HEAD commit hash of the base branch
         String branchUrl = apiBase + "/refs/branches/" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8);
         JsonNode branchInfo = getJson(authHeader, branchUrl);
         String baseSha = branchInfo.path("target").path("hash").asText();
 
-        // 2. 피캘의 브랜치를 만들고 한 c88에 의존성 파일 코밋 업데이트
+        // 2. Create the feature branch and commit the dependency file update on it
         String safeName  = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
 
         updateDependencyFileCloud(authHeader, apiBase, newBranch, baseSha, baseBranch,
                 libName, oldVersion, newVersion);
 
-        // 3. Pull Request 생성
+        // 3. Create the pull request
         var prNode = objectMapper.createObjectNode();
         prNode.put("title", prTitle);
         prNode.put("description", prBody);
@@ -158,7 +158,7 @@ public class BitbucketService {
 
         for (String path : candidates) {
             try {
-                // 베이스 브랜치에서 파일 콘텐츠 조회
+                // Fetch file contents from the base branch
                 String fileUrl = apiBase + "/src/" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8)
                         + "/" + path;
                 String content = getRawText(authHeader, fileUrl);
@@ -168,25 +168,25 @@ public class BitbucketService {
                 String message = "chore: bump " + libName + " from " + oldVersion
                         + " to " + newVersion + " [OsWL]";
 
-                // 새 브랜치에 코밋 (부모가 제공되면 브랜치가 없는 경우 생성됨)
+                // Commit to the new branch (created if missing when parent is provided)
                 commitFileCloud(authHeader, apiBase + "/src", path, updated, newBranch, baseSha, message);
                 log.info("[Bitbucket Cloud] Updated {} on branch {}", path, newBranch);
                 return;
             } catch (Exception e) {
-                log.debug("[Bitbucket Cloud] {}를 건너넷: {}", path, e.getMessage());
+                log.debug("[Bitbucket Cloud] Skipping {}: {}", path, e.getMessage());
             }
         }
-        log.warn("[Bitbucket Cloud] 의존성 파일 미업데이트 — 알려진 매니페스트에서 '{}' 구 버전을 찾지 못함", oldVersion);
+        log.warn("[Bitbucket Cloud] Dependency file not updated — old version '{}' was not found in known manifests", oldVersion);
     }
 
     /**
-     * Bitbucket Cloud multipart src 엔드포인트로 단일 파일을 코밋한다.
-     * 브랜치가 없으면 주어진 부모 코밋에서 생성한다.
+     * Commits a single file through the Bitbucket Cloud multipart src endpoint.
+     * If the branch does not exist, it is created from the given parent commit.
      */
     private void commitFileCloud(String authHeader, String srcUrl,
                                   String filePath, String content,
                                   String branch, String parentSha, String message) throws Exception {
-        // Build multipart/form-data 수동 조립
+        // Build multipart/form-data manually
         String boundary = "----OsWLBoundary" + System.currentTimeMillis();
         var sb = new StringBuilder();
 
@@ -208,10 +208,10 @@ public class BitbucketService {
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() == 401) throw new RuntimeException("Bitbucket 토큰이 유효하지 않거나 만료되었습니다");
+        if (response.statusCode() == 401) throw new RuntimeException("Bitbucket token is invalid or expired");
         if (response.statusCode() >= 400) {
             log.warn("[Bitbucket Cloud] POST {} → HTTP {} {}", srcUrl, response.statusCode(), response.body());
-            throw new RuntimeException("Bitbucket API 오류: " + response.statusCode());
+            throw new RuntimeException("Bitbucket API error: " + response.statusCode());
         }
     }
 
@@ -231,15 +231,15 @@ public class BitbucketService {
                                                 String libName, String oldVersion, String newVersion,
                                                 String prTitle, String prBody,
                                                 List<String> reviewers) {
-        // Server 경로: {serverUrl}/rest/api/1.0/projects/{PROJECT}/repos/{repo}
-        // Project key와 repo slug는 githubRepo에 "PROJECT/repo-slug"로 저장됨
+        // Server path: {serverUrl}/rest/api/1.0/projects/{PROJECT}/repos/{repo}
+        // The project key and repo slug are stored in githubRepo as "PROJECT/repo-slug"
         String[] parts      = splitRepoPath(repoPath);
         String projectKey   = parts[0].toUpperCase();
         String repoSlug     = parts[1];
         String apiBase      = serverUrl.replaceAll("/+$", "")
                 + "/rest/api/1.0/projects/" + projectKey + "/repos/" + repoSlug;
 
-        // 1. 베이스 브랜치 HEAD 커밋 조회
+        // 1. Fetch the HEAD commit of the base branch
         String branchUrl = apiBase + "/branches?filterText=" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8);
         JsonNode branchList = getJson(authHeader, branchUrl);
         String baseSha = "";
@@ -253,16 +253,16 @@ public class BitbucketService {
             }
         }
 
-        // 2. 피처 브랜치 생성
+        // 2. Create the feature branch
         String safeName  = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
         createServerBranch(authHeader, apiBase, newBranch, baseSha);
 
-        // 3. 의존성 파일 찾아 업데이트
+        // 3. Find and update the dependency file
         updateDependencyFileServer(authHeader, apiBase, newBranch, baseBranch,
                 libName, oldVersion, newVersion);
 
-        // 4. Pull Request 생성
+        // 4. Create the pull request
         var prPayload = objectMapper.createObjectNode();
         prPayload.put("title", prTitle);
         prPayload.put("description", prBody);
@@ -304,16 +304,16 @@ public class BitbucketService {
                 if (!content.contains(oldVersion)) continue;
 
                 String updated = content.replace(oldVersion, newVersion);
-                // Bitbucket Server 파일 업데이트: PUT + multipart
+                // Update the Bitbucket Server file: PUT + multipart
                 commitFileServer(authHeader, apiBase, path, updated, branch,
                         "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]");
                 log.info("[Bitbucket Server] Updated {} on branch {}", path, branch);
                 return;
             } catch (Exception e) {
-                log.debug("[Bitbucket Server] {}를 건너넷: {}", path, e.getMessage());
+                log.debug("[Bitbucket Server] Skipping {}: {}", path, e.getMessage());
             }
         }
-        log.warn("[Bitbucket Server] '{}' 구 버전에 대한 의존성 파일 미업데이트", oldVersion);
+        log.warn("[Bitbucket Server] Dependency file not updated for old version '{}'", oldVersion);
     }
 
     private void commitFileServer(String authHeader, String apiBase,
@@ -337,9 +337,9 @@ public class BitbucketService {
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() == 401) throw new RuntimeException("Bitbucket 토큰이 유효하지 않거나 만료되었습니다");
+        if (response.statusCode() == 401) throw new RuntimeException("Bitbucket token is invalid or expired");
         if (response.statusCode() >= 400) {
-            throw new RuntimeException("Bitbucket Server API 오류: " + response.statusCode());
+            throw new RuntimeException("Bitbucket Server API error: " + response.statusCode());
         }
     }
 
@@ -371,12 +371,12 @@ public class BitbucketService {
 
     private String[] splitRepoPath(String repoPath) {
         int slash = repoPath.indexOf('/');
-        if (slash < 0) throw new IllegalArgumentException("Bitbucket 리포지토리 경로가 유효하지 않음: " + repoPath);
+        if (slash < 0) throw new IllegalArgumentException("Invalid Bitbucket repository path: " + repoPath);
         return new String[]{ repoPath.substring(0, slash), repoPath.substring(slash + 1) };
     }
 
     private String extractProjectKey(String apiBase) {
-        // 패턴: .../projects/{KEY}/repos/...
+        // Pattern: .../projects/{KEY}/repos/...
         int pi = apiBase.indexOf("/projects/");
         int ri = apiBase.indexOf("/repos/", pi);
         return apiBase.substring(pi + 10, ri);
@@ -404,17 +404,17 @@ public class BitbucketService {
                     .timeout(Duration.ofSeconds(15))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 401) throw new RuntimeException("Bitbucket 토큰이 유효하지 않거나 만료되었습니다");
+            if (response.statusCode() == 401) throw new RuntimeException("Bitbucket token is invalid or expired");
             if (response.statusCode() >= 400) {
                 log.warn("[Bitbucket] GET {} → HTTP {}", url, response.statusCode());
-                throw new RuntimeException("Bitbucket API 오류: " + response.statusCode());
+                throw new RuntimeException("Bitbucket API error: " + response.statusCode());
             }
             return objectMapper.readTree(response.body());
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Bitbucket] GET 실패: {}", url, e);
-            throw new RuntimeException("Bitbucket API 호출 실패: " + e.getMessage());
+            log.error("[Bitbucket] GET failed: {}", url, e);
+            throw new RuntimeException("Bitbucket API call failed: " + e.getMessage());
         }
     }
 
@@ -428,16 +428,16 @@ public class BitbucketService {
                     .timeout(Duration.ofSeconds(15))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 401) throw new RuntimeException("Bitbucket 토큰이 유효하지 않거나 만료되었습니다");
-            if (response.statusCode() == 404) throw new RuntimeException("파일을 찾을 수 없음: " + url);
+            if (response.statusCode() == 401) throw new RuntimeException("Bitbucket token is invalid or expired");
+            if (response.statusCode() == 404) throw new RuntimeException("File not found: " + url);
             if (response.statusCode() >= 400) {
-                throw new RuntimeException("Bitbucket API 오류: " + response.statusCode());
+                throw new RuntimeException("Bitbucket API error: " + response.statusCode());
             }
             return response.body();
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            throw new RuntimeException("Bitbucket에서 로우 파일 가져오기 실패: " + e.getMessage());
+            throw new RuntimeException("Failed to fetch raw file from Bitbucket: " + e.getMessage());
         }
     }
 
@@ -452,17 +452,17 @@ public class BitbucketService {
                     .timeout(Duration.ofSeconds(20))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 401) throw new RuntimeException("Bitbucket 토큰이 유효하지 않거나 만료되었습니다");
+            if (response.statusCode() == 401) throw new RuntimeException("Bitbucket token is invalid or expired");
             if (response.statusCode() >= 400) {
                 log.warn("[Bitbucket] POST {} → HTTP {} {}", url, response.statusCode(), response.body());
-                throw new RuntimeException("Bitbucket API 오류: " + response.statusCode() + " — " + response.body());
+                throw new RuntimeException("Bitbucket API error: " + response.statusCode() + " — " + response.body());
             }
             return objectMapper.readTree(response.body());
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[Bitbucket] POST 실패: {}", url, e);
-            throw new RuntimeException("Bitbucket API 호출 실패: " + e.getMessage());
+            log.error("[Bitbucket] POST failed: {}", url, e);
+            throw new RuntimeException("Bitbucket API call failed: " + e.getMessage());
         }
     }
 }
