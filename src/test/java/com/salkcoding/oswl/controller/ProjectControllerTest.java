@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.service.ProjectService;
 import com.salkcoding.oswl.service.ScanStatusEmitterRegistry;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -73,5 +75,66 @@ class ProjectControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(projectService).restore(1L);
+    }
+
+    @Test
+    @DisplayName("permanentDeleteProject()는 서비스를 호출하고 204를 반환한다")
+    void permanentDeleteProject_returns204() {
+        doNothing().when(projectService).permanentDelete(3L);
+
+        ResponseEntity<Void> response = controller.permanentDeleteProject(3L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectService).permanentDelete(3L);
+    }
+
+    @Test
+    @DisplayName("permanentDeleteAll()은 서비스를 호출하고 204를 반환한다")
+    void permanentDeleteAll_returns204() {
+        doNothing().when(projectService).permanentDeleteAll();
+
+        ResponseEntity<Void> response = controller.permanentDeleteAll();
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectService).permanentDeleteAll();
+    }
+
+    @Test
+    @DisplayName("permanentDeleteSelected()는 선택된 ID 목록을 서비스에 전달하고 204를 반환한다")
+    void permanentDeleteSelected_returns204() {
+        List<Long> ids = List.of(1L, 2L, 3L);
+        doNothing().when(projectService).permanentDeleteSelected(ids);
+
+        ResponseEntity<Void> response = controller.permanentDeleteSelected(ids);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectService).permanentDeleteSelected(ids);
+    }
+
+    @Test
+    @DisplayName("restoreSelected()는 선택된 ID 목록을 서비스에 전달하고 204를 반환한다")
+    void restoreSelected_returns204() {
+        List<Long> ids = List.of(10L, 20L);
+        doNothing().when(projectService).restoreSelected(ids);
+
+        ResponseEntity<Void> response = controller.restoreSelected(ids);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectService).restoreSelected(ids);
+    }
+
+    @Test
+    @DisplayName("createProject()는 프로젝트 생성 후 201 Created를 반환한다")
+    void createProject_returns201_withCreatedProject() {
+        Project saved = Project.builder().id(99L).name("NewProject").build();
+        when(projectService.create("NewProject")).thenReturn(saved);
+
+        ProjectController.CreateProjectRequest req = new ProjectController.CreateProjectRequest("NewProject");
+        ResponseEntity<Map<String, Object>> response = controller.createProject(req);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).containsEntry("id", 99L);
+        assertThat(response.getBody()).containsEntry("name", "NewProject");
+        verify(projectService).create("NewProject");
     }
 }
