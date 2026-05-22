@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * (name, version, ecosystem)으로 식별되는 고유한 오픈소스 라이브러리.
- * CVE 및 라이선스 데이터는 모든 프로젝트/스캔에 공유되므로 여기에 한 번만 저장된다.
+ * Unique open-source library identified by (name, version, ecosystem).
+ * CVE and license data are shared across all projects/scans, so they are stored here only once.
  */
 @Entity
 @Table(name = "libraries",
@@ -42,13 +42,13 @@ public class Library {
     private String version;
 
     /**
-     * deps.dev system 파라미터에 사용되는 패키지 시스템.
-     * 예: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS
+     * Package ecosystem used for the deps.dev system parameter.
+     * Examples: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS
      */
     @Column(nullable = false, length = 20)
     private String ecosystem;
 
-    /** deps.dev가 반환하는 기본 SPDX 라이선스 표현식 */
+    /** Default SPDX license expression returned by deps.dev */
     @Column(name = "license_name", length = 200)
     private String licenseName;
 
@@ -58,31 +58,31 @@ public class Library {
     private LicenseStatus licenseStatus = LicenseStatus.UNKNOWN;
 
     /**
-     * deps.dev가 이 패키지의 기본(latest stable) 버전으로 보고할 때 true.
-     * null은 정보가 아직 조회되지 않았음을 의미한다.
+     * True when deps.dev reports this package version as the default (latest stable).
+     * Null means the information has not been fetched yet.
      */
     @Column(name = "is_latest_version")
     private Boolean isLatestVersion;
 
     /**
-     * deps.dev가 이 버전을 사용 중단으로 표시할 때 비널.
-     * deps.dev의 사용 중단 이유 문자열을 포함한다.
+     * Non-null when deps.dev marks this version as deprecated.
+     * Contains the deprecation reason string from deps.dev.
      */
     @Column(name = "deprecated", length = 500)
     private String deprecated;
 
     /**
-     * deps.dev에서 가져온 최신 stable 버전 문자열.
-     * 현재 버전이 최신이 아닐 때만 채워지며, 이미 최신이면 null이다.
+     * Latest stable version string fetched from deps.dev.
+     * Populated only when the current version is not the latest; null if it already is.
      */
     @Column(name = "latest_version", length = 100)
     private String latestVersion;
 
-    /** 마지막으로 성공한 deps.dev + OSV 조회 타임스탬프 */
+    /** Timestamp of the last successful deps.dev + OSV fetch */
     @Column(name = "fetched_at")
     private LocalDateTime fetchedAt;
 
-    /** 라이브러리 라이선스에 대한 AI 생성 한 문장 컴플라이언스 리스크 요약 (열거 중 생성) */
+    /** AI-generated one-sentence compliance risk summary for the library license (generated during enrichment) */
     @Column(name = "ai_license_summary", columnDefinition = "TEXT")
     private String aiLicenseSummary;
 
@@ -90,7 +90,7 @@ public class Library {
     @Builder.Default
     private List<Cve> cves = new ArrayList<>();
 
-    // ── 변경 헬퍼 ──────────────────────────────────────────────────
+    // ── Mutation helpers ───────────────────────────────────────────
 
     public void updateLicense(String licenseName, LicenseStatus licenseStatus) {
         this.licenseName = licenseName;
@@ -111,7 +111,7 @@ public class Library {
         this.aiLicenseSummary = summary;
     }
 
-    // ── 계산 프로퍼티 ──────────────────────────────────────────────
+    // ── Derived properties ─────────────────────────────────────────
 
     public long countBySeverity(String severity) {
         return cves.stream()
@@ -120,10 +120,10 @@ public class Library {
     }
 
     /**
-     * CVE 픽스 버전으로 도출 가능 여부를 계산한다:
-     * - CVE 없음 → UNKNOWN
-     * - 하나라도 fixVersion 있음 → PATCHABLE
-     * - 모든 CVE에 fixVersion 없음 → NON_PATCHABLE
+     * Computes whether a fix version can be derived from the CVEs:
+     * - No CVEs → UNKNOWN
+     * - At least one fixVersion exists → PATCHABLE
+     * - No CVEs have a fixVersion → NON_PATCHABLE
      */
     public Patchability computePatchability() {
         List<Cve> activeCves = cves.stream()
@@ -136,7 +136,7 @@ public class Library {
     }
 
     /**
-     * 이 라이브러리의 최고 심각도 CVE (CRITICAL > HIGH > MEDIUM > LOW > 점수 없음).
+     * Highest-severity CVE for this library (CRITICAL > HIGH > MEDIUM > LOW > unscored).
      */
     public RiskLevel highestSeverity() {
         return cves.stream()
@@ -146,7 +146,7 @@ public class Library {
                 .orElse(RiskLevel.NONE);
     }
 
-    /** 최적 픽스 버전 — 가장 심각도가 높은 CVE 중 픽스 버전이 있는 것에서 가져온다 */
+    /** Best fix version — taken from the highest-severity CVE that has a fix version */
     public String bestFixVersion() {
         return cves.stream()
                 .filter(c -> c.getFixVersion() != null && !c.getFixVersion().isBlank())

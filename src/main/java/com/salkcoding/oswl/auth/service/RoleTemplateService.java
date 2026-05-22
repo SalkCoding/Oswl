@@ -34,7 +34,7 @@ public class RoleTemplateService {
                targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.name")
     public RoleTemplateDto create(RoleTemplateRequest request) {
         if (roleTemplateRepository.existsByName(request.getName().trim())) {
-            throw new IllegalArgumentException("이미 사용 중인 템플릿 이름입니다.");
+            throw new IllegalArgumentException("Template name is already in use.");
         }
         RoleTemplate rt = RoleTemplate.builder()
                 .name(request.getName().trim())
@@ -50,7 +50,7 @@ public class RoleTemplateService {
                targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.name")
     public RoleTemplateDto update(Long id, RoleTemplateRequest request) {
         RoleTemplate rt = roleTemplateRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("템플릿을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Template not found."));
         if (request.getName() != null && !request.getName().isBlank()) {
             rt.setName(request.getName().trim());
         }
@@ -62,11 +62,11 @@ public class RoleTemplateService {
     @Transactional
     public void delete(Long id) {
         RoleTemplate rt = roleTemplateRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("템플릿을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("Template not found."));
         if (rt.isBuiltIn()) {
-            throw new IllegalStateException("기본 제공 템플릿은 삭제할 수 없습니다.");
+            throw new IllegalStateException("Built-in templates cannot be deleted.");
         }
-        // 해당 템플릿을 가진 유저들을 비활성화 처리
+        // Deactivate users assigned to this template
         List<Long> affectedUserIds = roleTemplateRepository.findUserIdsByTemplateId(id);
         if (!affectedUserIds.isEmpty()) {
             roleTemplateRepository.deactivateUsers(affectedUserIds);

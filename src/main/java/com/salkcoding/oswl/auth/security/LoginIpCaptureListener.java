@@ -7,11 +7,11 @@ import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 
 /**
- * 성공한 모든 인증의 원격 IP를 캡체하여 {@link LastLoginIpStore}에
- * 사용자 email 주소를 키로 저장한다.
+ * Captures the remote IP of every successful authentication and stores it in
+ * {@link LastLoginIpStore} keyed by the user's email address.
  *
- * {@link OswlSessionExpiredStrategy}가 나중에 이 정보를 읽어 밀려난
- * 사용자에게 강제 로그아웃을 트리거한 IP를 알린다.
+ * {@link OswlSessionExpiredStrategy} later reads this information to show the displaced
+ * user which IP triggered the forced logout.
  */
 @Component
 @RequiredArgsConstructor
@@ -28,7 +28,7 @@ public class LoginIpCaptureListener {
         if (ip == null || ip.isBlank()) {
             return;
         }
-        // IPv6 루프백을 IPv4로 정규화
+        // Normalize IPv6 loopback to IPv4
         if ("::1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip)) {
             ip = "127.0.0.1";
         }

@@ -5,9 +5,9 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 사용자(email 기준)별 최근 로그인 IP를 추적하는 인메모리 저장소.
- * 다른 위치에서 동시 로그인으로 세션이 강제 만료될 때
- * 밀려난 사용자에게 표시할 IP를 제공하기 위해 사용된다.
+ * In-memory store that tracks the most recent login IP for each user (by email).
+ * Used to provide the IP shown to a displaced user when a session is forcibly expired
+ * due to a concurrent login from another location.
  */
 @Component
 public class LastLoginIpStore {

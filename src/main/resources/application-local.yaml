@@ -31,16 +31,16 @@ spring:
 logging:
   level:
     root: INFO
-    # Business logic: INFO/WARN/ERROR 기본, 내부 세부는 코드에서 log.debug로 처리
+    # Business logic: INFO/WARN/ERROR by default; internals handled via log.debug in code
     com.salkcoding.oswl: DEBUG
-    # 취약점·라이선스 API 통신 및 DB upsert 디버깅
+    # Vulnerability/license API communication and DB upsert debugging
     com.salkcoding.oswl.client: DEBUG
     com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
-    # SQL — 평소엔 억제, 필요 시 DEBUG로 변경
+    # SQL — suppressed normally; change to DEBUG when needed
     org.hibernate.SQL: INFO
     com.salkcoding.oswl.service.ScanIngestService: INFO
     org.hibernate.orm.jdbc.bind: WARN
-    # Spring 내부 노이즈 억제
+    # Suppress Spring internal noise
     org.springframework.web: WARN
     org.springframework.security: WARN
     org.springframework.orm: WARN
