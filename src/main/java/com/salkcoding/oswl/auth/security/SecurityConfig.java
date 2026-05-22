@@ -96,7 +96,7 @@ public class SecurityConfig {
                     .permitAll())
             .exceptionHandling(ex -> ex
                     .accessDeniedHandler(accessDeniedHandler)
-                    // REST API 요청 (Accept: application/json 또는 /api/**) 에는 302 대신 401 반환
+                    // Return 401 instead of 302 for REST API requests (Accept: application/json or /api/**)
                     .authenticationEntryPoint((request, response, authException) -> {
                         String accept = request.getHeader("Accept");
                         String uri = request.getRequestURI();
@@ -123,7 +123,7 @@ public class SecurityConfig {
         return handler;
     }
 
-    /** local 프로파일에서만 활성화: H2 콘솔 및 테스트 데이터 엔드포인트를 인증 없이 접근 허용. */
+    /** Enabled only for the local profile: allows unauthenticated access to the H2 console and test-data endpoints. */
     @Bean
     @Profile("local")
     @Order(1)

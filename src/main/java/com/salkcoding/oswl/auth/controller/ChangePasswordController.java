@@ -22,16 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * POST /api/change-password — 관리자 초대 사용자의 강제 비밀번호 변경을 처리한다.
+ * POST /api/change-password — handles forced password changes for admin-invited users.
  *
- * <p>보안 속성:
+ * <p>Security properties:
  * <ul>
- *   <li>Spring Security의 {@code CookieCsrfTokenRepository}를 통한 CSRF 보호 (X-XSRF-TOKEN 헤더).</li>
- *   <li>OTP 통과 후 완전한 인증 필요. {@link com.salkcoding.oswl.auth.security.MustChangePasswordFilter}가
- *       성공하기 전까지 다른 URL에 대한 접근을 차단한다.</li>
- *   <li>쓰기 전에 현재 비밀번호를 검증한다.</li>
- *   <li>세션 고정 공격로 부터 보호하기 위해 성공 후 세션 ID를 교체한다.</li>
- *   <li>재로그인 없이도 필터 플래그가 즉시 해제되도록 SecurityContext를 업데이트한다.</li>
+ *   <li>CSRF protection via Spring Security's {@code CookieCsrfTokenRepository} (X-XSRF-TOKEN header).</li>
+ *   <li>Requires full authentication after OTP. {@link com.salkcoding.oswl.auth.security.MustChangePasswordFilter}
+ *       blocks access to other URLs until it succeeds.</li>
+ *   <li>Validates the current password before writing.</li>
+ *   <li>Rotates the session ID after success to protect against session fixation.</li>
+ *   <li>Updates the SecurityContext so the filter flag is cleared immediately without re-login.</li>
  * </ul>
  */
 @Slf4j
@@ -50,10 +50,10 @@ public class ChangePasswordController {
             HttpServletRequest request) {
 
         if (principal == null) {
-            return ResponseEntity.status(401).body(Map.of("message", "인증되지 않았습니다."));
+            return ResponseEntity.status(401).body(Map.of("message", "You are not authenticated."));
         }
 
-        // ── 입력값 검증 ──────────────────────────────────────────────────────
+        // ── Input validation ───────────────────────────────────────────────
 
         String currentPw = req.getCurrentPassword() != null ? req.getCurrentPassword() : "";
         String newPw     = req.getNewPassword()     != null ? req.getNewPassword()     : "";
@@ -62,14 +62,14 @@ public class ChangePasswordController {
         int minLen = securitySettingService.getOrCreate().getMinPasswordLength();
         if (newPw.length() < minLen) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "새 비밀번호는 최소 " + minLen + "자 이상이어야 합니다."));
+                    .body(Map.of("message", "The new password must be at least " + minLen + " characters long."));
         }
         if (!newPw.equals(confirmPw)) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "비밀번호가 일치하지 않습니다."));
+                    .body(Map.of("message", "Passwords do not match."));
         }
 
-        // ── 서비스에서 비즈니스 로직 (DB 쓰기, 감사 로그) ──────────────────────
+        // ── Business logic in the service (DB write, audit log) ───────────
 
         try {
             changePasswordService.changePassword(principal.getUserId(), currentPw, newPw);
@@ -77,23 +77,23 @@ public class ChangePasswordController {
             return switch (e.getMessage()) {
                 case "CURRENT_PASSWORD_WRONG" ->
                         ResponseEntity.badRequest()
-                                .body(Map.of("message", "현재 비밀번호가 올바르지 않습니다."));
+                                .body(Map.of("message", "The current password is incorrect."));
                 case "SAME_AS_CURRENT" ->
                         ResponseEntity.badRequest()
-                                .body(Map.of("message", "새 비밀번호는 현재 비밀번호와 달라야 합니다."));
+                                .body(Map.of("message", "The new password must be different from the current password."));
                 default -> {
-                    log.error("[ChangePassword] 사용자 {}의 예상치 못한 검증 오류: {}",
+                    log.error("[ChangePassword] Unexpected validation error for user {}: ",
                             principal.getUsername(), e.getMessage());
-                    yield ResponseEntity.status(500).body(Map.of("message", "예상치 못한 오류가 발생했습니다."));
+                    yield ResponseEntity.status(500).body(Map.of("message", "An unexpected error occurred."));
                 }
             };
         } catch (Exception e) {
-            log.error("[ChangePassword] 사용자 {} 오류: {}", principal.getUsername(), e.getMessage());
-            return ResponseEntity.status(500).body(Map.of("message", "예상치 못한 오류가 발생했습니다."));
+            log.error("[ChangePassword] Error for user {}: {}", principal.getUsername(), e.getMessage());
+            return ResponseEntity.status(500).body(Map.of("message", "An unexpected error occurred."));
         }
 
-        // ── 프린시퍼를 재구성하고 SecurityContext 업데이트 ─────────────────────
-        // 재로그인 없이도 mustChangePassword == false가 즉시 반영되도록 DB에서 재로드.
+        // ── Rebuild principal and update SecurityContext ──────────────────
+        // Reload from the DB so mustChangePassword == false is reflected immediately without re-login.
 
         OswlUserPrincipal updated =
                 (OswlUserPrincipal) userDetailsService.loadUserByUsername(principal.getUsername());
@@ -109,10 +109,10 @@ public class ChangePasswordController {
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
         }
 
-        // 자격증명 변경 후 세션 고정 공격을 방지하기 위해 세션 ID 교체.
+        // Rotate the session ID after credential changes to prevent session fixation.
         request.changeSessionId();
 
-        log.info("[ChangePassword] 사용자 {}의 비밀번호가 성공적으로 변경되었습니다.", principal.getUsername());
+        log.info("[ChangePassword] Password successfully changed for user {}.", principal.getUsername());
         return ResponseEntity.ok(Map.of("redirectUrl", "/projects"));
     }
 }

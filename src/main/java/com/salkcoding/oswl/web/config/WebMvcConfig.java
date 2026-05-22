@@ -19,21 +19,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final ApiKeyAuthInterceptor apiKeyAuthInterceptor;
 
-    // ── i18n 설정 ────────────────────────────────────────────────────────
+    // ── i18n configuration ───────────────────────────────────────────────
 
     /**
-     * 세션 기반 Locale 저장소. 기본값은 한국어(ko_KR).
-     * ?lang=en 파라미터로 런타임에 언어를 변경할 수 있다.
+     * Session-based Locale store. The default is English.
+     * The language can be changed at runtime with the ?lang=en parameter.
      */
     @Bean
     public LocaleResolver localeResolver() {
         SessionLocaleResolver resolver = new SessionLocaleResolver();
-        resolver.setDefaultLocale(Locale.KOREA);  // ko_KR → messages_ko_KR.properties
+        resolver.setDefaultLocale(Locale.ENGLISH);  // en → messages.properties
         return resolver;
     }
 
     /**
-     * ?lang=ko, ?lang=en 등 요청 파라미터로 언어를 전환할 수 있게 한다.
+     * Allows language switching using request parameters such as ?lang=ko or ?lang=en.
      */
     @Bean
     public LocaleChangeInterceptor localeChangeInterceptor() {
@@ -42,7 +42,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         return interceptor;
     }
 
-    // ── 뷰 컨트롤러 ──────────────────────────────────────────────────────
+    // ── View controllers ─────────────────────────────────────────────────
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
@@ -51,13 +51,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 언어 전환 인터셉터 (모든 경로에 적용)
+        // Language-switching interceptor (applies to all paths)
         registry.addInterceptor(localeChangeInterceptor());
 
-        // CLI 스캔 인제스트 및 핑 엔드포인트 보호
+        // Protect CLI scan ingest and ping endpoints
         registry.addInterceptor(apiKeyAuthInterceptor)
                 .addPathPatterns("/api/scan/**")
-                // UI 폴링 엔드포인트는 API 키 불필요
+                // UI polling endpoint does not require an API key
                 .excludePathPatterns("/api/scan/*/status");
     }
 }

@@ -1,10 +1,10 @@
 package com.salkcoding.oswl.domain.entity;
 
 /**
- * @deprecated {@link ScanComponent}로 교체되었다. 이전 마이그레이션 중 빈 스터브로 유지된다.
- * 모든 새 코드는 ScanComponent를 직접 사용한다.
+ * @deprecated Replaced by {@link ScanComponent}. Kept as an empty stub during legacy migration.
+ * All new code should use ScanComponent directly.
  */
 @Deprecated
 public class OswlComponent {
-    // 빈 스터브 — 모든 로직은 ScanComponent로 마이그레이션 완료.
+    // Empty stub — all logic has been migrated to ScanComponent.
 }

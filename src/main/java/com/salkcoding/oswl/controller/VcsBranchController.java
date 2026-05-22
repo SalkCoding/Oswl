@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 프로젝트 VCS 리포지토리의 브랜치 목록을 조회하는 프로바이더 비종속적 엔드포인트.
- * Apply Patch 모달에서 대상 브랜치 드롭다운을 콐울 때 사용한다.
+ * Provider-agnostic endpoint for retrieving the branch list of a project's VCS repository.
+ * Used to populate the target branch dropdown in the Apply Patch modal.
  *
  * GET /api/vcs/branches?projectId={id}
  */
@@ -89,7 +89,7 @@ public class VcsBranchController {
                 }
             };
         } catch (Exception e) {
-            log.warn("[VcsBranch] 프로젝트 {} 브랜치 목록 조회 실패: {}", projectId, e.getMessage());
+            log.warn("[VcsBranch] Failed to retrieve branch list for project {}: {}", projectId, e.getMessage());
             return ResponseEntity.ok(List.of("main"));
         }
     }

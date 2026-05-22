@@ -7,8 +7,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * 외부 API 연동 설정을 저장한다 (NVD 키, 라이브러리 캐시 TTL 등).
- * 단일 행 설정 테이블로 설계되었다 (id = 1).
+ * Stores external API integration settings (NVD key, library cache TTL, etc.).
+ * Designed as a single-row settings table (id = 1).
  */
 @Entity
 @Table(name = "external_api_settings")
@@ -23,37 +23,37 @@ public class ExternalApiSetting {
     private Long id;
 
     /**
-     * CVSS 점수와 CWE ID로 CVE 데이터를 슬레요 NVD API 키.
-     * null이면 NVD 강화가 비활성화되며 deps.dev의 cvss3Score를 대신 사용한다.
+     * NVD API key used to enrich CVE data with CVSS scores and CWE IDs.
+     * If null, NVD enrichment is disabled and deps.dev's cvss3Score is used instead.
      */
     @Column(name = "nvd_api_key", length = 200)
     private String nvdApiKey;
 
     /**
-     * Library 항목을 영구적으로 캐시할지 여부.
-     * true면 기존 Library 행을 deps.dev/OSV에서 다시 조회하지 않는다.
-     * false면 cacheTtlDays를 사용하여 구실 여부를 판단한다.
+     * Whether to cache Library entries permanently.
+     * If true, existing Library rows are not re-fetched from deps.dev/OSV.
+     * If false, staleness is determined using cacheTtlDays.
      */
     @Column(name = "permanent_cache", nullable = false)
     @Builder.Default
     private boolean permanentCache = true;
 
     /**
-     * 캐시 TTL(일). permanentCache = false일 때만 사용된다.
-     * fetchedAt이 이 값보다 오래된 Library는 재조회된다.
+     * Cache TTL in days. Used only when permanentCache = false.
+     * Libraries whose fetchedAt is older than this value are re-fetched.
      */
     @Column(name = "cache_ttl_days")
     private Integer cacheTtlDays;
 
-    /** GitHub OAuth 앱 클라이언트 ID */
+    /** GitHub OAuth app client ID */
     @Column(name = "github_client_id", length = 200)
     private String githubClientId;
 
-    /** GitHub OAuth 앱 클라이언트 비밀 (클라이언트에 반환되지 않음) */
+    /** GitHub OAuth app client secret (never returned to the client) */
     @Column(name = "github_client_secret", length = 200)
     private String githubClientSecret;
 
-    /** GitHub OAuth 앱에 등록된 OAuth 콜백 URL */
+    /** OAuth callback URL registered for the GitHub OAuth app */
     @Column(name = "github_redirect_uri", length = 500)
     private String githubRedirectUri;
 
