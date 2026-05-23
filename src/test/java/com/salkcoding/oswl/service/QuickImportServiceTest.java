@@ -1,0 +1,132 @@
+package com.salkcoding.oswl.service;
+
+import com.salkcoding.oswl.auth.entity.UserVcsConnection;
+import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
+import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
+import com.salkcoding.oswl.repository.ScanResultRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("QuickImportService 단위 테스트 (공개 API)")
+class QuickImportServiceTest {
+
+    @Mock UserVcsConnectionRepository vcsConnectionRepository;
+    @Mock EncryptionService            encryptionService;
+    @Mock ProjectService               projectService;
+    @Mock ApiKeyService                apiKeyService;
+    @Mock ScanIngestService            scanIngestService;
+    @Mock ScanResultRepository         scanResultRepository;
+    @Mock GitHubService                gitHubService;
+    @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
+
+    @InjectMocks QuickImportService quickImportService;
+
+    // ── getJobStatus ──────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("getJobStatus: 알 수 없는 jobId는 null을 반환한다")
+    void getJobStatus_unknownId_returnsNull() {
+        assertThat(quickImportService.getJobStatus("unknown-id")).isNull();
+    }
+
+    // ── startImport ───────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("startImport: 새 작업을 시작하면 UUID 형식의 jobId를 반환한다")
+    void startImport_returnsJobId() {
+        String jobId = quickImportService.startImport("https://github.com/user/repo", "main", 1L);
+        assertThat(jobId).isNotNull().isNotBlank();
+        // Should match UUID pattern
+        assertThat(jobId).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    }
+
+    @Test
+    @DisplayName("startImport: 동일 user가 활성 작업 중이면 기존 jobId를 재사용한다")
+    void startImport_activeJobExists_reusesSameJobId() {
+        String jobId1 = quickImportService.startImport("https://github.com/user/repo", "main", 2L);
+        // Job was created and is still in QUEUED state
+        String jobId2 = quickImportService.startImport("https://github.com/user/repo2", "dev", 2L);
+
+        assertThat(jobId2).isEqualTo(jobId1);
+    }
+
+    @Test
+    @DisplayName("startImport 후 getJobStatus: QUEUED 또는 그 이후 상태로 시작된다")
+    void startImport_then_getJobStatus_notNull() {
+        String jobId = quickImportService.startImport("https://github.com/user/repo", "main", 3L);
+
+        // Wait briefly for the virtual thread to possibly change state
+        try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+
+        // getJobStatus may return QUEUED, FAILED, or any intermediate state
+        // but it should NOT be null since the job was registered
+        QuickImportJobStatus status = quickImportService.getJobStatus(jobId);
+        assertThat(status).isNotNull();
+        assertThat(status.getJobId()).isEqualTo(jobId);
+    }
+
+    // ── listRepos ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("listRepos: 해당 provider의 VCS 연결이 없으면 빈 목록 반환")
+    void listRepos_noConnection_returnsEmpty() {
+        when(vcsConnectionRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of());
+
+        var result = quickImportService.listRepos(VcsProvider.GITHUB, 1L);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("listRepos: 토큰 복호화 실패 시 빈 목록 반환")
+    void listRepos_decryptFails_returnsEmpty() throws Exception {
+        UserVcsConnection conn = UserVcsConnection.builder()
+                .id(1L).provider(VcsProvider.GITHUB).active(true)
+                .accessTokenEncrypted("encrypted-token")
+                .build();
+        when(vcsConnectionRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of(conn));
+        when(encryptionService.decrypt("encrypted-token")).thenThrow(new RuntimeException("bad key"));
+
+        var result = quickImportService.listRepos(VcsProvider.GITHUB, 1L);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("listRepos: GitHubService 실패 시 IllegalStateException 전파")
+    void listRepos_githubServiceFails_throwsIllegalState() throws Exception {
+        UserVcsConnection conn = UserVcsConnection.builder()
+                .id(1L).provider(VcsProvider.GITHUB).active(true)
+                .accessTokenEncrypted("encrypted-token")
+                .build();
+        when(vcsConnectionRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of(conn));
+        when(encryptionService.decrypt("encrypted-token")).thenReturn("valid-token");
+        when(gitHubService.listAllUserRepos("valid-token")).thenThrow(new RuntimeException("API error"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> quickImportService.listRepos(VcsProvider.GITHUB, 1L))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    // ── evictExpiredJobs ──────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("evictExpiredJobs: 예외 없이 실행된다")
+    void evictExpiredJobs_noException() {
+        org.assertj.core.api.Assertions.assertThatNoException()
+                .isThrownBy(() -> quickImportService.evictExpiredJobs());
+    }
+}

@@ -11,13 +11,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Intercepts every request for a fully-authenticated user whose {@code mustChangePassword}
+ * Intercepts all requests from fully authenticated users whose {@code mustChangePassword}
  * flag is still {@code true} and redirects them to {@code /change-password}.
  *
- * <p>API calls (path starts with {@code /api/} or Accept contains {@code application/json})
- * receive a JSON 403 with a {@code redirectUrl} hint instead of an HTTP redirect.
+ * <p>API calls (paths starting with {@code /api/} or requests whose Accept header includes
+ * {@code application/json}) receive a JSON 403 containing a {@code redirectUrl} hint instead
+ * of an HTTP redirect.
  *
- * <p>The following paths are whitelisted so the change-password flow itself always works:
+ * <p>The following paths are whitelisted so the password-change flow always works:
  * <ul>
  *   <li>{@code /change-password} and {@code /api/change-password}</li>
  *   <li>{@code /logout}</li>

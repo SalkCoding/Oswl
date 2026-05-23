@@ -19,14 +19,14 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
- * Intercepts successful form-login and enforces the configured 2FA mode.
+ * Intercepts successful form login and applies the configured 2FA mode.
  *
- * If TwoFaMode = EMAIL_OTP:
- *   1. If the device is trusted (valid HMAC cookie) → complete auth directly.
- *   2. Otherwise: stores the authenticated principal in the session as "pending 2FA",
- *      clears the SecurityContext, and redirects to /login/otp-verify.
+ * When TwoFaMode = EMAIL_OTP:
+ *   1. If the device is trusted (valid HMAC cookie), complete authentication directly.
+ *   2. Otherwise, store pending 2FA state in the session, clear the SecurityContext,
+ *      and redirect to /login/otp-verify.
  *
- * Otherwise: redirects to /projects as normal.
+ * Otherwise, redirect normally to /projects.
  */
 @Slf4j
 @Component
@@ -47,10 +47,10 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
         if (settings.getTwoFaMode() == TwoFaMode.EMAIL_OTP) {
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
 
-            // Skip OTP if the device is already trusted
+            // Skip OTP when the device is trusted
             if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
                 String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
-                log.info("[Auth] Login success user='{}' trusted-device bypass → {}", principal.getUsername(), dest);
+                log.info("[Auth] Login succeeded for user='{}' via trusted-device bypass → {}", principal.getUsername(), dest);
                 response.sendRedirect(request.getContextPath() + dest);
                 return;
             }
@@ -59,17 +59,17 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
             HttpSession session = request.getSession(true);
             otpService.storePendingAuth(session, principal);
 
-            // Clear the context — the user is not fully authenticated yet
+            // Clear the SecurityContext — the user is not yet fully authenticated
             SecurityContextHolder.clearContext();
             session.removeAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
 
-            log.info("[Auth] Login success user='{}' → 2FA challenge", principal.getUsername());
+            log.info("[Auth] Login succeeded for user='{}' → 2FA challenge", principal.getUsername());
             response.sendRedirect(request.getContextPath() + "/login/otp-verify");
         } else {
-            // No 2FA configured — check if password change is required
+            // 2FA not configured — check whether a password change is required
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
             String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
-            log.info("[Auth] Login success user='{}' (2FA disabled) → {}", principal.getUsername(), dest);
+            log.info("[Auth] Login succeeded for user='{}' (2FA disabled) → {}", principal.getUsername(), dest);
             response.sendRedirect(request.getContextPath() + dest);
         }
     }

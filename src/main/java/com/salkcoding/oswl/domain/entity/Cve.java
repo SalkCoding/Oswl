@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * A CVE (or GHSA advisory) linked to a shared Library.
+ * CVE (or GHSA advisory) attached to a shared Library.
  * Data is fetched from deps.dev GetAdvisory + OSV querybatch + NVD (optional).
  */
 @Entity

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 
 <!-- Security Center component list table -->
@@ -19,19 +19,19 @@
             </label>
         </div>
         <div class="flex h-[40px] items-center justify-center w-[80px] min-w-[80px]">
-            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px] text-center">Review</p>
+            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px] text-center" th:text="#{securityCenter.table.review}">Review</p>
         </div>
         <div class="flex flex-1 h-[40px] items-center px-[12px] min-w-[300px]">
-            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]">Component</p>
+            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]" th:text="#{securityCenter.table.component}">Component</p>
         </div>
         <div class="flex h-[40px] items-center px-[16px] w-[230px] min-w-[230px]">
-            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]">Security Issues</p>
+            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]" th:text="#{securityCenter.table.securityIssues}">Security Issues</p>
         </div>
         <div class="flex h-[40px] items-center px-[16px] w-[140px] min-w-[140px]">
-            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]">Patchability</p>
+            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]" th:text="#{securityCenter.table.patchability}">Patchability</p>
         </div>
         <div class="flex h-[40px] items-center px-[16px] w-[200px] min-w-[200px]">
-            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]">License</p>
+            <p class="text-[12px] text-[var(--background-dark)] font-bold tracking-[-0.12px]" th:text="#{securityCenter.table.license}">License</p>
         </div>
     </div>
 
@@ -42,8 +42,8 @@
         <div th:if="${#lists.isEmpty(components)}"
              class="flex flex-col items-center justify-center py-[80px] gap-[12px] text-center">
             <img th:src="@{/icon/icon-shield.svg}" class="w-[48px] h-[48px] opacity-20" alt="" aria-hidden="true">
-            <p class="text-[15px] font-semibold text-[var(--grayscale-60)] tracking-[-0.15px]">No scan results yet</p>
-            <p class="text-[13px] text-[var(--grayscale-40)] tracking-[-0.13px]">Run a scan via CLI or Git integration to see discovered components.</p>
+            <p class="text-[15px] font-semibold text-[var(--grayscale-60)] tracking-[-0.15px]" th:text="#{securityCenter.table.noResults}">No scan results yet</p>
+            <p class="text-[13px] text-[var(--grayscale-40)] tracking-[-0.13px]" th:text="#{securityCenter.table.runScan}">Run a scan via CLI or Git integration to see discovered components.</p>
         </div>
 
         <a th:each="comp : ${components}"
@@ -149,20 +149,20 @@
                           }"
                           class="w-[8px] h-[8px] rounded-full"></span>
                     <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
-                       th:text="${comp.patchability == 'patchable' ? 'Patchable' : (comp.patchability == 'non-patchable' ? 'Non-Patchable' : 'Unknown')}">Patchable</p>
+                       th:text="${comp.patchability == 'patchable' ? #{common.patchable} : (comp.patchability == 'non-patchable' ? #{common.nonPatchable} : #{common.unknown})}">Patchable</p>
                 </th:block>
                 <!-- No CVEs: show version currency status -->
                 <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
                     <span th:if="${comp.deprecated != null}"
                           class="flex items-center gap-[6px]">
                         <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-70)]"></span>
-                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Deprecated</p>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.deprecated}">Deprecated</p>
                     </span>
                     <span th:if="${comp.deprecated == null and comp.isLatestVersion == false}"
                           class="flex flex-col gap-[2px]">
                         <span class="flex items-center gap-[6px]">
                             <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-caution)] shrink-0"></span>
-                            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Outdated</p>
+                            <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.outdated}">Outdated</p>
                         </span>
                         <p th:if="${comp.latestVersion != null}"
                            class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] pl-[14px]"
@@ -171,7 +171,7 @@
                     <span th:if="${comp.deprecated == null and comp.isLatestVersion != false}"
                           class="flex items-center gap-[6px]">
                         <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-15)]"></span>
-                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]">Up to date</p>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.upToDate}">Up to date</p>
                     </span>
                 </th:block>
             </div>

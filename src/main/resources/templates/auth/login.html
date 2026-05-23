@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Sign In')}"></head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{auth.login.pageTitle})}"></head>
 <body class="min-h-screen flex flex-col font-sans antialiased relative" style="background: transparent;">
 
 <!-- Background image (full viewport, behind everything) -->
@@ -13,7 +13,7 @@
         <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
         <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
     </div>
-    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap">Sign In</h2>
+    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap" th:text="#{auth.login.pageTitle}">Sign In</h2>
 </header>
 
 <!-- Centered card -->
@@ -28,27 +28,19 @@
         <div class="flex flex-col items-center">
             <img th:src="@{/icon/icon-logo-card.svg}" class="w-[90px] h-[124px] mb-[6px]" alt="OsWL" aria-hidden="true">
             <p class="font-extrabold text-[32px] text-[var(--primary-120)] tracking-[-0.32px] leading-[1.3]">OsWL</p>
-            <p class="mt-[16px] text-[16px] font-normal text-[var(--grayscale-70)] tracking-[-0.16px] leading-[1.3]">
-                Open Source Watch List
-            </p>
+            <p class="mt-[16px] text-[16px] font-normal text-[var(--grayscale-70)] tracking-[-0.16px] leading-[1.3]" th:text="#{auth.login.subtitle}">Open Source Watch List</p>
         </div>
 
         <!-- Alerts (logout / setup only — login error is shown inline) -->
-        <div th:if="${param.logout}" class="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] rounded-[8px] px-[12px] py-[10px]">
-            You have been signed out.
-        </div>
-        <div th:if="${param.setup}" class="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] rounded-[8px] px-[12px] py-[10px]">
-            Account created. Please sign in.
-        </div>
+        <div th:if="${param.logout}" class="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] rounded-[8px] px-[12px] py-[10px]" th:text="#{auth.login.msg.logout}">로그아웃되었습니다.</div>
+        <div th:if="${param.setup}" class="w-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] rounded-[8px] px-[12px] py-[10px]" th:text="#{auth.login.msg.setup}">계정이 생성되었습니다. 로그인해 주세요.</div>
         <div th:if="${param.displaced}" class="w-full flex items-start gap-[6px] rounded-[8px] px-[14px] py-[10px] text-[#92400e] text-[13px]" style="background:rgba(245,145,38,0.05);border:1px solid rgba(245,145,38,0.2);">
             <img th:src="@{/icon/icon-alert-triangle.svg}" class="shrink-0 mt-[1px] w-[16px] h-[16px]" alt="" aria-hidden="true">
             <span th:if="${param.from != null and !#strings.isEmpty(param.from[0])}"
                   th:text="'You have been signed out. Another session was opened from ' + ${param.from[0]} + '.'">
                 You have been signed out. Your account was accessed from another location.
             </span>
-            <span th:unless="${param.from != null and !#strings.isEmpty(param.from[0])}">
-                You have been signed out. Your account was accessed from another location.
-            </span>
+            <span th:unless="${param.from != null and !#strings.isEmpty(param.from[0])}" th:text="#{auth.login.msg.displaced.other}">다른 위치에서 새 세션이 열려 로그아웃되었습니다.</span>
         </div>
 
         <!-- Form -->
@@ -58,12 +50,11 @@
             <!-- Email field -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="login-email"
-                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
-                    Email
-                </label>
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="#{auth.login.label.email}">Email</label>
                 <div class="w-full border rounded-[8px] px-[14px] py-[10px] flex items-center transition-colors border-[var(--grayscale-20)] focus-within:border-[var(--primary-100)]">
                     <input id="login-email" type="email" name="email" autocomplete="email" required
-                           placeholder="oswl@company.com"
+                           th:placeholder="#{auth.login.placeholder.email}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
                 </div>
@@ -72,13 +63,12 @@
             <!-- Password field -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="login-password"
-                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">
-                    Password
-                </label>
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="#{auth.login.label.password}">Password</label>
                 <div class="w-full border rounded-[8px] px-[14px] py-[10px] flex items-center gap-[10px] transition-colors border-[var(--grayscale-20)] focus-within:border-[var(--primary-100)]">
                     <input id="login-password" :type="showPwd ? 'text' : 'password'"
                            name="password" autocomplete="current-password" required
-                           placeholder="Enter your password"
+                           th:placeholder="#{auth.login.placeholder.password}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
                     <button type="button" tabindex="-1" @click="showPwd = !showPwd"
@@ -101,12 +91,8 @@
                      stroke-linecap="round" stroke-linejoin="round" class="text-red-500 shrink-0">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                 </svg>
-                <span th:if="${param.warn}" class="text-[14px] font-semibold text-red-600 tracking-[-0.14px] leading-[1.3]">
-                    5회 이상 로그인에 실패했습니다. 10회 실패 시 계정이 잠깁니다.
-                </span>
-                <span th:unless="${param.warn}" class="text-[14px] font-semibold text-red-600 tracking-[-0.14px] leading-[1.3]">
-                    Invalid email or password.
-                </span>
+                <span th:if="${param.warn}" class="text-[14px] font-semibold text-red-600 tracking-[-0.14px] leading-[1.3]" th:text="#{auth.login.msg.warn}">5회 이상 로그인에 실패했습니다. 10회 실패 시 계정이 잠깁니다.</span>
+                <span th:unless="${param.warn}" class="text-[14px] font-semibold text-red-600 tracking-[-0.14px] leading-[1.3]" th:text="#{auth.login.msg.invalid}">이메일 또는 비밀번호가 올바르지 않습니다.</span>
             </div>
 
             <!-- Disabled account error message -->
@@ -116,18 +102,15 @@
                      stroke-linecap="round" stroke-linejoin="round" class="text-amber-500 shrink-0">
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                 </svg>
-                <span class="text-[14px] font-semibold text-amber-700 tracking-[-0.14px] leading-[1.3]">
-                    이 계정은 비활성화 상태입니다. 관리자에게 계정 활성화를 요청해 주세요.
-                </span>
+                <span class="text-[14px] font-semibold text-amber-700 tracking-[-0.14px] leading-[1.3]" th:text="#{auth.login.msg.disabled}">이 계정은 비활성화 상태입니다. 관리자에게 계정 활성화를 요청해 주세요.</span>
             </div>
 
             <!-- Submit -->
             <button type="submit"
                     class="w-full bg-[var(--primary-120)] hover:bg-[var(--primary-100)]
                            text-white font-bold text-[14px] tracking-[-0.14px] leading-[1.3]
-                           rounded-[8px] px-[14px] py-[9px] transition-colors">
-                Sign In
-            </button>
+                           rounded-[8px] px-[14px] py-[9px] transition-colors"
+                    th:text="#{auth.login.btn.signin}">Sign In</button>
         </form>
     </div>
 </main>

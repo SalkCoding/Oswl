@@ -13,12 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * Spring Security 인증 이벤트를 감지해 감사 로그를 기록한다.
+ * Listens for Spring Security authentication events and records audit logs.
  *
- *  - AUTH.LOGIN_SUCCESS : 로그인 성공
- *  - AUTH.LOGIN_FAILURE : 로그인 실패 (비밀번호 오류 / 계정 비활성 포함)
+ *  - AUTH.LOGIN_SUCCESS : login success
+ *  - AUTH.LOGIN_FAILURE : login failure (including wrong password / disabled account)
  *
- * 로그아웃 이벤트는 AuditLogoutSuccessHandler 에서 처리한다.
+ * Logout events are handled by AuditLogoutSuccessHandler.
  */
 @Component
 @RequiredArgsConstructor

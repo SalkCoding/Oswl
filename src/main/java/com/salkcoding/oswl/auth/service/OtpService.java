@@ -12,21 +12,21 @@ import java.security.SecureRandom;
 import java.time.Instant;
 
 /**
- * Manages the in-session state for the Email OTP two-factor authentication flow.
+ * Manages the in-session state of the Email OTP two-factor authentication flow.
  *
  * Flow:
- *  1. After credentials are verified, TwoFaAuthenticationSuccessHandler calls
- *     storePendingAuth() to store the principal + one-time code in the session.
+ *  1. After credential success, TwoFaAuthenticationSuccessHandler calls
+ *     storePendingAuth() to store the principal and one-time code in the session.
  *  2. The browser is redirected to /login/otp-verify.
  *  3. OtpVerifyController validates the submitted code via verify().
- *     On success it promotes the session to fully-authenticated.
+ *     On success, it promotes the session to a fully authenticated state.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class OtpService {
 
-    // ── Session attribute keys ────────────────────────────────────────────
+    // ── Session attribute keys ─────────────────────────────────
     public static final String SESSION_PRINCIPAL   = "PENDING_2FA_PRINCIPAL";
     public static final String SESSION_OTP         = "PENDING_2FA_OTP";
     public static final String SESSION_EXPIRY      = "PENDING_2FA_EXPIRY_MS";
@@ -41,8 +41,8 @@ public class OtpService {
     private static final long RESEND_COOLDOWN_MS = 60_000L;   // 60 seconds
 
     /**
-     * TODO: Remove test bypass before going to production.
-     *       "000000" is always accepted as a valid OTP for local development.
+     * TODO: Remove the test bypass before production deployment.
+     *       For local development, "000000" is always accepted as a valid OTP.
      */
     private static final String TEST_BYPASS_CODE = "000000";
 
@@ -51,14 +51,13 @@ public class OtpService {
     private final AuditLogService auditLogService;
     private final SecureRandom   secureRandom = new SecureRandom();
 
-    // ── Public API ────────────────────────────────────────────────────────
+    // ── Public API ─────────────────────────────────────────────────────
 
     /**
-     * Generates a 6-digit OTP, stores it (along with the principal and expiry)
-     * in the given session, then sends it to the user's registered email address.
+     * Generates a 6-digit OTP, stores it in the session, and sends it to the user's registered email.
      *
-     * Falls back to console logging when mail is DISABLED in SecuritySetting
-     * (development convenience).
+     * When mail is DISABLED in SecuritySetting, delivery is replaced with console logging
+     * (a development convenience).
      */
     public void storePendingAuth(HttpSession session, OswlUserPrincipal principal) {
         String otp     = String.format("%06d", secureRandom.nextInt(MAX_DIGITS));
@@ -74,28 +73,27 @@ public class OtpService {
         try {
             mailService.sendOtp(email, name, otp);
             session.removeAttribute(SESSION_MAIL_FAILED);
-            log.info("[OTP] Code issued for user='{}' valid={}min", email, OTP_VALID_MINUTES);
+            log.info("[OTP] OTP issued for user='{}', valid={}min", email, OTP_VALID_MINUTES);
         } catch (Exception e) {
-            // Delivery failure must not block the authentication flow;
-            // the OTP is still stored in the session.
+            // A delivery failure does not block the authentication flow;
+            // the OTP remains stored in the session.
             session.setAttribute(SESSION_MAIL_FAILED, true);
-            log.error("[OTP] Email delivery failed for '{}': {}", email, e.getMessage());
-            // DEV FALLBACK: print code so local testing still works even if SMTP is unconfigured
-            log.debug("[OTP][DEV-FALLBACK] Could not email OTP — code for '{}' : {}", email, otp);
+            log.error("[OTP] Failed to send OTP email to '{}': {}", email, e.getMessage());
+            // DEV fallback: print the code for local testing when SMTP is not configured
+            log.debug("[OTP][DEV-FALLBACK] OTP email delivery failed — '{}' code: {}", email, otp);
         }
     }
 
     /**
-     * Returns true if a pending 2FA entry exists in the session (i.e. the user
-     * passed password auth but has not yet completed OTP verification).
+     * Returns true when the session contains pending 2FA state
+     * (= password authentication succeeded, but OTP verification has not).
      */
     public boolean isPending(HttpSession session) {
         return session.getAttribute(SESSION_PRINCIPAL) != null;
     }
 
     /**
-     * Returns true if at least {@value RESEND_COOLDOWN_MS} ms have elapsed
-     * since the last OTP was sent.
+     * Returns true if at least {@value RESEND_COOLDOWN_MS}ms have passed since the last OTP was sent.
      */
     public boolean canResend(HttpSession session) {
         Long lastSent = (Long) session.getAttribute(SESSION_LAST_SENT);
@@ -104,7 +102,7 @@ public class OtpService {
     }
 
     /**
-     * Returns true when the account has been locked due to too many failed attempts.
+     * Returns true if the account has been locked due to too many OTP failures.
      */
     public boolean isAccountLocked(HttpSession session) {
         return Boolean.TRUE.equals(session.getAttribute(SESSION_LOCKED));
@@ -112,19 +110,19 @@ public class OtpService {
 
     /**
      * Validates the submitted OTP code.
-     * Increments the attempt counter on failure; locks the account at {@value MAX_OTP_ATTEMPTS}.
+     * On failure, increments the attempt count; when it reaches {@value MAX_OTP_ATTEMPTS}, the account is locked.
      *
-     * @param session the current HTTP session
-     * @param code    the 6-digit code entered by the user
-     * @return true if the code is correct AND not yet expired
+     * @param session current HTTP session
+     * @param code    6-digit code entered by the user
+     * @return true if the code is correct and not yet expired
      */
     public boolean verify(HttpSession session, String code) {
         if (code == null) return false;
 
-        // TODO: Remove test bypass — "000000" always passes for local development only
+        // TODO: Remove test bypass — "000000" should only work for local development
         if (TEST_BYPASS_CODE.equals(code)) {
             OswlUserPrincipal p = getPendingPrincipal(session);
-            log.warn("[OTP][TEST-ONLY] Test bypass '000000' accepted for user '{}'",
+            log.warn("[OTP][TEST] Accepted test bypass '000000' for user '{}'",
                     p != null ? p.getUsername() : "unknown");
             return true;
         }
@@ -137,7 +135,7 @@ public class OtpService {
 
         if (stored.equals(code)) {
             OswlUserPrincipal verified = getPendingPrincipal(session);
-            log.info("[OTP] Verified successfully for user='{}'", verified != null ? verified.getUsername() : "unknown");
+            log.info("[OTP] OTP verification succeeded for user='{}'", verified != null ? verified.getUsername() : "unknown");
             return true;
         }
 
@@ -147,7 +145,7 @@ public class OtpService {
         session.setAttribute(SESSION_ATTEMPTS, attempts);
 
         OswlUserPrincipal failed = getPendingPrincipal(session);
-        log.warn("[OTP] Wrong code attempt {}/{} for user='{}'",
+        log.warn("[OTP] Invalid code attempt {}/{} for user='{}'",
                 attempts, MAX_OTP_ATTEMPTS, failed != null ? failed.getUsername() : "unknown");
 
         if (attempts >= MAX_OTP_ATTEMPTS) {
@@ -157,12 +155,12 @@ public class OtpService {
         return false;
     }
 
-    /** Returns the authenticated-but-not-yet-2FA-verified principal, or null. */
+    /** Returns the principal if authenticated (session pending) but 2FA is incomplete, or null. */
     public OswlUserPrincipal getPendingPrincipal(HttpSession session) {
         return (OswlUserPrincipal) session.getAttribute(SESSION_PRINCIPAL);
     }
 
-    /** Returns remaining validity in seconds (0 if expired or not set). */
+    /** Returns the remaining validity time in seconds (0 if expired or not set). */
     public long remainingSeconds(HttpSession session) {
         Long expiry = (Long) session.getAttribute(SESSION_EXPIRY);
         if (expiry == null) return 0;
@@ -179,7 +177,7 @@ public class OtpService {
         session.removeAttribute(SESSION_LOCKED);
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────
+    // ── Private helpers ───────────────────────────────────────────────
 
     @Transactional
     private void lockAccount(HttpSession session) {
@@ -192,8 +190,8 @@ public class OtpService {
                 user.setEnabled(false);
                 auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
                         user.getId().toString(), email,
-                        "Auto-locked: exceeded " + MAX_OTP_ATTEMPTS + " OTP attempts");
-                log.warn("[OTP] Account '{}' locked after {} failed OTP attempts", email, MAX_OTP_ATTEMPTS);
+                        "Auto-locked after " + MAX_OTP_ATTEMPTS + " OTP failures");
+                log.warn("[OTP] Account '{}' locked after {} OTP failures", email, MAX_OTP_ATTEMPTS);
             }
         });
     }

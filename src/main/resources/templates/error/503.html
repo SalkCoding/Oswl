@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
-    <title>503 - Service Unavailable</title>
+    <title th:text="#{error.503.title}">503 - Service Unavailable</title>
 </head>
 <body>
-<div th:replace="~{error/_owl-error :: page(code='503', title='Service Unavailable', descHtml='The service is temporarily unavailable.<br/>Please try again in a few moments.', buttonText='Go to Home', buttonHref=@{/})}">placeholder</div>
+<div th:replace="~{error/_owl-error :: page(code='503', title=#{error.503.title}, descHtml=#{error.503.description}, buttonText=#{error.503.btn}, buttonHref=@{/})}">placeholder</div>
 </body>
 </html>

@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Permanently deletes projects that have been in the trash for 30 or more days.
- * Runs daily at 02:00 (server local time).
+ * Permanently deletes projects that have been in the trash for more than 30 days.
+ * Runs every day at 2:00 AM (server local time).
  */
 @Slf4j
 @Component
@@ -29,7 +29,7 @@ public class TrashCleanupScheduler {
         List<Project> expired = projectRepository.findAllByDeletedAtBefore(cutoff);
         if (!expired.isEmpty()) {
             projectRepository.deleteAll(expired);
-            log.info("[TrashCleanup] 만료된 프로젝트 {}건 영구삭제 완료", expired.size());
+            log.info("[TrashCleanup] Permanently deleted {} expired projects", expired.size());
         }
     }
 }

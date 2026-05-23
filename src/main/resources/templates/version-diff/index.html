@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Version Diff')}"></head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{versionDiff.pageTitle})}"></head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]"
       th:attr="data-project-id=${projectId},data-from-scan-id=${fromScanId},data-to-scan-id=${toScanId}"
       x-data="versionDiffPage()"
@@ -10,7 +10,7 @@
 
     <!-- ── Compare bar ──────────────────────────────────────────────────── -->
     <div class="bg-[var(--grayscale-10)] border-b border-[var(--grayscale-20)] px-[60px] py-[16px] flex items-center gap-[16px] shrink-0">
-        <span class="text-[14px] font-medium text-[var(--grayscale-60)] tracking-[-0.14px] shrink-0">Compare</span>
+        <span class="text-[14px] font-medium text-[var(--grayscale-60)] tracking-[-0.14px] shrink-0" th:text="#{versionDiff.btn.compare}">Compare</span>
 
         <!-- From version selector -->
         <div class="relative min-w-[260px]" x-data="{ open: false }" @click.outside="open = false">
@@ -63,9 +63,10 @@
 
         <!-- Total changes badge -->
         <span th:if="${totalCount > 0}"
-              th:text="${totalCount} + ' changes found'"
+              th:text="#{versionDiff.changesFound(${totalCount})}"
               class="text-[14px] font-semibold text-[var(--primary-120)] tracking-[-0.14px]">0 changes found</span>
         <span th:if="${totalCount == 0}"
+              th:text="#{versionDiff.noChangesFound}"
               class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">No changes found</span>
     </div>
 
@@ -77,25 +78,25 @@
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
                 <span class="text-[36px] font-bold text-[#5af596] tracking-[-0.5px]"
                       th:text="'+' + ${addedCount}">+0</span>
-                <span class="text-[14px] font-normal text-white tracking-[-0.14px]">Added</span>
+                <span class="text-[14px] font-normal text-white tracking-[-0.14px]" th:text="#{versionDiff.tab.added}">Added</span>
             </div>
             <!-- Removed -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
                 <span class="text-[36px] font-bold text-[#ff837a] tracking-[-0.5px]"
                       th:text="'-' + ${removedCount}">-0</span>
-                <span class="text-[14px] font-normal text-white tracking-[-0.14px]">Removed</span>
+                <span class="text-[14px] font-normal text-white tracking-[-0.14px]" th:text="#{versionDiff.tab.removed}">Removed</span>
             </div>
             <!-- Updated -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
                 <span class="text-[36px] font-bold text-[#6dc2ff] tracking-[-0.5px]"
                       th:text="'↑' + ${updatedCount}">↑0</span>
-                <span class="text-[14px] font-normal text-white tracking-[-0.14px]">Updated</span>
+                <span class="text-[14px] font-normal text-white tracking-[-0.14px]" th:text="#{versionDiff.tab.updated}">Updated</span>
             </div>
             <!-- New Threats -->
             <div class="bg-[var(--background-dark)] rounded-[12px] px-[28px] py-[24px] flex flex-col items-center gap-[6px]">
                 <span class="text-[36px] font-bold text-[#ffc732] tracking-[-0.5px]"
                       th:text="${newThreatCount}">0</span>
-                <span class="text-[14px] font-medium text-white/60 tracking-[-0.14px]">New Threats</span>
+                <span class="text-[14px] font-medium text-white/60 tracking-[-0.14px]" th:text="#{versionDiff.tab.newThreats}">New Threats</span>
             </div>
         </div>
 
@@ -119,7 +120,7 @@
                         @click="tab = 'all'"
                         class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
                         :class="tab === 'all' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
-                    ALL
+                    <span th:text="#{versionDiff.tab.all}">ALL</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
                           :class="tab === 'all' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${totalCount}">0</span>
@@ -128,7 +129,7 @@
                         @click="tab = 'added'"
                         class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
                         :class="tab === 'added' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
-                    Added
+                    <span th:text="#{versionDiff.tab.added}">Added</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
                           :class="tab === 'added' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${addedCount}">0</span>
@@ -137,7 +138,7 @@
                         @click="tab = 'removed'"
                         class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
                         :class="tab === 'removed' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
-                    Removed
+                    <span th:text="#{versionDiff.tab.removed}">Removed</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
                           :class="tab === 'removed' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${removedCount}">0</span>
@@ -146,7 +147,7 @@
                         @click="tab = 'updated'"
                         class="flex items-center gap-[8px] px-[14px] py-[12px] mr-[0px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
                         :class="tab === 'updated' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
-                    Updated
+                    <span th:text="#{versionDiff.tab.updated}">Updated</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
                           :class="tab === 'updated' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${updatedCount}">0</span>
@@ -155,7 +156,7 @@
                         @click="tab = 'newThreat'"
                         class="flex items-center gap-[8px] px-[14px] py-[12px] text-[14px] tracking-[-0.14px] transition-colors border-b-2 -mb-px"
                         :class="tab === 'newThreat' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
-                    New Threats
+                    <span th:text="#{versionDiff.tab.newThreats}">New Threats</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
                           :class="tab === 'newThreat' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${newThreatCount}">0</span>
@@ -178,7 +179,7 @@
             <div th:if="${#lists.isEmpty(diffRows)}"
                  class="flex flex-col items-center gap-[12px] py-[80px] text-[var(--grayscale-40)]">
                 <img th:src="@{/icon/icon-info2.svg}" class="w-[48px] h-[48px] opacity-40" alt="" aria-hidden="true">
-                <p class="text-[14px] font-medium">No differences found between the two versions.</p>
+                <p class="text-[14px] font-medium" th:text="#{versionDiff.noChanges.detail}">No differences found between the two versions.</p>
             </div>
 
             <div th:unless="${#lists.isEmpty(diffRows)}">
@@ -253,10 +254,10 @@
                                            : (${row.changeType.name() == 'NEW_THREAT'} ? ' text-[var(--risk-high)]'
                                            : ' text-[#0086e5]'))">
                             <th:block th:switch="${row.changeType.name()}">
-                                <span th:case="'ADDED'">+ Added</span>
-                                <span th:case="'REMOVED'">- Removed</span>
-                                <span th:case="'UPDATED'">↑Updated</span>
-                                <span th:case="'NEW_THREAT'">⚠ New Threat</span>
+                                <span th:case="'ADDED'" th:text="#{versionDiff.summary.added}">+ Added</span>
+                                <span th:case="'REMOVED'" th:text="#{versionDiff.summary.removed}">- Removed</span>
+                                <span th:case="'UPDATED'" th:text="#{versionDiff.summary.updated}">↑Updated</span>
+                                <span th:case="'NEW_THREAT'" th:text="#{versionDiff.summary.newThreats}">⚠ New Threat</span>
                             </th:block>
                         </span>
                     </div>

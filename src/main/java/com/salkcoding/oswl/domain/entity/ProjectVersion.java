@@ -7,11 +7,11 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * Represents a single branch-level import of a Project.
- * One row per (project, branch) pair — enforced by a unique constraint.
+ * Represents a branch-level import of a Project.
+ * There is one row per (project, branch) pair, enforced by a unique constraint.
  *
- * Re-importing the same branch updates {@code lastUpdatedAt}; importing a new branch
- * creates a new row with an auto-incremented {@code versionNumber}.
+ * Re-importing the same branch updates {@code lastUpdatedAt};
+ * importing a new branch creates a new row with an auto-incremented {@code versionNumber}.
  */
 @Entity
 @Table(name = "project_versions",
@@ -33,18 +33,18 @@ public class ProjectVersion {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    /** Git branch name, e.g. "main", "develop". */
+    /** Git branch name. Example: "main", "develop". */
     @Column(nullable = false, length = 255)
     private String branch;
 
     /**
-     * Sequential version number within the parent project.
-     * Starts at 1 for the first branch and increments for each new branch.
+     * Sequential number within the parent project.
+     * The first branch starts at 1 and increments for each new branch.
      */
     @Column(name = "version_number", nullable = false)
     private int versionNumber;
 
-    /** Where this version was imported from. */
+    /** Source from which this version was imported. */
     @Enumerated(EnumType.STRING)
     @Column(name = "import_source", nullable = false, length = 10)
     @Builder.Default
@@ -65,7 +65,7 @@ public class ProjectVersion {
         if (this.lastUpdatedAt == null) this.lastUpdatedAt = now;
     }
 
-    /** Call when re-importing the same branch to record the update time. */
+    /** Called when re-importing the same branch to record the updated time. */
     public void touch() {
         this.lastUpdatedAt = LocalDateTime.now();
     }

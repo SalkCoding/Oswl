@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 
     <div th:fragment="license_conflicts"
@@ -21,8 +21,8 @@
                     <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
                     <polyline points="22 4 12 14.01 9 11.01"/>
                 </svg>
-                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0">No license conflicts detected.</p>
-                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0">Detected licenses appear compatible under standard interpretations.</p>
+                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0" th:text="#{license.conflicts.empty}">No license conflicts detected.</p>
+                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0" th:text="#{license.conflicts.empty.hint}">Detected licenses appear compatible under standard interpretations.</p>
             </div>
 
             <div th:each="conflict : ${conflicts}"
@@ -47,13 +47,13 @@
                      class="flex flex-col gap-3 bg-[var(--grayscale-5)] border-t border-[#DBE4E7] px-6 py-4">
 
                     <div>
-                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] m-0">Why it conflicts</p>
+                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] m-0" th:text="#{license.conflicts.whyConflicts}">Why it conflicts</p>
                         <p class="text-[12px] text-[var(--grayscale-70)] leading-relaxed m-0 mt-1"
                            th:text="${conflict.explanation}">Explanation</p>
                     </div>
 
                     <div>
-                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] m-0">Recommended mitigation</p>
+                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] m-0" th:text="#{license.conflicts.recommendation}">Recommended mitigation</p>
                         <p class="text-[12px] text-[var(--grayscale-70)] leading-relaxed m-0 mt-1"
                            th:text="${conflict.recommendation}">Recommendation</p>
                     </div>

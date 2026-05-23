@@ -4,7 +4,7 @@ import lombok.Data;
 
 /**
  * POST /api/settings/security/mail/test request body.
- * Mirrors the mailForm fields from the UI.
+ * Mirrors the UI mailForm fields.
  */
 @Data
 public class MailTestRequest {

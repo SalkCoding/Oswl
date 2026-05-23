@@ -4,6 +4,11 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
+  messages:
+    basename: messages
+    encoding: UTF-8
+    use-code-as-default-message: false
+
   jackson:
     default-property-inclusion: non_null
 
@@ -32,8 +37,8 @@ oswl:
     # Audit log records older than this many months are automatically deleted
     retention-months: ${OSWL_AUDIT_RETENTION_MONTHS:6}
 
-## AI 설정 (DB에 저장된 AiSetting으로 덮어쓰기 가능)
-## 초기 기동 시 환경변수로 주입하거나 UI에서 PUT /api/settings/ai 로 설정
+## AI settings (can be overridden by AiSetting stored in DB)
+## Inject via environment variable at startup, or configure via PUT /api/settings/ai in the UI
 #oswl:
 #  ai:
 #    # Default active provider: OPENAI | ANTHROPIC | LOCAL

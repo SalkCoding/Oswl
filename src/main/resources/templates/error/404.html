@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
-    <title>404 - Page Not Found</title>
+    <title th:text="#{error.404.title}">404 - Page Not Found</title>
 </head>
 <body>
-<div th:replace="~{error/_owl-error :: page(code='404', title='Page Not Found', descHtml='The page you requested doesn\'t exist<br/>or may have been moved or deleted.', buttonText='Go to Home', buttonHref=@{/})}">placeholder</div>
+<div th:replace="~{error/_owl-error :: page(code='404', title=#{error.404.title}, descHtml=#{error.404.description}, buttonText=#{error.404.btn}, buttonHref=@{/})}">placeholder</div>
 </body>
 </html>

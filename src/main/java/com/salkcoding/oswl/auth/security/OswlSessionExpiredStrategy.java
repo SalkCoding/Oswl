@@ -13,11 +13,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Called by {@link org.springframework.security.web.session.ConcurrentSessionFilter}
- * when a session is expired because the same account logged in from another location.
+ * Invoked by {@link org.springframework.security.web.session.ConcurrentSessionFilter}
+ * when a session expires because the same account logged in from another location.
  *
- * Redirects browser clients to /login?displaced=true&from=<ip>.
- * Returns 401 JSON for API/AJAX clients.
+ * Browser clients are redirected to /login?displaced=true&from=<ip>.
+ * API/AJAX clients receive a 401 JSON response.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,12 +30,12 @@ public class OswlSessionExpiredStrategy implements SessionInformationExpiredStra
         HttpServletRequest  request  = event.getRequest();
         HttpServletResponse response = event.getResponse();
 
-        // Determine displacing IP from the last successful login for this user
+        // Look up the IP that displaced this user during the last successful login
         Object principal = event.getSessionInformation().getPrincipal();
         String email = principal instanceof UserDetails ud ? ud.getUsername() : String.valueOf(principal);
         String displacingIp = lastLoginIpStore.get(email);
 
-        // For API / AJAX requests return 401 JSON
+        // Return 401 JSON for API/AJAX requests
         String accept = request.getHeader("Accept");
         String uri    = request.getRequestURI();
         if (uri.startsWith("/api/") || (accept != null && accept.contains("application/json"))) {

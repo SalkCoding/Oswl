@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A unique open-source library identified by (name, version, ecosystem).
- * Shared across all projects/scans — CVE and license data are stored here once.
+ * Unique open-source library identified by (name, version, ecosystem).
+ * CVE and license data are shared across all projects/scans, so they are stored here only once.
  */
 @Entity
 @Table(name = "libraries",
@@ -42,13 +42,13 @@ public class Library {
     private String version;
 
     /**
-     * Package ecosystem used by deps.dev system parameter.
-     * e.g. MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS
+     * Package ecosystem used for the deps.dev system parameter.
+     * Examples: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS
      */
     @Column(nullable = false, length = 20)
     private String ecosystem;
 
-    /** Primary SPDX license expression returned by deps.dev */
+    /** Default SPDX license expression returned by deps.dev */
     @Column(name = "license_name", length = 200)
     private String licenseName;
 
@@ -58,7 +58,7 @@ public class Library {
     private LicenseStatus licenseStatus = LicenseStatus.UNKNOWN;
 
     /**
-     * True when deps.dev reports this is the default (latest stable) version of the package.
+     * True when deps.dev reports this package version as the default (latest stable).
      * Null means the information has not been fetched yet.
      */
     @Column(name = "is_latest_version")
@@ -72,8 +72,8 @@ public class Library {
     private String deprecated;
 
     /**
-     * The latest stable version string from deps.dev, populated only when this version
-     * is not the default (i.e. isLatestVersion == false). Null if already on the latest.
+     * Latest stable version string fetched from deps.dev.
+     * Populated only when the current version is not the latest; null if it already is.
      */
     @Column(name = "latest_version", length = 100)
     private String latestVersion;
@@ -82,7 +82,7 @@ public class Library {
     @Column(name = "fetched_at")
     private LocalDateTime fetchedAt;
 
-    /** AI-generated one-sentence compliance risk summary for this library's license (pre-generated during enrichment) */
+    /** AI-generated one-sentence compliance risk summary for the library license (generated during enrichment) */
     @Column(name = "ai_license_summary", columnDefinition = "TEXT")
     private String aiLicenseSummary;
 
@@ -90,7 +90,7 @@ public class Library {
     @Builder.Default
     private List<Cve> cves = new ArrayList<>();
 
-    // ── Mutation helpers ─────────────────────────────────────────────────
+    // ── Mutation helpers ───────────────────────────────────────────
 
     public void updateLicense(String licenseName, LicenseStatus licenseStatus) {
         this.licenseName = licenseName;
@@ -111,7 +111,7 @@ public class Library {
         this.aiLicenseSummary = summary;
     }
 
-    // ── Computed properties ──────────────────────────────────────────────
+    // ── Derived properties ─────────────────────────────────────────
 
     public long countBySeverity(String severity) {
         return cves.stream()
@@ -120,10 +120,10 @@ public class Library {
     }
 
     /**
-     * Patchability computed from CVE fix versions:
+     * Computes whether a fix version can be derived from the CVEs:
      * - No CVEs → UNKNOWN
-     * - Any CVE has a fixVersion → PATCHABLE
-     * - All CVEs lack fixVersion → NON_PATCHABLE
+     * - At least one fixVersion exists → PATCHABLE
+     * - No CVEs have a fixVersion → NON_PATCHABLE
      */
     public Patchability computePatchability() {
         List<Cve> activeCves = cves.stream()
@@ -136,7 +136,7 @@ public class Library {
     }
 
     /**
-     * Highest severity CVE in this library (CRITICAL > HIGH > MEDIUM > LOW > Unscored).
+     * Highest-severity CVE for this library (CRITICAL > HIGH > MEDIUM > LOW > unscored).
      */
     public RiskLevel highestSeverity() {
         return cves.stream()
@@ -146,7 +146,7 @@ public class Library {
                 .orElse(RiskLevel.NONE);
     }
 
-    /** Best fix version — from the highest-severity CVE that has one */
+    /** Best fix version — taken from the highest-severity CVE that has a fix version */
     public String bestFixVersion() {
         return cves.stream()
                 .filter(c -> c.getFixVersion() != null && !c.getFixVersion().isBlank())

@@ -13,13 +13,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 /**
- * Issues and validates HMAC-signed "trusted device" cookies for 30-day 2FA bypass.
+ * Issues and validates an HMAC-signed "trusted device" cookie for 30-day 2FA bypass.
  *
  * Cookie value format: Base64(userId ":" expiryMs ":" hmac)
  *   where hmac = HMAC-SHA256(userId + ":" + expiryMs, key)
  *
- * If {@code oswl.encryption.key} is absent the service is disabled — no cookies are
- * issued and {@link #isTrusted} always returns {@code false}.
+ * If {@code oswl.encryption.key} is missing, the service is disabled —
+ * cookies are not issued and {@link #isTrusted} always returns {@code false}.
  */
 @Slf4j
 @Service
@@ -35,14 +35,14 @@ public class TrustedDeviceService {
             @Value("${oswl.encryption.key:}") String base64Key) {
 
         if (base64Key == null || base64Key.isBlank()) {
-            log.warn("[TrustedDevice] No encryption key configured — trusted-device feature is disabled.");
+            log.warn("[TrustedDevice] Encryption key is not configured — trusted-device functionality has been disabled.");
             this.keyBytes = null;
         } else {
             this.keyBytes = Base64.getDecoder().decode(base64Key);
         }
     }
 
-    /** Returns true if the feature is enabled (key is configured). */
+    /** Returns whether the service is enabled (true when the key is configured). */
     public boolean isEnabled() {
         return keyBytes != null;
     }
@@ -50,7 +50,7 @@ public class TrustedDeviceService {
     /**
      * Validates the trusted-device cookie for the given user.
      *
-     * @return true only when the cookie is present, the signature is valid and it has not expired.
+     * @return true only if the cookie exists, has a valid signature, and is not expired
      */
     public boolean isTrusted(Long userId, HttpServletRequest request) {
         if (!isEnabled()) return false;
@@ -60,7 +60,7 @@ public class TrustedDeviceService {
         for (Cookie c : cookies) {
             if (COOKIE_NAME.equals(c.getName())) {
                 boolean trusted = validate(userId, c.getValue());
-                if (trusted) log.debug("[TrustedDevice] Bypass granted for userId={}", userId);
+                if (trusted) log.debug("[TrustedDevice] Trusted-device access granted for userId={}", userId);
                 return trusted;
             }
         }
@@ -69,7 +69,7 @@ public class TrustedDeviceService {
 
     /**
      * Issues a 30-day trusted-device cookie for the given user.
-     * Does nothing if the feature is disabled.
+     * Does nothing when the service is disabled.
      */
     public void setTrusted(Long userId, HttpServletResponse response) {
         if (!isEnabled()) return;
@@ -84,21 +84,21 @@ public class TrustedDeviceService {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(MAX_AGE_SECONDS);
-        // SameSite=Strict is set via the Set-Cookie header attribute
+        // SameSite=Strict is set through the Set-Cookie header attribute
         response.addHeader("Set-Cookie",
                 COOKIE_NAME + "=" + value
                 + "; Path=/; Max-Age=" + MAX_AGE_SECONDS
                 + "; HttpOnly; SameSite=Strict");
-        log.debug("[TrustedDevice] Cookie issued for userId={} maxAge={}days", userId, MAX_AGE_SECONDS / 86400);
+        log.debug("[TrustedDevice] Issued cookie for userId={} maxAge={}days", userId, MAX_AGE_SECONDS / 86400);
     }
 
-    /** Clears the trusted-device cookie (e.g., on explicit logout). */
+    /** Clears the trusted-device cookie (for example, on explicit logout). */
     public void clearTrusted(HttpServletResponse response) {
         response.addHeader("Set-Cookie",
                 COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
     }
 
-    // ── Internal helpers ─────────────────────────────────────────────────────
+    // ── Internal helpers ─────────────────────────────────────────────
 
     private boolean validate(Long userId, String cookieValue) {
         try {
@@ -111,7 +111,7 @@ public class TrustedDeviceService {
             String payload  = raw.substring(0, lastColon);
             String suppliedHmac = raw.substring(lastColon + 1);
 
-            // Verify userId prefix matches
+            // Check whether the userId prefix matches
             String[] parts = payload.split(":", 2);
             if (parts.length != 2) return false;
 
@@ -138,11 +138,11 @@ public class TrustedDeviceService {
             byte[] bytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         } catch (Exception e) {
-            throw new IllegalStateException("HMAC computation failed", e);
+            throw new IllegalStateException("Failed to compute HMAC", e);
         }
     }
 
-    /** Prevent timing attacks by comparing all characters regardless of early mismatch. */
+    /** Compares all characters regardless of early mismatch to avoid timing attacks. */
     private boolean constantTimeEquals(String a, String b) {
         byte[] ba = a.getBytes(StandardCharsets.UTF_8);
         byte[] bb = b.getBytes(StandardCharsets.UTF_8);

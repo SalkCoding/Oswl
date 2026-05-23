@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * Payload for POST /projects/{projectId}/components/{componentId}/create-pr
+ * POST /projects/{projectId}/components/{componentId}/create-pr payload
  */
 @Getter
 @NoArgsConstructor
@@ -15,7 +15,7 @@ public class CreatePrRequest {
     /** Target base branch for the PR */
     private String targetBranch;
 
-    /** Optional reviewer GitHub logins */
+    /** Optional list of reviewer GitHub logins */
     private List<String> reviewers;
 
     /** PR body / description (freeform text) */

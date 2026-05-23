@@ -15,20 +15,20 @@
                     </svg>
                 </div>
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
-                    <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0">CLI Integration</h2>
+                    <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0" th:text="#{cli.heading}">CLI Integration</h2>
                 </div>
                 <button type="button" @click="openPanel = null"
                         class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
                     <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                 </button>
             </div>
-            <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] mb-0">
+            <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] mb-0" th:text="#{cli.subtitle}">
                 Run fast and secure scans on your local machine or build server.
             </p>
         </div>
         <div class="bg-[#f59126]/5 border border-[#f59126]/20 rounded-[10px] px-[18px] py-[12px] flex gap-[6px] shrink-0 w-full items-center">
             <img th:src="@{/icon/icon-warning.svg}" class="w-[18px] h-[18px] shrink-0" alt="" aria-hidden="true">
-            <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[-0.13px]">API keys are project-scoped — issue one from the project settings before scanning</span>
+            <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[-0.13px]" th:text="#{cli.warning}">API keys are project-scoped — issue one from the project settings before scanning</span>
         </div>
     </div>
 

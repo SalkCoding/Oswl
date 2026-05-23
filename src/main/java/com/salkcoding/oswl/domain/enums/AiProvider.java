@@ -5,6 +5,6 @@ public enum AiProvider {
     OPENAI,     // GPT
     GEMINI,     // Gemini
     ANTHROPIC,  // Claude
-    COPILOT,    // GitHub Copilot (OpenAI-compatible, GitHub token auth)
-    LOCAL       // Ollama and similar local LLMs (OpenAI-compatible endpoint)
+    COPILOT,    // GitHub Copilot (OpenAI-compatible, authenticated with GitHub token)
+    LOCAL       // Local LLM such as Ollama (OpenAI-compatible endpoint)
 }

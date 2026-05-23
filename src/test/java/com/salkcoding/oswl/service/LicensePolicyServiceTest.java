@@ -1,0 +1,146 @@
+package com.salkcoding.oswl.service;
+
+import com.salkcoding.oswl.domain.entity.LicensePolicyEntry;
+import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.repository.LicensePolicyRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("LicensePolicyService 단위 테스트")
+class LicensePolicyServiceTest {
+
+    @Mock
+    LicensePolicyRepository licensePolicyRepository;
+
+    @InjectMocks
+    LicensePolicyService licensePolicyService;
+
+    @BeforeEach
+    void seedCache() {
+        when(licensePolicyRepository.findAll()).thenReturn(List.of(
+                entry("MIT",        LicenseStatus.PERMITTED),
+                entry("APACHE-2.0", LicenseStatus.PERMITTED),
+                entry("LGPL-2.1",   LicenseStatus.CAUTION),
+                entry("GPL-3.0",    LicenseStatus.RESTRICTED),
+                entry("AGPL-3.0",   LicenseStatus.RESTRICTED)
+        ));
+        licensePolicyService.refreshCache();
+    }
+
+    // ── null / blank ──────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("null 입력이면 UNKNOWN을 반환한다")
+    void classify_returnsUnknown_forNull() {
+        assertThat(licensePolicyService.classify(null)).isEqualTo(LicenseStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("빈 문자열이면 UNKNOWN을 반환한다")
+    void classify_returnsUnknown_forBlank() {
+        assertThat(licensePolicyService.classify("   ")).isEqualTo(LicenseStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("등록되지 않은 SPDX ID는 UNKNOWN을 반환한다")
+    void classify_returnsUnknown_forUnregisteredId() {
+        assertThat(licensePolicyService.classify("CUSTOM-1.0")).isEqualTo(LicenseStatus.UNKNOWN);
+    }
+
+    // ── 직접 조회 ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("등록된 PERMITTED 라이선스는 PERMITTED를 반환한다")
+    void classify_returnsPermitted_forMit() {
+        assertThat(licensePolicyService.classify("MIT")).isEqualTo(LicenseStatus.PERMITTED);
+    }
+
+    @Test
+    @DisplayName("소문자 입력도 대소문자 무관하게 조회된다")
+    void classify_isCaseInsensitive() {
+        assertThat(licensePolicyService.classify("mit")).isEqualTo(LicenseStatus.PERMITTED);
+    }
+
+    @Test
+    @DisplayName("RESTRICTED 라이선스를 올바르게 반환한다")
+    void classify_returnsRestricted_forGpl() {
+        assertThat(licensePolicyService.classify("GPL-3.0")).isEqualTo(LicenseStatus.RESTRICTED);
+    }
+
+    @Test
+    @DisplayName("CAUTION 라이선스를 올바르게 반환한다")
+    void classify_returnsCaution_forLgpl() {
+        assertThat(licensePolicyService.classify("LGPL-2.1")).isEqualTo(LicenseStatus.CAUTION);
+    }
+
+    // ── OR 표현식 ─────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("OR 표현식")
+    class OrExpression {
+
+        @Test
+        @DisplayName("OR 표현식은 가장 관대한(최소 제한적) 상태를 반환한다")
+        void classify_returnsLeastRestrictive_forOrExpr() {
+            // MIT(PERMITTED) OR GPL-3.0(RESTRICTED) → PERMITTED
+            assertThat(licensePolicyService.classify("MIT OR GPL-3.0"))
+                    .isEqualTo(LicenseStatus.PERMITTED);
+        }
+
+        @Test
+        @DisplayName("OR 표현식에 두 RESTRICTED가 있으면 RESTRICTED를 반환한다")
+        void classify_returnsRestricted_whenBothRestrictedInOr() {
+            assertThat(licensePolicyService.classify("GPL-3.0 OR AGPL-3.0"))
+                    .isEqualTo(LicenseStatus.RESTRICTED);
+        }
+    }
+
+    // ── AND 표현식 ────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("AND 표현식")
+    class AndExpression {
+
+        @Test
+        @DisplayName("AND 표현식은 가장 제한적인 상태를 반환한다")
+        void classify_returnsMostRestrictive_forAndExpr() {
+            // MIT(PERMITTED) AND GPL-3.0(RESTRICTED) → RESTRICTED
+            assertThat(licensePolicyService.classify("MIT AND GPL-3.0"))
+                    .isEqualTo(LicenseStatus.RESTRICTED);
+        }
+
+        @Test
+        @DisplayName("AND 표현식에 UNKNOWN이 있으면 UNKNOWN을 반환한다")
+        void classify_returnsUnknown_whenUnknownInAndExpr() {
+            assertThat(licensePolicyService.classify("MIT AND UNKNOWN-LIC"))
+                    .isEqualTo(LicenseStatus.UNKNOWN);
+        }
+    }
+
+    // ── WITH 표현식 ───────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("WITH 수식자는 기본 식별자로 조회한다")
+    void classify_stripsWithModifier() {
+        assertThat(licensePolicyService.classify("GPL-3.0 WITH Classpath-exception-2.0"))
+                .isEqualTo(LicenseStatus.RESTRICTED);
+    }
+
+    // ── 헬퍼 ─────────────────────────────────────────────────────────────
+
+    private static LicensePolicyEntry entry(String spdxId, LicenseStatus status) {
+        return LicensePolicyEntry.builder().spdxId(spdxId).status(status).build();
+    }
+}

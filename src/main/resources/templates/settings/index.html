@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/head :: head('Settings')}"></head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head(#{settings.pageTitle})}"></head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
 <script>
     // 설정 페이지 최초 진입 시 이전 URL 저장 (탭 이동해도 덮어쓰지 않음)
@@ -34,8 +34,9 @@
 <main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[60px] max-w-[1440px] mx-auto">
 
     <div th:if="${#lists.isEmpty(accessibleTabs)}"
-         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]">
-        접근 가능한 설정이 없습니다. 관리자에게 문의하세요.
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]"
+         th:text="#{settings.noAccess}">
+        No accessible settings. Please contact your administrator.
     </div>
 
     <!-- Tab content -->

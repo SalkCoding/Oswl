@@ -13,8 +13,8 @@ import org.springframework.core.ParameterizedTypeReference;
 /**
  * GitHub Copilot Chat API implementation.
  * Uses the OpenAI-compatible chat completions endpoint provided by GitHub Copilot.
- * Authentication is via a GitHub personal access token (PAT) or GitHub Copilot token
- * with the {@code copilot} scope.
+ * Authentication is performed with a GitHub PAT (personal access token) or a
+ * GitHub Copilot token that has the {@code copilot} scope.
  *
  * <p>API endpoint: {@code https://api.githubcopilot.com/chat/completions}
  */
@@ -64,7 +64,7 @@ public class CopilotClient implements AiAnalysisClient {
         return call(prompt, setting);
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────
 
     private String call(String userPrompt, AiSetting setting) {
         String apiKey = setting != null ? setting.getApiKey() : null;
@@ -112,7 +112,7 @@ public class CopilotClient implements AiAnalysisClient {
                     log.debug("[AI][Copilot] Parsed result resultLen={}", result != null ? result.length() : 0);
                     return result;
                 }
-                log.warn("[AI][Copilot] Response body had no 'choices' — keys={}", response.getBody().keySet());
+                log.warn("[AI][Copilot] Response body has no 'choices' — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;

@@ -11,15 +11,15 @@ import java.util.Map;
 /**
  * Optional client for the NVD (National Vulnerability Database) CVE API v2.
  *
- * Only called when an NVD API key is configured in ExternalApiSetting.
- * Enriches LibraryCve entries with:
- *   - CVSS 3.x base score  (overwrites deps.dev value)
+ * It is called only when an NVD API key is configured in ExternalApiSetting.
+ * It enriches LibraryCve entries with the following:
+ *   - CVSS 3.x base score (overriding the deps.dev value)
  *   - Base severity label
  *   - CWE ID
  *
  * Rate limits:
- *   - Without key: 5 requests / 30 s
- *   - With key:    50 requests / 30 s  → 700 ms delay between calls enforced here
+ *   - Without API key: 5 requests / 30 seconds
+ *   - With API key:    50 requests / 30 seconds  → a 700ms delay is applied here
  *
  * Only CVE-prefixed IDs are sent to NVD; GHSA-only advisories are skipped.
  */
@@ -39,7 +39,7 @@ public class NvdClient {
                 .build();
     }
 
-    // ── DTOs ────────────────────────────────────────────────────────────
+    // ── DTO ────────────────────────────────────────────────────────────
 
     public record NvdCveInfo(Double cvssScore, String severity, String cweId) {}
 
@@ -48,7 +48,7 @@ public class NvdClient {
     /**
      * Fetches NVD metadata for a single CVE ID.
      * Returns null if the CVE is not found or NVD returns an error.
-     * Caller is responsible for honouring rate limits (call sequentially with delay).
+     * Callers must respect the rate limit by invoking sequentially with delay.
      */
     public NvdCveInfo fetchCve(String cveId, String apiKey) {
         if (cveId == null || !cveId.startsWith("CVE-")) {
@@ -58,7 +58,7 @@ public class NvdClient {
         try {
             enforceRateLimit();
 
-            log.debug("[NvdClient] fetchCve REQUEST cveId={}", cveId);
+            log.debug("[NvdClient] fetchCve request cveId={}", cveId);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.get()
@@ -67,10 +67,10 @@ public class NvdClient {
                     .retrieve()
                     .body(Map.class);
 
-            log.debug("[NvdClient] fetchCve RESPONSE raw cveId={} response={}", cveId, response);
+            log.debug("[NvdClient] fetchCve response raw cveId={} response={}", cveId, response);
 
             NvdCveInfo result = parseResponse(response);
-            log.debug("[NvdClient] fetchCve PARSED cveId={} cvssScore={} severity={} cweId={}",
+            log.debug("[NvdClient] fetchCve parsed cveId={} cvssScore={} severity={} cweId={}",
                     cveId,
                     result != null ? result.cvssScore() : null,
                     result != null ? result.severity() : null,

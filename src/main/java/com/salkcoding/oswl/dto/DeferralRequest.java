@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Payload for POST /projects/{projectId}/components/{componentId}/defer
+ * POST /projects/{projectId}/components/{componentId}/defer payload
  */
 @Getter
 @NoArgsConstructor
@@ -13,7 +13,7 @@ public class DeferralRequest {
     /** Reason code: legal-review | false-positive | wont-fix | temporary | other */
     private String reason;
 
-    /** Free-text when reason = "other" */
+    /** Free-form text when reason = "other" */
     private String otherText;
 
     /**
@@ -21,12 +21,12 @@ public class DeferralRequest {
      */
     private String expiry;
 
-    /** ISO date string (YYYY-MM-DD) used when expiry = "custom" */
+    /** ISO date string used when expiry = "custom" (YYYY-MM-DD) */
     private String customDate;
 
     /**
      * Deferral scope: "project" (this scan component only) or
-     * "all-projects" (all ScanComponent rows that reference the same Library).
+     * "all-projects" (all ScanComponent rows referencing the same Library).
      */
     private String scope;
 

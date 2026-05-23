@@ -67,7 +67,7 @@ public class CacheManagementService {
             return;
         }
         CacheSetting cs = cacheSettingRepository.findById(cacheKey)
-                .orElseThrow(() -> new IllegalArgumentException("알 수 없는 캐시 키: " + cacheKey));
+                .orElseThrow(() -> new IllegalArgumentException("Unknown cache key: " + cacheKey));
         cs.setLastClearedAt(LocalDateTime.now());
         cs.setLastClearedBy(actorUserId);
         // Note: actual cache eviction (e.g. Spring Cache, Caffeine) hooks here in a future change.
