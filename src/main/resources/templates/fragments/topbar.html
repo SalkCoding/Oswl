@@ -2,6 +2,12 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 
+    <script th:inline="javascript">
+    const _topbarI18n = {
+        deleteFailed: /*[[#{topbar.error.deleteFailed}]]*/ 'Failed to delete.'
+    };
+    </script>
+
     <!-- Reusable user menu (logged-in user dropdown + logout) -->
     <div th:fragment="user-menu" sec:authorize="isAuthenticated()"
          x-data="{ open: false }" @click.outside="open = false" class="relative">
@@ -187,7 +193,7 @@
                                                 const scanId = $el.closest('[data-scan-id]').dataset.scanId;
                                                 const projectId = $el.closest('[data-project-id]').dataset.projectId;
                                                 fetch('/projects/' + projectId + '/scan-history/' + scanId, { method: 'DELETE' })
-                                                    .then(r => { if (r.ok) $el.closest('[data-scan-id]').remove(); else alert('Failed to delete.'); });
+                                                    .then(r => { if (r.ok) $el.closest('[data-scan-id]').remove(); else alert(_topbarI18n.deleteFailed); });
                                             "
                                             class="px-[8px] py-[4px] rounded-[4px] text-[11px] font-semibold bg-red-500 hover:bg-red-600 text-white transition">
                                         Delete

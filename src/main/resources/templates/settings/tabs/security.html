@@ -244,12 +244,14 @@
 
 <script th:inline="javascript">
 const _securityI18n = {
-    testing:        /*[[#{settings.ai.btn.testing}]]*/ 'Testing…',
-    testConnection: /*[[#{settings.security.mail.test.btn}]]*/ 'Test Connection',
-    saving:         /*[[#{common.saving}]]*/ 'Saving…',
-    save:           /*[[#{common.save}]]*/ 'Save',
-    testOk:         /*[[#{settings.security.mail.test.success}]]*/ 'Connection successful.',
-    testFailed:     /*[[#{settings.security.mail.test.failed}]]*/ 'Connection failed.'
+    testing:              /*[[#{settings.ai.btn.testing}]]*/ 'Testing…',
+    testConnection:       /*[[#{settings.security.mail.test.btn}]]*/ 'Test Connection',
+    saving:               /*[[#{common.saving}]]*/ 'Saving…',
+    save:                 /*[[#{common.save}]]*/ 'Save',
+    testOk:               /*[[#{settings.security.mail.test.success}]]*/ 'Connection successful.',
+    testFailed:           /*[[#{settings.security.mail.test.failed}]]*/ 'Connection failed.',
+    backendNotConnected:  /*[[#{settings.security.error.backendNotConnected}]]*/ 'Backend not yet connected.',
+    mailTestFailed:       /*[[#{settings.security.error.mailTestFailed}]]*/ 'Failed ({0}).'
 };
 </script>
 <script>
@@ -320,15 +322,15 @@ function securityTab() {
                 });
                 if (r.ok) {
                     this.mailTestStatus = 'ok';
-                    this.mailTestMessage = 'Connection successful.';
+                    this.mailTestMessage = _securityI18n.testOk;
                 } else {
                     const body = await r.json().catch(() => ({}));
                     this.mailTestStatus = 'error';
-                    this.mailTestMessage = body.message || `Failed (${r.status}).`;
+                    this.mailTestMessage = body.message || _securityI18n.mailTestFailed.replace('{0}', r.status);
                 }
             } catch (e) {
                 this.mailTestStatus = 'error';
-                this.mailTestMessage = 'Backend not yet connected.';
+                this.mailTestMessage = _securityI18n.backendNotConnected;
             } finally {
                 this.mailTesting = false;
             }
@@ -349,10 +351,10 @@ function securityTab() {
                     setTimeout(() => this.mailSaved = false, 2500);
                 } else {
                     const body = await r.json().catch(() => ({}));
-                    this.apiError = body.message || 'Backend not yet connected.';
+                    this.apiError = body.message || _securityI18n.backendNotConnected;
                 }
             } catch (e) {
-                this.apiError = 'Backend not yet connected.';
+                this.apiError = _securityI18n.backendNotConnected;
             } finally {
                 this.mailSaving = false;
             }
@@ -373,10 +375,10 @@ function securityTab() {
                     setTimeout(() => this.twoFaSaved = false, 2500);
                 } else {
                     const body = await r.json().catch(() => ({}));
-                    this.apiError = body.message || 'Backend not yet connected.';
+                    this.apiError = body.message || _securityI18n.backendNotConnected;
                 }
             } catch (e) {
-                this.apiError = 'Backend not yet connected.';
+                this.apiError = _securityI18n.backendNotConnected;
             } finally {
                 this.twoFaSaving = false;
             }

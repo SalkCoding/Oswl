@@ -33,7 +33,13 @@
         last7Days:              /*[[#{settings.admin.auditLog.filter.last7Days}]]*/ 'Last 7 days',
         last30Days:             /*[[#{settings.admin.auditLog.filter.last30Days}]]*/ 'Last 30 days',
         last90Days:             /*[[#{settings.admin.auditLog.filter.last90Days}]]*/ 'Last 90 days',
-        customRange:            /*[[#{settings.admin.auditLog.filter.customRange}]]*/ 'Custom range'
+        customRange:            /*[[#{settings.admin.auditLog.filter.customRange}]]*/ 'Custom range',
+        inviteFailed:           /*[[#{settings.admin.invite.error.failed}]]*/ 'Failed to send invitation.',
+        nameTooShort:           /*[[#{settings.admin.users.validate.nameTooShort}]]*/ 'Name must be at least 1 character.',
+        nameTooLong:            /*[[#{settings.admin.users.validate.nameTooLong}]]*/ 'Name must be 20 characters or fewer.',
+        updateNameFailed:       /*[[#{settings.admin.users.error.updateNameFailed}]]*/ 'Failed to update display name.',
+        actionFailed:           /*[[#{settings.admin.users.error.actionFailed}]]*/ 'Operation failed.',
+        auditLoadFailed:        /*[[#{settings.admin.auditLog.error.loadFailed}]]*/ 'Failed to load audit logs.'
     };
     </script>
 
@@ -241,7 +247,7 @@
                                     <button type="button" @click="invite.temporaryPassword=randomPwd()"
                                             class="text-[12px] font-semibold px-[10px] bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] text-[var(--grayscale-70)] transition-colors whitespace-nowrap" th:text="#{settings.admin.invite.btn.generate}">Generate</button>
                                 </div>
-                                <span x-show="inviteErrorField === 'password' && invite.temporaryPassword.trim().length > 0 && invite.temporaryPassword.trim().length < minPasswordLength" class="text-[11px] text-red-500" x-text="'Password must be at least ' + minPasswordLength + ' characters.'"></span>
+                                <span x-show="inviteErrorField === 'password' && invite.temporaryPassword.trim().length > 0 && invite.temporaryPassword.trim().length < minPasswordLength" class="text-[11px] text-red-500" x-text="_adminI18n.validatePasswordTooShort.replace('{0}', minPasswordLength)"></span>
                             </div>
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]"><span th:text="#{settings.admin.invite.label.message}">Message</span> <span class="text-[var(--grayscale-60)] font-normal" th:text="#{settings.admin.invite.label.optional}">(Optional)</span></span>
@@ -1205,7 +1211,7 @@
                 const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
                 const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(payload) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.inviteError = 'Failed: ' + await r.text(); return; }
+                if (!r.ok) { this.inviteError = _adminI18n.inviteFailed; return; }
                 if (!templateId) {
                     const created = await r.json();
                     await fetch(`/api/admin/users/${created.id}/deactivate`, { method: 'PUT', headers: this.headers() });
@@ -1215,16 +1221,16 @@
             },
             async saveRoles() {
                 const name = this.editingDisplayName.trim();
-                if (name.length < 1) { this.editingNameError = 'Name must be at least 1 character.'; return; }
-                if (name.length > 20) { this.editingNameError = 'Name must be 20 characters or fewer.'; return; }
+                if (name.length < 1) { this.editingNameError = _adminI18n.nameTooShort; return; }
+                if (name.length > 20) { this.editingNameError = _adminI18n.nameTooLong; return; }
                 if (name !== (this.editingUser.displayName || '').trim()) {
                     const nr = await fetch(`/api/admin/users/${this.editingUser.id}/display-name`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ displayName: name }) });
                     if (nr.status === 401) { location.href = '/login'; return; }
-                    if (!nr.ok) { alert('Failed to update name'); return; }
+                    if (!nr.ok) { alert(_adminI18n.updateNameFailed); return; }
                 }
                 const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateId ? [this.editingTemplateId] : [] }) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert('Failed'); return; }
+                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
                 // Auto-deactivate if no role assigned and user is currently active
                 if (!this.editingTemplateId && this.editingUser.enabled) {
                     const dr = await fetch(`/api/admin/users/${this.editingUser.id}/deactivate`, { method: 'PUT', headers: this.headers() });
@@ -1243,7 +1249,7 @@
                 this.deletingUser = null;
                 const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert('Failed: ' + await r.text()); return; }
+                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
                 await this.loadUsers();
             },
             async saveTemplate() {
@@ -1251,13 +1257,13 @@
                 const method = this.editingTpl?.id ? 'PUT' : 'POST';
                 const r = await fetch(url, { method, headers: this.headers(), body: JSON.stringify(this.tplForm) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert('Failed: ' + await r.text()); return; }
+                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
                 this.closeSidebar(); await this.loadTemplates();
             },
             async deleteTemplate(t) {
                 const r = await fetch(`/api/admin/role-templates/${t.id}`, { method: 'DELETE', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert('Failed: ' + await r.text()); return; }
+                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
                 this.deletingTemplate = null;
                 await this.loadTemplates();
             },
@@ -1280,12 +1286,12 @@
                 try {
                     const r = await fetch('/api/admin/audit-logs?' + params.toString());
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = `Failed to load audit logs (${r.status})`; return; }
+                    if (!r.ok) { this.apiError = _adminI18n.auditLoadFailed; return; }
                     const data = await r.json();
                     this.auditLogs = data.content || [];
                     this.auditTotalPages = data.page?.totalPages || data.totalPages || 0;
                     this.auditTotalElements = data.page?.totalElements || data.totalElements || 0;
-                } catch(e) { this.apiError = 'Failed to load audit logs.'; }
+                } catch(e) { this.apiError = _adminI18n.auditLoadFailed; }
             },
             pageRange() {
                 const total = this.auditTotalPages;
