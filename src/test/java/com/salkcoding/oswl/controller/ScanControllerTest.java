@@ -6,6 +6,7 @@ import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.api.ScanResponse;
+import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
@@ -154,5 +155,36 @@ class ScanControllerTest {
 
         assertThatThrownBy(() -> scanController.receiveScan(payload, req))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    // ── scanStatus ────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("scanStatus: 존재하는 scanId는 200과 ScanStatusResponse를 반환한다")
+    void scanStatus_found_returns200() {
+        ScanResult scanResult = mock(ScanResult.class);
+        when(scanResult.getId()).thenReturn(10L);
+        when(scanResult.getStatus()).thenReturn(ScanStatus.COMPLETED);
+        when(scanResultRepository.findById(10L)).thenReturn(java.util.Optional.of(scanResult));
+        when(scanComponentRepository.countByScanResultId(10L)).thenReturn(5L);
+
+        var response = scanController.scanStatus(10L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        ScanStatusResponse body = response.getBody();
+        assertThat(body.getScanId()).isEqualTo(10L);
+        assertThat(body.getStatus()).isEqualTo("COMPLETED");
+        assertThat(body.getComponentCount()).isEqualTo(5L);
+    }
+
+    @Test
+    @DisplayName("scanStatus: 존재하지 않는 scanId는 404를 반환한다")
+    void scanStatus_notFound_returns404() {
+        when(scanResultRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+
+        var response = scanController.scanStatus(99L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }
