@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Glossary')}"></head>
+<head th:replace="~{fragments/head :: head(#{glossary.pageTitle})}"></head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Glossary')}"></header>

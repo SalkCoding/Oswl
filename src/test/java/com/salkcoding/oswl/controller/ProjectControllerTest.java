@@ -12,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.ui.Model;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
@@ -136,5 +138,54 @@ class ProjectControllerTest {
         assertThat(response.getBody()).containsEntry("id", 99L);
         assertThat(response.getBody()).containsEntry("name", "NewProject");
         verify(projectService).create("NewProject");
+    }
+
+    // ── index / cards / cli / git ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("index: returns projects/index view")
+    void index_returnsView() {
+        Model model = mock(Model.class);
+        when(projectService.findAll()).thenReturn(List.of());
+
+        String view = controller.index(model);
+
+        assertThat(view).isEqualTo("projects/index");
+    }
+
+    @Test
+    @DisplayName("projectCardsFragment: returns fragment view")
+    void projectCardsFragment_returnsView() {
+        Model model = mock(Model.class);
+        when(projectService.findAll()).thenReturn(List.of());
+
+        String view = controller.projectCardsFragment(model);
+
+        assertThat(view).isEqualTo("projects/index :: projectCardsGrid");
+    }
+
+    @Test
+    @DisplayName("cliIntegration: redirects to projects")
+    void cliIntegration_redirects() {
+        String view = controller.cliIntegration();
+        assertThat(view).isEqualTo("redirect:/projects");
+    }
+
+    @Test
+    @DisplayName("gitIntegration: redirects to quick-import")
+    void gitIntegration_redirects() {
+        String view = controller.gitIntegration();
+        assertThat(view).isEqualTo("redirect:/projects/quick-import");
+    }
+
+    @Test
+    @DisplayName("scanStatusStream: returns SSE emitter")
+    void scanStatusStream_returnsEmitter() {
+        SseEmitter emitter = new SseEmitter();
+        when(scanStatusEmitterRegistry.subscribe(List.of(1L, 2L))).thenReturn(emitter);
+
+        SseEmitter result = controller.scanStatusStream(List.of(1L, 2L));
+
+        assertThat(result).isEqualTo(emitter);
     }
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(#{auth.otp.pageTitle})}"></head>
 <body class="min-h-screen flex flex-col font-sans antialiased relative" style="background: transparent;">
 
@@ -85,7 +85,7 @@
                     th:data-text-verify="#{auth.otp.btn.verify}"
                     th:data-text-verifying="#{auth.otp.btn.verifying}">
                 <svg x-show="verifying" x-cloak class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                <span x-text="verifying ? '인증 중\u2026' : '인증'"></span>
+                <span x-text="verifying ? $el.closest('button').dataset.textVerifying : $el.closest('button').dataset.textVerify"></span>
             </button>
         </form>
 
@@ -112,10 +112,11 @@
                 <button type="button"
                         :disabled="resendCooldown > 0 || resending"
                         @click="resend()"
+                        th:data-text-countdown="#{auth.otp.resend.countdown}"
                         class="font-semibold transition-colors disabled:cursor-not-allowed"
                         :class="resendCooldown > 0 ? 'text-[var(--grayscale-40)]' : 'text-[var(--primary-120)] hover:text-[var(--primary-140)]'">
                         <span x-show="resendCooldown <= 0 && !resending" th:text="#{auth.otp.resend.btn}">코드 재발송</span>
-                    <span x-show="resendCooldown > 0" x-text="'재발송까지 ' + resendCooldown + 's'"></span>
+                    <span x-show="resendCooldown > 0" x-text="$el.closest('button').dataset.textCountdown + ' ' + resendCooldown + 's'"></span>
                     <span x-show="resending" x-cloak th:text="#{auth.otp.resend.sending}">전송 중…</span>
                 </button>
             </div>
