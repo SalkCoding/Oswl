@@ -474,7 +474,158 @@ class ComponentDetailServiceTest {
                 eq("plain-bb-token"), eq("bbuser"), eq("https://bitbucket.org"),
                 eq("workspace/myrepo"), eq("main"), any(), any(), any(), any(), any(), any());
     }
+
+    // ── licenseRiskLabel (via populateModel) ──────────────────────────────
+
+    @Test
+    @DisplayName("licenseRiskLabel: RESTRICTED 라이선스는 'Restricted'를 표시한다")
+    void populateModel_licenseRiskLabel_restricted() {
+        Library lib = Library.builder().id(10L).name("gpl").version("3.0")
+                .licenseStatus(LicenseStatus.RESTRICTED).cves(List.of()).build();
+        Model model = buildAndPopulateModel(lib);
+
+        assertThat(model.getAttribute("licenseRiskLabel")).isEqualTo("Restricted");
+    }
+
+    @Test
+    @DisplayName("licenseRiskLabel: CAUTION 라이선스는 'Caution'을 표시한다")
+    void populateModel_licenseRiskLabel_caution() {
+        Library lib = Library.builder().id(10L).name("lgpl").version("2.1")
+                .licenseStatus(LicenseStatus.CAUTION).cves(List.of()).build();
+        Model model = buildAndPopulateModel(lib);
+
+        assertThat(model.getAttribute("licenseRiskLabel")).isEqualTo("Caution");
+    }
+
+    @Test
+    @DisplayName("licenseRiskLabel: UNKNOWN + licenseName 있으면 'Non-standard'를 표시한다")
+    void populateModel_licenseRiskLabel_nonStandard() {
+        Library lib = Library.builder().id(10L).name("custom").version("1.0")
+                .licenseStatus(LicenseStatus.UNKNOWN).licenseName("Custom-Proprietary")
+                .cves(List.of()).build();
+        Model model = buildAndPopulateModel(lib);
+
+        assertThat(model.getAttribute("licenseRiskLabel")).isEqualTo("Non-standard");
+        assertThat((Boolean) model.getAttribute("licenseIsNonStandard")).isTrue();
+    }
+
+    @Test
+    @DisplayName("licenseRiskLabel: UNKNOWN + licenseName 없으면 'Unknown'을 표시한다")
+    void populateModel_licenseRiskLabel_unknown() {
+        Library lib = Library.builder().id(10L).name("unk").version("1.0")
+                .licenseStatus(LicenseStatus.UNKNOWN).cves(List.of()).build();
+        Model model = buildAndPopulateModel(lib);
+
+        assertThat(model.getAttribute("licenseRiskLabel")).isEqualTo("Unknown");
+    }
+
+    @Test
+    @DisplayName("licenseRiskLabel: PERMITTED 라이선스는 'Permitted'를 표시한다")
+    void populateModel_licenseRiskLabel_permitted() {
+        Library lib = Library.builder().id(10L).name("mit").version("1.0")
+                .licenseStatus(LicenseStatus.PERMITTED).cves(List.of()).build();
+        Model model = buildAndPopulateModel(lib);
+
+        assertThat(model.getAttribute("licenseRiskLabel")).isEqualTo("Permitted");
+    }
+
+    // ── deriveShortName / toPathDto (via populateModel with real dependency paths) ──
+
+    @Test
+    @DisplayName("buildPathDtos: Maven groupId:artifactId 형태의 이름을 shortName으로 축약한다")
+    void populateModel_pathNodes_derivesShortNameForColon() {
+        DependencyPath path = buildPath(2,
+                new DependencyPath.PathNode("", "1.0"),     // blank name → use project name
+                new DependencyPath.PathNode("org.spring:spring-core", "5.0"));
+        Library lib = Library.builder().id(10L).name("lib").licenseStatus(LicenseStatus.PERMITTED)
+                .cves(List.of()).build();
+
+        Project project = Project.builder().id(1L).name("MyProject").build();
+        ScanResult scan = ScanResult.builder().id(5L).version("1.0").status(ScanStatus.COMPLETED).build();
+        ScanComponent sc = mock(ScanComponent.class);
+        when(sc.getId()).thenReturn(20L);
+        when(sc.getLibrary()).thenReturn(lib);
+        when(sc.getScanResult()).thenReturn(scan);
+        when(sc.isReviewed()).thenReturn(false);
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(10L)).thenReturn(1L);
+
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L))
+                .thenReturn(List.of(path));
+
+        Model model = new ConcurrentModel();
+        componentDetailService.populateModel(1L, 20L, model);
+
+        @SuppressWarnings("unchecked")
+        var paths = (List<com.salkcoding.oswl.dto.DependencyPathDto>) model.getAttribute("dependencyPaths");
+        assertThat(paths).hasSize(1);
+        var nodes = paths.get(0).getNodes();
+        // Second node: "org.spring:spring-core" → shortName should be "spring-core"
+        assertThat(nodes.get(1).getShortName()).isEqualTo("spring-core");
+        // Root node with blank name → use project name
+        assertThat(nodes.get(0).getShortName()).isEqualTo("MyProject");
+    }
+
+    @Test
+    @DisplayName("buildPathDtos: 슬래시 포함 이름은 마지막 세그먼트를 shortName으로 사용한다")
+    void populateModel_pathNodes_derivesShortNameForSlash() {
+        DependencyPath path = buildPath(2,
+                new DependencyPath.PathNode("", ""),
+                new DependencyPath.PathNode("github.com/user/mylib", "v1.2"));
+        Library lib = Library.builder().id(10L).name("lib").licenseStatus(LicenseStatus.PERMITTED)
+                .cves(List.of()).build();
+
+        Project project = Project.builder().id(1L).name("P").build();
+        ScanResult scan = ScanResult.builder().id(5L).version("1.0").status(ScanStatus.COMPLETED).build();
+        ScanComponent sc = mock(ScanComponent.class);
+        when(sc.getId()).thenReturn(20L);
+        when(sc.getLibrary()).thenReturn(lib);
+        when(sc.getScanResult()).thenReturn(scan);
+        when(sc.isReviewed()).thenReturn(false);
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(10L)).thenReturn(1L);
+
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L))
+                .thenReturn(List.of(path));
+
+        Model model = new ConcurrentModel();
+        componentDetailService.populateModel(1L, 20L, model);
+
+        @SuppressWarnings("unchecked")
+        var paths = (List<com.salkcoding.oswl.dto.DependencyPathDto>) model.getAttribute("dependencyPaths");
+        var nodes = paths.get(0).getNodes();
+        assertThat(nodes.get(1).getShortName()).isEqualTo("mylib");
+    }
+
     // ── helper ────────────────────────────────────────────────────────────
+
+    private Model buildAndPopulateModel(Library lib) {
+        Project project = Project.builder().id(1L).name("P").build();
+        ScanResult scan = ScanResult.builder().id(5L).version("1.0").status(ScanStatus.COMPLETED).build();
+        ScanComponent sc = mock(ScanComponent.class);
+        when(sc.getId()).thenReturn(20L);
+        when(sc.getLibrary()).thenReturn(lib);
+        when(sc.getScanResult()).thenReturn(scan);
+        when(sc.isReviewed()).thenReturn(false);
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId())).thenReturn(1L);
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L)).thenReturn(List.of());
+
+        Model model = new ConcurrentModel();
+        componentDetailService.populateModel(1L, 20L, model);
+        return model;
+    }
+
+    private DependencyPath buildPath(int depth, DependencyPath.PathNode... nodes) {
+        return DependencyPath.builder()
+                .pathIndex(0)
+                .depth(depth)
+                .pathNodes(List.of(nodes))
+                .build();
+    }
 
     private DeferralRequest buildDeferralRequest(String reason, String expiry, String scope) {
         DeferralRequest req = new DeferralRequest();
