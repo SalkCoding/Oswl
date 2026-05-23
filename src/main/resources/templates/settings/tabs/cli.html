@@ -60,8 +60,9 @@
                     <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="k.lastUsedAt ? formatDate(k.lastUsedAt) : '—'"></td>
                     <td class="px-[16px] py-[12px]">
                         <span x-show="k.active"
-                              class="inline-flex items-center gap-[5px] px-[9px] py-[3px] rounded-[6px] bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold">
-                            <span class="w-[5px] h-[5px] rounded-full bg-emerald-500"></span>Active
+                              class="inline-flex items-center gap-[6px] px-[10px] pr-[12px] py-[4px] rounded-[40px] bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#00d761"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            Active
                         </span>
                         <span x-show="!k.active"
                               class="inline-flex items-center gap-[5px] px-[9px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-semibold">
