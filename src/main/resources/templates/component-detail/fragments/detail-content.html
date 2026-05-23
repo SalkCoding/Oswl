@@ -2,6 +2,10 @@
      th:attr="data-project-id=${projectId}, data-component-id=${componentId}"
      x-data="{ modal: null }">
 
+    <!-- Modals i18n bundles -->
+    <th:block th:replace="~{component-detail/fragments/defer-modal :: defer-i18n}"></th:block>
+    <th:block th:replace="~{component-detail/fragments/apply-patch-modal :: patch-i18n}"></th:block>
+
     <!-- Modals -->
     <div th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"></div>
     <div th:replace="~{component-detail/fragments/defer-modal :: defer}"></div>
