@@ -165,14 +165,14 @@
                                @input="onUrlInput"
                                @keydown.enter.prevent="canImport && startImport()"
                                placeholder="https://github.com/owner/repository"
-                               class="w-full pl-[38px] pr-[14px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)] transition-colors"
+                               class="w-full pl-[38px] pr-[14px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors"
                                :class="urlError ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''"
                                :disabled="isImporting" />
                     </div>
                     <input type="text"
                            x-model="branch"
                            placeholder="Branch (optional)"
-                           class="w-[180px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)] transition-colors"
+                           class="w-[180px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors"
                            :disabled="isImporting" />
                 </div>
                 <!-- URL validation error -->
@@ -437,7 +437,7 @@
                                                    placeholder="e.g. main"
                                                    @keydown.enter="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
                                                    @keydown.escape="pendingBranch = null"
-                                                   class="w-[120px] px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)]" />
+                                                   class="w-[120px] px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7]" />
                                             <button @click="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
                                                     class="shrink-0 inline-flex items-center gap-[5px] px-[20px] py-[7px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--primary-100)] transition-colors">
                                                 <span th:text="#{quickImport.repoBrowser.import}">Import</span>
