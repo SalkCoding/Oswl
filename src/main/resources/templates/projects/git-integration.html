@@ -18,7 +18,7 @@
                 connected: false,
                 connectedLogin: '',
                 loadingStatus: true,
-                loadingMessage: 'Checking connection…',
+                loadingMessage: _gitI18n.checkingConnection,
 
                 /* ── PAT connect form ── */
                 patInput: '',
@@ -75,7 +75,7 @@
                 /* ── methods ── */
                 async checkStatus() {
                     this.loadingStatus = true;
-                    this.loadingMessage = 'Checking connection…';
+                    this.loadingMessage = _gitI18n.checkingConnection;
                     try {
                         const res = await fetch('/api/github/status');
                         const data = await res.json();
@@ -95,7 +95,7 @@
                     if (!this.patInput.trim() || this.patConnecting) return;
                     this.patConnecting = true;
                     this.patError = '';
-                    this.loadingMessage = 'Connecting to GitHub…';
+                    this.loadingMessage = _gitI18n.connecting;
                     try {
                         const res = await fetch('/api/github/connect', {
                             method: 'POST',
@@ -104,7 +104,7 @@
                         });
                         const data = await res.json();
                         if (!res.ok) {
-                            this.patError = data.error || 'Connection failed. Check your token.';
+                            this.patError = data.error || _gitI18n.connectionFailed;
                             return;
                         }
                         this.connectedLogin = data.login || '';
@@ -112,7 +112,7 @@
                         await this.loadAccounts();
                         this.connected = true;
                     } catch (e) {
-                        this.patError = 'Network error. Please try again.';
+                        this.patError = _gitI18n.networkError;
                     } finally {
                         this.patConnecting = false;
                     }
@@ -140,7 +140,7 @@
 
                         // Load all accounts' repos in parallel (warm the cache)
                         this.loadingAccounts = true;
-                        this.loadingMessage = 'Loading repositories…';
+                        this.loadingMessage = _gitI18n.loadingRepos;
                         await Promise.all(this.accounts.map(login => this._fetchAndCacheRepos(login)));
                         this.loadingAccounts = false;
 
@@ -335,7 +335,7 @@
                         });
                         const data = await res.json();
                         if (!res.ok) {
-                            this.addAccountError = data.error || 'Connection failed. Check your token.';
+                            this.addAccountError = data.error || _gitI18n.connectionFailed;
                             return;
                         }
                         const newLogin = data.login;
@@ -348,7 +348,7 @@
                         // Fetch repos for the new account in background (with status indicator)
                         this._fetchAndCacheRepos(newLogin, true);
                     } catch (e) {
-                        this.addAccountError = 'Network error. Please try again.';
+                        this.addAccountError = _gitI18n.networkError;
                     } finally {
                         this.addAccountConnecting = false;
                     }
