@@ -35,18 +35,17 @@
              class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
 
             <!-- Table header -->
-            <div class="grid grid-cols-[140px_1fr_180px_120px_160px] gap-[0px] px-[24px] py-[12px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]">
+            <div class="grid grid-cols-[140px_1fr_180px_120px] gap-[0px] px-[24px] py-[12px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]">
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.status}">Status</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.version}">Version</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.scannedAt}">Scanned At</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.components}">Components</span>
-                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.actions}">Actions</span>
             </div>
 
             <!-- Table rows -->
             <div th:each="row, it : ${scanRows}"
                  th:classappend="${!it.last} ? 'border-b border-[var(--grayscale-10)]' : ''"
-                 class="grid grid-cols-[140px_1fr_180px_120px_160px] gap-[0px] px-[24px] py-[16px] items-center hover:bg-[var(--grayscale-3)] transition-colors">
+                 class="grid grid-cols-[140px_1fr_180px_120px] gap-[0px] px-[24px] py-[16px] items-center hover:bg-[var(--grayscale-3)] transition-colors">
 
                 <!-- Status badge -->
                 <div>
@@ -89,16 +88,6 @@
                 <!-- Component count -->
                 <span class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]"
                       th:text="${row.componentCount > 0} ? (${row.componentCount} + ' ' + #{scanHistory.col.components}) : '-'">-</span>
-
-                <!-- Actions -->
-                <div class="flex items-center gap-[8px]">
-                    <a th:if="${row.status == 'COMPLETED'}"
-                       th:href="@{|/projects/${projectId}/security-center|(scanId=${row.scanId})}"
-                       class="text-[12px] font-medium text-[var(--primary-120)] hover:text-[var(--primary-80)] tracking-[-0.12px] transition-colors no-underline"
-                       th:text="#{scanHistory.action.view}">View &#x2192;</a>
-                    <span th:unless="${row.status == 'COMPLETED'}"
-                          class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px]">&#x2014;</span>
-                </div>
 
             </div>
         </div>
