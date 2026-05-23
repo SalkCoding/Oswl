@@ -149,7 +149,7 @@
                           }"
                           class="w-[8px] h-[8px] rounded-full"></span>
                     <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
-                       th:text="${comp.patchability == 'patchable' ? #{common.patchable} : (comp.patchability == 'non-patchable' ? #{common.nonPatchable} : #{common.unknown})}">Patchable</p>
+                       th:text="${comp.patchability == 'patchable'} ? #{common.patchable} : (${comp.patchability == 'non-patchable'} ? #{common.nonPatchable} : #{common.unknown})">Patchable</p>
                 </th:block>
                 <!-- No CVEs: show version currency status -->
                 <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
