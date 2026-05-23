@@ -7,6 +7,28 @@
     Show with: x-show="modal === 'patch'"
     usage: th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"
 -->
+
+<script th:inline="javascript" th:fragment="patch-i18n">
+const _patchI18n = {
+    title:           /*[[#{componentDetail.patch.title}]]*/ 'Apply Patch',
+    subtitle:        /*[[#{componentDetail.patch.subtitle}]]*/ 'Create Pull Request',
+    description:     /*[[#{componentDetail.patch.description}]]*/ 'A pull request will be opened against your default branch with the version bump.',
+    labelUpgrading:  /*[[#{componentDetail.patch.label.upgrading}]]*/ 'Upgrading',
+    labelWillResolve:/*[[#{componentDetail.patch.label.willResolve}]]*/ 'Will resolve',
+    labelBranch:     /*[[#{componentDetail.patch.label.targetBranch}]]*/ 'Target Branch',
+    labelReviewer:   /*[[#{componentDetail.patch.label.reviewer}]]*/ 'Assign Reviewer (optional)',
+    placeholderReviewer: /*[[#{componentDetail.patch.placeholder.reviewer}]]*/ '@username or team',
+    labelPrDesc:     /*[[#{componentDetail.patch.label.prDescription}]]*/ 'PR Description',
+    btnCreating:     /*[[#{componentDetail.patch.btn.creating}]]*/ 'Creating PR\u2026',
+    btnCreate:       /*[[#{componentDetail.patch.btn.create}]]*/ 'Create Pull Request',
+    successCreated:  /*[[#{componentDetail.patch.success.created}]]*/ 'PR/MR created!',
+    successViewLink: /*[[#{componentDetail.patch.success.viewLink}]]*/ 'View PR/MR',
+    errorFailed:     /*[[#{componentDetail.patch.error.failed}]]*/ 'Failed to create PR ({0}).',
+    errorNetwork:    /*[[#{componentDetail.patch.error.network}]]*/ 'Network error. Please try again.',
+    cancel:          /*[[#{common.cancel}]]*/ 'Cancel'
+};
+</script>
+
 <div th:fragment="apply-patch"
      x-show="modal === 'patch'" x-cloak
      x-transition.opacity
@@ -68,10 +90,10 @@
                     this.prDone = true;
                     this.prUrl  = data.prUrl;
                 } else {
-                    this.prError = data.error || 'Failed to create PR (' + r.status + ').';
+                    this.prError = data.error || _patchI18n.errorFailed.replace('{0}', r.status);
                 }
             } catch (e) {
-                this.prError = 'Network error. Please try again.';
+                this.prError = _patchI18n.errorNetwork;
             } finally {
                 this.submitting = false;
             }
@@ -91,10 +113,10 @@
 
             <div class="flex flex-col gap-[10px] items-start flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-[10px]">
-                    <p class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] leading-[1.3]">Apply Patch</p>
-                    <p class="font-medium text-[18px] text-[var(--grayscale-90)] tracking-[-0.18px] leading-[1.3]">Create Pull Request</p>
+                    <p class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] leading-[1.3]" th:text="#{componentDetail.patch.title}">Apply Patch</p>
+                    <p class="font-medium text-[18px] text-[var(--grayscale-90)] tracking-[-0.18px] leading-[1.3]" th:text="#{componentDetail.patch.subtitle}">Create Pull Request</p>
                 </div>
-                <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3]">
+                <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3]" th:text="#{componentDetail.patch.description}">
                     A pull request will be opened against your default branch with the version bump.
                 </p>
             </div>
@@ -111,7 +133,7 @@
         <!-- Summary -->
         <div class="border-b border-[var(--grayscale-20)] flex flex-col gap-[12px] px-[36px] py-[24px]">
             <div class="flex flex-wrap gap-[12px] items-center">
-                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]">Upgrading</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.upgrading}">Upgrading</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px] text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]">
                     <span class="font-medium" th:text="${componentName + ' ' + componentVersion}">android-arch-common v2.2.0-beta01</span>
                 </span>
@@ -123,7 +145,7 @@
             </div>
 
             <div class="flex flex-wrap gap-[12px] items-center">
-                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]">Will resolve</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.willResolve}">Will resolve</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' Critical'">8 Critical</span>
@@ -141,7 +163,7 @@
             <!-- Target Branch -->
             <div class="flex flex-col gap-[10px] w-full" @click.outside="branchOpen = false">
                 <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
-                    Target Branch <span class="font-normal text-[var(--primary-80)]">*</span>
+                    <span th:text="#{componentDetail.patch.label.targetBranch}">Target Branch</span> <span class="font-normal text-[var(--primary-80)]">*</span>
                 </label>
                 <div class="relative">
                     <button type="button" @click="branchOpen = !branchOpen"
@@ -170,18 +192,18 @@
 
             <!-- Reviewers -->
             <div class="flex flex-col gap-[10px] w-full">
-                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
+                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.reviewer}">
                     Assign Reviewer (optional)
                 </label>
                 <div class="border border-[var(--grayscale-20)] rounded-[8px] flex items-center px-[12px] h-[36px]">
-                    <input id="pr-reviewer-input" type="text" placeholder="@username or team"
+                    <input id="pr-reviewer-input" type="text" th:placeholder="#{componentDetail.patch.placeholder.reviewer}"
                            class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
                 </div>
             </div>
 
             <!-- PR Description -->
             <div class="flex flex-col gap-[8px] w-full">
-                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">PR Description</label>
+                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.prDescription}">PR Description</label>
                 <textarea id="pr-description-text" rows="4"
                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] leading-[1.3] tracking-[-0.12px] outline-none resize-none focus:border-[var(--primary-120)]"
                           th:utext="|Bumps ${componentName} from ${componentVersion} to ${recommendedVersion}.&#10;Resolves ${securityCritical} Critical + ${securityHigh} High vulnerabilities.&#10;Triggered by OsWL.|">Bumps library version. Triggered by OsWL.</textarea>
@@ -197,18 +219,19 @@
             <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="prError"></div>
             <!-- Success feedback -->
             <div x-show="prDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">
-                PR/MR created! <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold">View PR/MR</a>
+                <span th:text="#{componentDetail.patch.success.created}">PR/MR created!</span> <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold" th:text="#{componentDetail.patch.success.viewLink}">View PR/MR</a>
             </div>
 
             <div class="flex gap-[16px] items-center">
                 <button type="button" @click="createPr()" :disabled="submitting || prDone"
                         class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
-                    <span x-text="submitting ? 'Creating PR...' : 'Create Pull Request'">Create Pull Request</span>
+                    <span th:attr="data-msg-creating=#{componentDetail.patch.btn.creating},data-msg-create=#{componentDetail.patch.btn.create}"
+                          x-text="submitting ? $el.dataset.msgCreating : $el.dataset.msgCreate">Create Pull Request</span>
                 </button>
                 <button type="button" @click="modal = null"
-                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors">
-                    Cancel
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors"
+                        th:text="#{common.cancel}">Cancel
                 </button>
             </div>
         </div>

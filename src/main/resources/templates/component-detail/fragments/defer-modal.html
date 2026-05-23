@@ -7,6 +7,42 @@
     Show with: x-show="modal === 'defer'"
     usage: th:replace="~{component-detail/fragments/defer-modal :: defer}"
 -->
+
+<script th:inline="javascript" th:fragment="defer-i18n">
+const _deferI18n = {
+    title:           /*[[#{componentDetail.defer.title}]]*/ 'Defer Vulnerability',
+    subtitle:        /*[[#{componentDetail.defer.subtitle}]]*/ 'Set Exception',
+    description:     /*[[#{componentDetail.defer.description}]]*/ 'This issue will be temporarily deferred with a documented reason.',
+    labelDeferring:  /*[[#{componentDetail.defer.label.deferring}]]*/ 'Deferring',
+    labelAffect:     /*[[#{componentDetail.defer.label.affect}]]*/ 'Affect',
+    labelReason:     /*[[#{componentDetail.defer.label.reason}]]*/ 'Reason for deferral',
+    reasonLegal:     /*[[#{componentDetail.defer.reason.legalReview}]]*/ 'Legal Review Pending',
+    reasonFalse:     /*[[#{componentDetail.defer.reason.falsePositive}]]*/ 'False Positive',
+    reasonWont:      /*[[#{componentDetail.defer.reason.wontFix}]]*/ "Won't Fix (Accepted Risk)",
+    reasonTemp:      /*[[#{componentDetail.defer.reason.temporary}]]*/ 'Temporary \u2014 Fix Planned',
+    reasonOther:     /*[[#{componentDetail.defer.reason.other}]]*/ 'Other',
+    reasonPlaceholder: /*[[#{componentDetail.defer.reason.placeholder}]]*/ 'Describe the exception reason (if Other)...',
+    labelExpiry:     /*[[#{componentDetail.defer.label.expiry}]]*/ 'Expiry Date',
+    expiry1week:     /*[[#{componentDetail.defer.expiry.1week}]]*/ '1 Week',
+    expiry1month:    /*[[#{componentDetail.defer.expiry.1month}]]*/ '1 Month',
+    expiry3month:    /*[[#{componentDetail.defer.expiry.3month}]]*/ '3 Month',
+    expiry6month:    /*[[#{componentDetail.defer.expiry.6month}]]*/ '6 Month',
+    expiryCustom:    /*[[#{componentDetail.defer.expiry.custom}]]*/ 'Custom',
+    expiryIndefinite:/*[[#{componentDetail.defer.expiry.indefinite}]]*/ 'Defer Indefinitely',
+    expiryNoExpiry:  /*[[#{componentDetail.defer.expiry.noExpiry}]]*/ 'No expiry',
+    labelReviewer:   /*[[#{componentDetail.defer.label.reviewer}]]*/ 'Assign Reviewer (optional)',
+    scopeProject:    /*[[#{componentDetail.defer.scope.project}]]*/ 'This project only',
+    scopeAll:        /*[[#{componentDetail.defer.scope.allProjects}]]*/ 'All projects using this library',
+    labelPrDesc:     /*[[#{componentDetail.defer.label.prDescription}]]*/ 'PR Description',
+    btnConfirm:      /*[[#{componentDetail.defer.btn.confirm}]]*/ 'Confirm Deferral',
+    btnSubmitting:   /*[[#{componentDetail.defer.btn.submitting}]]*/ 'Submitting\u2026',
+    successMsg:      /*[[#{componentDetail.defer.success}]]*/ 'Deferral confirmed successfully.',
+    errorFailed:     /*[[#{componentDetail.defer.error.failed}]]*/ 'Failed to defer ({0}). Please try again.',
+    errorNetwork:    /*[[#{componentDetail.defer.error.network}]]*/ 'Network error. Please try again.',
+    cancel:          /*[[#{common.cancel}]]*/ 'Cancel'
+};
+</script>
+
 <div th:fragment="defer"
      x-show="modal === 'defer'" x-cloak
      x-transition.opacity
@@ -47,10 +83,10 @@
                     this.deferDone = true;
                     setTimeout(() => { this.modal = null; this.deferDone = false; }, 1200);
                 } else {
-                    this.deferError = 'Failed to defer (' + r.status + '). Please try again.';
+                    this.deferError = _deferI18n.errorFailed.replace('{0}', r.status);
                 }
             } catch (e) {
-                this.deferError = 'Network error. Please try again.';
+                this.deferError = _deferI18n.errorNetwork;
             } finally {
                 this.submitting = false;
             }
@@ -66,10 +102,10 @@
 
             <div class="flex flex-col gap-[10px] items-start flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-[10px]">
-                    <p class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] leading-[1.3]">Defer Vulnerability</p>
-                    <p class="font-medium text-[18px] text-[var(--grayscale-90)] tracking-[-0.18px] leading-[1.3]">Set Exception</p>
+                    <p class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] leading-[1.3]" th:text="#{componentDetail.defer.title}">Defer Vulnerability</p>
+                    <p class="font-medium text-[18px] text-[var(--grayscale-90)] tracking-[-0.18px] leading-[1.3]" th:text="#{componentDetail.defer.subtitle}">Set Exception</p>
                 </div>
-                <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3]">
+                <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3]" th:text="#{componentDetail.defer.description}">
                     This issue will be temporarily deferred with a documented reason.
                 </p>
             </div>
@@ -86,12 +122,12 @@
         <!-- Summary -->
         <div class="border-b border-[var(--grayscale-20)] flex flex-col gap-[12px] px-[36px] py-[24px]">
             <div class="flex flex-wrap gap-[12px] items-center">
-                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]">Deferring</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.defer.label.deferring}">Deferring</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px] text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]"
                       th:text="${componentName + ' ' + componentVersion}">android-arch-common v2.2.0-beta01</span>
             </div>
             <div class="flex flex-wrap gap-[12px] items-center">
-                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]">Affect</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.defer.label.affect}">Affect</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' Critical'">8 Critical</span>
@@ -109,32 +145,32 @@
             <!-- Reason for deferral -->
             <div class="flex flex-col gap-[12px] w-full">
                 <p class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
-                    Reason for deferral <span class="font-normal text-[var(--primary-80)]">*</span>
+                    <span th:text="#{componentDetail.defer.label.reason}">Reason for deferral</span> <span class="font-normal text-[var(--primary-80)]">*</span>
                 </p>
                 <div class="grid grid-cols-2 gap-x-[20px] gap-y-[16px]">
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="reason = 'legal-review'">
                         <img :src="reason === 'legal-review' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">Legal Review Pending</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.reason.legalReview}">Legal Review Pending</span>
                     </label>
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="reason = 'false-positive'">
                         <img :src="reason === 'false-positive' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">False Positive</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.reason.falsePositive}">False Positive</span>
                     </label>
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="reason = 'wont-fix'">
                         <img :src="reason === 'wont-fix' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">Won't Fix (Accepted Risk)</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.reason.wontFix}">Won't Fix (Accepted Risk)</span>
                     </label>
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="reason = 'temporary'">
                         <img :src="reason === 'temporary' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">Temporary — Fix Planned</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.reason.temporary}">Temporary — Fix Planned</span>
                     </label>
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="reason = 'other'">
                         <img :src="reason === 'other' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">Other</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.reason.other}">Other</span>
                     </label>
                 </div>
                 <div class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] h-[32px] flex items-center">
-                    <input type="text" x-model="otherText" placeholder="Describe the exception reason (if Other)..."
+                    <input type="text" x-model="otherText" th:placeholder="#{componentDetail.defer.reason.placeholder}"
                            class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
                 </div>
             </div>
@@ -142,8 +178,9 @@
             <!-- Expiry Date -->
             <div class="flex flex-col gap-[12px] w-full">
                 <p class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
-                    Expiry Date <span class="font-normal text-[var(--primary-80)]">*</span>
+                    <span th:text="#{componentDetail.defer.label.expiry}">Expiry Date</span> <span class="font-normal text-[var(--primary-80)]">*</span>
                     <span class="font-normal text-[#00b9a3] ml-2"
+                          th:attr="data-no-expiry=#{componentDetail.defer.expiry.noExpiry}"
                           x-text="(() => {
                               const d = new Date();
                               if (expiry === '1-week') d.setDate(d.getDate() + 7);
@@ -151,7 +188,7 @@
                               else if (expiry === '3-month') d.setMonth(d.getMonth() + 3);
                               else if (expiry === '6-month') d.setMonth(d.getMonth() + 6);
                               else if (expiry === 'custom' && customDate) return customDate;
-                              else if (expiry === 'indefinite') return 'No expiry';
+                              else if (expiry === 'indefinite') return $el.dataset.noExpiry;
                               else return '';
                               return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.';
                           })()"></span>
@@ -161,15 +198,15 @@
                     <div class="flex flex-col gap-[16px] flex-1 min-w-0">
                         <label class="flex items-center gap-[8px] cursor-pointer" @click="expiry = '1-week'">
                             <img :src="expiry === '1-week' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]">1 Week</span>
+                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.1week}">1 Week</span>
                         </label>
                         <label class="flex items-center gap-[8px] cursor-pointer" @click="expiry = '3-month'">
                             <img :src="expiry === '3-month' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]">3 Month</span>
+                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.3month}">3 Month</span>
                         </label>
                         <label class="flex items-center gap-[8px] cursor-pointer" @click="expiry = 'custom'">
                             <img :src="expiry === 'custom' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                            <span class="font-medium text-[12px] text-[#00659c] tracking-[-0.12px]">Custom</span>
+                            <span class="font-medium text-[12px] text-[#00659c] tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.custom}">Custom</span>
                             <div class="border rounded-[6px] px-[10px] py-[2px] transition-colors ml-[4px]"
                                  :class="expiry === 'custom' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'">
                                 <input type="text" x-model="customDate" placeholder="YYYY-MM-DD"
@@ -182,15 +219,15 @@
                     <div class="flex flex-col gap-[16px] flex-1 min-w-0">
                         <label class="flex items-center gap-[8px] cursor-pointer" @click="expiry = '1-month'">
                             <img :src="expiry === '1-month' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]">1 Month</span>
+                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.1month}">1 Month</span>
                         </label>
                         <label class="flex items-center gap-[8px] cursor-pointer" @click="expiry = '6-month'">
                             <img :src="expiry === '6-month' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]">6 Month</span>
+                            <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.6month}">6 Month</span>
                         </label>
                         <label class="flex items-center gap-[8px] cursor-pointer" @click="expiry = 'indefinite'">
                             <img :src="expiry === 'indefinite' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                            <span class="font-medium text-[12px] text-[#e62727]/80 tracking-[-0.12px]">Defer Indefinitely</span>
+                            <span class="font-medium text-[12px] text-[#e62727]/80 tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.indefinite}">Defer Indefinitely</span>
                         </label>
                     </div>
                 </div>
@@ -199,23 +236,23 @@
             <!-- Assign Reviewer -->
             <div class="flex flex-col gap-[10px] w-full">
                 <p class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
-                    Assign Reviewer (optional) <span class="font-normal text-[var(--primary-80)]">*</span>
+                    <span th:text="#{componentDetail.defer.label.reviewer}">Assign Reviewer (optional)</span> <span class="font-normal text-[var(--primary-80)]">*</span>
                 </p>
                 <div class="grid grid-cols-2 gap-[20px]">
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="scope = 'project'">
                         <img :src="scope === 'project' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">This project only</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.scope.project}">This project only</span>
                     </label>
                     <label class="flex items-center gap-[8px] cursor-pointer" @click="scope = 'all-projects'">
                         <img :src="scope === 'all-projects' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]">All projects using this library</span>
+                        <span class="font-medium text-[12px] text-black tracking-[-0.12px]" th:text="#{componentDetail.defer.scope.allProjects}">All projects using this library</span>
                     </label>
                 </div>
             </div>
 
             <!-- PR Description -->
             <div class="flex flex-col gap-[8px] w-full">
-                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">PR Description</label>
+                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.defer.label.prDescription}">PR Description</label>
                 <textarea x-model="prDescription"
                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] h-[80px] text-[12px] text-[var(--grayscale-100)] outline-none focus:border-[#33D1B7] resize-none tracking-[-0.12px] leading-[1.3]"></textarea>
             </div>
@@ -228,17 +265,18 @@
             <!-- Error feedback -->
             <div x-show="deferError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="deferError"></div>
             <!-- Success feedback -->
-            <div x-show="deferDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">Deferral confirmed successfully.</div>
+            <div x-show="deferDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" th:text="#{componentDetail.defer.success}">Deferral confirmed successfully.</div>
 
             <div class="flex gap-[16px] items-center">
                 <button type="button" @click="confirmDefer()" :disabled="submitting || deferDone"
                         class="bg-[var(--semantic-caution)] hover:opacity-90 disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-opacity">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
-                    <span x-text="submitting ? 'Submitting...' : 'Confirm Deferral'">Confirm Deferral</span>
+                    <span th:attr="data-msg-submitting=#{componentDetail.defer.btn.submitting},data-msg-confirm=#{componentDetail.defer.btn.confirm}"
+                          x-text="submitting ? $el.dataset.msgSubmitting : $el.dataset.msgConfirm">Confirm Deferral</span>
                 </button>
                 <button type="button" @click="modal = null"
-                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors">
-                    Cancel
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors"
+                        th:text="#{common.cancel}">Cancel
             </button>
             </div>
         </div>
