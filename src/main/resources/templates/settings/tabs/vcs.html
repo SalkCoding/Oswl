@@ -336,8 +336,11 @@
             bitbucketUsername: '',
             bitbucketAccessToken: '',
             form: { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' },
-            csrf: document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
-            headers() { return { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            headers() {
+                const m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
+                const token = m ? decodeURIComponent(m[1]) : '';
+                return { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': token };
+            },
             formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
             providerLabel(p) {
                 return p === 'GITHUB' ? 'GitHub' : p === 'GITLAB' ? 'GitLab' : p === 'BITBUCKET' ? 'Atlassian' : p;
