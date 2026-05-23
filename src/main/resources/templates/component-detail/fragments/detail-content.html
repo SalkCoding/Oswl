@@ -32,7 +32,7 @@
                 </svg>
                 <span class="text-[11px] tracking-[-0.11px]"
                       th:classappend="${reviewed} ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'"
-                      th:text="${reviewed} ? #messages.msg('componentDetail.status.reviewed') : #messages.msg('componentDetail.status.notReviewed')">Not Reviewed</span>
+                      th:text="${reviewed} ? #{componentDetail.status.reviewed} : #{componentDetail.status.notReviewed}">Not Reviewed</span>
             </span>
             <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[4px] rounded-[40px]">
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
@@ -47,7 +47,7 @@
                       th:classappend="${patchability == 'patchable'} ? 'bg-[var(--semantic-patchable)]'
                                      : (${patchability == 'non-patchable'} ? 'bg-[var(--risk-critical)]' : 'bg-[var(--grayscale-30)]')"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                      th:text="${patchability == 'patchable'} ? #messages.msg('common.patchable') : (${patchability == 'non-patchable'} ? #messages.msg('common.nonPatchable') : #messages.msg('common.unknown'))">Patchable</span>
+                      th:text="${patchability == 'patchable'} ? #{common.patchable} : (${patchability == 'non-patchable'} ? #{common.nonPatchable} : #{common.unknown})">Patchable</span>
             </span>
             <!-- No CVEs: show version currency (Deprecated / Outdated / hidden-if-latest) -->
             <span th:if="${!hasVulnerabilities and isDeprecated}"
@@ -419,7 +419,7 @@
                     </span>
                     <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
                           th:text="${path.depth == 2} ? #{componentDetail.depPath.direct}
-                                 : (${path.depth - 2 == 1} ? #messages.msg('componentDetail.depPath.viaIntermediate', path.depth - 2, path.depth - 1) : #messages.msg('componentDetail.depPath.viaIntermediates', path.depth - 2, path.depth - 1))">
+                                 : (${path.depth - 2 == 1} ? #{componentDetail.depPath.viaIntermediate(${path.depth - 2}, ${path.depth - 1})} : #{componentDetail.depPath.viaIntermediates(${path.depth - 2}, ${path.depth - 1})})">  
                         Direct dependency (depth 1)
                     </span>
                 </button>
