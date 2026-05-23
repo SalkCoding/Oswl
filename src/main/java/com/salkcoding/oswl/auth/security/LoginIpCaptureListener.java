@@ -7,11 +7,11 @@ import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 
 /**
- * Captures the remote IP of every successful authentication and stores it
- * in {@link LastLoginIpStore} keyed by the user's email address.
+ * Captures the remote IP of every successful authentication and stores it in
+ * {@link LastLoginIpStore} keyed by the user's email address.
  *
- * This is read later by {@link OswlSessionExpiredStrategy} to inform the
- * displaced user which IP triggered their forced logout.
+ * {@link OswlSessionExpiredStrategy} later reads this information to show the displaced
+ * user which IP triggered the forced logout.
  */
 @Component
 @RequiredArgsConstructor

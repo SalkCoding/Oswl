@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory store that tracks the most recent login IP per user (by email).
- * Used to show the displacing IP when a session is forcibly expired
+ * In-memory store that tracks the most recent login IP for each user (by email).
+ * Used to provide the IP shown to a displaced user when a session is forcibly expired
  * due to a concurrent login from another location.
  */
 @Component

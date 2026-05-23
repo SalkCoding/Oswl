@@ -26,14 +26,14 @@ import java.util.Map;
  * POST /login/otp-verify
  *   Body  : { "code": "123456", "trustDevice": false }
  *   200   : { "redirectUrl": "/projects" }
- *   400   : { "message": "Invalid or expired code." }
- *   401   : { "message": "No pending verification." }
- *   423   : { "message": "Account locked." }
+ *   400   : { "message": "The code is invalid or has expired." }
+ *   401   : { "message": "There is no pending authentication." }
+ *   423   : { "message": "The account is locked." }
  *
  * POST /login/otp-resend
- *   200   : { "message": "Code resent." }
- *   401   : { "message": "No pending verification." }
- *   429   : { "message": "Please wait before requesting a new code." }
+ *   200   : { "message": "The code has been resent." }
+ *   401   : { "message": "There is no pending authentication." }
+ *   429   : { "message": "Please wait a moment before requesting a new code." }
  */
 @Slf4j
 @RestController
@@ -54,7 +54,7 @@ public class OtpVerifyController {
 
         if (session == null || !otpService.isPending(session)) {
             return ResponseEntity.status(401)
-                    .body(Map.of("message", "No pending verification. Please log in again."));
+                    .body(Map.of("message", "There is no pending authentication. Please sign in again."));
         }
 
         String code = body.get("code") instanceof String s ? s.strip() : "";
@@ -69,16 +69,16 @@ public class OtpVerifyController {
             if (otpService.isAccountLocked(session)) {
                 session.invalidate();
                 return ResponseEntity.status(423)
-                        .body(Map.of("message", "Too many incorrect attempts. Your account has been locked. Please contact an administrator."));
+                        .body(Map.of("message", "Too many failed attempts. The account has been locked. Please contact an administrator."));
             }
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Invalid or expired code. Please try again."));
+                    .body(Map.of("message", "The code is invalid or has expired. Please try again."));
         }
 
         OswlUserPrincipal principal = otpService.getPendingPrincipal(session);
         otpService.clearPending(session);
 
-        // Promote session to fully authenticated
+        // Promote the session to a fully authenticated state
         UsernamePasswordAuthenticationToken auth =
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         SecurityContext context = SecurityContextHolder.createEmptyContext();
@@ -87,13 +87,13 @@ public class OtpVerifyController {
         session.setAttribute(
                 HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
 
-        // Set trusted-device cookie if the user requested "remember this device"
+        // Set the trusted-device cookie when the user requests "remember this device"
         boolean trustDevice = Boolean.TRUE.equals(body.get("trustDevice"));
         if (trustDevice) {
             trustedDeviceService.setTrusted(principal.getUserId(), response);
         }
 
-        log.info("[OTP] 2FA verification succeeded for user: {}", principal.getUsername());
+        log.info("[OTP] 2FA authentication succeeded for user {}.", principal.getUsername());
         String redirectUrl = principal.isMustChangePassword() ? "/change-password" : "/projects";
         return ResponseEntity.ok(Map.of("redirectUrl", redirectUrl));
     }
@@ -105,7 +105,7 @@ public class OtpVerifyController {
 
         if (session == null || !otpService.isPending(session)) {
             return ResponseEntity.status(401)
-                    .body(Map.of("message", "No pending verification. Please log in again."));
+                    .body(Map.of("message", "There is no pending authentication. Please sign in again."));
         }
 
         if (!otpService.canResend(session)) {
@@ -118,7 +118,7 @@ public class OtpVerifyController {
 
         boolean mailFailed = Boolean.TRUE.equals(session.getAttribute(OtpService.SESSION_MAIL_FAILED));
         Map<String, Object> body = new java.util.LinkedHashMap<>();
-        body.put("message", "Code resent.");
+        body.put("message", "The code has been resent.");
         body.put("mailFailed", mailFailed);
         return ResponseEntity.ok(body);
     }

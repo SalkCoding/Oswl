@@ -12,7 +12,7 @@ import org.springframework.core.ParameterizedTypeReference;
 
 /**
  * OpenAI Chat Completions API implementation.
- * The LOCAL provider also works with this client by simply changing the baseUrl to an OpenAI-compatible endpoint.
+ * The LOCAL provider also uses this client when its baseUrl points to an OpenAI-compatible endpoint.
  */
 @Slf4j
 @Component
@@ -61,8 +61,8 @@ public class OpenAiClient implements AiAnalysisClient {
     }
 
     /**
-     * Calls using the apiKey / baseUrl / modelName stored in AiSetting.
-     * Invoked by AiAnalysisService with the injected setting.
+     * Calls the API using apiKey / baseUrl / modelName stored in AiSetting.
+     * Executed with the setting injected by AiAnalysisService.
      */
     public String callWithSetting(String prompt, AiSetting setting) {
         return call(prompt, setting);
@@ -81,7 +81,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        // LOCAL (e.g. Ollama) does not require an API key — only set Authorization when present
+        // LOCAL (for example, Ollama) does not require an API key — set Authorization only when a key exists
         if (hasAuth) {
             headers.setBearerAuth(apiKey);
         }
@@ -114,7 +114,7 @@ public class OpenAiClient implements AiAnalysisClient {
                     log.debug("[AI][OpenAI] Parsed result resultLen={}", result != null ? result.length() : 0);
                     return result;
                 }
-                log.warn("[AI][OpenAI] Response body had no 'choices' — keys={}", response.getBody().keySet());
+                log.warn("[AI][OpenAI] Response body has no 'choices' — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
@@ -125,7 +125,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
     private String resolveUrl(AiSetting setting) {
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {
-            // LOCAL: e.g. "http://localhost:11434/v1/chat/completions"
+            // LOCAL example: "http://localhost:11434/v1/chat/completions"
             String base = setting.getBaseUrl();
             return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         }

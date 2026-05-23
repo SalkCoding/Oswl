@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
  * To add a new provider:
  *  1. Add an entry to the AiProvider enum
  *  2. Implement the AiAnalysisClient interface
- *  3. Add a branch to the switch statement in this class
+ *  3. Add a branch to this class's switch statement
  */
 @Slf4j
 @Service
@@ -28,7 +28,7 @@ public class AiAnalysisService {
     private final CopilotClient copilotClient;
     private final EncryptionService encryptionService;
 
-    // ── Public API ───────────────────────────────────────────────────────
+    // ── Public API ─────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
@@ -160,17 +160,17 @@ public class AiAnalysisService {
         };
     }
 
-    /** Check whether an AI provider is configured (for displaying guidance in the UI) */
+    /** Checks whether an AI provider is configured (used for UI guidance). */
     @Transactional(readOnly = true)
     public boolean isAiConfigured() {
         return aiSettingRepository.findByActiveTrue().isPresent();
     }
 
     /**
-     * Sends a minimal ping prompt to the given provider using the supplied (plaintext) setting.
-     * No persistence — used only for the Settings > AI > Test Connection button.
+     * Sends a minimal ping prompt to the provider using the supplied plaintext setting.
+     * Not persisted — used only by the Settings > AI > Test Connection button.
      *
-     * @return true if the provider responded successfully, false otherwise
+     * @return true if the provider responds successfully; otherwise false
      */
     public boolean testConnection(AiSetting setting) {
         String prompt = "Reply with only the word OK.";
@@ -187,12 +187,12 @@ public class AiAnalysisService {
                     result != null ? result.trim() : "null");
             return ok;
         } catch (Exception e) {
-            log.warn("[AI] Test connection failed for provider {}: {}", setting.getProvider(), e.getMessage());
+            log.warn("[AI] {} provider connection test failed: {}", setting.getProvider(), e.getMessage());
             return false;
         }
     }
 
-    // ── Internal ─────────────────────────────────────────────────────────
+    // ── Internal ─────────────────────────────────────────────────────
 
     private AiSetting getActiveSetting() {
         return aiSettingRepository.findByActiveTrue().map(s -> {
@@ -201,16 +201,16 @@ public class AiAnalysisService {
                 try {
                     s.update(encryptionService.decrypt(s.getApiKey()), null, null);
                 } catch (Exception e) {
-                    // Backwards-compat: if decryption fails the key may be legacy plaintext.
-                    // Re-save the setting via the UI to encrypt it.
-                    log.warn("[AI] API key decryption failed for provider {}. Key may be stored in legacy plaintext. Re-save via Settings to encrypt.", s.getProvider());
+                    // Backward compatibility: if decryption fails, the key may be legacy plaintext.
+                    // Re-save the setting in Settings to encrypt it.
+                    log.warn("[AI] Failed to decrypt API key for {} provider. The key may be stored as legacy plaintext. Re-save it in Settings to encrypt it.", s.getProvider());
                 }
             }
             log.debug("[AI] Active provider={} model='{}' baseUrl='{}'",
                     s.getProvider(), s.getModelName(), s.getBaseUrl());
             return s;
         }).orElseGet(() -> {
-            log.debug("[AI] No active AI setting found. Skipping analysis.");
+            log.debug("[AI] No active AI setting. Skipping analysis.");
             return null;
         });
     }

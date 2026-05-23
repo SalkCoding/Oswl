@@ -25,7 +25,7 @@ public class SecuritySettingService {
     private final SecuritySettingRepository repository;
     private final EncryptionService encryptionService;
 
-    // ── Read ─────────────────────────────────────────────────────────────
+    // ── Read ────────────────────────────────────────────────────────────
 
     @Transactional
     public SecuritySetting getOrCreate() {
@@ -34,7 +34,7 @@ public class SecuritySettingService {
                         SecuritySetting.builder().id(SETTINGS_ID).build()));
     }
 
-    // ── Write ────────────────────────────────────────────────────────────
+    // ── Write ───────────────────────────────────────────────────────────
 
     @Transactional
     public SecuritySetting update(SecuritySettingUpdateRequest req) {
@@ -52,7 +52,7 @@ public class SecuritySettingService {
             if (m.getUsername() != null)      s.setMailUsername(m.getUsername());
             if (m.getSenderName() != null)    s.setMailSenderName(m.getSenderName());
             if (m.getSenderAddress() != null) s.setMailSenderAddress(m.getSenderAddress());
-            // Encrypt new password before storing; skip if blank (keep existing)
+            // Encrypt the new password before saving; keep the existing password if blank
             if (m.getPassword() != null && !m.getPassword().isBlank()) {
                 s.setMailPassword(encryptionService.encrypt(m.getPassword()));
             }
@@ -65,10 +65,10 @@ public class SecuritySettingService {
         return repository.save(s);
     }
 
-    // ── Mail connection test ─────────────────────────────────────────────
+    // ── Mail connection test ───────────────────────────────────────────
 
     /**
-     * Attempts to open an SMTP session using the supplied parameters.
+     * Attempts to open an SMTP session using the provided parameters.
      * Throws {@link MessagingException} if the connection fails.
      */
     public void testMailConnection(MailTestRequest req) throws MessagingException {
@@ -94,14 +94,14 @@ public class SecuritySettingService {
             props.put("mail.smtp.auth",               "true");
             props.put("mail.smtp.ssl.enable",         "true");
         } else {
-            // NONE — allow unauthenticated relays
+            // NONE — allow unauthenticated relay
             props.put("mail.smtp.auth", req.getUsername() != null && !req.getUsername().isBlank() ? "true" : "false");
         }
 
         sender.testConnection();
     }
 
-    // ── Response mapping ─────────────────────────────────────────────────
+    // ── Response mapping ─────────────────────────────────────────────
 
     public SecuritySettingResponse toResponse(SecuritySetting s) {
         return SecuritySettingResponse.builder()

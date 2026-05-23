@@ -9,13 +9,13 @@
     <!-- Heading + Create New Key button -->
     <div class="flex items-start justify-between gap-[12px]">
         <div class="flex flex-col gap-[4px]">
-            <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">CLI API Key Management</h2>
-            <p class="text-[13px] text-[var(--grayscale-60)]">Manage per-project API keys to allow the CLI tool to securely access the OsWL API.</p>
+            <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]" th:text="#{settings.cli.heading}">CLI API Key Management</h2>
+            <p class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.cli.description}">Manage per-project API keys to allow the CLI tool to securely access the OsWL API.</p>
         </div>
         <button @click="openCreate()"
                 class="flex-shrink-0 bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
             <img th:src="@{/icon/icon-key.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
-            Create New Key
+            <span th:text="#{settings.cli.btn.createNew}">Create New Key</span>
         </button>
     </div>
 
@@ -29,8 +29,8 @@
     <!-- New key confirmation banner (shown after creation) -->
     <div x-show="newTokenBanner" x-cloak x-transition
          class="bg-emerald-50 border border-emerald-200 rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[6px] mb-[12px]">
-        <p class="text-[13px] font-bold text-emerald-800">Key created — copy it now!</p>
-        <p class="text-[12px] text-emerald-700">This is the only time the full key is shown.</p>
+        <p class="text-[13px] font-bold text-emerald-800" th:text="#{settings.cli.newKey.created}">Key created — copy it now!</p>
+        <p class="text-[12px] text-emerald-700" th:text="#{settings.cli.newKey.hint}">This is the only time the full key is shown.</p>
         <div class="flex items-center gap-[8px] mt-[4px]">
             <code class="flex-1 font-mono text-[12px] bg-white border border-emerald-300 rounded-[6px] px-[10px] py-[6px] text-emerald-900 break-all" x-text="newTokenBanner"></code>
             <button @click="copyToken()" class="text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 px-[10px] py-[6px] border border-emerald-300 rounded-[6px] bg-white flex-shrink-0">Copy</button>
@@ -41,12 +41,12 @@
         <table class="w-full text-[13px]">
             <thead>
             <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                <th class="px-[16px] py-[12px] font-bold">API Key</th>
-                <th class="px-[16px] py-[12px] font-bold">Project</th>
-                <th class="px-[16px] py-[12px] font-bold">Label</th>
-                <th class="px-[16px] py-[12px] font-bold">Created</th>
-                <th class="px-[16px] py-[12px] font-bold">Last Used</th>
-                <th class="px-[16px] py-[12px] font-bold">Status</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.apiKey}">API Key</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.project}">Project</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.label}">Label</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.created}">Created</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.lastUsed}">Last Used</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.status}">Status</th>
                 <th class="px-[16px] py-[12px] font-bold w-[80px]">Action</th>
             </tr>
             </thead>
@@ -96,7 +96,7 @@
     <!-- Footer notice -->
     <p class="mt-[20px] text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
         <img th:src="@{/icon/icon-info2.svg}" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
-        API keys are only shown once. If you lose a key, generate a new one.
+        <span th:text="#{settings.cli.footer}">API keys are only shown once. If you lose a key, generate a new one.</span>
     </p>
 
     <!-- ===================== Create New Key Panel (absolute) ===================== -->
@@ -113,7 +113,7 @@
                 <div class="flex items-center justify-between gap-[8px]">
                     <div class="flex items-center gap-[6px] flex-1 min-w-0">
                         <img th:src="@{/icon/icon-key.svg}" class="w-[18px] h-[18px] flex-shrink-0" alt="" aria-hidden="true">
-                        <span class="font-bold text-[13px]">Create New Key</span>
+                        <span class="font-bold text-[13px]" th:text="#{settings.cli.slideout.title}">Create New Key</span>
                     </div>
                     <button @click="closeCreate()" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex-shrink-0 flex items-center justify-center transition-colors">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -126,7 +126,7 @@
             <div class="bg-[var(--grayscale-5,#fafbfb)] border-l border-[var(--grayscale-20)] flex flex-col gap-[20px] p-[20px] overflow-y-auto flex-1">
                 <!-- Project dropdown -->
                 <div class="flex flex-col gap-[8px]">
-                    <label class="text-[13px] font-bold text-[var(--grayscale-100)]">Project</label>
+                    <label class="text-[13px] font-bold text-[var(--grayscale-100)]" th:text="#{settings.cli.slideout.label.project}">Project</label>
                     <div class="relative">
                         <select x-model.number="form.projectId"
                                 class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] appearance-none cursor-pointer">

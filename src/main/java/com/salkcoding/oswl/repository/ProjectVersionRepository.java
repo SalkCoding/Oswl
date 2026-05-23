@@ -10,12 +10,12 @@ import java.util.Optional;
 
 public interface ProjectVersionRepository extends JpaRepository<ProjectVersion, Long> {
 
-    /** Find the version record for a specific branch of a project. */
+    /** Returns the version record for a specific branch of a specific project. */
     Optional<ProjectVersion> findByProjectAndBranch(Project project, String branch);
 
     /**
-     * Returns the highest version number already assigned to the project,
-     * or 0 if no versions exist yet.
+     * Returns the highest version number already assigned to the project.
+     * Returns 0 if there are no versions.
      */
     @Query("SELECT COALESCE(MAX(v.versionNumber), 0) FROM ProjectVersion v WHERE v.project = :project")
     int findMaxVersionNumber(@Param("project") Project project);

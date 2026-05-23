@@ -3,22 +3,28 @@ package com.salkcoding.oswl.auth.service;
 import com.salkcoding.oswl.auth.entity.SecuritySetting;
 import com.salkcoding.oswl.auth.enums.MailMode;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.util.Base64;
 import java.util.Properties;
 
 /**
- * Builds a dynamic JavaMailSender from the saved SecuritySetting and sends
- * transactional emails (OTP codes, notifications).
+ * Creates a dynamic JavaMailSender from the stored SecuritySetting and
+ * sends transactional emails (OTP codes, notifications).
  *
- * The mail password stored in SecuritySetting is AES-256-GCM encrypted;
- * this service decrypts it before use and never exposes it.
+ * The mail password stored in SecuritySetting is encrypted with AES-256-GCM;
+ * this service decrypts it before use and does not expose it externally.
  */
 @Slf4j
 @Service
@@ -27,29 +33,45 @@ public class MailService {
 
     private final SecuritySettingService securitySettingService;
     private final EncryptionService encryptionService;
+    private final TemplateEngine templateEngine;
 
-    // ── Public API ────────────────────────────────────────────────────────
+    @Value("classpath:static/icon/icon-logo.svg")
+    private Resource logoSvgResource;
+    private String logoDataUri = "";
+
+    @PostConstruct
+    void init() {
+        try {
+            byte[] bytes = logoSvgResource.getInputStream().readAllBytes();
+            logoDataUri = "data:image/svg+xml;base64," + Base64.getEncoder().encodeToString(bytes);
+            log.debug("[Mail] Logo SVG loaded successfully ({} bytes)", bytes.length);
+        } catch (Exception e) {
+            log.warn("[Mail] Failed to load logo SVG — the logo will not be shown in the email header: {}", e.getMessage());
+        }
+    }
+
+    // ── Public API ─────────────────────────────────────────────────────
 
     /**
      * Sends a 6-digit OTP email to the given address.
      *
-     * @param toAddress   recipient email
-     * @param displayName recipient's display name (used in greeting)
-     * @param otp         the 6-digit OTP code
-     * @throws RuntimeException if mail is DISABLED or SMTP delivery fails
+     * @param toAddress   Recipient email
+     * @param displayName Recipient display name (used in the greeting)
+     * @param otp         6-digit OTP code
+     * @throws RuntimeException if mail is DISABLED or SMTP sending fails
      */
     public void sendOtp(String toAddress, String displayName, String otp) {
         SecuritySetting settings = securitySettingService.getOrCreate();
 
         if (settings.getMailMode() == MailMode.DISABLED) {
             log.warn("[Mail] Mail is DISABLED in SecuritySetting — OTP not sent to '{}'. " +
-                     "Enable SMTP under Settings → Security to deliver real OTP codes.", toAddress);
+                     "Enable SMTP in Settings → Security.", toAddress);
             return;
         }
 
         if (settings.getMailHost() == null || settings.getMailHost().isBlank()) {
             log.error("[Mail] SMTP host is not configured — cannot send OTP to '{}'.", toAddress);
-            throw new IllegalStateException("SMTP host is not configured. Configure it under Settings → Security.");
+            throw new IllegalStateException("SMTP host is not configured. Configure it in Settings → Security.");
         }
 
         JavaMailSenderImpl sender = buildSender(settings);
@@ -67,20 +89,20 @@ public class MailService {
             helper.setFrom(fromAddress, fromName);
             helper.setTo(toAddress);
             helper.setSubject("[OsWL] Your verification code: " + otp);
-            helper.setText(buildOtpHtml(displayName, otp), true);
+            helper.setText(buildOtpHtml(displayName, otp, null), true);
 
             sender.send(message);
             log.info("[Mail] OTP sent to '{}'", toAddress);
         } catch (MessagingException e) {
             log.error("[Mail] Failed to send OTP to '{}': {}", toAddress, e.getMessage());
-            throw new RuntimeException("Failed to send verification email: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to send authentication email: " + e.getMessage(), e);
         } catch (Exception e) {
-            log.error("[Mail] Unexpected error sending OTP to '{}': {}", toAddress, e.getMessage());
-            throw new RuntimeException("Failed to send verification email", e);
+            log.error("[Mail] Unexpected error while sending OTP to '{}': {}", toAddress, e.getMessage());
+            throw new RuntimeException("Failed to send authentication email", e);
         }
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────
+    // ── Private helpers ───────────────────────────────────────────────
 
     private JavaMailSenderImpl buildSender(SecuritySetting s) {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
@@ -93,7 +115,7 @@ public class MailService {
             try {
                 sender.setPassword(encryptionService.decrypt(s.getMailPassword()));
             } catch (Exception e) {
-                log.warn("[Mail] Failed to decrypt mail password; trying as-is (legacy plaintext).");
+                log.warn("[Mail] Failed to decrypt mail password; trying plaintext instead (legacy support).");
                 sender.setPassword(s.getMailPassword());
             }
         }
@@ -120,53 +142,23 @@ public class MailService {
         return sender;
     }
 
-    private String buildOtpHtml(String displayName, String otp) {
+    private String buildOtpHtml(String displayName, String otp, String aiMessage) {
         String name = (displayName != null && !displayName.isBlank()) ? displayName : "User";
-        return """
-               <!DOCTYPE html>
-               <html lang="en">
-               <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-               <body style="margin:0;padding:0;background:#f4f6f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-                 <table width="100%%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
-                   <tr><td align="center">
-                     <table width="480" cellpadding="0" cellspacing="0"
-                            style="background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
-                       <tr>
-                         <td style="background:#0f172a;padding:28px 32px;">
-                           <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">OsWL</span>
-                         </td>
-                       </tr>
-                       <tr>
-                         <td style="padding:32px;">
-                           <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.3px;">
-                             Verification code
-                           </p>
-                           <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
-                             Hi %s, use the code below to complete your login.
-                             It expires in <strong>5 minutes</strong>.
-                           </p>
-                           <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;
-                                       padding:20px;text-align:center;margin-bottom:24px;">
-                             <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#0f172a;">%s</span>
-                           </div>
-                           <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
-                             If you did not request this code, you can safely ignore this email.<br>
-                             Do not share this code with anyone.
-                           </p>
-                         </td>
-                       </tr>
-                       <tr>
-                         <td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;">
-                           <p style="margin:0;font-size:12px;color:#9ca3af;">
-                             Sent by OsWL &mdash; Open-source Weakness & License scanner
-                           </p>
-                         </td>
-                       </tr>
-                     </table>
-                   </td></tr>
-                 </table>
-               </body>
-               </html>
-               """.formatted(name, otp);
+        Context ctx = new Context();
+        ctx.setVariable("name", name);
+        ctx.setVariable("otp", otp);
+        ctx.setVariable("logoDataUri", logoDataUri);
+        ctx.setVariable("aiMessage", aiMessage);
+        return templateEngine.process("mail/otp", ctx);
+    }
+
+    /** For local development — renders and returns the OTP email template with dummy data. */
+    public String buildOtpEmailPreview(String name, boolean withAi) {
+        String ai = withAi
+                ? "This sign-in request originates from a device and location consistent with your previous sessions."
+                  + " No suspicious activity or anomalies were detected."
+                  + " If this was not you, please change your password immediately."
+                : null;
+        return buildOtpHtml(name, "123456", ai);
     }
 }

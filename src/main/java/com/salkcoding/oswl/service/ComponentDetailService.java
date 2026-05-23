@@ -1,6 +1,9 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
+import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
@@ -33,11 +36,15 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 public class ComponentDetailService {
 
-    private final ProjectRepository       projectRepository;
-    private final ScanComponentRepository scanComponentRepository;
-    private final DependencyPathRepository dependencyPathRepository;
-    private final AuditLogService          auditLogService;
-    private final GitHubService            gitHubService;
+    private final ProjectRepository              projectRepository;
+    private final ScanComponentRepository         scanComponentRepository;
+    private final DependencyPathRepository         dependencyPathRepository;
+    private final AuditLogService                  auditLogService;
+    private final GitHubService                    gitHubService;
+    private final GitLabService                    gitLabService;
+    private final BitbucketService                 bitbucketService;
+    private final UserVcsConnectionRepository      vcsConnectionRepository;
+    private final EncryptionService                encryptionService;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long componentId, Model model) {
@@ -80,7 +87,7 @@ public class ComponentDetailService {
         model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
         model.addAttribute("ecosystem", lib.getEcosystem());
 
-        // Full dependency path trees (empty for old scans that pre-date this feature)
+        // Full dependency path tree (may be empty for scans created before this feature was introduced)
         List<DependencyPathDto> pathDtos = buildPathDtos(
                 dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(sc.getId()),
                 project.getName());
@@ -89,7 +96,7 @@ public class ComponentDetailService {
         model.addAttribute("licenseName",
                 lib.getLicenseName() != null ? lib.getLicenseName() : null);
         model.addAttribute("licenseRisk", lib.getLicenseStatus().name());
-        // For UNKNOWN status: distinguish non-standard (has a name) from truly unknown (no name)
+        // UNKNOWN state: distinguish non-standard (name present) vs fully unknown (no name)
         boolean licenseIsNonStandard = lib.getLicenseStatus() == LicenseStatus.UNKNOWN
                 && lib.getLicenseName() != null && !lib.getLicenseName().isBlank();
         model.addAttribute("licenseIsNonStandard", licenseIsNonStandard);
@@ -106,9 +113,13 @@ public class ComponentDetailService {
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
-        // VCS / PR-creation context
+        // VCS / PR creation context
         VcsProvider vcsProvider = project.getVcsProvider();
-        boolean canCreatePr = vcsProvider == VcsProvider.GITHUB && project.getGithubRepo() != null;
+        boolean canCreatePr = project.getGithubRepo() != null && (
+                vcsProvider == VcsProvider.GITHUB ||
+                vcsProvider == VcsProvider.GITLAB ||
+                vcsProvider == VcsProvider.BITBUCKET
+        );
         model.addAttribute("vcsProvider", vcsProvider != null ? vcsProvider.name() : null);
         model.addAttribute("canCreatePr", canCreatePr);
 
@@ -162,7 +173,7 @@ public class ComponentDetailService {
                     DependencyPath.PathNode n = rawNodes.get(i);
                     boolean isRoot   = (i == 0);
                     boolean isTarget = (i == rawNodes.size() - 1);
-                    // For the root node, use the project name for nicer display
+                    // For the root node, use the project name for a better display label
                     String displayName = isRoot && (n.getName() == null || n.getName().isBlank())
                             ? rootProjectName : n.getName();
                     return DependencyPathDto.PathNodeDto.builder()
@@ -185,9 +196,9 @@ public class ComponentDetailService {
     }
 
     /**
-     * Returns the portion after the last ':' or '/', or the full string if neither exists.
-     * Examples: "org.springframework:spring-web" → "spring-web",
-     *           "github.com/user/repo" → "repo", "lodash" → "lodash"
+     * Returns the last part after ':' or '/'. Returns the full string if neither exists.
+     * Example: "org.springframework:spring-web" → "spring-web",
+     *          "github.com/user/repo" → "repo", "lodash" → "lodash"
      */
     private String deriveShortName(String name) {
         if (name == null || name.isBlank()) return "-";
@@ -199,8 +210,8 @@ public class ComponentDetailService {
     }
 
     /**
-     * Applies a deferral exception to the given ScanComponent (and optionally
-     * to all ScanComponents that reference the same Library, when scope = "all-projects").
+     * Applies a deferral exception to the given ScanComponent (and, when scope = "all-projects",
+     * to every ScanComponent referencing the same Library).
      */
     @Transactional
     public void defer(Long projectId, Long componentId, DeferralRequest req) {
@@ -221,7 +232,7 @@ public class ComponentDetailService {
                 + (note != null && !note.isBlank() ? ", note=" + note.substring(0, Math.min(100, note.length())) : "");
 
         if ("all-projects".equals(req.getScope())) {
-            // Apply to all ScanComponents that reference the same library
+            // Apply to every ScanComponent referencing the same library
             List<ScanComponent> allForLib = scanComponentRepository
                     .findAllByScanResultStatusAndLibraryId(sc.getLibrary().getId());
             for (ScanComponent other : allForLib) {
@@ -262,17 +273,19 @@ public class ComponentDetailService {
     }
 
     /**
-     * Creates a GitHub pull request that bumps the library version.
+     * Creates a VCS PR/MR that upgrades the library version.
+     * Supports GitHub, GitLab (MR), and Bitbucket.
      *
-     * @param projectId   project owning this scan component
+     * @param projectId   Project that owns the scanned component
      * @param componentId ScanComponent id
      * @param req         PR request payload (targetBranch, reviewers, prDescription)
-     * @param githubToken decrypted GitHub PAT
-     * @return map with "prUrl" (String) and "prNumber" (int)
+     * @param userId      Authenticated user ID (used to look up GitLab/Bitbucket tokens in the DB)
+     * @param githubToken GitHub PAT decrypted from the session (null for non-GitHub projects)
+     * @return map containing "prUrl" (String) and "prNumber" (int)
      */
     @Transactional(readOnly = true)
     public Map<String, Object> createPullRequest(Long projectId, Long componentId,
-                                                  CreatePrRequest req, String githubToken) {
+                                                  CreatePrRequest req, Long userId, String githubToken) {
         ScanComponent sc = scanComponentRepository
                 .findByIdAndProjectIdWithCves(componentId, projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Component not found: " + componentId));
@@ -280,43 +293,65 @@ public class ComponentDetailService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        // Only GitHub projects support automated PR creation
         VcsProvider provider = project.getVcsProvider();
         if (provider == null) {
-            throw new IllegalStateException("이 프로젝트는 VCS 저장소와 연결되어 있지 않습니다. (CLI import는 PR 생성을 지원하지 않습니다)");
-        }
-        if (provider != VcsProvider.GITHUB) {
-            throw new IllegalStateException(provider.name() + " PR 자동 생성은 현재 지원되지 않습니다. GitHub 연결 프로젝트에서만 사용할 수 있습니다.");
+            throw new IllegalStateException("This project is not connected to a VCS repository. (CLI imports do not support PR creation.)");
         }
 
-        String githubRepo = project.getGithubRepo();
-        if (githubRepo == null || !githubRepo.contains("/")) {
-            throw new IllegalStateException("Project does not have a connected GitHub repository.");
+        String repoPath = project.getGithubRepo();
+        if (repoPath == null || !repoPath.contains("/")) {
+            throw new IllegalStateException("This project does not have a connected VCS repository.");
         }
-        String[] parts  = githubRepo.split("/", 2);
-        String owner    = parts[0];
-        String repo     = parts[1];
 
-        Library lib     = sc.getLibrary();
-        String libName  = lib.getName();
-        String oldVer   = lib.getVersion() != null ? lib.getVersion() : "?";
-        String newVer   = lib.bestFixVersion() != null ? lib.bestFixVersion() : oldVer;
-        String base     = req.getTargetBranch() != null ? req.getTargetBranch() : "main";
-        String prTitle  = "chore: bump " + libName + " to " + newVer + " [OsWL]";
-        String body     = req.getPrDescription() != null && !req.getPrDescription().isBlank()
+        Library lib    = sc.getLibrary();
+        String libName = lib.getName();
+        String oldVer  = lib.getVersion() != null ? lib.getVersion() : "?";
+        String newVer  = lib.bestFixVersion() != null ? lib.bestFixVersion() : oldVer;
+        String base    = req.getTargetBranch() != null ? req.getTargetBranch() : "main";
+        String prTitle = "chore: bump " + libName + " to " + newVer + " [OsWL]";
+        String body    = req.getPrDescription() != null && !req.getPrDescription().isBlank()
                 ? req.getPrDescription()
                 : "Bumps " + libName + " from " + oldVer + " to " + newVer + ".\n\nTriggered by OsWL.";
+        List<String> reviewers = req.getReviewers() != null ? req.getReviewers() : List.of();
 
-        Map<String, Object> result = gitHubService.createVersionBumpPr(
-                githubToken, owner, repo, base, libName, oldVer, newVer, prTitle, body,
-                req.getReviewers() != null ? req.getReviewers() : List.of()
-        );
+        Map<String, Object> result = switch (provider) {
+            case GITHUB -> {
+                if (githubToken == null) {
+                    throw new IllegalStateException("No GitHub account is connected. Please connect one from the Settings page.");
+                }
+                String[] parts = repoPath.split("/", 2);
+                yield gitHubService.createVersionBumpPr(
+                        githubToken, parts[0], parts[1], base, libName, oldVer, newVer, prTitle, body, reviewers);
+            }
+            case GITLAB -> {
+                UserVcsConnection conn = vcsConnectionRepository
+                        .findByUserIdAndProviderAndActiveTrue(userId, VcsProvider.GITLAB)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "No GitLab connection found. Please connect a GitLab token on the Settings page."));
+                String token     = encryptionService.decrypt(conn.getAccessTokenEncrypted());
+                String serverUrl = conn.getServerUrl();
+                yield gitLabService.createVersionBumpMr(
+                        token, serverUrl, repoPath, base, libName, oldVer, newVer, prTitle, body, reviewers);
+            }
+            case BITBUCKET -> {
+                UserVcsConnection conn = vcsConnectionRepository
+                        .findByUserIdAndProviderAndActiveTrue(userId, VcsProvider.BITBUCKET)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "No Bitbucket connection found. Please connect a Bitbucket token on the Settings page."));
+                String token     = encryptionService.decrypt(conn.getAccessTokenEncrypted());
+                String username  = conn.getVcsUsername();
+                String serverUrl = conn.getServerUrl();
+                yield bitbucketService.createVersionBumpPr(
+                        token, username, serverUrl, repoPath, base, libName, oldVer, newVer, prTitle, body, reviewers);
+            }
+        };
 
         auditLogService.log("COMPONENT.CREATE_PR", "COMPONENT",
                 componentId.toString(), libName + " " + oldVer,
-                "repo=" + githubRepo + ", branch=" + base + ", pr=" + result.get("prNumber"));
+                "provider=" + provider + ", repo=" + repoPath + ", branch=" + base + ", pr=" + result.get("prNumber"));
 
-        log.info("[CreatePR] projectId={} componentId={} prUrl={}", projectId, componentId, result.get("prUrl"));
+        log.info("[CreatePR] provider={} projectId={} componentId={} prUrl={}",
+                provider, projectId, componentId, result.get("prUrl"));
         return result;
     }
 }

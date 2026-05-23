@@ -11,8 +11,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * If no user has been created yet, redirect every authenticated/anonymous
- * request (except /setup, /css, /js, /icon, /webjars, error) to /setup.
+ * If no user has been created yet, redirects all authenticated and unauthenticated requests
+ * to /setup except for /setup, /css, /js, /icon, /webjars, and /error.
  */
 @RequiredArgsConstructor
 public class SetupRedirectFilter extends OncePerRequestFilter {

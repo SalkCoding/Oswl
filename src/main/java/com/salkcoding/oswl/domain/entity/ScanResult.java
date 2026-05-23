@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A bundle of results from a single CLI scan.
- * Tracks the CLI version, scan time, and status (PENDING → COMPLETED, etc.).
+ * Result bundle produced by a single CLI scan.
+ * Tracks CLI version, scan time, and status (PENDING → COMPLETED, etc.).
  */
 @Entity
 @Table(name = "scan_results")
@@ -44,25 +44,25 @@ public class ScanResult {
     @Column(name = "raw_payload", columnDefinition = "jsonb")
     private String rawPayload;
 
-    /** Error message for AI analysis failures, etc. */
+    /** Error message, etc., when AI analysis fails */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    /** AI-generated security risk trend insight (pre-generated during enrichment) */
+    /** AI-generated security risk trend insight (generated during enrichment) */
     @Column(name = "security_ai_insight", columnDefinition = "TEXT")
     private String securityAiInsight;
 
-    /** AI-generated license risk trend insight (pre-generated during enrichment) */
+    /** AI-generated license risk trend insight (generated during enrichment) */
     @Column(name = "license_ai_insight", columnDefinition = "TEXT")
     private String licenseAiInsight;
 
-    /** AI-generated security posture insight summarising current CVE counts (pre-generated during enrichment) */
+    /** AI-generated security posture insight — summary of the current CVE count (generated during enrichment) */
     @Column(name = "security_posture_insight", columnDefinition = "TEXT")
     private String securityPostureInsight;
 
     /**
-     * The user who submitted this scan (Quick Import or future user-level CLI auth).
-     * Null for scans submitted via a project API key (anonymous CLI scan).
+     * User who submitted this scan (Quick Import or user-level CLI auth).
+     * Anonymous CLI scans submitted with a project API key are null.
      */
     @Column(name = "submitted_by_user_id")
     private Long submittedByUserId;
@@ -77,7 +77,7 @@ public class ScanResult {
         }
     }
 
-    /** Used when injecting test data from DataInitializer etc. */
+    /** Used when injecting test data from DataInitializer, etc. */
     public void setScannedAt(LocalDateTime scannedAt) {
         this.scannedAt = scannedAt;
     }
@@ -113,9 +113,9 @@ public class ScanResult {
     }
 
     /**
-     * Resets this scan for a re-scan of the same version.
-     * Clears old payload/status so new component data can be ingested fresh.
-     * Callers must clear the components collection before calling this.
+     * Resets the scan for re-scanning the same version.
+     * Clears the previous payload/state so new component data can be received again.
+     * Callers must clear the components collection before invoking this method.
      */
     public void resetForRescan(String newRawPayload) {
         this.rawPayload = newRawPayload;

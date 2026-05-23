@@ -5,8 +5,8 @@ import lombok.Data;
 /**
  * PUT /api/settings/security request body.
  *
- * Both {@code mailMode}/{@code mail} and {@code twoFaMode} are optional —
- * the UI sends them in separate save calls:
+ * Both {@code mailMode}/{@code mail} and {@code twoFaMode} are optional,
+ * and the UI sends them in separate save calls:
  *   • saveMail()  → { mailMode, mail: { ... } }
  *   • saveTwoFa() → { twoFaMode }
  */

@@ -27,7 +27,7 @@
                     <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                 </button>
             </div>
-            <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] mb-0">
+            <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] mb-0" th:text="#{quickImport.description}">
                 Paste a repository URL to automatically clone, scan dependencies, and create a project. Or browse your connected VCS accounts to import directly.
             </p>
         </div>
@@ -38,7 +38,7 @@
 
         <!-- ── Connected Accounts ────────────────────────────────────────── -->
         <div class="w-full">
-            <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] mb-[10px]">
+            <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] mb-[10px]" th:text="#{quickImport.connectedAccounts}">
                 Connected VCS Accounts
             </p>
 
@@ -67,11 +67,11 @@
                         <template x-if="connectionsByProvider['GITHUB']">
                             <p class="text-[11px] text-emerald-600 font-semibold m-0 flex items-center gap-[4px]">
                                 <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span>
-                                <span>Connected</span>
+                                <span th:text="#{quickImport.connected}">Connected</span>
                             </p>
                         </template>
                         <template x-if="!connectionsByProvider['GITHUB']">
-                            <p class="text-[11px] text-[var(--grayscale-40)] m-0">Not connected</p>
+                            <p class="text-[11px] text-[var(--grayscale-40)] m-0" th:text="#{quickImport.notConnected}">Not connected</p>
                         </template>
                     </div>
                     <template x-if="!connectionsByProvider['GITHUB']">
@@ -94,11 +94,11 @@
                         <template x-if="connectionsByProvider['GITLAB']">
                             <p class="text-[11px] text-orange-500 font-semibold m-0 flex items-center gap-[4px]">
                                 <span class="w-[5px] h-[5px] rounded-full bg-orange-500 shrink-0"></span>
-                                <span>Connected</span>
+                                <span th:text="#{quickImport.connected}">Connected</span>
                             </p>
                         </template>
                         <template x-if="!connectionsByProvider['GITLAB']">
-                            <p class="text-[11px] text-[var(--grayscale-40)] m-0">Not connected</p>
+                            <p class="text-[11px] text-[var(--grayscale-40)] m-0" th:text="#{quickImport.notConnected}">Not connected</p>
                         </template>
                     </div>
                     <template x-if="!connectionsByProvider['GITLAB']">
@@ -121,11 +121,11 @@
                         <template x-if="connectionsByProvider['BITBUCKET']">
                             <p class="text-[11px] text-blue-500 font-semibold m-0 flex items-center gap-[4px]">
                                 <span class="w-[5px] h-[5px] rounded-full bg-blue-500 shrink-0"></span>
-                                <span>Connected</span>
+                                <span th:text="#{quickImport.connected}">Connected</span>
                             </p>
                         </template>
                         <template x-if="!connectionsByProvider['BITBUCKET']">
-                            <p class="text-[11px] text-[var(--grayscale-40)] m-0">Not connected</p>
+                            <p class="text-[11px] text-[var(--grayscale-40)] m-0" th:text="#{quickImport.notConnected}">Not connected</p>
                         </template>
                     </div>
                     <template x-if="!connectionsByProvider['BITBUCKET']">
@@ -139,7 +139,7 @@
                  class="mt-[12px] flex items-start gap-[6px] rounded-[8px] px-[14px] py-[10px] bg-amber-50 border border-amber-200">
                 <img th:src="@{/icon/icon-alert-triangle.svg}" class="shrink-0 mt-[1px] w-[16px] h-[16px]" alt="" aria-hidden="true">
                 <p class="text-[13px] text-amber-800 m-0">
-                    No VCS accounts connected yet.
+                    <span th:text="#{quickImport.noAccountsConnected}">No VCS accounts connected yet.</span>
                     <a href="/settings?tab=vcs" class="font-semibold underline text-amber-800">Connect an account</a> first.
                 </p>
             </div>
@@ -150,7 +150,7 @@
 
             <!-- URL input -->
             <div class="flex flex-col gap-[6px]">
-                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]">Repository URL</label>
+                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]" th:text="#{quickImport.url.label}">Repository URL</label>
                 <div class="flex gap-[10px]">
                     <div class="relative flex-1">
                         <!-- Provider icon (auto-detected) -->
@@ -181,7 +181,7 @@
                 <p x-show="providerNotConnected" x-cloak
                    class="text-[12px] text-amber-600 m-0 flex items-center gap-[5px]">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <span x-text="'Your ' + detectedProvider + ' account is not connected.'"></span>
+                    <span x-text="_qiI18n.providerNotConnected.replace('{0}', detectedProvider)"></span>
                     <a href="/settings?tab=vcs" class="underline font-medium">Connect →</a>
                 </p>
             </div>
@@ -194,14 +194,14 @@
                            disabled:opacity-40 disabled:cursor-not-allowed">
                 <img x-show="!isImporting" src="/icon/icon-clock.svg" class="w-[23px] h-[23px] shrink-0" alt="" aria-hidden="true">
                 <svg x-show="isImporting" class="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75"/></svg>
-                <span x-text="isImporting ? 'Importing…' : 'Import &amp; Scan'"></span>
+                <span x-text="isImporting ? _qiI18n.importing : _qiI18n.importAndScan"></span>
             </button>
         </div>
 
         <!-- ── Progress Log ──────────────────────────────────────────────── -->
         <div x-show="showProgress" x-cloak id="import-progress" class="w-full">
             <div class="bg-[#001D35] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
-                <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0">Import Log</p>
+                <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0" th:text="#{quickImport.log.title}">Import Log</p>
                 <template x-for="(entry, idx) in progressLog" :key="idx">
                     <div class="flex items-start gap-[10px]">
                         <!-- Phase icon -->
@@ -230,9 +230,9 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-600"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div>
-                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" x-text="'Import complete — ' + (jobResult.projectName || 'project') + ' created.'"></p>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" x-text="_qiI18n.completeTitleTpl.replace('{0}', jobResult.projectName || 'project')"></p>
                         <p class="text-[13px] text-[var(--grayscale-60)] m-0">
-                            <span x-text="jobResult.componentCount || 0"></span> components scanned
+                            <span x-text="jobResult.componentCount || 0"></span><span th:text="#{quickImport.complete.scanned}"> components scanned</span>
                             (<span x-text="jobResult.ecosystem || 'unknown'"></span>)
                         </p>
                     </div>
@@ -243,11 +243,11 @@
                     <div class="flex items-center justify-between gap-[8px]">
                         <div class="flex items-center gap-[8px]">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-[var(--grayscale-60)]" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-                            <span class="text-[12px] font-semibold text-[var(--grayscale-70)]">API Key</span>
+                            <span class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{quickImport.label.apiKey}">API Key</span>
                             <span x-show="jobResult.newApiKey"
-                                  class="px-[6px] py-[2px] bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full">New</span>
+                                  class="px-[6px] py-[2px] bg-emerald-100 text-emerald-700 text-[10px] font-semibold rounded-full" th:text="#{quickImport.label.new}">New</span>
                             <span x-show="!jobResult.newApiKey"
-                                  class="px-[6px] py-[2px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] font-semibold rounded-full">Existing</span>
+                                  class="px-[6px] py-[2px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] font-semibold rounded-full" th:text="#{quickImport.label.existing}">Existing</span>
                         </div>
                         <button @click="copyApiKey()"
                                 class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-90)] transition-colors">
@@ -260,11 +260,11 @@
                     <code class="block font-mono text-[13px] text-[var(--grayscale-90)] bg-white border border-[var(--grayscale-15)] rounded-[6px] px-[12px] py-[8px] break-all select-all"
                           x-text="jobResult.apiToken || '—'"></code>
                     <p class="text-[11px] text-[var(--grayscale-50)] m-0">
-                        Use this key with the OsWL CLI:
+                        <span th:text="#{quickImport.apiKey.hintCli}">Use this key with the OsWL CLI:</span>
                         <code class="font-mono bg-[var(--grayscale-10)] px-[4px] py-[1px] rounded text-[var(--grayscale-80)]">
                             oswl scan --key &lt;token&gt;
                         </code>
-                        <span class="font-semibold text-amber-600">Save it now — it won't be shown again for existing keys.</span>
+                        <span class="font-semibold text-amber-600" th:text="#{quickImport.apiKey.saveHint}">Save it now — it won't be shown again for existing keys.</span>
                     </p>
                 </div>
 
@@ -273,12 +273,12 @@
                     <a :href="'/projects/' + jobResult.projectId + '/security-center'"
                        class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--primary-120)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--primary-100)] no-underline transition-colors">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        View Security Center
+                        <span th:text="#{quickImport.btn.viewSecurityCenter}">View Security Center</span>
                     </a>
                     <button @click="resetForm()"
                             class="inline-flex items-center gap-[7px] px-[16px] py-[9px] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[13px] font-semibold rounded-[8px] hover:bg-[var(--grayscale-5)] transition-colors">
                         <img src="/icon/icon-reload.svg" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
-                        Import Another
+                        <span th:text="#{quickImport.btn.importAnother}">Import Another</span>
                     </button>
                 </div>
             </div>
@@ -292,7 +292,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-600"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </div>
                     <div>
-                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0">Import failed</p>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" th:text="#{quickImport.failed.title}">Import failed</p>
                         <p class="text-[13px] text-[var(--grayscale-60)] m-0" x-text="jobResult.message || 'An unexpected error occurred.'"></p>
                     </div>
                 </div>
@@ -300,7 +300,7 @@
                     <button @click="resetForm()"
                             class="inline-flex items-center gap-[7px] px-[16px] py-[9px] bg-[var(--primary-120)] text-white text-[13px] font-semibold rounded-[8px] hover:bg-[var(--primary-100)] transition-colors">
                         <img src="/icon/icon-reload.svg" class="w-[14px] h-[14px] shrink-0" alt="" aria-hidden="true">
-                        Try Again
+                        <span th:text="#{quickImport.btn.tryAgain}">Try Again</span>
                     </button>
                 </div>
             </div>
@@ -339,7 +339,7 @@
                             :disabled="repoBrowsers[provider].loading"
                             class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors disabled:opacity-40 mr-[4px]">
                         <img src="/icon/icon-reload.svg" class="w-[13px] h-[13px] shrink-0" :class="repoBrowsers[provider].loading ? 'animate-spin' : ''" alt="" aria-hidden="true">
-                        Refresh
+                        <span th:text="#{quickImport.repoBrowser.refresh}">Refresh</span>
                     </button>
                 </div>
 
@@ -385,8 +385,8 @@
                     <!-- Empty state -->
                     <template x-if="!repoBrowsers[provider].loading && !repoBrowsers[provider].error && getBrowserFilteredRepos(provider).length === 0">
                         <div class="px-[16px] py-[20px] text-[13px] text-[var(--grayscale-50)] text-center">
-                            <span x-show="repoBrowsers[provider].search">No repositories matching "<span x-text="repoBrowsers[provider].search"></span>"</span>
-                            <span x-show="!repoBrowsers[provider].search">No repositories found.</span>
+                            <span x-show="repoBrowsers[provider].search" x-text="_qiI18n.noRepoSearchTpl.replace('{0}', repoBrowsers[provider].search)"></span>
+                            <span x-show="!repoBrowsers[provider].search" th:text="#{quickImport.repoBrowser.noRepo}">No repositories found.</span>
                         </div>
                     </template>
 
@@ -425,12 +425,12 @@
                                     <template x-if="pendingBranch === null">
                                         <button @click="pendingBranch = repo.defaultBranch || 'main'"
                                                     class="shrink-0 inline-flex items-center gap-[5px] px-[20px] py-[7px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--primary-100)] transition-colors">
-                                            Import
+                                            <span th:text="#{quickImport.repoBrowser.import}">Import</span>
                                         </button>
                                     </template>
                                     <template x-if="pendingBranch !== null">
                                         <div class="flex items-center gap-[6px] shrink-0">
-                                            <span class="text-[12px] text-[var(--grayscale-60)] font-medium shrink-0">Branch:</span>
+                                            <span class="text-[12px] text-[var(--grayscale-60)] font-medium shrink-0" th:text="#{quickImport.label.branch}">Branch:</span>
                                             <input type="text"
                                                    x-model="pendingBranch"
                                                    x-init="$nextTick(() => $el.focus())"
@@ -440,7 +440,7 @@
                                                    class="w-[120px] px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[var(--primary-80)] focus:ring-1 focus:ring-[var(--primary-80)]" />
                                             <button @click="selectRepoForImport(repo, pendingBranch); pendingBranch = null"
                                                     class="shrink-0 inline-flex items-center gap-[5px] px-[20px] py-[7px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--primary-100)] transition-colors">
-                                                Import
+                                                <span th:text="#{quickImport.repoBrowser.import}">Import</span>
                                             </button>
                                             <button @click="pendingBranch = null"
                                                     class="w-[24px] h-[24px] flex items-center justify-center text-[var(--grayscale-40)] hover:text-[var(--grayscale-80)] transition-colors rounded">
@@ -480,6 +480,23 @@
         </template>
 
     </div>
+
+    <script th:inline="javascript">
+    const _qiI18n = {
+        connected:           /*[[#{quickImport.connected}]]*/ 'Connected',
+        notConnected:        /*[[#{quickImport.notConnected}]]*/ 'Not connected',
+        noAccounts:          /*[[#{quickImport.noAccountsConnected}]]*/ 'No VCS accounts connected yet.',
+        providerNotConnected: /*[[#{quickImport.providerNotConnected}]]*/ 'Your {0} account is not connected.',
+        importing:           /*[[#{quickImport.importing}]]*/ 'Importing\u2026',
+        importAndScan:       /*[[#{quickImport.btn.importAndScan}]]*/ 'Import & Scan',
+        completeTitleTpl:    /*[[#{quickImport.complete.title}]]*/ 'Import Complete \u2014 {0} created.',
+        viewSecurityCenter:  /*[[#{quickImport.btn.viewSecurityCenter}]]*/ 'View Security Center',
+        importAnother:       /*[[#{quickImport.btn.importAnother}]]*/ 'Import Another',
+        tryAgain:            /*[[#{quickImport.btn.tryAgain}]]*/ 'Try Again',
+        noRepo:              /*[[#{quickImport.repoBrowser.noRepo}]]*/ 'No repositories found.',
+        noRepoSearchTpl:     /*[[#{quickImport.repoBrowser.noRepoSearch}]]*/ 'No repositories matching "{0}"'
+    };
+    </script>
 
     <script th:src="@{/js/projects/quick-import.js}"></script>
 </div>

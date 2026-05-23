@@ -23,6 +23,7 @@ class AiAnalysisServiceTest {
     @Mock AiSettingRepository aiSettingRepository;
     @Mock OpenAiClient openAiClient;
     @Mock AnthropicClient anthropicClient;
+    @Mock CopilotClient copilotClient;
 
     @InjectMocks
     AiAnalysisService aiAnalysisService;
@@ -194,4 +195,184 @@ class AiAnalysisServiceTest {
         assertThat(result).isEqualTo("Improvement detected");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
     }
-}
+    // ── summarizeCve COPILOT ───────────────────────────────────────────────
+
+    @Test
+    @DisplayName("COPILOT 제공자는 CopilotClient에 위임한다")
+    void summarizeCve_delegatesToCopilotClient_forCopilotProvider() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.COPILOT).build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(copilotClient.callWithSetting(anyString(), eq(setting))).thenReturn("copilot result");
+
+        String result = aiAnalysisService.summarizeCve("CVE-C", "HIGH", 7.0, "comp");
+
+        assertThat(result).isEqualTo("copilot result");
+        verify(copilotClient).callWithSetting(anyString(), eq(setting));
+        verifyNoInteractions(openAiClient, anthropicClient);
+    }
+
+    // ── generateSecurityTrendInsight ──────────────────────────────────────
+
+    @Test
+    @DisplayName("보안 트렌드: 활성 설정이 없으면 null을 반환한다")
+    void generateSecurityTrendInsight_returnsNull_whenNoActiveSetting() {
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
+
+        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 3, "1.0, 2.0")).isNull();
+    }
+
+    @Test
+    @DisplayName("보안 트렌드: OPENAI 설정 시 OpenAiClient에 위임한다")
+    void generateSecurityTrendInsight_delegatesToOpenAiClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Security trend result");
+
+        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 5, "v1, v2"))
+                .isEqualTo("Security trend result");
+        verify(openAiClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    @Test
+    @DisplayName("보안 트렌드: ANTHROPIC 설정 시 AnthropicClient에 위임한다")
+    void generateSecurityTrendInsight_delegatesToAnthropicClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Anthropic trend");
+
+        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", -2, "v3, v4"))
+                .isEqualTo("Anthropic trend");
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    // ── generateLicenseTrendInsight ───────────────────────────────────────
+
+    @Test
+    @DisplayName("라이선스 트렌드: 활성 설정이 없으면 null을 반환한다")
+    void generateLicenseTrendInsight_returnsNull_whenNoActiveSetting() {
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
+
+        assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 1, "v1, v2")).isNull();
+    }
+
+    @Test
+    @DisplayName("라이선스 트렌드: OPENAI 설정 시 OpenAiClient에 위임한다")
+    void generateLicenseTrendInsight_delegatesToOpenAiClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("License trend result");
+
+        assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 2, "v1, v2"))
+                .isEqualTo("License trend result");
+        verify(openAiClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    // ── summarizeSecurityPosture ──────────────────────────────────────────
+
+    @Test
+    @DisplayName("보안 포스처: 활성 설정이 없으면 null을 반환한다")
+    void summarizeSecurityPosture_returnsNull_whenNoActiveSetting() {
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
+
+        assertThat(aiAnalysisService.summarizeSecurityPosture("P", 2, 5, 100)).isNull();
+    }
+
+    @Test
+    @DisplayName("보안 포스처: OPENAI 설정 시 OpenAiClient에 위임한다")
+    void summarizeSecurityPosture_delegatesToOpenAiClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Posture summary");
+
+        assertThat(aiAnalysisService.summarizeSecurityPosture("MyProject", 3, 7, 200))
+                .isEqualTo("Posture summary");
+        verify(openAiClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    @Test
+    @DisplayName("보안 포스처: ANTHROPIC 설정 시 AnthropicClient에 위임한다")
+    void summarizeSecurityPosture_delegatesToAnthropicClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Claude posture");
+
+        assertThat(aiAnalysisService.summarizeSecurityPosture("P", 1, 2, 50))
+                .isEqualTo("Claude posture");
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    // ── summarizeVersionDiff ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("버전 비교: 활성 설정이 없으면 null을 반환한다")
+    void summarizeVersionDiff_returnsNull_whenNoActiveSetting() {
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
+
+        assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "2.0", 5, 2, 10, 3)).isNull();
+    }
+
+    @Test
+    @DisplayName("버전 비교: OPENAI 설정 시 OpenAiClient에 위임한다")
+    void summarizeVersionDiff_delegatesToOpenAiClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Version diff summary");
+
+        assertThat(aiAnalysisService.summarizeVersionDiff("MyApp", "v1.0", "v2.0", 5, 2, 10, 3))
+                .isEqualTo("Version diff summary");
+        verify(openAiClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    @Test
+    @DisplayName("버전 비교: ANTHROPIC 설정 시 AnthropicClient에 위임한다")
+    void summarizeVersionDiff_delegatesToAnthropicClient() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
+        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
+        when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Claude diff");
+
+        assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "1.1", 1, 0, 3, 1))
+                .isEqualTo("Claude diff");
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    // ── testConnection ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("testConnection: OPENAI 제공자가 응답하면 true를 반환한다")
+    void testConnection_openai_returnsTrue_whenResponseNotNull() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("OK");
+
+        assertThat(aiAnalysisService.testConnection(setting)).isTrue();
+        verify(openAiClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    @Test
+    @DisplayName("testConnection: 클라이언트가 예외를 던지면 false를 반환한다")
+    void testConnection_returnsFalse_whenClientThrows() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(openAiClient.callWithSetting(anyString(), eq(setting)))
+                .thenThrow(new RuntimeException("Connection refused"));
+
+        assertThat(aiAnalysisService.testConnection(setting)).isFalse();
+    }
+
+    @Test
+    @DisplayName("testConnection: ANTHROPIC 제공자가 응답하면 true를 반환한다")
+    void testConnection_anthropic_returnsTrue() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
+        when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("OK");
+
+        assertThat(aiAnalysisService.testConnection(setting)).isTrue();
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting));
+    }
+
+    @Test
+    @DisplayName("testConnection: COPILOT 제공자가 응답하면 true를 반환한다")
+    void testConnection_copilot_returnsTrue() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.COPILOT).build();
+        when(copilotClient.callWithSetting(anyString(), eq(setting))).thenReturn("OK");
+
+        assertThat(aiAnalysisService.testConnection(setting)).isTrue();
+        verify(copilotClient).callWithSetting(anyString(), eq(setting));
+    }}

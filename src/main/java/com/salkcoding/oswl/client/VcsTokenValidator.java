@@ -10,8 +10,8 @@ import org.springframework.web.client.RestClientException;
 import java.util.Base64;
 
 /**
- * Validates VCS access tokens by calling the provider's user endpoint before saving.
- * Throws IllegalStateException on invalid token or unreachable server.
+ * Validates a VCS access token by calling the provider's user endpoint before saving.
+ * Throws IllegalStateException if the token is invalid or the server cannot be reached.
  */
 @Slf4j
 @Component
@@ -41,12 +41,12 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
-                throw new IllegalStateException("GitHub token is invalid or lacks required permissions.");
+                throw new IllegalStateException("GitHub token is invalid or lacks the required permissions.");
             }
-            throw new IllegalStateException("GitHub returned an error: " + status);
+            throw new IllegalStateException("GitHub error response: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach GitHub ({}): {}", base, e.getMessage());
-            throw new IllegalStateException("Could not reach GitHub to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] GitHub is unreachable ({}): {}", base, e.getMessage());
+            throw new IllegalStateException("Unable to connect to GitHub to verify the token. Check the server URL and try again.");
         }
     }
 
@@ -56,8 +56,8 @@ public class VcsTokenValidator {
                 : "https://gitlab.com";
         RestClient client = RestClient.builder().baseUrl(base).build();
         try {
-            // Standard PATs: /personal_access_tokens/self works without any scope.
-            // Fine-grained project-scoped tokens may return 403 here — fall through to project list.
+            // Standard PAT: /personal_access_tokens/self works without scopes.
+            // Fine-grained project-scope tokens may return 403 — in that case, fall back to the project list.
             client.get().uri("/api/v4/personal_access_tokens/self")
                     .header("PRIVATE-TOKEN", token)
                     .retrieve()
@@ -65,18 +65,18 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401) {
-                throw new IllegalStateException("GitLab token is invalid or lacks required permissions.");
+                throw new IllegalStateException("GitLab token is invalid or lacks the required permissions.");
             }
             if (status == 403) {
-                // Fine-grained tokens scoped to a project cannot access personal endpoints.
-                // Validate instead via the projects list which requires read_api.
+                // Project-scope fine-grained tokens cannot access the user endpoint.
+                // Verify through the project list.
                 validateGitLabViaProjects(client, token);
                 return;
             }
-            throw new IllegalStateException("GitLab returned an error: " + status);
+            throw new IllegalStateException("GitLab error response: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach GitLab ({}): {}", base, e.getMessage());
-            throw new IllegalStateException("Could not reach GitLab to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] GitLab is unreachable ({}): {}", base, e.getMessage());
+            throw new IllegalStateException("Unable to connect to GitLab to verify the token. Check the server URL and try again.");
         }
     }
 
@@ -91,13 +91,13 @@ public class VcsTokenValidator {
             if (status == 401) {
                 throw new IllegalStateException("GitLab token is invalid or expired.");
             }
-            // 403 on all endpoints = token is structurally valid but lacks read_api scope.
-            // Fine-grained tokens with only resource-level roles (no API scope) hit this path.
-            // Allow the connection — missing scopes will surface as errors at import time.
-            log.warn("[VcsTokenValidator] GitLab fine-grained token may lack read_api scope (HTTP {}). Connection will be saved anyway.", status);
+            // Any 403 means the token is structurally valid but lacks the read_api scope.
+            // Fine-grained tokens without API scope may follow this path.
+            // Allow the connection — missing scope will surface as an error during import.
+            log.warn("[VcsTokenValidator] GitLab fine-grained token may not have the read_api scope (HTTP {}). The connection will be saved.", status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] GitLab project list fallback failed: {}", e.getMessage());
-            throw new IllegalStateException("Could not reach GitLab to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] GitLab project-list fallback failed: {}", e.getMessage());
+            throw new IllegalStateException("Unable to connect to GitLab to verify the token. Check the server URL and try again.");
         }
     }
 
@@ -112,10 +112,10 @@ public class VcsTokenValidator {
 
     private void validateBitbucketCloud(String tokenOrAppPassword, String username) {
         boolean hasUsername = username != null && !username.isBlank();
-        // App Password → Basic auth (username required).
-        // HTTP Access Token (ATATT, entity-scoped) → Bearer auth (no username).
-        // NOTE: /2.0/user requires user-level auth and returns 403 (not 401) for entity-scoped
-        // tokens, so we skip it entirely for token-only mode and validate via /2.0/workspaces.
+        // App password → Basic auth (username required).
+        // HTTP access token (ATATT, entity scope) → Bearer auth (no username).
+        // NOTE: /2.0/user requires user-level auth and returns 403 for entity-scope tokens.
+        // In token-only mode, verify through /2.0/workspaces.
         String authHeader = hasUsername
                 ? "Basic " + Base64.getEncoder().encodeToString((username + ":" + tokenOrAppPassword).getBytes())
                 : "Bearer " + tokenOrAppPassword;
@@ -124,15 +124,15 @@ public class VcsTokenValidator {
                 .build();
         try {
             if (hasUsername) {
-                // App Password with Basic auth — validate against the user endpoint.
+                // Basic-auth app password — verify via the user endpoint.
                 client.get().uri("/2.0/user")
                         .header("Authorization", authHeader)
                         .retrieve()
                         .toBodilessEntity();
             } else {
-                // Bearer token (ATATT) — entity-scoped tokens cannot call /2.0/user.
-                // Validate via /2.0/workspaces; 403 means the token is valid but scoped below
-                // workspace level (project/repo token) — allow with a warning.
+                // Bearer token (ATATT) — entity-scope tokens cannot call /2.0/user.
+                // Verify via /2.0/workspaces; 403 means the token is valid but
+                // limited to a narrower scope than workspace level (project/repo token), so allow with a warning.
                 try {
                     client.get().uri("/2.0/workspaces?pagelen=1")
                             .header("Authorization", authHeader)
@@ -140,17 +140,15 @@ public class VcsTokenValidator {
                             .toBodilessEntity();
                 } catch (HttpClientErrorException e) {
                     if (e.getStatusCode().value() == 403) {
-                        log.warn("[VcsTokenValidator] Bitbucket HTTP Access Token is valid but lacks workspace scope (HTTP 403). Connection will be saved.");
+                        log.warn("[VcsTokenValidator] Bitbucket HTTP access token is valid but lacks workspace scope (HTTP 403). Saving the connection.");
                         return;
                     }
                     if (e.getStatusCode().value() == 401) {
-                        // 401 on /2.0/workspaces with Bearer auth usually means this is a
-                        // user-level API Token (replacing App Passwords) that requires Basic auth.
-                        // Provide a helpful message guiding the user to enter their username.
+                        // Bearer auth failure (401) on /2.0/workspaces may indicate a user-level API token
+                        // (replacement for App Passwords). Prompt for username input.
                         throw new IllegalStateException(
-                                "Token invalid or requires Basic authentication. " +
-                                "If this is a Bitbucket API token (replacing App Passwords), " +
-                                "please also enter your Bitbucket username.");
+                                "The token is invalid or requires Basic authentication. " +
+                                "If this is a Bitbucket API token (replacement for App Passwords), also enter the Bitbucket username.");
                     }
                     throw e;
                 }
@@ -158,12 +156,12 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
-                throw new IllegalStateException("Bitbucket credentials are invalid or lack required permissions.");
+                throw new IllegalStateException("Bitbucket credentials are invalid or lack the required permissions.");
             }
-            throw new IllegalStateException("Bitbucket returned an error: " + status);
+            throw new IllegalStateException("Bitbucket error response: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach Bitbucket Cloud: {}", e.getMessage());
-            throw new IllegalStateException("Could not reach Bitbucket to verify the credentials. Please try again.");
+            log.warn("[VcsTokenValidator] Bitbucket Cloud is unreachable: {}", e.getMessage());
+            throw new IllegalStateException("Unable to connect to Bitbucket to verify credentials. Please try again.");
         }
     }
 
@@ -179,12 +177,12 @@ public class VcsTokenValidator {
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
-                throw new IllegalStateException("Bitbucket Server token is invalid or lacks required permissions.");
+                throw new IllegalStateException("Bitbucket Server token is invalid or lacks the required permissions.");
             }
-            throw new IllegalStateException("Bitbucket Server returned an error: " + status);
+            throw new IllegalStateException("Bitbucket Server error response: " + status);
         } catch (RestClientException e) {
-            log.warn("[VcsTokenValidator] Could not reach Bitbucket Server ({}): {}", base, e.getMessage());
-            throw new IllegalStateException("Could not reach Bitbucket Server to verify the token. Check the server URL and try again.");
+            log.warn("[VcsTokenValidator] Bitbucket Server is unreachable ({}): {}", base, e.getMessage());
+            throw new IllegalStateException("Unable to connect to Bitbucket Server to verify the token. Check the server URL and try again.");
         }
     }
 }
