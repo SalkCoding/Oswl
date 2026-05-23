@@ -1,0 +1,46 @@
+package com.salkcoding.oswl.auth.security;
+
+import com.salkcoding.oswl.auth.service.AuditLogService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.Authentication;
+
+import java.io.IOException;
+
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("AuditLogoutSuccessHandler 단위 테스트")
+class AuditLogoutSuccessHandlerTest {
+
+    @Mock AuditLogService auditLogService;
+    @InjectMocks AuditLogoutSuccessHandler handler;
+
+    @Mock HttpServletRequest request;
+    @Mock HttpServletResponse response;
+    @Mock Authentication authentication;
+
+    @Test
+    @DisplayName("onLogoutSuccess: 인증이 있으면 감사 로그를 기록하고 리다이렉트한다")
+    void onLogoutSuccess_withAuthentication_logsAndRedirects() throws IOException {
+        handler.onLogoutSuccess(request, response, authentication);
+
+        verify(auditLogService).log("AUTH.LOGOUT", "AUTH", null, null, null);
+        verify(response).sendRedirect("/login?logout");
+    }
+
+    @Test
+    @DisplayName("onLogoutSuccess: 인증이 null이면 감사 로그를 기록하지 않고 리다이렉트한다")
+    void onLogoutSuccess_nullAuthentication_skipsLogAndRedirects() throws IOException {
+        handler.onLogoutSuccess(request, response, null);
+
+        verifyNoInteractions(auditLogService);
+        verify(response).sendRedirect("/login?logout");
+    }
+}
