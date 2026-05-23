@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Version Diff')}"></head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{versionDiff.pageTitle})}"></head>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]"
       th:attr="data-project-id=${projectId},data-from-scan-id=${fromScanId},data-to-scan-id=${toScanId}"
       x-data="versionDiffPage()"

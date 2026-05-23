@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Security Center')}"></head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{securityCenter.pageTitle})}"></head>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative"
       th:data-project-id="${projectId}"
       x-data="{
@@ -228,17 +228,11 @@
                                 <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                             </svg>
                             <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateToVersion}">v1.2.5</span>
-                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap">update detected.</span>
+                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateDetected}">update detected.</span>
                         </div>
                     </div>
-                    <span class="text-[14px] text-[#5e6b70] tracking-[-0.14px] leading-[1.3] whitespace-nowrap">Library changes found. Please review.</span>
+                    <span class="text-[14px] text-[#5e6b70] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateChangeMessage}">Library changes found. Please review.</span>
                 </a>
-            </div>
-
-            <!-- Risk stick graph -->
-            <div class="grid grid-cols-2 gap-x-[60px] w-full">
-                <div th:replace="~{fragments/risk-graph :: riskGraph(#{riskTrend.chart.security}, ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, #{riskTrend.legend.unscored})}"></div>
-                <div th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
             </div>
 
             <!-- AI security posture insight -->
@@ -249,8 +243,9 @@
                    th:text="${securityPostureInsight}">AI posture insight</p>
             </div>
 
+            <!-- Risk stick graph -->
             <div class="grid grid-cols-2 gap-x-[60px] w-full">
-                <div th:replace="~{fragments/risk-graph :: riskGraph('Security Risk', ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, 'Unscored')}"></div>
+                <div th:replace="~{fragments/risk-graph :: riskGraph(#{riskTrend.chart.security}, ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, #{riskTrend.legend.unscored})}"></div>
                 <div th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
             </div>
         </section>
