@@ -358,7 +358,8 @@
         loadFailed:     /*[[#{settings.ai.error.loadFailed}]]*/ 'Failed to load AI settings.',
         disableFailed:  /*[[#{settings.ai.error.disableFailed}]]*/ 'Failed to disable AI.',
         testFailed:     /*[[#{settings.ai.error.testFailed}]]*/ 'Connection test failed.',
-        customModel:    /*[[#{settings.ai.customModel}]]*/ 'Custom model will be used'
+        customModel:    /*[[#{settings.ai.customModel}]]*/ 'Custom model will be used',
+        saveFailed:     /*[[#{settings.ai.error.saveFailed}]]*/ 'Save failed.'
     };
     </script>
 
@@ -422,7 +423,7 @@
                     };
                     const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Save failed: ' + await r.text(); return; }
+                    if (!r.ok) { this.apiError = _aiI18n.saveFailed; return; }
                     this.showToast(_aiI18n.saved);
                 } catch (e) { this.apiError = String(e); }
                 finally { this.saving = false; }
