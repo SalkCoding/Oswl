@@ -9,8 +9,31 @@
 
     <script th:inline="javascript">
     const _adminI18n = {
-        templateSave:   /*[[#{settings.admin.template.panel.save}]]*/ 'Save Changes',
-        templateCreate: /*[[#{settings.admin.template.panel.create}]]*/ 'Create Template'
+        templateSave:           /*[[#{settings.admin.template.panel.save}]]*/ 'Save Changes',
+        templateCreate:         /*[[#{settings.admin.template.panel.create}]]*/ 'Create Template',
+        deactivate:             /*[[#{settings.admin.users.action.deactivate}]]*/ 'Deactivate',
+        activate:               /*[[#{settings.admin.icons.activate}]]*/ 'Activate',
+        assignRoleToActivate:   /*[[#{settings.admin.users.activateRoleRequired}]]*/ 'Assign a role to activate this user',
+        clearAll:               /*[[#{common.clearAll}]]*/ 'Clear All',
+        selectAll:              /*[[#{common.selectAll}]]*/ 'Select All',
+        clear:                  /*[[#{common.clear}]]*/ 'Clear',
+        select:                 /*[[#{common.select}]]*/ 'Select',
+        allUsers:               /*[[#{settings.admin.auditLog.filter.allUsers}]]*/ 'All Users',
+        noUsersFound:           /*[[#{settings.admin.auditLog.filter.noUsersFound}]]*/ 'No users found',
+        allActions:             /*[[#{settings.admin.auditLog.filter.allActions}]]*/ 'All Actions',
+        expand:                 /*[[#{common.expand}]]*/ 'Expand',
+        collapse:               /*[[#{common.collapse}]]*/ 'Collapse',
+        total:                  /*[[#{settings.admin.pagination.total}]]*/ 'total',
+        validateNameRequired:   /*[[#{settings.admin.invite.validate.nameRequired}]]*/ 'Name is required.',
+        validateEmailRequired:  /*[[#{settings.admin.invite.validate.emailRequired}]]*/ 'Email is required.',
+        validateEmailInvalid:   /*[[#{settings.admin.invite.validate.emailInvalid}]]*/ 'Please enter a valid email address.',
+        validatePasswordRequired: /*[[#{settings.admin.invite.validate.passwordRequired}]]*/ 'Temporary password is required.',
+        validatePasswordTooShort: /*[[#{settings.admin.invite.validate.passwordTooShort}]]*/ 'Temporary password must be at least {0} characters.',
+        allTime:                /*[[#{settings.admin.auditLog.filter.allTime}]]*/ 'All time',
+        last7Days:              /*[[#{settings.admin.auditLog.filter.last7Days}]]*/ 'Last 7 days',
+        last30Days:             /*[[#{settings.admin.auditLog.filter.last30Days}]]*/ 'Last 30 days',
+        last90Days:             /*[[#{settings.admin.auditLog.filter.last90Days}]]*/ 'Last 90 days',
+        customRange:            /*[[#{settings.admin.auditLog.filter.customRange}]]*/ 'Custom range'
     };
     </script>
 
@@ -54,9 +77,7 @@
         <div class="flex items-center gap-[12px]">
             <div class="flex-1 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
                 <img th:src="@{/icon/icon-info2.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
-                <span class="text-[13px] text-[var(--grayscale-70)]">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
-            </div>
-            <button @click="openInvite()"
+                <span class="text-[13px] text-[var(--grayscale-70)]" th:text="#{settings.admin.infoBox.text}">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
                     class="flex-shrink-0 bg-[var(--background-dark,#001d35)] hover:bg-[#00334d] text-white text-[13px] font-bold px-[20px] py-[11px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
                 <img th:src="@{/icon/icon-person-add.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                 <span th:text="#{settings.admin.inviteUser.btn}">Invited user</span>
@@ -125,7 +146,7 @@
                                     <button @click="!u.systemAdmin && (!u.enabled && !(u.roleTemplates||[]).length ? showToast($el.closest('[data-msg-assign-role]').dataset.msgAssignRole) : toggleEnabled(u, !u.enabled))"
                                             class="text-[var(--grayscale-60)]"
                                             :class="(!u.enabled && !(u.roleTemplates||[]).length) ? 'opacity-30 cursor-not-allowed' : 'hover:text-[var(--grayscale-100)]'"
-                                            :title="u.enabled ? 'Deactivate' : (!(u.roleTemplates||[]).length ? 'Assign a role to activate this user' : 'Activate')">
+                                            :title="u.enabled ? _adminI18n.deactivate : (!(u.roleTemplates||[]).length ? _adminI18n.assignRoleToActivate : _adminI18n.activate)">
                                         <svg x-show="u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                                         <svg x-show="!u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                                     </button>
@@ -137,9 +158,9 @@
                                         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
                                     </button>
                                     <div x-show="deletingUser?.id === u.id" class="flex items-center gap-[6px]">
-                                        <span class="text-[11px] text-red-600 font-semibold">Delete?</span>
-                                        <button @click="deleteUser(deletingUser)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]">Yes</button>
-                                        <button @click="deletingUser = null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]">No</button>
+                                        <span class="text-[11px] text-red-600 font-semibold" th:text="#{settings.admin.confirm.delete}">Delete?</span>
+                                        <button @click="deleteUser(deletingUser)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]" th:text="#{common.yes}">Yes</button>
+                                        <button @click="deletingUser = null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
                                     </div>
                                 </div>
                             </td>
@@ -306,13 +327,13 @@
 
         <!-- Footer: total + page-size + pagination (Figma 529:78215) -->
         <div class="flex items-center gap-[36px] px-[32px] py-[13px] border-l border-r border-b border-[var(--grayscale-20)] rounded-b-[8px] bg-white">
-            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="users.length"></span> total</span>
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="users.length"></span> <span th:text="#{settings.admin.pagination.total}">total</span></span>
             <div class="w-[160px] shrink-0 relative">
                 <select x-model.number="pageSize" @change="page=1"
                         class="w-full appearance-none bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] px-[8px] py-[5px] pr-[24px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none">
-                    <option :value="10">Show 10</option>
-                    <option :value="20">Show 20</option>
-                    <option :value="50">Show 50</option>
+                    <option :value="10" th:text="#{settings.admin.pagination.showCount(10)}">Show 10</option>
+                    <option :value="20" th:text="#{settings.admin.pagination.showCount(20)}">Show 20</option>
+                    <option :value="50" th:text="#{settings.admin.pagination.showCount(50)}">Show 50</option>
                 </select>
                 <img th:src="@{/icon/icon-triangle-down.svg}" class="absolute right-[8px] top-1/2 -translate-y-1/2 pointer-events-none w-[10px] h-[10px]" alt="" aria-hidden="true">
             </div>
@@ -359,7 +380,7 @@
         <div class="flex items-center gap-[12px]">
             <div class="flex-1 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
                 <img th:src="@{/icon/icon-info2.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
-                <span class="text-[13px] text-[var(--grayscale-70)]">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
+                <span class="text-[13px] text-[var(--grayscale-70)]" th:text="#{settings.admin.infoBox.text}">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
             </div>
             <button @click="openNewTemplate()"
                     class="flex-shrink-0 bg-[var(--background-dark,#001d35)] hover:bg-[#00334d] text-white text-[13px] font-bold px-[20px] py-[11px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
@@ -404,9 +425,9 @@
                                                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
                                             </button>
                                             <div x-show="deletingTemplate?.id === t.id" class="flex items-center gap-[6px]">
-                                                <span class="text-[11px] text-red-600 font-semibold">Delete?</span>
-                                                <button @click="deleteTemplate(deletingTemplate)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]">Yes</button>
-                                                <button @click="deletingTemplate=null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]">No</button>
+                                                <span class="text-[11px] text-red-600 font-semibold" th:text="#{settings.admin.confirm.delete}">Delete?</span>
+                                                <button @click="deleteTemplate(deletingTemplate)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]" th:text="#{common.yes}">Yes</button>
+                                                <button @click="deletingTemplate=null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
                                             </div>
                                         </div>
                                     </template>
@@ -421,13 +442,13 @@
         </div>
         <!-- Template Pagination Footer -->
         <div class="flex items-center gap-[36px] px-[32px] py-[13px] border border-[var(--grayscale-20)] rounded-b-[8px] bg-white -mt-[1px]">
-            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="templates.length"></span> total</span>
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="templates.length"></span> <span th:text="#{settings.admin.pagination.total}">total</span></span>
             <div class="w-[160px] shrink-0 relative">
                 <select x-model.number="tplPageSize" @change="tplPage=1"
                         class="w-full appearance-none bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] px-[8px] py-[5px] pr-[24px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none">
-                    <option :value="10">Show 10</option>
-                    <option :value="20">Show 20</option>
-                    <option :value="50">Show 50</option>
+                    <option :value="10" th:text="#{settings.admin.pagination.showCount(10)}">Show 10</option>
+                    <option :value="20" th:text="#{settings.admin.pagination.showCount(20)}">Show 20</option>
+                    <option :value="50" th:text="#{settings.admin.pagination.showCount(50)}">Show 50</option>
                 </select>
                 <img th:src="@{/icon/icon-triangle-down.svg}" class="absolute right-[8px] top-1/2 -translate-y-1/2 pointer-events-none w-[10px] h-[10px]" alt="" aria-hidden="true">
             </div>
@@ -485,7 +506,7 @@
                                     <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
                                     <button type="button" @click="toggleAllPermissions()"
                                             class="text-[11px] font-normal bg-[#e5faf5] text-[var(--primary-120)] px-[7px] py-[2px] rounded-[4px] hover:bg-[#cdf5ec] transition-colors"
-                                            x-text="allSelected() ? 'Clear All' : 'Select All'"></button>
+                                           x-text="allSelected() ? _adminI18n.clearAll : _adminI18n.selectAll"></button>
                                 </div>
                                 <div class="grid grid-cols-2 gap-[12px] max-h-[380px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
                                     <template x-for="(group, gName) in groupedPermissions" :key="gName">
@@ -494,7 +515,7 @@
                                                 <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
                                                 <button type="button" @click="toggleGroup(group)"
                                                         class="text-[10px] font-normal bg-[#e5faf5] text-[var(--primary-120)] px-[5px] py-[1px] rounded-[3px] hover:bg-[#cdf5ec] transition-colors"
-                                                        x-text="groupAllSelected(group) ? 'Clear' : 'Select'"></button>
+                                                       x-text="groupAllSelected(group) ? _adminI18n.clear : _adminI18n.select"></button>
                                             </div>
                                             <div class="flex flex-col gap-[2px]">
                                                 <template x-for="p in group" :key="p.code">
@@ -550,28 +571,28 @@
                     <div x-show="dateDropdownOpen" x-cloak
                          class="absolute z-50 top-full mt-[4px] left-0 bg-white border border-[#33D1B7] rounded-[8px] shadow-lg p-[20px] flex flex-col gap-[12px]"
                          style="min-width:300px">
-                        <span class="text-[10px] font-normal text-[var(--grayscale-60)] tracking-[-0.1px]">Audit Log Range</span>
+                        <span class="text-[10px] font-normal text-[var(--grayscale-60)] tracking-[-0.1px]" th:text="#{settings.admin.auditLog.rangeLabel}">Audit Log Range</span>
                         <!-- Radio options -->
                         <div class="flex flex-col gap-[14px]">
                             <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
                                    @click="auditFilter.dateRange=''; dateDropdownOpen=false; loadAudit(0)">
                                 <img :src="auditFilter.dateRange==='' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
-                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">All time</span>
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]" th:text="#{settings.admin.auditLog.filter.allTime}">All time</span>
                             </label>
                             <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
                                    @click="auditFilter.dateRange='7'; dateDropdownOpen=false; loadAudit(0)">
                                 <img :src="auditFilter.dateRange==='7' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
-                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">Last 7 days</span>
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]" th:text="#{settings.admin.auditLog.filter.last7Days}">Last 7 days</span>
                             </label>
                             <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
                                    @click="auditFilter.dateRange='30'; dateDropdownOpen=false; loadAudit(0)">
                                 <img :src="auditFilter.dateRange==='30' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
-                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">Last 30 days</span>
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]" th:text="#{settings.admin.auditLog.filter.last30Days}">Last 30 days</span>
                             </label>
                             <label class="flex items-center gap-[8px] h-[20px] cursor-pointer"
                                    @click="auditFilter.dateRange='90'; dateDropdownOpen=false; loadAudit(0)">
                                 <img :src="auditFilter.dateRange==='90' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="">
-                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]">Last 90 days</span>
+                                <span class="text-[12px] font-medium text-[var(--grayscale-90)] tracking-[-0.12px]" th:text="#{settings.admin.auditLog.filter.last90Days}">Last 90 days</span>
                             </label>
                         </div>
                         <!-- Divider + Custom range -->
@@ -582,7 +603,7 @@
                                      @click="auditFilter.dateRange='custom'">
                                 <div class="flex items-center gap-[10px]">
                                     <div class="flex items-center gap-[6px]">
-                                        <span class="text-[13px] font-medium tracking-[-0.13px]" style="color:#00a093">From</span>
+                                        <span class="text-[13px] font-medium tracking-[-0.13px]" style="color:#00a093" th:text="#{settings.admin.auditLog.filter.from}">From</span>
                                         <input type="date" x-model="auditFilter.dateFrom"
                                                @click="auditFilter.dateRange='custom'"
                                                @change="auditFilter.dateFrom = sanitizeDate(auditFilter.dateFrom)"
@@ -591,7 +612,7 @@
                                     </div>
                                     <span class="text-[18px] font-medium" style="color:#00a093">-</span>
                                     <div class="flex items-center gap-[6px]">
-                                        <span class="text-[13px] font-medium tracking-[-0.13px]" style="color:#00a093">To</span>
+                                        <span class="text-[13px] font-medium tracking-[-0.13px]" style="color:#00a093" th:text="#{settings.admin.auditLog.filter.to}">To</span>
                                         <input type="date" x-model="auditFilter.dateTo"
                                                @click="auditFilter.dateRange='custom'"
                                                @change="auditFilter.dateTo = sanitizeDate(auditFilter.dateTo)"
@@ -602,7 +623,7 @@
                             </div>
                             <button x-show="auditFilter.dateRange==='custom'" x-cloak
                                     @click="dateDropdownOpen=false; loadAudit(0)"
-                                    class="w-full py-[7px] bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[12px] font-bold rounded-[6px] transition-colors">Apply</button>
+                                    class="w-full py-[7px] bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[12px] font-bold rounded-[6px] transition-colors" th:text="#{settings.admin.auditLog.filter.apply}">Apply</button>
                         </div>
                     </div>
                 </div>
@@ -613,7 +634,7 @@
                             :class="actorDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px]"
                               :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
-                              x-text="auditFilter.actorEmail || 'All Users'"></span>
+                              x-text="auditFilter.actorEmail || _adminI18n.allUsers"></span>
                         <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
                              :class="actorDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
@@ -631,7 +652,7 @@
                             <button type="button"
                                     @click="auditFilter.actorEmail=''; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
                                     class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
-                                    :class="!auditFilter.actorEmail ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">All Users</button>
+                                    :class="!auditFilter.actorEmail ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'" th:text="#{settings.admin.auditLog.filter.allUsers}">All Users</button>
                             <!-- User list -->
                             <template x-for="u in filteredAuditUsers" :key="u.id">
                                 <button type="button"
@@ -647,7 +668,7 @@
                                     </div>
                                 </button>
                             </template>
-                            <div x-show="filteredAuditUsers.length===0" class="px-[12px] py-[8px] text-[12px] text-[var(--grayscale-50)]">No users found</div>
+                            <div x-show="filteredAuditUsers.length===0" class="px-[12px] py-[8px] text-[12px] text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.filter.noUsersFound}">No users found</div>
                         </div>
                     </div>
                 </div>
@@ -659,7 +680,7 @@
                             :class="actionDropdownOpen ? 'border-[#00B9A3]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px]"
                               :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
-                              x-text="auditFilter.action || 'All Actions'"></span>
+                              x-text="auditFilter.action || _adminI18n.allActions"></span>
                         <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
                              :class="actionDropdownOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
@@ -669,7 +690,7 @@
                             <button type="button"
                                     @click="auditFilter.action=''; actionDropdownOpen=false; loadAudit(0)"
                                     class="w-full text-left px-[12px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
-                                    :class="!auditFilter.action ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">All Actions</button>
+                                    :class="!auditFilter.action ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'" th:text="#{settings.admin.auditLog.filter.allActions}">All Actions</button>
                             <template x-for="group in actionGroups" :key="group.label">
                                 <div>
                                     <div class="px-[12px] py-[3px] text-[10px] font-bold text-[var(--grayscale-50)] uppercase tracking-wider bg-[var(--grayscale-5)] border-t border-[var(--grayscale-10)]"
@@ -691,7 +712,7 @@
                class="inline-flex flex-row justify-center items-center gap-[10px] px-[14px] rounded-[6px] no-underline font-bold text-[13px]"
                style="background:#F2FCFA; border:1px solid #33D1B7; height:32px; color:#00a093;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export CSV
+                <span th:text="#{settings.admin.auditLog.btn.export}">Export CSV</span>
             </a>
         </div>
         <div class="flex flex-col relative">
@@ -699,12 +720,12 @@
             <table class="w-full text-[13px] min-w-[860px]">
                 <thead>
                 <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">Time</th>
-                    <th class="px-[16px] py-[12px] font-bold">Actor</th>
-                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">IP</th>
-                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap">Action</th>
-                    <th class="px-[16px] py-[12px] font-bold">Target</th>
-                    <th class="px-[16px] py-[12px] font-bold">Detail</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap" th:text="#{settings.admin.auditLog.col.timestamp}">Time</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.actor}">Actor</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap" th:text="#{settings.admin.auditLog.col.ip}">IP</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap" th:text="#{settings.admin.auditLog.col.action}">Action</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.target}">Target</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.detail}">Detail</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -736,27 +757,27 @@
                                 <button x-show="(l.detail||'').length > 50" @click.stop="expanded=!expanded"
                                         class="shrink-0 pointer-events-auto transition-transform"
                                         :class="expanded ? 'rotate-180' : ''"
-                                        :title="expanded ? 'Collapse' : 'Expand'">
+                                        :title="expanded ? _adminI18n.collapse : _adminI18n.expand">
                                     <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px]" alt="" aria-hidden="true">
                                 </button>
                             </div>
                         </td>
                     </tr>
                 </template>
-                <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]">No audit records.</td></tr>
+                <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.noRecords}">No audit records.</td></tr>
                 </tbody>
             </table>
         </div>
         <!-- Pagination footer (matches User Management style) -->
         <div x-show="auditTotalElements > 0" x-cloak
              class="flex items-center gap-[36px] px-[32px] py-[13px] border-l border-r border-b border-[var(--grayscale-20)] rounded-b-[10px] bg-white">
-            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="auditTotalElements"></span> total</span>
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="auditTotalElements"></span> <span th:text="#{settings.admin.pagination.total}">total</span></span>
             <div class="w-[160px] shrink-0 relative">
                 <select x-model.number="auditPageSize" @change="loadAudit(0)"
                         class="w-full appearance-none bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] px-[8px] py-[5px] pr-[24px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none">
-                    <option :value="20">Show 20</option>
-                    <option :value="50">Show 50</option>
-                    <option :value="100">Show 100</option>
+                   <option :value="20" th:text="#{settings.admin.pagination.showCount(20)}">Show 20</option>
+                   <option :value="50" th:text="#{settings.admin.pagination.showCount(50)}">Show 50</option>
+                   <option :value="100" th:text="#{settings.admin.pagination.showCount(100)}">Show 100</option>
                 </select>
                 <img th:src="@{/icon/icon-triangle-down.svg}" class="absolute right-[8px] top-1/2 -translate-y-1/2 pointer-events-none w-[10px] h-[10px]" alt="" aria-hidden="true">
             </div>
@@ -1166,19 +1187,19 @@
                 this.inviteErrorField = null;
                 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!this.invite.displayName.trim()) {
-                    this.inviteError = 'Name is required.'; this.inviteErrorField = 'name'; return;
+                    this.inviteError = _adminI18n.validateNameRequired; this.inviteErrorField = 'name'; return;
                 }
                 if (!this.invite.email.trim()) {
-                    this.inviteError = 'Email is required.'; this.inviteErrorField = 'email'; return;
+                    this.inviteError = _adminI18n.validateEmailRequired; this.inviteErrorField = 'email'; return;
                 }
                 if (!emailRe.test(this.invite.email.trim())) {
-                    this.inviteError = 'Please enter a valid email address.'; this.inviteErrorField = 'email'; return;
+                    this.inviteError = _adminI18n.validateEmailInvalid; this.inviteErrorField = 'email'; return;
                 }
                 if (!this.invite.temporaryPassword.trim()) {
-                    this.inviteError = 'Temporary password is required.'; this.inviteErrorField = 'password'; return;
+                    this.inviteError = _adminI18n.validatePasswordRequired; this.inviteErrorField = 'password'; return;
                 }
                 if (this.invite.temporaryPassword.trim().length < this.minPasswordLength) {
-                    this.inviteError = `Temporary password must be at least ${this.minPasswordLength} characters.`; this.inviteErrorField = 'password'; return;
+                    this.inviteError = _adminI18n.validatePasswordTooShort.replace('{0}', this.minPasswordLength); this.inviteErrorField = 'password'; return;
                 }
                 const { templateId, ...rest } = this.invite;
                 const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
@@ -1300,10 +1321,15 @@
                         const to   = this.auditFilter.dateTo   || '...';
                         return from + ' – ' + to;
                     }
-                    return 'Custom range';
+                    return _adminI18n.customRange;
                 }
-                const map = { '': 'All time', '7': 'Last 7 days', '30': 'Last 30 days', '90': 'Last 90 days' };
-                return map[this.auditFilter.dateRange] ?? 'Last 7 days';
+                const map = {
+                    '':   _adminI18n.allTime,
+                    '7':  _adminI18n.last7Days,
+                    '30': _adminI18n.last30Days,
+                    '90': _adminI18n.last90Days
+                };
+                return map[this.auditFilter.dateRange] ?? _adminI18n.last7Days;
             }
         };
     }
