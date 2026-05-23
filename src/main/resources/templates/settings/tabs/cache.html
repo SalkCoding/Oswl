@@ -39,17 +39,19 @@
                         <button type="button" @click="unitDropdownOpen=!unitDropdownOpen"
                                 class="flex items-center gap-[6px] pr-[8px] pl-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer transition-colors"
                                 :class="unitDropdownOpen ? 'border-[#33D1B7]' : ''">
-                            <span x-text="customUnit === 'hour' ? 'hour(s)' : 'day(s)'"></span>
+                            <span x-text="customUnit === 'hour' ? _cacheI18n.hours : _cacheI18n.days"></span>
                             <img src="/icon/icon-triangle-down.svg" :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 w-[12px] h-[12px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="unitDropdownOpen" x-cloak
                              class="absolute z-20 top-full left-0 mt-[3px] w-[100px] bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <button type="button" @click="customUnit='hour'; unitDropdownOpen=false"
                                     class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
-                                    :class="customUnit==='hour' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">hour(s)</button>
+                                    :class="customUnit==='hour' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
+                                    th:text="#{settings.cache.ttl.hours}">hour(s)</button>
                             <button type="button" @click="customUnit='day'; unitDropdownOpen=false"
                                     class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
-                                    :class="customUnit==='day' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">day(s)</button>
+                                    :class="customUnit==='day' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
+                                    th:text="#{settings.cache.ttl.days}">day(s)</button>
                         </div>
                     </div>
                 </div>
@@ -89,14 +91,14 @@
                 </button>
                 <div x-show="clearConfirm" x-cloak class="flex items-center gap-[8px]">
                     <span class="text-[13px] font-medium text-[var(--grayscale-70)]" th:text="#{settings.cache.clearConfirm}">Clear all cached data?</span>
-                    <button @click="clearAll()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[12px] py-[6px] rounded-[6px] transition-colors">Yes, clear</button>
-                    <button @click="clearConfirm=false" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[10px] py-[6px] rounded-[6px] border border-[var(--grayscale-20)] transition-colors">Cancel</button>
+                    <button @click="clearAll()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[12px] py-[6px] rounded-[6px] transition-colors" th:text="#{settings.cache.confirm.clearYes}">Yes, clear</button>
+                    <button @click="clearConfirm=false" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[10px] py-[6px] rounded-[6px] border border-[var(--grayscale-20)] transition-colors" th:text="#{common.cancel}">Cancel</button>
                 </div>
             </div>
             <button @click="save()" :disabled="saving"
                     class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                <span x-text="saving ? 'Saving...' : 'Save'"></span>
+                <span x-text="saving ? _cacheI18n.saving : _cacheI18n.save"></span>
             </button>
         </div>
     </div>
@@ -119,6 +121,19 @@
         <span class="font-medium text-[14px] text-[#d3fcf3] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" x-text="toast"></span>
     </div>
 
+    <script th:inline="javascript">
+    const _cacheI18n = {
+        hours:           /*[[#{settings.cache.ttl.hours}]]*/ 'hour(s)',
+        days:            /*[[#{settings.cache.ttl.days}]]*/ 'day(s)',
+        saving:          /*[[#{common.saving}]]*/ 'Saving…',
+        save:            /*[[#{common.save}]]*/ 'Save',
+        loadFailed:      /*[[#{settings.cache.error.loadFailed}]]*/ 'Failed to load cache settings.',
+        saveFailed:      /*[[#{settings.cache.error.saveFailed}]]*/ 'Save failed.',
+        policyAlways:    /*[[#{settings.cache.policy.savedAlways}]]*/ 'Cache policy set to Always Refresh.',
+        policyPermanent: /*[[#{settings.cache.policy.savedPermanent}]]*/ 'Cache policy set to Permanent.',
+        cleared:         /*[[#{settings.cache.cleared}]]*/ 'All cache has been cleared.'
+    };
+    </script>
     <script>
     function cacheTab() {
         return {
@@ -131,16 +146,16 @@
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
             showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
             formatTtl(hours) {
-                if (!hours || hours <= 0) return 'Always Refresh';
+                if (!hours || hours <= 0) return _cacheI18n.policyAlways;
                 if (hours >= 24*365*10) return 'Permanent';
-                if (hours % 24 === 0) return (hours/24) + ' day(s)';
-                return hours + ' hour(s)';
+                if (hours % 24 === 0) return (hours/24) + ' ' + _cacheI18n.days;
+                return hours + ' ' + _cacheI18n.hours;
             },
             async load() {
                 try {
                     const r = await fetch('/api/settings/cache');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to load cache settings.'; return; }
+                    if (!r.ok) { this.apiError = _cacheI18n.loadFailed; return; }
                     this.items = await r.json();
                     // Infer current policy from first item's ttlHours
                     if (this.items.length) {
@@ -154,7 +169,7 @@
                             else { this.customAmount = h; this.customUnit = 'hour'; }
                         }
                     }
-                } catch(e) { this.apiError = 'Failed to load cache settings.'; }
+                } catch(e) { this.apiError = _cacheI18n.loadFailed; }
             },
             ttlSecondsForPolicy() {
                 if (this.policy === 'always') return 1;
@@ -163,9 +178,9 @@
                 return Math.max(1, hours) * 3600;
             },
             savedPolicyLabel() {
-                if (this.policy === 'always') return 'Cache policy set to Always Refresh.';
-                if (this.policy === 'permanent') return 'Cache policy set to Permanent.';
-                const unit = this.customUnit === 'day' ? 'day(s)' : 'hour(s)';
+                if (this.policy === 'always') return _cacheI18n.policyAlways;
+                if (this.policy === 'permanent') return _cacheI18n.policyPermanent;
+                const unit = this.customUnit === 'day' ? _cacheI18n.days : _cacheI18n.hours;
                 return `Cache policy set to ${this.customAmount} ${unit}.`;
             },
             async save() {
@@ -177,7 +192,7 @@
                     for (const c of this.items) {
                         const r = await fetch('/api/settings/cache', { method: 'PUT', headers: this.headers(), body: JSON.stringify({ cacheKey: c.cacheKey, ttlSeconds }) });
                         if (r.status === 401) { location.href = '/login'; return; }
-                        if (!r.ok) { this.apiError = 'Save failed.'; return; }
+                        if (!r.ok) { this.apiError = _cacheI18n.saveFailed; return; }
                     }
                     // Update items in-place so a re-fetch doesn't overwrite the policy
                     this.items = this.items.map(c => ({
@@ -191,7 +206,7 @@
                 const r = await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
                 await this.load();
-                this.showToast('All cache cleared.');
+                this.showToast(_cacheI18n.cleared);
             }
         };
     }
