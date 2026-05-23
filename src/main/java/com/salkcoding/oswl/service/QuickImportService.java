@@ -797,7 +797,6 @@ public class QuickImportService {
     }
 
     // Maven: parse pom.xml <dependencies>
-    @SuppressWarnings("unused")
     private ParsedDependencies parseMaven(Path dir, String repoName) {
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         try {
@@ -1096,7 +1095,6 @@ public class QuickImportService {
 
     // npm: try package-lock.json first (full transitive tree), then yarn.lock, then pnpm-lock.yaml,
     // finally fall back to package.json declared deps only.
-    @SuppressWarnings("unused")
     private ParsedDependencies parseNpm(Path dir, String repoName) {
         if (Files.exists(dir.resolve("package-lock.json"))) {
             List<ScanPayload.ComponentPayload> locked = parseNpmLock(dir, repoName);
@@ -1275,7 +1273,6 @@ public class QuickImportService {
     }
 
     // Gradle: run gradlew dependencies for full transitive resolution, fall back to static parse
-    @SuppressWarnings("unused")
     private ParsedDependencies parseGradle(Path dir, String repoName) {
         List<ScanPayload.ComponentPayload> resolved = runGradleDependencies(dir, repoName);
         if (resolved != null && !resolved.isEmpty()) {
@@ -1511,7 +1508,6 @@ public class QuickImportService {
     }
 
     // Cargo (Rust): try Cargo.lock (full transitive), fall back to static Cargo.toml
-    @SuppressWarnings("unused")
     private ParsedDependencies parseCargo(Path dir, String repoName) {
         if (Files.exists(dir.resolve("Cargo.lock"))) {
             List<ScanPayload.ComponentPayload> comps = parseTomlPackageLock(dir.resolve("Cargo.lock"), "CARGO", repoName);
@@ -1581,7 +1577,6 @@ public class QuickImportService {
     }
 
     // Go modules: try go.sum (full transitive), fall back to go.mod
-    @SuppressWarnings("unused")
     private ParsedDependencies parseGoMod(Path dir, String repoName) {
         if (Files.exists(dir.resolve("go.sum"))) {
             List<ScanPayload.ComponentPayload> comps = parseGoSum(dir, repoName);
@@ -1699,7 +1694,6 @@ public class QuickImportService {
     }
 
     // NuGet / .NET
-    @SuppressWarnings("unused")
     private ParsedDependencies parseNuGet(Path dir, String repoName) {
         if (Files.exists(dir.resolve("packages.lock.json"))) {
             List<ScanPayload.ComponentPayload> comps = parseNuGetLockFile(dir, repoName);
@@ -1778,7 +1772,6 @@ public class QuickImportService {
     }
 
     // Ruby / RubyGems
-    @SuppressWarnings("unused")
     private ParsedDependencies parseRuby(Path dir, String repoName) {
         if (Files.exists(dir.resolve("Gemfile.lock"))) {
             List<ScanPayload.ComponentPayload> comps = parseGemfileLock(dir, repoName);

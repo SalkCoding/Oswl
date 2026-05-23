@@ -47,3 +47,6 @@ src/main/resources/static/css/tailwind.css
 
 ### Etc ###
 cookies.txt
+
+### Coverage reports ###
+htmlReport

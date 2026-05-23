@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OsWL — Open Source Watch List</title>
-    <meta name="description" content="OsWL은 오픈소스 컴포넌트의 보안 취약점(CVE)과 라이선스 리스크를 추적·관리하는 사내 SCA 플랫폼입니다.">
+    <meta name="description" th:content="#{landing.hero.desc}" content="OsWL is an in-house SCA platform that automatically tracks and manages CVE vulnerabilities and license risks across all your open source components.">
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/tailwind.css}">
@@ -301,17 +301,17 @@
 
         <!-- Links -->
         <div class="nav-links">
-            <a href="#features"     class="nav-link">기능</a>
-            <a href="#security"     class="nav-link">보안 분석</a>
-            <a href="#license"      class="nav-link">라이선스</a>
-            <a href="#integrations" class="nav-link">통합</a>
-            <a href="#how-it-works" class="nav-link">사용 방법</a>
+            <a href="#features"     class="nav-link" th:text="#{landing.nav.features}">Features</a>
+            <a href="#security"     class="nav-link" th:text="#{landing.nav.security}">Security Analysis</a>
+            <a href="#license"      class="nav-link" th:text="#{landing.nav.license}">License</a>
+            <a href="#integrations" class="nav-link" th:text="#{landing.nav.integrations}">Integrations</a>
+            <a href="#how-it-works" class="nav-link" th:text="#{landing.nav.howItWorks}">How It Works</a>
         </div>
 
         <!-- CTA -->
         <div style="display:flex;align-items:center;gap:14px;flex-shrink:0;">
-            <a th:href="@{/login}" class="nav-link">Sign In</a>
-            <a th:href="@{/login}" class="btn-primary" style="padding:8px 20px;font-size:13px;border-radius:8px;">시작하기</a>
+            <a th:href="@{/login}" class="nav-link" th:text="#{landing.nav.signIn}">Sign In</a>
+            <a th:href="@{/login}" class="btn-primary" style="padding:8px 20px;font-size:13px;border-radius:8px;" th:text="#{landing.nav.getStarted}">Get Started</a>
         </div>
     </div>
 </nav>
@@ -333,23 +333,22 @@
             </div>
 
             <h1 style="font-size:54px;font-weight:900;color:#ffffff;line-height:1.1;letter-spacing:-0.035em;margin:0 0 22px;">
-                오픈소스의<br>
-                <span class="shimmer-text">보안 위협</span>을<br>
-                한눈에 파악하세요
+                <span th:text="#{landing.hero.title.line1}">Secure your</span><br>
+                <span class="shimmer-text" th:text="#{landing.hero.title.highlight}">security threats</span><br>
+                <span th:text="#{landing.hero.title.line2}">in your open source</span>
             </h1>
 
-            <p style="font-size:17px;color:rgba(255,255,255,0.6);line-height:1.75;margin:0 0 38px;max-width:460px;">
-                OsWL은 프로젝트에서 사용하는 오픈소스 컴포넌트의 CVE 취약점과
-                라이선스 리스크를 자동으로 추적·관리하는 사내 SCA 플랫폼입니다.
+            <p style="font-size:17px;color:rgba(255,255,255,0.6);line-height:1.75;margin:0 0 38px;max-width:460px;"
+               th:text="#{landing.hero.desc}">OsWL is an in-house SCA platform that automatically tracks and manages CVE vulnerabilities and license risks across all your open source components.
             </p>
 
             <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
                 <a th:href="@{/login}" class="btn-primary btn-primary-lg">
-                    지금 시작하기
+                    <span th:text="#{landing.hero.cta.start}">Get Started</span>
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </a>
                 <a href="#features" class="btn-ghost">
-                    기능 살펴보기
+                    <span th:text="#{landing.hero.cta.features}">Explore Features</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                 </a>
             </div>
@@ -412,8 +411,8 @@
 
                 <!-- Footer row -->
                 <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
-                    <span style="font-size:11px;color:rgba(255,255,255,0.28);">202개 컴포넌트 분석됨</span>
-                    <span style="font-size:11px;color:#22efc3;font-weight:600;">마지막 스캔: 방금 전</span>
+                    <span style="font-size:11px;color:rgba(255,255,255,0.28);" th:text="#{landing.hero.mock.components}">202 components analyzed</span>
+                    <span style="font-size:11px;color:#22efc3;font-weight:600;" th:text="#{landing.hero.mock.lastScan}">Last scan: just now</span>
                 </div>
             </div>
         </div>
@@ -435,19 +434,19 @@
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;text-align:center;">
             <div style="padding:0 20px;">
                 <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">250K+</div>
-                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">추적 중인 CVE</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;" th:text="#{landing.stats.cves}">CVEs Tracked</div>
             </div>
             <div style="border-left:1px solid rgba(255,255,255,0.07);padding:0 20px;">
                 <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">1,500+</div>
-                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">지원 라이선스 유형</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;" th:text="#{landing.stats.licenses}">License Types Supported</div>
             </div>
             <div style="border-left:1px solid rgba(255,255,255,0.07);padding:0 20px;">
-                <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">실시간</div>
-                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">NVD / OSV 데이터 피드</div>
+                <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text" th:text="#{landing.stats.realtime}">Real-time</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;" th:text="#{landing.stats.feed}">NVD / OSV Data Feed</div>
             </div>
             <div style="border-left:1px solid rgba(255,255,255,0.07);padding:0 20px;">
                 <div style="font-size:38px;font-weight:900;letter-spacing:-0.03em;" class="gradient-text">CI/CD</div>
-                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;">파이프라인 통합 지원</div>
+                <div style="font-size:13px;color:rgba(255,255,255,0.45);margin-top:5px;font-weight:500;" th:text="#{landing.stats.cicd}">CI/CD Pipeline Integration</div>
             </div>
         </div>
     </div>
@@ -460,13 +459,12 @@
 <section id="features" style="padding:96px 40px;background:#ffffff;scroll-margin-top:68px;">
     <div class="section-inner">
         <div style="text-align:center;margin-bottom:60px;">
-            <span class="section-tag">핵심 기능</span>
+            <span class="section-tag" th:text="#{landing.features.tag}">Key Features</span>
             <h2 class="section-h2" style="color:#141616;">
-                소프트웨어 공급망을<br>
-                <span class="gradient-text">완전히 파악</span>하세요
+                <span th:text="#{landing.features.title.line1}">Fully understand your</span><br>
+                <span class="gradient-text" th:text="#{landing.features.title.highlight}">software supply chain</span>
             </h2>
-            <p class="section-lead" style="max-width:540px;margin:0 auto;">
-                OsWL은 오픈소스 사용의 위험을 탐지하고, 팀이 빠르게 대응할 수 있도록 돕습니다.
+            <p class="section-lead" style="max-width:540px;margin:0 auto;" th:text="#{landing.features.lead}">OsWL detects risks in your open source usage and helps your team respond quickly.
             </p>
         </div>
 
@@ -478,9 +476,8 @@
                 <div class="feature-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">CVE 취약점 추적</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;">
-                    NVD·OSV 데이터베이스를 실시간 연동하여 프로젝트의 모든 컴포넌트에 영향을 주는 취약점을 자동으로 탐지합니다.
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;" th:text="#{landing.features.cve.title}">CVE Vulnerability Tracking</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;" th:text="#{landing.features.cve.desc}">Integrates with NVD and OSV databases in real-time to automatically detect vulnerabilities affecting every component in your project.
                 </p>
                 <div style="display:flex;flex-wrap:wrap;gap:7px;">
                     <span style="background:#fef2f2;color:#e62727;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fecaca;">CRITICAL</span>
@@ -495,14 +492,13 @@
                 <div class="feature-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">라이선스 리스크 관리</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;">
-                    GPL·AGPL 등 카피레프트 라이선스 충돌을 탐지하고, 팀의 정책에 따라 허용·주의·위험으로 분류합니다.
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;" th:text="#{landing.features.license.title}">License Risk Management</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;" th:text="#{landing.features.license.desc}">Detects copyleft license conflicts such as GPL and AGPL, and classifies them as Allowed, Caution, or Danger.
                 </p>
                 <div style="display:flex;flex-wrap:wrap;gap:7px;">
-                    <span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #bbf7d0;">허용됨</span>
-                    <span style="background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fde68a;">주의 필요</span>
-                    <span style="background:#fef2f2;color:#e62727;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fecaca;">위험</span>
+                    <span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #bbf7d0;" th:text="#{landing.mock.license.allowed}">Allowed</span>
+                    <span style="background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fde68a;" th:text="#{landing.mock.license.caution}">Caution</span>
+                    <span style="background:#fef2f2;color:#e62727;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid #fecaca;" th:text="#{landing.mock.license.danger}">Danger</span>
                 </div>
             </div>
 
@@ -511,14 +507,13 @@
                 <div class="feature-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">Risk Trend 분석</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;">
-                    스캔 이력을 기반으로 위험도 변화 추세를 시각화합니다. 버전별 리스크를 비교하고 개선 여부를 확인합니다.
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;" th:text="#{landing.features.riskTrend.title}">Risk Trend Analysis</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0 0 18px;" th:text="#{landing.features.riskTrend.desc}">Visualizes how your risk level changes over time. Compare risks across versions and verify improvements.
                 </p>
                 <div style="display:flex;flex-wrap:wrap;gap:7px;">
-                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);">스캔 이력</span>
-                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);">버전 비교</span>
-                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);">시각화</span>
+                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);" th:text="#{landing.features.riskTrend.tag1}">Scan History</span>
+                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);" th:text="#{landing.features.riskTrend.tag2}">Version Compare</span>
+                    <span style="background:rgba(0,160,147,0.1);color:#00a093;font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(0,160,147,0.25);" th:text="#{landing.features.riskTrend.tag3}">Visualization</span>
                 </div>
             </div>
         </div>
@@ -531,9 +526,8 @@
                 <div class="feature-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">컴포넌트 인벤토리</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
-                    프로젝트에서 사용하는 모든 오픈소스 라이브러리를 자동 수집하고, 전체 의존성 경로를 추적합니다.
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;" th:text="#{landing.features.inventory.title}">Component Inventory</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;" th:text="#{landing.features.inventory.desc}">Automatically collects all open source libraries used in your project and traces the full dependency path.
                 </p>
             </div>
 
@@ -542,9 +536,8 @@
                 <div class="feature-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">멀티 프로젝트 관리</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
-                    여러 서비스·레포지토리를 하나의 대시보드에서 통합 관리합니다. 프로젝트별 보안 현황을 빠르게 비교합니다.
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;" th:text="#{landing.features.multiProject.title}">Multi-Project Management</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;" th:text="#{landing.features.multiProject.desc}">Manage multiple services and repositories from a single dashboard.
                 </p>
             </div>
 
@@ -553,9 +546,8 @@
                 <div class="feature-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4M8 6a4 4 0 0 1 4-4M4 10h16M12 22v-6M8 18h8"/><circle cx="12" cy="10" r="3"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;">AI 기반 분석</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
-                    AI를 활용하여 취약점의 실제 영향도를 분석하고, 우선순위와 패치 방향을 자동으로 제안합니다.
+                <h3 style="font-size:19px;font-weight:800;color:#141616;margin:0 0 11px;letter-spacing:-0.02em;" th:text="#{landing.features.ai.title}">AI-Powered Analysis</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;" th:text="#{landing.features.ai.desc}">Leverages AI to analyze the real impact of vulnerabilities and automatically suggests priority and remediation direction.
                 </p>
             </div>
         </div>
@@ -574,12 +566,12 @@
 
             <!-- Left: Text -->
             <div>
-                <span class="section-tag">보안 분석</span>
+                <span class="section-tag" th:text="#{landing.security.tag}">Security Analysis</span>
                 <h2 class="section-h2" style="color:#141616;">
-                    숨겨진 취약점을<br>놓치지 마세요
+                    <span th:text="#{landing.security.title.line1}">Never miss a</span><br>
+                    <span th:text="#{landing.security.title.line2}">hidden vulnerability</span>
                 </h2>
-                <p class="section-lead" style="margin-bottom:32px;">
-                    OsWL은 NVD와 OSV 데이터베이스를 주기적으로 동기화하여, 새로 발견된 CVE가 팀 프로젝트에 영향을 주는지 즉시 알려줍니다.
+                <p class="section-lead" style="margin-bottom:32px;" th:text="#{landing.security.lead}">OsWL periodically syncs with the NVD and OSV databases to instantly notify your team when a newly discovered CVE affects your projects.
                 </p>
 
                 <div style="display:flex;flex-direction:column;gap:18px;">
@@ -588,8 +580,8 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">CVSS 점수 기반 심각도 분류</div>
-                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">Critical·High·Medium·Low 4단계로 취약점을 분류하고 우선순위를 명확히 합니다.</div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;" th:text="#{landing.security.check1.title}">CVSS-Based Severity Classification</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;" th:text="#{landing.security.check1.desc}">Vulnerabilities are classified into four levels with clear prioritization.</div>
                         </div>
                     </div>
                     <div class="check-item">
@@ -597,8 +589,8 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">의존성 전파 경로 추적</div>
-                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">직접 의존성뿐 아니라 transitive 의존성까지 추적하여 정확한 영향 범위를 파악합니다.</div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;" th:text="#{landing.security.check2.title}">Dependency Propagation Tracking</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;" th:text="#{landing.security.check2.desc}">Tracks not only direct dependencies but also transitive ones to determine the exact scope of impact.</div>
                         </div>
                     </div>
                     <div class="check-item">
@@ -606,8 +598,8 @@
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">패치 가능 버전 자동 탐지</div>
-                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">취약점이 수정된 버전을 자동으로 탐지하여 빠른 업그레이드를 안내합니다.</div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;" th:text="#{landing.security.check3.title}">Auto-Detection of Patchable Versions</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;" th:text="#{landing.security.check3.desc}">Automatically detects versions where a vulnerability has been fixed and guides you to upgrade quickly.</div>
                         </div>
                     </div>
                 </div>
@@ -622,28 +614,28 @@
                             <div style="font-size:15px;font-weight:700;color:white;margin-bottom:3px;">org.apache.logging.log4j:log4j-core</div>
                             <div style="font-size:11px;color:rgba(255,255,255,0.35);">2.14.1 · Apache License 2.0</div>
                             <div style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap;">
-                                <span style="background:rgba(230,39,39,0.15);color:#e62727;font-size:10px;font-weight:700;padding:2px 10px;border-radius:5px;border:1px solid rgba(230,39,39,0.25);">취약 버전</span>
-                                <span style="background:rgba(0,215,97,0.1);color:#00d761;font-size:10px;font-weight:700;padding:2px 10px;border-radius:5px;border:1px solid rgba(0,215,97,0.2);">2.17.1+ 패치 가능</span>
+                                <span style="background:rgba(230,39,39,0.15);color:#e62727;font-size:10px;font-weight:700;padding:2px 10px;border-radius:5px;border:1px solid rgba(230,39,39,0.25);" th:text="#{landing.security.mock.vulnerable}">Vulnerable version</span>
+                                <span style="background:rgba(0,215,97,0.1);color:#00d761;font-size:10px;font-weight:700;padding:2px 10px;border-radius:5px;border:1px solid rgba(0,215,97,0.2);" th:text="#{landing.security.mock.patchable}">Patchable at 2.17.1+</span>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.09em;">관련 CVE</div>
+                        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.35);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.09em;" th:text="#{landing.security.mock.relatedCve}">Related CVEs</div>
                         <div style="display:flex;flex-direction:column;gap:8px;">
                             <div style="background:rgba(230,39,39,0.05);border:1px solid rgba(230,39,39,0.15);border-radius:8px;padding:12px;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                                     <span style="font-size:13px;font-weight:700;color:#ff6b6b;">CVE-2021-44228</span>
                                     <span style="font-size:10px;font-weight:800;background:#e62727;color:white;padding:2px 8px;border-radius:4px;">CVSS 10.0</span>
                                 </div>
-                                <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.55;">Log4Shell — 원격 코드 실행(RCE) 취약점. JNDI 조회를 통한 임의 코드 실행 가능.</div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.55;" th:text="#{landing.security.mock.log4shell.desc}">Log4Shell — Remote Code Execution (RCE) vulnerability. Allows arbitrary code execution via JNDI lookup.</div>
                             </div>
                             <div style="background:rgba(244,122,41,0.05);border:1px solid rgba(244,122,41,0.15);border-radius:8px;padding:12px;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
                                     <span style="font-size:13px;font-weight:700;color:#f47a29;">CVE-2021-45046</span>
                                     <span style="font-size:10px;font-weight:800;background:rgba(244,122,41,0.85);color:white;padding:2px 8px;border-radius:4px;">CVSS 9.0</span>
                                 </div>
-                                <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.55;">Log4j 2.15.0의 불완전한 패치로 인한 추가 RCE 취약점.</div>
+                                <div style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.55;" th:text="#{landing.security.mock.log4j2.desc}">Additional RCE vulnerability due to incomplete patch in Log4j 2.15.0.</div>
                             </div>
                         </div>
                     </div>
@@ -680,19 +672,19 @@
                         <div style="display:flex;flex-direction:column;gap:9px;">
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <div style="width:9px;height:9px;border-radius:2px;background:#00b0a0;flex-shrink:0;"></div>
-                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">허용됨 <strong style="color:white;">40%</strong></span>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);"><span th:text="#{landing.mock.license.allowed}">Allowed</span> <strong style="color:white;">40%</strong></span>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <div style="width:9px;height:9px;border-radius:2px;background:#f5bd26;flex-shrink:0;"></div>
-                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">주의 필요 <strong style="color:white;">15%</strong></span>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);"><span th:text="#{landing.mock.license.caution}">Caution</span> <strong style="color:white;">15%</strong></span>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <div style="width:9px;height:9px;border-radius:2px;background:#e62727;flex-shrink:0;"></div>
-                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">위험 <strong style="color:white;">5%</strong></span>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);"><span th:text="#{landing.mock.license.danger}">Danger</span> <strong style="color:white;">5%</strong></span>
                             </div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <div style="width:9px;height:9px;border-radius:2px;background:#5e6b70;flex-shrink:0;"></div>
-                                <span style="font-size:12px;color:rgba(255,255,255,0.6);">미검토 <strong style="color:white;">40%</strong></span>
+                                <span style="font-size:12px;color:rgba(255,255,255,0.6);"><span th:text="#{landing.license.mock.unreviewed}">Unreviewed</span> <strong style="color:white;">40%</strong></span>
                             </div>
                         </div>
                     </div>
@@ -701,19 +693,19 @@
                     <div style="display:flex;flex-direction:column;gap:7px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
                             <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">Apache License 2.0</span>
-                            <span class="sev-badge lic-ok" style="font-size:10px;">허용됨</span>
+                            <span class="sev-badge lic-ok" style="font-size:10px;" th:text="#{landing.mock.license.allowed}">Allowed</span>
                         </div>
                         <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
                             <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">MIT License</span>
-                            <span class="sev-badge lic-ok" style="font-size:10px;">허용됨</span>
+                            <span class="sev-badge lic-ok" style="font-size:10px;" th:text="#{landing.mock.license.allowed}">Allowed</span>
                         </div>
                         <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
                             <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">GPL-3.0</span>
-                            <span class="sev-badge lic-caution" style="font-size:10px;">주의 필요</span>
+                            <span class="sev-badge lic-caution" style="font-size:10px;" th:text="#{landing.mock.license.caution}">Caution</span>
                         </div>
                         <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,0.03);border-radius:6px;padding:9px 12px;">
                             <span style="font-size:13px;color:rgba(255,255,255,0.8);font-weight:600;">AGPL-3.0</span>
-                            <span class="sev-badge lic-danger" style="font-size:10px;">위험</span>
+                            <span class="sev-badge lic-danger" style="font-size:10px;" th:text="#{landing.mock.license.danger}">Danger</span>
                         </div>
                     </div>
                 </div>
@@ -721,33 +713,33 @@
 
             <!-- Right: Text -->
             <div>
-                <span class="section-tag">라이선스 관리</span>
+                <span class="section-tag" th:text="#{landing.license.tag}">License Management</span>
                 <h2 class="section-h2" style="color:#141616;">
-                    라이선스 충돌,<br>사전에 차단하세요
+                    <span th:text="#{landing.license.title.line1}">Block license conflicts</span><br>
+                    <span th:text="#{landing.license.title.line2}">before they happen</span>
                 </h2>
-                <p class="section-lead" style="margin-bottom:30px;">
-                    GPL·AGPL 등 카피레프트 라이선스가 포함된 경우 소스코드 공개 의무가 발생할 수 있습니다. OsWL은 라이선스 정책을 정의하고, 위반 여부를 자동으로 검사합니다.
+                <p class="section-lead" style="margin-bottom:30px;" th:text="#{landing.license.lead}">OsWL lets you define license policies and automatically checks for violations.
                 </p>
                 <div style="display:flex;flex-direction:column;gap:16px;">
                     <div class="check-item">
                         <div class="check-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">커스텀 라이선스 정책 설정</div>
-                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">팀의 기준에 맞게 허용·주의·위험 라이선스를 직접 지정하세요.</div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;" th:text="#{landing.license.check1.title}">Custom License Policy Configuration</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;" th:text="#{landing.license.check1.desc}">Designate allowed, caution, and danger licenses according to your team's standards.</div>
                         </div>
                     </div>
                     <div class="check-item">
                         <div class="check-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">컴포넌트별 라이선스 확인</div>
-                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">각 의존성의 라이선스 정보를 개별 조회하고 정책 준수 여부를 확인합니다.</div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;" th:text="#{landing.license.check2.title}">Per-Component License Review</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;" th:text="#{landing.license.check2.desc}">Look up the license information of each dependency individually and verify policy compliance.</div>
                         </div>
                     </div>
                     <div class="check-item">
                         <div class="check-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b0a0" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
                         <div>
-                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;">라이선스 용어 사전 제공</div>
-                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;">복잡한 오픈소스 라이선스 조항을 쉽게 이해할 수 있는 용어 사전을 기본 제공합니다.</div>
+                            <div style="font-size:15px;font-weight:700;color:#141616;margin-bottom:3px;" th:text="#{landing.license.check3.title}">Built-in License Glossary</div>
+                            <div style="font-size:13px;color:#5e6b70;line-height:1.65;" th:text="#{landing.license.check3.desc}">Provides an easy-to-understand reference for complex open source license terms.</div>
                         </div>
                     </div>
                 </div>
@@ -763,12 +755,12 @@
 <section id="integrations" style="padding:96px 40px;background:#001d35;scroll-margin-top:68px;">
     <div class="section-inner">
         <div style="text-align:center;margin-bottom:60px;">
-            <span class="section-tag-light">통합</span>
+            <span class="section-tag-light" th:text="#{landing.integrations.tag}">Integrations</span>
             <h2 class="section-h2" style="color:white;">
-                기존 워크플로우에<br>자연스럽게 녹아듭니다
+                <span th:text="#{landing.integrations.title.line1}">Fits naturally into</span><br>
+                <span th:text="#{landing.integrations.title.line2}">your existing workflow</span>
             </h2>
-            <p style="font-size:17px;color:rgba(255,255,255,0.5);line-height:1.75;max-width:520px;margin:0 auto;">
-                GitHub, CLI, REST API를 통해 기존 개발 파이프라인에 OsWL을 손쉽게 연동하세요.
+            <p style="font-size:17px;color:rgba(255,255,255,0.5);line-height:1.75;max-width:520px;margin:0 auto;" th:text="#{landing.integrations.lead}">Connect OsWL to your existing development pipeline via GitHub, CLI, or REST API.
             </p>
         </div>
 
@@ -781,9 +773,8 @@
                 <div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;">GitHub 연동</h3>
-                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;">
-                    GitHub 레포지토리를 직접 연결하여 브랜치별 의존성을 자동으로 임포트합니다. OAuth 및 Personal Access Token을 지원합니다.
+                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;" th:text="#{landing.integrations.github.title}">GitHub Integration</h3>
+                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;" th:text="#{landing.integrations.github.desc}">Connect your GitHub repositories directly to automatically import dependencies by branch.
                 </p>
             </div>
 
@@ -793,9 +784,8 @@
                 <div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;">CLI 클라이언트</h3>
-                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;">
-                    CI/CD 파이프라인에 OsWL CLI를 통합하여 빌드 시 자동으로 스캔을 실행하고 결과를 업로드합니다.
+                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;" th:text="#{landing.integrations.cli.title}">CLI Client</h3>
+                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;" th:text="#{landing.integrations.cli.desc}">Integrate the OsWL CLI into your CI/CD pipeline to automatically run scans and upload results at build time.
                 </p>
             </div>
 
@@ -805,9 +795,8 @@
                 <div style="width:48px;height:48px;background:rgba(255,255,255,0.08);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
                 </div>
-                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;">REST API</h3>
-                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;">
-                    표준 REST API로 모든 기능을 외부에서 제어합니다. API Key 인증 및 OpenAPI 문서를 기본으로 제공합니다.
+                <h3 style="font-size:19px;font-weight:800;color:white;margin:0 0 10px;" th:text="#{landing.integrations.api.title}">REST API</h3>
+                <p style="font-size:13px;color:rgba(255,255,255,0.5);line-height:1.75;margin:0;" th:text="#{landing.integrations.api.desc}">Control all features externally through a standard REST API. API Key authentication and OpenAPI documentation included.
                 </p>
             </div>
         </div>
@@ -820,12 +809,12 @@
                 <div class="mock-dot-g"></div>
                 <span class="mock-label">CI/CD Pipeline — GitHub Actions</span>
             </div>
-            <div style="color:#6a9955;"># OsWL SCA 스캔 실행</div>
+            <div style="color:#6a9955;" th:text="#{landing.integrations.terminal.comment}"># Run OsWL SCA scan</div>
             <div><span style="color:rgba(255,255,255,0.35);">$</span> <span style="color:#9cdcfe;">oswl-cli</span> <span style="color:#ce9178;">scan</span> \</div>
             <div style="padding-left:22px;"><span style="color:#9cdcfe;">--project</span> <span style="color:#ce9178;">"my-backend-service"</span> \</div>
             <div style="padding-left:22px;"><span style="color:#9cdcfe;">--sbom</span> <span style="color:#ce9178;">./build/bom.json</span> \</div>
             <div style="padding-left:22px;"><span style="color:#9cdcfe;">--api-key</span> <span style="color:#ce9178;">$OSWL_API_KEY</span></div>
-            <div style="margin-top:10px;"><span style="color:#22efc3;">✓</span> <span style="color:rgba(255,255,255,0.65);">스캔 완료: 202 컴포넌트 · 12 Critical · 34 High 발견</span></div>
+            <div style="margin-top:10px;"><span style="color:#22efc3;">✓</span> <span style="color:rgba(255,255,255,0.65);" th:text="#{landing.integrations.terminal.result}">Scan complete: 202 components · 12 Critical · 34 High found</span></div>
             <div><span style="color:#22efc3;">→</span> <span style="color:rgba(255,255,255,0.35);">https://oswl.company.internal/projects/42/security-center</span></div>
         </div>
     </div>
@@ -838,10 +827,9 @@
 <section id="how-it-works" style="padding:96px 40px;background:#ffffff;scroll-margin-top:68px;">
     <div class="section-inner">
         <div style="text-align:center;margin-bottom:68px;">
-            <span class="section-tag">사용 방법</span>
-            <h2 class="section-h2" style="color:#141616;">3단계로 시작하세요</h2>
-            <p class="section-lead" style="max-width:460px;margin:0 auto;">
-                복잡한 설정 없이 빠르게 프로젝트를 분석하고 보안 현황을 파악할 수 있습니다.
+            <span class="section-tag" th:text="#{landing.howItWorks.tag}">How It Works</span>
+            <h2 class="section-h2" style="color:#141616;" th:text="#{landing.howItWorks.title}">Start in 3 steps</h2>
+            <p class="section-lead" style="max-width:460px;margin:0 auto;" th:text="#{landing.howItWorks.lead}">Analyze your project and understand your security posture quickly with no complex setup.
             </p>
         </div>
 
@@ -854,9 +842,8 @@
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 </div>
                 <div style="font-size:12px;font-weight:700;color:#00a093;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.08em;">Step 01</div>
-                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;">프로젝트 임포트</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
-                    GitHub 레포지토리를 연결하거나 CLI로 SBOM 파일을 업로드하여 프로젝트를 등록합니다.
+                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;" th:text="#{landing.howItWorks.step1.title}">Import Project</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;" th:text="#{landing.howItWorks.step1.desc}">Connect a GitHub repository or upload an SBOM file via CLI to register your project.
                 </p>
             </div>
 
@@ -866,9 +853,8 @@
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 </div>
                 <div style="font-size:12px;font-weight:700;color:#00a093;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.08em;">Step 02</div>
-                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;">자동 분석</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
-                    OsWL이 모든 의존성을 분석하고, CVE 데이터베이스와 매칭하여 취약점과 라이선스 리스크를 자동 탐지합니다.
+                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;" th:text="#{landing.howItWorks.step2.title}">Automated Analysis</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;" th:text="#{landing.howItWorks.step2.desc}">OsWL analyzes all dependencies and matches them against CVE databases to automatically detect vulnerabilities and license risks.
                 </p>
             </div>
 
@@ -878,9 +864,8 @@
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
                 </div>
                 <div style="font-size:12px;font-weight:700;color:#00a093;margin-bottom:7px;text-transform:uppercase;letter-spacing:0.08em;">Step 03</div>
-                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;">지속 모니터링</h3>
-                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;">
-                    대시보드에서 위험도 추세를 추적하고, 새로운 CVE가 발견될 때마다 팀에게 즉시 알려줍니다.
+                <h3 style="font-size:21px;font-weight:800;color:#141616;margin:0 0 10px;letter-spacing:-0.02em;" th:text="#{landing.howItWorks.step3.title}">Continuous Monitoring</h3>
+                <p style="font-size:13px;color:#5e6b70;line-height:1.75;margin:0;" th:text="#{landing.howItWorks.step3.desc}">Track risk trends from the dashboard and get instant notifications whenever a new CVE is discovered.
                 </p>
             </div>
         </div>
@@ -897,13 +882,13 @@
         <img th:src="@{/icon/icon-logo.svg}" alt="" aria-hidden="true"
              style="width:38px;height:52px;margin-bottom:22px;filter:brightness(0) saturate(100%) invert(76%) sepia(51%) saturate(460%) hue-rotate(128deg) brightness(108%) contrast(96%);">
         <h2 style="font-size:46px;font-weight:900;color:white;letter-spacing:-0.035em;line-height:1.15;margin:0 0 18px;">
-            지금 바로 오픈소스<br>보안을 강화하세요
+            <span th:text="#{landing.cta.title.line1}">Strengthen your open source</span><br>
+            <span th:text="#{landing.cta.title.line2}">security right now</span>
         </h2>
-        <p style="font-size:17px;color:rgba(255,255,255,0.55);line-height:1.75;margin:0 0 38px;">
-            OsWL로 팀의 모든 프로젝트를 안전하게 보호하세요.
+        <p style="font-size:17px;color:rgba(255,255,255,0.55);line-height:1.75;margin:0 0 38px;" th:text="#{landing.cta.desc}">Protect all of your team's projects with OsWL.
         </p>
         <a th:href="@{/login}" class="btn-primary btn-primary-lg">
-            OsWL 시작하기
+            <span th:text="#{landing.cta.btn}">Get Started with OsWL</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
     </div>
@@ -923,40 +908,40 @@
                     <img th:src="@{/icon/icon-logo.svg}" alt="OsWL" style="width:17px;height:23px;">
                     <span style="font-weight:800;font-size:19px;color:#22efc3;letter-spacing:-0.02em;">OsWL</span>
                 </div>
-                <p style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.8;max-width:240px;margin:0 0 16px;">
-                    Open Source Watch List — 오픈소스 컴포넌트의 보안 취약점과 라이선스 리스크를 관리하는 사내 SCA 플랫폼
+                <p style="font-size:13px;color:rgba(255,255,255,0.35);line-height:1.8;max-width:240px;margin:0 0 16px;"
+                   th:text="#{landing.footer.brand.desc}">Open Source Watch List — An in-house SCA platform for managing security vulnerabilities and license risks in open source components.
                 </p>
                 <div style="font-size:11px;color:rgba(255,255,255,0.2);">Built with Spring Boot · Thymeleaf · Tailwind CSS</div>
             </div>
 
             <!-- Platform -->
             <div>
-                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">플랫폼</div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;" th:text="#{landing.footer.col.platform}">Platform</div>
                 <div style="display:flex;flex-direction:column;gap:11px;">
-                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">프로젝트</a>
-                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">보안 센터</a>
-                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">라이선스 관리</a>
-                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">Risk Trend</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.projects}">Projects</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.securityCenter}">Security Center</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.licenseManagement}">License Management</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.riskTrend}">Risk Trend</a>
                 </div>
             </div>
 
             <!-- Resources -->
             <div>
-                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">리소스</div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;" th:text="#{landing.footer.col.resources}">Resources</div>
                 <div style="display:flex;flex-direction:column;gap:11px;">
-                    <a th:href="@{/glossary}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">용어 사전</a>
-                    <a href="#integrations" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">CLI 통합</a>
-                    <a href="#integrations" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">API 문서</a>
+                    <a th:href="@{/glossary}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.glossary}">Glossary</a>
+                    <a href="#integrations" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.cliIntegration}">CLI Integration</a>
+                    <a href="#integrations" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.apiDocs}">API Docs</a>
                 </div>
             </div>
 
             <!-- Service -->
             <div>
-                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">서비스</div>
+                <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;" th:text="#{landing.footer.col.service}">Service</div>
                 <div style="display:flex;flex-direction:column;gap:11px;">
-                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">로그인</a>
-                    <a th:href="@{/setup}"  style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">초기 설정</a>
-                    <a th:href="@{/settings}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">설정</a>
+                    <a th:href="@{/login}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.login}">Sign In</a>
+                    <a th:href="@{/setup}"  style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.setup}">Initial Setup</a>
+                    <a th:href="@{/settings}" style="font-size:13px;color:rgba(255,255,255,0.45);transition:color 0.2s;" onmouseover="this.style.color='#22efc3'" onmouseout="this.style.color='rgba(255,255,255,0.45)'" th:text="#{landing.footer.link.settings}">Settings</a>
                 </div>
             </div>
         </div>

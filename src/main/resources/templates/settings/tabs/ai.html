@@ -8,8 +8,8 @@
 
     <!-- Heading -->
     <div class="flex flex-col gap-[8px]">
-        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]">AI Analysis Settings</h2>
-        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]">Configure AI-powered vulnerability analysis.</p>
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.ai.heading}">AI Analysis Settings</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.ai.description}">Configure AI-powered vulnerability analysis.</p>
     </div>
 
     <!-- Error Banner -->
@@ -21,13 +21,13 @@
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
         <!-- Card Title -->
-        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">AI Provider</h3>
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.provider.label}">AI Provider</h3>
 
         <!-- ── Option 1: Do not use AI ── -->
         <label class="flex gap-[8px] items-center cursor-pointer" @click="mode='off'">
             <input type="radio" name="aiMode" value="off" x-model="mode" class="sr-only"/>
             <img :src="mode==='off' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-            <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Do not use AI</span>
+            <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.disabled}">Do not use AI</span>
         </label>
 
         <!-- ── Option 2: OpenAI (GPT) ── -->
@@ -35,28 +35,28 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='OPENAI'">
                 <img :src="mode==='OPENAI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">OpenAI (GPT)</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use OpenAI GPT models with an API key. Also compatible with Azure OpenAI and custom endpoints.</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.openai}">OpenAI (GPT)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.openai.description}">Use OpenAI GPT models with an API key. Also compatible with Azure OpenAI and custom endpoints.</span>
                 </div>
             </div>
             <!-- OpenAI Fields -->
             <div x-show="mode==='OPENAI'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Key</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.apiKey}">API Key</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
                         <input type="password" x-model="forms.OPENAI.apiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Endpoint</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.endpoint}">API Endpoint</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
                         <input type="url" x-model="forms.OPENAI.baseUrl" placeholder="https://api.openai.com/v1 (optional)"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
                          x-init="$watch('forms.OPENAI.modelName', v => modelSearch = v || ''); modelSearch = forms.OPENAI.modelName || ''"
@@ -83,7 +83,7 @@
                                         x-text="opt"></button>
                             </template>
                             <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -95,21 +95,21 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='ANTHROPIC'">
                 <img :src="mode==='ANTHROPIC' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Anthropic (Claude)</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use Anthropic's Claude models via API key. Supports claude-opus, claude-sonnet, and claude-haiku families.</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic}">Anthropic (Claude)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic.description}">Use Anthropic's Claude models via API key. Supports claude-opus, claude-sonnet, and claude-haiku families.</span>
                 </div>
             </div>
             <!-- Anthropic Fields -->
             <div x-show="mode==='ANTHROPIC'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Key</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.apiKey}">API Key</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
                         <input type="password" x-model="forms.ANTHROPIC.apiKey" placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxx"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
                          x-init="$watch('forms.ANTHROPIC.modelName', v => modelSearch = v || ''); modelSearch = forms.ANTHROPIC.modelName || ''"
@@ -136,7 +136,7 @@
                                         x-text="opt"></button>
                             </template>
                             <div x-show="['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -148,21 +148,21 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='GEMINI'">
                 <img :src="mode==='GEMINI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Google (Gemini)</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use Google's Gemini models via API key from Google AI Studio or Vertex AI.</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.gemini}">Google (Gemini)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.gemini.description}">Use Google's Gemini models via API key from Google AI Studio or Vertex AI.</span>
                 </div>
             </div>
             <!-- Gemini Fields -->
             <div x-show="mode==='GEMINI'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Key</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.apiKey}">API Key</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
                         <input type="password" x-model="forms.GEMINI.apiKey" placeholder="AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
                          x-init="$watch('forms.GEMINI.modelName', v => modelSearch = v || ''); modelSearch = forms.GEMINI.modelName || ''"
@@ -189,7 +189,7 @@
                                         x-text="opt"></button>
                             </template>
                             <div x-show="['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -201,21 +201,21 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='COPILOT'">
                 <img :src="mode==='COPILOT' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">GitHub Copilot</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use GitHub Copilot's AI models via a GitHub personal access token (PAT) with the <code class="bg-[var(--grayscale-5)] px-[4px] py-[1px] rounded text-[12px]">copilot</code> scope. Supports GPT, Claude, and Gemini models through the Copilot API.</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.copilot}">GitHub Copilot</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.copilot.description}">Use GitHub Copilot's AI models via a GitHub personal access token (PAT) with the <code class="bg-[var(--grayscale-5)] px-[4px] py-[1px] rounded text-[12px]">copilot</code> scope. Supports GPT, Claude, and Gemini models through the Copilot API.</span>
                 </div>
             </div>
             <!-- Copilot Fields -->
             <div x-show="mode==='COPILOT'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">GitHub Token</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.token}">GitHub Token</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
                         <input type="password" x-model="forms.COPILOT.apiKey" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
                          x-init="$watch('forms.COPILOT.modelName', v => modelSearch = v || ''); modelSearch = forms.COPILOT.modelName || ''"
@@ -235,14 +235,14 @@
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-4o','gpt-4o-mini','gpt-4.1','gpt-4.1-mini','claude-sonnet-4-5','claude-3-5-sonnet','gemini-2.0-flash','o1-mini','o3-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in [['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.3-codex','gpt-5.2','gpt-5.2-codex','gpt-5-mini','gpt-4o','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-sonnet-4-6','claude-sonnet-4-5','claude-haiku-4-5','gemini-3.5-flash','gemini-3.1-pro','gemini-3-flash','gemini-2.5-pro'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.COPILOT.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.COPILOT.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['gpt-4o','gpt-4o-mini','gpt-4.1','gpt-4.1-mini','claude-sonnet-4-5','claude-3-5-sonnet','gemini-2.0-flash','o1-mini','o3-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
+                            <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.3-codex','gpt-5.2','gpt-5.2-codex','gpt-5-mini','gpt-4o','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-sonnet-4-6','claude-sonnet-4-5','claude-haiku-4-5','gemini-3.5-flash','gemini-3.1-pro','gemini-3-flash','gemini-2.5-pro'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -254,21 +254,21 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
                 <img :src="mode==='LOCAL' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]">Local / Ollama</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]">Use a locally running Ollama instance or any OpenAI-compatible local LLM. No API key required.</span>
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.local}">Local / Ollama</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.local.description}">Use a locally running Ollama instance or any OpenAI-compatible local LLM. No API key required.</span>
                 </div>
             </div>
             <!-- Local Fields -->
             <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">API Endpoint</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.endpoint}">API Endpoint</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
                         <input type="url" x-model="forms.LOCAL.baseUrl" placeholder="http://localhost:11434/v1"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0">Model</span>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]" x-data="{ open: false, localSearch: '' }"
                          x-init="localSearch = forms.LOCAL.modelName || ''" @click.away="open=false">
                         <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
@@ -293,7 +293,7 @@
                                         x-text="opt"></button>
                             </template>
                             <div x-show="['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase())).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -307,7 +307,7 @@
                     :disabled="testing || mode==='off'"
                     class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[14px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[4px] items-center disabled:opacity-40 hover:bg-[var(--grayscale-10)] transition-colors cursor-pointer">
                 <span class="font-medium text-[14px] text-[var(--grayscale-80)] tracking-[-0.14px] whitespace-nowrap"
-                      x-text="testing ? 'Testing...' : 'Test Connection'"></span>
+                      x-text="testing ? _aiI18n.testing : _aiI18n.testConnection"></span>
             </button>
             <button type="button"
                     @click="save()"
@@ -319,7 +319,7 @@
                     <polyline points="7 3 7 8 15 8"/>
                 </svg>
                 <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
-                      x-text="saving ? 'Saving...' : 'Save'"></span>
+                      x-text="saving ? _aiI18n.saving : _aiI18n.save"></span>
             </button>
         </div>
 
@@ -346,6 +346,22 @@
               x-text="toastMsg"></span>
     </div>
 
+    <script th:inline="javascript">
+    const _aiI18n = {
+        testConnection: /*[[#{settings.ai.btn.testConnection}]]*/ 'Test Connection',
+        testing:        /*[[#{settings.ai.btn.testing}]]*/ 'Testing\u2026',
+        save:           /*[[#{common.save}]]*/ 'Save',
+        saving:         /*[[#{settings.ai.btn.saving}]]*/ 'Saving\u2026',
+        saved:          /*[[#{settings.ai.msg.saved}]]*/ 'AI settings saved successfully.',
+        disabled:       /*[[#{settings.ai.msg.disabled}]]*/ 'AI analysis disabled.',
+        testOk:         /*[[#{settings.ai.msg.testOk}]]*/ 'Connection successful!',
+        loadFailed:     /*[[#{settings.ai.error.loadFailed}]]*/ 'Failed to load AI settings.',
+        disableFailed:  /*[[#{settings.ai.error.disableFailed}]]*/ 'Failed to disable AI.',
+        testFailed:     /*[[#{settings.ai.error.testFailed}]]*/ 'Connection test failed.',
+        customModel:    /*[[#{settings.ai.customModel}]]*/ 'Custom model will be used'
+    };
+    </script>
+
     <script>
     function aiTab() {
         return {
@@ -354,7 +370,7 @@
                 OPENAI:    { apiKey: '', modelName: 'gpt-5.5',               baseUrl: '' },
                 ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-7',       baseUrl: '' },
                 GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
-                COPILOT:   { apiKey: '', modelName: 'gpt-4o',                baseUrl: '' },
+                COPILOT:   { apiKey: '', modelName: 'gpt-5.4',                baseUrl: '' },
                 LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
             },
             saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
@@ -368,7 +384,7 @@
                 try {
                     const r = await fetch('/api/settings/ai');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = 'Failed to load AI settings.'; return; }
+                    if (!r.ok) { this.apiError = _aiI18n.loadFailed; return; }
                     const data = await r.json();
                     if (data && data.active && data.provider) {
                         this.mode = data.provider;
@@ -379,7 +395,7 @@
                             // apiKey is masked on server; keep blank — user re-enters only if changing
                         }
                     }
-                } catch (e) { this.apiError = 'Failed to load AI settings.'; }
+                } catch (e) { this.apiError = _aiI18n.loadFailed; }
             },
 
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': this.csrf() }; },
@@ -392,8 +408,8 @@
                     if (this.mode === 'off') {
                         const r = await fetch('/api/settings/ai/deactivate', { method: 'PUT', headers: this.headers() });
                         if (r.status === 401) { location.href = '/login'; return; }
-                        if (!r.ok) { this.apiError = 'Failed to disable AI.'; return; }
-                        this.showToast('AI analysis disabled.');
+                        if (!r.ok) { this.apiError = _aiI18n.disableFailed; return; }
+                        this.showToast(_aiI18n.disabled);
                         return;
                     }
                     const f = this.forms[this.mode];
@@ -407,7 +423,7 @@
                     const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = 'Save failed: ' + await r.text(); return; }
-                    this.showToast('AI settings saved successfully.');
+                    this.showToast(_aiI18n.saved);
                 } catch (e) { this.apiError = String(e); }
                 finally { this.saving = false; }
             },
@@ -432,12 +448,12 @@
                     if (r.status === 401) { location.href = '/login'; return; }
                     const data = await r.json();
                     if (r.ok && data.success) {
-                        this.showToast('Connection successful!');
+                        this.showToast(_aiI18n.testOk);
                     } else {
-                        this.apiError = data.message || 'Connection test failed.';
+                        this.apiError = data.message || _aiI18n.testFailed;
                     }
                 } catch (e) {
-                    this.apiError = 'Test connection error: ' + e.message;
+                    this.apiError = _aiI18n.testFailed + ': ' + e.message;
                 } finally {
                     this.testing = false;
                 }

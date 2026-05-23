@@ -22,16 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * POST /api/change-password — processes the forced password change for admin-invited users.
+ * POST /api/change-password — handles forced password changes for admin-invited users.
  *
  * <p>Security properties:
  * <ul>
- *   <li>CSRF-protected via Spring Security's {@code CookieCsrfTokenRepository} (X-XSRF-TOKEN header).</li>
- *   <li>Requires full authentication (past OTP). {@link com.salkcoding.oswl.auth.security.MustChangePasswordFilter}
- *       prevents access to any other URL until this succeeds.</li>
- *   <li>Current password verified before any write.</li>
- *   <li>Session ID rotated after success to prevent session-fixation attacks.</li>
- *   <li>SecurityContext updated so the filter flag clears immediately without a re-login.</li>
+ *   <li>CSRF protection via Spring Security's {@code CookieCsrfTokenRepository} (X-XSRF-TOKEN header).</li>
+ *   <li>Requires full authentication after OTP. {@link com.salkcoding.oswl.auth.security.MustChangePasswordFilter}
+ *       blocks access to other URLs until it succeeds.</li>
+ *   <li>Validates the current password before writing.</li>
+ *   <li>Rotates the session ID after success to protect against session fixation.</li>
+ *   <li>Updates the SecurityContext so the filter flag is cleared immediately without re-login.</li>
  * </ul>
  */
 @Slf4j
@@ -50,10 +50,10 @@ public class ChangePasswordController {
             HttpServletRequest request) {
 
         if (principal == null) {
-            return ResponseEntity.status(401).body(Map.of("message", "Not authenticated."));
+            return ResponseEntity.status(401).body(Map.of("message", "You are not authenticated."));
         }
 
-        // ── Input validation ──────────────────────────────────────────────────
+        // ── Input validation ───────────────────────────────────────────────
 
         String currentPw = req.getCurrentPassword() != null ? req.getCurrentPassword() : "";
         String newPw     = req.getNewPassword()     != null ? req.getNewPassword()     : "";
@@ -62,14 +62,14 @@ public class ChangePasswordController {
         int minLen = securitySettingService.getOrCreate().getMinPasswordLength();
         if (newPw.length() < minLen) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("message", "New password must be at least " + minLen + " characters."));
+                    .body(Map.of("message", "The new password must be at least " + minLen + " characters long."));
         }
         if (!newPw.equals(confirmPw)) {
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "Passwords do not match."));
         }
 
-        // ── Business logic (DB write, audit log) in service ──────────────────
+        // ── Business logic in the service (DB write, audit log) ───────────
 
         try {
             changePasswordService.changePassword(principal.getUserId(), currentPw, newPw);
@@ -77,12 +77,12 @@ public class ChangePasswordController {
             return switch (e.getMessage()) {
                 case "CURRENT_PASSWORD_WRONG" ->
                         ResponseEntity.badRequest()
-                                .body(Map.of("message", "Current password is incorrect."));
+                                .body(Map.of("message", "The current password is incorrect."));
                 case "SAME_AS_CURRENT" ->
                         ResponseEntity.badRequest()
-                                .body(Map.of("message", "New password must be different from the current password."));
+                                .body(Map.of("message", "The new password must be different from the current password."));
                 default -> {
-                    log.error("[ChangePassword] Unexpected validation error for user {}: {}",
+                    log.error("[ChangePassword] Unexpected validation error for user {}: ",
                             principal.getUsername(), e.getMessage());
                     yield ResponseEntity.status(500).body(Map.of("message", "An unexpected error occurred."));
                 }
@@ -92,9 +92,8 @@ public class ChangePasswordController {
             return ResponseEntity.status(500).body(Map.of("message", "An unexpected error occurred."));
         }
 
-        // ── Rebuild principal and update SecurityContext ──────────────────────
-        // Reload from DB so that mustChangePassword == false is reflected immediately
-        // without requiring a re-login.
+        // ── Rebuild principal and update SecurityContext ──────────────────
+        // Reload from the DB so mustChangePassword == false is reflected immediately without re-login.
 
         OswlUserPrincipal updated =
                 (OswlUserPrincipal) userDetailsService.loadUserByUsername(principal.getUsername());
@@ -110,10 +109,10 @@ public class ChangePasswordController {
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
         }
 
-        // Rotate session ID to mitigate session-fixation after credential change.
+        // Rotate the session ID after credential changes to prevent session fixation.
         request.changeSessionId();
 
-        log.info("[ChangePassword] Password changed successfully for user: {}", principal.getUsername());
+        log.info("[ChangePassword] Password successfully changed for user {}.", principal.getUsername());
         return ResponseEntity.ok(Map.of("redirectUrl", "/projects"));
     }
 }

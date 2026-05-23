@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/head :: head('Verification')}"></head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{auth.otp.pageTitle})}"></head>
 <body class="min-h-screen flex flex-col font-sans antialiased relative" style="background: transparent;">
 
 <!-- Background image -->
@@ -13,7 +13,7 @@
         <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
         <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
     </div>
-    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap">Verification</h2>
+    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap" th:text="#{auth.otp.pageTitle}">Verification</h2>
 </header>
 
 <!-- Centered card -->
@@ -27,7 +27,7 @@
         <!-- Brand block -->
         <div class="flex flex-col items-center gap-[4px]">
             <img th:src="@{/icon/icon-logo-card.svg}" class="w-[60px] h-[83px] mb-[2px]" alt="OsWL" aria-hidden="true">
-            <p class="font-extrabold text-[28px] text-[var(--primary-120)] tracking-[-0.28px] leading-[1.3]">Check your email</p>
+            <p class="font-extrabold text-[28px] text-[var(--primary-120)] tracking-[-0.28px] leading-[1.3]" th:text="#{auth.otp.title}">이메일을 확인해 주세요</p>
         </div>
 
         <!-- Unified notification (latest-wins, always at most one shown) -->
@@ -44,13 +44,11 @@
 
         <!-- Description -->
         <div class="w-full text-center flex flex-col gap-[6px]">
-            <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px] leading-[1.5]">
-                We sent a 6-digit verification code to
-            </p>
+            <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px] leading-[1.5]" th:text="#{auth.otp.description}">6자리 인증 코드를 보냈습니다.</p>
             <p class="text-[14px] font-bold text-[var(--grayscale-100)] tracking-[-0.14px]"
                x-text="maskedEmail || 't***@company.com'"></p>
             <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
-                The code expires in <span class="font-semibold" x-text="formatExpiry()">5:00</span>
+                <span th:text="#{auth.otp.expires}">코드 만료까지</span> <span class="font-semibold" x-text="formatExpiry()">5:00</span>
             </p>
         </div>
 
@@ -83,9 +81,11 @@
             <!-- Submit Button -->
             <button type="submit"
                     :disabled="digits.join('').length < 6 || verifying || expirySeconds <= 0"
-                    class="w-full flex items-center justify-center gap-[8px] bg-[var(--primary-120)] hover:bg-[var(--primary-140)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[15px] font-bold tracking-[-0.15px] py-[13px] rounded-[8px] transition-colors">
+                    class="w-full flex items-center justify-center gap-[8px] bg-[var(--primary-120)] hover:bg-[var(--primary-140)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[15px] font-bold tracking-[-0.15px] py-[13px] rounded-[8px] transition-colors"
+                    th:data-text-verify="#{auth.otp.btn.verify}"
+                    th:data-text-verifying="#{auth.otp.btn.verifying}">
                 <svg x-show="verifying" x-cloak class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                <span x-text="verifying ? 'Verifying…' : 'Verify'"></span>
+                <span x-text="verifying ? $el.closest('button').dataset.textVerifying : $el.closest('button').dataset.textVerify"></span>
             </button>
         </form>
 
@@ -102,29 +102,29 @@
                     </div>
                 </div>
                 <span class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]">
-                    Trust this device for <strong class="text-[var(--grayscale-90)]">30 days</strong>
+                    <span th:text="#{auth.otp.trust.label}">이 기기를 신뢰합니다</span> <strong class="text-[var(--grayscale-90)]" th:text="#{auth.otp.trust.days}">30일</strong>
                 </span>
             </label>
 
             <!-- Resend -->
             <div class="flex items-center gap-[6px] text-[13px]">
-                <span class="text-[var(--grayscale-50)]">Didn't receive it?</span>
+                <span class="text-[var(--grayscale-50)]" th:text="#{auth.otp.resend.prompt}">코드를 받지 못하셨나요?</span>
                 <button type="button"
                         :disabled="resendCooldown > 0 || resending"
                         @click="resend()"
+                        th:data-text-countdown="#{auth.otp.resend.countdown}"
                         class="font-semibold transition-colors disabled:cursor-not-allowed"
                         :class="resendCooldown > 0 ? 'text-[var(--grayscale-40)]' : 'text-[var(--primary-120)] hover:text-[var(--primary-140)]'">
-                    <span x-show="resendCooldown <= 0 && !resending">Resend code</span>
-                    <span x-show="resendCooldown > 0" x-text="'Resend in ' + resendCooldown + 's'"></span>
-                    <span x-show="resending" x-cloak>Sending…</span>
+                        <span x-show="resendCooldown <= 0 && !resending" th:text="#{auth.otp.resend.btn}">코드 재발송</span>
+                    <span x-show="resendCooldown > 0" x-text="$el.closest('button').dataset.textCountdown + ' ' + resendCooldown + 's'"></span>
+                    <span x-show="resending" x-cloak th:text="#{auth.otp.resend.sending}">전송 중…</span>
                 </button>
             </div>
 
             <!-- Back to login -->
             <a th:href="@{/login}"
-               class="text-[12px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-70)] transition-colors no-underline">
-                ← Back to Sign In
-            </a>
+               class="text-[12px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-70)] transition-colors no-underline"
+               th:text="#{auth.otp.backToLogin}">← 로그인으로 돌아가기</a>
         </div>
 
     </div>

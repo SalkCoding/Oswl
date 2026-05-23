@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 
 <!--
@@ -25,11 +25,10 @@
 
         async loadBranches() {
             const root = document.getElementById('component-detail-content');
-            const projectId   = root ? root.dataset.projectId : null;
-            const componentId = root ? root.dataset.componentId : null;
-            if (!projectId || !componentId) return;
+            const projectId = root ? root.dataset.projectId : null;
+            if (!projectId) return;
             try {
-                const r = await fetch('/api/github/branches/by-project?projectId=' + projectId);
+                const r = await fetch('/api/vcs/branches?projectId=' + projectId);
                 if (r.ok) {
                     const list = await r.json();
                     if (Array.isArray(list) && list.length > 0) {
@@ -198,7 +197,7 @@
             <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="prError"></div>
             <!-- Success feedback -->
             <div x-show="prDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">
-                PR created! <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold">View on GitHub</a>
+                PR/MR created! <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold">View PR/MR</a>
             </div>
 
             <div class="flex gap-[16px] items-center">

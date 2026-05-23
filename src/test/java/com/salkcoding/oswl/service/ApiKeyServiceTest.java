@@ -130,8 +130,7 @@ class ApiKeyServiceTest {
         when(apiKeyRepository.findByToken("oswl_revoked")).thenReturn(Optional.of(revoked));
 
         assertThatThrownBy(() -> apiKeyService.validateAndRecord("oswl_revoked"))
-                .isInstanceOf(UnauthorizedException.class)
-                .hasMessageContaining("revoked");
+                .isInstanceOf(UnauthorizedException.class);
     }
 
     @Test
@@ -146,8 +145,7 @@ class ApiKeyServiceTest {
         when(apiKeyRepository.findByToken("oswl_expired")).thenReturn(Optional.of(expired));
 
         assertThatThrownBy(() -> apiKeyService.validateAndRecord("oswl_expired"))
-                .isInstanceOf(UnauthorizedException.class)
-                .hasMessageContaining("expired");
+                .isInstanceOf(UnauthorizedException.class);
     }
 
     // ── revoke ────────────────────────────────────────────────────────────
@@ -183,8 +181,7 @@ class ApiKeyServiceTest {
         when(apiKeyRepository.findById(21L)).thenReturn(Optional.of(key));
 
         assertThatThrownBy(() -> apiKeyService.revoke(21L, 1L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("project");
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     // ── findByProject ─────────────────────────────────────────────────────

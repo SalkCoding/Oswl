@@ -8,14 +8,14 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
 
 /**
- * AOP-based logging aspect for the service layer.
+ * AOP-based logging aspect targeting the service layer.
  *
- * 동작:
- *  - 모든 service 패키지 메서드의 실행 시간을 측정
- *  - 실행 시간 < 1000ms  → DEBUG (평소 콘솔에 안 뜸)
- *  - 실행 시간 >= 1000ms → INFO  (슬로우 콜 알림)
- *  - 실행 시간 >= 5000ms→ WARN  (너무 느린 콜 경고)
- *  - 예외 발생 시       → ERROR (스택 트레이스 없이 요약만; 스택은 최상위에서)
+ * Behavior:
+ *  - Measures execution time of all methods in service packages
+ *  - Execution time < 1000ms  → DEBUG (normally hidden from the console)
+ *  - Execution time >= 1000ms → INFO  (slow-call notice)
+ *  - Execution time >= 5000ms → WARN  (very slow-call warning)
+ *  - On exception             → ERROR (summary only, no stack trace; stack is logged at the top level)
  */
 @Slf4j
 @Aspect
@@ -25,7 +25,7 @@ public class LoggingAspect {
     private static final long SLOW_THRESHOLD_MS  = 1_000;
     private static final long WARN_THRESHOLD_MS  = 5_000;
 
-    // ── Service 레이어 전체 포인트컷 ─────────────────────────────────────────
+    // ── Entire service-layer pointcut ────────────────────────────────────
     @Around("execution(* com.salkcoding.oswl.service..*(..))")
     public Object aroundService(ProceedingJoinPoint pjp) throws Throwable {
         MethodSignature sig = (MethodSignature) pjp.getSignature();
@@ -40,7 +40,7 @@ public class LoggingAspect {
             return result;
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AOP] {}.{}() FAILED ({}ms) — {}: {}",
+            log.error("[AOP] {}.{}() failed ({}ms) — {}: {}",
                     className, methodName, elapsed,
                     e.getClass().getSimpleName(), e.getMessage());
             throw e;
@@ -49,7 +49,7 @@ public class LoggingAspect {
 
     private void logElapsed(String className, String methodName, long elapsed) {
         if (elapsed >= WARN_THRESHOLD_MS) {
-            log.warn("[AOP] {}.{}() {}ms — is too slow", className, methodName, elapsed);
+            log.warn("[AOP] {}.{}() {}ms — very slow call", className, methodName, elapsed);
         } else if (elapsed >= SLOW_THRESHOLD_MS) {
             log.info("[AOP] {}.{}() {}ms — slow call", className, methodName, elapsed);
         } else {

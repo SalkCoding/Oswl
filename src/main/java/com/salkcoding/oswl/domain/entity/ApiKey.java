@@ -7,8 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * API key used by the CLI client to send data to the server.
- * Issued per project; scan data reception is rejected if the key does not match.
+ * API key used by the CLI client when sending data to the server.
+ * Issued per project, and scan data is rejected if the key does not match.
  */
 @Entity
 @Table(name = "api_keys",
@@ -52,8 +52,8 @@ public class ApiKey {
     private Project project;
 
     /**
-     * The user who issued this key via CLI auth (POST /api/cli/auth).
-     * Null for keys created by admins in the UI.
+     * User who issued this key through CLI authentication (POST /api/cli/auth).
+     * Keys created by an administrator in the UI are null.
      */
     @Column(name = "created_by_user_id")
     private Long createdByUserId;

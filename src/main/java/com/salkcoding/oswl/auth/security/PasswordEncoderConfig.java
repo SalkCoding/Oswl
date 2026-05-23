@@ -6,11 +6,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Provides the {@link PasswordEncoder} bean independently of {@link SecurityConfig}.
+ * Provides the {@link PasswordEncoder} bean independently from {@link SecurityConfig}.
  *
- * Keeping the encoder in its own configuration class breaks the circular dependency
- * that occurs when authentication-flow components (e.g. failure handlers) inject
- * services that themselves need a PasswordEncoder.
+ * The encoder lives in a separate configuration class to avoid circular dependencies when
+ * authentication flow components (for example, failure handlers) inject services that require a PasswordEncoder.
  */
 @Configuration
 public class PasswordEncoderConfig {

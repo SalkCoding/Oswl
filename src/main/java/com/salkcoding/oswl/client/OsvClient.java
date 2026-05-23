@@ -11,11 +11,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Client for the OSV.dev REST API.
+ * REST API client for OSV.dev.
  *
- * Uses the querybatch endpoint (POST /v1/querybatch) exclusively —
- * single-item looping over /v1/query is intentionally avoided.
- * One batch call can carry up to 1,000 queries with no rate limit.
+ * Uses only the querybatch endpoint (POST /v1/querybatch) —
+ * repeated single-item calls to /v1/query are intentionally avoided.
+ * Up to 1,000 queries can be sent in a single batch call, with no rate limit.
  */
 @Slf4j
 @Component
@@ -33,23 +33,23 @@ public class OsvClient {
                 .build();
     }
 
-    // ── DTOs ────────────────────────────────────────────────────────────
+    // ── DTO ────────────────────────────────────────────────────────────
 
-    /** Extracted vulnerability details from a single OSV vuln entry */
+    /** Vulnerability details extracted from a single OSV vulnerability entry. */
     public record OsvVuln(
             String osvId,
             String cveId,
             String summary,
             String fixVersion) {}
 
-    /** Result set for one query (aligned with the input batch index) */
+    /** Result set for a single query, aligned with the input batch index. */
     public record OsvResult(List<OsvVuln> vulns) {}
 
     // ── Public API ───────────────────────────────────────────────────────
 
     /**
      * Sends components in batches of up to 1,000 and returns results aligned with the input list.
-     * An empty OsvResult (vulns = []) means no vulnerabilities found for that component.
+     * An empty OsvResult(vulns = []) means the component has no vulnerabilities.
      */
     public List<OsvResult> queryBatch(List<OsvQuery> queries) {
         if (queries.isEmpty()) return Collections.emptyList();
@@ -68,8 +68,8 @@ public class OsvClient {
     @SuppressWarnings("unchecked")
     private List<OsvResult> doQueryBatch(List<OsvQuery> queries) {
         try {
-            // Map.of() rejects null values — pre-filter queries with any null field
-            // and track their original indices to re-align the result list.
+            // Map.of() rejects null values — pre-filter queries with null fields
+            // and track original indices to realign the result list.
             List<Integer> validIndices = new ArrayList<>();
             List<Map<String, Object>> requestBody = new ArrayList<>();
             for (int i = 0; i < queries.size(); i++) {
@@ -86,7 +86,7 @@ public class OsvClient {
                 return Collections.nCopies(queries.size(), new OsvResult(List.of()));
             }
 
-            log.debug("[OsvClient] querybatch REQUEST size={} valid={} queries={}",
+            log.debug("[OsvClient] querybatch request size={} valid={} queries={}",
                     queries.size(), validIndices.size(), queries);
 
             Map<String, Object> response = restClient.post()
@@ -96,10 +96,10 @@ public class OsvClient {
                     .retrieve()
                     .body(Map.class);
 
-            log.debug("[OsvClient] querybatch RESPONSE raw={}", response);
+            log.debug("[OsvClient] querybatch response raw={}", response);
 
             if (response == null || !response.containsKey("results")) {
-                log.debug("[OsvClient] querybatch RESPONSE empty or missing 'results' key");
+                log.debug("[OsvClient] querybatch response is empty or missing the 'results' key");
                 return Collections.nCopies(queries.size(), new OsvResult(List.of()));
             }
 
@@ -124,11 +124,11 @@ public class OsvClient {
                 }
                 parsed.add(new OsvResult(vulns));
             }
-            log.debug("[OsvClient] querybatch PARSED results count={} totalVulns={}",
+            log.debug("[OsvClient] querybatch parsed results count={} totalVulns={}",
                     parsed.size(),
                     parsed.stream().mapToInt(r -> r.vulns().size()).sum());
 
-            // Re-expand to full queries.size(), placing empty results where version was null
+            // Expand to queries.size() to preserve alignment and insert empty results for null versions
             OsvResult[] finalResults = new OsvResult[queries.size()];
             java.util.Arrays.fill(finalResults, new OsvResult(List.of()));
             for (int i = 0; i < validIndices.size() && i < parsed.size(); i++) {
@@ -136,7 +136,7 @@ public class OsvClient {
             }
             for (int i = 0; i < finalResults.length; i++) {
                 OsvQuery q = queries.get(i);
-                log.debug("[OsvClient] querybatch RESULT[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
+                log.debug("[OsvClient] querybatch result[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
             }
             return java.util.Arrays.asList(finalResults);
         } catch (RestClientException e) {
@@ -149,7 +149,7 @@ public class OsvClient {
         String osvId  = (String) vuln.get("id");
         String summary = (String) vuln.get("summary");
 
-        // Extract CVE ID from aliases
+        // Extract the CVE ID from aliases
         String cveId = null;
         Object aliasesObj = vuln.get("aliases");
         if (aliasesObj instanceof List<?> aliases) {
@@ -161,7 +161,7 @@ public class OsvClient {
                     .orElse(null);
         }
 
-        // Extract fix version from affected[].ranges[].events[fixed]
+        // Extract the fixed version from affected[].ranges[].events[fixed]
         String fixVersion = null;
         Object affectedObj = vuln.get("affected");
         outer:

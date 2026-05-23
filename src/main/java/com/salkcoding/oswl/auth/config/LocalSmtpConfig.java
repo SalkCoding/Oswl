@@ -20,16 +20,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import java.io.ByteArrayOutputStream;
 
 /**
- * Local-profile-only config that spins up an embedded GreenMail SMTP server
- * and auto-configures security_settings to point at it.
+ * Configuration that runs only in the local profile, starts an embedded GreenMail SMTP server,
+ * and automatically points security_settings to that server.
  *
  * <p>On startup:
  * <ul>
- *   <li>GreenMail listens on localhost:3025 (no auth).</li>
- *   <li>security_settings.mail_mode is set to SMTP with host=localhost, port=3025.</li>
+ *   <li>GreenMail listens on localhost:3025 (no authentication).</li>
+ *   <li>security_settings.mail_mode is set to SMTP(host=localhost, port=3025).</li>
  * </ul>
- * Received mails are printed to the log every 3 seconds so you can see the OTP
- * code (and HTML content) without any real mail client.
+ * Received mail is logged every 3 seconds so OTP codes can be checked without a real mail client.
  */
 @Slf4j
 @Profile("local")
@@ -55,7 +54,7 @@ public class LocalSmtpConfig implements ApplicationRunner {
         greenMail.start();
         log.info("╔══════════════════════════════════════════════════════╗");
         log.info("║  [LocalSMTP] GreenMail started on localhost:{}      ║", SMTP_PORT);
-        log.info("║  All outgoing mail is captured here — no real SMTP. ║");
+        log.info("║  All outbound mail is intercepted here — no real SMTP used. ║");
         log.info("╚══════════════════════════════════════════════════════╝");
         return greenMail;
     }
@@ -69,9 +68,8 @@ public class LocalSmtpConfig implements ApplicationRunner {
     }
 
     /**
-     * After Spring context is fully up, patch security_settings so the mail
-     * server always points to GreenMail. This lets you enable Email OTP from
-     * the Settings UI without manually entering SMTP details every time.
+     * Patches security_settings to point at GreenMail after the Spring context has fully started.
+     * This allows Email OTP to be enabled without re-entering SMTP details in the Settings UI each time.
      */
     @Override
     public void run(ApplicationArguments args) {
@@ -88,15 +86,14 @@ public class LocalSmtpConfig implements ApplicationRunner {
         s.setMailSenderName("OsWL (local)");
         settingRepository.save(s);
 
-        log.info("[LocalSMTP] security_settings patched → SMTP localhost:{} (no auth)", SMTP_PORT);
+        log.info("[LocalSMTP] Patched security_settings → SMTP localhost:{} (no authentication)", SMTP_PORT);
     }
 
-    // ── Mail watcher ─────────────────────────────────────────────────────
+    // ── Mail monitoring ───────────────────────────────────────────────
 
     /**
-     * Polls GreenMail every 3 s and logs any newly received messages.
-     * The full raw message is printed so you can see Subject, To, and the
-     * HTML body (including the OTP code).
+     * Polls GreenMail every 3 seconds and logs newly received mail.
+     * Subject, recipients, and HTML body (including OTP code) are shown so the full raw message is visible.
      */
     @Scheduled(fixedDelay = 3_000)
     public void printNewMails() {
@@ -113,7 +110,7 @@ public class LocalSmtpConfig implements ApplicationRunner {
                 log.info("│  From    : {}", msgs[i].getFrom() != null
                         ? java.util.Arrays.toString(msgs[i].getFrom()) : "(none)");
 
-                // Extract plain-text OTP from subject (e.g. "[OsWL] Your verification code: 123456")
+                // Extract OTP code from subject (example: "[OsWL] Your verification code: 123456")
                 String subject = msgs[i].getSubject();
                 if (subject != null && subject.contains("verification code:")) {
                     String code = subject.substring(subject.lastIndexOf(":") + 1).trim();
@@ -122,16 +119,16 @@ public class LocalSmtpConfig implements ApplicationRunner {
                     log.info("│");
                 }
 
-                // Dump raw message for full HTML inspection
+                // Trim very long HTML bodies for log readability
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 msgs[i].writeTo(baos);
                 String raw = baos.toString(java.nio.charset.StandardCharsets.UTF_8);
-                // Truncate very long HTML bodies to keep log readable
+                // Trim overly long HTML bodies for log readability
                 if (raw.length() > 3000) raw = raw.substring(0, 3000) + "\n... (truncated)";
                 log.info("│  Raw message:\n{}", raw);
                 log.info("└────────────────────────────────────────────────────────");
             } catch (Exception e) {
-                log.warn("[LocalSMTP] Could not read message #{}: {}", i + 1, e.getMessage());
+                log.warn("[LocalSMTP] Failed to read message #{}: {}", i + 1, e.getMessage());
             }
         }
         lastSeenCount = msgs.length;

@@ -59,8 +59,8 @@ public class AuditLogService {
     }
 
     /**
-     * SecurityContext 없이 직접 actor 정보를 지정해 로그를 남긴다.
-     * 로그인 실패, 초기 setup 등 인증 컨텍스트가 없는 이벤트에 사용한다.
+     * Writes a log entry by specifying actor information directly without a SecurityContext.
+     * Used for events without an authentication context, such as login failures and initial setup.
      */
     @Transactional
     public void logAnonymous(String actorEmail, String action, String targetType,
@@ -84,7 +84,7 @@ public class AuditLogService {
             HttpServletRequest req = attrs.getRequest();
             String xff = req.getHeader("X-Forwarded-For");
             String ip = (xff != null && !xff.isBlank()) ? xff.split(",")[0].trim() : req.getRemoteAddr();
-            // IPv6 loopback → 127.0.0.1 정규화
+            // Normalize IPv6 loopback to 127.0.0.1
             if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) return "127.0.0.1";
             return ip;
         } catch (Exception e) {
@@ -159,8 +159,8 @@ public class AuditLogService {
     // ── Scheduled retention cleanup ──────────────────────────────────────────
 
     /**
-     * Deletes audit log records older than {@code oswl.audit.retention-months} (default 6).
-     * Runs daily at 02:00 AM server time.
+     * Deletes audit log records older than {@code oswl.audit.retention-months} (default: 6 months).
+     * Runs every day at 2:00 AM.
      */
     @Scheduled(cron = "0 0 2 * * ?")
     @Transactional

@@ -17,14 +17,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Client for the deps.dev REST API v3.
+ * deps.dev REST API v3 client.
  *
  * Endpoints used:
  *   GET /v3/systems/{system}/packages/{packageName}/versions/{version}  → licenses + advisoryKeys
  *   GET /v3/advisories/{advisoryId}                                       → CVE details + CVSS score
  *
- * deps.dev has no batch endpoint, so GetVersion calls are parallelised with a
- * virtual-thread executor limited to 10 concurrent requests.
+ * Since deps.dev has no batch endpoint, GetVersion calls are processed in parallel
+ * through a virtual-thread executor (limited to 10 concurrent requests).
  */
 @Slf4j
 @Component
@@ -42,12 +42,12 @@ public class DepsDevClient {
                 .build();
     }
 
-    // ── DTOs ────────────────────────────────────────────────────────────
+    // ── DTO ────────────────────────────────────────────────────────────
 
     /**
-     * @param isDefault     true if this is the default (latest stable) version for the package
-     * @param deprecated    non-null/non-blank deprecation reason when the version is deprecated; null otherwise
-     * @param latestVersion the latest stable version string when this is NOT the default; null if already latest
+     * @param isDefault     true if this is the package's default (latest stable) version
+     * @param deprecated    non-empty note string if the version is no longer used; otherwise null
+     * @param latestVersion latest stable version string if already outdated; null if up to date
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
                               boolean isDefault, String deprecated, String latestVersion) {}
@@ -62,8 +62,8 @@ public class DepsDevClient {
     // ── Public API ───────────────────────────────────────────────────────
 
     /**
-     * Calls GetVersion for every component in parallel (max 10 concurrent).
-     * Returns a list aligned with the input list; nulls indicate a failed/missing package.
+     * Calls GetVersion in parallel for all components (up to 10 concurrent calls).
+     * Returns a list aligned with the input list; null means the package lookup failed.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
         List<CompletableFuture<VersionInfo>> futures = components.stream()
@@ -83,8 +83,8 @@ public class DepsDevClient {
     }
 
     /**
-     * Calls GetAdvisory for every GHSA ID in parallel.
-     * Returns a list aligned with the input list; nulls indicate a failed lookup.
+     * Calls GetAdvisory in parallel for all GHSA IDs.
+     * Returns a list aligned with the input list; null means the lookup failed.
      */
     public List<AdvisoryInfo> getAdvisoriesBatch(List<String> ghsaIds) {
         List<CompletableFuture<AdvisoryInfo>> futures = ghsaIds.stream()
@@ -108,17 +108,17 @@ public class DepsDevClient {
     private VersionInfo getVersion(ComponentKey key) {
         try {
             if (key.version() == null || key.version().isBlank()) {
-                log.debug("[DepsDevClient] GetVersion SKIPPED {}:{} — null/blank version", key.name(), key.version());
+                log.debug("[DepsDevClient] Skipping GetVersion {}:{} — version is null/blank", key.name(), key.version());
                 return new VersionInfo(List.of(), List.of(), false, null, null);
             }
             String encodedName = encodePackageName(key.ecosystem(), key.name());
             String encodedVersion = URLEncoder.encode(key.version(), StandardCharsets.UTF_8).replace("+", "%20");
 
-            log.debug("[DepsDevClient] GetVersion REQUEST ecosystem={} name={} version={}",
+            log.debug("[DepsDevClient] GetVersion request ecosystem={} name={} version={}",
                     key.ecosystem(), key.name(), key.version());
 
-            // 이미 percent-encode된 문자열을 URI 템플릿 변수로 넘기면 %25XX로 이중 인코딩됨.
-            // build(true) → "already encoded" 플래그로 re-encoding 방지.
+            // Passing an already percent-encoded string as a URI template variable causes double-encoding to %25XX.
+            // build(true) prevents re-encoding by marking it as "already encoded".
             String path = String.format("/v3/systems/%s/packages/%s/versions/%s",
                     key.ecosystem().toUpperCase(), encodedName, encodedVersion);
             java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
@@ -130,7 +130,7 @@ public class DepsDevClient {
                     .body(Map.class);
 
             if (body == null) {
-                log.debug("[DepsDevClient] GetVersion RESPONSE null body for {}:{}", key.name(), key.version());
+                log.debug("[DepsDevClient] GetVersion response body null {}:{}", key.name(), key.version());
                 return new VersionInfo(List.of(), List.of(), false, null, null);
             }
 
@@ -172,18 +172,18 @@ public class DepsDevClient {
                 }
             }
 
-            log.debug("[DepsDevClient] GetVersion RESPONSE {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
+            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
                     key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion);
             return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion);
         } catch (RestClientException e) {
-            log.debug("[DepsDevClient] GetVersion 404/error for {}:{} - {}", key.name(), key.version(), e.getMessage());
+            log.debug("[DepsDevClient] GetVersion 404/error {}:{} - {}", key.name(), key.version(), e.getMessage());
             return new VersionInfo(List.of(), List.of(), false, null, null);
         }
     }
 
     private AdvisoryInfo getAdvisory(String ghsaId) {
         try {
-            log.debug("[DepsDevClient] GetAdvisory REQUEST ghsaId={}", ghsaId);
+            log.debug("[DepsDevClient] GetAdvisory request ghsaId={}", ghsaId);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> body = restClient.get()
@@ -192,7 +192,7 @@ public class DepsDevClient {
                     .body(Map.class);
 
             if (body == null) {
-                log.debug("[DepsDevClient] GetAdvisory RESPONSE null body for ghsaId={}", ghsaId);
+                log.debug("[DepsDevClient] GetAdvisory response body null ghsaId={}", ghsaId);
                 return null;
             }
 
@@ -207,11 +207,11 @@ public class DepsDevClient {
                     aliases,
                     score,
                     (String) body.get("cvss3Vector"));
-            log.debug("[DepsDevClient] GetAdvisory RESPONSE ghsaId={} title={} cvssScore={} aliases={}",
+            log.debug("[DepsDevClient] GetAdvisory response ghsaId={} title={} cvssScore={} aliases={}",
                     ghsaId, result.title(), result.cvss3Score(), result.aliases());
             return result;
         } catch (RestClientException e) {
-            log.debug("[DepsDevClient] GetAdvisory error for {} - {}", ghsaId, e.getMessage());
+            log.debug("[DepsDevClient] GetAdvisory {} error - {}", ghsaId, e.getMessage());
             return null;
         }
     }

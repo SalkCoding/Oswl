@@ -13,7 +13,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * AES-256-GCM symmetric encryption for storing sensitive secrets like VCS tokens.
+ * AES-256-GCM symmetric encryption used to store sensitive secrets such as VCS tokens.
  * Format: Base64( IV(12) || ciphertext )
  */
 @Service
@@ -33,13 +33,13 @@ public class EncryptionService {
     public void init() {
         if (encryptionKeyBase64 == null || encryptionKeyBase64.isBlank()) {
             throw new IllegalStateException(
-                "[OsWL] oswl.encryption.key is required but not set. " +
+                "[OsWL] oswl.encryption.key is not configured. " +
                 "Generate a key with: openssl rand -base64 32 " +
-                "For local dev, set a stable key in application-local.yaml under oswl.encryption.key");
+                "For local development, set a stable key in application-local.yaml under oswl.encryption.key");
         }
         byte[] keyBytes = Base64.getDecoder().decode(encryptionKeyBase64);
         if (keyBytes.length != 32) {
-            throw new IllegalStateException("oswl.encryption.key must decode to exactly 32 bytes (AES-256). Got: " + keyBytes.length);
+            throw new IllegalStateException("oswl.encryption.key must decode to exactly 32 bytes (AES-256). Current length: " + keyBytes.length);
         }
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
     }

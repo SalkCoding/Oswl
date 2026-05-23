@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 
     <!-- Left Column: Licenses Found Fragment -->
@@ -8,28 +8,28 @@
         <!-- Title & Stats -->
         <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col gap-3 px-6 py-4 w-full shrink-0">
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0" 
-                th:text="${totalLicenses} + ' Licenses Found'">27 Licenses Found</h2>
+                th:text="${totalLicenses} + ' ' + #{license.label.licensesFound}">27 Licenses Found</h2>
             
             <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
                 <!-- Restricted Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
-                    <span th:text="${restrictedCount} + ' Restricted'">0 Restricted</span>
+                    <span th:text="${restrictedCount} + ' ' + #{license.status.restricted}">0 Restricted</span>
                 </div>
                 <!-- Caution Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#f59126] rounded-full"></div>
-                    <span th:text="${cautionCount} + ' Caution'">0 Caution</span>
+                    <span th:text="${cautionCount} + ' ' + #{license.status.caution}">0 Caution</span>
                 </div>
                 <!-- Permitted Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#84dca5] rounded-full"></div>
-                    <span th:text="${permittedCount} + ' Permitted'">0 Permitted</span>
+                    <span th:text="${permittedCount} + ' ' + #{license.status.permitted}">0 Permitted</span>
                 </div>
                 <!-- Unknown Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#abb8be] rounded-full"></div>
-                    <span th:text="${unknownCount} + ' Unknown'">0 Unknown</span>
+                    <span th:text="${unknownCount} + ' ' + #{license.status.unknown}">0 Unknown</span>
                 </div>
             </div>
         </div>
@@ -44,8 +44,8 @@
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
                 </svg>
-                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0">No license data available.</p>
-                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0">Run a scan to detect licenses used in this project.</p>
+                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0" th:text="#{license.empty}">No license data available.</p>
+                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0" th:text="#{license.empty.hint}">Run a scan to detect licenses used in this project.</p>
             </div>
 
             <!-- Dynamic license rows -->
@@ -77,7 +77,7 @@
                         <p class="text-[12px] text-[var(--primary-120)] tracking-[-0.12px] m-0 leading-relaxed" th:text="${license.aiLicenseSummary}">AI summary</p>
                     </div>
 
-                    <p class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0">Libraries</p>
+                    <p class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0" th:text="#{license.label.libraries}">Libraries</p>
                     <div th:each="libName : ${license.libraryNames}"
                          class="flex items-center gap-[8px] py-[5px]">
                         <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
