@@ -198,4 +198,58 @@ class ApiKeyServiceTest {
 
         assertThat(apiKeyService.findByProject(1L)).hasSize(2);
     }
+
+    // ── findAll ───────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("findAll: 모든 키를 createdAt 역순으로 반환한다")
+    void findAll_delegatesToRepository() {
+        Project project = Project.builder().id(1L).name("P").build();
+        List<ApiKey> keys = List.of(
+                ApiKey.builder().id(3L).token("t3").active(true).project(project).build(),
+                ApiKey.builder().id(1L).token("t1").active(false).project(project).build()
+        );
+        when(apiKeyRepository.findAllByOrderByCreatedAtDesc()).thenReturn(keys);
+
+        List<ApiKey> result = apiKeyService.findAll();
+
+        assertThat(result).hasSize(2);
+        verify(apiKeyRepository).findAllByOrderByCreatedAtDesc();
+    }
+
+    // ── toggleActive ──────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("toggleActive: 활성 키를 비활성화한다")
+    void toggleActive_activeKey_revokesIt() {
+        Project project = Project.builder().id(1L).name("P").build();
+        ApiKey key = ApiKey.builder().id(10L).token("oswl_t").active(true).project(project).build();
+        when(apiKeyRepository.findWithProjectById(10L)).thenReturn(Optional.of(key));
+
+        ApiKey result = apiKeyService.toggleActive(10L);
+
+        assertThat(result.isActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("toggleActive: 비활성 키를 활성화한다")
+    void toggleActive_inactiveKey_activatesIt() {
+        Project project = Project.builder().id(1L).name("P").build();
+        ApiKey key = ApiKey.builder().id(11L).token("oswl_u").active(false).project(project).build();
+        when(apiKeyRepository.findWithProjectById(11L)).thenReturn(Optional.of(key));
+
+        ApiKey result = apiKeyService.toggleActive(11L);
+
+        assertThat(result.isActive()).isTrue();
+    }
+
+    @Test
+    @DisplayName("toggleActive: 키가 없으면 IllegalArgumentException을 던진다")
+    void toggleActive_notFound_throwsIllegalArgument() {
+        when(apiKeyRepository.findWithProjectById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> apiKeyService.toggleActive(99L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("99");
+    }
 }
