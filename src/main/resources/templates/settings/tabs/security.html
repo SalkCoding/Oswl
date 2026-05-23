@@ -71,7 +71,7 @@
                             <img src="/icon/icon-triangle-down.svg" :class="encOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="encOpen" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)]">
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <template x-for="opt in ['NONE','STARTTLS','SSL_TLS']" :key="opt">
                                 <button type="button" @click="mailForm.encryption = opt; encOpen = false; applyEncryptionDefaults(opt)"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"

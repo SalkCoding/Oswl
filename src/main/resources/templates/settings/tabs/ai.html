@@ -75,7 +75,7 @@
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
@@ -128,7 +128,7 @@
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
@@ -181,7 +181,7 @@
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in ['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.GEMINI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
@@ -234,8 +234,8 @@
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.3-codex','gpt-5.2','gpt-5.2-codex','gpt-5-mini','gpt-4o','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-sonnet-4-6','claude-sonnet-4-5','claude-haiku-4-5','gemini-3.5-flash','gemini-3.1-pro','gemini-3-flash','gemini-2.5-pro'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in [['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.3-codex','gpt-5.2','gpt-5.2-codex','gpt-5-mini','gpt-4o','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-sonnet-4-6','claude-sonnet-4-5','claude-haiku-4-5','gemini-3.5-flash','gemini-3.1-pro','gemini-3-flash','gemini-2.5-pro'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.COPILOT.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.COPILOT.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
@@ -285,7 +285,7 @@
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in ['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.LOCAL.modelName = opt; localSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"

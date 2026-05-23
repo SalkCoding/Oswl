@@ -43,7 +43,7 @@
                             <img src="/icon/icon-triangle-down.svg" :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 w-[12px] h-[12px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="unitDropdownOpen" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[3px] w-[100px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-md overflow-hidden">
+                             class="absolute z-20 top-full left-0 mt-[3px] w-[100px] bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <button type="button" @click="customUnit='hour'; unitDropdownOpen=false"
                                     class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
                                     :class="customUnit==='hour' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'">hour(s)</button>

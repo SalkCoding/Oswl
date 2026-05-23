@@ -97,12 +97,12 @@
         <!-- Export actions + summary -->
         <div class="flex items-center gap-2">
             <a th:href="@{/projects/{pid}/license/export/notice(pid=${projectId},scanId=${currentScanId})}"
-               class="bg-white hover:bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] inline-flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
+               class="bg-white hover:bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] inline-flex h-[34px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
                 <img src="/icon/icon-download.svg" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
                 <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">NOTICE.txt</span>
             </a>
             <a th:href="@{/projects/{pid}/license/export/spdx(pid=${projectId},scanId=${currentScanId})}"
-               class="bg-white hover:bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] inline-flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
+               class="bg-white hover:bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] inline-flex h-[34px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
                 <img src="/icon/icon-page.svg" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
                 <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">SPDX SBOM</span>
             </a>
