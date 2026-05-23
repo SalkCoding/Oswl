@@ -143,4 +143,33 @@ class LicensePolicyServiceTest {
     private static LicensePolicyEntry entry(String spdxId, LicenseStatus status) {
         return LicensePolicyEntry.builder().spdxId(spdxId).status(status).build();
     }
+
+    // ── updateEntry ───────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("updateEntry: 이미 존재하는 항목의 상태를 업데이트한다")
+    void updateEntry_existingEntry_updatesStatus() {
+        LicensePolicyEntry existing = entry("MIT", LicenseStatus.PERMITTED);
+        when(licensePolicyRepository.findBySpdxId("MIT")).thenReturn(java.util.Optional.of(existing));
+        when(licensePolicyRepository.save(existing)).thenReturn(existing);
+
+        licensePolicyService.updateEntry("MIT", LicenseStatus.CAUTION);
+
+        assertThat(existing.getStatus()).isEqualTo(LicenseStatus.CAUTION);
+        org.mockito.Mockito.verify(licensePolicyRepository).save(existing);
+    }
+
+    @Test
+    @DisplayName("updateEntry: 항목이 없으면 새로 생성하여 저장한다")
+    void updateEntry_newEntry_createsAndSaves() {
+        when(licensePolicyRepository.findBySpdxId("CUSTOM-LIC")).thenReturn(java.util.Optional.empty());
+        when(licensePolicyRepository.save(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        licensePolicyService.updateEntry("CUSTOM-LIC", LicenseStatus.RESTRICTED);
+
+        org.mockito.Mockito.verify(licensePolicyRepository).save(
+                org.mockito.ArgumentMatchers.argThat(e ->
+                        "CUSTOM-LIC".equals(e.getSpdxId()) && e.getStatus() == LicenseStatus.RESTRICTED));
+    }
 }

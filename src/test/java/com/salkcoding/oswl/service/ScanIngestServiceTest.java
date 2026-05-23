@@ -215,4 +215,41 @@ class ScanIngestServiceTest {
 
         assertThat(result).isSameAs(existing);
     }
+
+    @Test
+    @DisplayName("DependencyPath가 있으면 각 path마다 DependencyPath를 저장한다")
+    void ingest_withDependencyPaths_savesDependencyPaths() {
+        Project project = Project.builder().id(1L).name("P").build();
+        Library library = Library.builder().name("lib").version("1.0").ecosystem("MAVEN")
+                .licenseStatus(LicenseStatus.UNKNOWN).build();
+
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
+        when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(libraryRepository.findByNameAndVersionAndEcosystem("lib", "1.0", "MAVEN"))
+                .thenReturn(Optional.of(library));
+        when(scanComponentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(dependencyPathRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Build a node ref stub
+        ScanPayload.DependencyNodeRef node = mock(ScanPayload.DependencyNodeRef.class);
+        when(node.getName()).thenReturn("root");
+        when(node.getVersion()).thenReturn("1.0");
+
+        ScanPayload.ComponentPayload comp = mock(ScanPayload.ComponentPayload.class);
+        when(comp.getName()).thenReturn("lib");
+        when(comp.getVersion()).thenReturn("1.0");
+        when(comp.getEcosystem()).thenReturn("MAVEN");
+        when(comp.getDependencyInfo()).thenReturn("Direct");
+        when(comp.getDependencyPaths()).thenReturn(List.of(List.of(node)));
+
+        ScanPayload payload = mock(ScanPayload.class);
+        when(payload.getVersion()).thenReturn("1.0");
+        when(payload.getRawJson()).thenReturn("{}");
+        when(payload.getComponents()).thenReturn(List.of(comp));
+
+        scanIngestService.ingest(1L, payload);
+
+        verify(dependencyPathRepository).save(any());
+    }
 }
