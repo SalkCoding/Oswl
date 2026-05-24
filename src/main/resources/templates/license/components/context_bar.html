@@ -19,8 +19,8 @@
             <div class="flex flex-col gap-1 mb-[16px]">
                 <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]" th:text="#{license.context.deployment}">Deployment</span>
                 <div class="relative"
-                     th:attr="data-init-value=${context.deployment}"
-                     x-data="{ open: false, value: '', options: [{ value: 'SAAS', label: 'SaaS / Hosted only' }, { value: 'BINARY', label: 'On-Premise Binary' }, { value: 'LIBRARY', label: 'Library / SDK' }, { value: 'EMBEDDED', label: 'Embedded Device' }], get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
+                     th:attr="data-init-value=${context.deployment}, data-l-saas=#{license.deployment.saas}, data-l-binary=#{license.deployment.binary}, data-l-library=#{license.deployment.library}, data-l-embedded=#{license.deployment.embedded}"
+                     x-data="{ open: false, value: '', get options() { const d = $el.dataset; return [{value:'SAAS',label:d.lSaas},{value:'BINARY',label:d.lBinary},{value:'LIBRARY',label:d.lLibrary},{value:'EMBEDDED',label:d.lEmbedded}]; }, get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
                      x-init="value = $el.dataset.initValue"
                      @click.away="open = false">
                     <input type="hidden" name="deployment" :value="value"/>
@@ -48,8 +48,8 @@
             <div class="flex flex-col gap-1 mb-[16px]">
                 <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]" th:text="#{license.context.linking}">Linking</span>
                 <div class="relative"
-                     th:attr="data-init-value=${context.linking}"
-                     x-data="{ open: false, value: '', options: [{ value: 'DYNAMIC', label: 'Dynamic linking' }, { value: 'STATIC', label: 'Static linking' }], get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
+                     th:attr="data-init-value=${context.linking}, data-l-dynamic=#{license.linking.dynamic}, data-l-static=#{license.linking.static}"
+                     x-data="{ open: false, value: '', get options() { const d = $el.dataset; return [{value:'DYNAMIC',label:d.lDynamic},{value:'STATIC',label:d.lStatic}]; }, get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
                      x-init="value = $el.dataset.initValue"
                      @click.away="open = false">
                     <input type="hidden" name="linking" :value="value"/>

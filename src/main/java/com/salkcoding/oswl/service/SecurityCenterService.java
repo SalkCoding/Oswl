@@ -13,8 +13,11 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -80,6 +83,8 @@ public class SecurityCenterService {
         }
 
         model.addAttribute("projectVersion", scan.getVersion() != null ? scan.getVersion() : "-");
+        model.addAttribute("scannedAt", scan.getScannedAt() != null
+                ? scan.getScannedAt().toLocalDate().toString() : "-");
 
         // Update banner: show when viewing an older scan and a newer completed scan exists
         ScanResult latestCompleted = allScans.get(0);
@@ -138,7 +143,10 @@ public class SecurityCenterService {
             ScanComponent sc = libToSc.get(lib.getId());
             boolean reviewed = sc != null && sc.isReviewed();
             boolean ignored  = sc != null && sc.isIgnored();
+            boolean deferred = sc != null && sc.isDeferred();
             Long componentId = sc != null ? sc.getId() : null;
+            String reviewedByName = sc != null ? sc.getReviewedByName() : null;
+            String deferredByName = sc != null ? sc.getDeferredByName() : null;
 
             // Build dependencyInfo: stored string + "· Projects (N)"
             String depInfo = sc != null ? sc.getDependencyInfo() : null;
@@ -155,7 +163,10 @@ public class SecurityCenterService {
                     .version(lib.getVersion())
                     .dependencyInfo(depInfo)
                     .reviewed(reviewed)
+                    .reviewedByName(reviewedByName)
                     .ignored(ignored)
+                    .deferred(deferred)
+                    .deferredByName(deferredByName)
                     .securityCritical(c)
                     .securityHigh(h)
                     .securityMedium(m)
@@ -185,17 +196,27 @@ public class SecurityCenterService {
 
     @Transactional
     public void bulkUpdateStatus(Long projectId, BulkStatusRequest req) {
+        String reviewerName = resolveCurrentDisplayName();
         List<ScanComponent> comps = scanComponentRepository.findAllByIdInAndProjectId(req.ids(), projectId);
         for (ScanComponent sc : comps) {
-            if (req.reviewed() != null) sc.markReviewed(req.reviewed());
+            if (req.reviewed() != null) sc.markReviewedBy(req.reviewed(), reviewerName);
             if (req.ignored()  != null) sc.markIgnored(req.ignored());
         }
         log.info("[SecurityCenter] bulkUpdateStatus projectId={} ids={} reviewed={} ignored={}",
                 projectId, req.ids(), req.reviewed(), req.ignored());
         auditLogService.log("COMPONENT.BULK_STATUS_UPDATE", "COMPONENT",
                 projectId.toString(),
-                null,
+                "[" + req.ids().size() + " components]",
                 "ids=" + req.ids() + " reviewed=" + req.reviewed() + " ignored=" + req.ignored());
+    }
+
+    /** Returns the display name of the currently authenticated user, or "unknown" if unavailable. */
+    private String resolveCurrentDisplayName() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof OswlUserPrincipal p) {
+            return p.getDisplayName();
+        }
+        return auth != null ? auth.getName() : "unknown";
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@
         <!-- Header -->
         <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0 gap-2">
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0"
-                th:text="${totalObligations} + ' Obligation' + (${totalObligations} != 1 ? 's' : '')">0 Obligations</h2>
+                th:text="${totalObligations} + ' ' + #{license.obligations.heading}">0 Obligations</h2>
             <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
@@ -49,13 +49,13 @@
                      class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
                     <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
                         <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
-                           th:text="${obligation.label}">Obligation Label</p>
+                           th:text="#{|license.obligation.${obligation.key}.label|}">Obligation Label</p>
                         <div th:replace="~{fragments/tags :: license-risk-tag(level=${obligation.riskLevel})}"></div>
                     </div>
                     <div class="flex items-center gap-[6px]">
                         <div class="bg-[var(--grayscale-10)] flex items-center px-3 py-1 rounded-[40px] shrink-0">
                             <span class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap"
-                                  th:text="${#lists.size(obligation.entries)} + ' license' + (${#lists.size(obligation.entries)} != 1 ? 's' : '')">1 license</span>
+                                  th:text="${#lists.size(obligation.entries)} + ' ' + (${#lists.size(obligation.entries) != 1} ? #{license.obligations.licenses} : #{license.obligations.license})">1 license</span>
                         </div>
                         <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px] shrink-0 pointer-events-none transition-transform" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </div>
@@ -67,7 +67,7 @@
 
                     <!-- Obligation description -->
                     <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-relaxed px-6 pt-4 pb-0 m-0"
-                       th:text="${obligation.description}">Description</p>
+                       th:text="#{|license.obligation.${obligation.key}.description|}">Description</p>
 
                     <!-- Clause citation -->
                     <div th:if="${obligation.clauseCitation != null and !#strings.isEmpty(obligation.clauseCitation)}"
@@ -90,7 +90,8 @@
                                     <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                                     </svg>
-                                    <span x-text="copied ? 'Copied!' : 'Copy'">Copy</span>
+                                    <span x-show="!copied" th:text="#{common.copy}">Copy</span>
+                                    <span x-show="copied" x-cloak th:text="#{common.copiedShort}">Copied!</span>
                                 </button>
                             </div>
                             <pre x-ref="snippet" class="text-[11px] text-[var(--grayscale-80)] whitespace-pre-wrap font-mono m-0 leading-snug" th:text="${obligation.noticeTemplate}">notice</pre>
@@ -112,14 +113,14 @@
                                    th:href="${entry.spdxUrl}" target="_blank" rel="noopener"
                                    @click.stop=""
                                    class="inline-flex items-center text-[var(--grayscale-50)] hover:text-black"
-                                   title="View full SPDX license text">
+                                   th:title="#{license.obligations.viewSpdx}">
                                     <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                                     </svg>
                                 </a>
                                 <span th:if="${entry.orChoice}"
                                       class="text-[9px] font-semibold tracking-[0.6px] uppercase bg-[var(--grayscale-5)] text-[var(--grayscale-60)] border border-[var(--grayscale-15)] px-[6px] py-[1px] rounded-[40px]"
-                                      title="License offered as one option in an OR expression — you may comply by selecting any single branch">OR choice</span>
+                                      th:title="#{license.obligations.orChoice.hint}" th:text="#{license.obligations.orChoice}">OR choice</span>
                             </div>
                             <div class="flex items-center gap-[6px]">
                                 <div th:replace="~{fragments/tags :: library-count(count=${#lists.size(entry.libraries)})}"></div>

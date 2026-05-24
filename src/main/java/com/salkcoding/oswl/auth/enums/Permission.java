@@ -15,6 +15,7 @@ public enum Permission {
     SCAN_SUBMIT("Submit Scans"),
     SCAN_VIEW("View Scan Results"),
     SCAN_HISTORY_VIEW("View Scan History"),
+    SCAN_HISTORY_DELETE("Delete Scan History"),
 
     SECURITY_CENTER_VIEW("View Security Center"),
     SECURITY_CENTER_UPDATE_STATUS("Update Vulnerability Status"),

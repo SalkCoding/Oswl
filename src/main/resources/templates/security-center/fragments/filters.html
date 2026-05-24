@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <!-- Filter Sidebar Fragment -->
-<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb] overflow-hidden">
+<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb] overflow-hidden" style="order: 2;">
     <!-- Title -->
     <div class="bg-[#001d35] flex items-center gap-[8px] h-[40px] px-[20px] w-full text-white shrink-0">
         <img th:src="@{/icon/icon-fillter.svg}" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
@@ -14,6 +14,7 @@
 
         <!-- Review Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.reviewStatus}">Review Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.reviewed" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
@@ -38,6 +39,7 @@
 
         <!-- Ignored Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+            <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.ignoreStatus}">Ignore Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer">
                 <input type="checkbox" x-model="filters.ignored" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
@@ -58,7 +60,19 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.nonIgnored}">Non-Ignored</span>
             </label>
+            <label class="flex gap-[8px] items-center cursor-pointer">
+                <input type="checkbox" x-model="filters.deferred" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.deferred ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.deferred ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.deferred}">Deferred</span>
+            </label>
         </div>
+
+
 
         <!-- Security Severity Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">

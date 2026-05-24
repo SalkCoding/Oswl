@@ -4,6 +4,7 @@
 
 <!-- Actions / Search Bar Fragment -->
 <div th:fragment="actions"
+     data-no-print="true"
      class="border-t border-[var(--grayscale-20)] flex flex-col pl-[60px] pr-[240px] py-[20px] w-full bg-white shrink-0 relative">
     <div class="flex items-center gap-[12px] w-full">
         <div class="relative" @click.outside="bulkActionsOpen = false">

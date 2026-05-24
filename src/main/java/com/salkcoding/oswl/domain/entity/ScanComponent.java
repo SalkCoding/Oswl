@@ -74,6 +74,14 @@ public class ScanComponent {
     @Column(name = "deferral_note", columnDefinition = "TEXT")
     private String deferralNote;
 
+    /** Display name of the user who applied this deferral; null = not deferred */
+    @Column(name = "deferred_by_name", length = 100)
+    private String deferredByName;
+
+    /** Display name of the user who last marked this component as reviewed; null = not reviewed */
+    @Column(name = "reviewed_by_name", length = 100)
+    private String reviewedByName;
+
     /**
      * Full dependency path tree from the root to this library.
      * Filled from the CLI payload and empty for scans created by older CLI versions.
@@ -87,6 +95,14 @@ public class ScanComponent {
 
     public void markReviewed(boolean reviewed) {
         this.reviewed = reviewed;
+        if (!reviewed) {
+            this.reviewedByName = null;
+        }
+    }
+
+    public void markReviewedBy(boolean reviewed, String byName) {
+        this.reviewed = reviewed;
+        this.reviewedByName = reviewed ? byName : null;
     }
 
     public void markIgnored(boolean ignored) {
@@ -99,6 +115,25 @@ public class ScanComponent {
         this.deferralExpiresAt = expiresAt;
         this.deferralNote = note;
         this.ignored = true;
+    }
+
+    public void applyDeferral(String reason, LocalDateTime expiresAt, String note, String byName) {
+        this.deferredAt = LocalDateTime.now();
+        this.deferralReason = reason;
+        this.deferralExpiresAt = expiresAt;
+        this.deferralNote = note;
+        this.deferredByName = byName;
+        this.ignored = true;
+    }
+
+    /** Clears a deferred state (called by the expiry scheduler or manual un-defer). */
+    public void clearDeferral() {
+        this.deferredAt = null;
+        this.deferralReason = null;
+        this.deferralExpiresAt = null;
+        this.deferralNote = null;
+        this.deferredByName = null;
+        this.ignored = false;
     }
 
     public boolean isDeferred() {

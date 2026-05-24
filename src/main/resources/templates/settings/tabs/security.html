@@ -243,20 +243,20 @@
     <!-- Toast -->
     <div x-show="toastVisible" x-cloak
          x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-[8px]"
+         x-transition:enter-start="opacity-0 translate-y-2"
          x-transition:enter-end="opacity-100 translate-y-0"
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 translate-y-[8px]"
-         class="fixed bottom-[60px] left-1/2 -translate-x-1/2 z-50
-                bg-gradient-to-r from-[rgba(0,29,53,0.7)] via-[rgba(0,29,53,0.95)] to-[rgba(0,29,53,0.7)]
-                backdrop-blur-[10px] rounded-[100px] pl-[20px] pr-[28px] py-[16px] gap-[16px]
-                flex items-center">
-        <div class="w-[32px] h-[32px] rounded-full bg-[#33D1B7] flex items-center justify-center shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
         </div>
-        <span class="font-medium text-[14px] text-[#d3fcf3] tracking-[-0.14px] leading-[1.3] whitespace-nowrap"
-              x-text="toastMsg"></span>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
     </div>
 
 <script th:inline="javascript">

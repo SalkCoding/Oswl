@@ -80,6 +80,9 @@ const _deferI18n = {
                     })
                 });
                 if (r.ok || r.status === 204) {
+                    window.dispatchEvent(new CustomEvent('component-deferred', {
+                        detail: { id: componentId }
+                    }));
                     this.deferDone = true;
                     setTimeout(() => { this.modal = null; this.deferDone = false; }, 1200);
                 } else {

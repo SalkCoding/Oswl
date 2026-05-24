@@ -30,6 +30,15 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
         return "security-center/index";
     }
 
+    @GetMapping("/print")
+    @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_EXPORT') or hasRole('SYSTEM_ADMIN')")
+    public String print(@PathVariable Long projectId,
+                        @RequestParam(required = false) Long scanId,
+                        Model model) {
+        securityCenterService.populateModel(projectId, scanId, model);
+        return "security-center/print";
+    }
+
     @PatchMapping("/bulk-status")
     @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SYSTEM_ADMIN')")
     @ResponseBody

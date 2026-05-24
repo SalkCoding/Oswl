@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface ScanComponentRepository extends JpaRepository<ScanComponent, Long> {
 
@@ -70,4 +71,13 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
             WHERE sc.library.id = :libraryId
             """)
     List<ScanComponent> findAllByScanResultStatusAndLibraryId(@Param("libraryId") Long libraryId);
+
+    /** All ScanComponents with an expired deferral (for the nightly expiry scheduler) */
+    @Query("""
+            SELECT sc FROM ScanComponent sc
+            WHERE sc.deferredAt IS NOT NULL
+              AND sc.deferralExpiresAt IS NOT NULL
+              AND sc.deferralExpiresAt <= :now
+            """)
+    List<ScanComponent> findExpiredDeferrals(@Param("now") LocalDateTime now);
 }

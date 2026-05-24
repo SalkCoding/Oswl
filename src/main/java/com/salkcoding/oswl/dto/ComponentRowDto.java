@@ -26,8 +26,17 @@ public class ComponentRowDto {
     @Schema(description = "Whether the component has been reviewed", example = "false")
     private final boolean reviewed;
 
+    @Schema(description = "Display name of the user who reviewed this component; null if not reviewed", example = "Alice")
+    private final String reviewedByName;
+
     @Schema(description = "Whether the component has been ignored", example = "false")
     private final boolean ignored;
+
+    @Schema(description = "Whether the component has an active deferral", example = "false")
+    private final boolean deferred;
+
+    @Schema(description = "Display name of the user who deferred this component; null if not deferred", example = "Bob")
+    private final String deferredByName;
 
     @Schema(description = "Number of Critical CVEs", example = "2")
     private final int securityCritical;

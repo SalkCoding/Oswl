@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
@@ -19,6 +20,8 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -119,6 +122,8 @@ public class ComponentDetailService {
         model.addAttribute("deferralNote", sc.getDeferralNote());
         model.addAttribute("deferralExpiresAt", sc.getDeferralExpiresAt() != null
                 ? sc.getDeferralExpiresAt().toLocalDate().toString() : null);
+        model.addAttribute("deferredByName", sc.getDeferredByName());
+        model.addAttribute("reviewedByName", sc.getReviewedByName());
 
         // VCS / PR creation context
         VcsProvider vcsProvider = project.getVcsProvider();
@@ -229,8 +234,9 @@ public class ComponentDetailService {
         LocalDateTime expiresAt = resolveExpiryDate(req.getExpiry(), req.getCustomDate());
         String reasonCode = buildReasonCode(req.getReason(), req.getOtherText());
         String note = req.getPrDescription() != null ? req.getPrDescription().strip() : null;
+        String byName = resolveCurrentDisplayName();
 
-        sc.applyDeferral(reasonCode, expiresAt, note);
+        sc.applyDeferral(reasonCode, expiresAt, note, byName);
 
         String libName = sc.getLibrary().getName();
         String libVer  = sc.getLibrary().getVersion() != null ? sc.getLibrary().getVersion() : "-";
@@ -243,7 +249,7 @@ public class ComponentDetailService {
             List<ScanComponent> allForLib = scanComponentRepository
                     .findAllByScanResultStatusAndLibraryId(sc.getLibrary().getId());
             for (ScanComponent other : allForLib) {
-                other.applyDeferral(reasonCode, expiresAt, note);
+                other.applyDeferral(reasonCode, expiresAt, note, byName);
             }
             auditLogService.log("COMPONENT.DEFER_ALL", "LIBRARY",
                     sc.getLibrary().getId().toString(), libName + " " + libVer, detail);
@@ -270,6 +276,15 @@ public class ComponentDetailService {
             }
             default -> null;
         };
+    }
+
+    /** Returns the display name of the currently authenticated user, or "unknown" if unavailable. */
+    private String resolveCurrentDisplayName() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof OswlUserPrincipal p) {
+            return p.getDisplayName();
+        }
+        return auth != null ? auth.getName() : "unknown";
     }
 
     private String buildReasonCode(String reason, String otherText) {
