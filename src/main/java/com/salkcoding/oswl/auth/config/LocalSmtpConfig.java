@@ -69,12 +69,18 @@ public class LocalSmtpConfig implements ApplicationRunner {
 
     /**
      * Patches security_settings to point at GreenMail after the Spring context has fully started.
-     * This allows Email OTP to be enabled without re-entering SMTP details in the Settings UI each time.
+     * Skipped if an external SMTP host is already configured (allows testing real SMTP in local profile).
      */
     @Override
     public void run(ApplicationArguments args) {
         SecuritySetting s = settingRepository.findById(1L)
                 .orElseGet(() -> SecuritySetting.builder().id(1L).build());
+
+        String existingHost = s.getMailHost();
+        if (existingHost != null && !existingHost.isBlank() && !existingHost.equals("localhost")) {
+            log.info("[LocalSMTP] External SMTP host '{}' already configured — skipping GreenMail patch.", existingHost);
+            return;
+        }
 
         s.setMailMode(MailMode.SMTP);
         s.setMailHost("localhost");

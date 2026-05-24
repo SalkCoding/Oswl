@@ -48,6 +48,9 @@ function quickImportPage() {
         /* ── Copy feedback ───────────────────────── */
         keyCopied: false,
 
+        /* ── Background scan watcher ─────────────── */
+        _scanWatcher: null,
+
 
         /* ─────────────────────────────────────────── */
 
@@ -248,6 +251,8 @@ function quickImportPage() {
                 // Signal projects page to reload so the new card appears.
                 if (job.phase === 'DONE') {
                     try { localStorage.setItem('oswl-qi-done', '1'); } catch (_) {}
+                    // Refresh the background project cards immediately, then watch scan completion.
+                    this._refreshBackground(job.projectId);
                 }
             }
         },
@@ -367,6 +372,31 @@ function quickImportPage() {
             }
         },
 
+        /**
+         * Refreshes the project card list in the background and subscribes to the
+         * SSE scan-status stream so the card updates automatically once the scan
+         * moves to a terminal state (COMPLETED / FAILED).
+         */
+        _refreshBackground(projectId) {
+            if (typeof window.refreshProjectCards === 'function') {
+                window.refreshProjectCards();
+            }
+            if (!projectId) return;
+            if (this._scanWatcher) { this._scanWatcher.close(); this._scanWatcher = null; }
+            try {
+                const es = new EventSource('/projects/scan-status/stream?ids=' + projectId);
+                this._scanWatcher = es;
+                es.addEventListener('scan-update', () => {
+                    es.close();
+                    this._scanWatcher = null;
+                    if (typeof window.refreshProjectCards === 'function') {
+                        window.refreshProjectCards();
+                    }
+                });
+                es.onerror = () => { es.close(); this._scanWatcher = null; };
+            } catch (_) {}
+        },
+
         async copyApiKey() {
             const key = this.jobResult && this.jobResult.apiToken;
             if (!key) return;
@@ -381,6 +411,7 @@ function quickImportPage() {
 
         resetForm() {
             this._stopPolling();
+            if (this._scanWatcher) { this._scanWatcher.close(); this._scanWatcher = null; }
             this.repoUrl       = '';
             this.branch        = '';
             this.urlError      = '';

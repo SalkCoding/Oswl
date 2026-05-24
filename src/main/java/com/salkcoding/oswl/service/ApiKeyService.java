@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
@@ -28,6 +29,7 @@ public class ApiKeyService {
 
     private final ApiKeyRepository apiKeyRepository;
     private final ProjectRepository projectRepository;
+    private final AuditLogService auditLogService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     /** Issues a new API key. */
@@ -47,6 +49,10 @@ public class ApiKeyService {
 
         ApiKey saved = apiKeyRepository.save(apiKey);
         log.info("[ApiKey] Issued projectId={} label={} keyId={}", projectId, label, saved.getId());
+        auditLogService.log("CLI_KEY.PROJECT_CREATE", "API_KEY",
+                saved.getId().toString(),
+                label != null ? label : "-",
+                "projectId=" + projectId);
         return saved;
     }
 
@@ -73,6 +79,10 @@ public class ApiKeyService {
             throw new IllegalArgumentException("Key does not belong to project " + projectId + ".");
         }
         key.revoke();
+        auditLogService.log("CLI_KEY.PROJECT_REVOKE", "API_KEY",
+                keyId.toString(),
+                key.getLabel() != null ? key.getLabel() : "-",
+                "projectId=" + projectId);
     }
 
     @Transactional(readOnly = true)

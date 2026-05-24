@@ -59,19 +59,19 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
-                         x-init="$watch('forms.OPENAI.modelName', v => modelSearch = v || ''); modelSearch = forms.OPENAI.modelName || ''"
-                         @click.away="open=false">
+                         x-init="$watch('forms.OPENAI.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.OPENAI.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.OPENAI.modelName || ''">
                         <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
                              :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
-                             @click="open=true; $nextTick(()=>$refs.openaiModelInput.focus())">
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.openaiModelInput.focus())">
                             <input type="text" x-ref="openaiModelInput"
                                    x-model="modelSearch"
                                    @input="forms.OPENAI.modelName = modelSearch; open = true"
                                    @focus="open = true"
-                                   @keydown.escape="open=false"
+                                   @keydown.escape="open=false; modelSearch = forms.OPENAI.modelName || ''"
                                    placeholder="e.g. gpt-4o"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.openaiModelInput.focus())"
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.openaiModelInput.focus())}else{modelSearch=forms.OPENAI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
@@ -112,19 +112,19 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
-                         x-init="$watch('forms.ANTHROPIC.modelName', v => modelSearch = v || ''); modelSearch = forms.ANTHROPIC.modelName || ''"
-                         @click.away="open=false">
+                         x-init="$watch('forms.ANTHROPIC.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.ANTHROPIC.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.ANTHROPIC.modelName || ''">
                         <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
                              :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
-                             @click="open=true; $nextTick(()=>$refs.anthropicModelInput.focus())">
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.anthropicModelInput.focus())">
                             <input type="text" x-ref="anthropicModelInput"
                                    x-model="modelSearch"
                                    @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
                                    @focus="open = true"
-                                   @keydown.escape="open=false"
+                                   @keydown.escape="open=false; modelSearch = forms.ANTHROPIC.modelName || ''"
                                    placeholder="e.g. claude-sonnet-4-6"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.anthropicModelInput.focus())"
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.anthropicModelInput.focus())}else{modelSearch=forms.ANTHROPIC.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
@@ -165,19 +165,19 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
-                         x-init="$watch('forms.GEMINI.modelName', v => modelSearch = v || ''); modelSearch = forms.GEMINI.modelName || ''"
-                         @click.away="open=false">
+                         x-init="$watch('forms.GEMINI.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.GEMINI.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.GEMINI.modelName || ''">
                         <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
                              :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
-                             @click="open=true; $nextTick(()=>$refs.geminiModelInput.focus())">
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.geminiModelInput.focus())">
                             <input type="text" x-ref="geminiModelInput"
                                    x-model="modelSearch"
                                    @input="forms.GEMINI.modelName = modelSearch; open = true"
                                    @focus="open = true"
-                                   @keydown.escape="open=false"
+                                   @keydown.escape="open=false; modelSearch = forms.GEMINI.modelName || ''"
                                    placeholder="e.g. gemini-2.5-flash"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.geminiModelInput.focus())"
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.geminiModelInput.focus())}else{modelSearch=forms.GEMINI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
@@ -218,19 +218,19 @@
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]"
                          x-data="{ open: false, modelSearch: '' }"
-                         x-init="$watch('forms.COPILOT.modelName', v => modelSearch = v || ''); modelSearch = forms.COPILOT.modelName || ''"
-                         @click.away="open=false">
+                         x-init="$watch('forms.COPILOT.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.COPILOT.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.COPILOT.modelName || ''">
                         <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
                              :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
-                             @click="open=true; $nextTick(()=>$refs.copilotModelInput.focus())">
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.copilotModelInput.focus())">
                             <input type="text" x-ref="copilotModelInput"
                                    x-model="modelSearch"
                                    @input="forms.COPILOT.modelName = modelSearch; open = true"
                                    @focus="open = true"
-                                   @keydown.escape="open=false"
+                                   @keydown.escape="open=false; modelSearch = forms.COPILOT.modelName || ''"
                                    placeholder="e.g. gpt-4o"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.copilotModelInput.focus())"
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.copilotModelInput.focus())}else{modelSearch=forms.COPILOT.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
@@ -270,18 +270,18 @@
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
                     <div class="relative flex-1 max-w-[400px]" x-data="{ open: false, localSearch: '' }"
-                         x-init="localSearch = forms.LOCAL.modelName || ''" @click.away="open=false">
+                         x-init="$watch('forms.LOCAL.modelName', v => { if (!open) localSearch = v || '' }); localSearch = forms.LOCAL.modelName || ''" @click.away="open=false; localSearch = forms.LOCAL.modelName || ''">
                         <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
                              :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
-                             @click="open=true; $nextTick(()=>$refs.localModelInput.focus())">
+                             @click="open=true; localSearch=''; $nextTick(()=>$refs.localModelInput.focus())">
                             <input type="text" x-ref="localModelInput"
                                    x-model="localSearch"
                                    @input="forms.LOCAL.modelName = localSearch; open = true"
                                    @focus="open = true"
-                                   @keydown.escape="open=false"
+                                   @keydown.escape="open=false; localSearch = forms.LOCAL.modelName || ''"
                                    placeholder="e.g. llama3.3"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; $nextTick(()=>$refs.localModelInput.focus())"
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){localSearch='';$nextTick(()=>$refs.localModelInput.focus())}else{localSearch=forms.LOCAL.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
@@ -325,25 +325,23 @@
 
     </div>
 
-    <!-- ── Toast (Figma-exact) ── -->
+    <!-- ── Toast ── -->
     <div x-show="toastVisible" x-cloak
          x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-[8px]"
+         x-transition:enter-start="opacity-0 translate-y-2"
          x-transition:enter-end="opacity-100 translate-y-0"
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 translate-y-[8px]"
-         class="fixed bottom-[60px] left-1/2 -translate-x-1/2 z-50
-                bg-gradient-to-r from-[rgba(0,29,53,0.7)] via-[rgba(0,29,53,0.95)] to-[rgba(0,29,53,0.7)]
-                backdrop-blur-[10px] rounded-[100px] pl-[20px] pr-[28px] py-[16px] gap-[16px]
-                flex items-center">
-        <div class="w-[32px] h-[32px] rounded-full bg-[#33D1B7] flex items-center justify-center shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
             </svg>
         </div>
-        <span class="font-medium text-[14px] text-[#d3fcf3] tracking-[-0.14px] leading-[1.3] whitespace-nowrap"
-              x-text="toastMsg"></span>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
     </div>
 
     <script th:inline="javascript">

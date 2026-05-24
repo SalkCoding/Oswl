@@ -72,7 +72,9 @@
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
                                   placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
                     <button type="button" tabindex="-1" @click="showPwd = !showPwd"
-                            :aria-label="showPwd ? 'Hide password' : 'Show password'"
+                            :aria-label="showPwd ? $el.dataset.hide : $el.dataset.show"
+                            th:data-hide="#{auth.login.hide.password}"
+                            th:data-show="#{auth.login.show.password}"
                             class="shrink-0 w-[17px] h-[17px] flex items-center justify-center text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] transition-colors">
                         <svg x-show="!showPwd" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>

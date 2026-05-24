@@ -28,6 +28,15 @@ public class ScanPayload {
     @Setter
     private String rawJson;
 
+    /** Programmatic factory — avoids reflection when building payloads inside the service layer. */
+    public static ScanPayload create(String version, List<ComponentPayload> components) {
+        ScanPayload p = new ScanPayload();
+        p.version    = version;
+        p.components = components;
+        p.rawJson    = "{}";
+        return p;
+    }
+
     /**
      * Submitter email — required for all CLI scans.
      * Used for authentication, attribution, and audit logging.
@@ -91,6 +100,19 @@ public class ScanPayload {
          */
         @Schema(description = "Dependency path trees — each inner list is one path from root to this library")
         private List<List<DependencyNodeRef>> dependencyPaths;
+
+        /** Programmatic factory — avoids reflection when building payloads inside the service layer. */
+        public static ComponentPayload create(String name, String version, String ecosystem,
+                                              String dependencyInfo,
+                                              List<List<DependencyNodeRef>> dependencyPaths) {
+            ComponentPayload c = new ComponentPayload();
+            c.name            = name;
+            c.version         = version;
+            c.ecosystem       = ecosystem;
+            c.dependencyInfo  = dependencyInfo;
+            c.dependencyPaths = dependencyPaths;
+            return c;
+        }
     }
 
     /**
@@ -106,6 +128,14 @@ public class ScanPayload {
 
         @Schema(description = "Package version", example = "6.0.0")
         private String version;
+
+        /** Programmatic factory — avoids reflection when building payloads inside the service layer. */
+        public static DependencyNodeRef create(String name, String version) {
+            DependencyNodeRef ref = new DependencyNodeRef();
+            ref.name    = name;
+            ref.version = version;
+            return ref;
+        }
     }
 
     /**

@@ -111,57 +111,116 @@ public class VcsTokenValidator {
     }
 
     private void validateBitbucketCloud(String tokenOrAppPassword, String username) {
-        boolean hasUsername = username != null && !username.isBlank();
-        // App password → Basic auth (username required).
-        // HTTP access token (ATATT, entity scope) → Bearer auth (no username).
-        // NOTE: /2.0/user requires user-level auth and returns 403 for entity-scope tokens.
-        // In token-only mode, verify through /2.0/workspaces.
-        String authHeader = hasUsername
-                ? "Basic " + Base64.getEncoder().encodeToString((username + ":" + tokenOrAppPassword).getBytes())
-                : "Bearer " + tokenOrAppPassword;
+        // Bitbucket Cloud auth (per Atlassian official docs, 2026):
+        //
+        //   ATATT (Atlassian API Token, id.atlassian.com)
+        //     → Basic auth, username MUST be the Atlassian email (RFC-2617).
+        //     → Cannot use workspace slug as username — returns 401.
+        //     → Validate via /2.0/user/permissions/workspaces (works with read:workspace:bitbucket scope).
+        //
+        //   ATATT (Workspace/Project/Repository HTTP Access Token)
+        //     → Bearer auth only. Username field is informational (workspace slug for URL routing).
+        //     → Validate via /2.0/workspaces or /2.0/repositories/{slug}.
+        //
+        //   ATBB (App Password) — DEPRECATED 2026-06-09.
+        //     → Basic auth, username = Bitbucket account ID.
+        boolean isAtatt  = tokenOrAppPassword != null && tokenOrAppPassword.startsWith("ATATT");
+        boolean hasEmail = username != null && username.contains("@");
+        boolean hasSlug  = username != null && !username.isBlank() && !username.contains("@");
+
         RestClient client = RestClient.builder()
                 .baseUrl("https://api.bitbucket.org")
                 .build();
         try {
-            if (hasUsername) {
-                // Basic-auth app password — verify via the user endpoint.
-                client.get().uri("/2.0/user")
-                        .header("Authorization", authHeader)
-                        .retrieve()
-                        .toBodilessEntity();
-            } else {
-                // Bearer token (ATATT) — entity-scope tokens cannot call /2.0/user.
-                // Verify via /2.0/workspaces; 403 means the token is valid but
-                // limited to a narrower scope than workspace level (project/repo token), so allow with a warning.
+            if (isAtatt && hasEmail) {
+                // Atlassian API Token — Basic auth (email:token).
+                String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
+                        (username + ":" + tokenOrAppPassword).getBytes());
                 try {
-                    client.get().uri("/2.0/workspaces?pagelen=1")
-                            .header("Authorization", authHeader)
+                    // /2.0/user/permissions/workspaces requires only read:workspace:bitbucket
+                    // (does NOT require read:account that /2.0/user demands).
+                    client.get().uri("/2.0/user/permissions/workspaces?pagelen=1")
+                            .header("Authorization", basicHeader)
                             .retrieve()
                             .toBodilessEntity();
                 } catch (HttpClientErrorException e) {
-                    if (e.getStatusCode().value() == 403) {
-                        log.warn("[VcsTokenValidator] Bitbucket HTTP access token is valid but lacks workspace scope (HTTP 403). Saving the connection.");
-                        return;
-                    }
-                    if (e.getStatusCode().value() == 401) {
-                        // Bearer auth failure (401) on /2.0/workspaces may indicate a user-level API token
-                        // (replacement for App Passwords). Prompt for username input.
+                    int s = e.getStatusCode().value();
+                    if (s == 401) {
                         throw new IllegalStateException(
-                                "The token is invalid or requires Basic authentication. " +
-                                "If this is a Bitbucket API token (replacement for App Passwords), also enter the Bitbucket username.");
+                                "Bitbucket authentication failed with the Atlassian API Token. " +
+                                "Verify the email is correct and the token (id.atlassian.com > Security > API tokens) " +
+                                "has these scopes: read:workspace:bitbucket and read:repository:bitbucket.");
                     }
-                    throw e;
+                    // 403/404/410 = valid token but limited scope — accept and let listing handle it.
+                    log.warn("[VcsTokenValidator] Bitbucket API Token: /user/permissions/workspaces returned HTTP {} — accepting.", s);
                 }
+            } else if (isAtatt && hasSlug) {
+                // Slug + ATATT: must be a Workspace/Project/Repository HTTP Access Token (Bearer).
+                // (API tokens cannot Basic-auth with a slug — username must be the email.)
+                String bearerHeader = "Bearer " + tokenOrAppPassword;
+                try {
+                    client.get().uri("/2.0/repositories/" + username + "?pagelen=1")
+                            .header("Authorization", bearerHeader)
+                            .retrieve()
+                            .toBodilessEntity();
+                } catch (HttpClientErrorException e) {
+                    int s = e.getStatusCode().value();
+                    if (s == 401) {
+                        throw new IllegalStateException(
+                                "Bitbucket authentication failed. The workspace slug + ATATT combination " +
+                                "only works for a Workspace HTTP Access Token (Bitbucket workspace settings > " +
+                                "Access management > Access tokens). " +
+                                "If this is an Atlassian API Token (id.atlassian.com), enter your Atlassian " +
+                                "account email in the Username field instead of the workspace slug.");
+                    }
+                    if (s == 404) {
+                        throw new IllegalStateException(
+                                "Workspace '" + username + "' was not found or the token cannot access it. " +
+                                "Verify the slug at bitbucket.org/" + username + "/ and that the access token is scoped to this workspace.");
+                    }
+                    log.warn("[VcsTokenValidator] Bitbucket Workspace Access Token: /repositories/{} returned HTTP {} — accepting.", username, s);
+                }
+            } else if (isAtatt) {
+                // ATATT with no username → Workspace HTTP Access Token only (Bearer).
+                String bearerHeader = "Bearer " + tokenOrAppPassword;
+                try {
+                    client.get().uri("/2.0/workspaces?pagelen=1")
+                            .header("Authorization", bearerHeader)
+                            .retrieve()
+                            .toBodilessEntity();
+                } catch (HttpClientErrorException e) {
+                    int s = e.getStatusCode().value();
+                    if (s == 401) {
+                        throw new IllegalStateException(
+                                "The Bitbucket HTTP Access Token is invalid or expired. " +
+                                "For an Atlassian API Token, enter your Atlassian email in the Username field. " +
+                                "For a Workspace HTTP Access Token, also enter the workspace slug in the Username field.");
+                    }
+                    log.warn("[VcsTokenValidator] Bitbucket Workspace Access Token: /workspaces returned HTTP {} — accepting (limited scope).", s);
+                }
+            } else {
+                // App Password (ATBB) — Basic auth.
+                if (username == null || username.isBlank()) {
+                    throw new IllegalStateException(
+                            "Bitbucket App Password requires a username (your Bitbucket account ID). " +
+                            "App Passwords are deprecated — migrate to an Atlassian API Token.");
+                }
+                String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
+                        (username + ":" + tokenOrAppPassword).getBytes());
+                client.get().uri("/2.0/user")
+                        .header("Authorization", basicHeader)
+                        .retrieve()
+                        .toBodilessEntity();
             }
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
                 throw new IllegalStateException("Bitbucket credentials are invalid or lack the required permissions.");
             }
-            throw new IllegalStateException("Bitbucket error response: " + status);
+            throw new IllegalStateException("Bitbucket returned HTTP " + status);
         } catch (RestClientException e) {
             log.warn("[VcsTokenValidator] Bitbucket Cloud is unreachable: {}", e.getMessage());
-            throw new IllegalStateException("Unable to connect to Bitbucket to verify credentials. Please try again.");
+            throw new IllegalStateException("Unable to connect to Bitbucket. Check your network and try again.");
         }
     }
 
