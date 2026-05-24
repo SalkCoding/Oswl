@@ -7,7 +7,6 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.*;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
-import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.DeferralRequest;

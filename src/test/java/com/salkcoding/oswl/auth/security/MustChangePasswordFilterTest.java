@@ -1,7 +1,6 @@
 package com.salkcoding.oswl.auth.security;
 
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,8 +14,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.List;
 import java.util.Set;
 

@@ -5,7 +5,6 @@ import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
-import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

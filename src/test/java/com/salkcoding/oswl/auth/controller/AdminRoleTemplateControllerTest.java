@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +40,7 @@ class AdminRoleTemplateControllerTest {
     @Test
     @DisplayName("allPermissions: returns all Permission enum entries as maps")
     void allPermissions_returnsPermissionList() {
-        List<Map<String, String>> result = controller.allPermissions();
+        List<Map<String, String>> result = controller.allPermissions(Locale.ENGLISH);
 
         assertThat(result).hasSizeGreaterThan(0);
         // Each entry has 'code' and 'description'

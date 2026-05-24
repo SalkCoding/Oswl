@@ -28,11 +28,6 @@ class SecuritySettingsControllerTest {
 
     @InjectMocks SecuritySettingsController controller;
 
-    private SecuritySettingResponse sampleResponse() {
-        SecuritySetting entity = new SecuritySetting();
-        return securitySettingService.toResponse(entity);
-    }
-
     // -- GET --
 
     @Test

@@ -1,20 +1,32 @@
 package com.salkcoding.oswl.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.ModelAndView;
 
+import java.util.Locale;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("GlobalExceptionHandler 단위 테스트")
 class GlobalExceptionHandlerTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    @Mock MessageSource messageSource;
+
+    @InjectMocks GlobalExceptionHandler handler;
 
     // ── handleNotFound ───────────────────────────────────────────────────────
 
@@ -108,8 +120,14 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleUnexpected: error/500 뷰를 반환한다")
     void handleUnexpected_returnsErrorView() {
-        String view = handler.handleUnexpected(new RuntimeException("crash"));
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(request.getHeader("Accept")).thenReturn("text/html");
+        when(messageSource.getMessage(anyString(), isNull(), any(Locale.class))).thenReturn("error");
 
-        assertThat(view).isEqualTo("error/500");
+        Object result = handler.handleUnexpected(new RuntimeException("crash"), request, response, Locale.ENGLISH);
+
+        assertThat(result).isInstanceOf(ModelAndView.class);
+        assertThat(((ModelAndView) result).getViewName()).isEqualTo("error/500");
     }
 }

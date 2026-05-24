@@ -8,7 +8,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 
 import java.util.List;
@@ -24,7 +23,6 @@ class LoginIpCaptureListenerTest {
     @InjectMocks LoginIpCaptureListener listener;
 
     private AuthenticationSuccessEvent eventWithDetails(String email, Object details) {
-        Authentication auth = new UsernamePasswordAuthenticationToken(email, null, List.of());
         UsernamePasswordAuthenticationToken token =
                 new UsernamePasswordAuthenticationToken(email, null, List.of());
         token.setDetails(details);

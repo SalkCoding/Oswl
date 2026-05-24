@@ -5,7 +5,6 @@ import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.service.ComponentDetailService;
 import com.salkcoding.oswl.service.SessionCipherService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
