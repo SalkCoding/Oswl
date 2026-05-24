@@ -13,7 +13,7 @@ class HomeControllerTest {
     @Test
     @DisplayName("home: /login으로 리다이렉트한다")
     void home_redirectsToLogin() {
-        String view = controller.home();
+        String view = controller.home(null);
 
         assertThat(view).isEqualTo("redirect:/login");
     }

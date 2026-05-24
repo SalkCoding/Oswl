@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle != null ? 'OsWL - ' + pageTitle : 'OsWL'}">OsWL</title>
 
-    <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
+    <link rel="icon" th:href="@{/graphic/symbol_w.svg}" type="image/svg+xml" media="(prefers-color-scheme: light)">
+    <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS — precompiled by the buildTailwindCss Gradle task (no CDN runtime). -->

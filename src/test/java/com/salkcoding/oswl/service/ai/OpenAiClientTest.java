@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
@@ -115,6 +114,7 @@ class OpenAiClientTest {
     // ── resolveUrl ────────────────────────────────────────────────────────
 
     @Test
+    @SuppressWarnings("unchecked")
     @DisplayName("resolveUrl: baseUrl이 없으면 기본 OpenAI URL을 사용한다")
     void resolveUrl_noBaseUrl_usesDefault() {
         stubResponse("ok");
@@ -127,6 +127,7 @@ class OpenAiClientTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     @DisplayName("resolveUrl: baseUrl이 /chat/completions으로 끝나면 그대로 사용한다")
     void resolveUrl_baseUrlEndsWithChatCompletions_usesAsIs() {
         stubResponse("ok");
@@ -138,6 +139,7 @@ class OpenAiClientTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     @DisplayName("resolveUrl: baseUrl이 /chat/completions 없으면 suffix를 붙인다")
     void resolveUrl_baseUrlWithoutSuffix_appendsSuffix() {
         stubResponse("ok");
@@ -154,7 +156,6 @@ class OpenAiClientTest {
 
     @Test
     @DisplayName("resolveModel: modelName이 설정되면 해당 모델을 body에 포함한다")
-    @SuppressWarnings("unchecked")
     void resolveModel_customModelName_isUsedInBody() {
         stubResponse("ok");
         // We verify by checking the request body is constructed (no exception from model resolution)
