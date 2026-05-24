@@ -16,6 +16,7 @@ spring:
 
 server:
   port: 8080
+  address: 0.0.0.0   # bind to IPv4 only (avoids ::1 / IPv6 loopback in logs)
 
 oswl:
   encryption:
@@ -38,19 +39,3 @@ oswl:
     # Audit log records older than this many months are automatically deleted
     retention-months: ${OSWL_AUDIT_RETENTION_MONTHS:6}
 
-## AI settings (can be overridden by AiSetting stored in DB)
-## Inject via environment variable at startup, or configure via PUT /api/settings/ai in the UI
-#oswl:
-#  ai:
-#    # Default active provider: OPENAI | ANTHROPIC | LOCAL
-#    default-provider: ${OSWL_AI_PROVIDER:LOCAL}
-#    openai:
-#      api-key: ${OPENAI_API_KEY:}
-#      model: ${OPENAI_MODEL:gpt-4o-mini}
-#    anthropic:
-#      api-key: ${ANTHROPIC_API_KEY:}
-#      model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
-#    local:
-#      # Ollama or any OpenAI-compatible local LLM endpoint
-#      base-url: ${LOCAL_LLM_URL:http://localhost:11434/v1}
-#      model: ${LOCAL_LLM_MODEL:llama3}
