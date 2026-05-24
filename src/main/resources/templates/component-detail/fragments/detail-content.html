@@ -114,6 +114,30 @@
         </div>
     </section>
 
+    <!-- Deferral Banner -->
+    <div th:if="${isDeferred}"
+         class="mx-[40px] mt-[20px] bg-[rgba(245,189,38,0.07)] border border-[rgba(245,189,38,0.3)] rounded-[10px] px-[20px] py-[14px] flex items-start gap-[12px]">
+        <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px] shrink-0 mt-[1px] opacity-70" alt="" aria-hidden="true">
+        <div class="flex flex-col gap-[4px] flex-1 min-w-0">
+            <p class="font-bold text-[13px] text-[var(--semantic-caution)] tracking-[-0.13px]"
+               th:text="#{componentDetail.defer.banner.title}">Deferred</p>
+            <p class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                <span class="font-semibold" th:text="#{componentDetail.defer.banner.reason}">Reason</span>:
+                <span th:text="${deferredReason}">legal-review</span>
+                <th:block th:if="${deferralExpiresAt != null}">
+                    &nbsp;·&nbsp;<span class="font-semibold" th:text="#{componentDetail.defer.banner.expiresAt}">Expires</span>:
+                    <span th:text="${deferralExpiresAt}">2026-07-01</span>
+                </th:block>
+                <th:block th:if="${deferralExpiresAt == null}">
+                    &nbsp;·&nbsp;<span th:text="#{componentDetail.defer.banner.indefinite}">Indefinite</span>
+                </th:block>
+            </p>
+            <p th:if="${deferralNote != null and !#strings.isEmpty(deferralNote)}"
+               class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] italic"
+               th:text="${deferralNote}"></p>
+        </div>
+    </div>
+
     <!-- AI Recommendation -->
     <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
         <div class="flex items-center gap-[8px] mb-[14px]">
