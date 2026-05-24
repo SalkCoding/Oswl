@@ -84,7 +84,7 @@ public class QuickImportController {
      */
     @PostMapping("/api/quick-import/start")
     @ResponseBody
-    @PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<Map<String, String>> start(
             @Valid @RequestBody QuickImportRequest request,
             @AuthenticationPrincipal OswlUserPrincipal principal) {

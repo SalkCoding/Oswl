@@ -3,29 +3,70 @@
 <head th:replace="~{fragments/head :: head(#{securityCenter.pageTitle})}"></head>
 <style>
 @media print {
-    /* Hide navigation, filter panel, controls */
-    header, aside, .export-controls,
+    /* ── 숨길 UI 요소 ─────────────────────────────── */
+    header,
+    aside,
+    [data-no-print],
     [x-show="componentPanelOpen"],
     [x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"],
     [x-show="bulkActionsOpen"],
     [x-show="exportOpen"] { display: none !important; }
-    /* Show the scan banner area minimally */
-    body { overflow: visible !important; height: auto !important; background: white !important; }
-    main { overflow: visible !important; }
-    /* Make the table fill the page */
-    .flex-1.overflow-x-auto.overflow-y-auto { overflow: visible !important; }
-    /* Remove shadows and rounded corners for print */
+
+    /* ── 레이아웃 플렉스 → 블록으로 변환 (스크롤 컨테이너 제약 해제) ── */
+    body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+    }
+    main {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    main > section {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    main > section > div {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* ── 스크롤 컨테이너 완전 해제 ─────────────────── */
+    .overflow-x-auto,
+    .overflow-y-auto,
+    .custom-scrollbar {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    /* ── sticky 헤더 정적 배치로 변경 ──────────────── */
+    .sticky { position: static !important; }
+
+    /* ── 테이블 행은 flex 유지 (열 정렬) ──────────── */
+    a[data-comp-id] {
+        display: flex !important;
+        page-break-inside: avoid;
+    }
+
+    /* ── 그림자 제거 ────────────────────────────────── */
     * { box-shadow: none !important; }
-    /* Page breaks */
-    a[data-comp-id] { page-break-inside: avoid; }
-    /* Ensure action rows (bulk-actions, search bar) are hidden */
-    section:has(input[x-model="searchQuery"]) { display: none !important; }
+}
+
+/* ── 체크박스 선택 행 하이라이트 ──────────────────────── */
+.component-row:has(input[name="selectedComponent"]:checked):not(.bg-\[\#e5faf5\]) {
+    background-color: #d3fcf3;
 }
 </style>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative"
       th:data-project-id="${projectId}"
       x-data="{
           componentPanelOpen: false,
+          activeCompId: null,
           searchQuery: '',
           bulkActionsOpen: false,
           exportOpen: false,
@@ -35,7 +76,8 @@
               reviewed: false,
               nonReviewed: false,
               ignored: false,
-              nonIgnored: false,
+              nonIgnored: true,
+              deferred: false,
               secCritical: false,
               secHigh: false,
               secMedium: false,
@@ -56,6 +98,9 @@
           latestScanId: /*[[${latestScanId}]]*/ null,
           scanPollTimer: null,
           rowVisible(el) {
+              // Track filterVersion so that manual DOM attribute updates (ignored, deferred)
+              // trigger re-evaluation of this function via filterVersion++.
+              void this.filterVersion;
               const f = this.filters;
               const q = this.searchQuery.trim().toLowerCase();
               const anyFilter = Object.values(f).some(v => v);
@@ -73,11 +118,17 @@
                   if (!f.reviewed && f.nonReviewed && rev) return false;
               }
 
-              // Ignored / non-ignored
-              if (f.ignored || f.nonIgnored) {
+              // Ignore Status group: Ignored / Non-Ignored / Deferred are OR'd together.
+              // Deferred items only match the Deferred filter (not Ignored/NonIgnored).
+              // Non-deferred items only match Ignored/NonIgnored (not Deferred).
+              const isDef = el.dataset.deferred === 'true';
+              const anyIgnoreStatusFilter = f.ignored || f.nonIgnored || f.deferred;
+              if (anyIgnoreStatusFilter) {
                   const ign = el.dataset.ignored === 'true';
-                  if (f.ignored && !f.nonIgnored && !ign) return false;
-                  if (!f.ignored && f.nonIgnored && ign) return false;
+                  const matchDeferred   = f.deferred   &&  isDef;
+                  const matchIgnored    = f.ignored    &&  ign  && !isDef;
+                  const matchNonIgnored = f.nonIgnored && !ign  && !isDef;
+                  if (!matchDeferred && !matchIgnored && !matchNonIgnored) return false;
               }
 
               // Security severity filters — if any active, row must match at least one active
@@ -192,12 +243,15 @@
           },
           exportAs(format) {
               this.exportOpen = false;
+              const projectId = document.body.dataset.projectId;
               if (format === 'pdf') {
-                  window.print();
+                  let url = '/projects/' + projectId + '/security-center/print';
+                  const scanId = new URLSearchParams(window.location.search).get('scanId');
+                  if (scanId) url += '?scanId=' + scanId;
+                  window.open(url, '_blank');
                   return;
               }
               // CSV download
-              const projectId = document.body.dataset.projectId;
               let url = '/projects/' + projectId + '/security-center/export?format=csv';
               if (this.latestScanId) url += '&scanId=' + this.latestScanId;
               window.location.href = url;
@@ -263,7 +317,7 @@
             </div>
 
             <!-- AI security posture insight -->
-            <div th:if="${securityPostureInsight != null}"
+            <div th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}"
                  class="mb-[24px] flex items-start gap-[8px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
                 <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
                 <p class="text-[14px] text-[#272D30] tracking-[-0.15px] m-0 leading-relaxed"
@@ -282,10 +336,10 @@
             <div th:replace="~{security-center/fragments/actions :: actions}"></div>
 
             <div class="flex flex-1 min-h-0">
-                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none;">
+                <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>
+                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none; order: 1;">
                     <div th:replace="~{security-center/fragments/table :: table}"></div>
                 </div>
-                <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>
             </div>
         </section>
 
@@ -312,8 +366,8 @@
          x-transition:leave-start="translate-x-0"
          x-transition:leave-end="translate-x-full"
          class="fixed top-0 right-0 h-screen w-full max-w-[920px] z-[110] bg-white shadow-2xl flex flex-col"
-         @open-component-panel.window="componentPanelOpen = true"
-         @close-component-panel.window="componentPanelOpen = false"
+         @open-component-panel.window="componentPanelOpen = true; activeCompId = String($event.detail.id)"
+         @close-component-panel.window="componentPanelOpen = false; activeCompId = null"
          style="display: none;">
          
          <div id="slideout-content" class="flex-1 overflow-y-auto custom-scrollbar w-full relative">

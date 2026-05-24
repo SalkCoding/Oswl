@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.controller.spec.GitHubApiControllerSpec;
 import com.salkcoding.oswl.dto.github.GitHubAccountDto;
 import com.salkcoding.oswl.dto.github.GitHubImportRequest;
@@ -12,6 +13,7 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -29,6 +31,7 @@ import java.util.*;
 @Slf4j
 @RestController
 @RequestMapping("/api/github")
+@PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class GitHubApiController implements GitHubApiControllerSpec {
 
@@ -38,6 +41,7 @@ public class GitHubApiController implements GitHubApiControllerSpec {
     private final ProjectService      projectService;
     private final ProjectRepository   projectRepository;
     private final SessionCipherService sessionCipher;
+    private final AuditLogService     auditLogService;
 
     // ── Connect (add PAT to session map) ─────────────────────────────────────
 
@@ -54,6 +58,7 @@ public class GitHubApiController implements GitHubApiControllerSpec {
             Map<String, String> tokens = getTokensMap(session);
             tokens.put(login, sessionCipher.encrypt(token.trim()));
             log.info("[GitHub] PAT connected for user '{}'", login);
+            auditLogService.log("GITHUB.PAT_CONNECT", "VCS_SESSION", login, login, null);
             return ResponseEntity.ok(Map.of("connected", true, "login", login));
         } catch (GitHubService.GitHubAuthException e) {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid token: " + e.getMessage()));
@@ -64,7 +69,10 @@ public class GitHubApiController implements GitHubApiControllerSpec {
 
     @PostMapping("/disconnect")
     public ResponseEntity<Map<String, Object>> disconnect(HttpSession session) {
+        Map<String, String> tokens = getTokensMap(session);
+        List<String> logins = new ArrayList<>(tokens.keySet());
         session.removeAttribute(SESSION_GITHUB_TOKENS);
+        logins.forEach(l -> auditLogService.log("GITHUB.PAT_DISCONNECT", "VCS_SESSION", l, l, null));
         return ResponseEntity.ok(Map.of("disconnected", true));
     }
 
@@ -80,6 +88,7 @@ public class GitHubApiController implements GitHubApiControllerSpec {
             session.removeAttribute(SESSION_GITHUB_TOKENS);
         }
         log.info("[GitHub] Disconnected account '{}'", login);
+        auditLogService.log("GITHUB.PAT_DISCONNECT", "VCS_SESSION", login, login, null);
         return ResponseEntity.ok(Map.of("removed", login));
     }
 

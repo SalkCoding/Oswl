@@ -457,7 +457,7 @@
 
             <!-- Not connected: status label -->
             <template x-if="!loadingStatus && !connected && !patConnecting">
-                <span class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">Not connected</span>
+                <span class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]" th:text="#{gitIntegration.status.notConnected}">Not connected</span>
             </template>
 
             <!-- Connected: Account dropdown + Reload -->
@@ -498,7 +498,7 @@
                                         <!-- Per-account Disconnect icon -->
                                         <button
                                             @click.stop="disconnectAccount(account)"
-                                            title="Disconnect"
+                                            th:title="#{gitIntegration.btn.disconnectAccount}"
                                             class="pr-[12px] pl-[4px] py-[10px] flex items-center text-[var(--grayscale-30)] hover:text-red-500 transition-colors">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                                 <circle cx="12" cy="12" r="10"></circle>
@@ -521,7 +521,7 @@
                                         <line x1="12" y1="14" x2="12" y2="20"></line>
                                         <line x1="9" y1="17" x2="15" y2="17"></line>
                                     </svg>
-                                    Add Account
+                                    <span th:text="#{gitIntegration.btn.addAccount}">Add Account</span>
                                 </button>
                             </div>
                         </div>
@@ -532,7 +532,7 @@
                         <button
                             type="button"
                             @click="reloadRepos()"
-                            title="Reload repos"
+                            th:title="#{gitIntegration.btn.reloadRepos}"
                             :disabled="reloading || repoStatus === 'loading'"
                             :class="(reloading || repoStatus === 'loading') ? 'cursor-wait opacity-60' : 'cursor-pointer'"
                             class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[7px] rounded-[6px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-90)] transition-colors focus:outline-none shrink-0">
@@ -552,7 +552,7 @@
                              x-transition:leave-end="opacity-0"
                              class="flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
                             <svg class="animate-spin w-[12px] h-[12px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
-                            <span>Loading&hellip;</span>
+                            <span th:text="#{gitIntegration.status.loading}">Loading…</span>
                         </div>
 
                         <!-- Done indicator -->
@@ -564,7 +564,7 @@
                              x-transition:leave-end="opacity-0"
                              class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] tracking-[-0.12px]">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                            <span>Updated!</span>
+                            <span th:text="#{gitIntegration.status.updated}">Updated!</span>
                         </div>
                     </div>
                 </div>
@@ -574,24 +574,23 @@
         <!-- Add Account PAT form (shown when connected and addingAccount is true) -->
         <template x-if="!loadingStatus && connected && addingAccount">
             <div class="flex flex-col gap-[6px] w-full">
-                <p class="text-[12px] font-semibold text-[var(--grayscale-70)] tracking-[-0.12px] m-0">Add a new GitHub account</p>
+                <p class="text-[12px] font-semibold text-[var(--grayscale-70)] tracking-[-0.12px] m-0" th:text="#{gitIntegration.label.addNewAccount}">Add a new GitHub account</p>
                 <div class="flex gap-[8px]">
                     <input type="password" x-model="addAccountPat"
                            @keydown.enter="connectAddAccount()"
-                           placeholder="Paste your token (ghp_… or github_pat_…)"
+                           th:placeholder="#{gitIntegration.placeholder.pat}"
                            class="flex-1 h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors" />
                     <button type="button"
                             @click="connectAddAccount()"
                             :disabled="!addAccountPat.trim() || addAccountConnecting"
                             :class="(!addAccountPat.trim() || addAccountConnecting) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#3a3f47] cursor-pointer'"
                             class="bg-[#24292F] rounded-[8px] h-[36px] px-[16px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none shrink-0">
-                        <span x-show="!addAccountConnecting">Add</span>
+                        <span x-show="!addAccountConnecting" th:text="#{gitIntegration.btn.add}">Add</span>
                         <svg x-show="addAccountConnecting" class="animate-spin w-[14px] h-[14px] mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
                     </button>
                     <button type="button"
                             @click="addingAccount = false; addAccountPat = ''; addAccountError = ''"
-                            class="h-[36px] px-[12px] text-[13px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors focus:outline-none">
-                        Cancel
+                            class="h-[36px] px-[12px] text-[13px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors focus:outline-none" th:text="#{common.cancel}">
                     </button>
                 </div>
                 <p x-show="addAccountError" x-text="addAccountError" class="text-[12px] text-red-500 tracking-[-0.12px] m-0"></p>
@@ -602,7 +601,7 @@
         <template x-if="connected">
             <div class="bg-[var(--grayscale-10)] rounded-[10px] px-[18px] py-[12px] flex gap-[8px] items-center w-full shadow-sm shadow-[var(--grayscale-20)]/50">
                 <img th:src="@{/icon/icon-info2.svg}" class="w-[18px] h-[18px] shrink-0" alt="" aria-hidden="true">
-                <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[0] leading-[1.3]">If you don't see an organization listed, you may need to grant OsWL access in GitHub's settings.</span>
+                <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[0] leading-[1.3]" th:text="#{gitIntegration.pat.orgNotice}">If you don't see an organization listed, you may need to grant OsWL access in GitHub's settings.</span>
             </div>
         </template>
     </div>
@@ -622,8 +621,8 @@
             <div class="flex items-center gap-[12px]">
                 <img th:src="@{/icon/icon-github.svg}" class="w-[32px] h-[32px] shrink-0" alt="" aria-hidden="true">
                 <div>
-                    <p class="font-bold text-[15px] text-[var(--grayscale-80)] tracking-[-0.15px] m-0">GitHub Personal Access Token</p>
-                    <p class="font-normal text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0">Enter your token to browse and import repositories.</p>
+                    <p class="font-bold text-[15px] text-[var(--grayscale-80)] tracking-[-0.15px] m-0" th:text="#{gitIntegration.pat.title}">GitHub Personal Access Token</p>
+                    <p class="font-normal text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0" th:text="#{gitIntegration.pat.subtitle}">Enter your token to browse and import repositories.</p>
                 </div>
             </div>
 
@@ -632,14 +631,14 @@
                 <div class="flex gap-[8px]">
                     <input type="password" x-model="patInput"
                            @keydown.enter="connectPAT()"
-                           placeholder="Paste your token (ghp_… or github_pat_…)"
+                           th:placeholder="#{gitIntegration.placeholder.pat}"
                            class="flex-1 h-[40px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors" />
                     <button type="button"
                             @click="connectPAT()"
                             :disabled="!patInput.trim() || patConnecting"
                             :class="(!patInput.trim() || patConnecting) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#3a3f47] cursor-pointer'"
                             class="bg-[#24292F] rounded-[8px] h-[40px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none shrink-0">
-                        <span x-show="!patConnecting">Connect</span>
+                        <span x-show="!patConnecting" th:text="#{gitIntegration.btn.connect}">Connect</span>
                         <svg x-show="patConnecting" class="animate-spin w-[14px] h-[14px] mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
                     </button>
                 </div>
@@ -649,7 +648,7 @@
 
             <!-- How to get a token -->
             <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[18px] py-[14px] w-full flex flex-col gap-[8px]">
-                <p class="text-[11px] font-semibold text-[var(--grayscale-60)] tracking-[0.4px] uppercase m-0">How to get a token</p>
+                <p class="text-[11px] font-semibold text-[var(--grayscale-60)] tracking-[0.4px] uppercase m-0" th:text="#{gitIntegration.pat.howToGetToken}">How to get a token</p>
                 <ol class="list-decimal list-inside flex flex-col gap-[5px] m-0 pl-[2px]">
                     <li class="text-[12px] text-[var(--grayscale-70)]">
                         <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer"
@@ -661,7 +660,7 @@
                     <li class="text-[12px] text-[var(--grayscale-70)]">
                         Select the <code class="bg-[var(--grayscale-15)] px-[4px] rounded text-[11px]">repo</code> scope (add <code class="bg-[var(--grayscale-15)] px-[4px] rounded text-[11px]">read:org</code> to include organizations)
                     </li>
-                    <li class="text-[12px] text-[var(--grayscale-70)]">Copy the generated token and paste it above</li>
+                    <li class="text-[12px] text-[var(--grayscale-70)]" th:text="#{gitIntegration.pat.step4}">Copy the generated token and paste it above</li>
                 </ol>
             </div>
         </div>
@@ -675,14 +674,13 @@
             <!-- Search -->
             <div class="bg-[var(--grayscale-10)] rounded-[75px] h-[36px] flex items-center gap-[8px] px-[16px] flex-1 max-w-[880px] border border-transparent focus-within:border-[var(--primary-120)] transition-colors">
                 <img th:src="@{/icon/icon-search.svg}" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
-                <input type="text" x-model="searchQuery" placeholder="Search repos..." class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
+                <input type="text" x-model="searchQuery" th:placeholder="#{gitIntegration.placeholder.search}" class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
             </div>
             
             <!-- Buttons -->
             <div class="flex gap-[12px] items-center w-[250px] shrink-0">
                 <button type="button" @click="importAll()"
-                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] flex-1 h-[36px] text-[13px] font-medium text-[var(--primary-120)] tracking-[0] hover:bg-[var(--grayscale-10)] hover:border-[var(--grayscale-40)] transition-colors active:scale-[0.98] focus:outline-none">
-                    Import All
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] flex-1 h-[36px] text-[13px] font-medium text-[var(--primary-120)] tracking-[0] hover:bg-[var(--grayscale-10)] hover:border-[var(--grayscale-40)] transition-colors active:scale-[0.98] focus:outline-none" th:text="#{gitIntegration.btn.importAll}">
                 </button>
                 <button type="button"
                         @click="importSelected()"
@@ -690,12 +688,12 @@
                         class="bg-[var(--primary-120)] rounded-[8px] flex-1 h-[36px] text-[13px] font-bold text-white tracking-[0] hover:bg-opacity-90 transition-colors active:scale-[0.98] focus:outline-none">
                     <template x-if="!importFeedback">
                         <span>
-                            Import
+                            <span th:text="#{gitIntegration.btn.import}">Import</span>
                             <span x-show="selectedRepos.length > 0" x-text="'(' + selectedRepos.length + ')'"></span>
                         </span>
                     </template>
                     <template x-if="importFeedback">
-                        <span>&#10003; Imported!</span>
+                        <span th:text="#{gitIntegration.btn.imported}">&#10003; Imported!</span>
                     </template>
                 </button>
             </div>
@@ -714,8 +712,7 @@
                     </div>
                 </label>
             </div>
-            <div class="flex-1 min-w-[200px] pl-[12px] pr-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal">
-                Title
+            <div class="flex-1 min-w-[200px] pl-[12px] pr-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal" th:text="#{gitIntegration.table.col.title}">
             </div>
             <div class="w-[160px] px-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal shrink-0">
                 Branch

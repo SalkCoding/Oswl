@@ -26,7 +26,6 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -129,9 +128,9 @@ public class QuickImportService {
         Thread.ofVirtual().name("quick-import-" + jobId).start(() -> {
             try {
                 runImport(jobId, repoUrl, branch, userId);
-            } catch (Exception e) {
-                log.error("[QuickImport][{}] Unhandled error: {}", jobId, e.getMessage(), e);
-                updateJob(jobId, Phase.FAILED, "Unexpected error: " + e.getMessage(),
+            } catch (Throwable t) {
+                log.error("[QuickImport][{}] Unhandled error: {}", jobId, t.getMessage(), t);
+                updateJob(jobId, Phase.FAILED, "Unexpected error: " + t.getMessage(),
                         null, null, null, null, null, null);
             } finally {
                 activeJobByUser.remove(userId, jobId);
@@ -222,7 +221,7 @@ public class QuickImportService {
             return switch (provider) {
                 case GITHUB   -> listGitHubRepos(token);
                 case GITLAB   -> listGitLabRepos(token, conn.getServerUrl());
-                case BITBUCKET -> conn.getServerUrl() == null
+                case BITBUCKET -> (conn.getServerUrl() == null || conn.getServerUrl().isBlank())
                         ? listBitbucketCloudRepos(token, conn.getVcsUsername())
                         : listBitbucketServerRepos(token, conn.getServerUrl());
             };
@@ -303,66 +302,152 @@ public class QuickImportService {
     }
 
     private List<QuickImportRepoDto> listBitbucketCloudRepos(String tokenOrAppPassword, String username) throws Exception {
-        String bearerHeader = "Bearer " + tokenOrAppPassword;
-        // ATATT = Bitbucket HTTP Access Token (workspace / project / repo scoped) → must use Bearer.
-        // ATBB  = Bitbucket App Password (user-level) → Basic auth with username:token.
-        boolean isAtatt = tokenOrAppPassword != null && tokenOrAppPassword.startsWith("ATATT");
-        boolean hasSlug = username != null && !username.isBlank() && !username.contains("@");
+        // Bitbucket Cloud authentication methods (as of 2026 policy):
+        //
+        //  ATATT (Atlassian API Token, created at id.atlassian.com)
+        //        → RECOMMENDED. Basic auth: username=Atlassian email OR workspace slug, password=token.
+        //        → GET /2.0/workspaces returns 410 (CHANGE-2770 deprecated for Basic auth).
+        //        → Fallback: GET /2.0/repositories/{username} directly.
+        //
+        //  ATATT (Bitbucket HTTP Access Token, workspace/project/repo scoped)
+        //        → Created in Bitbucket workspace settings. Bearer auth.
+        //        → Username field holds the workspace slug (optional).
+        //
+        //  ATBB  (Bitbucket App Password) — DEPRECATED.
+        //        → Brownout from 2026-06-09, permanently removed 2026-07-28.
+        //        → Basic auth: username=Bitbucket account ID, password=app password.
 
-        // Case 1: workspace slug stored + ATATT token → Bearer auth against that workspace directly.
-        if (hasSlug && isAtatt) {
+        boolean isAtatt = tokenOrAppPassword != null && tokenOrAppPassword.startsWith("ATATT");
+        boolean hasEmail = username != null && username.contains("@");
+        boolean hasSlug  = username != null && !username.isBlank() && !username.contains("@");
+
+        if (isAtatt && hasEmail) {
+            // ── Atlassian API Token — Basic auth (Atlassian email:token) ───────────────
+            // /2.0/workspaces → 410 for Basic auth (CHANGE-2770, deprecated)
+            // /2.0/user       → 401 for API tokens without read:account scope
+            // /2.0/user/permissions/workspaces → 200 with read:workspace:bitbucket scope ✓
+            String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
+                    (username + ":" + tokenOrAppPassword).getBytes(StandardCharsets.UTF_8));
+
+            List<String> slugs = fetchWorkspaceSlugsViaPermissions(basicHeader);
+            if (slugs.isEmpty()) {
+                throw new IllegalStateException(
+                        "Could not discover workspaces with the Atlassian API Token. " +
+                        "Ensure the token (id.atlassian.com > Security > API tokens) has these scopes: " +
+                        "read:workspace:bitbucket and read:repository:bitbucket.");
+            }
+
+            List<QuickImportRepoDto> result = new ArrayList<>();
+            for (String slug : slugs) {
+                result.addAll(fetchBitbucketRepoPage(
+                        "https://api.bitbucket.org/2.0/repositories/" + slug + "?pagelen=100&sort=-updated_on",
+                        basicHeader));
+            }
+            if (!result.isEmpty()) return result;
+
+            throw new IllegalStateException(
+                    "No repositories found in the accessible workspaces. " +
+                    "Verify the token has the read:repository:bitbucket scope.");
+
+        } else if (isAtatt && hasSlug) {
+            // ── Workspace HTTP Access Token (Bearer auth) — slug required ─────────────
+            // Atlassian API tokens CANNOT use a workspace slug as the Basic-auth username.
+            // If the user entered a slug with an ATATT token, it must be a Workspace/Project/
+            // Repository HTTP Access Token (created in Bitbucket workspace settings).
+            String bearerHeader = "Bearer " + tokenOrAppPassword;
+
             List<QuickImportRepoDto> repos = fetchBitbucketRepoPage(
                     "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on",
                     bearerHeader);
             if (!repos.isEmpty()) return repos;
-            // Fall through to generic discovery in case the slug is wrong.
-        }
 
-        // Case 2: App Password with username (Basic auth).
-        if (hasSlug && !isAtatt) {
+            throw new IllegalStateException(
+                    "Could not list repositories for workspace '" + username + "'. " +
+                    "If this is an Atlassian API Token (ATATT, from id.atlassian.com > Security > API tokens), " +
+                    "you must re-connect using your Atlassian account email as the Username — not the workspace slug. " +
+                    "Workspace slugs only work with Workspace HTTP Access Tokens (Bitbucket workspace settings > " +
+                    "Access management > Access tokens).");
+
+        } else if (isAtatt) {
+            // ── Workspace HTTP Access Token — no username, Bearer-only ────────────────
+            String bearerHeader = "Bearer " + tokenOrAppPassword;
+
+            List<QuickImportRepoDto> fromWorkspaces = fetchReposViaWorkspaceList(bearerHeader);
+            if (!fromWorkspaces.isEmpty()) return fromWorkspaces;
+
+            throw new IllegalStateException(
+                    "Could not list repositories with the Bitbucket HTTP Access Token. " +
+                    "Provide the workspace slug in the Username field to target a specific workspace.");
+
+        } else {
+            // ── Bitbucket App Password (Basic auth, DEPRECATED) ───────────────────────
+            if (username == null || username.isBlank()) {
+                throw new IllegalStateException(
+                        "Bitbucket App Password requires a username. " +
+                                "Re-configure the VCS connection and enter your Bitbucket account ID in the Username field. " +
+                                "Note: App Passwords are deprecated — migrate to an Atlassian API Token at id.atlassian.com.");
+            }
+
             String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
                     (username + ":" + tokenOrAppPassword).getBytes(StandardCharsets.UTF_8));
-            return fetchBitbucketRepoPage(
-                    "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on",
-                    basicHeader);
+
+            if (hasSlug) {
+                List<QuickImportRepoDto> repos = fetchBitbucketRepoPage(
+                        "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on",
+                        basicHeader);
+                if (!repos.isEmpty()) return repos;
+            }
+
+            List<QuickImportRepoDto> fromWorkspaces = fetchReposViaWorkspaceList(basicHeader);
+            if (!fromWorkspaces.isEmpty()) return fromWorkspaces;
+
+            throw new IllegalStateException(
+                    "Could not list repositories with the Bitbucket App Password. " +
+                            "Ensure the App Password has 'Repositories: Read' and 'Account: Read' scopes. " +
+                            "App Passwords are deprecated — migrate to an Atlassian API Token at id.atlassian.com.");
         }
+    }
 
-        // Case 3: No workspace slug stored (or ATATT slug lookup failed above).
-        // Try role-based discovery endpoints: member → owner → workspace list fallback.
-        List<QuickImportRepoDto> byMember = fetchBitbucketRepoPage(
-                "https://api.bitbucket.org/2.0/repositories?role=member&pagelen=100&sort=-updated_on",
-                bearerHeader);
-        if (!byMember.isEmpty()) return byMember;
-
-        List<QuickImportRepoDto> byOwner = fetchBitbucketRepoPage(
-                "https://api.bitbucket.org/2.0/repositories?role=owner&pagelen=100&sort=-updated_on",
-                bearerHeader);
-        if (!byOwner.isEmpty()) return byOwner;
-
-        // Case 3b: ATBB token with email/username stored but treated as non-slug above.
-        // Re-try role-based endpoints using Basic auth.
-        if (!isAtatt && username != null && !username.isBlank()) {
-            String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
-                    (username + ":" + tokenOrAppPassword).getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            List<QuickImportRepoDto> byMemberBasic = fetchBitbucketRepoPage(
-                    "https://api.bitbucket.org/2.0/repositories?role=member&pagelen=100&sort=-updated_on",
-                    basicHeader);
-            if (!byMemberBasic.isEmpty()) return byMemberBasic;
-            List<QuickImportRepoDto> byOwnerBasic = fetchBitbucketRepoPage(
-                    "https://api.bitbucket.org/2.0/repositories?role=owner&pagelen=100&sort=-updated_on",
-                    basicHeader);
-            if (!byOwnerBasic.isEmpty()) return byOwnerBasic;
+    /**
+     * For Atlassian API Tokens: /2.0/workspaces returns 410 (CHANGE-2770), but
+     * /2.0/user/permissions/workspaces remains available with the read:workspace:bitbucket scope.
+     * Returns the list of workspace slugs the token can access (empty on any error).
+     */
+    private List<String> fetchWorkspaceSlugsViaPermissions(String authHeader) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.bitbucket.org/2.0/user/permissions/workspaces?pagelen=100"))
+                .header("Authorization", authHeader)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] Bitbucket /user/permissions/workspaces returned HTTP {} — {}",
+                    resp.statusCode(),
+                    resp.body().substring(0, Math.min(200, resp.body().length())));
+            return List.of();
         }
+        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
+        JsonNode values = root.path("values");
+        if (!values.isArray()) return List.of();
+        List<String> slugs = new ArrayList<>();
+        for (JsonNode v : values) {
+            String slug = v.path("workspace").path("slug").asText();
+            if (!slug.isBlank()) slugs.add(slug);
+        }
+        return slugs;
+    }
 
-        // Workspace-list fallback (works when the token has workspace:read scope).
+    /** Calls GET /2.0/workspaces and fetches repos for each workspace slug found. */
+    private List<QuickImportRepoDto> fetchReposViaWorkspaceList(String authHeader) throws Exception {
         HttpRequest wsReq = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.bitbucket.org/2.0/workspaces?pagelen=100"))
-                .header("Authorization", bearerHeader)
+                .header("Authorization", authHeader)
                 .header("User-Agent", USER_AGENT)
                 .GET().build();
         HttpResponse<String> wsResp = httpClient.send(wsReq, HttpResponse.BodyHandlers.ofString());
         if (wsResp.statusCode() != 200) {
-            log.warn("[RepoBrowser] Bitbucket /workspaces returned HTTP {}", wsResp.statusCode());
+            log.warn("[RepoBrowser] Bitbucket /workspaces returned HTTP {} — {}", wsResp.statusCode(),
+                    wsResp.body().substring(0, Math.min(200, wsResp.body().length())));
             return List.of();
         }
         JsonNode wsRoot = OBJECT_MAPPER.readTree(wsResp.body());
@@ -375,7 +460,7 @@ public class QuickImportService {
             if (!slug.isBlank()) {
                 result.addAll(fetchBitbucketRepoPage(
                         "https://api.bitbucket.org/2.0/repositories/" + slug + "?pagelen=100&sort=-updated_on",
-                        bearerHeader));
+                        authHeader));
             }
         }
         return result;
@@ -1390,12 +1475,12 @@ public class QuickImportService {
 
             // Build one representative dependency path
             List<ScanPayload.DependencyNodeRef> path = new ArrayList<>();
-            path.add(ReflectiveComponentBuilder.buildNodeRef(projectName, "local"));
+            path.add(ScanPayload.DependencyNodeRef.create(projectName, "local"));
             for (int lvl = 0; lvl < depth; lvl++) {
                 String[] anc = depStack.get(lvl);
-                if (anc != null) path.add(ReflectiveComponentBuilder.buildNodeRef(anc[0], anc[1]));
+                if (anc != null) path.add(ScanPayload.DependencyNodeRef.create(anc[0], anc[1]));
             }
-            path.add(ReflectiveComponentBuilder.buildNodeRef(compName, compVer));
+            path.add(ScanPayload.DependencyNodeRef.create(compName, compVer));
 
             String key = compName + ":" + (compVer != null ? compVer : "");
             depComps.computeIfAbsent(key, k -> new GradleComponent(compName, compVer, new ArrayList<>()))
@@ -1416,7 +1501,7 @@ public class QuickImportService {
             } else {
                 info = "Transitive (" + transitiveCount + ")";
             }
-            result.add(ReflectiveComponentBuilder.buildWithPaths(
+            result.add(ScanPayload.ComponentPayload.create(
                     gc.name(), gc.version(), "MAVEN", info, gc.paths()));
         }
         return result;
@@ -1831,13 +1916,11 @@ public class QuickImportService {
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private ScanPayload.ComponentPayload buildComponent(String name, String version, String ecosystem) {
-        // ScanPayload.ComponentPayload uses package-private setters (no-arg constructor + package reflection)
-        // → build via reflection-free builder pattern using the public no-arg constructor
-        return ReflectiveComponentBuilder.build(name, version, ecosystem);
+        return ScanPayload.ComponentPayload.create(name, version, ecosystem, "Direct", List.of());
     }
 
     private ScanPayload buildScanPayload(ParsedDependencies deps, String repoName) {
-        return ReflectiveComponentBuilder.buildPayload(deps.components, repoName);
+        return ScanPayload.create(repoName, deps.components);
     }
 
     private record ApiKeyResult(String token, boolean isNew) {}
@@ -1930,71 +2013,4 @@ public class QuickImportService {
         });
     }
 
-    // ── Reflective builder helper ─────────────────────────────────────────
-
-    /**
-     * {@link ScanPayload.ComponentPayload} has only a no-arg constructor and
-     * package-private fields set via Jackson deserialization (no setters).
-     * We use field access to populate instances programmatically.
-     */
-    private static final class ReflectiveComponentBuilder {
-
-        static ScanPayload.ComponentPayload build(String name, String version, String ecosystem) {
-            return buildWithPaths(name, version, ecosystem, "Direct", List.of());
-        }
-
-        static ScanPayload.ComponentPayload buildWithPaths(String name, String version, String ecosystem,
-                String dependencyInfo, List<List<ScanPayload.DependencyNodeRef>> paths) {
-            try {
-                ScanPayload.ComponentPayload c = ScanPayload.ComponentPayload.class.getDeclaredConstructor().newInstance();
-                setField(c, "name", name);
-                setField(c, "version", version);
-                setField(c, "ecosystem", ecosystem);
-                setField(c, "dependencyInfo", dependencyInfo);
-                setField(c, "dependencyPaths", paths);
-                return c;
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to build ComponentPayload", e);
-            }
-        }
-
-        static ScanPayload.DependencyNodeRef buildNodeRef(String name, String version) {
-            try {
-                ScanPayload.DependencyNodeRef ref =
-                        ScanPayload.DependencyNodeRef.class.getDeclaredConstructor().newInstance();
-                setField(ref, "name", name);
-                setField(ref, "version", version);
-                return ref;
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to build DependencyNodeRef", e);
-            }
-        }
-
-        static ScanPayload buildPayload(List<ScanPayload.ComponentPayload> components, String version) {
-            try {
-                ScanPayload p = ScanPayload.class.getDeclaredConstructor().newInstance();
-                setField(p, "version", version);
-                setField(p, "components", components);
-                setField(p, "rawJson", "{}");
-                return p;
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to build ScanPayload", e);
-            }
-        }
-
-        private static void setField(Object target, String fieldName, Object value) throws Exception {
-            Field f = findField(target.getClass(), fieldName);
-            if (f == null) return;
-            f.setAccessible(true);
-            f.set(target, value);
-        }
-
-        private static Field findField(Class<?> clazz, String name) {
-            while (clazz != null) {
-                try { return clazz.getDeclaredField(name); }
-                catch (NoSuchFieldException ignored) { clazz = clazz.getSuperclass(); }
-            }
-            return null;
-        }
-    }
 }

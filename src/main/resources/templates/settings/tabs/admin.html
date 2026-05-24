@@ -39,29 +39,70 @@
         nameTooLong:            /*[[#{settings.admin.users.validate.nameTooLong}]]*/ 'Name must be 20 characters or fewer.',
         updateNameFailed:       /*[[#{settings.admin.users.error.updateNameFailed}]]*/ 'Failed to update display name.',
         actionFailed:           /*[[#{settings.admin.users.error.actionFailed}]]*/ 'Operation failed.',
-        auditLoadFailed:        /*[[#{settings.admin.auditLog.error.loadFailed}]]*/ 'Failed to load audit logs.'
+        auditLoadFailed:        /*[[#{settings.admin.auditLog.error.loadFailed}]]*/ 'Failed to load audit logs.',
+        active:                 /*[[#{settings.admin.users.status.active}]]*/ 'Active',
+        inactive:               /*[[#{settings.admin.users.status.inactive}]]*/ 'Inactive',
+        signInAgain:            /*[[#{settings.admin.signInAgain}]]*/ 'Sign in again',
+        builtIn:                /*[[#{settings.admin.roleTemplate.builtIn}]]*/ 'Built-in',
+        showCount:              /*[[#{settings.admin.pagination.showCount}]]*/ 'Show {0}',
+        systemAdmin:            /*[[#{settings.admin.users.badge.systemAdmin}]]*/ 'System Admin',
+        templateAddHeader:      /*[[#{settings.admin.template.panel.addHeader}]]*/ 'Add a New Template',
+        templateEditHeader:     /*[[#{settings.admin.template.panel.editHeader}]]*/ 'Edit Template :',
+        templateDescription:    /*[[#{settings.admin.template.panel.description}]]*/ 'Group permissions to assign to users.',
+        invitePlaceholderName:  /*[[#{settings.admin.invite.placeholder.name}]]*/ 'Enter user\'s name',
+        invitePlaceholderEmail: /*[[#{settings.admin.invite.placeholder.email}]]*/ 'Enter email address',
+        invitePlaceholderPwdSuffix: /*[[#{settings.admin.invite.placeholder.passwordSuffix}]]*/ '+ characters',
+        invitePlaceholderMessage: /*[[#{settings.admin.invite.placeholder.message}]]*/ 'Enter an invitation message (max 200 characters)',
+        actorSearchPlaceholder: /*[[#{settings.admin.auditLog.placeholder.actorSearch}]]*/ 'Search...',
+        selectRole:             /*[[#{settings.admin.invite.placeholder.selectRole}]]*/ 'Select a role'
+    };
+    const _permGroupLabels = {
+        'Project':         /*[[#{permission.group.project}]]*/ 'Project',
+        'Scan':            /*[[#{permission.group.scan}]]*/ 'Scan',
+        'Security Center': /*[[#{permission.group.securityCenter}]]*/ 'Security Center',
+        'License':         /*[[#{permission.group.license}]]*/ 'License',
+        'Analysis':        /*[[#{permission.group.analysis}]]*/ 'Analysis',
+        'Settings':        /*[[#{permission.group.settings}]]*/ 'Settings'
+    };
+    const _auditGroupLabels = {
+        'Auth':             /*[[#{permission.auditGroup.auth}]]*/ 'Auth',
+        'User':             /*[[#{permission.auditGroup.user}]]*/ 'User',
+        'Role Template':    /*[[#{permission.auditGroup.roleTemplate}]]*/ 'Role Template',
+        'Project':          /*[[#{permission.auditGroup.project}]]*/ 'Project',
+        'VCS':              /*[[#{permission.auditGroup.vcs}]]*/ 'VCS',
+        'CLI Key':          /*[[#{permission.auditGroup.cliKey}]]*/ 'CLI Key',
+        'Security':         /*[[#{permission.auditGroup.security}]]*/ 'Security',
+        'AI Setting':       /*[[#{permission.auditGroup.aiSetting}]]*/ 'AI Setting',
+        'Cache':            /*[[#{permission.auditGroup.cache}]]*/ 'Cache',
+        'External Setting': /*[[#{permission.auditGroup.externalSetting}]]*/ 'External Setting',
+        'Scan':             /*[[#{permission.auditGroup.scan}]]*/ 'Scan'
     };
     </script>
 
     <!-- Toast notification -->
     <div x-show="toast" x-cloak
-         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="opacity-0 translate-y-2"
          x-transition:enter-end="opacity-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 translate-y-2"
-         class="fixed bottom-[24px] right-[24px] z-[9999] flex items-center gap-[10px] bg-[#1a2940] border border-white/20 text-white text-[13px] px-[16px] py-[11px] rounded-[8px] shadow-xl"
-         style="pointer-events:none">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f47a29" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span x-text="toast"></span>
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
     </div>
 
     <!-- API Error Banner -->
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
         <span class="text-red-600 text-[13px]" x-text="apiError"></span>
-        <a href="/login" class="ml-auto text-[12px] text-red-700 underline">Sign in again</a>
+        <a href="/login" class="ml-auto text-[12px] text-red-700 underline" th:text="#{settings.admin.signInAgain}">Sign in again</a>
     </div>
 
     <!-- Sub-tabs -->
@@ -123,7 +164,7 @@
                             <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="u.email"></td>
                             <td class="px-[16px] py-[12px]">
                                 <template x-if="u.systemAdmin">
-                                    <span class="inline-flex items-center px-[12px] py-[4px] rounded-[40px] bg-[rgba(94,107,112,0.07)] text-[var(--grayscale-80)] text-[11px] font-normal">System Admin</span>
+                                    <span class="inline-flex items-center px-[12px] py-[4px] rounded-[40px] bg-[rgba(94,107,112,0.07)] text-[var(--grayscale-80)] text-[11px] font-normal" th:text="#{settings.admin.users.badge.systemAdmin}">System Admin</span>
                                 </template>
                                 <template x-if="!u.systemAdmin">
                                     <span class="inline-flex flex-wrap gap-[4px]">
@@ -158,11 +199,11 @@
                                         <svg x-show="u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                                         <svg x-show="!u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                                     </button>
-                                    <button @click="!u.systemAdmin && openEditUser(u)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit user">
+                                    <button @click="!u.systemAdmin && openEditUser(u)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" th:title="#{settings.admin.users.action.edit}">
                                         <img th:src="@{/icon/icon-edit.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                                     </button>
                                     <button x-show="deletingUser?.id !== u.id"
-                                            @click="!u.systemAdmin && (deletingUser = u)" class="text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
+                                            @click="!u.systemAdmin && (deletingUser = u)" class="text-[var(--grayscale-60)] hover:text-red-500" th:title="#{settings.admin.icons.delete}">
                                         <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
                                     </button>
                                     <div x-show="deletingUser?.id === u.id" class="flex items-center gap-[6px]">
@@ -206,13 +247,13 @@
                         <div class="flex flex-col gap-[28px] p-[20px] overflow-y-auto flex-1 bg-[var(--grayscale-5)]">
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.name}">Name</span>
-                                <input type="text" x-model="invite.displayName" placeholder="Enter user's name"
+                                <input type="text" x-model="invite.displayName" th:placeholder="#{settings.admin.invite.placeholder.name}"
                                        class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
                                        :class="inviteErrorField === 'name' ? 'border-red-400' : ''"/>
                             </div>
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.email}">Email</span>
-                                <input type="email" x-model="invite.email" placeholder="Enter email address"
+                                <input type="email" x-model="invite.email" th:placeholder="#{settings.admin.invite.placeholder.email}"
                                        class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
                                        :class="inviteErrorField === 'email' ? 'border-red-400' : ''"/>
                             </div>
@@ -223,14 +264,14 @@
                                             class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
                                             :class="open ? 'border-[var(--primary-120)]' : ''">
                                         <span :class="invite.templateId ? 'text-[var(--grayscale-100)]' : 'text-[#abb8be] font-normal'"
-                                              x-text="invite.templateId ? (templates.find(t=>t.id===invite.templateId)||{name:'Select a role'}).name : 'Select a role'"></span>
+                                              x-text="invite.templateId ? (templates.find(t=>t.id===invite.templateId)||{name:_adminI18n.selectRole}).name : _adminI18n.selectRole"></span>
                                         <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                                     </button>
                                     <div x-show="open" x-cloak
                                          class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                                         <button type="button" @click="invite.templateId = null; open = false"
                                                 class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                                :class="!invite.templateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'">Select a role</button>
+                                                :class="!invite.templateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'" x-text="_adminI18n.selectRole"></button>
                                         <template x-for="t in templates" :key="t.id">
                                             <button type="button" @click="invite.templateId = t.id; open = false"
                                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
@@ -243,7 +284,7 @@
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.password}">Temporary Password</span>
                                 <div class="flex gap-[6px]">
-                                    <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + '+ characters'"
+                                    <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + _adminI18n.invitePlaceholderPwdSuffix"
                                            class="flex-1 px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
                                            :class="inviteErrorField === 'password' ? 'border-red-400' : ''"/>
                                     <button type="button" @click="invite.temporaryPassword=randomPwd()"
@@ -253,7 +294,7 @@
                             </div>
                             <div class="flex flex-col gap-[8px]">
                                 <span class="font-bold text-[13px] text-[var(--grayscale-100)]"><span th:text="#{settings.admin.invite.label.message}">Message</span> <span class="text-[var(--grayscale-60)] font-normal" th:text="#{settings.admin.invite.label.optional}">(Optional)</span></span>
-                                <textarea x-model="invite.message" rows="3" maxlength="200" placeholder="Enter an invitation message (max 200 characters)"
+                                <textarea x-model="invite.message" rows="3" maxlength="200" th:placeholder="#{settings.admin.invite.placeholder.message}"
                                           class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] resize-none placeholder:text-[#abb8be]"></textarea>
                             </div>
                         </div>
@@ -289,7 +330,7 @@
                         <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1">
                             <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.invite.label.name}">Name</span>
                                 <input type="text" x-model="editingDisplayName" maxlength="20"
-                                       @input="editingNameError = editingDisplayName.trim().length < 1 ? 'Name must be at least 1 character.' : editingDisplayName.trim().length > 20 ? 'Name must be 20 characters or fewer.' : ''"
+                                       @input="editingNameError = editingDisplayName.trim().length < 1 ? _adminI18n.nameTooShort : editingDisplayName.trim().length > 20 ? _adminI18n.nameTooLong : ''"
                                        class="px-[12px] py-[8px] border rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"
                                        :class="editingNameError ? 'border-red-400' : 'border-[var(--grayscale-20)]'"/>
                                 <span x-show="editingNameError" x-text="editingNameError" class="text-[11px] text-red-500 font-normal"></span>
@@ -340,7 +381,7 @@
                 <button type="button" @click="psOpen = !psOpen" @click.away="psOpen = false"
                         class="w-full flex items-center justify-between bg-[var(--grayscale-5)] border border-[#C5CFD3] rounded-[8px] px-[8px] py-[5px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none transition-colors"
                         :class="psOpen ? 'border-[var(--primary-120)]' : ''">
-                    <span x-text="'Show ' + pageSize"></span>
+                    <span x-text="_adminI18n.showCount.replace('{0}', pageSize)"></span>
                     <img th:src="@{/icon/icon-triangle-down.svg}" :class="psOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[10px] h-[10px]" alt="" aria-hidden="true">
                 </button>
                 <div x-show="psOpen" x-cloak
@@ -349,7 +390,7 @@
                         <button type="button" @click="pageSize = opt; page = 1; psOpen = false"
                                 class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
                                 :class="pageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
-                                x-text="'Show ' + opt"></button>
+                                x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
                     </template>
                 </div>
             </div>
@@ -423,7 +464,7 @@
                         <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 transition-colors"
                             :class="(sidebarMode==='editTemplate' && editingTpl?.id===t.id) ? 'bg-[#e5faf5]' : (deletingTemplate?.id===t.id ? 'bg-red-50' : 'hover:bg-[var(--grayscale-5)]')">
                             <td class="px-[16px] py-[12px]">
-                                <span x-show="t.builtIn" class="mr-[6px]" title="Built-in">
+                                <span x-show="t.builtIn" class="mr-[6px]" th:title="#{settings.admin.roleTemplate.builtIn}">
                                     <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="inline align-middle" aria-hidden="true"><path d="M10.75 13.05C11.036 12.8849 11.2595 12.6301 11.3858 12.325C11.5122 12.0199 11.5344 11.6817 11.4489 11.3627C11.3634 11.0438 11.1751 10.762 10.9131 10.5609C10.6512 10.3599 10.3302 10.251 10 10.251C9.6698 10.251 9.34882 10.3599 9.08686 10.5609C8.82489 10.762 8.63657 11.0438 8.55111 11.3627C8.46565 11.6817 8.48782 12.0199 8.61418 12.325C8.74054 12.6301 8.96404 12.8849 9.25 13.05V13.5C9.25 13.6989 9.32902 13.8897 9.46967 14.0303C9.61032 14.171 9.80109 14.25 10 14.25C10.1989 14.25 10.3897 14.171 10.5303 14.0303C10.671 13.8897 10.75 13.6989 10.75 13.5V13.05Z" fill="#5E6B70"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.25 7.095V6.75C6.25 5.75544 6.64509 4.80161 7.34835 4.09835C8.05161 3.39509 9.00544 3 10 3C10.9946 3 11.9484 3.39509 12.6517 4.09835C13.3549 4.80161 13.75 5.75544 13.75 6.75V7.095C14.394 7.26128 14.9645 7.63687 15.3718 8.16272C15.7791 8.68858 16.0001 9.33487 16 10V14C16 14.7956 15.6839 15.5587 15.1213 16.1213C14.5587 16.6839 13.7956 17 13 17H7C6.20435 17 5.44129 16.6839 4.87868 16.1213C4.31607 15.5587 4 14.7956 4 14V10C3.99994 9.33487 4.22093 8.68858 4.62821 8.16272C5.0355 7.63687 5.60599 7.26128 6.25 7.095ZM7.75 6.75C7.75 6.15326 7.98705 5.58097 8.40901 5.15901C8.83097 4.73705 9.40326 4.5 10 4.5C10.5967 4.5 11.169 4.73705 11.591 5.15901C12.0129 5.58097 12.25 6.15326 12.25 6.75V7H7.75V6.75ZM5.5 10C5.5 9.60218 5.65804 9.22064 5.93934 8.93934C6.22064 8.65804 6.60218 8.5 7 8.5H13C13.3978 8.5 13.7794 8.65804 14.0607 8.93934C14.342 9.22064 14.5 9.60218 14.5 10V14C14.5 14.3978 14.342 14.7794 14.0607 15.0607C13.7794 15.342 13.3978 15.5 13 15.5H7C6.60218 15.5 6.22064 15.342 5.93934 15.0607C5.65804 14.7794 5.5 14.3978 5.5 14V10Z" fill="#5E6B70"/></svg>
                                 </span>
                                 <span x-text="t.name" class="font-bold text-[var(--grayscale-100)]"></span>
@@ -432,12 +473,12 @@
                             <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]"><span x-text="t.userCount"></span> <span th:text="#{settings.admin.roleTemplate.suffix.users}">users</span></td>
                             <td class="px-[16px] py-[12px]">
                                 <div class="flex items-center gap-[10px]">
-                                    <button @click="openEditTemplate(t)" class="flex items-center text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" title="Edit">
+                                    <button @click="openEditTemplate(t)" class="flex items-center text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" th:title="#{settings.admin.icons.edit}">
                                         <img th:src="@{/icon/icon-edit.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                                     </button>
                                     <template x-if="!t.builtIn">
                                         <div>
-                                            <button x-show="deletingTemplate?.id !== t.id" @click="deletingTemplate=t" class="flex items-center text-[var(--grayscale-60)] hover:text-red-500" title="Delete">
+                                            <button x-show="deletingTemplate?.id !== t.id" @click="deletingTemplate=t" class="flex items-center text-[var(--grayscale-60)] hover:text-red-500" th:title="#{settings.admin.icons.delete}">
                                                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
                                             </button>
                                             <div x-show="deletingTemplate?.id === t.id" class="flex items-center gap-[6px]">
@@ -463,7 +504,7 @@
                 <button type="button" @click="tplPsOpen = !tplPsOpen" @click.away="tplPsOpen = false"
                         class="w-full flex items-center justify-between bg-[var(--grayscale-5)] border border-[#C5CFD3] rounded-[8px] px-[8px] py-[5px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none transition-colors"
                         :class="tplPsOpen ? 'border-[var(--primary-120)]' : ''">
-                    <span x-text="'Show ' + tplPageSize"></span>
+                    <span x-text="_adminI18n.showCount.replace('{0}', tplPageSize)"></span>
                     <img th:src="@{/icon/icon-triangle-down.svg}" :class="tplPsOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[10px] h-[10px]" alt="" aria-hidden="true">
                 </button>
                 <div x-show="tplPsOpen" x-cloak
@@ -472,7 +513,7 @@
                         <button type="button" @click="tplPageSize = opt; tplPage = 1; tplPsOpen = false"
                                 class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
                                 :class="tplPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
-                                x-text="'Show ' + opt"></button>
+                                x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
                     </template>
                 </div>
             </div>
@@ -518,11 +559,11 @@
                         <!-- Scrollable body -->
                         <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1 text-[var(--grayscale-100)]">
                             <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelName}">Name</span>
-                                <input type="text" x-model="tplForm.name" placeholder="e.g., Security Reviewer"
+                                <input type="text" x-model="tplForm.name" th:placeholder="#{settings.admin.template.panel.placeholder.name}"
                                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
                             </label>
                             <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelDescription}">Description</span>
-                                <input type="text" x-model="tplForm.description" placeholder="Short description"
+                                <input type="text" x-model="tplForm.description" th:placeholder="#{settings.admin.template.panel.placeholder.description}"
                                        class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
                             </label>
                             <div class="flex flex-col gap-[8px]">
@@ -667,7 +708,7 @@
                          class="absolute z-50 top-full mt-[4px] left-0 w-[220px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-lg overflow-hidden">
                         <!-- Search -->
                         <div class="px-[8px] py-[6px] border-b border-[var(--grayscale-10)]">
-                            <input type="text" x-model="actorSearchQuery" placeholder="Search..."
+                            <input type="text" x-model="actorSearchQuery" th:placeholder="#{settings.admin.auditLog.placeholder.actorSearch}"
                                    @click.stop x-ref="actorSearch"
                                    class="w-full px-[8px] py-[5px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] outline-none focus:border-[#33D1B7]"/>
                         </div>
@@ -859,23 +900,23 @@
                         <div class="flex flex-col gap-[4px]">
                             <h3 class="font-bold text-[16px] inline-flex items-center gap-[6px]">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                                Invite User
+                                <span th:text="#{settings.admin.invite.header}">Invite User</span>
                             </h3>
-                            <p class="text-[12px] text-white/60">Invite a new user to OsWL.</p>
+                            <p class="text-[12px] text-white/60" th:text="#{settings.admin.invite.subtitle}">Invite a new user to OsWL.</p>
                         </div>
                         <button @click="closeSidebar()" class="text-white/60 hover:text-white">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Name
-                        <input type="text" x-model="invite.displayName" placeholder="Enter user's name"
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.name}">Name</span>
+                        <input type="text" x-model="invite.displayName" th:placeholder="#{settings.admin.invite.placeholder.name}"
                                class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
                     </label>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Email
-                        <input type="email" x-model="invite.email" placeholder="Enter email address"
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.email}">Email</span>
+                        <input type="email" x-model="invite.email" th:placeholder="#{settings.admin.invite.placeholder.email}"
                                class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
                     </label>
-                    <div class="flex flex-col gap-[6px] text-[12px] font-bold">Role
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.role}">Role</span>
                         <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
                             <template x-for="t in templates" :key="t.id">
                                 <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
@@ -886,23 +927,23 @@
                             </template>
                         </div>
                     </div>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Temporary Password
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.password}">Temporary Password</span>
                         <div class="flex gap-[6px]">
-                            <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + '+ characters'"
+                            <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + _adminI18n.invitePlaceholderPwdSuffix"
                                    class="flex-1 px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
                             <button type="button" @click="invite.temporaryPassword=randomPwd()"
-                                    class="text-[12px] font-semibold px-[10px] bg-white/10 hover:bg-white/15 border border-white/15 rounded-[8px] text-white">Generate</button>
+                                    class="text-[12px] font-semibold px-[10px] bg-white/10 hover:bg-white/15 border border-white/15 rounded-[8px] text-white" th:text="#{settings.admin.invite.btn.generate}">Generate</button>
                         </div>
                     </label>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Message <span class="text-white/40 font-normal">(Optional)</span>
-                        <textarea x-model="invite.message" rows="3" maxlength="200" placeholder="Enter an invitation message (max 200 characters)"
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.message}">Message</span> <span class="text-white/40 font-normal" th:text="#{settings.admin.invite.label.optional}">(Optional)</span>
+                        <textarea x-model="invite.message" rows="3" maxlength="200" th:placeholder="#{settings.admin.invite.placeholder.message}"
                                   class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7] resize-none"></textarea>
                     </label>
                     <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
                         <button @click="submitInvite()"
-                                class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]">Send Invite</button>
+                                class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.invite.btn.send}">Send Invite</button>
                         <button @click="closeSidebar()"
-                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
                     </div>
                 </div>
             </template>
@@ -916,7 +957,7 @@
                                  :style="`background-color: ${avatarColor(editingUser?.displayName||editingUser?.email||'')}`"
                                  x-text="(editingUser?.displayName||editingUser?.email||'?').trim().charAt(0).toUpperCase()"></div>
                             <div class="flex flex-col gap-[2px]">
-                                <h3 class="font-bold text-[16px]">Edit User</h3>
+                                <h3 class="font-bold text-[16px]" th:text="#{settings.admin.editUser.heading}">Edit User</h3>
                                 <p class="text-[12px] text-white/60" x-text="editingUser?.displayName"></p>
                             </div>
                         </div>
@@ -924,16 +965,16 @@
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                         </button>
                     </div>
-                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">Name
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.name}">Name</span>
                         <input type="text" :value="editingUser?.displayName" disabled
                                class="px-[12px] py-[8px] bg-white/5 border border-white/10 rounded-[8px] text-[13px] font-normal text-white/60 cursor-not-allowed"/>
                     </label>
                     <label class="flex flex-col gap-[6px] text-[12px] font-bold">
-                        Email <span class="text-white/40 font-normal">(Not editable)</span>
+                        <span th:text="#{settings.admin.invite.label.email}">Email</span> <span class="text-white/40 font-normal" th:text="#{settings.admin.editUser.label.emailNotEditable}">(Not editable)</span>
                         <input type="email" :value="editingUser?.email" disabled
                                class="px-[12px] py-[8px] bg-white/5 border border-white/10 rounded-[8px] text-[13px] font-normal text-white/60 cursor-not-allowed"/>
                     </label>
-                    <div class="flex flex-col gap-[6px] text-[12px] font-bold">Role
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.role}">Role</span>
                         <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
                             <template x-for="t in templates" :key="t.id">
                                 <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
@@ -944,20 +985,20 @@
                             </template>
                         </div>
                     </div>
-                    <div class="flex flex-col gap-[6px] text-[12px] font-bold">Status
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.editUser.label.status}">Status</span>
                         <div class="flex items-center gap-[10px] px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px]">
-                            <span class="text-[12px] font-normal text-white/60" x-text="editingUser?.enabled ? 'Active' : 'Inactive'"></span>
+                            <span class="text-[12px] font-normal text-white/60" x-text="editingUser?.enabled ? _adminI18n.active : _adminI18n.inactive"></span>
                             <button @click="!editingUser?.enabled && !(editingUser?.roleTemplates||[]).length ? showToast($el.closest('[data-msg-assign-role]').dataset.msgAssignRole) : toggleEnabled(editingUser, !editingUser.enabled).then(()=>{ if(editingUser){ editingUser.enabled = !editingUser.enabled; } })"
                                     class="ml-auto text-[11px] font-semibold px-[8px] py-[2px] rounded-[6px] bg-white/10 text-white"
                                     :class="!editingUser?.enabled && !(editingUser?.roleTemplates||[]).length ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/20'"
-                                    x-text="editingUser?.enabled ? 'Deactivate' : 'Activate'"></button>
+                                    x-text="editingUser?.enabled ? _adminI18n.deactivate : _adminI18n.activate"></button>
                         </div>
                     </div>
                     <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
                         <button @click="saveRoles()"
-                                class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold py-[10px] rounded-[8px]">Save Changes</button>
+                                class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.template.panel.save}">Save Changes</button>
                         <button @click="closeSidebar()"
-                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
                     </div>
                 </div>
             </template>
@@ -969,10 +1010,10 @@
                     <div class="bg-[var(--background-dark,#001d35)] text-white px-[24px] py-[20px] flex items-start justify-between flex-shrink-0">
                         <div class="flex flex-col gap-[4px]">
                             <h3 class="font-bold text-[16px]">
-                                <span x-show="sidebarMode==='newTemplate'">+ Add a New Template</span>
-                                <span x-show="sidebarMode==='editTemplate'" x-text="'Edit Template : ' + (editingTpl?.name || '')"></span>
+                                <span x-show="sidebarMode==='newTemplate'" x-text="'+ ' + _adminI18n.templateAddHeader"></span>
+                                <span x-show="sidebarMode==='editTemplate'" x-text="_adminI18n.templateEditHeader + ' ' + (editingTpl?.name || '')"></span>
                             </h3>
-                            <p class="text-[12px] text-white/60">Group permissions to assign to users.</p>
+                            <p class="text-[12px] text-white/60" x-text="_adminI18n.templateDescription">Group permissions to assign to users.</p>
                         </div>
                         <button @click="closeSidebar()" class="text-white/60 hover:text-white mt-[2px]">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -980,20 +1021,20 @@
                     </div>
                     <!-- Scrollable body -->
                     <div class="flex flex-col gap-[16px] p-[24px] overflow-y-auto flex-1">
-                        <label class="flex flex-col gap-[4px] text-[12px] font-bold">Name
-                            <input type="text" x-model="tplForm.name" placeholder="e.g., Security Reviewer"
+                        <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelName}">Name</span>
+                            <input type="text" x-model="tplForm.name" th:placeholder="#{settings.admin.template.panel.placeholder.name}"
                                    class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
                         </label>
-                        <label class="flex flex-col gap-[4px] text-[12px] font-bold">Description
-                            <input type="text" x-model="tplForm.description" placeholder="Short description"
+                        <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelDescription}">Description</span>
+                            <input type="text" x-model="tplForm.description" th:placeholder="#{settings.admin.template.panel.placeholder.description}"
                                    class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
                         </label>
                         <div class="flex flex-col gap-[8px]">
                             <div class="flex items-center justify-between">
-                                <span class="text-[12px] font-bold text-[var(--grayscale-80)]">Permissions <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
                                 <button type="button" @click="toggleAllPermissions()"
                                         class="text-[12px] font-semibold text-[var(--secondary-100)] hover:underline"
-                                        x-text="allSelected() ? 'Clear All' : 'Select All'"></button>
+                                        x-text="allSelected() ? _adminI18n.clearAll : _adminI18n.selectAll"></button>
                             </div>
                             <div class="grid grid-cols-2 gap-[12px] max-h-[420px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
                                 <template x-for="(group, gName) in groupedPermissions" :key="gName">
@@ -1002,7 +1043,7 @@
                                             <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
                                             <button type="button" @click="toggleGroup(group)"
                                                     class="text-[10px] font-semibold text-[var(--secondary-100)] hover:underline"
-                                                    x-text="groupAllSelected(group) ? 'Clear' : 'Select'"></button>
+                                                    x-text="groupAllSelected(group) ? _adminI18n.clear : _adminI18n.select"></button>
                                         </div>
                                         <div class="flex flex-col gap-[2px]">
                                             <template x-for="p in group" :key="p.code">
@@ -1020,9 +1061,9 @@
                             <button @click="saveTemplate()"
                                     :disabled="!tplForm.name.trim()"
                                     class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold py-[10px] rounded-[8px]"
-                                    x-text="sidebarMode==='editTemplate' ? 'Save Changes' : 'Create Template'"></button>
+                                    x-text="sidebarMode==='editTemplate' ? _adminI18n.templateSave : _adminI18n.templateCreate"></button>
                             <button @click="closeSidebar()"
-                                    class="flex-1 bg-transparent border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]">Cancel</button>
+                                    class="flex-1 bg-transparent border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -1057,17 +1098,17 @@
             dateDropdownOpen: false,
             minPasswordLength: 8,
             actionGroups: [
-                { label: 'Auth', items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT'] },
-                { label: 'User', items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
-                { label: 'Role Template', items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
-                { label: 'Project', items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE'] },
-                { label: 'VCS', items: ['VCS.CONNECT', 'VCS.DISCONNECT'] },
-                { label: 'CLI Key', items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
-                { label: 'Security', items: ['SECURITY_SETTING.UPDATE', 'SECURITY_SETTING.MAIL_TEST'] },
-                { label: 'AI Setting', items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE'] },
-                { label: 'Cache', items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
-                { label: 'External Setting', items: ['EXTERNAL_SETTING.NVD_UPDATE', 'EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
-                { label: 'Scan', items: ['SCAN.INGEST'] },
+                { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT'] },
+                { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
+                { label: _auditGroupLabels['Role Template'],    items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
+                { label: _auditGroupLabels['Project'],          items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE'] },
+                { label: _auditGroupLabels['VCS'],              items: ['VCS.CONNECT', 'VCS.DISCONNECT'] },
+                { label: _auditGroupLabels['CLI Key'],          items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
+                { label: _auditGroupLabels['Security'],         items: ['SECURITY_SETTING.UPDATE', 'SECURITY_SETTING.MAIL_TEST'] },
+                { label: _auditGroupLabels['AI Setting'],       items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE'] },
+                { label: _auditGroupLabels['Cache'],            items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
+                { label: _auditGroupLabels['External Setting'], items: ['EXTERNAL_SETTING.NVD_UPDATE', 'EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
+                { label: _auditGroupLabels['Scan'],             items: ['SCAN.INGEST'] },
             ],
             get filteredAuditUsers() {
                 const q = this.actorSearchQuery.toLowerCase();
@@ -1091,7 +1132,8 @@
             get groupedPermissions() {
                 const result = {};
                 for (const [name, prefixes] of Object.entries(this.permissionGroups)) {
-                    result[name] = this.allPermissions.filter(p => prefixes.some(pref => p.code.startsWith(pref)));
+                    const label = _permGroupLabels[name] || name;
+                    result[label] = this.allPermissions.filter(p => prefixes.some(pref => p.code.startsWith(pref)));
                 }
                 return result;
             },

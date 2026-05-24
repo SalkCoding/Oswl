@@ -6,11 +6,13 @@ import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.service.RoleTemplateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 public class AdminRoleTemplateController {
 
     private final RoleTemplateService roleTemplateService;
+    private final MessageSource messageSource;
 
     @GetMapping
     public List<RoleTemplateDto> list() {
@@ -28,9 +31,12 @@ public class AdminRoleTemplateController {
     }
 
     @GetMapping("/permissions")
-    public List<Map<String, String>> allPermissions() {
+    public List<Map<String, String>> allPermissions(Locale locale) {
         return Arrays.stream(Permission.values())
-                .map(p -> Map.of("code", p.name(), "description", p.getDescription()))
+                .map(p -> Map.of(
+                        "code", p.name(),
+                        "description", messageSource.getMessage(
+                                "permission." + p.name(), null, p.getDescription(), locale)))
                 .collect(Collectors.toList());
     }
 

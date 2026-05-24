@@ -7,10 +7,9 @@
 
         <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0">
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0"
-                th:text="${#lists.size(reviewItems)} + ' Item' + (${#lists.size(reviewItems)} != 1 ? 's' : '') + ' Needing Review'">0 Items</h2>
-            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0 mt-1">
-                Components with missing, proprietary or non-SPDX license declarations — flag for manual legal review.
-            </p>
+                th:text="${#lists.size(reviewItems)} + ' ' + #{license.review.heading}">0 Items</h2>
+            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0 mt-1"
+               th:text="#{license.review.description}">Components with missing, proprietary or non-SPDX license declarations — flag for manual legal review.</p>
         </div>
 
         <div class="flex flex-col w-full bg-white divide-y divide-[#DBE4E7]">

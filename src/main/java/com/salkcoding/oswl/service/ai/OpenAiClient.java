@@ -111,8 +111,9 @@ public class OpenAiClient implements AiAnalysisClient {
                 if (choices != null && !choices.isEmpty()) {
                     var message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
                     String result = message != null ? (String) message.get("content") : null;
+                    if (result != null) result = result.strip();
                     log.debug("[AI][OpenAI] Parsed result resultLen={}", result != null ? result.length() : 0);
-                    return result;
+                    return (result != null && !result.isBlank()) ? result : null;
                 }
                 log.warn("[AI][OpenAI] Response body has no 'choices' — keys={}", response.getBody().keySet());
             }

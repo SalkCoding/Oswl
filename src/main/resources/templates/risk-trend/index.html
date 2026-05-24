@@ -28,6 +28,12 @@
             unknown:    /*[[${chartLicUnknown}]]*/ []
         }
     };
+    window.riskTrendI18n = {
+        xAxis:   /*[[#{riskTrend.chart.xAxis}]]*/ 'Version',
+        yAxis:   /*[[#{riskTrend.chart.yAxis}]]*/ 'Issue Count',
+        noData:  /*[[#{riskTrend.noData}]]*/ 'No scan data yet',
+        noDataHint: /*[[#{riskTrend.noData.hint}]]*/ 'Run a scan to see the risk trend over time.'
+    };
     /*]]>*/
     </script>
     <script th:src="@{/js/risk-trend/risk-trend.js}"></script>

@@ -217,7 +217,7 @@
                                   th:classappend="${row.fromRiskLevel == 'CRITICAL'} ? ' bg-[var(--risk-critical)]'
                                                : (${row.fromRiskLevel == 'HIGH'}     ? ' bg-[var(--risk-high)]'
                                                : (${row.fromRiskLevel == 'MEDIUM'}   ? ' bg-[var(--risk-medium)]'
-                                               : ' bg-[var(--grayscale-30)]'))"></span><span th:text="${#strings.capitalize(#strings.toLowerCase(row.fromRiskLevel))} + ' Risk'">Low Risk</span></span>
+                                               : ' bg-[var(--grayscale-30)]'))"></span><span th:text="#{|versionDiff.risk.${#strings.toLowerCase(row.fromRiskLevel)}|}">Low Risk</span></span>
                     </div>
 
                     <!-- Right column (toScan) -->
@@ -245,7 +245,7 @@
                                   th:classappend="${row.toRiskLevel == 'CRITICAL'} ? ' bg-[var(--risk-critical)]'
                                                : (${row.toRiskLevel == 'HIGH'}     ? ' bg-[var(--risk-high)]'
                                                : (${row.toRiskLevel == 'MEDIUM'}   ? ' bg-[var(--risk-medium)]'
-                                               : ' bg-[var(--grayscale-30)]'))"></span><span th:text="${#strings.capitalize(#strings.toLowerCase(row.toRiskLevel))} + ' Risk'">Low Risk</span></span>
+                                               : ' bg-[var(--grayscale-30)]'))"></span><span th:text="#{|versionDiff.risk.${#strings.toLowerCase(row.toRiskLevel)}|}">Low Risk</span></span>
 
                         <!-- Change type tag (right-most) -->
                         <span class="ml-auto shrink-0 text-[14px] font-bold tracking-[-0.14px] whitespace-nowrap"

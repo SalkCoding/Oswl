@@ -27,6 +27,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ? window.riskTrendData
         : null;
 
+    const i18n = window.riskTrendI18n || {
+        xAxis: 'Version',
+        yAxis: 'Issue Count',
+        noData: 'No scan data yet',
+        noDataHint: 'Run a scan to see the risk trend over time.'
+    };
+
     if (!trendData) {
         // No scan data: show empty-state message in each chart canvas
         ['securityRiskChart', 'licenseRiskChart'].forEach(id => {
@@ -36,8 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.style.display = 'none';
             const msg = document.createElement('div');
             msg.className = 'flex flex-col items-center justify-center h-full gap-[8px] text-center';
-            msg.innerHTML = '<p class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">No scan data yet</p>' +
-                            '<p class="text-[12px] text-[var(--grayscale-30)] tracking-[-0.12px]">Run a scan to see the risk trend over time.</p>';
+            msg.innerHTML = `<p class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">${i18n.noData}</p>` +
+                            `<p class="text-[12px] text-[var(--grayscale-30)] tracking-[-0.12px]">${i18n.noDataHint}</p>`;
             container.appendChild(msg);
         });
         // Hide AI insight boxes when no data
@@ -58,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
             x: {
                 title: {
                     display: true,
-                    text: 'Version',
+                    text: i18n.xAxis,
                     align: 'end',
                     color: '#5e6b70',
                     font: { size: 14, family: 'Inter', weight: '500' },
@@ -75,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             y: {
                 title: {
                     display: true,
-                    text: 'Issue Count',
+                    text: i18n.yAxis,
                     align: 'end',
                     color: '#5e6b70',
                     font: { size: 14, family: 'Inter' },

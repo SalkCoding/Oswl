@@ -21,7 +21,7 @@
             </div>
             <button type="button" @click="$dispatch('close-component-panel')"
                class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] w-[32px] h-[32px] rounded-[7px] flex items-center justify-center hover:bg-[var(--grayscale-10)]"
-               aria-label="Close">
+               th:attr="aria-label=#{common.close}">
                 <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
             </button>
         </div>
@@ -36,7 +36,7 @@
                 </svg>
                 <span class="text-[11px] tracking-[-0.11px]"
                       th:classappend="${reviewed} ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'"
-                      th:text="${reviewed} ? #{componentDetail.status.reviewed} : #{componentDetail.status.notReviewed}">Not Reviewed</span>
+                      th:text="${reviewed} ? (${reviewedByName} != null ? #{componentDetail.status.reviewedBy(${reviewedByName})} : #{componentDetail.status.reviewed}) : #{componentDetail.status.notReviewed}">Not Reviewed</span>
             </span>
             <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[4px] rounded-[40px]">
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
@@ -79,7 +79,7 @@
                                      : (${licenseRisk == 'CAUTION'} ? 'bg-[var(--risk-high)]'
                                      : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(132,220,165,1)]' : 'bg-[var(--grayscale-30)]'))"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                      th:text="${licenseRiskLabel}">A High Risk License</span>
+                      th:text="${licenseIsNonStandard} ? #{license.status.nonstandard} : #{|license.status.${#strings.toLowerCase(licenseRisk)}|}">A High Risk License</span>
             </span>
         </div>
 
@@ -122,6 +122,11 @@
             <p class="font-bold text-[13px] text-[var(--semantic-caution)] tracking-[-0.13px]"
                th:text="#{componentDetail.defer.banner.title}">Deferred</p>
             <p class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px]">
+                <th:block th:if="${deferredByName != null}">
+                    <span class="font-semibold" th:text="#{componentDetail.defer.banner.by}">By</span>:
+                    <span th:text="${deferredByName}">Alice</span>
+                    &nbsp;·&nbsp;
+                </th:block>
                 <span class="font-semibold" th:text="#{componentDetail.defer.banner.reason}">Reason</span>:
                 <span th:text="${deferredReason}">legal-review</span>
                 <th:block th:if="${deferralExpiresAt != null}">
@@ -360,7 +365,7 @@
                           th:classappend="${licenseRisk == 'RESTRICTED'} ? 'bg-[var(--risk-critical)]'
                                          : (${licenseRisk == 'CAUTION'} ? 'bg-[var(--risk-high)]'
                                          : (${licenseRisk == 'PERMITTED'} ? 'bg-[rgba(132,220,165,1)]' : 'bg-[var(--grayscale-30)]'))"></span>
-                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${licenseRiskLabel}">High Risk</span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${licenseIsNonStandard} ? #{license.status.nonstandard} : #{|license.status.${#strings.toLowerCase(licenseRisk)}|}">High Risk</span>
                 </span>
             </div>
 
@@ -595,7 +600,7 @@
             </p>
             <p th:if="${!hasVulnerabilities}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
             <p><th:block th:text="#{componentDetail.desc.licenseLabel} + ': '">License: </th:block><span class="font-medium" th:text="${licenseName ?: 'Unknown'}">-</span>
-               (<span th:text="${licenseRiskLabel}">-</span>).</p>
+               (<span th:text="${licenseIsNonStandard} ? #{license.status.nonstandard} : #{|license.status.${#strings.toLowerCase(licenseRisk)}|}">-</span>).</p>
         </div>
     </section>
 

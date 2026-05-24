@@ -173,28 +173,41 @@
                            placeholder="https://bitbucket.example.com (leave blank for Bitbucket Cloud)"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
-                <div class="flex items-center gap-[12px]">
-                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
-                        <span x-show="!bitbucketServerUrl.trim()">Workspace Slug</span>
-                        <span x-show="bitbucketServerUrl.trim()">Username</span>
-                    </label>
-                    <input type="text" x-model="bitbucketUsername"
-                           :placeholder="bitbucketServerUrl.trim() ? 'username (optional)' : 'e.g. salkcoding · Required for HTTP access tokens'"
-                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                <div class="flex flex-col gap-[4px]">
+                    <div class="flex items-center gap-[12px]">
+                        <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
+                            <span x-show="!bitbucketServerUrl.trim()">Username</span>
+                            <span x-show="bitbucketServerUrl.trim()">Username</span>
+                        </label>
+                        <input type="text" x-model="bitbucketUsername"
+                               :placeholder="bitbucketServerUrl.trim() ? 'Account ID (optional)' : 'Atlassian email (API Token) · workspace-slug (Workspace Token) · account ID (App Password)'"
+                               :class="{'border-amber-400': !bitbucketServerUrl.trim() && bitbucketAccessToken.startsWith('ATATT') && bitbucketUsername.trim() && !bitbucketUsername.includes('@')}"
+                               class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/
+                    </div>
+                    <p x-show="!bitbucketServerUrl.trim()" class="pl-[122px] text-[11px] text-[var(--grayscale-40)]">① API Token (id.atlassian.com) → <strong>Atlassian 이메일 필수</strong> &nbsp;·&nbsp; ② Workspace Token → workspace slug &nbsp;·&nbsp; ③ App Password → Bitbucket 계정 ID</p>
+                    <!-- Live warning: ATATT token but slug entered instead of email -->
+                    <p x-show="!bitbucketServerUrl.trim() && bitbucketAccessToken.startsWith('ATATT') && bitbucketUsername.trim() && !bitbucketUsername.includes('@')"
+                       x-cloak
+                       class="pl-[122px] text-[11px] text-amber-600 font-semibold">
+                        ⚠ ATATT 토큰에 workspace slug를 입력하면 <em>Workspace HTTP Access Token</em>으로만 동작합니다.<br>
+                        Atlassian API Token (id.atlassian.com)이라면 Username을 <strong>Atlassian 이메일</strong>로 바꿔야 저장소를 조회할 수 있습니다.
+                    </p>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
-                        <span x-show="!bitbucketServerUrl.trim()">API Token</span>
+                        <span x-show="!bitbucketServerUrl.trim()">Token / Password</span>
                         <span x-show="bitbucketServerUrl.trim()">Access Token</span>
                     </label>
                     <input type="password" x-model="bitbucketAccessToken"
-                           :placeholder="bitbucketServerUrl.trim() ? 'Personal Access Token' : 'ATATT3x... or ATBB-...'"
+                           :placeholder="bitbucketServerUrl.trim() ? 'Personal Access Token' : 'API Token (ATATT-…) or App Password (ATBB-…)'"
                            class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                 </div>
-                <!-- Cloud-only hint -->
-                <div x-show="!bitbucketServerUrl.trim()" class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed">
-                    <span class="font-medium">HTTP access token (ATATT)</span> — enter workspace slug + token &nbsp;·&nbsp;
-                    <span class="font-medium">App password</span> — enter Bitbucket username + app password
+                <!-- Bitbucket Cloud connection guide -->
+                <div x-show="!bitbucketServerUrl.trim()" class="pl-[122px] flex flex-col gap-[6px] text-[11px] text-[var(--grayscale-50)] leading-relaxed">
+                    <p class="font-semibold text-[var(--grayscale-70)]">Bitbucket Cloud — choose one method</p>
+                    <p><span class="font-semibold text-[var(--grayscale-80)]">① Atlassian API Token</span> <span class="text-[var(--primary-100)] font-semibold">(recommended)</span> — 발급: id.atlassian.com → Security → API tokens → Bitbucket 범위 선택<br>Required scopes: <code class="bg-gray-100 px-1 rounded">read:workspace:bitbucket</code> + <code class="bg-gray-100 px-1 rounded">read:repository:bitbucket</code><br>Username: <strong>Atlassian 계정 이메일</strong> (workspace slug 사용 불가) &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATATT-…</code></p>
+                    <p><span class="font-semibold text-[var(--grayscale-80)]">② Workspace HTTP Access Token</span> — 발급: Bitbucket 워크스페이스 설정 → Access management → Access tokens<br>Username: workspace-slug (예: <em>mycompany</em>) &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATATT-…</code></p>
+                    <p><span class="font-semibold text-[var(--grayscale-80)]">③ App Password</span> <span class="text-amber-500 font-semibold">⚠ Deprecated — brownout starts 2026-06-09, removed 2026-07-28. Existing tokens only.</span><br>Username: Bitbucket account ID &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATBB-…</code></p>
                 </div>
                 <div class="flex justify-end">
                     <button @click="connectBitbucket()"
@@ -270,11 +283,12 @@
 
                 <!-- Bitbucket: Username -->
                 <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
-                    <label class="text-[12px] font-bold"><span th:text="#{settings.vcs.label.username}">Username</span>
-                        <span class="text-white/50 font-normal" th:text="#{settings.vcs.slideout.label.usernameOptional}">(Optional)</span>
+                    <label class="text-[12px] font-bold">
+                        <span x-show="!form.serverUrl.trim()">Username / Workspace Slug</span>
+                        <span x-show="form.serverUrl.trim()">Username <span class="text-white/50 font-normal">(Optional)</span></span>
                     </label>
                     <input type="text" x-model="form.vcsUsername"
-                           :placeholder="form.serverUrl.trim() ? 'username (optional)' : 'Leave blank to use HTTP access token'"
+                           :placeholder="form.serverUrl.trim() ? 'Account ID (optional)' : 'API Token: Atlassian email  /  Workspace Token: workspace-slug  /  App Password: Bitbucket ID'"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
@@ -282,12 +296,19 @@
                 <div class="flex flex-col gap-[6px]" x-show="form.provider" x-cloak>
                     <label class="text-[12px] font-bold">
                         <span x-show="form.provider !== 'BITBUCKET'" th:text="#{settings.vcs.slideout.label.tokenPersonal}">Personal Access Token</span>
-                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()" th:text="#{settings.vcs.slideout.label.tokenAppPassword}">App Password / Token</span>
+                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()">API Token / App Password</span>
                         <span x-show="form.provider === 'BITBUCKET' && form.serverUrl.trim()" th:text="#{settings.vcs.slideout.label.tokenPersonal}">Personal Access Token</span>
                     </label>
                     <input type="password" x-model="form.accessToken"
-                           :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : (form.serverUrl.trim() ? 'Personal Access Token' : 'ATBB-xxxxxxxxxxxxxxxxxxxxxxxx')"
+                           :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : (form.serverUrl.trim() ? 'Personal Access Token' : 'API Token (ATATT-…) or App Password (ATBB-…)')"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
+                    <!-- Bitbucket Cloud connection guide -->
+                    <div x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()" class="flex flex-col gap-[5px] text-[11px] text-white/50 leading-relaxed mt-[2px]">
+                        <p class="font-semibold text-white/70">Choose one method</p>
+                        <p><span class="text-white/80 font-semibold">① Atlassian API Token</span> <span class="text-emerald-400 font-semibold">(recommended)</span> — id.atlassian.com → Security → API tokens → select Bitbucket scopes<br><span class="text-white/60">Required scopes: read:workspace:bitbucket + read:repository:bitbucket</span><br><span class="text-white/40">Username: Atlassian email &nbsp;·&nbsp; Token: ATATT-…</span></p>
+                        <p><span class="text-white/80 font-semibold">② Workspace HTTP Access Token</span> — Bitbucket workspace settings → Access management → Access tokens<br><span class="text-white/40">Username: workspace-slug (e.g. mycompany) &nbsp;·&nbsp; Token: ATATT-…</span></p>
+                        <p><span class="text-white/80 font-semibold">③ App Password</span> <span class="text-amber-400 font-semibold">⚠ Deprecated — brownout 2026-06-09, removed 2026-07-28.</span><br><span class="text-white/40">Username: Bitbucket account ID &nbsp;·&nbsp; Token: ATBB-…</span></p>
+                    </div>
                 </div>
 
                 <!-- Buttons -->
@@ -305,29 +326,34 @@
     <!-- Toast -->
     <div x-show="toastVisible" x-cloak
          x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 translate-y-[12px]"
+         x-transition:enter-start="opacity-0 translate-y-2"
          x-transition:enter-end="opacity-100 translate-y-0"
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 translate-y-[12px]"
-         class="fixed bottom-[48px] left-1/2 -translate-x-1/2 z-50 flex items-center gap-[14px] bg-[rgba(0,29,53,0.92)] backdrop-blur-[12px] rounded-[100px] pl-[20px] pr-[28px] py-[14px]">
-        <div class="w-[28px] h-[28px] rounded-full bg-[#33D1B7] flex items-center justify-center shrink-0">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
         </div>
-        <span class="font-medium text-[13px] text-[rgba(255,255,255,0.9)] tracking-[-0.13px] whitespace-nowrap" x-text="toastMsg"></span>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
     </div>
 
     <script th:inline="javascript">
     const _vcsI18n = {
-        connecting:        /*[[#{settings.vcs.btn.connecting}]]*/ 'Connecting…',
-        connect:           /*[[#{settings.vcs.btn.connect}]]*/ 'Connect',
-        save:              /*[[#{common.save}]]*/ 'Save',
-        loadFailed:        /*[[#{settings.vcs.error.loadFailed}]]*/ 'Failed to load VCS connections.',
-        connectFailed:     /*[[#{settings.vcs.error.connectFailed}]]*/ 'Failed to connect.',
-        disconnectFailed:  /*[[#{settings.vcs.error.disconnectFailed}]]*/ 'Failed to disconnect.',
-        networkError:      /*[[#{settings.vcs.error.networkError}]]*/ 'Network error. Please try again.',
-        connectedSuffix:   /*[[#{settings.vcs.toast.connectedSuffix}]]*/ 'connected successfully.',
-        disconnectedSuffix:/*[[#{settings.vcs.toast.disconnectedSuffix}]]*/ 'disconnected.'
+        connecting:                /*[[#{settings.vcs.btn.connecting}]]*/ 'Connecting…',
+        connect:                   /*[[#{settings.vcs.btn.connect}]]*/ 'Connect',
+        save:                      /*[[#{common.save}]]*/ 'Save',
+        loadFailed:                /*[[#{settings.vcs.error.loadFailed}]]*/ 'Failed to load VCS connections.',
+        connectFailed:             /*[[#{settings.vcs.error.connectFailed}]]*/ 'Failed to connect.',
+        disconnectFailed:          /*[[#{settings.vcs.error.disconnectFailed}]]*/ 'Failed to disconnect.',
+        networkError:              /*[[#{settings.vcs.error.networkError}]]*/ 'Network error. Please try again.',
+        connectedSuffix:           /*[[#{settings.vcs.toast.connectedSuffix}]]*/ 'connected successfully.',
+        disconnectedSuffix:        /*[[#{settings.vcs.toast.disconnectedSuffix}]]*/ 'disconnected.',
+        bitbucketAtattNeedsEmail:  /*[[#{settings.vcs.error.bitbucketAtattNeedsEmail}]]*/ 'Atlassian API Token (ATATT) requires your Atlassian account email as the Username — not a workspace slug.'
     };
     </script>
     <script>
@@ -492,6 +518,14 @@
             async connectBitbucket() {
                 const isCloud = !this.bitbucketServerUrl.trim();
                 if (!this.bitbucketAccessToken.trim()) return;
+                // Guard: Atlassian API Token (ATATT) must use email, not slug
+                if (isCloud
+                    && this.bitbucketAccessToken.startsWith('ATATT')
+                    && this.bitbucketUsername.trim()
+                    && !this.bitbucketUsername.includes('@')) {
+                    this.apiError = _vcsI18n.bitbucketAtattNeedsEmail;
+                    return;
+                }
                 this.creating = true;
                 this.apiError = null;
                 try {
