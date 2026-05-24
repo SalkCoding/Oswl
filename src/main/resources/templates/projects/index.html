@@ -571,6 +571,14 @@
         (function () {
             const IN_PROGRESS = new Set(['SCANNING', 'ANALYZING', 'PENDING']);
 
+            // If quick-import just completed, reload once to show the new project card.
+            const qiDoneKey = 'oswl-qi-done';
+            if (localStorage.getItem(qiDoneKey)) {
+                localStorage.removeItem(qiDoneKey);
+                location.reload();
+                return;
+            }
+
             const ids = Array.from(document.querySelectorAll('[data-scan-status]'))
                 .filter(el => IN_PROGRESS.has(el.dataset.scanStatus))
                 .map(el => el.dataset.projectId);

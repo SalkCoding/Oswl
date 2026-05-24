@@ -113,6 +113,13 @@ public class ComponentDetailService {
         model.addAttribute("recommendedVersion", lib.bestFixVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
+        // Deferral info
+        model.addAttribute("isDeferred", sc.isDeferred());
+        model.addAttribute("deferredReason", sc.getDeferralReason());
+        model.addAttribute("deferralNote", sc.getDeferralNote());
+        model.addAttribute("deferralExpiresAt", sc.getDeferralExpiresAt() != null
+                ? sc.getDeferralExpiresAt().toLocalDate().toString() : null);
+
         // VCS / PR creation context
         VcsProvider vcsProvider = project.getVcsProvider();
         boolean canCreatePr = project.getGithubRepo() != null && (
