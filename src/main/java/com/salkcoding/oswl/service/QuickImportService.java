@@ -339,6 +339,21 @@ public class QuickImportService {
                 bearerHeader);
         if (!byOwner.isEmpty()) return byOwner;
 
+        // Case 3b: ATBB token with email/username stored but treated as non-slug above.
+        // Re-try role-based endpoints using Basic auth.
+        if (!isAtatt && username != null && !username.isBlank()) {
+            String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
+                    (username + ":" + tokenOrAppPassword).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            List<QuickImportRepoDto> byMemberBasic = fetchBitbucketRepoPage(
+                    "https://api.bitbucket.org/2.0/repositories?role=member&pagelen=100&sort=-updated_on",
+                    basicHeader);
+            if (!byMemberBasic.isEmpty()) return byMemberBasic;
+            List<QuickImportRepoDto> byOwnerBasic = fetchBitbucketRepoPage(
+                    "https://api.bitbucket.org/2.0/repositories?role=owner&pagelen=100&sort=-updated_on",
+                    basicHeader);
+            if (!byOwnerBasic.isEmpty()) return byOwnerBasic;
+        }
+
         // Workspace-list fallback (works when the token has workspace:read scope).
         HttpRequest wsReq = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.bitbucket.org/2.0/workspaces?pagelen=100"))
@@ -1391,8 +1406,16 @@ public class QuickImportService {
         for (GradleComponent gc : depComps.values()) {
             boolean hasDirect = gc.paths().stream().anyMatch(p -> p.size() == 2);
             boolean hasTransitive = gc.paths().stream().anyMatch(p -> p.size() > 2);
-            String info = hasDirect && hasTransitive ? "Direct + Transitive"
-                    : hasDirect ? "Direct" : "Transitive";
+            long directCount = gc.paths().stream().filter(p -> p.size() == 2).count();
+            long transitiveCount = gc.paths().stream().filter(p -> p.size() > 2).count();
+            String info;
+            if (hasDirect && hasTransitive) {
+                info = "Direct (" + directCount + ") + Transitive (" + transitiveCount + ")";
+            } else if (hasDirect) {
+                info = "Direct (" + directCount + ")";
+            } else {
+                info = "Transitive (" + transitiveCount + ")";
+            }
             result.add(ReflectiveComponentBuilder.buildWithPaths(
                     gc.name(), gc.version(), "MAVEN", info, gc.paths()));
         }
@@ -1821,7 +1844,8 @@ public class QuickImportService {
 
     /**
      * Returns an existing active API key for the project, or issues a new one
-     * labeled "quick-import".
+     * labeled "quick-import". For existing keys the token is intentionally null
+     * to avoid re-exposing a key the user should already have stored.
      */
     private ApiKeyResult getOrIssueApiKey(Project project) {
         List<ApiKey> existing = apiKeyService.findByProject(project.getId())
@@ -1829,7 +1853,7 @@ public class QuickImportService {
                 .filter(ApiKey::isValid)
                 .toList();
         if (!existing.isEmpty()) {
-            return new ApiKeyResult(existing.getFirst().getToken(), false);
+            return new ApiKeyResult(null, false);
         }
         ApiKey newKey = apiKeyService.issue(project.getId(), "quick-import", null);
         return new ApiKeyResult(newKey.getToken(), true);

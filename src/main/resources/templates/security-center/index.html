@@ -1,6 +1,27 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/head :: head(#{securityCenter.pageTitle})}"></head>
+<style>
+@media print {
+    /* Hide navigation, filter panel, controls */
+    header, aside, .export-controls,
+    [x-show="componentPanelOpen"],
+    [x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"],
+    [x-show="bulkActionsOpen"],
+    [x-show="exportOpen"] { display: none !important; }
+    /* Show the scan banner area minimally */
+    body { overflow: visible !important; height: auto !important; background: white !important; }
+    main { overflow: visible !important; }
+    /* Make the table fill the page */
+    .flex-1.overflow-x-auto.overflow-y-auto { overflow: visible !important; }
+    /* Remove shadows and rounded corners for print */
+    * { box-shadow: none !important; }
+    /* Page breaks */
+    a[data-comp-id] { page-break-inside: avoid; }
+    /* Ensure action rows (bulk-actions, search bar) are hidden */
+    section:has(input[x-model="searchQuery"]) { display: none !important; }
+}
+</style>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative"
       th:data-project-id="${projectId}"
       x-data="{
@@ -155,6 +176,12 @@
                           window.dispatchEvent(new CustomEvent('bulk-ignore', {
                               detail: {ids: idStrings, value: value}
                           }));
+                          // When ignoring, automatically show non-ignored items so
+                          // the user can see the list update in real time.
+                          if (action === 'ignore') {
+                              this.filters.nonIgnored = true;
+                              this.filterVersion++;
+                          }
                       }
                   });
               }
@@ -255,7 +282,7 @@
             <div th:replace="~{security-center/fragments/actions :: actions}"></div>
 
             <div class="flex flex-1 min-h-0">
-                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar">
+                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none;">
                     <div th:replace="~{security-center/fragments/table :: table}"></div>
                 </div>
                 <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>

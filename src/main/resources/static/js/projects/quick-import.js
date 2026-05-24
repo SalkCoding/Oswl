@@ -245,6 +245,10 @@ function quickImportPage() {
                 this._stopPolling();
                 this.jobResult   = job;
                 this.isImporting = false;
+                // Signal projects page to reload so the new card appears.
+                if (job.phase === 'DONE') {
+                    try { localStorage.setItem('oswl-qi-done', '1'); } catch (_) {}
+                }
             }
         },
 

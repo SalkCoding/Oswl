@@ -250,6 +250,7 @@
                                   class="px-[6px] py-[2px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[10px] font-semibold rounded-full" th:text="#{quickImport.label.existing}">Existing</span>
                         </div>
                         <button @click="copyApiKey()"
+                                x-show="jobResult.newApiKey"
                                 class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-90)] transition-colors">
                             <svg x-show="!keyCopied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                             <svg x-show="keyCopied" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-500" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -257,9 +258,16 @@
                         </button>
                     </div>
                     <!-- Token display -->
-                    <code class="block font-mono text-[13px] text-[var(--grayscale-90)] bg-white border border-[var(--grayscale-15)] rounded-[6px] px-[12px] py-[8px] break-all select-all"
+                    <code x-show="jobResult.newApiKey"
+                          class="block font-mono text-[13px] text-[var(--grayscale-90)] bg-white border border-[var(--grayscale-15)] rounded-[6px] px-[12px] py-[8px] break-all select-all"
                           x-text="jobResult.apiToken || '—'"></code>
-                    <p class="text-[11px] text-[var(--grayscale-50)] m-0">
+                    <!-- Existing key notice -->
+                    <div x-show="!jobResult.newApiKey"
+                         class="flex items-center gap-[8px] bg-amber-50 border border-amber-200 rounded-[6px] px-[12px] py-[8px]">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-amber-500 shrink-0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span class="text-[12px] text-amber-700" th:text="#{quickImport.apiKey.existingHint}">An active key already exists for this project. View it in the project's CLI Integration settings.</span>
+                    </div>
+                    <p x-show="jobResult.newApiKey" class="text-[11px] text-[var(--grayscale-50)] m-0">
                         <span th:text="#{quickImport.apiKey.hintCli}">Use this key with the OsWL CLI:</span>
                         <code class="font-mono bg-[var(--grayscale-10)] px-[4px] py-[1px] rounded text-[var(--grayscale-80)]">
                             oswl scan --key &lt;token&gt;
