@@ -65,8 +65,9 @@
                             <span th:text="#{settings.cli.status.active}">Active</span>
                         </span>
                         <span x-show="!k.active"
-                              class="inline-flex items-center gap-[5px] px-[9px] py-[3px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-semibold">
-                            <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-40)]"></span><span th:text="#{settings.cli.status.inactive}">Inactive</span>
+                              class="inline-flex items-center gap-[6px] px-[10px] pr-[12px] py-[4px] rounded-[40px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-normal">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--grayscale-40)"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            <span th:text="#{settings.cli.status.inactive}">Inactive</span>
                         </span>
                     </td>
                     <td class="px-[16px] py-[12px]">
