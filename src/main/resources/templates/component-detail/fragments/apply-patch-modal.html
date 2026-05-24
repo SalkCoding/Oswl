@@ -44,11 +44,13 @@ const _patchI18n = {
         prError: null,
         prDone: false,
         prUrl: null,
+        vcsNotConnected: false,
 
         async loadBranches() {
             const root = document.getElementById('component-detail-content');
             const projectId = root ? root.dataset.projectId : null;
             if (!projectId) return;
+            this.vcsNotConnected = false;
             try {
                 const r = await fetch('/api/vcs/branches?projectId=' + projectId);
                 if (r.ok) {
@@ -57,6 +59,8 @@ const _patchI18n = {
                         this.branches = list;
                         this.selectedBranch = list[0];
                     }
+                } else {
+                    this.vcsNotConnected = true;
                 }
             } catch (e) {
                 // silently keep defaults
@@ -215,6 +219,12 @@ const _patchI18n = {
 
         <!-- Actions (fixed footer) -->
         <div class="flex flex-col gap-[10px] px-[36px] pt-[16px] pb-[28px] shrink-0 border-t border-[var(--grayscale-20)]">
+            <!-- VCS not connected warning -->
+            <div x-show="vcsNotConnected" x-cloak
+                 class="w-full bg-amber-50 border border-amber-200 text-amber-700 text-[12px] rounded-[8px] px-[10px] py-[8px] flex items-center gap-[8px]">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span th:text="#{componentDetail.patch.error.noVcs}">VCS connection is not configured for this project. Please connect a VCS account in Settings.</span>
+            </div>
             <!-- Error feedback -->
             <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="prError"></div>
             <!-- Success feedback -->
@@ -223,7 +233,7 @@ const _patchI18n = {
             </div>
 
             <div class="flex gap-[16px] items-center">
-                <button type="button" @click="createPr()" :disabled="submitting || prDone"
+                <button type="button" @click="createPr()" :disabled="submitting || prDone || vcsNotConnected"
                         class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
                     <span th:attr="data-msg-creating=#{componentDetail.patch.btn.creating},data-msg-create=#{componentDetail.patch.btn.create}"
