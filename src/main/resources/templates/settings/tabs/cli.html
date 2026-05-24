@@ -194,7 +194,7 @@
                 try {
                     const r = await fetch('/api/admin/cli-keys');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = `Failed to load keys (${r.status})`; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.loadFailed); return; }
                     this.keys = await r.json();
                 } catch(e) {
                     this.apiError = _cliI18n.loadFailed;
@@ -226,7 +226,7 @@
                     };
                     const r = await fetch('/api/admin/cli-keys', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _cliI18n.createFailed; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.createFailed); return; }
                     const data = await r.json();
                     this.newTokenBanner = data.token;
                     this.closeCreate();
@@ -239,7 +239,7 @@
                 try {
                     const r = await fetch(`/api/admin/cli-keys/${k.id}/toggle`, { method: 'PATCH', headers: this.headers() });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _cliI18n.updateFailed; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.updateFailed); return; }
                     await this.loadKeys();
                 } catch(e) { this.apiError = _cliI18n.updateFailed; }
             },

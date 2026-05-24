@@ -10,6 +10,9 @@
             sessionStorage.setItem('oswl_settings_back', ref || '/projects');
         }
     })();
+    // 403 권한 부족 vs 서버 오류를 구분하는 공용 헬퍼
+    const _accessDeniedMsg = /*[[#{common.error.accessDenied}]]*/ 'Access denied. You do not have permission to perform this action.';
+    function _fetchErr(r, fallback) { return r.status === 403 ? _accessDeniedMsg : fallback; }
 </script>
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>

@@ -156,7 +156,7 @@
                 try {
                     const r = await fetch('/api/settings/cache');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _cacheI18n.loadFailed; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.loadFailed); return; }
                     this.items = await r.json();
                     // Infer current policy from first item's ttlHours
                     if (this.items.length) {
@@ -193,7 +193,7 @@
                     for (const c of this.items) {
                         const r = await fetch('/api/settings/cache', { method: 'PUT', headers: this.headers(), body: JSON.stringify({ cacheKey: c.cacheKey, ttlSeconds }) });
                         if (r.status === 401) { location.href = '/login'; return; }
-                        if (!r.ok) { this.apiError = _cacheI18n.saveFailed; return; }
+                        if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.saveFailed); return; }
                     }
                     // Update items in-place so a re-fetch doesn't overwrite the policy
                     this.items = this.items.map(c => ({

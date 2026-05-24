@@ -1173,7 +1173,7 @@
             async apiGet(url) {
                 const r = await fetch(url);
                 if (r.status === 401) { location.href = '/login'; throw new Error('Unauthorized'); }
-                if (!r.ok) throw new Error(`API error ${r.status}: ${url}`);
+                if (!r.ok) throw new Error(_fetchErr(r, `API error ${r.status}: ${url}`));
                 return r.json();
             },
             async loadUsers() { this.users = await this.apiGet('/api/admin/users'); },
@@ -1271,7 +1271,7 @@
                 const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
                 const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(payload) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.inviteError = _adminI18n.inviteFailed; return; }
+                if (!r.ok) { this.inviteError = _fetchErr(r, _adminI18n.inviteFailed); return; }
                 if (!templateId) {
                     const created = await r.json();
                     await fetch(`/api/admin/users/${created.id}/deactivate`, { method: 'PUT', headers: this.headers() });
@@ -1286,11 +1286,11 @@
                 if (name !== (this.editingUser.displayName || '').trim()) {
                     const nr = await fetch(`/api/admin/users/${this.editingUser.id}/display-name`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ displayName: name }) });
                     if (nr.status === 401) { location.href = '/login'; return; }
-                    if (!nr.ok) { alert(_adminI18n.updateNameFailed); return; }
+                    if (!nr.ok) { alert(_fetchErr(nr, _adminI18n.updateNameFailed)); return; }
                 }
                 const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateId ? [this.editingTemplateId] : [] }) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
                 // Auto-deactivate if no role assigned and user is currently active
                 if (!this.editingTemplateId && this.editingUser.enabled) {
                     const dr = await fetch(`/api/admin/users/${this.editingUser.id}/deactivate`, { method: 'PUT', headers: this.headers() });
@@ -1309,7 +1309,7 @@
                 this.deletingUser = null;
                 const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
                 await this.loadUsers();
             },
             async saveTemplate() {
@@ -1317,13 +1317,13 @@
                 const method = this.editingTpl?.id ? 'PUT' : 'POST';
                 const r = await fetch(url, { method, headers: this.headers(), body: JSON.stringify(this.tplForm) });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
                 this.closeSidebar(); await this.loadTemplates();
             },
             async deleteTemplate(t) {
                 const r = await fetch(`/api/admin/role-templates/${t.id}`, { method: 'DELETE', headers: this.headers() });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { alert(_adminI18n.actionFailed); return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
                 this.deletingTemplate = null;
                 await this.loadTemplates();
             },
@@ -1346,12 +1346,12 @@
                 try {
                     const r = await fetch('/api/admin/audit-logs?' + params.toString());
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _adminI18n.auditLoadFailed; return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _adminI18n.auditLoadFailed); return; }
                     const data = await r.json();
                     this.auditLogs = data.content || [];
                     this.auditTotalPages = data.page?.totalPages || data.totalPages || 0;
                     this.auditTotalElements = data.page?.totalElements || data.totalElements || 0;
-                } catch(e) { this.apiError = _adminI18n.auditLoadFailed; }
+                } catch(e) { this.apiError = e.message || _adminI18n.auditLoadFailed; }
             },
             pageRange() {
                 const total = this.auditTotalPages;
