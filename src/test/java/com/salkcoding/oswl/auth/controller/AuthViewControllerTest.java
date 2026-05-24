@@ -124,7 +124,6 @@ class AuthViewControllerTest {
     void otpVerifyPage_pending_returnsOtpView() {
         when(request.getSession(false)).thenReturn(session);
         when(otpService.isPending(session)).thenReturn(true);
-        OswlUserPrincipal pendingPrincipal = principal(false);
         when(otpService.getPendingPrincipal(session)).thenReturn(principal(false));
         when(otpService.remainingSeconds(session)).thenReturn(120L);
         when(session.getAttribute(OtpService.SESSION_MAIL_FAILED)).thenReturn(null);

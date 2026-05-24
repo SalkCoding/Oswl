@@ -133,7 +133,7 @@ class RoleTemplateServiceTest {
         req.setName("NewName");
         req.setPermissions(Set.of("SCAN_VIEW"));
 
-        RoleTemplateDto dto = roleTemplateService.update(1L, req);
+        roleTemplateService.update(1L, req);
 
         assertThat(rt.getName()).isEqualTo("NewName");
         assertThat(rt.getPermissions()).contains(Permission.SCAN_VIEW);
