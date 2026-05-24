@@ -98,6 +98,7 @@ public class ScanComponent {
         this.deferralReason = reason;
         this.deferralExpiresAt = expiresAt;
         this.deferralNote = note;
+        this.ignored = true;
     }
 
     public boolean isDeferred() {
