@@ -53,6 +53,10 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.named('bootRun') {
+	jvmArgs = ['-Djava.net.preferIPv4Stack=true']
+}
+
 jacoco {
 	toolVersion = '0.8.14'
 }

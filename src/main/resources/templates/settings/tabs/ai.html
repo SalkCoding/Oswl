@@ -383,7 +383,7 @@
                 try {
                     const r = await fetch('/api/settings/ai');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _aiI18n.loadFailed; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.loadFailed); return; }
                     const data = await r.json();
                     if (data && data.active && data.provider) {
                         this.mode = data.provider;
@@ -407,7 +407,7 @@
                     if (this.mode === 'off') {
                         const r = await fetch('/api/settings/ai/deactivate', { method: 'PUT', headers: this.headers() });
                         if (r.status === 401) { location.href = '/login'; return; }
-                        if (!r.ok) { this.apiError = _aiI18n.disableFailed; return; }
+                        if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
                         this.showToast(_aiI18n.disabled);
                         return;
                     }
@@ -421,7 +421,7 @@
                     };
                     const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _aiI18n.saveFailed; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
                     this.showToast(_aiI18n.saved);
                 } catch (e) { this.apiError = String(e); }
                 finally { this.saving = false; }

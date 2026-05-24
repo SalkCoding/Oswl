@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.session.SessionInformation;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -43,6 +45,7 @@ public class OtpVerifyController {
     private final OtpService           otpService;
     private final AuditLogService       auditLogService;
     private final TrustedDeviceService  trustedDeviceService;
+    private final SessionRegistry       sessionRegistry;
 
     @PostMapping("/login/otp-verify")
     public ResponseEntity<Map<String, String>> verifyOtp(
@@ -78,14 +81,29 @@ public class OtpVerifyController {
         OswlUserPrincipal principal = otpService.getPendingPrincipal(session);
         otpService.clearPending(session);
 
+        // Reject OTP if this session was displaced by a concurrent login while OTP was pending
+        SessionInformation sessionInfo = sessionRegistry.getSessionInformation(session.getId());
+        if (sessionInfo != null && sessionInfo.isExpired()) {
+            session.invalidate();
+            return ResponseEntity.status(401)
+                    .body(Map.of("message", "Your session was displaced by a concurrent login. Please sign in again."));
+        }
+
         // Promote the session to a fully authenticated state
         UsernamePasswordAuthenticationToken auth =
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(auth);
         SecurityContextHolder.setContext(context);
-        session.setAttribute(
-                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+
+        // Session fixation protection: replace the pending-auth session with a fresh session,
+        // then explicitly update SessionRegistry (belt-and-suspenders for in-memory registry).
+        String oldSessionId = session.getId();
+        session.invalidate();
+        HttpSession newSession = request.getSession(true);
+        newSession.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+        sessionRegistry.removeSessionInformation(oldSessionId);
+        sessionRegistry.registerNewSession(newSession.getId(), principal);
 
         // Set the trusted-device cookie when the user requests "remember this device"
         boolean trustDevice = Boolean.TRUE.equals(body.get("trustDevice"));
