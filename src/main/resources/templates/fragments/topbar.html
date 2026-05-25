@@ -25,7 +25,10 @@
                 <div class="text-white/50 text-[11px]" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
                 <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')" th:text="#{topbar.userMenu.systemAdmin}">??System Admin</div>
             </div>
-            <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">?�️ ?�정</a>
+            <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">Setting</a>
+            <a th:href="@{/my/change-password}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.changePassword}">Change Password</a>
+            <a th:href="@{/oss-notices}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.ossNotices}">Open Source Notices</a>
+            <div class="border-t border-white/15 my-[2px]"></div>
             <form th:action="@{/logout}" method="post" class="m-0">
                 <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}"/>
                 <button type="submit" class="w-full text-left text-red-300 hover:text-red-200 text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10" th:text="#{topbar.logOut}">Log out</button>
@@ -34,7 +37,7 @@
     </div>
 
     <!--
-        Simple Topbar ??Projects 목록 ?�이지처럼 ?�로?�트 컨텍?�트가 ?�는 ?�면?�서 ?�용.
+        Simple Topbar
         usage: th:replace="~{fragments/topbar :: simple-topbar('Projects')}"
     -->
     <header th:fragment="simple-topbar(pageLabel)"
@@ -44,7 +47,7 @@
             <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
             <span class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</span>
         </a>
-        <!-- Breadcrumb: Projects ?�이지?�선 ?�?��?�? ?�위 ?�이지?�선 Projects > [icon] pageLabel -->
+        <!-- Breadcrumb: Projects Projects > [icon] pageLabel -->
         <div class="flex flex-1 items-center gap-[24px]">
             <th:block th:if="${pageLabel == 'Projects'}">
                 <span class="text-[18px] font-bold text-white tracking-[-0.18px] whitespace-nowrap" th:text="#{topbar.projects}">Projects</span>
@@ -56,7 +59,7 @@
                      stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
                     <polyline points="9 18 15 12 9 6"/>
                 </svg>
-                <!-- Settings ?�이지�?gear ?�이�??�시 (Figma 기�?) -->
+                <!-- Settings -->
                 <div class="flex items-center gap-[8px]">
                     <svg th:if="${pageLabel == 'Settings'}" width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
                         <path fill-rule="evenodd" clip-rule="evenodd" d="M12.5 10C12.5 10.663 12.2366 11.2989 11.7678 11.7678C11.2989 12.2366 10.663 12.5 10 12.5C9.33696 12.5 8.70107 12.2366 8.23223 11.7678C7.76339 11.2989 7.5 10.663 7.5 10C7.5 9.33696 7.76339 8.70107 8.23223 8.23223C8.70107 7.76339 9.33696 7.5 10 7.5C10.663 7.5 11.2989 7.76339 11.7678 8.23223C12.2366 8.70107 12.5 9.33696 12.5 10ZM11 10C11 10.2652 10.8946 10.5196 10.7071 10.7071C10.5196 10.8946 10.2652 11 10 11C9.73478 11 9.48043 10.8946 9.29289 10.7071C9.10536 10.5196 9 10.2652 9 10C9 9.73478 9.10536 9.48043 9.29289 9.29289C9.48043 9.10536 9.73478 9 10 9C10.2652 9 10.5196 9.10536 10.7071 9.29289C10.8946 9.48043 11 9.73478 11 10Z" fill="white"/>
@@ -67,7 +70,7 @@
                 </div>
             </th:block>
         </div>
-        <!-- Right area: User Info + Settings ?�이�?-->
+        <!-- Right area: User Info + Settings -->
         <div class="flex items-center gap-[44px]" sec:authorize="isAuthenticated()">
             <!-- User Info with logout dropdown -->
             <div x-data="{ open: false }" @click.outside="open = false" class="relative">
@@ -80,14 +83,17 @@
                           th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}"></span>
                 </button>
                 <div x-show="open" x-transition style="display:none;"
-                     class="absolute right-0 top-[36px] z-30 w-[160px] rounded-[6px] border border-white/20 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-lg p-[8px] flex flex-col gap-[4px]">
+                     class="absolute right-0 top-[36px] z-30 w-[200px] rounded-[6px] border border-white/20 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-lg p-[8px] flex flex-col gap-[4px]">
+                    <a th:href="@{/my/change-password}" class="text-white/70 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline block" th:text="#{topbar.changePassword}">Change Password</a>
+                    <a th:href="@{/oss-notices}" class="text-white/70 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline block" th:text="#{topbar.ossNotices}">Open Source Notices</a>
+                    <div class="border-t border-white/15 my-[2px]"></div>
                     <form th:action="@{/logout}" method="post" class="m-0">
                         <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}"/>
-                        <button type="submit" class="w-full text-left text-white/70 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 bg-transparent border-0 cursor-pointer" th:text="#{topbar.logOut}">Log out</button>
+                        <button type="submit" class="w-full text-left text-red-300 hover:text-red-200 text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 bg-transparent border-0 cursor-pointer" th:text="#{topbar.logOut}">Log out</button>
                     </form>
                 </div>
             </div>
-            <!-- Settings ?�이�? Settings ?�이지가 ?�닐 ?�만 ?�시 -->
+            <!-- Settings -->
             <a th:unless="${pageLabel == 'Settings'}" th:href="@{/settings}"
                class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
@@ -101,7 +107,7 @@
 
 
     <!--
-        Project Topbar ???�로?�트 ?�세(security-center / license / risk-trend) ?�이지 공통 ?�더.
+        Project Topbar
         activeTab: 'security-center' | 'license' | 'risk-trend'
         usage: th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'license')}"
     -->
@@ -152,7 +158,6 @@
                                  @mouseleave="if (!confirming) showDelete = false"
                                  class="rounded-[4px] overflow-hidden">
 
-                                <!-- 기본 ?? 버전�?+ ?�짜 + ?��???버튼 -->
                                 <div x-show="!confirming"
                                      @mouseenter="showDelete = true"
                                      @mouseleave="showDelete = false"
@@ -164,7 +169,7 @@
                                         <span th:text="${v.version}">-</span>
                                         <span th:text="${v.scannedAt}" class="text-white/40 text-[11px]">-</span>
                                     </a>
-                                    <!-- ?��???버튼 ????�� 30px 공간 ?�약?�서 ?�이?�웃 shift 방�? -->
+
                                     <div class="shrink-0 w-[30px] flex items-center justify-center">
                                         <button type="button"
                                                 :class="showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'"
@@ -175,7 +180,6 @@
                                     </div>
                                 </div>
 
-                                <!-- ?�인 ?? Cancel / Delete 버튼 -->
                                 <div x-show="confirming"
                                      x-transition:enter="transition ease-out duration-150"
                                      x-transition:enter-start="opacity-0 scale-95"
@@ -281,7 +285,7 @@
     </div>
 
     <!--
-        Version Diff Topbar ??버전 비교 ?�이지???�더.
+        Version Diff Topbar
         usage: th:replace="~{fragments/topbar :: versiondiff-topbar(${projectId}, ${projectName})}"
     -->
     <header th:fragment="versiondiff-topbar(projectId, projectName)"

@@ -61,4 +61,33 @@ public class ChangePasswordService {
 
         log.info("[ChangePassword] Updated password for userId={}", userId);
     }
+
+    /**
+     * Voluntary password change initiated by the user via the Change Password UI.
+     * Behaves identically to {@link #changePassword} but records a different audit event
+     * and does not touch the {@code mustChangePassword} flag.
+     */
+    @Transactional
+    public void voluntaryChangePassword(Long userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found: " + userId));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            log.warn("[ChangePassword] Current password is incorrect for userId={}", userId);
+            throw new IllegalArgumentException("CURRENT_PASSWORD_WRONG");
+        }
+
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            log.debug("[ChangePassword] Rejected: new password matches the current one for userId={}", userId);
+            throw new IllegalArgumentException("SAME_AS_CURRENT");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        auditLogService.log("AUTH.PASSWORD_CHANGE", "USER",
+                userId.toString(), user.getEmail(), "Voluntary password change");
+
+        log.info("[ChangePassword] Voluntary password change for userId={}", userId);
+    }
 }
