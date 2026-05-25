@@ -71,7 +71,6 @@
            @bulk-ignore.window="if($event.detail.ids.includes($el.dataset.compId)) { $el.dataset.ignored = String($event.detail.value); filterVersion++; }"
            @component-deferred.window="if($event.detail.id === $el.dataset.compId) { $el.dataset.deferred = 'true'; $el.dataset.ignored = 'true'; filterVersion++; }"
            @click="$dispatch('open-component-panel', {id: $el.dataset.compId})"
-           :class="{'bg-[#e5faf5]': String(activeCompId) === $el.dataset.compId}"
            class="component-row flex items-center w-full border-b border-[var(--grayscale-20)] hover:bg-[var(--grayscale-10)] transition-colors no-underline text-inherit cursor-pointer">
 
             <div class="flex h-[48px] items-center w-[60px] min-w-[60px] pl-[20px] pr-[4px]"
