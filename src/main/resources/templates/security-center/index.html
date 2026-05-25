@@ -58,7 +58,7 @@
 }
 
 /* ── 체크박스 선택 행 하이라이트 ──────────────────────── */
-.component-row:has(input[name="selectedComponent"]:checked):not(.bg-\[\#e5faf5\]) {
+.component-row:has(input[name="selectedComponent"]:checked) {
     background-color: #d3fcf3;
 }
 </style>
@@ -318,8 +318,11 @@
 
             <!-- AI security posture insight -->
             <div th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}"
-                 class="mb-[24px] flex items-start gap-[8px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
-                <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
+                 class="mb-[24px] flex flex-col gap-[12px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
+                <div class="flex items-center gap-[6px]">
+                    <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{riskTrend.ai.insight}">AI Insight</p>
+                </div>
                 <p class="text-[14px] text-[#272D30] tracking-[-0.15px] m-0 leading-relaxed"
                    th:text="${securityPostureInsight}">AI posture insight</p>
             </div>
@@ -354,7 +357,7 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 bg-black/50 z-[100]"
-         @click="componentPanelOpen = false"
+         @click="componentPanelOpen = false; activeCompId = null"
          style="display: none;"></div>
 
     <!-- Component Detail Panel -->
