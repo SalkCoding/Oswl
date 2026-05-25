@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.OtpService;
+import com.salkcoding.oswl.auth.service.SecuritySettingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 @RequiredArgsConstructor
 public class AuthViewController {
 
-    private final OtpService otpService;
+    private final OtpService             otpService;
+    private final SecuritySettingService securitySettingService;
 
     @GetMapping("/login")
     public String loginPage() {
@@ -50,6 +53,53 @@ public class AuthViewController {
             return "redirect:/projects";
         }
         return "auth/change-password";
+    }
+
+    /**
+     * GET /my/change-password — voluntary password change.
+     *
+     * If OTP (2FA) is enabled and the step-up OTP has not yet been verified in this
+     * session, an OTP is generated and the user is redirected to the verification page.
+     */
+    @GetMapping("/my/change-password")
+    public String myChangePasswordPage(
+            @AuthenticationPrincipal OswlUserPrincipal principal,
+            HttpServletRequest request) {
+
+        if (principal == null) return "redirect:/login";
+
+        TwoFaMode twoFaMode = securitySettingService.getOrCreate().getTwoFaMode();
+        if (twoFaMode != TwoFaMode.DISABLED) {
+            HttpSession session = request.getSession(false);
+            if (session == null || !otpService.isChangePasswordOtpVerified(session)) {
+                // Start step-up OTP challenge
+                HttpSession s = request.getSession(true);
+                otpService.storeChangePasswordOtp(s, principal.getUsername(), principal.getDisplayName());
+                return "redirect:/my/change-password/otp";
+            }
+        }
+        return "auth/my-change-password";
+    }
+
+    /**
+     * GET /my/change-password/otp — step-up OTP verification page for password change.
+     */
+    @GetMapping("/my/change-password/otp")
+    public String myChangePasswordOtpPage(
+            @AuthenticationPrincipal OswlUserPrincipal principal,
+            HttpServletRequest request,
+            Model model) {
+
+        if (principal == null) return "redirect:/login";
+
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute(OtpService.SESSION_CHANGE_PW_OTP) == null) {
+            return "redirect:/my/change-password";
+        }
+
+        model.addAttribute("maskedEmail", maskEmail(principal.getUsername()));
+        model.addAttribute("expirySeconds", otpService.remainingChangePasswordOtpSeconds(session));
+        return "auth/my-change-password-otp";
     }
 
     private String maskEmail(String email) {

@@ -48,6 +48,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addRedirectViewController("/landing", "/landing/index.html");
+        registry.addViewController("/oss-notices").setViewName("oss-notices/index");
     }
 
     @Override

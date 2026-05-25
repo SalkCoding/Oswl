@@ -4,7 +4,6 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,19 +21,21 @@ public class OpenApiConfig {
                         .description("""
                                 OSWL (Open Source Watch List) backend API.
 
-                                **CLI Endpoints** (`/api/scan/**`) require a Bearer token issued via \
-                                `POST /api/projects/{projectId}/keys`.
-                                Include it as `Authorization: Bearer oswl_<token>` in every CLI request.
+                                ## Authentication
 
-                                **Management Endpoints** (`/api/projects/**`, `/api/settings/**`) \
-                                are for the OSWL web UI and do not require authentication in the \
-                                current development build.
+                                | Endpoint group | Auth method |
+                                |---|---|
+                                | `POST /api/auth`, `GET /api/scan/ping`, `POST /api/scan`, `GET /api/scan/{id}/status` | **Bearer token** — `Authorization: Bearer oswl_<token>` |
+                                | All other `/api/**` endpoints | **Session cookie** (JSESSIONID) obtained via `POST /login` + OTP |
+
+                                CLI tokens are issued via `POST /api/projects/{projectId}/api-keys` or `POST /api/admin/cli-keys`.
                                 """)
                         .version("0.0.1")
                         .contact(new Contact()
                                 .name("salkcoding")
                                 .url("https://github.com/salkcoding")))
-                .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME))
+                // BearerAuth is applied only to CLI Scan endpoints via @SecurityRequirement in ScanControllerSpec.
+                // Management API endpoints use session-based authentication.
                 .components(new Components()
                         .addSecuritySchemes(BEARER_SCHEME, new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)
