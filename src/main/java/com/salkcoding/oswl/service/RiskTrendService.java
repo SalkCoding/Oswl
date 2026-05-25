@@ -7,7 +7,6 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
-import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,7 +29,6 @@ public class RiskTrendService {
     private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
     private final LibraryRepository    libraryRepository;
-    private final AiAnalysisService    aiAnalysisService;
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Model model) {
@@ -118,7 +116,6 @@ public class RiskTrendService {
 
         model.addAttribute("securityAiInsight", latest.getSecurityAiInsight());
         model.addAttribute("licenseAiInsight",  latest.getLicenseAiInsight());
-        model.addAttribute("aiConfigured",      aiAnalysisService.isAiConfigured());
 
         model.addAttribute("chartVersions",    versions);
         model.addAttribute("chartSecCritical", secCritical);
@@ -181,6 +178,5 @@ public class RiskTrendService {
         model.addAttribute("chartSecNone",     List.of());
         model.addAttribute("securityAiInsight", null);
         model.addAttribute("licenseAiInsight",  null);
-        model.addAttribute("aiConfigured",      aiAnalysisService.isAiConfigured());
     }
 }

@@ -1,0 +1,206 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{ossNotices.pageTitle})}"></head>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col"
+      x-data="ossNotices()" x-init="init()">
+
+    <header th:replace="~{fragments/topbar :: simple-topbar(#{ossNotices.pageTitle})}"></header>
+
+    <main class="flex flex-col flex-1 px-[60px] py-[40px] gap-[28px] max-w-[1200px] w-full mx-auto">
+
+        <!-- Hero Banner -->
+        <div class="bg-[var(--background-dark)] rounded-[16px] px-[48px] py-[40px] flex items-center justify-between gap-[40px]">
+            <div class="flex flex-col gap-[12px] min-w-0">
+                <div class="flex items-center gap-[10px]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] tracking-[0.08em] uppercase" th:text="#{ossNotices.pageTitle}">Open Source Notices</span>
+                </div>
+                <h1 class="font-bold text-[28px] text-white tracking-[-0.28px] leading-[1.25] m-0" th:text="#{ossNotices.hero.title}">We stand on the shoulders of giants.</h1>
+                <p class="text-[14px] text-[rgba(255,255,255,0.45)] tracking-[-0.14px] leading-[1.75] m-0 max-w-[520px]" th:text="#{ossNotices.hero.desc}">OsWL is built with battle-tested open-source libraries. We gratefully acknowledge every author and contributor whose work makes this platform possible.</p>
+                <a href="https://github.com/salkcoding/oswl" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-[6px] text-[13px] text-[rgba(255,255,255,0.35)] hover:text-[var(--secondary-100)] transition-colors mt-[4px] w-fit no-underline">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                    <span th:text="#{ossNotices.hero.sourceLink}">View Source on GitHub</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+            </div>
+            <!-- Stats -->
+            <div class="flex gap-[1px] shrink-0 rounded-[12px] overflow-hidden border border-[rgba(255,255,255,0.07)]">
+                <div class="flex flex-col items-center gap-[6px] px-[32px] py-[24px] bg-[rgba(255,255,255,0.04)]">
+                    <span class="font-bold text-[32px] text-white tracking-[-0.5px] leading-[1]">19</span>
+                    <span class="text-[11px] font-medium text-[rgba(255,255,255,0.35)] uppercase tracking-[0.06em] whitespace-nowrap" th:text="#{ossNotices.stat.libraries}">Libraries</span>
+                </div>
+                <div class="flex flex-col items-center gap-[6px] px-[32px] py-[24px] bg-[rgba(255,255,255,0.04)]">
+                    <span class="font-bold text-[32px] text-white tracking-[-0.5px] leading-[1]">5</span>
+                    <span class="text-[11px] font-medium text-[rgba(255,255,255,0.35)] uppercase tracking-[0.06em] whitespace-nowrap" th:text="#{ossNotices.stat.licenseTypes}">License Types</span>
+                </div>
+                <div class="flex flex-col items-center gap-[6px] px-[32px] py-[24px] bg-[rgba(255,255,255,0.04)]">
+                    <span class="font-bold text-[32px] text-[var(--secondary-100)] tracking-[-0.5px] leading-[1]">100%</span>
+                    <span class="text-[11px] font-medium text-[rgba(255,255,255,0.35)] uppercase tracking-[0.06em] whitespace-nowrap" th:text="#{ossNotices.stat.openSource}">Open Source</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter + Search -->
+        <div class="flex items-center gap-[12px] flex-wrap">
+            <div class="flex items-center gap-[6px]">
+                <template x-for="f in filters" :key="f.key">
+                    <button type="button" @click="activeFilter = f.key"
+                            :class="activeFilter === f.key
+                                ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold border-[rgba(0,176,160,0.25)]'
+                                : 'bg-white text-[var(--grayscale-60)] font-medium border-[var(--grayscale-20)] hover:border-[var(--grayscale-40)] hover:text-[var(--grayscale-80)]'"
+                            class="inline-flex items-center gap-[5px] px-[13px] py-[7px] rounded-[8px] text-[13px] tracking-[-0.13px] border transition-all cursor-pointer">
+                        <span x-text="f.label"></span>
+                        <span class="text-[11px] opacity-50 font-bold" x-text="'(' + f.count + ')'"></span>
+                    </button>
+                </template>
+            </div>
+            <div class="flex-1"></div>
+            <div class="relative">
+                <img th:src="@{/icon/icon-scale.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                <input type="text" x-model="searchQuery" placeholder="Search libraries..."
+                       class="pl-[36px] pr-[14px] py-[8px] text-[13px] bg-white border border-[var(--grayscale-20)] rounded-[8px] w-[220px] text-[var(--grayscale-90)] tracking-[-0.13px] focus:outline-none focus:border-[var(--primary-100)] transition-colors">
+            </div>
+        </div>
+
+        <!-- Library Table -->
+        <div class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
+
+            <!-- Column headers -->
+            <div class="grid items-center px-[24px] py-[11px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]"
+                 style="grid-template-columns: 1fr 240px 160px 36px;">
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.library}">Library</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.license}">License</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.category}">Category</span>
+                <div></div>
+            </div>
+
+            <!-- Rows -->
+            <template x-for="lib in filteredLibraries" :key="lib.name">
+                <div class="grid items-center px-[24px] py-[14px] border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)] transition-colors group"
+                     style="grid-template-columns: 1fr 240px 160px 36px;">
+                    <!-- Name + desc -->
+                    <div class="flex flex-col gap-[2px] min-w-0 pr-[20px]">
+                        <span class="font-semibold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" x-text="lib.name"></span>
+                        <span class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.5] truncate" x-text="lib.description"></span>
+                    </div>
+                    <!-- License badge -->
+                    <div>
+                        <span class="inline-flex items-center gap-[7px] px-[10px] py-[4px] rounded-[40px] text-[11px] font-medium tracking-[-0.11px] border border-solid whitespace-nowrap"
+                              :class="licenseBadgeClass(lib.licenseGroup)">
+                            <span class="w-[6px] h-[6px] rounded-full shrink-0" :class="licenseDotClass(lib.licenseGroup)"></span>
+                            <span x-text="lib.license"></span>
+                        </span>
+                    </div>
+                    <!-- Category tag -->
+                    <div>
+                        <span class="inline-flex items-center px-[9px] py-[4px] rounded-[6px] text-[11px] font-medium tracking-[-0.11px] whitespace-nowrap"
+                              :class="lib.category === 'Backend'
+                                  ? 'bg-[rgba(0,101,156,0.07)] text-[var(--copy-info)]'
+                                  : 'bg-[rgba(51,209,183,0.07)] text-[var(--primary-120)]'"
+                              x-text="lib.category"></span>
+                    </div>
+                    <!-- Link -->
+                    <a :href="lib.url" target="_blank" rel="noopener noreferrer"
+                       class="flex items-center justify-center w-[28px] h-[28px] rounded-[6px] text-[var(--grayscale-30)] hover:text-[var(--primary-100)] hover:bg-[rgba(0,176,160,0.08)] transition-all opacity-0 group-hover:opacity-100">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                    </a>
+                </div>
+            </template>
+
+            <!-- Empty state -->
+            <div x-show="filteredLibraries.length === 0" x-cloak
+                 class="flex flex-col items-center justify-center gap-[10px] py-[60px]">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--grayscale-30)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <p class="text-[13px] text-[var(--grayscale-40)] tracking-[-0.13px] m-0">No libraries match your search.</p>
+            </div>
+        </div>
+
+        <!-- Footer note -->
+        <div class="flex items-start gap-[10px] px-[20px] py-[14px] bg-[rgba(0,176,160,0.04)] border border-[rgba(0,176,160,0.15)] rounded-[10px] mb-[8px]">
+            <svg class="shrink-0 mt-[1px]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-100)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0 leading-[1.65]" th:text="#{ossNotices.footer}">Full license texts are available in THIRD_PARTY_LICENSES.md in the source repository.</p>
+        </div>
+
+    </main>
+
+    <script>
+    function ossNotices() {
+        const libs = [
+            { name:'Spring Boot',        abbr:'SB', color:'#5f8a2f', description:'Opinionated framework for building production-ready Spring applications',                       url:'https://spring.io/projects/spring-boot',                             license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'Spring Security',    abbr:'SS', color:'#4a6f24', description:'Authentication, authorization and protection against common web exploits',                      url:'https://spring.io/projects/spring-security',                         license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'Spring Data JPA',    abbr:'SJ', color:'#3d7a5e', description:'Simplified JPA-based data access with repository abstraction',                                 url:'https://spring.io/projects/spring-data-jpa',                         license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'Hibernate ORM',      abbr:'HI', color:'#b8890a', description:'High-performance object-relational mapping and JPQL query framework',                          url:'https://hibernate.org/orm/',                                         license:'LGPL 2.1',          licenseGroup:'lgpl',   category:'Backend'  },
+            { name:'Thymeleaf',          abbr:'TH', color:'#007a72', description:'Modern server-side Java template engine for HTML5 web views',                                  url:'https://www.thymeleaf.org/',                                         license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'thymeleaf-extras-springsecurity6', abbr:'TS', color:'#006060', description:'Spring Security dialect and attribute processors for Thymeleaf', url:'https://github.com/thymeleaf/thymeleaf-extras-springsecurity', license:'Apache 2.0', licenseGroup:'apache', category:'Backend' },
+            { name:'springdoc-openapi',  abbr:'SO', color:'#5c35a8', description:'Automated OpenAPI 3 documentation generation for Spring Boot REST APIs',                       url:'https://springdoc.org/',                                             license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'Jackson',            abbr:'JA', color:'#c0392b', description:'High-performance JSON processor — serialization, deserialization and data binding',             url:'https://github.com/FasterXML/jackson',                                license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'Logback Classic',    abbr:'LB', color:'#5e6b70', description:'Reliable and fast logging framework; successor to Log4j',                                      url:'https://logback.qos.ch/',                                            license:'EPL 1.0 / LGPL 2.1',licenseGroup:'lgpl',   category:'Backend'  },
+            { name:'SLF4J API',          abbr:'SL', color:'#849197', description:'Simple facade decoupling application logging from implementation',                              url:'https://www.slf4j.org/',                                             license:'MIT',               licenseGroup:'mit',    category:'Backend'  },
+            { name:'GreenMail',          abbr:'GM', color:'#1a7a42', description:'Embeddable SMTP / IMAP email server for integration testing',                                  url:'https://greenmail-mail-test.github.io/greenmail/',                   license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
+            { name:'H2 Database',        abbr:'H2', color:'#1565c0', description:'Fast embeddable SQL database engine for development and test environments',                    url:'https://h2database.com/',                                            license:'EPL 2.0 / MPL 2.0', licenseGroup:'epl',    category:'Backend'  },
+            { name:'PostgreSQL JDBC',    abbr:'PG', color:'#336791', description:'Official type 4 JDBC driver for PostgreSQL databases',                                         url:'https://jdbc.postgresql.org/',                                       license:'BSD 2-Clause',      licenseGroup:'bsd',    category:'Backend'  },
+            { name:'Project Lombok',     abbr:'LK', color:'e91e63'.replace('','#'), description:'Compile-time annotation processor that eliminates Java boilerplate code',      url:'https://projectlombok.org/',                                         license:'MIT',               licenseGroup:'mit',    category:'Backend'  },
+            { name:'Alpine.js',          abbr:'AL', color:'#1c9ab1', description:'Minimal reactive framework for composing behavior directly in HTML markup',                    url:'https://alpinejs.dev/',                                              license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
+            { name:'@alpinejs/collapse', abbr:'AC', color:'#167a8d', description:'Alpine.js plugin for smooth CSS height transition animations',                                  url:'https://alpinejs.dev/plugins/collapse',                              license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
+            { name:'Chart.js',           abbr:'CH', color:'#c84b6e', description:'Flexible open-source canvas-based charting library for the browser',                           url:'https://www.chartjs.org/',                                           license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
+            { name:'htmx',               abbr:'HX', color:'#2c5282', description:'HTML-native AJAX, WebSockets and CSS transitions without writing JavaScript',                  url:'https://htmx.org/',                                                  license:'BSD 0-Clause',      licenseGroup:'bsd',    category:'Frontend' },
+            { name:'Tailwind CSS',       abbr:'TW', color:'#0ea5ca', description:'Utility-first CSS framework for building custom designs without leaving HTML',                 url:'https://tailwindcss.com/',                                           license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
+        ];
+
+        const allFilters = [
+            { key:'all',    label:'All' },
+            { key:'apache', label:'Apache 2.0' },
+            { key:'mit',    label:'MIT' },
+            { key:'lgpl',   label:'LGPL' },
+            { key:'bsd',    label:'BSD' },
+            { key:'epl',    label:'EPL / MPL' },
+        ];
+
+        return {
+            libraries: libs,
+            activeFilter: 'all',
+            searchQuery: '',
+
+            get filters() {
+                return allFilters.map(f => ({
+                    ...f,
+                    count: f.key === 'all' ? libs.length : libs.filter(l => l.licenseGroup === f.key).length
+                }));
+            },
+
+            get filteredLibraries() {
+                const q = this.searchQuery.toLowerCase().trim();
+                return this.libraries.filter(lib => {
+                    const okFilter = this.activeFilter === 'all' || lib.licenseGroup === this.activeFilter;
+                    const okSearch = !q || lib.name.toLowerCase().includes(q) || lib.description.toLowerCase().includes(q) || lib.license.toLowerCase().includes(q);
+                    return okFilter && okSearch;
+                });
+            },
+
+            licenseBadgeClass(g) {
+                return { apache:'bg-[rgba(0,176,160,0.06)] border-[rgba(0,176,160,0.22)] text-[var(--primary-120)]',
+                         mit:   'bg-[rgba(0,215,97,0.06)] border-[rgba(0,215,97,0.22)] text-[#007a32]',
+                         lgpl:  'bg-[rgba(245,189,38,0.06)] border-[rgba(245,189,38,0.3)] text-[#8a6500]',
+                         bsd:   'bg-[rgba(0,101,156,0.06)] border-[rgba(0,101,156,0.22)] text-[var(--copy-info)]',
+                         epl:   'bg-[rgba(126,87,194,0.06)] border-[rgba(126,87,194,0.22)] text-[#5c35a8]' }[g]
+                    || 'bg-[var(--grayscale-5)] border-[var(--grayscale-20)] text-[var(--grayscale-60)]';
+            },
+
+            licenseDotClass(g) {
+                return { apache:'bg-[var(--primary-100)]', mit:'bg-[var(--semantic-patchable)]',
+                         lgpl:'bg-[var(--risk-medium)]',   bsd:'bg-[var(--copy-info)]',
+                         epl:'bg-[#7e57c2]' }[g] || 'bg-[var(--grayscale-40)]';
+            },
+
+            init() {}
+        };
+    }
+    </script>
+
+</body>
+</html>

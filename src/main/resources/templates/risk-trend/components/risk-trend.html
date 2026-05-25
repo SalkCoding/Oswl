@@ -72,15 +72,14 @@
                     <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px] leading-[1.3]"
                        th:text="${securityAiInsight}"></p>
                 </div>
-                <!-- AI not configured or no data -->
+                <!-- No insight data for this scan -->
                 <div th:if="${securityAiInsight == null or #strings.isEmpty(securityAiInsight)}"
                      class="bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
                     <div class="flex items-center gap-[6px]">
                         <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px] shrink-0 opacity-30" alt="" aria-hidden="true">
                         <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px]" th:text="#{riskTrend.ai.insight}">AI Insight</p>
                     </div>
-                    <p th:if="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:text="#{riskTrend.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
-                    <p th:unless="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:utext="#{riskTrend.ai.notConfigured}">AI provider is not configured.</p>
+                    <p class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:text="#{riskTrend.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
                 </div>
             </div>
         </div>
@@ -140,15 +139,14 @@
                     <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px] leading-[1.3]"
                        th:text="${licenseAiInsight}"></p>
                 </div>
-                <!-- AI not configured or no data -->
+                <!-- No insight data for this scan -->
                 <div th:if="${licenseAiInsight == null or #strings.isEmpty(licenseAiInsight)}"
                      class="bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
                     <div class="flex items-center gap-[6px]">
                         <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px] shrink-0 opacity-30" alt="" aria-hidden="true">
                         <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px]" th:text="#{riskTrend.ai.insight}">AI Insight</p>
                     </div>
-                    <p th:if="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:text="#{riskTrend.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
-                    <p th:unless="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:utext="#{riskTrend.ai.notConfigured}">AI provider is not configured.</p>
+                    <p class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:text="#{riskTrend.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
                 </div>
             </div>
         </div>
