@@ -26,7 +26,7 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class OtpService {
 
-    // ── Session attribute keys ─────────────────────────────────
+    // ── Session attribute keys (login 2FA flow) ────────────────
     public static final String SESSION_PRINCIPAL   = "PENDING_2FA_PRINCIPAL";
     public static final String SESSION_OTP         = "PENDING_2FA_OTP";
     public static final String SESSION_EXPIRY      = "PENDING_2FA_EXPIRY_MS";
@@ -34,6 +34,13 @@ public class OtpService {
     public static final String SESSION_LAST_SENT   = "PENDING_2FA_LAST_SENT";
     public static final String SESSION_LOCKED      = "PENDING_2FA_LOCKED";
     public static final String SESSION_MAIL_FAILED = "PENDING_2FA_MAIL_FAILED";
+
+    // ── Session attribute keys (step-up OTP for password change) ─
+    public static final String SESSION_CHANGE_PW_OTP       = "CHANGE_PW_OTP_CODE";
+    public static final String SESSION_CHANGE_PW_EXPIRY    = "CHANGE_PW_OTP_EXPIRY";
+    public static final String SESSION_CHANGE_PW_ATTEMPTS  = "CHANGE_PW_OTP_ATTEMPTS";
+    public static final String SESSION_CHANGE_PW_LAST_SENT = "CHANGE_PW_OTP_LAST_SENT";
+    public static final String SESSION_CHANGE_PW_VERIFIED  = "CHANGE_PW_OTP_VERIFIED";
 
     private static final int  OTP_VALID_MINUTES  = 3;
     private static final int  MAX_DIGITS         = 1_000_000; // 000000–999999
@@ -175,6 +182,89 @@ public class OtpService {
         session.removeAttribute(SESSION_ATTEMPTS);
         session.removeAttribute(SESSION_LAST_SENT);
         session.removeAttribute(SESSION_LOCKED);
+    }
+
+    // ── Step-up OTP (password change) ──────────────────────────────────
+
+    /**
+     * Generates a 6-digit step-up OTP and sends it to the user's email.
+     * Uses separate session attributes from the login 2FA flow.
+     */
+    public void storeChangePasswordOtp(HttpSession session, String email, String displayName) {
+        String otp    = String.format("%06d", secureRandom.nextInt(MAX_DIGITS));
+        long   expiry = Instant.now().plusSeconds(60L * OTP_VALID_MINUTES).toEpochMilli();
+
+        session.setAttribute(SESSION_CHANGE_PW_OTP,       otp);
+        session.setAttribute(SESSION_CHANGE_PW_EXPIRY,    expiry);
+        session.setAttribute(SESSION_CHANGE_PW_LAST_SENT, Instant.now().toEpochMilli());
+        session.removeAttribute(SESSION_CHANGE_PW_ATTEMPTS);
+
+        try {
+            mailService.sendOtp(email, displayName, otp);
+            log.info("[OTP-STEPUP] Step-up OTP issued for '{}'", email);
+        } catch (Exception e) {
+            log.error("[OTP-STEPUP] Failed to send step-up OTP to '{}': {}", email, e.getMessage());
+        }
+    }
+
+    /**
+     * Verifies the submitted step-up OTP code.
+     * Increments attempt count on failure (no account-lock for step-up).
+     */
+    public boolean verifyChangePasswordOtp(HttpSession session, String code) {
+        if (code == null) return false;
+
+        // TODO: Remove test bypass before production
+        if (TEST_BYPASS_CODE.equals(code)) return true;
+
+        String stored = (String) session.getAttribute(SESSION_CHANGE_PW_OTP);
+        Long   expiry = (Long)   session.getAttribute(SESSION_CHANGE_PW_EXPIRY);
+
+        if (stored == null || expiry == null) return false;
+        if (Instant.now().toEpochMilli() > expiry) return false;
+
+        if (stored.equals(code)) return true;
+
+        Integer existing = (Integer) session.getAttribute(SESSION_CHANGE_PW_ATTEMPTS);
+        session.setAttribute(SESSION_CHANGE_PW_ATTEMPTS, (existing == null ? 0 : existing) + 1);
+        return false;
+    }
+
+    /** Returns true when the step-up OTP has been successfully verified in this session. */
+    public boolean isChangePasswordOtpVerified(HttpSession session) {
+        return Boolean.TRUE.equals(session.getAttribute(SESSION_CHANGE_PW_VERIFIED));
+    }
+
+    /** Marks the step-up OTP as verified and clears the OTP challenge attributes. */
+    public void markChangePasswordOtpVerified(HttpSession session) {
+        session.setAttribute(SESSION_CHANGE_PW_VERIFIED, Boolean.TRUE);
+        session.removeAttribute(SESSION_CHANGE_PW_OTP);
+        session.removeAttribute(SESSION_CHANGE_PW_EXPIRY);
+        session.removeAttribute(SESSION_CHANGE_PW_ATTEMPTS);
+        session.removeAttribute(SESSION_CHANGE_PW_LAST_SENT);
+    }
+
+    /** Clears the step-up OTP verified flag (called after password change completes). */
+    public void clearChangePasswordOtp(HttpSession session) {
+        session.removeAttribute(SESSION_CHANGE_PW_VERIFIED);
+        session.removeAttribute(SESSION_CHANGE_PW_OTP);
+        session.removeAttribute(SESSION_CHANGE_PW_EXPIRY);
+        session.removeAttribute(SESSION_CHANGE_PW_ATTEMPTS);
+        session.removeAttribute(SESSION_CHANGE_PW_LAST_SENT);
+    }
+
+    /** Returns true if enough time has passed to resend the step-up OTP. */
+    public boolean canResendChangePasswordOtp(HttpSession session) {
+        Long lastSent = (Long) session.getAttribute(SESSION_CHANGE_PW_LAST_SENT);
+        if (lastSent == null) return true;
+        return (Instant.now().toEpochMilli() - lastSent) >= RESEND_COOLDOWN_MS;
+    }
+
+    /** Returns the remaining validity time in seconds for the step-up OTP (0 if expired or not set). */
+    public long remainingChangePasswordOtpSeconds(HttpSession session) {
+        Long expiry = (Long) session.getAttribute(SESSION_CHANGE_PW_EXPIRY);
+        if (expiry == null) return 0;
+        return Math.max(0, (expiry - Instant.now().toEpochMilli()) / 1000);
     }
 
     // ── Private helpers ───────────────────────────────────────────────
