@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.AddVcsConnectionRequest;
 import com.salkcoding.oswl.auth.dto.VcsConnectionDto;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.entity.UserVcsConnection;
+import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
@@ -44,6 +45,9 @@ public class VcsConnectionService {
                targetIdExpr = "#result.id.toString()",
                targetNameExpr = "#result.provider + (#result.serverUrl != null ? ' / ' + #result.serverUrl : '')")
     public VcsConnectionDto addConnection(Long userId, AddVcsConnectionRequest request) {
+        if (request.getProvider() == VcsProvider.BITBUCKET) {
+            throw new IllegalStateException("Atlassian / Bitbucket support is temporarily disabled while development continues. Please connect GitHub or GitLab instead.");
+        }
         vcsTokenValidator.validate(request.getProvider(), request.getServerUrl(),
                 request.getAccessToken(), request.getVcsUsername());
         User user = userRepository.findById(userId)
