@@ -64,6 +64,9 @@ public class MustChangePasswordFilter extends OncePerRequestFilter {
     private boolean isPassThrough(String uri) {
         return uri.equals("/change-password")
                 || uri.startsWith("/api/change-password")
+                || uri.equals("/my/change-password")
+                || uri.startsWith("/my/change-password/")
+                || uri.startsWith("/api/my/change-password")
                 || uri.startsWith("/logout")
                 || uri.startsWith("/login")
                 || uri.startsWith("/setup")
