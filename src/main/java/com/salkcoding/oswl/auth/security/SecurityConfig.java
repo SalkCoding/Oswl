@@ -78,6 +78,7 @@ public class SecurityConfig {
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/landing", "/landing/**").permitAll()
+                    .requestMatchers("/oss-notices").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .anyRequest().authenticated())
             .formLogin(form -> form

@@ -27,6 +27,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -302,71 +303,62 @@ public class QuickImportService {
     }
 
     private List<QuickImportRepoDto> listBitbucketCloudRepos(String tokenOrAppPassword, String username) throws Exception {
-        // Bitbucket Cloud authentication methods (as of 2026 policy):
+        // Bitbucket Cloud authentication methods (as of 2026):
         //
-        //  ATATT (Atlassian API Token, created at id.atlassian.com)
-        //        → RECOMMENDED. Basic auth: username=Atlassian email OR workspace slug, password=token.
-        //        → GET /2.0/workspaces returns 410 (CHANGE-2770 deprecated for Basic auth).
-        //        → Fallback: GET /2.0/repositories/{username} directly.
+        //  ATATT (Atlassian Account API Token from id.atlassian.com)
+        //        → Basic auth with email:token
+        //        → ALL workspace/repo listing endpoints return HTTP 410 (CHANGE-2770):
+        //            /user/permissions/workspaces, /user/permissions/repositories,
+        //            /repositories (unscoped), /workspaces (with Basic auth)
+        //        → Workspace slug is not derivable from any /user API field.
+        //        → NOT SUPPORTED. Users must use a Workspace HTTP Access Token instead.
         //
-        //  ATATT (Bitbucket HTTP Access Token, workspace/project/repo scoped)
-        //        → Created in Bitbucket workspace settings. Bearer auth.
-        //        → Username field holds the workspace slug (optional).
+        //  ATATT (Bitbucket Workspace HTTP Access Token from workspace settings)
+        //        → Bearer auth. Username = workspace slug.
+        //        → /2.0/repositories/{slug}  → WORKS ✓  (workspace-scoped per CHANGE-2770)
+        //        → /2.0/workspaces           → WORKS ✓  (NOT deprecated by CHANGE-2770)
         //
-        //  ATBB  (Bitbucket App Password) — DEPRECATED.
-        //        → Brownout from 2026-06-09, permanently removed 2026-07-28.
-        //        → Basic auth: username=Bitbucket account ID, password=app password.
+        //  ATBB  (App Password) — DEPRECATED, brownout 2026-06-09, removed 2026-07-28.
+        //        → Basic auth: accountId:appPassword
+        //        → /2.0/repositories/{slug}  → WORKS while tokens remain valid ✓
 
         boolean isAtatt = tokenOrAppPassword != null && tokenOrAppPassword.startsWith("ATATT");
         boolean hasEmail = username != null && username.contains("@");
         boolean hasSlug  = username != null && !username.isBlank() && !username.contains("@");
 
         if (isAtatt && hasEmail) {
-            // ── Atlassian API Token — Basic auth (Atlassian email:token) ───────────────
-            // /2.0/workspaces → 410 for Basic auth (CHANGE-2770, deprecated)
-            // /2.0/user       → 401 for API tokens without read:account scope
-            // /2.0/user/permissions/workspaces → 200 with read:workspace:bitbucket scope ✓
-            String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
-                    (username + ":" + tokenOrAppPassword).getBytes(StandardCharsets.UTF_8));
-
-            List<String> slugs = fetchWorkspaceSlugsViaPermissions(basicHeader);
-            if (slugs.isEmpty()) {
-                throw new IllegalStateException(
-                        "Could not discover workspaces with the Atlassian API Token. " +
-                        "Ensure the token (id.atlassian.com > Security > API tokens) has these scopes: " +
-                        "read:workspace:bitbucket and read:repository:bitbucket.");
-            }
-
-            List<QuickImportRepoDto> result = new ArrayList<>();
-            for (String slug : slugs) {
-                result.addAll(fetchBitbucketRepoPage(
-                        "https://api.bitbucket.org/2.0/repositories/" + slug + "?pagelen=100&sort=-updated_on",
-                        basicHeader));
-            }
-            if (!result.isEmpty()) return result;
-
+            // ── Atlassian Account API Token — email-based Basic auth ──────────────────
+            // CHANGE-2770 (Atlassian): workspace listing endpoints are fully deprecated for
+            // this token type. /user/permissions/workspaces, /workspaces, and
+            // /repositories?role=member all return HTTP 410.
+            // The workspace slug (e.g. "salkcoding") is not derivable from any API field
+            // returned by /user (nickname and username differ from the actual workspace slug).
+            // Users must re-connect using a Workspace HTTP Access Token instead.
             throw new IllegalStateException(
-                    "No repositories found in the accessible workspaces. " +
-                    "Verify the token has the read:repository:bitbucket scope.");
+                    "Atlassian Account API Tokens (from id.atlassian.com) can no longer list " +
+                    "Bitbucket repositories due to Atlassian's CHANGE-2770 deprecation. " +
+                    "Please disconnect and re-connect using a Workspace HTTP Access Token: " +
+                    "Bitbucket workspace settings → Access management → Access tokens. " +
+                    "Enter your workspace slug (e.g. 'mycompany') as Username and the new token as Access Token.");
 
         } else if (isAtatt && hasSlug) {
-            // ── Workspace HTTP Access Token (Bearer auth) — slug required ─────────────
-            // Atlassian API tokens CANNOT use a workspace slug as the Basic-auth username.
-            // If the user entered a slug with an ATATT token, it must be a Workspace/Project/
-            // Repository HTTP Access Token (created in Bitbucket workspace settings).
+            // ── Workspace HTTP Access Token — Bearer auth with slug ───────────────────
             String bearerHeader = "Bearer " + tokenOrAppPassword;
 
+            // Step 1: the specified workspace slug
             List<QuickImportRepoDto> repos = fetchBitbucketRepoPage(
                     "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on",
                     bearerHeader);
             if (!repos.isEmpty()) return repos;
 
+            // Step 2: discover all accessible workspaces via Bearer
+            List<QuickImportRepoDto> fromWorkspaces = fetchReposViaWorkspaceList(bearerHeader);
+            if (!fromWorkspaces.isEmpty()) return fromWorkspaces;
+
             throw new IllegalStateException(
                     "Could not list repositories for workspace '" + username + "'. " +
-                    "If this is an Atlassian API Token (ATATT, from id.atlassian.com > Security > API tokens), " +
-                    "you must re-connect using your Atlassian account email as the Username — not the workspace slug. " +
-                    "Workspace slugs only work with Workspace HTTP Access Tokens (Bitbucket workspace settings > " +
-                    "Access management > Access tokens).");
+                    "If this is an Atlassian API Token (ATATT from id.atlassian.com), " +
+                    "re-connect using your Atlassian account email as Username instead of the workspace slug.");
 
         } else if (isAtatt) {
             // ── Workspace HTTP Access Token — no username, Bearer-only ────────────────
@@ -384,8 +376,7 @@ public class QuickImportService {
             if (username == null || username.isBlank()) {
                 throw new IllegalStateException(
                         "Bitbucket App Password requires a username. " +
-                                "Re-configure the VCS connection and enter your Bitbucket account ID in the Username field. " +
-                                "Note: App Passwords are deprecated — migrate to an Atlassian API Token at id.atlassian.com.");
+                        "Enter your Bitbucket account ID in the Username field, or migrate to a Workspace HTTP Access Token.");
             }
 
             String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
@@ -403,38 +394,8 @@ public class QuickImportService {
 
             throw new IllegalStateException(
                     "Could not list repositories with the Bitbucket App Password. " +
-                            "Ensure the App Password has 'Repositories: Read' and 'Account: Read' scopes. " +
-                            "App Passwords are deprecated — migrate to an Atlassian API Token at id.atlassian.com.");
+                    "Ensure the App Password has 'Repositories: Read' and 'Account: Read' scopes.");
         }
-    }
-
-    /**
-     * For Atlassian API Tokens: /2.0/workspaces returns 410 (CHANGE-2770), but
-     * /2.0/user/permissions/workspaces remains available with the read:workspace:bitbucket scope.
-     * Returns the list of workspace slugs the token can access (empty on any error).
-     */
-    private List<String> fetchWorkspaceSlugsViaPermissions(String authHeader) throws Exception {
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.bitbucket.org/2.0/user/permissions/workspaces?pagelen=100"))
-                .header("Authorization", authHeader)
-                .header("User-Agent", USER_AGENT)
-                .GET().build();
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            log.warn("[RepoBrowser] Bitbucket /user/permissions/workspaces returned HTTP {} — {}",
-                    resp.statusCode(),
-                    resp.body().substring(0, Math.min(200, resp.body().length())));
-            return List.of();
-        }
-        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
-        JsonNode values = root.path("values");
-        if (!values.isArray()) return List.of();
-        List<String> slugs = new ArrayList<>();
-        for (JsonNode v : values) {
-            String slug = v.path("workspace").path("slug").asText();
-            if (!slug.isBlank()) slugs.add(slug);
-        }
-        return slugs;
     }
 
     /** Calls GET /2.0/workspaces and fetches repos for each workspace slug found. */
@@ -561,7 +522,7 @@ public class QuickImportService {
 
         Path cloneDir = createTempCloneDir(parsed.owner, parsed.repo, jobId);
         try {
-            String authUrl = buildAuthUrl(parsed, token);
+            String authUrl = buildAuthUrl(parsed, token, conn.getVcsUsername());
             cloneRepo(authUrl, branch, cloneDir, jobId);
 
             // 4. Parse dependencies ────────────────────────────────────────
@@ -702,15 +663,29 @@ public class QuickImportService {
         return new String[]{ segs[0], segs[1] };
     }
 
-    private String buildAuthUrl(ParsedRepoUrl parsed, String token) {
+    private String buildAuthUrl(ParsedRepoUrl parsed, String token, String vcsUsername) {
         String repoPath = parsed.clonePath() != null
                 ? parsed.clonePath()
                 : "/" + parsed.owner() + "/" + parsed.repo();
         return switch (parsed.provider()) {
             case GITHUB, GITLAB ->
                     "https://oauth2:" + token + "@" + parsed.host() + "/" + parsed.owner() + "/" + parsed.repo() + ".git";
-            case BITBUCKET ->
-                    "https://x-token-auth:" + token + "@" + parsed.host() + repoPath + ".git";
+            case BITBUCKET -> {
+                // Atlassian API Token (ATATT from id.atlassian.com) must use Basic auth: email:token
+                // Workspace HTTP Access Token (ATATT from Bitbucket workspace settings) uses x-token-auth:token
+                boolean isAtatt = token != null && token.startsWith("ATATT");
+                boolean hasEmail = vcsUsername != null && vcsUsername.contains("@");
+                String encodedToken = URLEncoder.encode(token != null ? token : "", StandardCharsets.UTF_8);
+                if (isAtatt && hasEmail) {
+                    String encodedUser = URLEncoder.encode(vcsUsername, StandardCharsets.UTF_8);
+                    yield "https://" + encodedUser + ":" + encodedToken + "@" + parsed.host() + repoPath + ".git";
+                } else {
+                    String userPart = (vcsUsername != null && !vcsUsername.isBlank() && !vcsUsername.contains("@"))
+                            ? URLEncoder.encode(vcsUsername, StandardCharsets.UTF_8)
+                            : "x-token-auth";
+                    yield "https://" + userPart + ":" + encodedToken + "@" + parsed.host() + repoPath + ".git";
+                }
+            }
         };
     }
 

@@ -181,16 +181,9 @@
                         </label>
                         <input type="text" x-model="bitbucketUsername"
                                :placeholder="bitbucketServerUrl.trim() ? _vcsI18n.bbUsernameServer : _vcsI18n.bbUsernameCloud"
-                               :class="{'border-amber-400': !bitbucketServerUrl.trim() && bitbucketAccessToken.startsWith('ATATT') && bitbucketUsername.trim() && !bitbucketUsername.includes('@')}"
                                class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                     </div>
-                    <p x-show="!bitbucketServerUrl.trim()" class="pl-[122px] text-[11px] text-[var(--grayscale-40)]" th:utext="#{settings.vcs.bb.cloudGuideHint}">&#9312; API Token (id.atlassian.com) &rarr; <strong>Atlassian email required</strong> &nbsp;&middot;&nbsp; &#9313; Workspace Token &rarr; workspace slug &nbsp;&middot;&nbsp; &#9314; App Password &rarr; Bitbucket account ID</p>
-                    <!-- Live warning: ATATT token but slug entered instead of email -->
-                    <p x-show="!bitbucketServerUrl.trim() && bitbucketAccessToken.startsWith('ATATT') && bitbucketUsername.trim() && !bitbucketUsername.includes('@')"
-                       x-cloak
-                       class="pl-[122px] text-[11px] text-amber-600 font-semibold"
-                       th:utext="#{settings.vcs.bb.atattWarning}">
-                    </p>
+                    <p x-show="!bitbucketServerUrl.trim()" class="pl-[122px] text-[11px] text-[var(--grayscale-40)]" th:utext="#{settings.vcs.bb.cloudGuideHint}">&#9313; Workspace Token &rarr; workspace slug (recommended) &nbsp;&middot;&nbsp; &#9314; App Password &rarr; Bitbucket account ID</p>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0">
@@ -204,8 +197,8 @@
                 <!-- Bitbucket Cloud connection guide -->
                 <div x-show="!bitbucketServerUrl.trim()" class="pl-[122px] flex flex-col gap-[6px] text-[11px] text-[var(--grayscale-50)] leading-relaxed">
                     <p class="font-semibold text-[var(--grayscale-70)]" th:text="#{settings.vcs.bb.cloudGuideTitle}">Bitbucket Cloud — choose one method</p>
-                    <p><span class="font-semibold text-[var(--grayscale-80)]">① Atlassian API Token</span> <span class="text-[var(--primary-100)] font-semibold" th:text="#{common.recommended}">(recommended)</span> — <span th:text="#{settings.vcs.bb.guide1.step}">id.atlassian.com → Security → API tokens → select Bitbucket scopes</span><br><span th:text="#{settings.vcs.bb.guide1.scopes}">Required scopes: read:workspace:bitbucket + read:repository:bitbucket</span><br>Username: <strong th:text="#{settings.vcs.bb.guide1.username}">Atlassian account email</strong> <span th:text="#{settings.vcs.bb.guide1.usernameHint}">(workspace slug not allowed)</span> &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATATT-…</code></p>
-                    <p><span class="font-semibold text-[var(--grayscale-80)]">② Workspace HTTP Access Token</span> — <span th:text="#{settings.vcs.bb.guide2.step}">Bitbucket workspace settings → Access management → Access tokens</span><br>Username: workspace-slug <span th:text="#{settings.vcs.bb.guide2.usernameHint}">(e.g. mycompany)</span> &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATATT-…</code></p>
+                    <p><span class="font-semibold text-[var(--grayscale-80)]">① Workspace HTTP Access Token</span> <span class="text-[var(--primary-100)] font-semibold" th:text="#{common.recommended}">(recommended)</span> — <span th:text="#{settings.vcs.bb.guide2.step}">Bitbucket workspace settings → Access management → Access tokens</span><br>Username: <strong th:text="#{settings.vcs.bb.guide2.usernameLabel}">workspace slug</strong> <span th:text="#{settings.vcs.bb.guide2.usernameHint}">(e.g. mycompany)</span> &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATATT-…</code></p>
+                    <p><span class="font-semibold text-[var(--grayscale-80)]">② Atlassian Account API Token</span> <span class="text-amber-500 font-semibold" th:text="#{settings.vcs.bb.guide1.deprecated}">⚠ Listing deprecated (CHANGE-2770) — cannot browse repositories</span> — <span th:text="#{settings.vcs.bb.guide1.step}">id.atlassian.com → Security → API tokens → select Bitbucket scopes</span><br>Username: <strong th:text="#{settings.vcs.bb.guide1.username}">Atlassian account email</strong> &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATATT-…</code></p>
                     <p><span class="font-semibold text-[var(--grayscale-80)]">③ App Password</span> <span class="text-amber-500 font-semibold" th:text="#{settings.vcs.bb.guide3.deprecated}">⚠ Deprecated — brownout starts 2026-06-09, removed 2026-07-28. Existing tokens only.</span><br>Username: Bitbucket account ID &nbsp;·&nbsp; Token: <code class="bg-gray-100 px-1 rounded">ATBB-…</code></p>
                 </div>
                 <div class="flex justify-end">
@@ -353,7 +346,10 @@
         connectedSuffix:           /*[[#{settings.vcs.toast.connectedSuffix}]]*/ 'connected successfully.',
         disconnectedSuffix:        /*[[#{settings.vcs.toast.disconnectedSuffix}]]*/ 'disconnected.',
         bitbucketAtattNeedsEmail:  /*[[#{settings.vcs.error.bitbucketAtattNeedsEmail}]]*/ 'Atlassian API Token (ATATT) requires your Atlassian account email as the Username — not a workspace slug.',
-        bbUsernameCloud:           /*[[#{settings.vcs.bb.usernameCloud}]]*/ 'Atlassian email (API Token) · workspace-slug (Workspace Token) · account ID (App Password)',
+        bbUsernameCloud:           /*[[#{settings.vcs.bb.usernameCloud}]]*/ 'workspace-slug (Workspace Token) · account ID (App Password)',
+        bbUsernameCloudAtatt:      /*[[#{settings.vcs.bb.usernameCloud}]]*/ 'workspace-slug (Workspace Token)',
+        bbEmailCloud:              /*[[#{settings.vcs.bb.emailCloud}]]*/ 'Atlassian account email (deprecated)',
+        bbTokenCloud:              /*[[#{settings.vcs.bb.tokenCloud}]]*/ 'API Token (ATATT-…) or App Password (ATBB-…)',
         bbUsernameServer:          /*[[#{settings.vcs.bb.usernameServer}]]*/ 'Account ID (optional)',
         bbTokenCloud:              /*[[#{settings.vcs.bb.tokenCloud}]]*/ 'API Token (ATATT-…) or App Password (ATBB-…)',
         personalAccessToken:       /*[[#{settings.vcs.slideout.label.tokenPersonal}]]*/ 'Personal Access Token',
@@ -523,14 +519,6 @@
             async connectBitbucket() {
                 const isCloud = !this.bitbucketServerUrl.trim();
                 if (!this.bitbucketAccessToken.trim()) return;
-                // Guard: Atlassian API Token (ATATT) must use email, not slug
-                if (isCloud
-                    && this.bitbucketAccessToken.startsWith('ATATT')
-                    && this.bitbucketUsername.trim()
-                    && !this.bitbucketUsername.includes('@')) {
-                    this.apiError = _vcsI18n.bitbucketAtattNeedsEmail;
-                    return;
-                }
                 this.creating = true;
                 this.apiError = null;
                 try {
