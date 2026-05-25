@@ -256,7 +256,7 @@
                             <option value="" class="bg-[#001d35]" th:text="#{settings.vcs.slideout.label.selectProvider}">Select a provider</option>
                             <option value="GITHUB" class="bg-[#001d35]">GitHub</option>
                             <option value="GITLAB" class="bg-[#001d35]">GitLab</option>
-                            <option value="BITBUCKET" class="bg-[#001d35]">Atlassian / Bitbucket</option>
+                            <option value="BITBUCKET" disabled class="bg-[#001d35] text-[var(--grayscale-50)]" th:text="#{settings.vcs.slideout.option.bitbucket}">Atlassian / Bitbucket (coming soon)</option>
                         </select>
                         <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none w-[12px] h-[12px] opacity-50" style="filter: brightness(0) invert(1);" alt="" aria-hidden="true">
                     </div>
