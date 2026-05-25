@@ -35,17 +35,18 @@
              class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
 
             <!-- Table header -->
-            <div class="grid grid-cols-[140px_1fr_180px_120px] gap-[0px] px-[24px] py-[12px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]">
+            <div class="grid grid-cols-[140px_1fr_180px_100px_120px] gap-[0px] px-[24px] py-[12px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]">
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.status}">Status</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.version}">Version</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.scannedAt}">Scanned At</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.source}">Source</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.components}">Components</span>
             </div>
 
             <!-- Table rows -->
             <div th:each="row, it : ${scanRows}"
                  th:classappend="${!it.last} ? 'border-b border-[var(--grayscale-10)]' : ''"
-                 class="grid grid-cols-[140px_1fr_180px_120px] gap-[0px] px-[24px] py-[16px] items-center hover:bg-[var(--grayscale-3)] transition-colors">
+                 class="grid grid-cols-[140px_1fr_180px_100px_120px] gap-[0px] px-[24px] py-[16px] items-center hover:bg-[var(--grayscale-3)] transition-colors">
 
                 <!-- Status badge -->
                 <div>
@@ -84,6 +85,14 @@
                 <!-- Scanned At -->
                 <span class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]"
                       th:text="${row.scannedAt}">-</span>
+
+                <!-- Import Source -->
+                <span th:if="${row.importSource != null}"
+                      th:class="${row.importSource == 'GIT'} ? 'inline-flex items-center gap-[6px] bg-[rgba(51,209,183,0.07)] border border-[rgba(51,209,183,0.25)] text-[var(--primary-120)] text-[11px] font-normal px-[10px] py-[3px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap self-center justify-self-start'
+                               : 'inline-flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-normal px-[10px] py-[3px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap self-center justify-self-start'"
+                      th:text="${row.importSource == 'GIT'} ? #{scanHistory.source.git} : #{scanHistory.source.cli}">Git</span>
+                <span th:unless="${row.importSource != null}"
+                      class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px]">-</span>
 
                 <!-- Component count -->
                 <span class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]"

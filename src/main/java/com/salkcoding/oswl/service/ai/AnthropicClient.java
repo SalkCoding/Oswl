@@ -81,33 +81,51 @@ public class AnthropicClient implements AiAnalysisClient {
 
         Map<String, Object> body = Map.of(
                 "model", model,
-                "max_tokens", 120,
+                "max_tokens", 800,
                 "system", "You are an expert software supply chain security analyst. Be concise.",
                 "messages", List.of(Map.of("role", "user", "content", userPrompt))
         );
 
         long start = System.currentTimeMillis();
+        for (int attempt = 1; attempt <= 2; attempt++) {
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     ANTHROPIC_URL, HttpMethod.POST, new HttpEntity<>(body, headers),
                     new ParameterizedTypeReference<>() {});
 
             long elapsed = System.currentTimeMillis() - start;
-            log.debug("[AI][Anthropic] ← status={} elapsedMs={}", response.getStatusCode(), elapsed);
+            log.debug("[AI][Anthropic] ← status={} elapsedMs={} attempt={}", response.getStatusCode(), elapsed, attempt);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var content = (List<?>) response.getBody().get("content");
                 if (content != null && !content.isEmpty()) {
                     String result = (String) ((Map<?, ?>) content.get(0)).get("text");
+                    if (result != null) result = result.strip();
                     log.debug("[AI][Anthropic] Parsed result resultLen={}", result != null ? result.length() : 0);
-                    return result;
+                    if (result != null && !result.isBlank()) return result;
+                    log.warn("[AI][Anthropic] Empty result on attempt {}, {}", attempt, attempt < 2 ? "retrying" : "giving up");
                 }
                 log.warn("[AI][Anthropic] Response body had no 'content' — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AI][Anthropic] Call failed after {}ms — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if ((msg.contains("429") || msg.contains("RateLimitReached") || msg.contains("TooManyRequests") || msg.contains("rate_limit")) && attempt < 2) {
+                int waitSec = parseRateLimitWaitSeconds(msg);
+                log.warn("[AI][Anthropic] Rate limited — waiting {}s before retry (attempt {})", waitSec, attempt);
+                try { Thread.sleep(waitSec * 1000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
+            } else {
+                log.error("[AI][Anthropic] Call failed after {}ms attempt={} — {}: {}", elapsed, attempt, e.getClass().getSimpleName(), e.getMessage());
+                break;
+            }
         }
+        } // end retry loop
         return null;
+    }
+
+    private static int parseRateLimitWaitSeconds(String message) {
+        if (message == null) return 30;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("wait (\\d+) second").matcher(message);
+        return m.find() ? Math.min(Integer.parseInt(m.group(1)) + 2, 60) : 30;
     }
 }

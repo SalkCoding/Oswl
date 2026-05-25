@@ -7,8 +7,8 @@
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
-    <div class="flex flex-col gap-[8px]">
-        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.cache.heading}">Cache Settings</h2>
+    <div class="flex flex-col gap-[4px]">
+        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]" th:text="#{settings.cache.heading}">Cache Settings</h2>
         <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.cache.description}">Configure caching policies for library vulnerability data.</p>
     </div>
 
@@ -22,16 +22,15 @@
 
         <div class="flex flex-col gap-[24px]">
             <!-- Custom TTL -->
-            <div class="flex flex-col gap-[8px]">
-                <div class="flex gap-[8px] items-center cursor-pointer" @click="policy='custom'">
-                    <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                         :class="policy==='custom' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                        <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='custom'"></div>
+            <div class="flex flex-col gap-[24px]">
+                <div class="flex gap-[8px] items-start cursor-pointer" @click="policy='custom'">
+                    <img :src="policy==='custom' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                    <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.custom}">Custom TTL</span>
+                        <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.policy.custom.description}">Refreshes data after the specified period.</span>
                     </div>
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.custom}">Custom TTL</span>
                 </div>
-                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]" th:text="#{settings.cache.policy.custom.description}">Refreshes data after the specified period.</p>
-                <div x-show="policy==='custom'" class="ml-[28px] flex items-center gap-[8px]">
+                <div x-show="policy==='custom'" class="pl-[28px] flex items-center gap-[8px]">
                     <input type="number" min="1" x-model.number="customAmount"
                            class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
                     <!-- Custom dropdown for time unit -->
@@ -58,27 +57,21 @@
             </div>
 
             <!-- Always Refresh -->
-            <div class="flex flex-col gap-[8px]">
-                <div class="flex gap-[8px] items-center cursor-pointer" @click="policy='always'">
-                    <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                         :class="policy==='always' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                        <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='always'"></div>
-                    </div>
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="policy='always'">
+                <img :src="policy==='always' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px]">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.always}">Always Refresh</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.policy.always.description}">Fetches the latest data from deps.dev and OSV on every scan.</span>
                 </div>
-                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]" th:text="#{settings.cache.policy.always.description}">Fetches the latest data from deps.dev and OSV on every scan.</p>
             </div>
 
             <!-- Permanent -->
-            <div class="flex flex-col gap-[8px]">
-                <div class="flex gap-[8px] items-center cursor-pointer" @click="policy='permanent'">
-                    <div class="w-[20px] h-[20px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-                         :class="policy==='permanent' ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                        <div class="w-[8px] h-[8px] rounded-full bg-white" x-show="policy==='permanent'"></div>
-                    </div>
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="policy='permanent'">
+                <img :src="policy==='permanent' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px]">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.permanent}">Permanent Cache</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.policy.permanent.description}">Once fetched, library data will not be refreshed automatically.</span>
                 </div>
-                <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3] ml-[28px]" th:text="#{settings.cache.policy.permanent.description}">Once fetched, library data will not be refreshed automatically.</p>
             </div>
         </div>
 

@@ -13,6 +13,7 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class LicenseService {
     private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
     private final LibraryRepository    libraryRepository;
+    private final AiAnalysisService    aiAnalysisService;
 
     // ── Page rendering ───────────────────────────────────────────────────────────
 
@@ -85,6 +87,8 @@ public class LicenseService {
             model.addAttribute("conflicts", List.of());
             model.addAttribute("reviewItems", List.of());
             model.addAttribute("licenses", List.of());
+            model.addAttribute("licenseAiInsight", null);
+            model.addAttribute("aiConfigured", aiAnalysisService.isAiConfigured());
             return;
         }
 
@@ -140,6 +144,8 @@ public class LicenseService {
         model.addAttribute("conflicts", conflicts);
         model.addAttribute("reviewItems", reviewItems);
         model.addAttribute("licenses", licenses);
+        model.addAttribute("licenseAiInsight", scan.getLicenseAiInsight());
+        model.addAttribute("aiConfigured", aiAnalysisService.isAiConfigured());
     }
 
     private String computeMaxRisk(List<Library> libs) {

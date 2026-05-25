@@ -15,7 +15,7 @@
         <!-- Review Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.reviewStatus}">Review Status</p>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.reviewed" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.reviewed ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -25,7 +25,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.reviewed}">Reviewed</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.nonReviewed" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.nonReviewed ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -40,7 +40,7 @@
         <!-- Ignored Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.ignoreStatus}">Ignore Status</p>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.ignored" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.ignored ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -50,7 +50,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.ignored}">Ignored</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.nonIgnored" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.nonIgnored ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -60,7 +60,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.nonIgnored}">Non-Ignored</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.deferred" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.deferred ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -77,7 +77,7 @@
         <!-- Security Severity Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.securitySeverity}">Security Severity</p>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.secCritical" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.secCritical ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -87,7 +87,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.critical}">Critical</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.secHigh" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.secHigh ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -97,7 +97,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.high}">High</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.secMedium" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.secMedium ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -107,7 +107,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.medium}">Medium</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.secLow" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.secLow ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -117,7 +117,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.low}">Low</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.secUnknown" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.secUnknown ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -132,7 +132,7 @@
         <!-- License Status Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.licenseStatus}">License Status</p>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.licRestricted" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.licRestricted ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -142,7 +142,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.restricted}">Restricted</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.licCaution" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.licCaution ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -152,7 +152,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.caution}">Caution</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.licPermitted" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.licPermitted ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -162,7 +162,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.permitted}">Permitted</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.licUnknown" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.licUnknown ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -177,7 +177,7 @@
         <!-- Patchability Filter — order: Patchable, Non-Patchable, Up to date, Outdated, Deprecated -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.patchabilityLabel}">Patchability</p>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.patchable" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.patchable ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -187,7 +187,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.patchable}">Patchable</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.nonPatchable" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.nonPatchable ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -197,7 +197,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.nonPatchable}">Non-Patchable</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.patchUpToDate" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.patchUpToDate ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -207,7 +207,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.upToDate}">Up to date</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.patchOutdated" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.patchOutdated ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
@@ -217,7 +217,7 @@
                 </div>
                 <span class="text-[13px] text-black" th:text="#{securityCenter.filter.outdated}">Outdated</span>
             </label>
-            <label class="flex gap-[8px] items-center cursor-pointer">
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.patchDeprecated" class="sr-only">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
                      :class="filters.patchDeprecated ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">

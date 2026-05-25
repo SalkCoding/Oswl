@@ -29,7 +29,7 @@ public class AiSetting {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 20, columnDefinition = "VARCHAR(20)")
     private AiProvider provider;
 
     /**
