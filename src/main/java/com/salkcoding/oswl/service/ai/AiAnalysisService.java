@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
@@ -7,6 +9,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Entry point for AI analysis.
@@ -27,6 +33,12 @@ public class AiAnalysisService {
     private final AnthropicClient anthropicClient;
     private final CopilotClient copilotClient;
     private final EncryptionService encryptionService;
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** Batch request types — used by VulnerabilityEnrichmentService */
+    public record CveSummaryRequest(String id, String severity, double cvssScore, String component) {}
+    public record LicenseSummaryRequest(String licenseName, String licenseStatus, String component) {}
 
     // ── Public API ─────────────────────────────────────────────────────
 
@@ -213,6 +225,85 @@ public class AiAnalysisService {
             log.debug("[AI] No active AI setting. Skipping analysis.");
             return null;
         });
+    }
+
+    /**
+     * Sends all CVEs in a single prompt and returns a map of id → one-sentence summary.
+     * Reduces API call count from N to 1 for the whole batch.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, String> batchSummarizeCves(List<CveSummaryRequest> items) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null || items.isEmpty()) return Map.of();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Provide one-sentence risk summaries. Return ONLY a JSON array with no extra text: ");
+        sb.append("[{\"id\":\"X\",\"summary\":\"...\"},...]");
+        sb.append("\n\nItems:\n");
+        for (int i = 0; i < items.size(); i++) {
+            CveSummaryRequest r = items.get(i);
+            sb.append(i + 1).append(". id=").append(r.id())
+              .append(" component=").append(r.component())
+              .append(" severity=").append(r.severity())
+              .append(" cvss=").append(String.format("%.1f", r.cvssScore())).append("\n");
+        }
+        log.debug("[AI] batchSummarizeCves count={} provider={}", items.size(), setting.getProvider());
+        String response = switch (setting.getProvider()) {
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(sb.toString(), setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(sb.toString(), setting);
+            case COPILOT               -> copilotClient.callWithSetting(sb.toString(), setting);
+        };
+        return parseBatchSummaryResponse(response);
+    }
+
+    /**
+     * Sends all license entries in a single prompt and returns a map of licenseName → summary.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, String> batchSummarizeLicenses(List<LicenseSummaryRequest> items) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null || items.isEmpty()) return Map.of();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Provide one-sentence compliance risk summaries for each license. ");
+        sb.append("Return ONLY a JSON array with no extra text: ");
+        sb.append("[{\"id\":\"X\",\"summary\":\"...\"},...]");
+        sb.append("\n\nItems:\n");
+        for (int i = 0; i < items.size(); i++) {
+            LicenseSummaryRequest r = items.get(i);
+            sb.append(i + 1).append(". id=").append(r.licenseName())
+              .append(" status=").append(r.licenseStatus())
+              .append(" component=").append(r.component()).append("\n");
+        }
+        log.debug("[AI] batchSummarizeLicenses count={} provider={}", items.size(), setting.getProvider());
+        String response = switch (setting.getProvider()) {
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(sb.toString(), setting);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(sb.toString(), setting);
+            case COPILOT               -> copilotClient.callWithSetting(sb.toString(), setting);
+        };
+        return parseBatchSummaryResponse(response);
+    }
+
+    private Map<String, String> parseBatchSummaryResponse(String response) {
+        if (response == null || response.isBlank()) return Map.of();
+        try {
+            int start = response.indexOf('[');
+            int end   = response.lastIndexOf(']');
+            if (start < 0 || end <= start) return Map.of();
+            String json = response.substring(start, end + 1);
+            List<Map<String, String>> list = MAPPER.readValue(json, new TypeReference<>() {});
+            Map<String, String> result = new LinkedHashMap<>();
+            for (Map<String, String> entry : list) {
+                String id      = entry.get("id");
+                String summary = entry.get("summary");
+                if (id != null && summary != null) result.put(id.strip(), summary.strip());
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("[AI] Failed to parse batch response: {} — raw='{}'" ,e.getMessage(),
+                    response.length() > 200 ? response.substring(0, 200) : response);
+            return Map.of();
+        }
     }
 
     private String buildCvePrompt(String cveId, String severity, double cvssScore, String component) {

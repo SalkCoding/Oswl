@@ -13,4 +13,5 @@ public class ScanHistoryRowDto {
     private final String scannedAt;    // formatted "YYYY-MM-DD HH:mm"
     private final long   componentCount;
     private final String errorMessage; // null unless FAILED
+    private final String importSource; // GIT, CLI, or null
 }
