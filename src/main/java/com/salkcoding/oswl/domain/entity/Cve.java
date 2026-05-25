@@ -70,10 +70,14 @@ public class Cve {
 
     // ── Mutation helpers ─────────────────────────────────────────────────
 
-    public void enrichFromNvd(double cvssScore, RiskLevel severity, String cweId) {
+    public void enrichFromNvd(double cvssScore, RiskLevel severity, String cweId, String cvss3Vector) {
         this.cvssScore = cvssScore;
         this.severity  = severity;
         this.cweId     = cweId;
+        // Only backfill from NVD if deps.dev didn't provide a vector
+        if (this.cvss3Vector == null && cvss3Vector != null) {
+            this.cvss3Vector = cvss3Vector;
+        }
     }
 
     public void enrichFromAdvisory(String cveId, String title, Double cvssScore, String cvss3Vector, RiskLevel severity) {

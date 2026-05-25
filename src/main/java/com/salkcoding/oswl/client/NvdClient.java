@@ -41,7 +41,7 @@ public class NvdClient {
 
     // ── DTO ────────────────────────────────────────────────────────────
 
-    public record NvdCveInfo(Double cvssScore, String severity, String cweId) {}
+    public record NvdCveInfo(Double cvssScore, String severity, String cweId, String cvss3Vector) {}
 
     // ── Public API ───────────────────────────────────────────────────────
 
@@ -96,8 +96,9 @@ public class NvdClient {
 
             // CVSS v3.1 metrics
             Map<?, ?> metrics = (Map<?, ?>) cve.get("metrics");
-            Double cvssScore = null;
-            String severity  = null;
+            Double cvssScore  = null;
+            String severity   = null;
+            String cvss3Vector = null;
             if (metrics != null) {
                 List<?> cvssV31 = (List<?>) metrics.get("cvssMetricV31");
                 if (cvssV31 != null && !cvssV31.isEmpty()) {
@@ -108,6 +109,8 @@ public class NvdClient {
                         if (score instanceof Number n) cvssScore = n.doubleValue();
                         Object sev = data.get("baseSeverity");
                         if (sev instanceof String s) severity = s;
+                        Object vec = data.get("vectorString");
+                        if (vec instanceof String vs) cvss3Vector = vs;
                     }
                 }
             }
@@ -125,7 +128,7 @@ public class NvdClient {
                 }
             }
 
-            return new NvdCveInfo(cvssScore, severity, cweId);
+            return new NvdCveInfo(cvssScore, severity, cweId, cvss3Vector);
         } catch (ClassCastException e) {
             log.warn("[NvdClient] Unexpected response structure: {}", e.getMessage());
             return null;

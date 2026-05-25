@@ -93,18 +93,19 @@ public class OpenAiClient implements AiAnalysisClient {
                                "content", "You are an expert software supply chain security analyst. Be concise."),
                         Map.of("role", "user", "content", userPrompt)
                 ),
-                "max_tokens", 120,
+                "max_tokens", 800,
                 "temperature", 0.3
         );
 
         long start = System.currentTimeMillis();
+        for (int attempt = 1; attempt <= 2; attempt++) {
         try {
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url, HttpMethod.POST, new HttpEntity<>(body, headers),
                     new ParameterizedTypeReference<>() {});
 
             long elapsed = System.currentTimeMillis() - start;
-            log.debug("[AI][OpenAI] ← status={} elapsedMs={}", response.getStatusCode(), elapsed);
+            log.debug("[AI][OpenAI] ← status={} elapsedMs={} attempt={}", response.getStatusCode(), elapsed, attempt);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var choices = (List<?>) response.getBody().get("choices");
@@ -113,15 +114,31 @@ public class OpenAiClient implements AiAnalysisClient {
                     String result = message != null ? (String) message.get("content") : null;
                     if (result != null) result = result.strip();
                     log.debug("[AI][OpenAI] Parsed result resultLen={}", result != null ? result.length() : 0);
-                    return (result != null && !result.isBlank()) ? result : null;
+                    if (result != null && !result.isBlank()) return result;
+                    log.warn("[AI][OpenAI] Empty result on attempt {}, {}", attempt, attempt < 2 ? "retrying" : "giving up");
                 }
                 log.warn("[AI][OpenAI] Response body has no 'choices' — keys={}", response.getBody().keySet());
             }
         } catch (Exception e) {
             long elapsed = System.currentTimeMillis() - start;
-            log.error("[AI][OpenAI] Call failed after {}ms — {}: {}", elapsed, e.getClass().getSimpleName(), e.getMessage());
+            String msg = e.getMessage() != null ? e.getMessage() : "";
+            if ((msg.contains("429") || msg.contains("RateLimitReached") || msg.contains("TooManyRequests")) && attempt < 2) {
+                int waitSec = parseRateLimitWaitSeconds(msg);
+                log.warn("[AI][OpenAI] Rate limited — waiting {}s before retry (attempt {})", waitSec, attempt);
+                try { Thread.sleep(waitSec * 1000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
+            } else {
+                log.error("[AI][OpenAI] Call failed after {}ms attempt={} — {}: {}", elapsed, attempt, e.getClass().getSimpleName(), e.getMessage());
+                break;
+            }
         }
+        } // end retry loop
         return null;
+    }
+
+    private static int parseRateLimitWaitSeconds(String message) {
+        if (message == null) return 30;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("wait (\\d+) second").matcher(message);
+        return m.find() ? Math.min(Integer.parseInt(m.group(1)) + 2, 60) : 30;
     }
 
     private String resolveUrl(AiSetting setting) {
