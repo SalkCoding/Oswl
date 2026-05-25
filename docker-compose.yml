@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-oswl}"
+      POSTGRES_USER: "${POSTGRES_USER:-oswl}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_DATASOURCE_URL: "${SPRING_DATASOURCE_URL:-jdbc:postgresql://db:5432/${POSTGRES_DB:-oswl}}"
+      SPRING_DATASOURCE_USERNAME: "${SPRING_DATASOURCE_USERNAME:-${POSTGRES_USER:-oswl}}"
+      SPRING_DATASOURCE_PASSWORD: "${SPRING_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD}}"
+      SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE:-prod}"
+      JAVA_OPTS: -Xms256m -Xmx512m
+      # Gmail SMTP (set GMAIL_USER and GMAIL_PASS in .env)
+      SPRING_MAIL_HOST: "${GMAIL_HOST:-smtp.gmail.com}"
+      SPRING_MAIL_PORT: "${GMAIL_PORT:-587}"
+      SPRING_MAIL_USERNAME: "${GMAIL_USER}"
+      SPRING_MAIL_PASSWORD: "${GMAIL_PASS}"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "true"
+      # Ollama (local AI) base URL. Default uses host.docker.internal
+      OLLAMA_BASE_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  db-data:
