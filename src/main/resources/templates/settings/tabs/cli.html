@@ -127,16 +127,26 @@
                 <!-- Project dropdown -->
                 <div class="flex flex-col gap-[8px]">
                     <label class="text-[13px] font-bold text-[var(--grayscale-100)]" th:text="#{settings.cli.slideout.label.project}">Project</label>
-                    <div class="relative">
-                        <select x-model.number="form.projectId"
-                                class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] appearance-none cursor-pointer">
-                            <option value="" th:text="#{settings.cli.slideout.label.selectProject}">Select a project</option>
+                    <div class="relative" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" @click.away="open = false"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
+                                :class="open ? 'border-[var(--primary-120)]' : ''">
+                            <span :class="form.projectId ? 'text-[var(--grayscale-100)]' : 'text-[#abb8be] font-normal'"
+                                  x-text="form.projectId ? (projects.find(p=>p.id===form.projectId)||{name:_cliI18n.selectProject}).name : _cliI18n.selectProject"></span>
+                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <button type="button" @click="form.projectId = null; open = false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
+                                    :class="!form.projectId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'"
+                                    x-text="_cliI18n.selectProject"></button>
                             <template x-for="p in projects" :key="p.id">
-                                <option :value="p.id" x-text="p.name"></option>
+                                <button type="button" @click="form.projectId = p.id; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
+                                        :class="form.projectId === p.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="p.name"></button>
                             </template>
-                        </select>
-                        <div class="pointer-events-none absolute right-[12px] top-1/2 -translate-y-1/2">
-                            <img th:src="@{/icon/icon-triangle-down.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                     </div>
                 </div>
@@ -162,6 +172,7 @@
 
     <script th:inline="javascript">
     const _cliI18n = {
+        selectProject: /*[[#{settings.cli.slideout.label.selectProject}]]*/ 'Select a project',
         deactivate:  /*[[#{settings.cli.key.action.deactivate}]]*/ 'Deactivate',
         activate:    /*[[#{settings.cli.key.action.activate}]]*/ 'Activate',
         creating:    /*[[#{settings.cli.btn.creating}]]*/ 'Creating…',
