@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,13 +52,20 @@ class DepsDevClientTest {
     @DisplayName("VersionInfo: 레코드 필드를 올바르게 저장한다")
     void versionInfo_storesFields() {
         DepsDevClient.VersionInfo info = new DepsDevClient.VersionInfo(
-                List.of("Apache-2.0"), List.of("GHSA-1234"), true, null, "5.3.2");
+                List.of("Apache-2.0"), List.of("GHSA-1234"), true, null, "5.3.2", true);
 
         assertThat(info.licenses()).containsExactly("Apache-2.0");
         assertThat(info.advisoryKeys()).containsExactly("GHSA-1234");
         assertThat(info.isDefault()).isTrue();
         assertThat(info.deprecated()).isNull();
         assertThat(info.latestVersion()).isEqualTo("5.3.2");
+        assertThat(info.resolved()).isTrue();
+    }
+
+    @Test
+    @DisplayName("VersionInfo.unresolved: resolved=false")
+    void versionInfo_unresolved() {
+        assertThat(DepsDevClient.VersionInfo.unresolved().resolved()).isFalse();
     }
 
     // ── AdvisoryInfo record ───────────────────────────────────────────────
@@ -73,5 +81,16 @@ class DepsDevClientTest {
         assertThat(info.aliases()).containsExactly("CVE-2023-1234");
         assertThat(info.cvss3Score()).isEqualTo(9.8);
         assertThat(info.cvss3Vector()).isEqualTo("CVSS:3.1/AV:N");
+    }
+
+    @Test
+    @DisplayName("AdvisoryInfo: snake_case cvss3_vector 필드도 파싱한다")
+    void advisoryInfo_parsesSnakeCaseVector() throws Exception {
+        var method = DepsDevClient.class.getDeclaredMethod("extractCvss3Vector", Map.class);
+        method.setAccessible(true);
+        String vector = (String) method.invoke(null, Map.of(
+                "cvss3_score", 7.5,
+                "cvss3_vector", "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"));
+        assertThat(vector).isEqualTo("CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H");
     }
 }

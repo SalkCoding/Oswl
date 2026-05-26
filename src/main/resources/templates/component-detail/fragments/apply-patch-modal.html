@@ -12,10 +12,12 @@
 const _patchI18n = {
     title:           /*[[#{componentDetail.patch.title}]]*/ 'Apply Patch',
     subtitle:        /*[[#{componentDetail.patch.subtitle}]]*/ 'Create Pull Request',
-    description:     /*[[#{componentDetail.patch.description}]]*/ 'A pull request will be opened against your default branch with the version bump.',
+    description:     /*[[#{componentDetail.patch.description}]]*/ 'Enter the base branch for the pull request.',
     labelUpgrading:  /*[[#{componentDetail.patch.label.upgrading}]]*/ 'Upgrading',
     labelWillResolve:/*[[#{componentDetail.patch.label.willResolve}]]*/ 'Will resolve',
     labelBranch:     /*[[#{componentDetail.patch.label.targetBranch}]]*/ 'Target Branch',
+    hintBranch:      /*[[#{componentDetail.patch.hint.targetBranch}]]*/ 'Pre-filled from scan version.',
+    placeholderBranch: /*[[#{componentDetail.patch.placeholder.targetBranch}]]*/ 'e.g. main, master',
     labelReviewer:   /*[[#{componentDetail.patch.label.reviewer}]]*/ 'Assign Reviewer (optional)',
     placeholderReviewer: /*[[#{componentDetail.patch.placeholder.reviewer}]]*/ '@username or team',
     labelPrDesc:     /*[[#{componentDetail.patch.label.prDescription}]]*/ 'PR Description',
@@ -25,6 +27,7 @@ const _patchI18n = {
     successViewLink: /*[[#{componentDetail.patch.success.viewLink}]]*/ 'View PR/MR',
     errorFailed:     /*[[#{componentDetail.patch.error.failed}]]*/ 'Failed to create PR ({0}).',
     errorNetwork:    /*[[#{componentDetail.patch.error.network}]]*/ 'Network error. Please try again.',
+    errorBranchRequired: /*[[#{componentDetail.patch.error.branchRequired}]]*/ 'Target branch is required.',
     cancel:          /*[[#{common.cancel}]]*/ 'Cancel'
 };
 </script>
@@ -36,38 +39,29 @@ const _patchI18n = {
      @keydown.escape.window="modal = null"
      @click.self="modal = null"
      x-data="{
-        selectedBranch: 'main',
-        branches: ['main', 'develop', 'prod'],
-        branchOpen: false,
+        targetBranch: '',
         reviewer: '',
         submitting: false,
         prError: null,
         prDone: false,
         prUrl: null,
-        vcsNotConnected: false,
 
-        async loadBranches() {
+        initTargetBranch() {
             const root = document.getElementById('component-detail-content');
-            const projectId = root ? root.dataset.projectId : null;
-            if (!projectId) return;
-            this.vcsNotConnected = false;
-            try {
-                const r = await fetch('/api/vcs/branches?projectId=' + projectId);
-                if (r.ok) {
-                    const list = await r.json();
-                    if (Array.isArray(list) && list.length > 0) {
-                        this.branches = list;
-                        this.selectedBranch = list[0];
-                    }
-                } else {
-                    this.vcsNotConnected = true;
-                }
-            } catch (e) {
-                // silently keep defaults
-            }
+            const scanVersion = (root?.dataset.scanVersion || '').trim();
+            const valid = scanVersion && scanVersion !== '-';
+            this.targetBranch = valid ? scanVersion : '';
+            this.prError = null;
+            this.prDone = false;
+            this.prUrl = null;
         },
 
         async createPr() {
+            const branch = (this.targetBranch || '').trim();
+            if (!branch) {
+                this.prError = _patchI18n.errorBranchRequired;
+                return;
+            }
             this.submitting = true;
             this.prError = null;
             const root = document.getElementById('component-detail-content');
@@ -82,9 +76,9 @@ const _patchI18n = {
 
                 const r = await fetch('/projects/' + projectId + '/components/' + componentId + '/create-pr', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: oswlJsonHeaders(),
                     body: JSON.stringify({
-                        targetBranch: this.selectedBranch,
+                        targetBranch: branch,
                         reviewers: reviewers,
                         prDescription: description
                     })
@@ -103,7 +97,7 @@ const _patchI18n = {
             }
         }
      }"
-     @open-patch-modal.window="$nextTick(() => loadBranches())">
+     @open-patch-modal.window="$nextTick(() => initTargetBranch())">
 
     <div class="bg-white border border-[rgba(0,29,53,0.14)] rounded-[10px] shadow-[0px_0px_40px_0px_rgba(0,29,53,0.03)] w-full max-w-[640px] max-h-[90vh] overflow-hidden flex flex-col"
          @click.stop>
@@ -121,7 +115,7 @@ const _patchI18n = {
                     <p class="font-medium text-[18px] text-[var(--grayscale-90)] tracking-[-0.18px] leading-[1.3]" th:text="#{componentDetail.patch.subtitle}">Create Pull Request</p>
                 </div>
                 <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3]" th:text="#{componentDetail.patch.description}">
-                    A pull request will be opened against your default branch with the version bump.
+                    Enter the base branch for the pull request.
                 </p>
             </div>
 
@@ -148,7 +142,8 @@ const _patchI18n = {
                       th:text="${'v' + recommendedVersion}">v2.2.1-alpha01</span>
             </div>
 
-            <div class="flex flex-wrap gap-[12px] items-center">
+            <!-- CVE 있을 때만 표시 -->
+            <div th:if="${hasVulnerabilities}" class="flex flex-wrap gap-[12px] items-center">
                 <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.willResolve}">Will resolve</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
@@ -159,39 +154,32 @@ const _patchI18n = {
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityHigh} + ' High'">20 High</span>
                 </span>
             </div>
+            <!-- outdated (CVE 없음) 안내 -->
+            <div th:if="${!hasVulnerabilities}" class="flex flex-wrap gap-[12px] items-center">
+                <span class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-caution)]"></span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.patch.outdatedUpgrade}">Version upgrade only — no CVEs to resolve.</span>
+                </span>
+            </div>
         </div>
 
         <!-- Form fields -->
         <div class="flex flex-col gap-[24px] px-[36px] py-[24px]">
 
-            <!-- Target Branch -->
-            <div class="flex flex-col gap-[10px] w-full" @click.outside="branchOpen = false">
-                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
+            <!-- Target Branch (required text input) -->
+            <div class="flex flex-col gap-[10px] w-full">
+                <label for="pr-target-branch-input" class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
                     <span th:text="#{componentDetail.patch.label.targetBranch}">Target Branch</span> <span class="font-normal text-[var(--primary-80)]">*</span>
                 </label>
-                <div class="relative">
-                    <button type="button" @click="branchOpen = !branchOpen"
-                            class="w-full border rounded-[8px] flex items-center justify-between px-[12px] h-[36px] transition-colors"
-                            :class="branchOpen ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.04)]' : 'border-[var(--grayscale-20)] bg-white'">
-                        <span class="text-[12px] text-[var(--grayscale-100)] tracking-[-0.12px]" x-text="selectedBranch"></span>
-                        <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="branchOpen ? 'rotate-180' : ''" alt="" aria-hidden="true">
-                    </button>
-                    <div x-show="branchOpen"
-                         x-transition:enter="transition ease-out duration-100"
-                         x-transition:enter-start="opacity-0 -translate-y-1"
-                         x-transition:enter-end="opacity-100 translate-y-0"
-                         style="display:none;"
-                         class="absolute top-[calc(100%+4px)] left-0 w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_8px_24px_rgba(0,29,53,0.08)] z-50 overflow-hidden">
-                        <template x-for="branch in branches" :key="branch">
-                            <button type="button"
-                                    @click="selectedBranch = branch; branchOpen = false"
-                                    class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
-                                    :class="selectedBranch === branch ? 'bg-[rgba(0,160,147,0.06)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
-                                    x-text="branch">
-                            </button>
-                        </template>
-                    </div>
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] flex items-center px-[12px] h-[36px] focus-within:border-[#33D1B7]">
+                    <input id="pr-target-branch-input" type="text" required
+                           x-model="targetBranch"
+                           th:placeholder="#{componentDetail.patch.placeholder.targetBranch}"
+                           class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
                 </div>
+                <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.35]" th:text="#{componentDetail.patch.hint.targetBranch}">
+                    Pre-filled from the scan version shown in the header.
+                </p>
             </div>
 
             <!-- Reviewers -->
@@ -210,7 +198,9 @@ const _patchI18n = {
                 <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.prDescription}">PR Description</label>
                 <textarea id="pr-description-text" rows="4"
                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] leading-[1.3] tracking-[-0.12px] outline-none resize-none focus:border-[#33D1B7]"
-                          th:utext="|Bumps ${componentName} from ${componentVersion} to ${recommendedVersion}.&#10;Resolves ${securityCritical} Critical + ${securityHigh} High vulnerabilities.&#10;Triggered by OsWL.|">Bumps library version. Triggered by OsWL.</textarea>
+                          th:utext="${hasVulnerabilities}
+                              ? |Bumps ${componentName} from ${componentVersion} to ${recommendedVersion}.&#10;Resolves ${securityCritical} Critical + ${securityHigh} High vulnerabilities.&#10;Triggered by OsWL.|
+                              : |Bumps ${componentName} from ${componentVersion} to ${recommendedVersion}.&#10;Version upgrade to latest stable release.&#10;Triggered by OsWL.|">Bumps library version. Triggered by OsWL.</textarea>
             </div>
         </div>
 
@@ -219,12 +209,6 @@ const _patchI18n = {
 
         <!-- Actions (fixed footer) -->
         <div class="flex flex-col gap-[10px] px-[36px] pt-[16px] pb-[28px] shrink-0 border-t border-[var(--grayscale-20)]">
-            <!-- VCS not connected warning -->
-            <div x-show="vcsNotConnected" x-cloak
-                 class="w-full bg-amber-50 border border-amber-200 text-amber-700 text-[12px] rounded-[8px] px-[10px] py-[8px] flex items-center gap-[8px]">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span th:text="#{componentDetail.patch.error.noVcs}">VCS connection is not configured for this project. Please connect a VCS account in Settings.</span>
-            </div>
             <!-- Error feedback -->
             <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="prError"></div>
             <!-- Success feedback -->
@@ -233,7 +217,8 @@ const _patchI18n = {
             </div>
 
             <div class="flex gap-[16px] items-center">
-                <button type="button" @click="createPr()" :disabled="submitting || prDone || vcsNotConnected"
+                <button type="button" @click="createPr()"
+                        :disabled="submitting || prDone || !(targetBranch || '').trim()"
                         class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
                     <span th:attr="data-msg-creating=#{componentDetail.patch.btn.creating},data-msg-create=#{componentDetail.patch.btn.create}"

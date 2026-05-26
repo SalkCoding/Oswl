@@ -59,39 +59,45 @@ OsWL/
 
 ## 핵심 도메인 (참고용)
 
-- **Project ↔ ProjectVersion (branch별) ↔ ScanResult ↔ ScanComponent ↔ DependencyPath**
-- **Library ↔ Cve, LicensePolicyEntry** — 라이브러리는 프로젝트 간 공유 (`group:artifact@version` 단일 행)
-- **AiSetting / ApiKey / ExternalApiSetting** — 시스템 설정류
-- **auth.entity:** User / Role / RoleTemplate / AuditLog / SecuritySetting / VcsConnection / TrustedDevice / OtpChallenge
+- **Repository / Project / ProjectVersion** — 리포지토리(연결된 VCS) 단위로 `Project`를 생성하고, 브랜치/버전별로 `ProjectVersion`을 관리합니다.
+- **Scan / ScanResult / ScanComponent / DependencyPath / DependencyGraph** — 각 스캔(수집·분석) 결과와 컴포넌트·의존성 경로, 그래프를 나타냅니다.
+- **SBOM / BillOfMaterials** — 스캔 결과나 외부 연동으로부터 생성되는 SBOM(Software Bill Of Materials)을 저장·조회합니다
+- **Library / Artifact** — 공유 라이브러리(예: `group:artifact@version`)와 메타데이터를 중심으로 관리합니다.
+- **Vulnerability (CVE/OSV/OSV-like)** — 취약점 엔티티(심각도, 설명, 출처, 패치 정보) 및 연관 라이브러리 매핑.
+- **License / LicensePolicy / PolicyViolation** — 라이선스 정보와 정책, 정책 위반 기록 및 정책 기반 알림/차단 로직.
+- **Finding / Evidence / Enrichment** — 스캔·분석에서 도출된 소결과(발견사항), 증거자료, 외부 데이터 보강(Enrichment).
+- **AiSetting / ApiKey / ExternalApiSetting / Webhook** — 외부 API 키·설정, AI 관련 설정, 웹훅 등록·관리.
+- **Auth entities:** User / Role / RoleTemplate / AuditLog / SecuritySetting / VcsConnection / TrustedDevice / OtpChallenge
+
+설계 원칙: 도메인은 공유 가능한 `Library` 중심, 스캔 결과는 불변(이력)으로 저장, 정책·알림은 별도 엔티티로 분리하여 재사용성을 높입니다.
 
 ## 주요 URL 맵 (요약)
 
-| 영역 | 경로 |
-|------|------|
-| Auth | `GET/POST /login`, `GET/POST /login/otp-verify`, `POST /login/otp-resend`, `GET/POST /setup` |
-| Projects | `GET /projects`, `GET /projects/list`, `DELETE /projects/{id}`, `POST /projects/{id}/restore`, `DELETE /projects/{id}/permanent`, `DELETE /projects/trash/all|selected`, `POST /projects/trash/restore-selected` |
-| Quick Import | `GET /projects/quick-import`, `GET /api/quick-import/connections`, `POST /api/quick-import/start`, `GET /api/quick-import/job/{jobId}` |
-| GitHub OAuth-PAT | `POST/DELETE /api/github/connect|disconnect|accounts/{login}`, `GET /api/github/{status,accounts,repos,branches,branch-updated-at}` |
-| Security Center | `GET /projects/{id}/security-center`, `PATCH /projects/{id}/security-center/bulk-status` |
-| Component Detail | `GET /projects/{id}/components/{compId}` (HX-Request 헤더 시 fragment 반환) |
-| License | `GET /projects/{id}/license` |
-| Risk Trend | `GET /projects/{id}/risk-trend` (최대 10개 스캔, `oswl.risk-trend.limit`) |
-| Version Diff | `GET /projects/{id}/version-diff` |
-| Scan History | `GET /projects/{id}/scan-history`, `DELETE /projects/{id}/scan-history/{scanId}` |
-| Glossary | `GET /glossary` |
-| Settings | `GET /settings` (탭: admin/security/ai/vcs/cli/cache) |
-| Admin Users | `GET/POST /api/admin/users`, `PUT /api/admin/users/{id}/{roles\|display-name\|activate\|deactivate}`, `DELETE /api/admin/users/{id}` |
-| Role Templates | `GET/POST /api/admin/role-templates`, `GET /api/admin/role-templates/permissions`, `PUT/DELETE /api/admin/role-templates/{id}` |
-| Audit Log | `GET /api/admin/audit-logs`, `GET /api/admin/audit-logs/export.csv` |
-| Security Setting | `GET/PUT /api/settings/security`, `POST /api/settings/security/mail/test` |
-| AI Setting | `GET/PUT /api/settings/ai`, `PUT /api/settings/ai/deactivate`, `PUT /api/settings/ai/activate/{provider}` |
-| VCS | `GET/POST /api/settings/vcs`, `DELETE /api/settings/vcs/{id}` |
-| Cache | `GET/PUT /api/settings/cache`, `POST /api/settings/cache/clear` |
-| External (NVD/GH) | `GET /api/settings/external`, `PUT /api/settings/external/{nvd\|cache}`, `GET/PUT /api/settings/external/github` |
-| CLI Keys (project) | `GET/POST /api/projects/{id}/api-keys`, `DELETE /api/projects/{id}/api-keys/{keyId}` |
-| CLI Keys (admin global) | `GET/POST /api/admin/cli-keys`, `PATCH /api/admin/cli-keys/{keyId}/toggle` |
-| CLI Public API | `POST /api/auth`, `GET /api/scan/ping`, `POST /api/scan`, `GET /api/scan/{scanId}/status` |
-| Test Data (local only) | `GET /data/test`, `GET /data/test-api-key` |
+아래는 주요 엔드포인트의 요약(REST/HTTP 기반). 세부 스펙은 `controller/spec/*Spec.java` 인터페이스에 명세합니다.
+
+- **Auth / Account**: `GET/POST /login`, `GET/POST /login/otp-verify`, `POST /login/otp-resend`, `GET/POST /setup`, `POST /api/auth` (토큰/CLI 인증)
+- **Projects / Repositories**: `GET /projects`, `GET /projects/list`, `POST /projects` (수동 생성), `GET/PUT/DELETE /projects/{id}`, `POST /projects/{id}/restore`, `DELETE /projects/{id}/permanent`, `DELETE /projects/trash/all|selected`, `POST /projects/trash/restore-selected`
+- **Project Versions / Branches**: `GET /projects/{id}/versions`, `POST /projects/{id}/versions`, `GET /projects/{projectId}/versions/{versionId}`
+- **Quick Import / VCS Connections**: `GET /projects/quick-import`, `GET /api/quick-import/connections`, `POST /api/quick-import/start`, `GET /api/quick-import/job/{jobId}`, `POST /api/import/webhook` (VCS push hook)
+- **VCS Providers (GitHub/GitLab/Bitbucket)**: `POST/DELETE /api/github/connect|disconnect|accounts/{login}`, `GET /api/github/{status,accounts,repos,branches,branch-updated-at}`, 유사한 경로로 GitLab/Bitbucket 지원
+- **Scans / Scan Jobs**: `POST /api/scan` (새 스캔 시작), `GET /api/scan/{scanId}/status`, `GET /api/scan/{scanId}/result`, `GET /projects/{id}/scan-history`, `DELETE /projects/{id}/scan-history/{scanId}`, `POST /api/scan/schedule` (예약 스캔), `GET /api/scan/jobs`
+- **Security Center / Findings**: `GET /projects/{id}/security-center`, `PATCH /projects/{id}/security-center/bulk-status`, `GET /projects/{id}/findings`, `PATCH /projects/{id}/findings/{findingId}`
+- **Component Detail / SBOM / Dependency Graph**: `GET /projects/{id}/components/{compId}` (HX-Request fragment), `GET /projects/{id}/sbom/{sbomId}`, `GET /projects/{id}/dependency-graph`
+- **License / Policy**: `GET /projects/{id}/license`, `GET/PUT /api/policies/license`, `POST /api/policies/evaluate`, `GET /api/policies/violations` 
+- **Risk Trend / Analytics**: `GET /projects/{id}/risk-trend` (최대 `oswl.risk-trend.limit` 스캔), `GET /api/analytics/risk`, `GET /api/metrics` (애플리케이션 지표)
+- **Version Diff / History**: `GET /projects/{id}/version-diff`, `GET /projects/{id}/history` 
+- **Glossary / Docs**: `GET /glossary`, `GET /docs/**`
+- **Settings / Admin**: `GET /settings` (탭: admin/security/ai/vcs/cli/cache), `GET/PUT /api/settings/security`, `POST /api/settings/security/mail/test`, `GET/PUT /api/settings/ai`, `PUT /api/settings/ai/deactivate`, `PUT /api/settings/ai/activate/{provider}`, `GET/POST /api/settings/vcs`, `DELETE /api/settings/vcs/{id}`, `GET/PUT /api/settings/cache`, `POST /api/settings/cache/clear`, `GET/PUT /api/settings/external`
+- **Admin Users / Role Templates / Audit**: `GET/POST /api/admin/users`, `PUT /api/admin/users/{id}/{roles|display-name|activate|deactivate}`, `DELETE /api/admin/users/{id}`, `GET/POST /api/admin/role-templates`, `GET /api/admin/role-templates/permissions`, `PUT/DELETE /api/admin/role-templates/{id}`, `GET /api/admin/audit-logs`, `GET /api/admin/audit-logs/export.csv`
+- **AI / Enrichment / External Data**: `POST /api/ai/assist`, `GET/PUT /api/settings/ai`, `POST /api/external/enrich/{libraryId}`, `GET /api/external/{nvd|osv}/status`
+- **Webhooks & Integrations**: `POST/GET/DELETE /api/webhooks`, `POST /api/webhooks/test`, `POST /api/external/push` (integration callbacks)
+- **CLI Keys / API Keys**: `GET/POST /api/projects/{id}/api-keys`, `DELETE /api/projects/{id}/api-keys/{keyId}`, `GET/POST /api/admin/cli-keys`, `PATCH /api/admin/cli-keys/{keyId}/toggle`
+- **CLI Public API / Scan API**: `POST /api/auth` (CLI token), `GET /api/scan/ping`, `POST /api/scan`, `GET /api/scan/{scanId}/status`, `GET /api/scan/{scanId}/result` 
+- **SBOM / Exports**: `GET /api/projects/{id}/exports/sbom`, `GET /api/projects/{id}/exports/findings.csv`, `POST /api/projects/{id}/exports/start`
+- **Health / Observability**: `GET /actuator/health`, `GET /actuator/metrics`, `GET /actuator/prometheus` (optional)
+- **Test Data (local only)**: `GET /data/test`, `GET /data/test-api-key` (local-profile only)
+
+참고: 컨트롤러 스펙은 `controller/spec/*Spec.java`에 집중시킵니다.
 
 ## Code Style & Architecture
 
@@ -128,18 +134,6 @@ OsWL/
 ./gradlew buildTailwindCss         # Tailwind만 재빌드
 ```
 
-## Code Search Strategy
-
-- **`semble search`** — 의미 기반 탐색. "이 기능 어디서 처리?" "인증 흐름은?" 류 자연어 검색.
-  ```
-  semble search "OTP verification flow" ./src
-  semble search "ProjectService" ./src
-  ```
-- **`semantic_search` / `@workspace`** — 구조 파악·파일 위치 빠른 탐색.
-- **`grep_search`** — 정확한 심볼명·어노테이션·문자열 매칭.
-
-**원칙:** 새 기능 추가 전 `semble search`로 유사 구현 존재 여부 먼저 확인. 파일 전체를 읽기 전에 의미 기반으로 관련 청크 먼저 가져오기.
-
 ## Conventions
 
 - **DB 명명:** snake_case 테이블/컬럼, 엔티티 PK는 `Long id`.
@@ -147,8 +141,3 @@ OsWL/
 - **의존성 추가:** 빌드 시 자동 다운로드 가능한 라이브러리는 `build.gradle` 추가, 프론트는 CDN 또는 webjars 우선.
 - **에러 페이지:** `error/{401,403,404,500,503}.html` — 공통 부엉이 일러스트 (`_owl-error.html` fragment) 사용.
 - **로그 톤:** 비즈니스 INFO/WARN/ERROR · 디테일은 `log.debug` (예: `client`, `VulnerabilityEnrichmentService`).
-
-## QA / BVT
-
-전체 BVT 체크리스트와 자동 실행 절차는 [.github/prompts/qa.prompt.md](prompts/qa.prompt.md) 참고.
-사용자가 "QA 진행" 또는 `/qa` 라고 말하면 해당 프롬프트가 트리거되어 DB 리셋 → 서버 기동 → 브라우저 자동화로 풀 BVT를 수행.

@@ -30,6 +30,7 @@ class QuickImportServiceTest {
     @Mock ScanResultRepository         scanResultRepository;
     @Mock GitHubService                gitHubService;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
+    @Mock MavenBomVersionResolver      bomVersionResolver;
 
     @InjectMocks QuickImportService quickImportService;
 

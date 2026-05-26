@@ -70,4 +70,7 @@ public class ComponentRowDto {
 
     @Schema(description = "Latest stable version from deps.dev; non-null only when isLatestVersion is false", example = "2.17.0")
     private final String latestVersion;
+
+    @Schema(description = "Best fix version from CVE/OSV data; non-null when patchability is patchable", example = "2.17.0")
+    private final String recommendedFixVersion;
 }

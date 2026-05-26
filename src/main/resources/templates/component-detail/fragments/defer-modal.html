@@ -69,7 +69,7 @@ const _deferI18n = {
             try {
                 const r = await fetch(`/projects/${projectId}/components/${componentId}/defer`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: oswlJsonHeaders(),
                     body: JSON.stringify({
                         reason: this.reason,
                         otherText: this.otherText,

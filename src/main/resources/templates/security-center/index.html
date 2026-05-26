@@ -62,6 +62,15 @@
     background-color: #d3fcf3;
 }
 </style>
+<script>
+function oswlJsonHeaders() {
+    const csrf = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '';
+    return {
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': decodeURIComponent(csrf)
+    };
+}
+</script>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative"
       th:data-project-id="${projectId}"
       x-data="{
@@ -169,7 +178,7 @@
                                   (parseInt(el.dataset.secMedium)   || 0) +
                                   (parseInt(el.dataset.secLow)      || 0) +
                                   (parseInt(el.dataset.secUnscored)   || 0) > 0;
-                  const isUpToDate  = !hasVuln && !dep && lat !== 'false';
+                  const isUpToDate  = !hasVuln && !dep && lat === 'true';
                   const isOutdated  = !hasVuln && !dep && lat === 'false';
                   const match = (f.nonPatchable   && hasVuln && p === 'non-patchable') ||
                                 (f.patchDeprecated && dep)                              ||
@@ -206,7 +215,7 @@
                   const idStrings = ids.map(String);
                   fetch('/projects/' + projectId + '/security-center/bulk-status', {
                       method: 'PATCH',
-                      headers: {'Content-Type': 'application/json'},
+                      headers: oswlJsonHeaders(),
                       body: JSON.stringify({ids: ids, reviewed: value})
                   }).then(r => {
                       if (r.ok) {
@@ -220,7 +229,7 @@
                   const idStrings = ids.map(String);
                   fetch('/projects/' + projectId + '/security-center/bulk-status', {
                       method: 'PATCH',
-                      headers: {'Content-Type': 'application/json'},
+                      headers: oswlJsonHeaders(),
                       body: JSON.stringify({ids: ids, ignored: value})
                   }).then(r => {
                       if (r.ok) {

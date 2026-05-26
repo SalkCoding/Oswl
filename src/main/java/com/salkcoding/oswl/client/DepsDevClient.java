@@ -48,9 +48,11 @@ public class DepsDevClient {
      * @param isDefault     true if this is the package's default (latest stable) version
      * @param deprecated    non-empty note string if the version is no longer used; otherwise null
      * @param latestVersion latest stable version string if already outdated; null if up to date
+     * @param resolved      false when deps.dev returned an error or the version was skipped — do not persist version fields
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
-                              boolean isDefault, String deprecated, String latestVersion) {}
+                              boolean isDefault, String deprecated, String latestVersion,
+                              boolean resolved) {}
 
     public record AdvisoryInfo(
             String ghsaId,
@@ -109,7 +111,7 @@ public class DepsDevClient {
         try {
             if (key.version() == null || key.version().isBlank()) {
                 log.debug("[DepsDevClient] Skipping GetVersion {}:{} — version is null/blank", key.name(), key.version());
-                return new VersionInfo(List.of(), List.of(), false, null, null);
+                return unresolved();
             }
             String encodedName = encodePackageName(key.ecosystem(), key.name());
             String encodedVersion = URLEncoder.encode(key.version(), StandardCharsets.UTF_8).replace("+", "%20");
@@ -131,7 +133,7 @@ public class DepsDevClient {
 
             if (body == null) {
                 log.debug("[DepsDevClient] GetVersion response body null {}:{}", key.name(), key.version());
-                return new VersionInfo(List.of(), List.of(), false, null, null);
+                return unresolved();
             }
 
             List<String> licenses = extractStrings(body, "licenses");
@@ -151,34 +153,88 @@ public class DepsDevClient {
             Object depRaw = body.get("deprecated");
             String deprecated = (depRaw instanceof String s && !s.isBlank()) ? s : null;
 
-            // Extract the latest stable version from relatedVersions (relationshipType == "DEFAULT")
             String latestVersion = null;
             if (!isDefault) {
-                Object rvRaw = body.get("relatedVersions");
-                if (rvRaw instanceof List<?> rvList) {
-                    for (Object rv : rvList) {
-                        if (rv instanceof Map<?, ?> rvMap
-                                && "DEFAULT".equals(rvMap.get("relationshipType"))) {
-                            Object vk = rvMap.get("versionKey");
-                            if (vk instanceof Map<?, ?> vkMap) {
-                                Object v = vkMap.get("version");
-                                if (v instanceof String vs && !vs.isBlank()) {
-                                    latestVersion = vs;
-                                }
-                            }
-                            break;
-                        }
-                    }
+                latestVersion = extractLatestVersionFromRelatedVersions(body);
+                if (latestVersion == null) {
+                    latestVersion = fetchDefaultVersionForPackage(key.ecosystem(), key.name());
                 }
             }
 
             log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
                     key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion);
-            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion);
+            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true);
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] GetVersion 404/error {}:{} - {}", key.name(), key.version(), e.getMessage());
-            return new VersionInfo(List.of(), List.of(), false, null, null);
+            return unresolved();
         }
+    }
+
+    /** Placeholder when GetVersion failed — must not be written to Library version columns. */
+    public static VersionInfo unresolved() {
+        return new VersionInfo(List.of(), List.of(), false, null, null, false);
+    }
+
+    /** Reads registry default (latest stable) version from the package listing API. */
+    private String fetchDefaultVersionForPackage(String ecosystem, String name) {
+        try {
+            String encodedName = encodePackageName(ecosystem, name);
+            String path = String.format("/v3/systems/%s/packages/%s",
+                    ecosystem.toUpperCase(), encodedName);
+            java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> body = restClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(Map.class);
+            if (body == null) {
+                return null;
+            }
+            Object versionsRaw = body.get("versions");
+            if (!(versionsRaw instanceof List<?> versions)) {
+                return null;
+            }
+            for (Object entry : versions) {
+                if (!(entry instanceof Map<?, ?> verMap)) {
+                    continue;
+                }
+                if (!Boolean.TRUE.equals(verMap.get("isDefault"))) {
+                    continue;
+                }
+                Object vk = verMap.get("versionKey");
+                if (vk instanceof Map<?, ?> vkMap) {
+                    Object v = vkMap.get("version");
+                    if (v instanceof String vs && !vs.isBlank()) {
+                        return vs;
+                    }
+                }
+            }
+        } catch (RestClientException e) {
+            log.debug("[DepsDevClient] Package listing failed {}:{} - {}", ecosystem, name, e.getMessage());
+        }
+        return null;
+    }
+
+    private static String extractLatestVersionFromRelatedVersions(Map<String, Object> body) {
+        Object rvRaw = body.get("relatedVersions");
+        if (!(rvRaw instanceof List<?> rvList)) {
+            return null;
+        }
+        for (Object rv : rvList) {
+            if (rv instanceof Map<?, ?> rvMap
+                    && "DEFAULT".equals(rvMap.get("relationshipType"))) {
+                Object vk = rvMap.get("versionKey");
+                if (vk instanceof Map<?, ?> vkMap) {
+                    Object v = vkMap.get("version");
+                    if (v instanceof String vs && !vs.isBlank()) {
+                        return vs;
+                    }
+                }
+                break;
+            }
+        }
+        return null;
     }
 
     private AdvisoryInfo getAdvisory(String ghsaId) {
@@ -197,18 +253,17 @@ public class DepsDevClient {
             }
 
             List<String> aliases = extractStrings(body, "aliases");
-            Double score = null;
-            Object s = body.get("cvss3Score");
-            if (s instanceof Number n) score = n.doubleValue();
+            Double score = extractCvss3Score(body);
+            String vector = extractCvss3Vector(body);
 
             AdvisoryInfo result = new AdvisoryInfo(
                     ghsaId,
                     (String) body.get("title"),
                     aliases,
                     score,
-                    (String) body.get("cvss3Vector"));
-            log.debug("[DepsDevClient] GetAdvisory response ghsaId={} title={} cvssScore={} aliases={}",
-                    ghsaId, result.title(), result.cvss3Score(), result.aliases());
+                    vector);
+            log.debug("[DepsDevClient] GetAdvisory response ghsaId={} title={} cvssScore={} cvss3Vector={} aliases={}",
+                    ghsaId, result.title(), result.cvss3Score(), result.cvss3Vector(), result.aliases());
             return result;
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] GetAdvisory {} error - {}", ghsaId, e.getMessage());
@@ -222,6 +277,22 @@ public class DepsDevClient {
      * npm scope: @org/pkg → %40org%2Fpkg
      * Go: github.com/x/y → github.com%2Fx%2Fy
      */
+    /** Reads CVSS 3.x base score from GetAdvisory JSON (camelCase or snake_case). */
+    private static Double extractCvss3Score(Map<String, Object> body) {
+        Object s = body.get("cvss3Score");
+        if (s == null) s = body.get("cvss3_score");
+        if (s instanceof Number n) return n.doubleValue();
+        return null;
+    }
+
+    /** Reads CVSS 3.x vector from GetAdvisory JSON (camelCase or snake_case). */
+    private static String extractCvss3Vector(Map<String, Object> body) {
+        Object v = body.get("cvss3Vector");
+        if (v == null) v = body.get("cvss3_vector");
+        if (v instanceof String s && !s.isBlank()) return s;
+        return null;
+    }
+
     private String encodePackageName(String ecosystem, String name) {
         return switch (ecosystem.toUpperCase()) {
             case "MAVEN" -> name.replace(":", "%3A");

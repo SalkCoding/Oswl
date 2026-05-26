@@ -64,6 +64,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 @RequiredArgsConstructor
 public class QuickImportService {
 
+    private final MavenBomVersionResolver bomVersionResolver;
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String USER_AGENT = "OsWL-App/1.0";
     /** Directory name segments to prune when recursively walking for build manifests. */
@@ -202,10 +204,8 @@ public class QuickImportService {
      * @return list of repo DTOs, sorted by last updated, or empty list if no connection found
      */
     public List<QuickImportRepoDto> listRepos(VcsProvider provider, Long userId) {
-        Optional<UserVcsConnection> connOpt = vcsConnectionRepository.findByUserIdAndActiveTrue(userId)
-                .stream()
-                .filter(c -> c.getProvider() == provider)
-                .findFirst();
+        Optional<UserVcsConnection> connOpt =
+                vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(userId, provider);
 
         if (connOpt.isEmpty()) return List.of();
 
@@ -222,7 +222,7 @@ public class QuickImportService {
             return switch (provider) {
                 case GITHUB   -> listGitHubRepos(token);
                 case GITLAB   -> listGitLabRepos(token, conn.getServerUrl());
-                case BITBUCKET -> (conn.getServerUrl() == null || conn.getServerUrl().isBlank())
+                case BITBUCKET -> isBitbucketCloud(conn.getServerUrl())
                         ? listBitbucketCloudRepos(token, conn.getVcsUsername())
                         : listBitbucketServerRepos(token, conn.getServerUrl());
             };
@@ -302,6 +302,14 @@ public class QuickImportService {
         return result;
     }
 
+    /** True when serverUrl is blank or points at Bitbucket Cloud (not Data Center). */
+    private static boolean isBitbucketCloud(String serverUrl) {
+        if (serverUrl == null || serverUrl.isBlank()) return true;
+        String normalized = serverUrl.trim().replaceAll("/+$", "").toLowerCase();
+        return normalized.equals("https://bitbucket.org")
+                || normalized.equals("http://bitbucket.org");
+    }
+
     private List<QuickImportRepoDto> listBitbucketCloudRepos(String tokenOrAppPassword, String username) throws Exception {
         // Bitbucket Cloud authentication methods (as of 2026):
         //
@@ -357,8 +365,8 @@ public class QuickImportService {
 
             throw new IllegalStateException(
                     "Could not list repositories for workspace '" + username + "'. " +
-                    "If this is an Atlassian API Token (ATATT from id.atlassian.com), " +
-                    "re-connect using your Atlassian account email as Username instead of the workspace slug.");
+                    "Verify the workspace slug, token scopes (Repositories: Read), and that the token is a " +
+                    "Workspace HTTP Access Token from Bitbucket workspace settings → Access management → Access tokens.");
 
         } else if (isAtatt) {
             // ── Workspace HTTP Access Token — no username, Bearer-only ────────────────
@@ -749,7 +757,7 @@ public class QuickImportService {
                 mergeComponents(allComps, seen, mvnComps, "MAVEN");
             } else {
                 for (Path pom : pomFiles) {
-                    mergeComponents(allComps, seen, parseSingleMavenPom(pom, repoName), "MAVEN");
+                    mergeComponents(allComps, seen, parseSingleMavenPom(pom, cloneDir, repoName), "MAVEN");
                 }
             }
             log.info("[QuickImport][Multi] Maven: {} pom.xml → {} components so far", pomFiles.size(), allComps.size());
@@ -763,6 +771,8 @@ public class QuickImportService {
             List<ScanPayload.ComponentPayload> gradleDeps = runGradleDependencies(cloneDir, repoName);
             if (gradleDeps == null || gradleDeps.isEmpty()) {
                 gradleDeps = parseGradleStatic(cloneDir, repoName).components();
+            } else {
+                gradleDeps = bomVersionResolver.enrichComponentVersions(cloneDir, gradleDeps);
             }
             mergeComponents(allComps, seen, gradleDeps, "MAVEN");
             // Version catalogs cover libs.xxx references not captured by static regex
@@ -972,7 +982,7 @@ public class QuickImportService {
     // ── Multi-manifest helpers ─────────────────────────────────────────────
 
     /** Parses a single {@code pom.xml} file and returns its non-test, non-system direct dependencies. */
-    private List<ScanPayload.ComponentPayload> parseSingleMavenPom(Path pomFile, String repoName) {
+    private List<ScanPayload.ComponentPayload> parseSingleMavenPom(Path pomFile, Path projectDir, String repoName) {
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -1020,6 +1030,7 @@ public class QuickImportService {
                 comps.add(buildComponent(groupId + ":" + artifactId, version, "MAVEN"));
             }
             log.debug("[QuickImport][Maven] Parsed {} deps from {}", comps.size(), pomFile);
+            comps = bomVersionResolver.enrichComponentVersions(projectDir, comps);
         } catch (Exception e) {
             log.warn("[QuickImport][Maven] Failed to parse {}: {}", pomFile, e.getMessage());
         }
@@ -1485,52 +1496,15 @@ public class QuickImportService {
         return result;
     }
 
-    /** Static fallback: regex-parse all build.gradle files in the repo (no subprocess). */
+    /** Static fallback: parse build.gradle declarations and resolve versions from BOM POMs. */
     private ParsedDependencies parseGradleStatic(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
+        List<ScanPayload.ComponentPayload> comps;
         try {
-            List<Path> buildFiles;
-            try (Stream<Path> stream = Files.walk(dir)) {
-                buildFiles = stream
-                        .filter(p -> {
-                            String name = p.getFileName().toString();
-                            if (!name.equals("build.gradle") && !name.equals("build.gradle.kts")) return false;
-                            String rel = dir.relativize(p).toString();
-                            return !rel.contains(File.separator + "build" + File.separator)
-                                    && !rel.contains(File.separator + ".gradle" + File.separator)
-                                    && !rel.startsWith("build" + File.separator)
-                                    && !rel.startsWith(".gradle" + File.separator);
-                        })
-                        .toList();
-            }
-
-            // Matches Groovy DSL and Kotlin DSL, with or without explicit version.
-            // Configurations: standard JVM, Kotlin (kapt/ksp), Android variants, custom *Implementation.
-            Pattern p = Pattern.compile(
-                    "(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor|" +
-                    "testImplementation|testRuntimeOnly|testCompileOnly|" +
-                    "kapt|ksp|developmentOnly|" +
-                    "(?:androidTest|debug|release)Implementation|" +
-                    "[A-Za-z][A-Za-z0-9_]*Implementation)" +
-                    "\\s*\\(?[\"']([\\w.\\-]+:[\\w.\\-]+)(?::([\\w.+\\-]+))?[\"']",
-                    Pattern.CASE_INSENSITIVE);
-
-            for (Path buildFile : buildFiles) {
-                String content = Files.readString(buildFile, StandardCharsets.UTF_8);
-                Matcher m = p.matcher(content);
-                while (m.find()) {
-                    String key     = m.group(1);
-                    String version = m.group(2);
-                    if (seen.add(key)) {
-                        comps.add(buildComponent(key, version, "MAVEN"));
-                    }
-                }
-            }
-            log.info("[QuickImport][Gradle] Static-parsed {} components from {} build file(s) in '{}'",
-                    comps.size(), buildFiles.size(), repoName);
+            comps = bomVersionResolver.parseGradleDeclaredWithBom(dir);
+            log.info("[QuickImport][Gradle] Static+BOM parsed {} components in '{}'", comps.size(), repoName);
         } catch (Exception e) {
             log.error("[QuickImport][Gradle] Failed to static-parse build.gradle: {}", e.getMessage());
+            comps = List.of();
         }
         return new ParsedDependencies("MAVEN", comps);
     }

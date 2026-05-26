@@ -113,7 +113,12 @@ public class ComponentDetailService {
         model.addAttribute("deprecatedReason", deprecated);
         model.addAttribute("latestVersion", lib.getLatestVersion());
 
-        model.addAttribute("recommendedVersion", lib.bestFixVersion());
+        // CVE fix version 우선, 없으면 outdated 상태의 latestVersion 사용
+        String recommendedVersion = lib.bestFixVersion();
+        if (recommendedVersion == null && Boolean.FALSE.equals(isLatest) && lib.getLatestVersion() != null) {
+            recommendedVersion = lib.getLatestVersion();
+        }
+        model.addAttribute("recommendedVersion", recommendedVersion);
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
         // Deferral info
@@ -328,8 +333,13 @@ public class ComponentDetailService {
         Library lib    = sc.getLibrary();
         String libName = lib.getName();
         String oldVer  = lib.getVersion() != null ? lib.getVersion() : "?";
-        String newVer  = lib.bestFixVersion() != null ? lib.bestFixVersion() : oldVer;
-        String base    = req.getTargetBranch() != null ? req.getTargetBranch() : "main";
+        String bestFix = lib.bestFixVersion();
+        String newVer  = bestFix != null ? bestFix
+                : (lib.getLatestVersion() != null ? lib.getLatestVersion() : oldVer);
+        if (req.getTargetBranch() == null || req.getTargetBranch().isBlank()) {
+            throw new IllegalArgumentException("Target branch is required.");
+        }
+        String base = req.getTargetBranch().strip();
         String prTitle = "chore: bump " + libName + " to " + newVer + " [OsWL]";
         String body    = req.getPrDescription() != null && !req.getPrDescription().isBlank()
                 ? req.getPrDescription()

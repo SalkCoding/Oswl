@@ -41,20 +41,22 @@ class NvdClientTest {
     @Test
     @DisplayName("NvdCveInfo: 레코드 필드를 올바르게 저장한다")
     void nvdCveInfo_storesFields() {
-        NvdClient.NvdCveInfo info = new NvdClient.NvdCveInfo(9.8, "CRITICAL", "CWE-79");
+        NvdClient.NvdCveInfo info = new NvdClient.NvdCveInfo(9.8, "CRITICAL", "CWE-79", "CVSS3");
 
         assertThat(info.cvssScore()).isEqualTo(9.8);
         assertThat(info.severity()).isEqualTo("CRITICAL");
         assertThat(info.cweId()).isEqualTo("CWE-79");
+        assertThat(info.cvss3Vector()).isEqualTo("CVSS3");
     }
 
     @Test
     @DisplayName("NvdCveInfo: null 필드도 허용된다")
     void nvdCveInfo_allowsNullFields() {
-        NvdClient.NvdCveInfo info = new NvdClient.NvdCveInfo(null, null, null);
+        NvdClient.NvdCveInfo info = new NvdClient.NvdCveInfo(null, null, null, null);
 
         assertThat(info.cvssScore()).isNull();
         assertThat(info.severity()).isNull();
         assertThat(info.cweId()).isNull();
+        assertThat(info.cvss3Vector()).isNull();
     }
 }

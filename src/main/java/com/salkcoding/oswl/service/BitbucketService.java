@@ -123,8 +123,13 @@ public class BitbucketService {
         String safeName  = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
 
-        updateDependencyFileCloud(authHeader, apiBase, newBranch, baseSha, baseBranch,
-                libName, oldVersion, newVersion);
+        boolean manifestUpdated = updateDependencyFileCloud(
+                authHeader, apiBase, newBranch, baseSha, baseBranch, libName, oldVersion, newVersion);
+        if (!manifestUpdated) {
+            throw new IllegalStateException(
+                    "Could not find " + libName + " at version " + oldVersion
+                            + " in any dependency manifest in this repository.");
+        }
 
         // 3. Create the pull request
         var prNode = objectMapper.createObjectNode();
@@ -147,36 +152,61 @@ public class BitbucketService {
         return Map.of("prUrl", prUrl, "prNumber", prId);
     }
 
-    private void updateDependencyFileCloud(String authHeader, String apiBase,
-                                            String newBranch, String baseSha, String baseBranch,
-                                            String libName, String oldVersion, String newVersion) {
-        List<String> candidates = List.of(
-                "pom.xml", "build.gradle", "build.gradle.kts",
-                "package.json", "requirements.txt", "pyproject.toml",
-                "go.mod", "Cargo.toml"
-        );
+    private boolean updateDependencyFileCloud(String authHeader, String apiBase,
+                                               String newBranch, String baseSha, String baseBranch,
+                                               String libName, String oldVersion, String newVersion) {
+        List<String> paths = discoverCloudManifestPaths(authHeader, apiBase, baseBranch);
+        if (paths.isEmpty()) {
+            paths = List.of(
+                    "package.json", "pom.xml", "build.gradle", "build.gradle.kts",
+                    "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"
+            );
+        }
 
-        for (String path : candidates) {
+        for (String path : paths) {
             try {
-                // Fetch file contents from the base branch
                 String fileUrl = apiBase + "/src/" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8)
                         + "/" + path;
                 String content = getRawText(authHeader, fileUrl);
-                if (!content.contains(oldVersion)) continue;
+                var updated = DependencyManifestPatcher.patch(content, path, libName, oldVersion, newVersion);
+                if (updated.isEmpty()) continue;
 
-                String updated = content.replace(oldVersion, newVersion);
                 String message = "chore: bump " + libName + " from " + oldVersion
                         + " to " + newVersion + " [OsWL]";
-
-                // Commit to the new branch (created if missing when parent is provided)
-                commitFileCloud(authHeader, apiBase + "/src", path, updated, newBranch, baseSha, message);
+                commitFileCloud(authHeader, apiBase + "/src", path, updated.get(), newBranch, baseSha, message);
                 log.info("[Bitbucket Cloud] Updated {} on branch {}", path, newBranch);
-                return;
+                return true;
             } catch (Exception e) {
                 log.debug("[Bitbucket Cloud] Skipping {}: {}", path, e.getMessage());
             }
         }
-        log.warn("[Bitbucket Cloud] Dependency file not updated — old version '{}' was not found in known manifests", oldVersion);
+        log.warn("[Bitbucket Cloud] Dependency file not updated — {} {} not found in manifests", libName, oldVersion);
+        return false;
+    }
+
+    /** Lists manifest paths via Bitbucket file search (best-effort). */
+    private List<String> discoverCloudManifestPaths(String authHeader, String apiBase, String baseBranch) {
+        List<String> found = new ArrayList<>();
+        for (String fileName : List.of("package.json", "pom.xml", "build.gradle", "build.gradle.kts")) {
+            try {
+                String url = apiBase + "/src/" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8)
+                        + "/?search=" + URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+                JsonNode root = getJson(authHeader, url);
+                JsonNode values = root.path("values");
+                if (values.isArray()) {
+                    values.forEach(v -> {
+                        String path = v.path("path").asText();
+                        if (DependencyManifestPatcher.isManifestPath(path)) found.add(path);
+                    });
+                }
+            } catch (Exception e) {
+                log.debug("[Bitbucket Cloud] Search for {} failed: {}", fileName, e.getMessage());
+            }
+        }
+        found.sort(java.util.Comparator
+                .comparingInt((String p) -> (int) p.chars().filter(ch -> ch == '/').count())
+                .thenComparing(p -> p));
+        return found.stream().distinct().toList();
     }
 
     /**
@@ -259,8 +289,13 @@ public class BitbucketService {
         createServerBranch(authHeader, apiBase, newBranch, baseSha);
 
         // 3. Find and update the dependency file
-        updateDependencyFileServer(authHeader, apiBase, newBranch, baseBranch,
-                libName, oldVersion, newVersion);
+        boolean manifestUpdated = updateDependencyFileServer(
+                authHeader, apiBase, newBranch, baseBranch, libName, oldVersion, newVersion);
+        if (!manifestUpdated) {
+            throw new IllegalStateException(
+                    "Could not find " + libName + " at version " + oldVersion
+                            + " in any dependency manifest in this repository.");
+        }
 
         // 4. Create the pull request
         var prPayload = objectMapper.createObjectNode();
@@ -288,32 +323,31 @@ public class BitbucketService {
         postJson(authHeader, url, payload);
     }
 
-    private void updateDependencyFileServer(String authHeader, String apiBase,
-                                             String branch, String baseBranch,
-                                             String libName, String oldVersion, String newVersion) {
-        List<String> candidates = List.of(
-                "pom.xml", "build.gradle", "build.gradle.kts",
-                "package.json", "requirements.txt", "pyproject.toml",
-                "go.mod", "Cargo.toml"
+    private boolean updateDependencyFileServer(String authHeader, String apiBase,
+                                                String branch, String baseBranch,
+                                                String libName, String oldVersion, String newVersion) {
+        List<String> paths = List.of(
+                "package.json", "pom.xml", "build.gradle", "build.gradle.kts",
+                "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"
         );
 
-        for (String path : candidates) {
+        for (String path : paths) {
             try {
                 String fileUrl = apiBase + "/raw/" + path + "?at=refs/heads/" + baseBranch;
                 String content = getRawText(authHeader, fileUrl);
-                if (!content.contains(oldVersion)) continue;
+                var updated = DependencyManifestPatcher.patch(content, path, libName, oldVersion, newVersion);
+                if (updated.isEmpty()) continue;
 
-                String updated = content.replace(oldVersion, newVersion);
-                // Update the Bitbucket Server file: PUT + multipart
-                commitFileServer(authHeader, apiBase, path, updated, branch,
+                commitFileServer(authHeader, apiBase, path, updated.get(), branch,
                         "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]");
                 log.info("[Bitbucket Server] Updated {} on branch {}", path, branch);
-                return;
+                return true;
             } catch (Exception e) {
                 log.debug("[Bitbucket Server] Skipping {}: {}", path, e.getMessage());
             }
         }
-        log.warn("[Bitbucket Server] Dependency file not updated for old version '{}'", oldVersion);
+        log.warn("[Bitbucket Server] Dependency file not updated — {} {} not found", libName, oldVersion);
+        return false;
     }
 
     private void commitFileServer(String authHeader, String apiBase,

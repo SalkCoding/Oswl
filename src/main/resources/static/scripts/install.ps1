@@ -75,6 +75,121 @@ function Find-JavaHome {
     return $null
 }
 
+function Merge-PomIntoIndex {
+    param(
+        [string]$PomXml,
+        [hashtable]$Index,
+        [System.Collections.Generic.HashSet[string]]$Visited,
+        [int]$Depth = 0
+    )
+    if ($Depth -gt 10) { return }
+    [xml]$doc = $PomXml
+    $dmNodes = $doc.SelectNodes("//*[local-name()='dependencyManagement']//*[local-name()='dependencies']/*[local-name()='dependency']")
+    if (-not $dmNodes -or $dmNodes.Count -eq 0) { return }
+    foreach ($dep in $dmNodes) {
+        $g = [string]$dep.groupId; $a = [string]$dep.artifactId; $v = [string]$dep.version
+        $typ = [string]$dep.type; $scope = [string]$dep.scope
+        if (-not $g -or -not $a -or -not $v) { continue }
+        if ($typ -eq 'pom' -and $scope -eq 'import') {
+            $key = "${g}:${a}:${v}"
+            if ($Visited.Add($key)) {
+                try {
+                    $path = ($g -replace '\.', '/') + "/$a/$v/$a-$v.pom"
+                    $url  = "https://repo.maven.apache.org/maven2/$path"
+                    $imported = (Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 20).Content
+                    Merge-PomIntoIndex -PomXml $imported -Index $Index -Visited $Visited -Depth ($Depth + 1)
+                } catch { Write-Dbg "BOM import fetch failed ${g}:${a}:${v}: $_" }
+            }
+        } elseif ($typ -ne 'pom') {
+            if (-not $Index.ContainsKey("${g}:${a}")) { $Index["${g}:${a}"] = $v }
+        }
+    }
+}
+
+function Get-MavenBomVersionIndex {
+    param([string]$ProjectDir)
+    $index = @{}
+    $visited = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($gf in @('build.gradle', 'build.gradle.kts')) {
+        $path = Join-Path $ProjectDir $gf
+        if (-not (Test-Path $path)) { continue }
+        $content = Get-Content $path -Raw
+        if ($content -match "org\.springframework\.boot[`"']?\)?\s+version\s+[`"']([^`"']+)[`"']") {
+            $sbVer = $Matches[1]
+            $g = 'org.springframework.boot'; $a = 'spring-boot-dependencies'; $v = $sbVer
+            $key = "${g}:${a}:${v}"
+            if ($visited.Add($key)) {
+                try {
+                    $pomPath = ($g -replace '\.', '/') + "/$a/$v/$a-$v.pom"
+                    $pomUrl  = "https://repo.maven.apache.org/maven2/$pomPath"
+                    $pomXml  = (Invoke-WebRequest -Uri $pomUrl -UseBasicParsing -TimeoutSec 20).Content
+                    Merge-PomIntoIndex -PomXml $pomXml -Index $index -Visited $visited
+                } catch { Write-Dbg "Spring Boot BOM fetch failed: $_" }
+            }
+        }
+        foreach ($m in [regex]::Matches($content, "mavenBom\s*[`"']([\w.\-]+:[\w.\-]+):([\w.+\-]+)[`"']")) {
+            $parts = $m.Groups[1].Value -split ':', 2
+            $g = $parts[0]; $a = $parts[1]; $v = $m.Groups[2].Value
+            $key = "${g}:${a}:${v}"
+            if ($visited.Add($key)) {
+                try {
+                    $pomPath = ($g -replace '\.', '/') + "/$a/$v/$a-$v.pom"
+                    $pomUrl  = "https://repo.maven.apache.org/maven2/$pomPath"
+                    $pomXml  = (Invoke-WebRequest -Uri $pomUrl -UseBasicParsing -TimeoutSec 20).Content
+                    Merge-PomIntoIndex -PomXml $pomXml -Index $index -Visited $visited
+                } catch { Write-Dbg "mavenBom fetch failed ${g}:${a}:${v}: $_" }
+            }
+        }
+    }
+    $pomPath = Join-Path $ProjectDir 'pom.xml'
+    if (Test-Path $pomPath) {
+        try {
+            [xml]$pom = Get-Content $pomPath -Raw
+            if ($pom.project.parent) {
+                $pg = [string]$pom.project.parent.groupId
+                $pa = [string]$pom.project.parent.artifactId
+                $pv = [string]$pom.project.parent.version
+                if ($pg -and $pa -and $pv) {
+                    $key = "${pg}:${pa}:${pv}"
+                    if ($visited.Add($key)) {
+                        $pomUrlPath = ($pg -replace '\.', '/') + "/$pa/$pv/$pa-$pv.pom"
+                        $pomUrl = "https://repo.maven.apache.org/maven2/$pomUrlPath"
+                        $pomXml = (Invoke-WebRequest -Uri $pomUrl -UseBasicParsing -TimeoutSec 20).Content
+                        Merge-PomIntoIndex -PomXml $pomXml -Index $index -Visited $visited
+                    }
+                }
+            }
+        } catch { Write-Dbg "pom.xml parent BOM fetch failed: $_" }
+    }
+    return $index
+}
+
+function Get-GradleStaticWithBom {
+    param([string]$ProjectDir)
+    $index = Get-MavenBomVersionIndex -ProjectDir $ProjectDir
+    $result = [System.Collections.ArrayList]@()
+    $seen = @{}
+    $rx = [regex]'(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|testCompileOnly|annotationProcessor|kapt|ksp|developmentOnly|(?:androidTest|debug|release)Implementation|[A-Za-z][A-Za-z0-9_]*Implementation)\s*[\(\s][''"]([A-Za-z0-9._\-]+):([A-Za-z0-9._\-]+)(?::([A-Za-z0-9._+\-]+))?[''"]'
+    foreach ($gf in @('build.gradle', 'build.gradle.kts')) {
+        $path = Join-Path $ProjectDir $gf
+        if (-not (Test-Path $path)) { continue }
+        $content = Get-Content $path -Raw
+        foreach ($m in $rx.Matches($content)) {
+            $name = "$($m.Groups[1].Value):$($m.Groups[2].Value)"
+            $ver  = if ($m.Groups[3].Success) { $m.Groups[3].Value } else { $null }
+            if (-not $ver) { $ver = $index[$name] }
+            if (-not $ver) { continue }
+            $key = "${name}:${ver}"
+            if ($seen.ContainsKey($key)) { continue }
+            $seen[$key] = $true
+            [void]$result.Add([ordered]@{
+                name=$name; version=$ver; ecosystem='MAVEN'; dependencyInfo='Gradle (declared + BOM)'
+            })
+        }
+    }
+    return $result
+}
+
 function Get-Components {
     param([string]$ProjectDir)
     [System.Collections.ArrayList]$c = @()
@@ -140,25 +255,28 @@ function Get-Components {
                 foreach ($comp in $depComps.Values) { [void]$c.Add($comp) }
                 $ranGradle = $depComps.Count -gt 0
                 Write-Dbg "Gradle resolved: $($depComps.Count)"
+                if ($ranGradle) {
+                    $bomFill = Get-MavenBomVersionIndex -ProjectDir $ProjectDir
+                    foreach ($comp in $c) {
+                        if ($comp.version -in @('unknown','unspecified','') -and $bomFill.ContainsKey($comp.name)) {
+                            $comp.version = $bomFill[$comp.name]
+                        }
+                    }
+                }
             } catch { Write-Dbg "Gradle run exception: $_"; try { Pop-Location } catch {} }
         }
         if (-not $ranGradle) {
-            Write-Dbg "Falling back to static build.gradle parse"
-            $content = Get-Content $gradleFile -Raw
-            $seen2   = @{}
-            # Configurations: standard JVM, Kotlin (kapt/ksp), Android variants, custom *Implementation.
-            $rx      = [regex]'(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|testCompileOnly|annotationProcessor|kapt|ksp|developmentOnly|(?:androidTest|debug|release)Implementation|[A-Za-z][A-Za-z0-9_]*Implementation)\s*[\(\s][''"]([A-Za-z0-9._\-]+):([A-Za-z0-9._\-]+)(?::([A-Za-z0-9._+\-]+))?[''"]'
-            foreach ($m in $rx.Matches($content)) {
-                $name = "$($m.Groups[1].Value):$($m.Groups[2].Value)"
-                $ver  = if ($m.Groups[3].Success) { $m.Groups[3].Value } else { "unspecified" }
-                if (-not $seen2.ContainsKey($name)) { $seen2[$name] = $true; [void]$c.Add([ordered]@{ name=$name; version=$ver; ecosystem="MAVEN"; dependencyInfo="Gradle (declared only)" }) }
+            Write-Dbg "Falling back to static build.gradle parse + BOM"
+            foreach ($comp in (Get-GradleStaticWithBom -ProjectDir $ProjectDir)) {
+                [void]$c.Add($comp)
             }
-            Write-Dbg "Gradle static parsed: $($c.Count)"
+            Write-Dbg "Gradle static+BOM parsed: $($c.Count)"
         }
     } elseif (Test-Path (Join-Path $ProjectDir "pom.xml")) {
         Write-Dbg "MAVEN: pom.xml"
         try {
             $xml   = [xml](Get-Content (Join-Path $ProjectDir "pom.xml") -Raw)
+            $bomIndex = Get-MavenBomVersionIndex -ProjectDir $ProjectDir
             $props = @{}
             if ($xml.project.properties) {
                 foreach ($p in $xml.project.properties.ChildNodes) { $props[$p.LocalName] = $p.InnerText }
@@ -168,12 +286,15 @@ function Get-Components {
                 if (-not $d) { continue }
                 $scope = if ($d.scope) { [string]$d.scope } else { "compile" }
                 if ($scope -in @("test","system","provided")) { continue }
-                $rawVer = if ($d.version) { [string]$d.version } else { "unspecified" }
+                $rawVer = if ($d.version) { [string]$d.version } else { "" }
                 if ($rawVer -match '^\$\{([^}]+)\}$') {
                     $propKey = $Matches[1]
-                    $rawVer  = if ($props.ContainsKey($propKey)) { $props[$propKey] } elseif ($propKey -eq "project.parent.version") { $parentVer } else { "unresolved" }
+                    $rawVer  = if ($props.ContainsKey($propKey)) { $props[$propKey] } elseif ($propKey -eq "project.parent.version") { $parentVer } else { "" }
                 }
-                [void]$c.Add([ordered]@{ name="$($d.groupId):$($d.artifactId)"; version=$rawVer; ecosystem="MAVEN"; dependencyInfo="Maven pom.xml ($scope)" })
+                $ga = "$($d.groupId):$($d.artifactId)"
+                if (-not $rawVer) { $rawVer = $bomIndex[$ga] }
+                if (-not $rawVer) { continue }
+                [void]$c.Add([ordered]@{ name=$ga; version=$rawVer; ecosystem="MAVEN"; dependencyInfo="Maven pom.xml ($scope)" })
             }
             Write-Dbg "Maven pom.xml: $($c.Count)"
         } catch { Write-Dbg "Maven exception: $_" }

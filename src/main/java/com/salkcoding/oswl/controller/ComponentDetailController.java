@@ -4,8 +4,10 @@ import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.controller.spec.ComponentDetailControllerSpec;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.DeferralRequest;
+import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.ComponentDetailService;
-import com.salkcoding.oswl.service.SessionCipherService;
+import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -24,10 +26,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ComponentDetailController implements ComponentDetailControllerSpec {
 
-    private static final String SESSION_GITHUB_TOKENS = "githubTokens";
-
     private final ComponentDetailService componentDetailService;
-    private final SessionCipherService   sessionCipher;
+    private final ProjectRepository      projectRepository;
+    private final VcsAuthTokenService    vcsAuthTokenService;
 
     @GetMapping
     public String detail(@PathVariable Long projectId,
@@ -60,25 +61,21 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
                                                          @RequestBody CreatePrRequest req,
                                                          HttpSession session,
                                                          @AuthenticationPrincipal OswlUserPrincipal principal) {
-        // GitHub token comes from session; GitLab/Bitbucket tokens are resolved from DB in the service
-        String githubToken = getDecryptedGithubToken(session);
         Long userId = principal != null ? principal.getUserId() : null;
+        String githubOwner = projectRepository.findById(projectId)
+                .map(Project::getGithubRepo)
+                .filter(r -> r != null && r.contains("/"))
+                .map(r -> r.split("/", 2)[0])
+                .orElse(null);
+        String githubToken = vcsAuthTokenService.resolveGithubToken(session, userId, githubOwner);
         try {
             Map<String, Object> result = componentDetailService.createPullRequest(
                     projectId, componentId, req, userId, githubToken);
             return ResponseEntity.ok(result);
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(502).body(Map.of("error", "VCS error: " + e.getMessage()));
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private String getDecryptedGithubToken(HttpSession session) {
-        Object obj = session.getAttribute(SESSION_GITHUB_TOKENS);
-        if (!(obj instanceof Map<?, ?> tokens) || tokens.isEmpty()) return null;
-        String encrypted = ((Map<String, String>) tokens).values().iterator().next();
-        return sessionCipher.decrypt(encrypted);
     }
 }
