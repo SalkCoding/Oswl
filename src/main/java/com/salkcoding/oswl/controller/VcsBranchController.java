@@ -10,7 +10,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.GitLabService;
 import com.salkcoding.oswl.service.BitbucketService;
-import com.salkcoding.oswl.service.SessionCipherService;
+import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +20,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Provider-agnostic endpoint for retrieving the branch list of a project's VCS repository.
@@ -38,12 +37,10 @@ public class VcsBranchController {
     private final ProjectRepository           projectRepository;
     private final UserVcsConnectionRepository vcsConnectionRepository;
     private final EncryptionService           encryptionService;
-    private final SessionCipherService        sessionCipher;
+    private final VcsAuthTokenService           vcsAuthTokenService;
     private final GitHubService               gitHubService;
     private final GitLabService               gitLabService;
     private final BitbucketService            bitbucketService;
-
-    private static final String SESSION_GITHUB_TOKENS = "githubTokens";
 
     @GetMapping("/branches")
     public ResponseEntity<List<String>> branches(
@@ -64,7 +61,7 @@ public class VcsBranchController {
             return switch (provider) {
                 case GITHUB -> {
                     String[] parts = repoPath.split("/", 2);
-                    String token   = getGithubToken(session, parts[0]);
+                    String token   = vcsAuthTokenService.resolveGithubToken(session, principal != null ? principal.getUserId() : null, parts[0]);
                     if (token == null) yield ResponseEntity.ok(List.of("main"));
                     yield ResponseEntity.ok(gitHubService.getBranches(token, parts[0], parts[1]));
                 }
@@ -94,14 +91,5 @@ public class VcsBranchController {
             log.warn("[VcsBranch] Failed to retrieve branch list for project {}: {}", projectId, e.getMessage());
             return ResponseEntity.ok(List.of("main"));
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private String getGithubToken(HttpSession session, String owner) {
-        Object obj = session.getAttribute(SESSION_GITHUB_TOKENS);
-        if (!(obj instanceof Map<?, ?> tokens) || tokens.isEmpty()) return null;
-        Map<String, String> map = (Map<String, String>) tokens;
-        String encrypted = map.containsKey(owner) ? map.get(owner) : map.values().iterator().next();
-        return sessionCipher.decrypt(encrypted);
     }
 }

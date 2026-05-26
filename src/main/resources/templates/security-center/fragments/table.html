@@ -49,6 +49,8 @@
         <a th:each="comp : ${components}"
            href="javascript:void(0)"
            th:attr="hx-get=@{|/projects/${projectId}/components/${comp.id}|},
+                    hx-swap='innerHTML',
+                    hx-cache='false',
                     x-data=|{ reviewed: ${comp.reviewed} }|,
                     data-comp-id=${comp.id},
                     data-comp-name=|${comp.name} ${comp.version}|,
@@ -99,7 +101,7 @@
                    filterVersion++;
                    fetch('/projects/' + document.body.dataset.projectId + '/security-center/bulk-status', {
                      method: 'PATCH',
-                     headers: {'Content-Type': 'application/json'},
+                     headers: oswlJsonHeaders(),
                      body: JSON.stringify({ids: [Number(row.dataset.compId)], reviewed: reviewed})
                    }).catch(() => {
                      reviewed = prev;
@@ -138,16 +140,23 @@
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[140px] min-w-[140px]">
-                <!-- Has CVEs: show patchability -->
+                <!-- Has CVEs: show patchability (+ fix target when known) -->
                 <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored > 0}">
-                    <span th:classappend="${
-                              comp.patchability == 'patchable'     ? 'bg-[var(--semantic-patchable)]' :
-                              comp.patchability == 'non-patchable' ? 'bg-[var(--risk-critical)]' :
-                                                                     'bg-[var(--grayscale-30)]'
-                          }"
-                          class="w-[8px] h-[8px] rounded-full"></span>
-                    <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
-                       th:text="${comp.patchability == 'patchable'} ? #{common.patchable} : (${comp.patchability == 'non-patchable'} ? #{common.nonPatchable} : #{common.unknown})">Patchable</p>
+                    <span class="flex flex-col gap-[2px] min-w-0">
+                        <span class="flex items-center gap-[6px]">
+                            <span th:classappend="${
+                                      comp.patchability == 'patchable'     ? 'bg-[var(--semantic-patchable)]' :
+                                      comp.patchability == 'non-patchable' ? 'bg-[var(--risk-critical)]' :
+                                                                             'bg-[var(--grayscale-30)]'
+                                  }"
+                                  class="w-[8px] h-[8px] rounded-full shrink-0"></span>
+                            <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]"
+                               th:text="${comp.patchability == 'patchable'} ? #{common.patchable} : (${comp.patchability == 'non-patchable'} ? #{common.nonPatchable} : #{common.unknown})">Patchable</p>
+                        </span>
+                        <p th:if="${comp.patchability == 'patchable' and comp.recommendedFixVersion != null}"
+                           class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] pl-[14px]"
+                           th:text="'→ v' + ${comp.recommendedFixVersion}">→ v2.17.0</p>
+                    </span>
                 </th:block>
                 <!-- No CVEs: show version currency status -->
                 <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
@@ -155,6 +164,11 @@
                           class="flex items-center gap-[6px]">
                         <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-70)]"></span>
                         <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.deprecated}">Deprecated</p>
+                    </span>
+                    <span th:if="${comp.deprecated == null and comp.isLatestVersion == true}"
+                          class="flex items-center gap-[6px]">
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-15)]"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.upToDate}">Up to date</p>
                     </span>
                     <span th:if="${comp.deprecated == null and comp.isLatestVersion == false}"
                           class="flex flex-col gap-[2px]">
@@ -166,10 +180,10 @@
                            class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] pl-[14px]"
                            th:text="'→ v' + ${comp.latestVersion}">→ v2.17.0</p>
                     </span>
-                    <span th:if="${comp.deprecated == null and comp.isLatestVersion != false}"
+                    <span th:if="${comp.deprecated == null and comp.isLatestVersion == null}"
                           class="flex items-center gap-[6px]">
-                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-15)]"></span>
-                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.upToDate}">Up to date</p>
+                        <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-30)]"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.unknown}">Unknown</p>
                     </span>
                 </th:block>
             </div>

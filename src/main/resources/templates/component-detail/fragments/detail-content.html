@@ -1,6 +1,16 @@
 <div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative"
-     th:attr="data-project-id=${projectId}, data-component-id=${componentId}"
+     th:attr="data-project-id=${projectId}, data-component-id=${componentId}, data-scan-version=${projectVersion}"
      x-data="{ modal: null }">
+
+    <script th:inline="javascript">
+    function oswlJsonHeaders() {
+        const csrf = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '';
+        return {
+            'Content-Type': 'application/json',
+            'X-XSRF-TOKEN': decodeURIComponent(csrf)
+        };
+    }
+    </script>
 
     <!-- Modals i18n bundles -->
     <th:block th:replace="~{component-detail/fragments/defer-modal :: defer-i18n}"></th:block>
@@ -65,7 +75,7 @@
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${latestVersion != null} ? #{common.outdated} + ' → v' + ${latestVersion} : #{common.outdated}">Outdated</span>
             </span>
-            <span th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion != false}"
+            <span th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion == true}"
                   class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{common.upToDate}">Up to date</span>
@@ -183,20 +193,38 @@
                     <th:block th:text="#{componentDetail.outdated.upgradeHint}">Consider upgrading to reduce exposure risk.</th:block>
                 </p>
             </div>
-            <div class="flex flex-col gap-[6px]">
-                <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
-                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
-                    <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
-                </button>
-                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.outdated.noPatchNote}">
-                    No patch PR can be created for version-only issues — you can defer this review instead.
+            <div class="flex flex-col gap-[8px]">
+                <div class="flex gap-[12px]">
+                    <!-- VCS 연결 + latestVersion 있음 → Create PR 버튼 활성 -->
+                    <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
+                            th:if="${canCreatePr and latestVersion != null}"
+                            class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                        <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
+                    </button>
+                    <!-- VCS 미연결 → 비활성 버튼 -->
+                    <button type="button" disabled
+                            th:if="${!canCreatePr}"
+                            th:title="#{componentDetail.vuln.noPrSupport}"
+                            class="opacity-40 cursor-not-allowed bg-[var(--grayscale-20)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px]">
+                        <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                        <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
+                    </button>
+                    <button type="button" @click="modal = 'defer'"
+                            class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                        <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
+                    </button>
+                </div>
+                <p th:if="${!canCreatePr}"
+                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPrSupport}">
+                    CLI import projects do not support automatic PR creation.
                 </p>
             </div>
         </div>
 
         <!-- Case: Up to date (latest, no CVE) — show Defer only if license risk exists -->
-        <div th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion != false}"
+        <div th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion == true}"
              class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[14px]">
             <div class="flex items-center gap-[12px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>

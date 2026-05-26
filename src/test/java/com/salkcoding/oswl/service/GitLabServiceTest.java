@@ -15,21 +15,20 @@ class GitLabServiceTest {
     // ── getBranches: exception-safe fallback ──────────────────────────────
 
     @Test
-    @DisplayName("getBranches: 네트워크 오류가 발생하면 ['main'] 폴백을 반환한다 (Cloud)")
+    @DisplayName("getBranches: 네트워크 오류가 발생하면 main/master 폴백을 반환한다 (Cloud)")
     void getBranches_networkFailure_returnsFallback() {
-        // getBranches() catches all exceptions and returns List.of("main")
         List<String> branches = service.getBranches("bad-token", null, "namespace/project");
 
-        assertThat(branches).containsExactly("main");
+        assertThat(branches).containsExactly("main", "master");
     }
 
     @Test
-    @DisplayName("getBranches: 잘못된 serverUrl에서도 예외 없이 ['main']을 반환한다")
+    @DisplayName("getBranches: 잘못된 serverUrl에서도 예외 없이 main/master를 반환한다")
     void getBranches_invalidServerUrl_returnsFallback() {
         List<String> branches = service.getBranches(
                 "token", "https://invalid.internal", "namespace/project");
 
-        assertThat(branches).containsExactly("main");
+        assertThat(branches).containsExactly("main", "master");
     }
 
     // ── Service instantiation ─────────────────────────────────────────────

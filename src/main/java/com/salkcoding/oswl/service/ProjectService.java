@@ -190,6 +190,9 @@ public class ProjectService {
                 ? project.getGithubRepo()
                   + (project.getLatestBranch() != null ? "#" + project.getLatestBranch() : "")
                 : null;
+        String vcsProvider = project.getVcsProvider() != null
+                ? project.getVcsProvider().name()
+                : null;
 
         // Get the most recent scan regardless of status so we can display in-progress and
         // failed states on the project card (not just COMPLETED scans).
@@ -203,6 +206,7 @@ public class ProjectService {
                     .version("-")
                     .lastScanned("-")
                     .githubRepo(githubDisplayRepo)
+                    .vcsProvider(vcsProvider)
                     .importedAt(importedAt)
                     .projectUuid(project.getProjectUuid())
                     .scanStatus(null)
@@ -229,6 +233,7 @@ public class ProjectService {
                     .licenseCritical(lic[0]).licenseHigh(lic[1])
                     .licenseMedium(lic[2]).licenseLow(lic[3])
                     .githubRepo(githubDisplayRepo)
+                    .vcsProvider(vcsProvider)
                     .importedAt(importedAt)
                     .projectUuid(project.getProjectUuid())
                     .scanStatus(status.name())
@@ -243,6 +248,7 @@ public class ProjectService {
                 .version(latestScan.getVersion() != null ? latestScan.getVersion() : "-")
                 .lastScanned("-")
                 .githubRepo(githubDisplayRepo)
+                .vcsProvider(vcsProvider)
                 .importedAt(importedAt)
                 .projectUuid(project.getProjectUuid())
                 .scanStatus(status.name())

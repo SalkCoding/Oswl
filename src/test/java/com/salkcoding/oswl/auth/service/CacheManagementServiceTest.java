@@ -148,6 +148,7 @@ class CacheManagementServiceTest {
         assertThat(cs1.getLastClearedAt()).isNotNull();
         assertThat(cs2.getLastClearedAt()).isNotNull();
         assertThat(cs1.getLastClearedBy()).isEqualTo(1L);
+        verify(cacheSettingRepository).saveAll(List.of(cs1, cs2));
     }
 
     @Test
@@ -160,6 +161,7 @@ class CacheManagementServiceTest {
 
         assertThat(cs.getLastClearedAt()).isNotNull();
         assertThat(cs.getLastClearedBy()).isEqualTo(2L);
+        verify(cacheSettingRepository).save(cs);
     }
 
     @Test

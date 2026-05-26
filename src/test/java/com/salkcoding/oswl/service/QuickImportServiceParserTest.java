@@ -19,6 +19,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for QuickImportService private dependency-parsing methods.
@@ -36,6 +38,7 @@ class QuickImportServiceParserTest {
     @Mock ScanResultRepository         scanResultRepository;
     @Mock GitHubService                gitHubService;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
+    @Mock MavenBomVersionResolver      bomVersionResolver;
 
     @InjectMocks QuickImportService service;
 
@@ -309,6 +312,13 @@ class QuickImportServiceParserTest {
     @Test
     @DisplayName("parseGradleStatic: build.gradle의 implementation 선언을 파싱한다")
     void parseGradleStatic_buildGradle_returnsComponents(@TempDir Path dir) throws Exception {
+        when(bomVersionResolver.parseGradleDeclaredWithBom(any())).thenReturn(List.of(
+                ScanPayload.ComponentPayload.create(
+                        "org.springframework.boot:spring-boot-starter", "3.2.0", "MAVEN", "Gradle (declared + BOM)", List.of()),
+                ScanPayload.ComponentPayload.create(
+                        "org.junit.jupiter:junit-jupiter", "5.10.1", "MAVEN", "Gradle (declared + BOM)", List.of()),
+                ScanPayload.ComponentPayload.create(
+                        "com.h2database:h2", "2.2.224", "MAVEN", "Gradle (declared + BOM)", List.of())));
         Files.writeString(dir.resolve("build.gradle"), """
             plugins { id 'java' }
 

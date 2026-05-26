@@ -81,11 +81,11 @@ public class Cve {
     }
 
     public void enrichFromAdvisory(String cveId, String title, Double cvssScore, String cvss3Vector, RiskLevel severity) {
-        this.cveId       = cveId;
-        this.title       = title;
-        this.cvssScore   = cvssScore;
-        this.cvss3Vector = cvss3Vector;
-        this.severity    = severity;
+        if (cveId != null) this.cveId = cveId;
+        if (title != null) this.title = title;
+        if (cvssScore != null) this.cvssScore = cvssScore;
+        if (cvss3Vector != null && !cvss3Vector.isBlank()) this.cvss3Vector = cvss3Vector;
+        if (severity != null) this.severity = severity;
     }
 
     public void setAiSummary(String summary) {

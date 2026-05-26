@@ -59,18 +59,21 @@ public class CacheManagementService {
 
     @Transactional
     public void clearCache(String cacheKey, Long actorUserId) {
+        LocalDateTime clearedAt = LocalDateTime.now();
         if ("ALL".equalsIgnoreCase(cacheKey)) {
-            cacheSettingRepository.findAll().forEach(cs -> {
-                cs.setLastClearedAt(LocalDateTime.now());
+            List<CacheSetting> all = cacheSettingRepository.findAll();
+            all.forEach(cs -> {
+                cs.setLastClearedAt(clearedAt);
                 cs.setLastClearedBy(actorUserId);
             });
+            cacheSettingRepository.saveAll(all);
             return;
         }
         CacheSetting cs = cacheSettingRepository.findById(cacheKey)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown cache key: " + cacheKey));
-        cs.setLastClearedAt(LocalDateTime.now());
+        cs.setLastClearedAt(clearedAt);
         cs.setLastClearedBy(actorUserId);
-        // Note: actual cache eviction (e.g. Spring Cache, Caffeine) hooks here in a future change.
+        cacheSettingRepository.save(cs);
     }
 
     private CacheSettingDto toDto(CacheSetting cs) {

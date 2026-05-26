@@ -241,7 +241,8 @@
                                        th:text="#{projects.card.lastScanned(${project.lastScanned})}">Last Scanned : 2026.04.04</p>
                                     <div th:if="${project.githubRepo != null}"
                                          class="flex items-center gap-[4px] mt-[4px]">
-                                        <img th:src="@{/icon/icon-github.svg}" class="w-[11px] h-[11px] shrink-0" alt="" aria-hidden="true">
+                                        <img th:src="${project.vcsProvider == 'GITLAB' or project.vcsProvider == 'BITBUCKET'} ? @{/icon/icon-git.svg} : @{/icon/icon-github.svg}"
+                                             class="w-[11px] h-[11px] shrink-0" alt="" aria-hidden="true">
                                         <span class="font-normal text-[10px] text-[var(--grayscale-50)] tracking-[-0.1px]"
                                               th:text="${project.githubRepo}">owner/repo#main</span>
                                         <span th:if="${project.importedAt != null}"
