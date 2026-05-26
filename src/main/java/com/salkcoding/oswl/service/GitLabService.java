@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -64,11 +65,12 @@ public class GitLabService {
                                                     String mrBody,
                                                     List<String> reviewers) {
         String base        = buildBase(serverUrl);
-        String encodedPath = URLEncoder.encode(projectPath, StandardCharsets.UTF_8);
+        String encodedPath = encodeProjectPath(projectPath);
+        String resolvedBase = resolveBaseBranch(token, base, encodedPath, baseBranch);
 
         // 1. Get base branch HEAD SHA
         String branchUrl = base + "/api/v4/projects/" + encodedPath
-                + "/repository/branches/" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8);
+                + "/repository/branches/" + URLEncoder.encode(resolvedBase, StandardCharsets.UTF_8);
         JsonNode branchInfo = getJson(token, branchUrl);
         String baseSha = branchInfo.path("commit").path("id").asText();
 
@@ -78,12 +80,20 @@ public class GitLabService {
         createBranch(token, base, encodedPath, newBranch, baseSha);
 
         // 3. Find and update the dependency file
-        updateDependencyFile(token, base, encodedPath, newBranch, baseBranch, libName, oldVersion, newVersion);
+        boolean manifestUpdated = updateDependencyFile(
+                token, base, encodedPath, newBranch, resolvedBase, libName, oldVersion, newVersion);
+        if (!manifestUpdated) {
+            deleteBranchQuietly(token, base, encodedPath, newBranch);
+            throw new IllegalStateException(
+                    "Could not find " + libName + " at version " + oldVersion
+                            + " in any dependency manifest in this repository. "
+                            + "OsWL searches common manifest files including subdirectories.");
+        }
 
         // 4. Create merge request
         String mrPayload = objectMapper.createObjectNode()
                 .put("source_branch", newBranch)
-                .put("target_branch", baseBranch)
+                .put("target_branch", resolvedBase)
                 .put("title", mrTitle)
                 .put("description", mrBody)
                 .put("remove_source_branch", true)
@@ -111,26 +121,45 @@ public class GitLabService {
      */
     public List<String> getBranches(String token, String serverUrl, String projectPath) {
         String base        = buildBase(serverUrl);
-        String encodedPath = URLEncoder.encode(projectPath, StandardCharsets.UTF_8);
-        String url = base + "/api/v4/projects/" + encodedPath
-                + "/repository/branches?per_page=50&order_by=updated_at&sort=desc";
+        String encodedPath = encodeProjectPath(projectPath);
+        // GitLab branches API only supports per_page/search — no order_by (returns 400 if used).
+        String url = base + "/api/v4/projects/" + encodedPath + "/repository/branches?per_page=100";
         try {
             JsonNode arr = getJson(token, url);
-            List<String> branches = new ArrayList<>();
-            if (arr.isArray()) {
-                arr.forEach(b -> branches.add(b.path("name").asText()));
+            if (!arr.isArray() || arr.isEmpty()) {
+                return fallbackBranches(token, base, encodedPath);
             }
-            return branches.isEmpty() ? List.of("main") : branches;
+            List<BranchEntry> entries = new ArrayList<>();
+            arr.forEach(b -> entries.add(new BranchEntry(
+                    b.path("name").asText(),
+                    b.path("default").asBoolean(false),
+                    b.path("commit").path("committed_date").asText(""))));
+            entries.sort(Comparator
+                    .comparing((BranchEntry e) -> !e.isDefault)
+                    .thenComparing(BranchEntry::committedDate, Comparator.reverseOrder())
+                    .thenComparing(BranchEntry::name));
+            return entries.stream().map(BranchEntry::name).toList();
         } catch (Exception e) {
             log.warn("[GitLab] Could not list branches for {}: {}", projectPath, e.getMessage());
-            return List.of("main");
+            return fallbackBranches(token, base, encodedPath);
         }
+    }
+
+    /** Returns the project's default_branch from the GitLab project API. */
+    public String getDefaultBranch(String token, String serverUrl, String projectPath) {
+        String base        = buildBase(serverUrl);
+        String encodedPath = encodeProjectPath(projectPath);
+        return fetchProjectDefaultBranch(token, base, encodedPath);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private void createBranch(String token, String base, String encodedPath,
                                String branch, String ref) {
+        if (branchExists(token, base, encodedPath, branch)) {
+            log.info("[GitLab] Branch {} already exists — deleting before recreate", branch);
+            deleteBranchQuietly(token, base, encodedPath, branch);
+        }
         String url = base + "/api/v4/projects/" + encodedPath + "/repository/branches";
         String payload = objectMapper.createObjectNode()
                 .put("branch", branch)
@@ -139,33 +168,91 @@ public class GitLabService {
         postJson(token, url, payload);
     }
 
-    private void updateDependencyFile(String token, String base, String encodedPath,
-                                       String branch, String baseBranch,
-                                       String libName, String oldVersion, String newVersion) {
-        List<String> candidates = List.of(
-                "pom.xml", "build.gradle", "build.gradle.kts",
-                "package.json", "requirements.txt", "pyproject.toml",
-                "go.mod", "Cargo.toml"
-        );
+    private String resolveBaseBranch(String token, String base, String encodedPath, String requested) {
+        if (requested != null && !requested.isBlank() && branchExists(token, base, encodedPath, requested)) {
+            return requested;
+        }
+        String defaultBranch = fetchProjectDefaultBranch(token, base, encodedPath);
+        if (defaultBranch != null && branchExists(token, base, encodedPath, defaultBranch)) {
+            if (requested != null && !requested.isBlank() && !requested.equals(defaultBranch)) {
+                log.info("[GitLab] Base branch '{}' not found — using default '{}'", requested, defaultBranch);
+            }
+            return defaultBranch;
+        }
+        for (String candidate : List.of("main", "master")) {
+            if (branchExists(token, base, encodedPath, candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException(
+                "Could not find base branch '" + requested + "' or a default branch in this GitLab project.");
+    }
 
-        for (String path : candidates) {
+    private boolean branchExists(String token, String base, String encodedPath, String branch) {
+        try {
+            String url = base + "/api/v4/projects/" + encodedPath
+                    + "/repository/branches/" + URLEncoder.encode(branch, StandardCharsets.UTF_8);
+            getJson(token, url);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private String fetchProjectDefaultBranch(String token, String base, String encodedPath) {
+        try {
+            JsonNode project = getJson(token, base + "/api/v4/projects/" + encodedPath);
+            String def = project.path("default_branch").asText("");
+            return def.isBlank() ? null : def;
+        } catch (Exception e) {
+            log.debug("[GitLab] Could not read default_branch: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<String> fallbackBranches(String token, String base, String encodedPath) {
+        String def = fetchProjectDefaultBranch(token, base, encodedPath);
+        if (def != null) {
+            return List.of(def);
+        }
+        return List.of("main", "master");
+    }
+
+    private static String encodeProjectPath(String projectPath) {
+        return URLEncoder.encode(projectPath, StandardCharsets.UTF_8);
+    }
+
+    private record BranchEntry(String name, boolean isDefault, String committedDate) {}
+
+    private boolean updateDependencyFile(String token, String base, String encodedPath,
+                                          String branch, String baseBranch,
+                                          String libName, String oldVersion, String newVersion) {
+        List<String> paths = discoverManifestPaths(token, base, encodedPath, baseBranch);
+        if (paths.isEmpty()) {
+            paths = List.of(
+                    "package.json", "package-lock.json", "pom.xml", "build.gradle", "build.gradle.kts",
+                    "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"
+            );
+        }
+
+        for (String path : paths) {
             try {
                 String encodedFile = URLEncoder.encode(path, StandardCharsets.UTF_8);
                 String fileUrl = base + "/api/v4/projects/" + encodedPath
                         + "/repository/files/" + encodedFile
-                        + "?ref=" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8);
+                        + "?ref=" + URLEncoder.encode(branch, StandardCharsets.UTF_8);
 
                 JsonNode fileNode = getJson(token, fileUrl);
                 String b64 = fileNode.path("content").asText().replace("\n", "").replace("\r", "");
                 byte[] raw = Base64.getDecoder().decode(b64);
                 String content = new String(raw, StandardCharsets.UTF_8);
 
-                if (!content.contains(oldVersion)) continue;
+                var updated = DependencyManifestPatcher.patch(content, path, libName, oldVersion, newVersion);
+                if (updated.isEmpty()) continue;
 
-                String updated = content.replace(oldVersion, newVersion);
                 String commitPayload = objectMapper.createObjectNode()
                         .put("branch", branch)
-                        .put("content", updated)
+                        .put("content", updated.get())
                         .put("encoding", "text")
                         .put("commit_message", "chore: bump " + libName
                                 + " from " + oldVersion + " to " + newVersion + " [OsWL]")
@@ -174,12 +261,52 @@ public class GitLabService {
                 putJson(token, base + "/api/v4/projects/" + encodedPath
                         + "/repository/files/" + encodedFile, commitPayload);
                 log.info("[GitLab] Updated {} on branch {}", path, branch);
-                return;
+                return true;
             } catch (Exception e) {
                 log.debug("[GitLab] Skipping {} for branch {}: {}", path, branch, e.getMessage());
             }
         }
-        log.warn("[GitLab] No dependency file updated — old version '{}' not found in known manifests", oldVersion);
+        log.warn("[GitLab] No dependency file updated — {} {} not found in manifests", libName, oldVersion);
+        return false;
+    }
+
+    private List<String> discoverManifestPaths(String token, String base, String encodedPath, String ref) {
+        try {
+            String url = base + "/api/v4/projects/" + encodedPath
+                    + "/repository/tree?recursive=true&per_page=100&pagination=keyset"
+                    + "&ref=" + URLEncoder.encode(ref, StandardCharsets.UTF_8);
+            JsonNode arr = getJson(token, url);
+            if (!arr.isArray()) return List.of();
+            List<String> paths = new ArrayList<>();
+            arr.forEach(node -> {
+                if (!"blob".equals(node.path("type").asText())) return;
+                String path = node.path("path").asText();
+                if (DependencyManifestPatcher.isManifestPath(path)) paths.add(path);
+            });
+            paths.sort(java.util.Comparator
+                    .comparingInt((String p) -> (int) p.chars().filter(ch -> ch == '/').count())
+                    .thenComparing(p -> p));
+            return paths;
+        } catch (Exception e) {
+            log.debug("[GitLab] Tree listing failed: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private void deleteBranchQuietly(String token, String base, String encodedPath, String branch) {
+        try {
+            String url = base + "/api/v4/projects/" + encodedPath + "/repository/branches/"
+                    + URLEncoder.encode(branch, StandardCharsets.UTF_8);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("PRIVATE-TOKEN", token)
+                    .DELETE()
+                    .timeout(java.time.Duration.ofSeconds(15))
+                    .build();
+            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (Exception e) {
+            log.debug("[GitLab] Failed to delete branch {}: {}", branch, e.getMessage());
+        }
     }
 
     private void assignReviewers(String token, String base, String encodedPath,

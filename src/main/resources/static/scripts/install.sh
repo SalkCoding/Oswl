@@ -200,6 +200,122 @@ cmd_scan() {
 }
 
 # ── Dependency collection helpers ────────────────────────────────────────────
+
+_collect_gradle_static_bom() {
+    local dir="$1"
+    if ! command -v python3 &>/dev/null; then
+        dbg "Gradle static+BOM: python3 required"
+        echo "[]"
+        return
+    fi
+    python3 - "${dir}" <<'PY' 2>/dev/null || echo "[]"
+import json, os, re, sys, urllib.request
+import xml.etree.ElementTree as ET
+
+project_dir = sys.argv[1]
+DEP_RE = re.compile(
+    r"(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor|"
+    r"testImplementation|testRuntimeOnly|testCompileOnly|kapt|ksp|developmentOnly|"
+    r"(?:androidTest|debug|release)Implementation|[A-Za-z][A-Za-z0-9_]*Implementation)"
+    r"\s*\(?[\"']([\w.\-]+:[\w.\-]+)(?::([\w.+\-]+))?[\"']",
+    re.I,
+)
+SB_PLUGIN = re.compile(r"org\.springframework\.boot[\"']?\)?\s+version\s+['\"]([^'\"]+)['\"]", re.I)
+MAVEN_BOM = re.compile(r"mavenBom\s*[\"']([\w.\-]+:[\w.\-]+):([\w.+\-]+)[\"']", re.I)
+MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2"
+
+def local(tag):
+    return tag.split("}")[-1] if "}" in tag else tag
+
+def child_text(dep, name):
+    for c in dep:
+        if local(c.tag) == name and c.text:
+            return c.text.strip()
+    return None
+
+def fetch_pom(group, artifact, version):
+    path = f"{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.pom"
+    url = f"{MAVEN_CENTRAL}/{path}"
+    with urllib.request.urlopen(url, timeout=20) as resp:
+        return resp.read()
+
+def merge_pom_bytes(data, index, visited, depth=0):
+    if depth > 10:
+        return
+    root = ET.fromstring(data)
+    for el in root.iter():
+        if local(el.tag) != "dependencyManagement":
+            continue
+        for dep in el.iter():
+            if local(dep.tag) != "dependency":
+                continue
+            g, a, v = child_text(dep, "groupId"), child_text(dep, "artifactId"), child_text(dep, "version")
+            typ, scope = child_text(dep, "type"), child_text(dep, "scope")
+            if not g or not a or not v:
+                continue
+            if typ == "pom" and scope == "import":
+                key = f"{g}:{a}:{v}"
+                if key not in visited:
+                    visited.add(key)
+                    try:
+                        merge_pom_bytes(fetch_pom(g, a, v), index, visited, depth + 1)
+                    except Exception:
+                        pass
+            else:
+                index.setdefault(f"{g}:{a}", v)
+
+index = {}
+visited = set()
+for name in ("build.gradle", "build.gradle.kts"):
+    path = os.path.join(project_dir, name)
+    if not os.path.isfile(path):
+        continue
+    content = open(path, encoding="utf-8").read()
+    m = SB_PLUGIN.search(content)
+    if m:
+        g, a, v = "org.springframework.boot", "spring-boot-dependencies", m.group(1)
+        key = f"{g}:{a}:{v}"
+        if key not in visited:
+            visited.add(key)
+            try:
+                merge_pom_bytes(fetch_pom(g, a, v), index, visited)
+            except Exception:
+                pass
+    for bg, ba, bv in MAVEN_BOM.findall(content):
+        key = f"{bg}:{ba}:{bv}"
+        if key not in visited:
+            visited.add(key)
+            try:
+                merge_pom_bytes(fetch_pom(bg, ba, bv), index, visited)
+            except Exception:
+                pass
+
+seen = set()
+components = []
+for name in ("build.gradle", "build.gradle.kts"):
+    path = os.path.join(project_dir, name)
+    if not os.path.isfile(path):
+        continue
+    content = open(path, encoding="utf-8").read()
+    for ga, declared in DEP_RE.findall(content):
+        ver = declared or index.get(ga)
+        if not ver:
+            continue
+        key = f"{ga}:{ver}"
+        if key in seen:
+            continue
+        seen.add(key)
+        components.append({
+            "name": ga,
+            "version": ver,
+            "ecosystem": "MAVEN",
+            "dependencyInfo": "Gradle (declared + BOM)",
+        })
+
+print(json.dumps(components))
+PY
+}
+
 _collect_gradle() {
     local dir="$1"
     local gradle="${dir}/gradlew"
@@ -246,6 +362,12 @@ _collect_gradle() {
                    {name: .[0], version: .[1], ecosystem: "MAVEN", dependencyInfo: "Gradle runtimeClasspath"}]' \
             2>/dev/null
     ) || result="[]"
+    local count
+    count=$(echo "${result}" | jq 'length' 2>/dev/null || echo 0)
+    if [[ "${count}" == "0" ]]; then
+        dbg "Gradle: gradlew produced no components, trying static + BOM"
+        result=$(_collect_gradle_static_bom "${dir}")
+    fi
     dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
     echo "${result}"
 }

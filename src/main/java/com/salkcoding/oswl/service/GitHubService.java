@@ -9,13 +9,19 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * GitHub REST API calls using a Personal Access Token (PAT).
@@ -134,6 +140,7 @@ public class GitHubService {
      * Returns branch names for a given repo (owner/repo).
      */
     public List<String> getBranches(String accessToken, String owner, String repo) {
+        String defaultBranch = fetchRepoDefaultBranch(accessToken, owner, repo);
         String url = githubApiBase + "/repos/" + owner + "/" + repo + "/branches?per_page=100";
         JsonNode branches = getJson(accessToken, url);
         List<String> result = new ArrayList<>();
@@ -141,6 +148,10 @@ public class GitHubService {
             for (JsonNode b : branches) {
                 result.add(b.path("name").asText());
             }
+        }
+        if (defaultBranch != null && result.contains(defaultBranch)) {
+            result.remove(defaultBranch);
+            result.add(0, defaultBranch);
         }
         return result;
     }
@@ -190,25 +201,35 @@ public class GitHubService {
                                                     String prTitle,
                                                     String prBody,
                                                     List<String> reviewers) {
+        String resolvedBase = resolveBaseBranch(token, owner, repo, baseBranch);
+
         // 1. Get current SHA of base branch HEAD
-        String branchRefUrl = githubApiBase + "/repos/" + owner + "/" + repo + "/git/ref/heads/" + baseBranch;
-        JsonNode ref = getJson(token, branchRefUrl);
+        JsonNode ref = getJson(token, branchHeadRefUrl(owner, repo, resolvedBase));
         String baseSha = ref.path("object").path("sha").asText();
 
-        // 2. Create new branch
+        // 2. Create new branch (reuse path: delete stale branch from a previous failed attempt)
         String safeName = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
-        createBranch(token, owner, repo, newBranch, baseSha);
+        ensureBranch(token, owner, repo, newBranch, baseSha);
 
-        // 3. Find and update the dependency file
-        updateDependencyFile(token, owner, repo, newBranch, baseBranch, libName, oldVersion, newVersion);
+        // 3. Find and update the dependency file (must produce at least one commit)
+        boolean manifestUpdated = updateDependencyFile(
+                token, owner, repo, newBranch, resolvedBase, baseSha, libName, oldVersion, newVersion);
+        if (!manifestUpdated) {
+            deleteBranchQuietly(token, owner, repo, newBranch);
+            throw new IllegalStateException(
+                    "Could not find " + libName + " at version " + oldVersion
+                            + " in any dependency manifest in this repository. "
+                            + "OsWL searches common manifest files (package.json, pom.xml, build.gradle, etc.) "
+                            + "including subdirectories. If the dependency is declared elsewhere, bump the version manually.");
+        }
 
         // 4. Open pull request
         String prPayload = objectMapper.createObjectNode()
                 .put("title", prTitle)
                 .put("body", prBody)
                 .put("head", newBranch)
-                .put("base", baseBranch)
+                .put("base", resolvedBase)
                 .toString();
 
         JsonNode pr = postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/pulls", prPayload);
@@ -231,7 +252,22 @@ public class GitHubService {
         return Map.of("prUrl", prUrl, "prNumber", prNumber);
     }
 
-    private void createBranch(String token, String owner, String repo, String branch, String sha) {
+    private void ensureBranch(String token, String owner, String repo, String branch, String sha) {
+        if (branchHeadExists(token, owner, repo, branch)) {
+            log.info("[GitHub] Branch {} already exists on {}/{} — deleting before recreate", branch, owner, repo);
+            deleteBranchQuietly(token, owner, repo, branch);
+            // GitHub API may not immediately reflect the deletion; retry with backoff
+            for (int attempt = 1; attempt <= 5; attempt++) {
+                if (!branchHeadExists(token, owner, repo, branch)) break;
+                try {
+                    Thread.sleep(500L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                log.debug("[GitHub] Waiting for branch deletion to propagate (attempt {})", attempt);
+            }
+        }
         String payload = objectMapper.createObjectNode()
                 .put("ref", "refs/heads/" + branch)
                 .put("sha", sha)
@@ -239,48 +275,143 @@ public class GitHubService {
         postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/git/refs", payload);
     }
 
-    /**
-     * Finds the primary dependency manifest file, replaces oldVersion with newVersion,
-     * and commits the change to the given branch.
-     */
-    private void updateDependencyFile(String token, String owner, String repo,
-                                       String branch, String baseBranch,
-                                       String libName, String oldVersion, String newVersion) {
-        // Candidate dependency files to search (in priority order)
-        List<String> candidates = List.of(
-                "pom.xml", "build.gradle", "build.gradle.kts",
-                "package.json", "requirements.txt", "pyproject.toml",
-                "go.mod", "Cargo.toml"
-        );
+    private String resolveBaseBranch(String token, String owner, String repo, String requested) {
+        if (requested != null && !requested.isBlank() && branchHeadExists(token, owner, repo, requested)) {
+            return requested;
+        }
+        String defaultBranch = fetchRepoDefaultBranch(token, owner, repo);
+        if (defaultBranch != null && branchHeadExists(token, owner, repo, defaultBranch)) {
+            if (requested != null && !requested.isBlank() && !requested.equals(defaultBranch)) {
+                log.info("[GitHub] Base branch '{}' not found on {}/{} — using default '{}'",
+                        requested, owner, repo, defaultBranch);
+            }
+            return defaultBranch;
+        }
+        for (String candidate : List.of("main", "master")) {
+            if (branchHeadExists(token, owner, repo, candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException(
+                "Could not find base branch '" + requested + "' or a default branch in " + owner + "/" + repo);
+    }
 
-        for (String path : candidates) {
+    private String fetchRepoDefaultBranch(String token, String owner, String repo) {
+        try {
+            JsonNode repoNode = getJson(token, githubApiBase + "/repos/" + owner + "/" + repo);
+            String def = repoNode.path("default_branch").asText("");
+            return def.isBlank() ? null : def;
+        } catch (Exception e) {
+            log.debug("[GitHub] Could not read default_branch for {}/{}: {}", owner, repo, e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean branchHeadExists(String token, String owner, String repo, String branch) {
+        try {
+            getJson(token, branchHeadRefUrl(owner, repo, branch));
+            return true;
+        } catch (GitHubAuthException e) {
+            return false;
+        }
+    }
+
+    private String branchHeadRefUrl(String owner, String repo, String branch) {
+        String ref = "heads/" + branch;
+        return githubApiBase + "/repos/" + owner + "/" + repo + "/git/ref/"
+                + URLEncoder.encode(ref, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Finds dependency manifest files (repo-wide), patches the library version, and commits to {@code branch}.
+     *
+     * @return true if at least one file was updated and committed
+     */
+    private boolean updateDependencyFile(String token, String owner, String repo,
+                                          String branch, String baseBranch, String baseTreeSha,
+                                          String libName, String oldVersion, String newVersion) {
+        List<String> paths = discoverManifestPaths(token, owner, repo, baseTreeSha);
+        if (paths.isEmpty()) {
+            paths = List.of(
+                    "package.json", "package-lock.json", "pom.xml", "build.gradle", "build.gradle.kts",
+                    "requirements.txt", "pyproject.toml", "go.mod", "Cargo.toml"
+            );
+        }
+
+        for (String path : paths) {
             try {
+                // Read from the feature branch (same tree as base right after branch creation)
                 String fileUrl = githubApiBase + "/repos/" + owner + "/" + repo
-                        + "/contents/" + path + "?ref=" + baseBranch;
+                        + "/contents/" + path + "?ref=" + branch;
                 JsonNode fileNode = getJson(token, fileUrl);
                 String sha  = fileNode.path("sha").asText();
                 String b64  = fileNode.path("content").asText().replace("\n", "").replace("\r", "");
                 byte[] raw  = java.util.Base64.getDecoder().decode(b64);
                 String content = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
 
-                if (!content.contains(oldVersion)) continue; // not this file
+                Optional<String> updated = DependencyManifestPatcher.patch(
+                        content, path, libName, oldVersion, newVersion);
+                if (updated.isEmpty()) continue;
 
-                String updated = content.replace(oldVersion, newVersion);
                 String commitPayload = objectMapper.createObjectNode()
                         .put("message", "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]")
-                        .put("content", java.util.Base64.getEncoder().encodeToString(updated.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                        .put("content", java.util.Base64.getEncoder().encodeToString(
+                                updated.get().getBytes(java.nio.charset.StandardCharsets.UTF_8)))
                         .put("sha", sha)
                         .put("branch", branch)
                         .toString();
                 putJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/contents/" + path, commitPayload);
                 log.info("[GitHub] Updated {} in {}/{} on branch {}", path, owner, repo, branch);
-                return;
+                return true;
             } catch (Exception e) {
                 log.debug("[GitHub] Skipping {} for {}/{}: {}", path, owner, repo, e.getMessage());
             }
         }
-        log.warn("[GitHub] No dependency file updated for {}/{} — old version '{}' not found in known manifests",
-                owner, repo, oldVersion);
+        log.warn("[GitHub] No dependency file updated for {}/{} — {} {} not found in manifests",
+                owner, repo, libName, oldVersion);
+        return false;
+    }
+
+    /** Recursively lists manifest file paths in the repository tree. */
+    private List<String> discoverManifestPaths(String token, String owner, String repo, String treeSha) {
+        try {
+            String url = githubApiBase + "/repos/" + owner + "/" + repo + "/git/trees/" + treeSha + "?recursive=1";
+            JsonNode tree = getJson(token, url);
+            Set<String> paths = new LinkedHashSet<>();
+            for (JsonNode entry : tree.path("tree")) {
+                if (!"blob".equals(entry.path("type").asText())) continue;
+                String path = entry.path("path").asText();
+                if (DependencyManifestPatcher.isManifestPath(path)) {
+                    paths.add(path);
+                }
+            }
+            return paths.stream()
+                    .sorted(Comparator
+                            .comparingInt((String p) -> (int) p.chars().filter(ch -> ch == '/').count())
+                            .thenComparing(p -> p))
+                    .toList();
+        } catch (Exception e) {
+            log.debug("[GitHub] Tree listing failed for {}/{}: {}", owner, repo, e.getMessage());
+            return List.of();
+        }
+    }
+
+    private void deleteBranchQuietly(String token, String owner, String repo, String branch) {
+        try {
+            String url = githubApiBase + "/repos/" + owner + "/" + repo + "/git/refs/heads/" + branch;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Accept", "application/vnd.github+json")
+                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .header("User-Agent", USER_AGENT)
+                    .DELETE()
+                    .timeout(Duration.ofSeconds(15))
+                    .build();
+            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (Exception e) {
+            log.debug("[GitHub] Failed to delete branch {} on {}/{}: {}", branch, owner, repo, e.getMessage());
+        }
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────

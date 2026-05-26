@@ -45,9 +45,6 @@ public class VcsConnectionService {
                targetIdExpr = "#result.id.toString()",
                targetNameExpr = "#result.provider + (#result.serverUrl != null ? ' / ' + #result.serverUrl : '')")
     public VcsConnectionDto addConnection(Long userId, AddVcsConnectionRequest request) {
-        if (request.getProvider() == VcsProvider.BITBUCKET) {
-            throw new IllegalStateException("Atlassian / Bitbucket support is temporarily disabled while development continues. Please connect GitHub or GitLab instead.");
-        }
         vcsTokenValidator.validate(request.getProvider(), request.getServerUrl(),
                 request.getAccessToken(), request.getVcsUsername());
         User user = userRepository.findById(userId)

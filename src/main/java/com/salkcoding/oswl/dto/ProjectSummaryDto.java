@@ -53,6 +53,9 @@ public class ProjectSummaryDto {
     @Schema(description = "GitHub source in owner/repo format — null if not imported from GitHub", example = "acme/api-service")
     private final String githubRepo;
 
+    @Schema(description = "VCS provider when imported from Git — GITHUB, GITLAB, or BITBUCKET", example = "GITLAB")
+    private final String vcsProvider;
+
     @Schema(description = "Formatted GitHub import timestamp — null if not imported from GitHub", example = "2026.05.03 14:05")
     private final String importedAt;
 

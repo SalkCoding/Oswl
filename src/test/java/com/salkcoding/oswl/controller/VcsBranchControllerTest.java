@@ -10,7 +10,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.BitbucketService;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.GitLabService;
-import com.salkcoding.oswl.service.SessionCipherService;
+import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ class VcsBranchControllerTest {
     @Mock ProjectRepository           projectRepository;
     @Mock UserVcsConnectionRepository vcsConnectionRepository;
     @Mock EncryptionService           encryptionService;
-    @Mock SessionCipherService        sessionCipher;
+    @Mock VcsAuthTokenService          vcsAuthTokenService;
     @Mock GitHubService               gitHubService;
     @Mock GitLabService               gitLabService;
     @Mock BitbucketService            bitbucketService;
@@ -90,7 +90,7 @@ class VcsBranchControllerTest {
     void branches_github_noToken_returnsMain() {
         Project p = Project.builder().id(1L).githubRepo("octocat/repo").vcsProvider(VcsProvider.GITHUB).build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
-        when(session.getAttribute("githubTokens")).thenReturn(null);
+        when(vcsAuthTokenService.resolveGithubToken(session, 1L, "octocat")).thenReturn(null);
 
         ResponseEntity<List<String>> resp = controller.branches(1L, principal(1L), session);
 
@@ -102,10 +102,7 @@ class VcsBranchControllerTest {
     void branches_github_validToken_returnsBranches() {
         Project p = Project.builder().id(1L).githubRepo("octocat/repo").vcsProvider(VcsProvider.GITHUB).build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
-        Map<String, String> tokens = new LinkedHashMap<>();
-        tokens.put("octocat", "encrypted");
-        when(session.getAttribute("githubTokens")).thenReturn(tokens);
-        when(sessionCipher.decrypt("encrypted")).thenReturn("plainToken");
+        when(vcsAuthTokenService.resolveGithubToken(session, 1L, "octocat")).thenReturn("plainToken");
         when(gitHubService.getBranches("plainToken", "octocat", "repo")).thenReturn(List.of("main", "dev"));
 
         ResponseEntity<List<String>> resp = controller.branches(1L, principal(1L), session);
@@ -118,10 +115,7 @@ class VcsBranchControllerTest {
     void branches_github_exception_returnsMain() {
         Project p = Project.builder().id(1L).githubRepo("octocat/repo").vcsProvider(VcsProvider.GITHUB).build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
-        Map<String, String> tokens = new LinkedHashMap<>();
-        tokens.put("octocat", "enc");
-        when(session.getAttribute("githubTokens")).thenReturn(tokens);
-        when(sessionCipher.decrypt("enc")).thenReturn("plain");
+        when(vcsAuthTokenService.resolveGithubToken(session, 1L, "octocat")).thenReturn("plain");
         when(gitHubService.getBranches(any(), any(), any())).thenThrow(new RuntimeException("error"));
 
         ResponseEntity<List<String>> resp = controller.branches(1L, principal(1L), session);

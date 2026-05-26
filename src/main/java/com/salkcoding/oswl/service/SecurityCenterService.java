@@ -178,6 +178,7 @@ public class SecurityCenterService {
                     .isLatestVersion(lib.getIsLatestVersion())
                     .deprecated(lib.getDeprecated())
                     .latestVersion(lib.getLatestVersion())
+                    .recommendedFixVersion(lib.bestFixVersion())
                     .build());
         }
 
