@@ -19,6 +19,9 @@ server:
   address: 0.0.0.0   # bind to IPv4 only (avoids ::1 / IPv6 loopback in logs)
 
 oswl:
+  security:
+    # When true, OSWL_TD is always sent with Secure (HTTPS-only). Otherwise Secure follows request.isSecure().
+    trusted-device-cookie-secure: ${OSWL_TRUSTED_DEVICE_COOKIE_SECURE:false}
   encryption:
     # REQUIRED in production. Generate with: openssl rand -base64 32
     # Set via environment variable: OSWL_ENCRYPTION_KEY

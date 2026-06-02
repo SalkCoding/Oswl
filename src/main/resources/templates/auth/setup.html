@@ -40,6 +40,11 @@
         <form th:action="@{/setup}" th:object="${setupRequest}" method="post" class="w-full flex flex-col gap-[16px]">
             <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
 
+            <p th:if="${#fields.hasGlobalErrors()}"
+               th:each="err : ${#fields.globalErrors()}"
+               th:text="${err}"
+               class="w-full text-[12px] text-red-600 text-center"></p>
+
             <!-- Name -->
             <div class="w-full flex flex-col gap-[10px] items-start">
                 <label for="setup-name"
@@ -83,7 +88,7 @@
                             focus-within:border-[var(--primary-100)] transition-colors"
                      th:classappend="${#fields.hasErrors('password')} ? ' border-red-300' : ''">
                     <input id="setup-password" :type="showPwd ? 'text' : 'password'"
-                           th:field="*{password}" required minlength="8" maxlength="100"
+                           th:field="*{password}" required th:attr="minlength=${minPasswordLength}" maxlength="100"
                            autocomplete="new-password"
                            th:placeholder="#{auth.setup.placeholder.password}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
@@ -114,7 +119,7 @@
                             focus-within:border-[var(--primary-100)] transition-colors"
                      th:classappend="${#fields.hasErrors('passwordConfirm')} ? ' border-red-300' : ''">
                     <input id="setup-password-confirm" :type="showPwd2 ? 'text' : 'password'"
-                           th:field="*{passwordConfirm}" required minlength="8"
+                           th:field="*{passwordConfirm}" required th:attr="minlength=${minPasswordLength}"
                            autocomplete="new-password"
                            th:placeholder="#{auth.setup.placeholder.passwordConfirm}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]

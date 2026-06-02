@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.security;
 
+import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SecurityConfig {
 
     private final UserRepository userRepository;
+    private final InstanceSetupLockRepository setupLockRepository;
     private final PermissionEvaluator oswlPermissionEvaluator;
     private final OswlAuthenticationFailureHandler authenticationFailureHandler;
     private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
@@ -109,7 +111,7 @@ public class SecurityConfig {
                             response.sendRedirect("/login");
                         }
                     }))
-            .addFilterBefore(new SetupRedirectFilter(userRepository),
+            .addFilterBefore(new SetupRedirectFilter(userRepository, setupLockRepository),
                     UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(new MustChangePasswordFilter(),
                     SetupRedirectFilter.class);

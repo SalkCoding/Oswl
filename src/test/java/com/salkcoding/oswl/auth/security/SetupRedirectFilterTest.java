@@ -1,5 +1,8 @@
 package com.salkcoding.oswl.auth.security;
 
+import com.salkcoding.oswl.auth.entity.InstanceSetupLock;
+import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
+import com.salkcoding.oswl.auth.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,7 +15,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.salkcoding.oswl.auth.repository.UserRepository;
 
 import java.io.IOException;
 
@@ -22,7 +24,8 @@ import static org.mockito.Mockito.*;
 @DisplayName("SetupRedirectFilter unit tests")
 class SetupRedirectFilterTest {
 
-    @Mock UserRepository  userRepository;
+    @Mock UserRepository userRepository;
+    @Mock InstanceSetupLockRepository setupLockRepository;
     @Mock HttpServletRequest  request;
     @Mock HttpServletResponse response;
     @Mock FilterChain         filterChain;
@@ -51,6 +54,7 @@ class SetupRedirectFilterTest {
     @DisplayName("No admin exists: redirects to /setup")
     void noAdmin_redirectsToSetup() throws ServletException, IOException {
         when(request.getRequestURI()).thenReturn("/projects");
+        when(setupLockRepository.existsById(InstanceSetupLock.SINGLETON_ID)).thenReturn(false);
         when(userRepository.existsByIsSystemAdminTrue()).thenReturn(false);
 
         filter.doFilterInternal(request, response, filterChain);
@@ -65,6 +69,7 @@ class SetupRedirectFilterTest {
     @DisplayName("Admin exists: request passes through")
     void adminExists_filterContinues() throws ServletException, IOException {
         when(request.getRequestURI()).thenReturn("/projects");
+        when(setupLockRepository.existsById(InstanceSetupLock.SINGLETON_ID)).thenReturn(false);
         when(userRepository.existsByIsSystemAdminTrue()).thenReturn(true);
 
         filter.doFilterInternal(request, response, filterChain);
@@ -74,9 +79,22 @@ class SetupRedirectFilterTest {
     }
 
     @Test
+    @DisplayName("Setup lock exists: request passes through")
+    void setupLockExists_filterContinues() throws ServletException, IOException {
+        when(request.getRequestURI()).thenReturn("/projects");
+        when(setupLockRepository.existsById(InstanceSetupLock.SINGLETON_ID)).thenReturn(true);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verify(userRepository, never()).existsByIsSystemAdminTrue();
+    }
+
+    @Test
     @DisplayName("Login URI with admin: passes through")
     void loginUri_adminExists_passesThroughToLoginPage() throws ServletException, IOException {
         when(request.getRequestURI()).thenReturn("/login");
+        when(setupLockRepository.existsById(InstanceSetupLock.SINGLETON_ID)).thenReturn(false);
         when(userRepository.existsByIsSystemAdminTrue()).thenReturn(true);
 
         filter.doFilterInternal(request, response, filterChain);

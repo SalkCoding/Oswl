@@ -110,7 +110,7 @@ public class OtpVerifyController {
         // Set the trusted-device cookie when the user requests "remember this device"
         boolean trustDevice = Boolean.TRUE.equals(body.get("trustDevice"));
         if (trustDevice) {
-            trustedDeviceService.setTrusted(principal.getUserId(), response);
+            trustedDeviceService.setTrusted(principal.getUserId(), request, response);
             auditLogService.log("AUTH.TRUSTED_DEVICE", "AUTH", null, principal.getUsername(),
                     "Trusted for 30 days");
         }

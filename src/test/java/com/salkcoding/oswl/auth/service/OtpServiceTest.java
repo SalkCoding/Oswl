@@ -3,6 +3,8 @@ package com.salkcoding.oswl.auth.service;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.auth.security.OtpPendingIdentity;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,13 +27,15 @@ import static org.mockito.Mockito.*;
 @DisplayName("OtpService unit tests")
 class OtpServiceTest {
 
-    @Mock MailService    mailService;
-    @Mock UserRepository userRepository;
-    @Mock AuditLogService auditLogService;
+    @Mock MailService         mailService;
+    @Mock UserRepository      userRepository;
+    @Mock AuditLogService     auditLogService;
+    @Mock UserDetailsService  userDetailsService;
 
     @InjectMocks OtpService otpService;
 
     private OswlUserPrincipal principal;
+    private OtpPendingIdentity pendingIdentity;
     private MockHttpSession   session;
 
     @BeforeEach
@@ -39,7 +43,9 @@ class OtpServiceTest {
         principal = new OswlUserPrincipal(
                 1L, "user@example.com", "{noop}pass", "Test User",
                 false, true, List.of(), Set.of(), Set.of(Permission.SCAN_SUBMIT), false);
+        pendingIdentity = OtpPendingIdentity.from(principal);
         session = new MockHttpSession();
+        lenient().when(userDetailsService.loadUserByUsername("user@example.com")).thenReturn(principal);
     }
 
     // ── storePendingAuth ─────────────────────────────────────────────
@@ -49,7 +55,8 @@ class OtpServiceTest {
     void storePendingAuth_storesAttributesAndSendsMail() throws Exception {
         otpService.storePendingAuth(session, principal);
 
-        assertThat(session.getAttribute(OtpService.SESSION_PRINCIPAL)).isEqualTo(principal);
+        assertThat(session.getAttribute(OtpService.SESSION_PRINCIPAL)).isEqualTo(pendingIdentity);
+        assertThat(session.getAttribute(OtpService.SESSION_PRINCIPAL)).isNotInstanceOf(OswlUserPrincipal.class);
         assertThat(session.getAttribute(OtpService.SESSION_OTP)).isNotNull();
         assertThat(session.getAttribute(OtpService.SESSION_EXPIRY)).isNotNull();
         verify(mailService).sendOtp(eq("user@example.com"), eq("Test User"), anyString());
@@ -87,7 +94,7 @@ class OtpServiceTest {
     void verify_rejectsTestBypassCode() {
         String otp = "123456";
         long expiry = Instant.now().plusSeconds(180).toEpochMilli();
-        session.setAttribute(OtpService.SESSION_PRINCIPAL, principal);
+        session.setAttribute(OtpService.SESSION_PRINCIPAL, pendingIdentity);
         session.setAttribute(OtpService.SESSION_OTP, otp);
         session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
 
@@ -99,7 +106,7 @@ class OtpServiceTest {
     void verify_correctCode_returnsTrue() {
         String otp = "123456";
         long expiry = Instant.now().plusSeconds(180).toEpochMilli();
-        session.setAttribute(OtpService.SESSION_PRINCIPAL, principal);
+        session.setAttribute(OtpService.SESSION_PRINCIPAL, pendingIdentity);
         session.setAttribute(OtpService.SESSION_OTP, otp);
         session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
 
@@ -111,7 +118,7 @@ class OtpServiceTest {
     void verify_expiredOtp_returnsFalse() {
         String otp = "123456";
         long expiry = Instant.now().minusSeconds(1).toEpochMilli(); // already expired
-        session.setAttribute(OtpService.SESSION_PRINCIPAL, principal);
+        session.setAttribute(OtpService.SESSION_PRINCIPAL, pendingIdentity);
         session.setAttribute(OtpService.SESSION_OTP, otp);
         session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
 
@@ -122,7 +129,7 @@ class OtpServiceTest {
     @DisplayName("verify wrong code increments attempt counter")
     void verify_wrongCode_incrementsAttempts() {
         long expiry = Instant.now().plusSeconds(180).toEpochMilli();
-        session.setAttribute(OtpService.SESSION_PRINCIPAL, principal);
+        session.setAttribute(OtpService.SESSION_PRINCIPAL, pendingIdentity);
         session.setAttribute(OtpService.SESSION_OTP, "999999");
         session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
 
@@ -135,7 +142,7 @@ class OtpServiceTest {
     @DisplayName("verify locks account after 5 wrong attempts")
     void verify_maxAttempts_locksAccount() {
         long expiry = Instant.now().plusSeconds(180).toEpochMilli();
-        session.setAttribute(OtpService.SESSION_PRINCIPAL, principal);
+        session.setAttribute(OtpService.SESSION_PRINCIPAL, pendingIdentity);
         session.setAttribute(OtpService.SESSION_OTP, "999999");
         session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
 

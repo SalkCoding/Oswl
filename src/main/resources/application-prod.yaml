@@ -4,6 +4,10 @@ springdoc:
   swagger-ui:
     enabled: false
 
+oswl:
+  security:
+    trusted-device-cookie-secure: true
+
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/oswl}

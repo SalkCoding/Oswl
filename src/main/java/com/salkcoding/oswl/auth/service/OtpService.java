@@ -2,6 +2,8 @@ package com.salkcoding.oswl.auth.service;
 
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.auth.security.OtpPendingIdentity;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,9 +49,10 @@ public class OtpService {
     private static final int  MAX_OTP_ATTEMPTS   = 5;
     private static final long RESEND_COOLDOWN_MS = 60_000L;   // 60 seconds
 
-    private final MailService    mailService;
-    private final UserRepository userRepository;
-    private final AuditLogService auditLogService;
+    private final MailService         mailService;
+    private final UserRepository      userRepository;
+    private final AuditLogService     auditLogService;
+    private final UserDetailsService    userDetailsService;
     private final SecureRandom   secureRandom = new SecureRandom();
 
     // ── Public API ─────────────────────────────────────────────────────
@@ -61,16 +64,21 @@ public class OtpService {
      * (a development convenience).
      */
     public void storePendingAuth(HttpSession session, OswlUserPrincipal principal) {
+        OtpPendingIdentity identity = OtpPendingIdentity.from(principal);
+        storePendingAuth(session, identity, principal.getDisplayName());
+    }
+
+    private void storePendingAuth(HttpSession session, OtpPendingIdentity identity, String displayName) {
         String otp     = String.format("%06d", secureRandom.nextInt(MAX_DIGITS));
         long   expiry  = Instant.now().plusSeconds(60L * OTP_VALID_MINUTES).toEpochMilli();
 
-        session.setAttribute(SESSION_PRINCIPAL, principal);
+        session.setAttribute(SESSION_PRINCIPAL, identity);
         session.setAttribute(SESSION_OTP,       otp);
         session.setAttribute(SESSION_EXPIRY,    expiry);
         session.setAttribute(SESSION_LAST_SENT, Instant.now().toEpochMilli());
 
-        String email = principal.getUsername(); // username == email
-        String name  = principal.getDisplayName();
+        String email = identity.email();
+        String name  = displayName;
         try {
             mailService.sendOtp(email, name, otp);
             session.removeAttribute(SESSION_MAIL_FAILED);
@@ -148,9 +156,25 @@ public class OtpService {
         return false;
     }
 
-    /** Returns the principal if authenticated (session pending) but 2FA is incomplete, or null. */
+    /** Returns pending identity stored in the session (no password hash). */
+    public OtpPendingIdentity getPendingIdentity(HttpSession session) {
+        Object stored = session.getAttribute(SESSION_PRINCIPAL);
+        if (stored instanceof OtpPendingIdentity identity) {
+            return identity;
+        }
+        return null;
+    }
+
+    /**
+     * Reloads the full principal from the database for OTP completion.
+     * Pending session state never stores bcrypt credentials.
+     */
     public OswlUserPrincipal getPendingPrincipal(HttpSession session) {
-        return (OswlUserPrincipal) session.getAttribute(SESSION_PRINCIPAL);
+        OtpPendingIdentity identity = getPendingIdentity(session);
+        if (identity == null) {
+            return null;
+        }
+        return (OswlUserPrincipal) userDetailsService.loadUserByUsername(identity.email());
     }
 
     /** Returns the remaining validity time in seconds (0 if expired or not set). */
