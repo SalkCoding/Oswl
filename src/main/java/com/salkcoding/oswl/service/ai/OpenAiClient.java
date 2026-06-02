@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -16,48 +17,26 @@ import org.springframework.core.ParameterizedTypeReference;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class OpenAiClient implements AiAnalysisClient {
 
     private static final String DEFAULT_OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-    private final RestTemplate restTemplate;
-
-    public OpenAiClient() {
-        this.restTemplate = new RestTemplate();
-    }
+    private final AiPromptTemplateService promptTemplates;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // ── Called only within the package (delegated by AiAnalysisService) ───────────────
 
     @Override
     public String summarizeCve(String cveId, String severity, double cvssScore,
                                String cveType, String component) {
-        String prompt = String.format(
-                "In one sentence, explain the risk of %s (severity: %s, CVSS: %.1f, type: %s) " +
-                "found in %s for a developer who needs to understand the impact quickly.",
-                cveId, severity, cvssScore, cveType, component);
-        return call(prompt, null);
-    }
-
-    @Override
-    public String generateRiskInsight(String projectName, int securityDelta,
-                                      int licenseDelta, String recentVersions) {
-        String prompt = String.format(
-                "Project '%s' shows security issues %s by %d and license issues %s by %d " +
-                "across versions [%s]. In one sentence, give a concise risk insight for a security engineer.",
-                projectName,
-                securityDelta >= 0 ? "increased" : "decreased", Math.abs(securityDelta),
-                licenseDelta >= 0 ? "increased" : "decreased", Math.abs(licenseDelta),
-                recentVersions);
-        return call(prompt, null);
+        return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component), null);
     }
 
     @Override
     public String summarizeLicenseRisk(String licenseName, String licenseStatus, String component) {
-        String prompt = String.format(
-                "In one sentence, explain the compliance risk of using '%s' (status: %s) " +
-                "in a commercial product component '%s'.",
-                licenseName, licenseStatus, component);
-        return call(prompt, null);
+        return call(promptTemplates.licenseSingle(licenseName, licenseStatus, component,
+                null, "unknown", null), null);
     }
 
     /**
@@ -90,11 +69,11 @@ public class OpenAiClient implements AiAnalysisClient {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system",
-                               "content", "You are an expert software supply chain security analyst. Be concise."),
+                               "content", promptTemplates.getSystemPrompt()),
                         Map.of("role", "user", "content", userPrompt)
                 ),
-                "max_tokens", 800,
-                "temperature", 0.3
+                "max_tokens", promptTemplates.getMaxTokens(),
+                "temperature", promptTemplates.getTemperature()
         );
 
         long start = System.currentTimeMillis();
@@ -110,7 +89,7 @@ public class OpenAiClient implements AiAnalysisClient {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var choices = (List<?>) response.getBody().get("choices");
                 if (choices != null && !choices.isEmpty()) {
-                    var message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
+                    var message = (Map<?, ?>) ((Map<?, ?>) choices.getFirst()).get("message");
                     String result = message != null ? (String) message.get("content") : null;
                     if (result != null) result = result.strip();
                     log.debug("[AI][OpenAI] Parsed result resultLen={}", result != null ? result.length() : 0);

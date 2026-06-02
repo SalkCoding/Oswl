@@ -30,4 +30,16 @@ public class AiSettingResponse {
     @Schema(description = "Guidance message (returned only when not configured)",
             example = "AI setting is not configured. Use PUT /api/settings/ai to configure.")
     private final String     message;
+
+    @Schema(description = "Prompt response language", example = "en", allowableValues = {"en", "ko"})
+    private final String     promptsLocale;
+
+    @Schema(description = "Max Critical/High CVEs summarized per scan enrichment", example = "10")
+    private final Integer    cveLimit;
+
+    @Schema(description = "Max license-risk components summarized per scan enrichment", example = "8")
+    private final Integer    licenseLimit;
+
+    @Schema(description = "CVE severities included in AI batch summaries", example = "CRITICAL,HIGH")
+    private final String     cveSeverities;
 }

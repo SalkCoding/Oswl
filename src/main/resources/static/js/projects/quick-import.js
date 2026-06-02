@@ -70,19 +70,30 @@ function quickImportPage() {
         },
 
         get detectedProvider() {
-            const url = this.repoUrl.toLowerCase();
-            if (url.includes('github.com'))    return 'GITHUB';
-            if (url.includes('gitlab'))        return 'GITLAB';
-            if (url.includes('bitbucket.org')) return 'BITBUCKET';
-            // Check self-hosted Bitbucket by matching the stored connection's serverUrl
-            const bbConn = this.connectionsByProvider['BITBUCKET'];
-            if (bbConn && bbConn.serverUrl) {
+            const raw = (this.repoUrl || '').trim();
+            if (!raw) return null;
+
+            let urlHost = null;
+            try {
+                urlHost = new URL(raw).hostname.toLowerCase();
+            } catch (_) {
+                return null;
+            }
+
+            // On-premise: match stored connection serverUrl host first
+            for (const provider of ['GITHUB', 'GITLAB', 'BITBUCKET']) {
+                const conn = this.connectionsByProvider[provider];
+                if (!conn || !conn.serverUrl) continue;
                 try {
-                    const connHost = new URL(bbConn.serverUrl).hostname.toLowerCase();
-                    const urlHost  = new URL(this.repoUrl).hostname.toLowerCase();
-                    if (connHost && urlHost === connHost) return 'BITBUCKET';
+                    const connHost = new URL(conn.serverUrl).hostname.toLowerCase();
+                    if (connHost && urlHost === connHost) return provider;
                 } catch (_) {}
             }
+
+            const url = raw.toLowerCase();
+            if (url.includes('github.com')) return 'GITHUB';
+            if (url.includes('gitlab.com') || url.includes('gitlab')) return 'GITLAB';
+            if (url.includes('bitbucket.org')) return 'BITBUCKET';
             return null;
         },
 

@@ -40,6 +40,7 @@ dependencies {
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
@@ -103,7 +104,7 @@ ext {
 	tailwindToolDir = file("${buildDir}/tools/tailwindcss-${tailwindVersion}")
 }
 
-def tailwindBinaryName() {
+static def tailwindBinaryName() {
 	def os = System.getProperty('os.name').toLowerCase()
 	def arch = System.getProperty('os.arch').toLowerCase()
 	def aarch = (arch == 'aarch64' || arch == 'arm64')
@@ -127,7 +128,7 @@ tasks.register('downloadTailwindCli') {
 			tailwindToolDir.mkdirs()
 			def url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v${tailwindVersion}/${binName}"
 			logger.lifecycle("[tailwind] downloading ${url}")
-			new URL(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+			Url.toUrl(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
 			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
 				target.setExecutable(true, false)
 			}

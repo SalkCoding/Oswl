@@ -1,14 +1,18 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.repository.AiSettingRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -24,9 +28,19 @@ class AiAnalysisServiceTest {
     @Mock OpenAiClient openAiClient;
     @Mock AnthropicClient anthropicClient;
     @Mock CopilotClient copilotClient;
+    @Mock EncryptionService encryptionService;
 
     @InjectMocks
     AiAnalysisService aiAnalysisService;
+
+    @BeforeEach
+    void injectPromptTemplates() {
+        AiPromptTemplateService prompts = new AiPromptTemplateService(
+                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+        prompts.reloadWithLocale("en");
+        prompts.load();
+        ReflectionTestUtils.setField(aiAnalysisService, "promptTemplates", prompts);
+    }
 
     // ── isAiConfigured ────────────────────────────────────────────────────
 
@@ -148,53 +162,6 @@ class AiAnalysisServiceTest {
         verify(anthropicClient).callWithSetting(anyString(), eq(setting));
     }
 
-    // ── generateRiskInsight ───────────────────────────────────────────────
-
-    @Test
-    @DisplayName("리스크 인사이트: 활성 설정이 없으면 null을 반환한다")
-    void generateRiskInsight_returnsNull_whenNoActiveSetting() {
-        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
-
-        assertThat(aiAnalysisService.generateRiskInsight("MyProject", 5, 2, "1.0, 1.1")).isNull();
-    }
-
-    @Test
-    @DisplayName("리스크 인사이트: OPENAI 설정 시 OpenAiClient에 위임한다")
-    void generateRiskInsight_delegatesToOpenAiClient() {
-        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Risk is trending up");
-
-        assertThat(aiAnalysisService.generateRiskInsight("MyProject", 5, 2, "1.0, 1.1, 1.2"))
-                .isEqualTo("Risk is trending up");
-    }
-
-    @Test
-    @DisplayName("리스크 인사이트: ANTHROPIC 설정 시 AnthropicClient에 위임한다")
-    void generateRiskInsight_delegatesToAnthropicClient() {
-        AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
-        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Security improved");
-
-        assertThat(aiAnalysisService.generateRiskInsight("P", -3, -1, "2.0, 3.0"))
-                .isEqualTo("Security improved");
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting));
-        verifyNoInteractions(openAiClient);
-    }
-
-    @Test
-    @DisplayName("보안 이슈가 감소했을 때도 올바른 프롬프트로 위임한다")
-    void generateRiskInsight_handlesNegativeDelta() {
-        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Improvement detected");
-
-        // securityDelta=-5 (감소), licenseDelta=2 (증가) - 예외 없이 위임 확인
-        String result = aiAnalysisService.generateRiskInsight("SecureApp", -5, 2, "1.0, 2.0");
-
-        assertThat(result).isEqualTo("Improvement detected");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting));
-    }
     // ── summarizeCve COPILOT ───────────────────────────────────────────────
 
     @Test
@@ -218,7 +185,7 @@ class AiAnalysisServiceTest {
     void generateSecurityTrendInsight_returnsNull_whenNoActiveSetting() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 3, "1.0, 2.0")).isNull();
+        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 3, "1.0, 2.0", "-")).isNull();
     }
 
     @Test
@@ -228,7 +195,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Security trend result");
 
-        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 5, "v1, v2"))
+        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 5, "v1, v2", "-"))
                 .isEqualTo("Security trend result");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
     }
@@ -240,7 +207,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Anthropic trend");
 
-        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", -2, "v3, v4"))
+        assertThat(aiAnalysisService.generateSecurityTrendInsight("P", -2, "v3, v4", "-"))
                 .isEqualTo("Anthropic trend");
         verify(anthropicClient).callWithSetting(anyString(), eq(setting));
     }
@@ -252,7 +219,7 @@ class AiAnalysisServiceTest {
     void generateLicenseTrendInsight_returnsNull_whenNoActiveSetting() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 1, "v1, v2")).isNull();
+        assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 1, "v1, v2", "-")).isNull();
     }
 
     @Test
@@ -262,19 +229,23 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("License trend result");
 
-        assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 2, "v1, v2"))
+        assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 2, "v1, v2", "-"))
                 .isEqualTo("License trend result");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
     }
 
     // ── summarizeSecurityPosture ──────────────────────────────────────────
 
+    private static AiEnrichmentContextBuilder.PostureContext samplePosture() {
+        return new AiEnrichmentContextBuilder.PostureContext(2, 5, 1, 0, 100, 8, 2, 3, "- test issue");
+    }
+
     @Test
     @DisplayName("보안 포스처: 활성 설정이 없으면 null을 반환한다")
     void summarizeSecurityPosture_returnsNull_whenNoActiveSetting() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        assertThat(aiAnalysisService.summarizeSecurityPosture("P", 2, 5, 100)).isNull();
+        assertThat(aiAnalysisService.summarizeSecurityPosture("P", samplePosture())).isNull();
     }
 
     @Test
@@ -284,7 +255,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Posture summary");
 
-        assertThat(aiAnalysisService.summarizeSecurityPosture("MyProject", 3, 7, 200))
+        assertThat(aiAnalysisService.summarizeSecurityPosture("MyProject", samplePosture()))
                 .isEqualTo("Posture summary");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
     }
@@ -296,7 +267,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Claude posture");
 
-        assertThat(aiAnalysisService.summarizeSecurityPosture("P", 1, 2, 50))
+        assertThat(aiAnalysisService.summarizeSecurityPosture("P", samplePosture()))
                 .isEqualTo("Claude posture");
         verify(anthropicClient).callWithSetting(anyString(), eq(setting));
     }
@@ -308,7 +279,7 @@ class AiAnalysisServiceTest {
     void summarizeVersionDiff_returnsNull_whenNoActiveSetting() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "2.0", 5, 2, 10, 3)).isNull();
+        assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "2.0", 5, 2, 10, 3, "-")).isNull();
     }
 
     @Test
@@ -318,7 +289,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(openAiClient.callWithSetting(anyString(), eq(setting))).thenReturn("Version diff summary");
 
-        assertThat(aiAnalysisService.summarizeVersionDiff("MyApp", "v1.0", "v2.0", 5, 2, 10, 3))
+        assertThat(aiAnalysisService.summarizeVersionDiff("MyApp", "v1.0", "v2.0", 5, 2, 10, 3, "threats"))
                 .isEqualTo("Version diff summary");
         verify(openAiClient).callWithSetting(anyString(), eq(setting));
     }
@@ -330,7 +301,7 @@ class AiAnalysisServiceTest {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
         when(anthropicClient.callWithSetting(anyString(), eq(setting))).thenReturn("Claude diff");
 
-        assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "1.1", 1, 0, 3, 1))
+        assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "1.1", 1, 0, 3, 1, "-"))
                 .isEqualTo("Claude diff");
         verify(anthropicClient).callWithSetting(anyString(), eq(setting));
     }

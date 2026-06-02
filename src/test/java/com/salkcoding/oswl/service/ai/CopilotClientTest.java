@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -28,7 +29,10 @@ class CopilotClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new CopilotClient();
+        AiPromptTemplateService prompts = new AiPromptTemplateService(
+                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+        prompts.reloadWithLocale("en");
+        client = new CopilotClient(prompts);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }
@@ -124,16 +128,6 @@ class CopilotClientTest {
     void summarizeCve_noSetting_returnsNull() {
         // summarizeCve calls call(prompt, null) — no apiKey → returns null immediately
         String result = client.summarizeCve("CVE-2021-44228", "CRITICAL", 10.0, "RCE", "log4j");
-
-        assertThat(result).isNull();
-        verify(restTemplate, never()).exchange(anyString(), any(), any(), any(ParameterizedTypeReference.class));
-    }
-
-    @Test
-    @DisplayName("generateRiskInsight: no apiKey configured → returns null without HTTP call")
-    @SuppressWarnings("unchecked")
-    void generateRiskInsight_noSetting_returnsNull() {
-        String result = client.generateRiskInsight("Backend", 5, 0, "v1.0,v1.1");
 
         assertThat(result).isNull();
         verify(restTemplate, never()).exchange(anyString(), any(), any(), any(ParameterizedTypeReference.class));
