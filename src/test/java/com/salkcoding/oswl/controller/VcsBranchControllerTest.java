@@ -103,7 +103,8 @@ class VcsBranchControllerTest {
         Project p = Project.builder().id(1L).githubRepo("octocat/repo").vcsProvider(VcsProvider.GITHUB).build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
         when(vcsAuthTokenService.resolveGithubToken(session, 1L, "octocat")).thenReturn("plainToken");
-        when(gitHubService.getBranches("plainToken", "octocat", "repo")).thenReturn(List.of("main", "dev"));
+        when(vcsAuthTokenService.getConnection(1L, VcsProvider.GITHUB)).thenReturn(null);
+        when(gitHubService.getBranches("plainToken", "octocat", "repo", null)).thenReturn(List.of("main", "dev"));
 
         ResponseEntity<List<String>> resp = controller.branches(1L, principal(1L), session);
 
@@ -116,7 +117,8 @@ class VcsBranchControllerTest {
         Project p = Project.builder().id(1L).githubRepo("octocat/repo").vcsProvider(VcsProvider.GITHUB).build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
         when(vcsAuthTokenService.resolveGithubToken(session, 1L, "octocat")).thenReturn("plain");
-        when(gitHubService.getBranches(any(), any(), any())).thenThrow(new RuntimeException("error"));
+        when(vcsAuthTokenService.getConnection(1L, VcsProvider.GITHUB)).thenReturn(null);
+        when(gitHubService.getBranches(any(), any(), any(), any())).thenThrow(new RuntimeException("error"));
 
         ResponseEntity<List<String>> resp = controller.branches(1L, principal(1L), session);
 

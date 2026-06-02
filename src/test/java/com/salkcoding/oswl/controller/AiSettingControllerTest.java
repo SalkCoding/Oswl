@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
@@ -9,6 +10,8 @@ import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.service.ai.AiPreferencesService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,8 +37,22 @@ class AiSettingControllerTest {
     @Mock AuditLogService     auditLogService;
     @Mock EncryptionService   encryptionService;
     @Mock AiAnalysisService   aiAnalysisService;
+    @Mock AiPreferencesService aiPreferencesService;
 
     @InjectMocks AiSettingController controller;
+
+    private AiPreferences defaultPrefs() {
+        return AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH");
+    }
+
+    private void stubPreferences() {
+        when(aiPreferencesService.getEffective()).thenReturn(defaultPrefs());
+    }
+
+    @BeforeEach
+    void setUpPreferences() {
+        stubPreferences();
+    }
 
     // ── getCurrent ────────────────────────────────────────────────────────
 
@@ -49,6 +66,8 @@ class AiSettingControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).isNotNull();
         assertThat(resp.getBody().getMessage()).isEqualTo("No AI provider configured");
+        assertThat(resp.getBody().getPromptsLocale()).isEqualTo("en");
+        assertThat(resp.getBody().getCveLimit()).isEqualTo(10);
     }
 
     @Test
@@ -188,7 +207,7 @@ class AiSettingControllerTest {
     void deactivate_noActive_returnsNoContent() {
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.empty());
 
-        ResponseEntity<Void> resp = controller.deactivate();
+        ResponseEntity<Void> resp = controller.deactivate(null);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         verify(auditLogService, never()).log(any(), any(), any(), any(), any());
@@ -201,7 +220,7 @@ class AiSettingControllerTest {
         setting.activate();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
 
-        ResponseEntity<Void> resp = controller.deactivate();
+        ResponseEntity<Void> resp = controller.deactivate(null);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(setting.isActive()).isFalse();

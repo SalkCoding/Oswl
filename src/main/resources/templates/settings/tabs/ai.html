@@ -325,6 +325,87 @@
 
     </div>
 
+    <!-- Scan Enrichment Card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.heading}">Scan Enrichment</h3>
+
+        <!-- Prompt language -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.promptLocale.title}">Prompt language</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.promptLocale.description}">Language used for AI-generated summaries and trend insights.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.promptsLocale}">Language</span>
+                    <div class="relative flex-1 max-w-[400px]">
+                        <select x-model="preferences.promptsLocale"
+                                class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
+                            <option value="en" th:text="#{settings.ai.locale.en}">English</option>
+                            <option value="ko" th:text="#{settings.ai.locale.ko}">Korean</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CVE summaries -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.title}">CVE AI summaries</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.description}">During each scan, OsWL picks the most severe CVEs and sends them to AI for a plain-language triage note. CVEs outside the selected severities keep the OSV database summary only.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-start gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.cveSeverities}">Severities</span>
+                    <div class="flex flex-wrap gap-[8px] flex-1 max-w-[400px]">
+                        <template x-for="level in ['CRITICAL','HIGH','MEDIUM','LOW']" :key="level">
+                            <button type="button"
+                                    @click="toggleCveSeverity(level, !preferences.cveSeverities.includes(level))"
+                                    class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
+                                    :class="preferences.cveSeverities.includes(level)
+                                        ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
+                                        : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
+                                    x-text="level"></button>
+                        </template>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.cveLimit}">Max per scan</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="1" max="50" x-model.number="preferences.cveLimit"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.cveLimit}">Caps API cost: if a scan has more matching CVEs, only the top N by severity are summarized (1–50).</p>
+            </div>
+        </div>
+
+        <!-- License summaries -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.title}">License AI summaries</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.description}">Components with Restricted, Caution, or Unknown license status can receive a short AI compliance note on the component detail page.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.licenseLimit}">Max per scan</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="1" max="50" x-model.number="preferences.licenseLimit"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Toast ── -->
     <div x-show="toastVisible" x-cloak
          x-transition:enter="transition ease-out duration-300"
@@ -372,6 +453,7 @@
                 COPILOT:   { apiKey: '', modelName: 'gpt-5.4',                baseUrl: '' },
                 LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
             },
+            preferences: { promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'] },
             saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
 
             csrf() {
@@ -391,21 +473,50 @@
                         if (f) {
                             if (data.baseUrl)   f.baseUrl   = data.baseUrl;
                             if (data.modelName) f.modelName = data.modelName;
-                            // apiKey is masked on server; keep blank — user re-enters only if changing
                         }
                     }
+                    if (data.promptsLocale) this.preferences.promptsLocale = data.promptsLocale;
+                    if (data.cveLimit)      this.preferences.cveLimit = data.cveLimit;
+                    if (data.licenseLimit)  this.preferences.licenseLimit = data.licenseLimit;
+                    if (data.cveSeverities) {
+                        this.preferences.cveSeverities = data.cveSeverities.split(',').map(s => s.trim()).filter(Boolean);
+                    }
                 } catch (e) { this.apiError = _aiI18n.loadFailed; }
+            },
+
+            toggleCveSeverity(level, checked) {
+                if (checked && !this.preferences.cveSeverities.includes(level)) {
+                    this.preferences.cveSeverities.push(level);
+                } else if (!checked) {
+                    this.preferences.cveSeverities = this.preferences.cveSeverities.filter(s => s !== level);
+                }
             },
 
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': this.csrf() }; },
 
             showToast(msg) { this.toastMsg = msg; this.toastVisible = true; setTimeout(() => { this.toastVisible = false; }, 3000); },
 
+            preferencePayload() {
+                const severities = this.preferences.cveSeverities.length
+                    ? this.preferences.cveSeverities
+                    : ['CRITICAL', 'HIGH'];
+                return {
+                    promptsLocale: this.preferences.promptsLocale || 'en',
+                    cveLimit:      Number(this.preferences.cveLimit) || 10,
+                    licenseLimit:  Number(this.preferences.licenseLimit) || 8,
+                    cveSeverities: severities.join(',')
+                };
+            },
+
             async save() {
                 this.saving = true; this.apiError = null;
                 try {
                     if (this.mode === 'off') {
-                        const r = await fetch('/api/settings/ai/deactivate', { method: 'PUT', headers: this.headers() });
+                        const r = await fetch('/api/settings/ai/deactivate', {
+                            method: 'PUT',
+                            headers: this.headers(),
+                            body: JSON.stringify(this.preferencePayload())
+                        });
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
                         this.showToast(_aiI18n.disabled);
@@ -417,7 +528,8 @@
                         apiKey:    f.apiKey    || null,
                         modelName: f.modelName || null,
                         baseUrl:   f.baseUrl   || null,
-                        activate:  true
+                        activate:  true,
+                        ...this.preferencePayload()
                     };
                     const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }

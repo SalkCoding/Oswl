@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -28,7 +29,10 @@ class OpenAiClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new OpenAiClient();
+        AiPromptTemplateService prompts = new AiPromptTemplateService(
+                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+        prompts.reloadWithLocale("en");
+        client = new OpenAiClient(prompts);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }
@@ -184,16 +188,6 @@ class OpenAiClientTest {
         String result = client.summarizeCve("CVE-2021-44228", "CRITICAL", 10.0, "RCE", "log4j");
 
         assertThat(result).isEqualTo("High risk CVE.");
-    }
-
-    @Test
-    @DisplayName("generateRiskInsight: 프롬프트를 구성하고 callWithSetting 결과를 반환한다")
-    void generateRiskInsight_buildsPromptAndReturnsResult() {
-        stubResponse("Project risk is medium.");
-
-        String result = client.generateRiskInsight("MyProject", 3, 1, "summary");
-
-        assertThat(result).isEqualTo("Project risk is medium.");
     }
 
     @Test

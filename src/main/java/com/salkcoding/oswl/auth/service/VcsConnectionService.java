@@ -45,6 +45,7 @@ public class VcsConnectionService {
                targetIdExpr = "#result.id.toString()",
                targetNameExpr = "#result.provider + (#result.serverUrl != null ? ' / ' + #result.serverUrl : '')")
     public VcsConnectionDto addConnection(Long userId, AddVcsConnectionRequest request) {
+        normalizeVcsRequest(request);
         vcsTokenValidator.validate(request.getProvider(), request.getServerUrl(),
                 request.getAccessToken(), request.getVcsUsername());
         User user = userRepository.findById(userId)
@@ -80,5 +81,56 @@ public class VcsConnectionService {
         conn.setActive(false);
         auditLogService.log("VCS.DISCONNECT", "VCS_CONNECTION", connectionId.toString(),
                 conn.getProvider() + (conn.getServerUrl() != null ? " / " + conn.getServerUrl() : ""), null);
+    }
+
+    private void normalizeVcsRequest(AddVcsConnectionRequest request) {
+        switch (request.getProvider()) {
+            case BITBUCKET -> normalizeBitbucketRequest(request);
+            case GITHUB    -> normalizeGitHubRequest(request);
+            case GITLAB    -> normalizeGitLabRequest(request);
+        }
+    }
+
+    private void normalizeGitHubRequest(AddVcsConnectionRequest request) {
+        String serverUrl = request.getServerUrl();
+        if (serverUrl == null || serverUrl.isBlank()) {
+            request.setServerUrl(null);
+            return;
+        }
+        request.setServerUrl(serverUrl.trim().replaceAll("/+$", ""));
+    }
+
+    private void normalizeGitLabRequest(AddVcsConnectionRequest request) {
+        String serverUrl = request.getServerUrl();
+        if (serverUrl == null || serverUrl.isBlank()) {
+            request.setServerUrl(null);
+            return;
+        }
+        request.setServerUrl(serverUrl.trim().replaceAll("/+$", ""));
+    }
+
+    private void normalizeBitbucketRequest(AddVcsConnectionRequest request) {
+        if (request.getProvider() != VcsProvider.BITBUCKET) return;
+        String serverUrl = request.getServerUrl();
+        boolean cloud = serverUrl == null || serverUrl.isBlank()
+                || serverUrl.trim().replaceAll("/+$", "").equalsIgnoreCase("https://bitbucket.org")
+                || serverUrl.trim().replaceAll("/+$", "").equalsIgnoreCase("http://bitbucket.org");
+        if (cloud) {
+            request.setServerUrl(null);
+            String vcsUsername = request.getVcsUsername();
+            if (vcsUsername == null || vcsUsername.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Workspace slug is required for Bitbucket Cloud. Enter your workspace slug (e.g. salkcoding).");
+            }
+            vcsUsername = vcsUsername.trim();
+            // email|slug stored as-is; slug-only and email-only are also accepted.
+            request.setVcsUsername(vcsUsername);
+        } else {
+            if (request.getServerUrl().isBlank()) {
+                throw new IllegalArgumentException(
+                        "Server URL is required for Bitbucket Server / Data Center (e.g. https://bitbucket.example.com).");
+            }
+            request.setVcsUsername(null);
+        }
     }
 }

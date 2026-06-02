@@ -20,18 +20,6 @@ public interface AiAnalysisClient {
                         String cveType, String component);
 
     /**
-     * Generates AI risk-trend insight.
-     *
-     * @param projectName    Project name
-     * @param securityDelta  Change in security issues compared to the previous version
-     * @param licenseDelta   Change in license issues compared to the previous version
-     * @param recentVersions Recent version list (CSV)
-     * @return Insight sentence
-     */
-    String generateRiskInsight(String projectName, int securityDelta,
-                               int licenseDelta, String recentVersions);
-
-    /**
      * Generates a license risk summary.
      *
      * @param licenseName    "Creative Commons Attribution Share Alike 4.0"

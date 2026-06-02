@@ -375,7 +375,7 @@ class ComponentDetailServiceTest {
         when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(gitHubService.createVersionBumpPr(
-                any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(Map.of("prUrl", "https://github.com/owner/repo/pull/42", "prNumber", 42));
         doNothing().when(auditLogService).log(any(), any(), any(), any(), any());
 
@@ -386,7 +386,7 @@ class ComponentDetailServiceTest {
         assertThat(result).containsEntry("prNumber", 42);
         verify(gitHubService).createVersionBumpPr(
                 eq("gh-token"), eq("owner"), eq("repo"), eq("main"),
-                eq("lodash"), any(), any(), any(), any(), any());
+                eq("lodash"), any(), any(), any(), any(), any(), isNull());
     }
 
     @Test
@@ -559,7 +559,7 @@ class ComponentDetailServiceTest {
         @SuppressWarnings("unchecked")
         var paths = (List<com.salkcoding.oswl.dto.DependencyPathDto>) model.getAttribute("dependencyPaths");
         assertThat(paths).hasSize(1);
-        var nodes = paths.get(0).getNodes();
+        var nodes = paths.getFirst().getNodes();
         // Second node: "org.spring:spring-core" → shortName should be "spring-core"
         assertThat(nodes.get(1).getShortName()).isEqualTo("spring-core");
         // Root node with blank name → use project name
@@ -594,7 +594,7 @@ class ComponentDetailServiceTest {
 
         @SuppressWarnings("unchecked")
         var paths = (List<com.salkcoding.oswl.dto.DependencyPathDto>) model.getAttribute("dependencyPaths");
-        var nodes = paths.get(0).getNodes();
+        var nodes = paths.getFirst().getNodes();
         assertThat(nodes.get(1).getShortName()).isEqualTo("mylib");
     }
 

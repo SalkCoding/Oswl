@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -16,43 +17,25 @@ import org.springframework.core.ParameterizedTypeReference;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AnthropicClient implements AiAnalysisClient {
 
     private static final String ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
     private static final String ANTHROPIC_VERSION = "2023-06-01";
 
+    private final AiPromptTemplateService promptTemplates;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
     public String summarizeCve(String cveId, String severity, double cvssScore,
                                String cveType, String component) {
-        String prompt = String.format(
-                "In one sentence, explain the risk of %s (severity: %s, CVSS: %.1f, type: %s) " +
-                "found in %s for a developer who needs to understand the impact quickly.",
-                cveId, severity, cvssScore, cveType, component);
-        return call(prompt, null);
-    }
-
-    @Override
-    public String generateRiskInsight(String projectName, int securityDelta,
-                                      int licenseDelta, String recentVersions) {
-        String prompt = String.format(
-                "Project '%s' shows security issues %s by %d and license issues %s by %d " +
-                "across versions [%s]. In one sentence, give a concise risk insight.",
-                projectName,
-                securityDelta >= 0 ? "increased" : "decreased", Math.abs(securityDelta),
-                licenseDelta >= 0 ? "increased" : "decreased", Math.abs(licenseDelta),
-                recentVersions);
-        return call(prompt, null);
+        return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component), null);
     }
 
     @Override
     public String summarizeLicenseRisk(String licenseName, String licenseStatus, String component) {
-        String prompt = String.format(
-                "In one sentence, explain the compliance risk of using '%s' (status: %s) " +
-                "in a commercial product component '%s'.",
-                licenseName, licenseStatus, component);
-        return call(prompt, null);
+        return call(promptTemplates.licenseSingle(licenseName, licenseStatus, component,
+                null, "unknown", null), null);
     }
 
     public String callWithSetting(String prompt, AiSetting setting) {
@@ -81,8 +64,8 @@ public class AnthropicClient implements AiAnalysisClient {
 
         Map<String, Object> body = Map.of(
                 "model", model,
-                "max_tokens", 800,
-                "system", "You are an expert software supply chain security analyst. Be concise.",
+                "max_tokens", promptTemplates.getMaxTokens(),
+                "system", promptTemplates.getSystemPrompt(),
                 "messages", List.of(Map.of("role", "user", "content", userPrompt))
         );
 
@@ -99,7 +82,7 @@ public class AnthropicClient implements AiAnalysisClient {
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 var content = (List<?>) response.getBody().get("content");
                 if (content != null && !content.isEmpty()) {
-                    String result = (String) ((Map<?, ?>) content.get(0)).get("text");
+                    String result = (String) ((Map<?, ?>) content.getFirst()).get("text");
                     if (result != null) result = result.strip();
                     log.debug("[AI][Anthropic] Parsed result resultLen={}", result != null ? result.length() : 0);
                     if (result != null && !result.isBlank()) return result;

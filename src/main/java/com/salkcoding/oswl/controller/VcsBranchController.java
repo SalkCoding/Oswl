@@ -61,9 +61,15 @@ public class VcsBranchController {
             return switch (provider) {
                 case GITHUB -> {
                     String[] parts = repoPath.split("/", 2);
-                    String token   = vcsAuthTokenService.resolveGithubToken(session, principal != null ? principal.getUserId() : null, parts[0]);
+                    Long userId = principal != null ? principal.getUserId() : null;
+                    String token = vcsAuthTokenService.resolveGithubToken(session, userId, parts[0]);
                     if (token == null) yield ResponseEntity.ok(List.of("main"));
-                    yield ResponseEntity.ok(gitHubService.getBranches(token, parts[0], parts[1]));
+                    String serverUrl = null;
+                    if (userId != null) {
+                        UserVcsConnection conn = vcsAuthTokenService.getConnection(userId, VcsProvider.GITHUB);
+                        if (conn != null) serverUrl = conn.getServerUrl();
+                    }
+                    yield ResponseEntity.ok(gitHubService.getBranches(token, parts[0], parts[1], serverUrl));
                 }
                 case GITLAB -> {
                     Long userId = principal != null ? principal.getUserId() : null;

@@ -14,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -112,9 +113,11 @@ class QuickImportServiceTest {
                 .id(1L).provider(VcsProvider.GITHUB).active(true)
                 .accessTokenEncrypted("encrypted-token")
                 .build();
-        when(vcsConnectionRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of(conn));
+        when(vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(1L, VcsProvider.GITHUB))
+                .thenReturn(Optional.of(conn));
         when(encryptionService.decrypt("encrypted-token")).thenReturn("valid-token");
-        when(gitHubService.listAllUserRepos("valid-token")).thenThrow(new RuntimeException("API error"));
+        when(gitHubService.resolveWebBase(null)).thenReturn("https://github.com");
+        when(gitHubService.listAllUserRepos("valid-token", null)).thenThrow(new RuntimeException("API error"));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                 () -> quickImportService.listRepos(VcsProvider.GITHUB, 1L))

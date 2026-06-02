@@ -51,13 +51,22 @@ class BitbucketServiceTest {
     void createVersionBumpPr_invalidRepoPath_throwsIllegalArgument() {
         assertThatThrownBy(() ->
                 service.createVersionBumpPr(
-                        "token", null, null,
-                        "no-slash-in-path",   // invalid: no '/'
+                        "token", null, "https://bitbucket.example.com",
+                        "no-slash-in-path",
                         "main",
                         "org.example:lib", "1.0", "2.0",
                         "PR title", "PR body",
                         java.util.List.of()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Invalid Bitbucket repository path");
+    }
+
+    @Test
+    @DisplayName("getBranches: Server 모드에서 repoPath 형식이 잘못되면 폴백한다")
+    void getBranches_serverInvalidPath_returnsFallback() {
+        java.util.List<String> branches =
+                service.getBranches("token", null, "https://bitbucket.example.com", "INVALID");
+
+        assertThat(branches).containsExactly("main");
     }
 }

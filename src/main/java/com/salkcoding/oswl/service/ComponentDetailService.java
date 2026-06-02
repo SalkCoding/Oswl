@@ -352,8 +352,13 @@ public class ComponentDetailService {
                     throw new IllegalStateException("No GitHub account is connected. Please connect one from the Settings page.");
                 }
                 String[] parts = repoPath.split("/", 2);
+                String githubServerUrl = vcsConnectionRepository
+                        .findByUserIdAndProviderAndActiveTrue(userId, VcsProvider.GITHUB)
+                        .map(UserVcsConnection::getServerUrl)
+                        .orElse(null);
                 yield gitHubService.createVersionBumpPr(
-                        githubToken, parts[0], parts[1], base, libName, oldVer, newVer, prTitle, body, reviewers);
+                        githubToken, parts[0], parts[1], base, libName, oldVer, newVer, prTitle, body, reviewers,
+                        githubServerUrl);
             }
             case GITLAB -> {
                 UserVcsConnection conn = vcsConnectionRepository

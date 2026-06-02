@@ -28,4 +28,17 @@ public class AiSettingUpdateRequest {
 
     @Schema(description = "If true, activates the provider upon save", example = "true")
     private Boolean    activate;
+
+    @Schema(description = "Prompt response language", example = "en", allowableValues = {"en", "ko"})
+    private String     promptsLocale;
+
+    @Schema(description = "Max Critical/High CVEs summarized per scan enrichment", example = "10")
+    private Integer    cveLimit;
+
+    @Schema(description = "Max license-risk components summarized per scan enrichment", example = "8")
+    private Integer    licenseLimit;
+
+    @Schema(description = "Comma-separated CVE severities for AI batch (e.g. CRITICAL,HIGH,MEDIUM)",
+            example = "CRITICAL,HIGH")
+    private String     cveSeverities;
 }

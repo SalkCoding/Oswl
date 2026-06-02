@@ -65,7 +65,7 @@ class DepsDevClientTest {
     @Test
     @DisplayName("VersionInfo.unresolved: resolved=false")
     void versionInfo_unresolved() {
-        assertThat(DepsDevClient.VersionInfo.unresolved().resolved()).isFalse();
+        assertThat(DepsDevClient.unresolved().resolved()).isFalse();
     }
 
     // ── AdvisoryInfo record ───────────────────────────────────────────────

@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service;
 
+import com.salkcoding.oswl.client.BitbucketCloudAuth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -19,9 +20,7 @@ import java.util.Map;
 
 /**
  * Bitbucket REST API client for creating pull requests and manipulating branches.
- *
  * Supports both Bitbucket Cloud (api.bitbucket.org/2.0) and Bitbucket Server / Data Center.
- *
  * Authentication modes:
  *   - Cloud + username   → Basic auth (Base64(username:token))
  *   - Cloud, no username → Bearer token (HTTP Access Token / ATATT…)
@@ -68,7 +67,7 @@ public class BitbucketService {
                                                     String prTitle,
                                                     String prBody,
                                                     List<String> reviewers) {
-        boolean isCloud   = (serverUrl == null || serverUrl.isBlank());
+        boolean isCloud   = isBitbucketCloud(serverUrl);
         String  authHeader = buildAuthHeader(token, username);
 
         if (isCloud) {
@@ -85,7 +84,7 @@ public class BitbucketService {
      */
     public List<String> getBranches(String token, String username, String serverUrl, String repoPath) {
         String authHeader = buildAuthHeader(token, username);
-        boolean isCloud   = (serverUrl == null || serverUrl.isBlank());
+        boolean isCloud   = isBitbucketCloud(serverUrl);
         try {
             if (isCloud) {
                 String[] parts  = splitRepoPath(repoPath);
@@ -261,26 +260,15 @@ public class BitbucketService {
                                                 String libName, String oldVersion, String newVersion,
                                                 String prTitle, String prBody,
                                                 List<String> reviewers) {
-        // Server path: {serverUrl}/rest/api/1.0/projects/{PROJECT}/repos/{repo}
-        // The project key and repo slug are stored in githubRepo as "PROJECT/repo-slug"
-        String[] parts      = splitRepoPath(repoPath);
-        String projectKey   = parts[0].toUpperCase();
-        String repoSlug     = parts[1];
-        String apiBase      = serverUrl.replaceAll("/+$", "")
-                + "/rest/api/1.0/projects/" + projectKey + "/repos/" + repoSlug;
+        String[] parts    = splitRepoPath(repoPath);
+        String projectKey = parts[0].toUpperCase();
+        String repoSlug   = parts[1];
+        String apiBase    = serverApiBase(serverUrl, projectKey, repoSlug);
 
         // 1. Fetch the HEAD commit of the base branch
-        String branchUrl = apiBase + "/branches?filterText=" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8);
-        JsonNode branchList = getJson(authHeader, branchUrl);
-        String baseSha = "";
-        JsonNode values = branchList.path("values");
-        if (values.isArray()) {
-            for (JsonNode b : values) {
-                if (baseBranch.equals(b.path("displayId").asText())) {
-                    baseSha = b.path("latestCommit").asText();
-                    break;
-                }
-            }
+        String baseSha = resolveServerBranchHead(authHeader, apiBase, baseBranch);
+        if (baseSha.isBlank()) {
+            throw new IllegalStateException("Base branch not found: " + baseBranch);
         }
 
         // 2. Create the feature branch
@@ -288,43 +276,96 @@ public class BitbucketService {
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
         createServerBranch(authHeader, apiBase, newBranch, baseSha);
 
-        // 3. Find and update the dependency file
+        // 3. Find and update the dependency file on the new branch
         boolean manifestUpdated = updateDependencyFileServer(
-                authHeader, apiBase, newBranch, baseBranch, libName, oldVersion, newVersion);
+                authHeader, apiBase, newBranch, baseBranch, baseSha, libName, oldVersion, newVersion);
         if (!manifestUpdated) {
             throw new IllegalStateException(
                     "Could not find " + libName + " at version " + oldVersion
                             + " in any dependency manifest in this repository.");
         }
 
-        // 4. Create the pull request
-        var prPayload = objectMapper.createObjectNode();
-        prPayload.put("title", prTitle);
-        prPayload.put("description", prBody);
-        prPayload.putObject("fromRef").put("id", "refs/heads/" + newBranch);
-        prPayload.putObject("toRef").put("id", "refs/heads/" + baseBranch);
-
-        JsonNode pr   = postJson(authHeader, apiBase + "/pull-requests", prPayload.toString());
-        int    prId   = pr.path("id").asInt();
-        String prUrl  = pr.path("links").path("self").get(0).path("href").asText();
+        // 4. Create the pull request (Server REST API requires full ref + repository objects)
+        String payload = buildServerPrPayload(projectKey, repoSlug, newBranch, baseBranch, prTitle, prBody).toString();
+        JsonNode pr  = postJson(authHeader, apiBase + "/pull-requests", payload);
+        int    prId  = pr.path("id").asInt();
+        String prUrl = extractServerPrUrl(pr, serverUrl, projectKey, repoSlug, prId);
 
         log.info("[Bitbucket Server] PR #{} created: {}", prId, prUrl);
         return Map.of("prUrl", prUrl, "prNumber", prId);
     }
 
+    private String serverApiBase(String serverUrl, String projectKey, String repoSlug) {
+        return normalizeServerUrl(serverUrl)
+                + "/rest/api/1.0/projects/" + projectKey + "/repos/" + repoSlug;
+    }
+
+    private String normalizeServerUrl(String serverUrl) {
+        return serverUrl.replaceAll("/+$", "");
+    }
+
+    private String resolveServerBranchHead(String authHeader, String apiBase, String branchName) {
+        String url = apiBase + "/branches?filterText="
+                + URLEncoder.encode(branchName, StandardCharsets.UTF_8) + "&limit=50";
+        JsonNode branchList = getJson(authHeader, url);
+        JsonNode values = branchList.path("values");
+        if (values.isArray()) {
+            for (JsonNode b : values) {
+                if (branchName.equals(b.path("displayId").asText())
+                        || branchName.equals(b.path("id").asText("").replace("refs/heads/", ""))) {
+                    return b.path("latestCommit").asText("");
+                }
+            }
+        }
+        return "";
+    }
+
+    private com.fasterxml.jackson.databind.node.ObjectNode buildServerPrPayload(
+            String projectKey, String repoSlug, String fromBranch, String toBranch,
+            String prTitle, String prBody) {
+        var prPayload = objectMapper.createObjectNode();
+        prPayload.put("title", prTitle);
+        prPayload.put("description", prBody);
+        prPayload.put("state", "OPEN");
+        prPayload.put("open", true);
+        prPayload.put("closed", false);
+
+        var fromRef = prPayload.putObject("fromRef");
+        fromRef.put("id", "refs/heads/" + fromBranch);
+        var fromRepo = fromRef.putObject("repository");
+        fromRepo.put("slug", repoSlug);
+        fromRepo.putObject("project").put("key", projectKey);
+
+        var toRef = prPayload.putObject("toRef");
+        toRef.put("id", "refs/heads/" + toBranch);
+        var toRepo = toRef.putObject("repository");
+        toRepo.put("slug", repoSlug);
+        toRepo.putObject("project").put("key", projectKey);
+        return prPayload;
+    }
+
+    private String extractServerPrUrl(JsonNode pr, String serverUrl, String projectKey, String repoSlug, int prId) {
+        JsonNode self = pr.path("links").path("self");
+        if (self.isArray() && !self.isEmpty()) {
+            return self.get(0).path("href").asText();
+        }
+        if (self.isObject() && self.has("href")) {
+            return self.path("href").asText();
+        }
+        return normalizeServerUrl(serverUrl)
+                + "/projects/" + projectKey + "/repos/" + repoSlug + "/pull-requests/" + prId;
+    }
+
     private void createServerBranch(String authHeader, String apiBase, String branch, String startPoint) {
-        String url = apiBase.replaceFirst("/projects/.*", "") + "/rest/api/1.0/projects/"
-                + extractProjectKey(apiBase) + "/repos/"
-                + extractRepoSlug(apiBase) + "/branches";
         String payload = objectMapper.createObjectNode()
                 .put("name", branch)
                 .put("startPoint", startPoint)
                 .toString();
-        postJson(authHeader, url, payload);
+        postJson(authHeader, apiBase + "/branches", payload);
     }
 
     private boolean updateDependencyFileServer(String authHeader, String apiBase,
-                                                String branch, String baseBranch,
+                                                String branch, String baseBranch, String baseSha,
                                                 String libName, String oldVersion, String newVersion) {
         List<String> paths = List.of(
                 "package.json", "pom.xml", "build.gradle", "build.gradle.kts",
@@ -333,12 +374,13 @@ public class BitbucketService {
 
         for (String path : paths) {
             try {
-                String fileUrl = apiBase + "/raw/" + path + "?at=refs/heads/" + baseBranch;
+                String fileUrl = apiBase + "/raw/" + encodePath(path)
+                        + "?at=" + URLEncoder.encode("refs/heads/" + baseBranch, StandardCharsets.UTF_8);
                 String content = getRawText(authHeader, fileUrl);
                 var updated = DependencyManifestPatcher.patch(content, path, libName, oldVersion, newVersion);
                 if (updated.isEmpty()) continue;
 
-                commitFileServer(authHeader, apiBase, path, updated.get(), branch,
+                commitFileServer(authHeader, apiBase, path, updated.get(), branch, baseSha,
                         "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]");
                 log.info("[Bitbucket Server] Updated {} on branch {}", path, branch);
                 return true;
@@ -350,29 +392,32 @@ public class BitbucketService {
         return false;
     }
 
+    private String encodePath(String path) {
+        return URLEncoder.encode(path, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
     private void commitFileServer(String authHeader, String apiBase,
                                    String filePath, String content,
-                                   String branch, String message) throws Exception {
-        String url     = apiBase + "/browse/" + filePath;
-        String boundary = "----OsWLBoundary" + System.currentTimeMillis();
-        var sb = new StringBuilder();
-        appendFormField(sb, boundary, "branch", branch);
-        appendFormField(sb, boundary, "message", message);
-        appendFormField(sb, boundary, "content", content);
-        sb.append("--").append(boundary).append("--\r\n");
+                                   String branch, String sourceCommitId, String message) throws Exception {
+        String url = apiBase + "/browse/" + encodePath(filePath);
+        String formBody = "branch=" + URLEncoder.encode(branch, StandardCharsets.UTF_8)
+                + "&content=" + URLEncoder.encode(content, StandardCharsets.UTF_8)
+                + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8)
+                + "&sourceCommitId=" + URLEncoder.encode(sourceCommitId, StandardCharsets.UTF_8);
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Authorization", authHeader)
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 .header("User-Agent", USER_AGENT)
-                .PUT(HttpRequest.BodyPublishers.ofString(sb.toString()))
+                .PUT(HttpRequest.BodyPublishers.ofString(formBody))
                 .timeout(Duration.ofSeconds(30))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() == 401) throw new RuntimeException("Bitbucket token is invalid or expired");
         if (response.statusCode() >= 400) {
+            log.warn("[Bitbucket Server] PUT {} → HTTP {} {}", url, response.statusCode(), response.body());
             throw new RuntimeException("Bitbucket Server API error: " + response.statusCode());
         }
     }
@@ -381,8 +426,7 @@ public class BitbucketService {
         String[] parts    = splitRepoPath(repoPath);
         String projectKey = parts[0].toUpperCase();
         String repoSlug   = parts[1];
-        String url = serverUrl.replaceAll("/+$", "")
-                + "/rest/api/1.0/projects/" + projectKey + "/repos/" + repoSlug
+        String url = serverApiBase(serverUrl, projectKey, repoSlug)
                 + "/branches?orderBy=MODIFICATION&limit=50";
         JsonNode result = getJson(authHeader, url);
         List<String> branches = new ArrayList<>();
@@ -397,28 +441,29 @@ public class BitbucketService {
 
     private String buildAuthHeader(String token, String username) {
         if (username != null && !username.isBlank()) {
+            BitbucketCloudAuth auth = BitbucketCloudAuth.parse(username, token);
+            if (auth.mode() == BitbucketCloudAuth.Mode.ATLASSIAN_ACCOUNT) {
+                return auth.authHeader(token);
+            }
+            if (token != null && token.startsWith("ATATT")) {
+                return "Bearer " + token;
+            }
             String credentials = username + ":" + token;
             return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
         }
         return "Bearer " + token;
     }
 
+    private static boolean isBitbucketCloud(String serverUrl) {
+        if (serverUrl == null || serverUrl.isBlank()) return true;
+        String normalized = serverUrl.trim().replaceAll("/+$", "").toLowerCase();
+        return normalized.equals("https://bitbucket.org") || normalized.equals("http://bitbucket.org");
+    }
+
     private String[] splitRepoPath(String repoPath) {
         int slash = repoPath.indexOf('/');
         if (slash < 0) throw new IllegalArgumentException("Invalid Bitbucket repository path: " + repoPath);
         return new String[]{ repoPath.substring(0, slash), repoPath.substring(slash + 1) };
-    }
-
-    private String extractProjectKey(String apiBase) {
-        // Pattern: .../projects/{KEY}/repos/...
-        int pi = apiBase.indexOf("/projects/");
-        int ri = apiBase.indexOf("/repos/", pi);
-        return apiBase.substring(pi + 10, ri);
-    }
-
-    private String extractRepoSlug(String apiBase) {
-        int ri = apiBase.indexOf("/repos/");
-        return apiBase.substring(ri + 7);
     }
 
     private void appendFormField(StringBuilder sb, String boundary, String name, String value) {

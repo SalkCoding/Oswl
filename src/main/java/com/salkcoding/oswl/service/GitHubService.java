@@ -24,16 +24,17 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * GitHub REST API calls using a Personal Access Token (PAT).
- * The token is stored server-side in HttpSession ??never sent to the browser.
+ * GitHub REST API client using a Personal Access Token (PAT).
+ * Supports GitHub.com (SaaS) and GitHub Enterprise (on-premise) via per-connection {@code serverUrl}.
  */
 @Slf4j
 @Service
 public class GitHubService {
 
     @Value("${oswl.github.api-base:https://api.github.com}")
-    private String githubApiBase;
+    private String defaultGithubApiBase;
 
+    private static final String DEFAULT_WEB_BASE = "https://github.com";
     private static final String USER_AGENT = "OsWL-App/1.0";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -42,30 +43,62 @@ public class GitHubService {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    /**
-     * Returns the authenticated user's login (username).
-     */
+    // ── URL resolution ───────────────────────────────────────────────────────
+
+    /** REST API base: per-connection serverUrl, else deployment default (OSWL_GITHUB_API_BASE). */
+    public String resolveApiBase(String serverUrl) {
+        if (serverUrl != null && !serverUrl.isBlank()) {
+            String base = serverUrl.trim().replaceAll("/+$", "");
+            if (base.endsWith("/api/v3")) return base;
+            return base + "/api/v3";
+        }
+        return defaultGithubApiBase.replaceAll("/+$", "");
+    }
+
+    /** Browser/web origin for repo links (Quick Import, PR URLs). */
+    public String resolveWebBase(String serverUrl) {
+        if (serverUrl != null && !serverUrl.isBlank()) {
+            String base = serverUrl.trim().replaceAll("/+$", "");
+            if (base.endsWith("/api/v3")) {
+                return base.substring(0, base.length() - "/api/v3".length());
+            }
+            return base;
+        }
+        String apiBase = defaultGithubApiBase.replaceAll("/+$", "");
+        if (apiBase.endsWith("/api/v3")) {
+            return apiBase.substring(0, apiBase.length() - "/api/v3".length());
+        }
+        return DEFAULT_WEB_BASE;
+    }
+
+    // ── Public API (serverUrl null = SaaS / deployment default) ──────────────
+
     public String getUserLogin(String accessToken) {
-        JsonNode user = getJson(accessToken, githubApiBase + "/user");
+        return getUserLogin(accessToken, null);
+    }
+
+    public String getUserLogin(String accessToken, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        JsonNode user = getJson(accessToken, apiBase + "/user");
         return user.path("login").asText();
     }
 
-    /**
-     * Returns all available accounts: the user itself plus all organizations.
-     */
     public List<GitHubAccountDto> getAccounts(String accessToken) {
+        return getAccounts(accessToken, null);
+    }
+
+    public List<GitHubAccountDto> getAccounts(String accessToken, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
         List<GitHubAccountDto> accounts = new ArrayList<>();
 
-        // Add user account
-        JsonNode user = getJson(accessToken, githubApiBase + "/user");
+        JsonNode user = getJson(accessToken, apiBase + "/user");
         accounts.add(GitHubAccountDto.builder()
                 .login(user.path("login").asText())
                 .type("User")
                 .avatarUrl(user.path("avatar_url").asText())
                 .build());
 
-        // Add organizations
-        JsonNode orgs = getJson(accessToken, githubApiBase + "/user/orgs?per_page=100");
+        JsonNode orgs = getJson(accessToken, apiBase + "/user/orgs?per_page=100");
         if (orgs.isArray()) {
             for (JsonNode org : orgs) {
                 accounts.add(GitHubAccountDto.builder()
@@ -78,70 +111,52 @@ public class GitHubService {
         return accounts;
     }
 
-    // ── Repos ────────────────────────────────────────────────────────────────
-
-    /**
-     * Returns all repositories accessible by the authenticated user (own + org + collaborator),
-     * sorted by last updated. Used by the Quick Import repo browser.
-     */
     public List<GitHubRepoDto> listAllUserRepos(String accessToken) {
-        String url = githubApiBase + "/user/repos?per_page=100&sort=updated";
+        return listAllUserRepos(accessToken, null);
+    }
+
+    public List<GitHubRepoDto> listAllUserRepos(String accessToken, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String url = apiBase + "/user/repos?per_page=100&sort=updated";
         JsonNode repos = getJson(accessToken, url);
         List<GitHubRepoDto> result = new ArrayList<>();
         if (repos.isArray()) {
             for (JsonNode r : repos) {
-                result.add(GitHubRepoDto.builder()
-                        .id(r.path("id").asLong())
-                        .name(r.path("name").asText())
-                        .fullName(r.path("full_name").asText())
-                        .defaultBranch(r.path("default_branch").asText("main"))
-                        .updatedAt(r.path("updated_at").asText())
-                        .isPrivate(r.path("private").asBoolean())
-                        .build());
+                result.add(toRepoDto(r));
             }
         }
         return result;
     }
 
-    /**
-     * Returns repos for a given account (user or org), sorted by updated_at desc.
-     *
-     * @param accessToken GitHub access token
-     * @param account     GitHub login — if it matches the authenticated user, fetches /user/repos;
-     *                    otherwise fetches /orgs/{account}/repos
-     */
     public List<GitHubRepoDto> getRepos(String accessToken, String account) {
-        String userLogin = getUserLogin(accessToken);
-        String url;
-        if (account.equalsIgnoreCase(userLogin)) {
-            url = githubApiBase + "/user/repos?per_page=100&sort=updated&affiliation=owner";
-        } else {
-            url = githubApiBase + "/orgs/" + account + "/repos?per_page=100&sort=updated";
-        }
+        return getRepos(accessToken, account, null);
+    }
+
+    public List<GitHubRepoDto> getRepos(String accessToken, String account, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String userLogin = getUserLogin(accessToken, serverUrl);
+        String url = account.equalsIgnoreCase(userLogin)
+                ? apiBase + "/user/repos?per_page=100&sort=updated&affiliation=owner"
+                : apiBase + "/orgs/" + account + "/repos?per_page=100&sort=updated";
 
         JsonNode repos = getJson(accessToken, url);
         List<GitHubRepoDto> result = new ArrayList<>();
         if (repos.isArray()) {
             for (JsonNode r : repos) {
-                result.add(GitHubRepoDto.builder()
-                        .id(r.path("id").asLong())
-                        .name(r.path("name").asText())
-                        .fullName(r.path("full_name").asText())
-                        .defaultBranch(r.path("default_branch").asText("main"))
-                        .updatedAt(r.path("updated_at").asText())
-                        .isPrivate(r.path("private").asBoolean())
-                        .build());
+                result.add(toRepoDto(r));
             }
         }
         return result;
     }
 
-    /**
-     * Returns branch names for a given repo (owner/repo).
-     */
     public List<String> getBranches(String accessToken, String owner, String repo) {
-        String defaultBranch = fetchRepoDefaultBranch(accessToken, owner, repo);
-        String url = githubApiBase + "/repos/" + owner + "/" + repo + "/branches?per_page=100";
+        return getBranches(accessToken, owner, repo, null);
+    }
+
+    public List<String> getBranches(String accessToken, String owner, String repo, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String defaultBranch = fetchRepoDefaultBranch(accessToken, owner, repo, apiBase);
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/branches?per_page=100";
         JsonNode branches = getJson(accessToken, url);
         List<String> result = new ArrayList<>();
         if (branches.isArray()) {
@@ -151,17 +166,18 @@ public class GitHubService {
         }
         if (defaultBranch != null && result.contains(defaultBranch)) {
             result.remove(defaultBranch);
-            result.add(0, defaultBranch);
+            result.addFirst(defaultBranch);
         }
         return result;
     }
 
-    /**
-     * Returns the ISO-8601 date of the most recent commit on the given branch.
-     * Falls back to an empty string if the branch has no commits or the request fails.
-     */
     public String getBranchLastCommitDate(String accessToken, String owner, String repo, String branch) {
-        String url = githubApiBase + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
+        return getBranchLastCommitDate(accessToken, owner, repo, branch, null);
+    }
+
+    public String getBranchLastCommitDate(String accessToken, String owner, String repo, String branch, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
         JsonNode commits = getJson(accessToken, url);
         if (commits.isArray() && !commits.isEmpty()) {
             JsonNode commit = commits.get(0).path("commit");
@@ -174,49 +190,34 @@ public class GitHubService {
         return "";
     }
 
-    // ── Create Pull Request ─────────────────────────────────────────────────
+    public Map<String, Object> createVersionBumpPr(String token, String owner, String repo,
+                                                      String baseBranch, String libName,
+                                                      String oldVersion, String newVersion,
+                                                      String prTitle, String prBody,
+                                                      List<String> reviewers) {
+        return createVersionBumpPr(token, owner, repo, baseBranch, libName, oldVersion, newVersion,
+                prTitle, prBody, reviewers, null);
+    }
 
-    /**
-     * Creates a version-bump branch and opens a pull request on GitHub.
-     *
-     * @param token       GitHub PAT (decrypted)
-     * @param owner       repo owner (user or org login)
-     * @param repo        repo name
-     * @param baseBranch  target branch for the PR (e.g. "main")
-     * @param libName     library identifier (e.g. "org.springframework:spring-web")
-     * @param oldVersion  current version string
-     * @param newVersion  target (patched) version string
-     * @param prTitle     PR title
-     * @param prBody      PR description / body
-     * @param reviewers   optional list of reviewer logins (may be empty)
-     * @return map with "prUrl" and "prNumber"
-     */
-    public Map<String, Object> createVersionBumpPr(String token,
-                                                    String owner,
-                                                    String repo,
-                                                    String baseBranch,
-                                                    String libName,
-                                                    String oldVersion,
-                                                    String newVersion,
-                                                    String prTitle,
-                                                    String prBody,
-                                                    List<String> reviewers) {
-        String resolvedBase = resolveBaseBranch(token, owner, repo, baseBranch);
+    public Map<String, Object> createVersionBumpPr(String token, String owner, String repo,
+                                                      String baseBranch, String libName,
+                                                      String oldVersion, String newVersion,
+                                                      String prTitle, String prBody,
+                                                      List<String> reviewers, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String resolvedBase = resolveBaseBranch(token, owner, repo, baseBranch, apiBase);
 
-        // 1. Get current SHA of base branch HEAD
-        JsonNode ref = getJson(token, branchHeadRefUrl(owner, repo, resolvedBase));
+        JsonNode ref = getJson(token, branchHeadRefUrl(owner, repo, resolvedBase, apiBase));
         String baseSha = ref.path("object").path("sha").asText();
 
-        // 2. Create new branch (reuse path: delete stale branch from a previous failed attempt)
         String safeName = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
-        ensureBranch(token, owner, repo, newBranch, baseSha);
+        ensureBranch(token, owner, repo, newBranch, baseSha, apiBase);
 
-        // 3. Find and update the dependency file (must produce at least one commit)
         boolean manifestUpdated = updateDependencyFile(
-                token, owner, repo, newBranch, resolvedBase, baseSha, libName, oldVersion, newVersion);
+                token, owner, repo, newBranch, resolvedBase, baseSha, libName, oldVersion, newVersion, apiBase);
         if (!manifestUpdated) {
-            deleteBranchQuietly(token, owner, repo, newBranch);
+            deleteBranchQuietly(token, owner, repo, newBranch, apiBase);
             throw new IllegalStateException(
                     "Could not find " + libName + " at version " + oldVersion
                             + " in any dependency manifest in this repository. "
@@ -224,7 +225,6 @@ public class GitHubService {
                             + "including subdirectories. If the dependency is declared elsewhere, bump the version manually.");
         }
 
-        // 4. Open pull request
         String prPayload = objectMapper.createObjectNode()
                 .put("title", prTitle)
                 .put("body", prBody)
@@ -232,17 +232,16 @@ public class GitHubService {
                 .put("base", resolvedBase)
                 .toString();
 
-        JsonNode pr = postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/pulls", prPayload);
-        int prNumber  = pr.path("number").asInt();
-        String prUrl  = pr.path("html_url").asText();
+        JsonNode pr = postJson(token, apiBase + "/repos/" + owner + "/" + repo + "/pulls", prPayload);
+        int prNumber = pr.path("number").asInt();
+        String prUrl = pr.path("html_url").asText();
 
-        // 5. Optionally assign reviewers
         if (reviewers != null && !reviewers.isEmpty()) {
             try {
                 String rvPayload = objectMapper.createObjectNode()
                         .set("reviewers", objectMapper.valueToTree(reviewers))
                         .toString();
-                postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/requested_reviewers", rvPayload);
+                postJson(token, apiBase + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/requested_reviewers", rvPayload);
             } catch (Exception e) {
                 log.warn("[GitHub] Failed to assign reviewers to PR #{}: {}", prNumber, e.getMessage());
             }
@@ -252,35 +251,46 @@ public class GitHubService {
         return Map.of("prUrl", prUrl, "prNumber", prNumber);
     }
 
-    private void ensureBranch(String token, String owner, String repo, String branch, String sha) {
-        if (branchHeadExists(token, owner, repo, branch)) {
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    private GitHubRepoDto toRepoDto(JsonNode r) {
+        return GitHubRepoDto.builder()
+                .id(r.path("id").asLong())
+                .name(r.path("name").asText())
+                .fullName(r.path("full_name").asText())
+                .defaultBranch(r.path("default_branch").asText("main"))
+                .updatedAt(r.path("updated_at").asText())
+                .isPrivate(r.path("private").asBoolean())
+                .build();
+    }
+
+    private void ensureBranch(String token, String owner, String repo, String branch, String sha, String apiBase) {
+        if (branchHeadExists(token, owner, repo, branch, apiBase)) {
             log.info("[GitHub] Branch {} already exists on {}/{} — deleting before recreate", branch, owner, repo);
-            deleteBranchQuietly(token, owner, repo, branch);
-            // GitHub API may not immediately reflect the deletion; retry with backoff
+            deleteBranchQuietly(token, owner, repo, branch, apiBase);
             for (int attempt = 1; attempt <= 5; attempt++) {
-                if (!branchHeadExists(token, owner, repo, branch)) break;
+                if (!branchHeadExists(token, owner, repo, branch, apiBase)) break;
                 try {
                     Thread.sleep(500L * attempt);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
                 }
-                log.debug("[GitHub] Waiting for branch deletion to propagate (attempt {})", attempt);
             }
         }
         String payload = objectMapper.createObjectNode()
                 .put("ref", "refs/heads/" + branch)
                 .put("sha", sha)
                 .toString();
-        postJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/git/refs", payload);
+        postJson(token, apiBase + "/repos/" + owner + "/" + repo + "/git/refs", payload);
     }
 
-    private String resolveBaseBranch(String token, String owner, String repo, String requested) {
-        if (requested != null && !requested.isBlank() && branchHeadExists(token, owner, repo, requested)) {
+    private String resolveBaseBranch(String token, String owner, String repo, String requested, String apiBase) {
+        if (requested != null && !requested.isBlank() && branchHeadExists(token, owner, repo, requested, apiBase)) {
             return requested;
         }
-        String defaultBranch = fetchRepoDefaultBranch(token, owner, repo);
-        if (defaultBranch != null && branchHeadExists(token, owner, repo, defaultBranch)) {
+        String defaultBranch = fetchRepoDefaultBranch(token, owner, repo, apiBase);
+        if (defaultBranch != null && branchHeadExists(token, owner, repo, defaultBranch, apiBase)) {
             if (requested != null && !requested.isBlank() && !requested.equals(defaultBranch)) {
                 log.info("[GitHub] Base branch '{}' not found on {}/{} — using default '{}'",
                         requested, owner, repo, defaultBranch);
@@ -288,7 +298,7 @@ public class GitHubService {
             return defaultBranch;
         }
         for (String candidate : List.of("main", "master")) {
-            if (branchHeadExists(token, owner, repo, candidate)) {
+            if (branchHeadExists(token, owner, repo, candidate, apiBase)) {
                 return candidate;
             }
         }
@@ -296,9 +306,9 @@ public class GitHubService {
                 "Could not find base branch '" + requested + "' or a default branch in " + owner + "/" + repo);
     }
 
-    private String fetchRepoDefaultBranch(String token, String owner, String repo) {
+    private String fetchRepoDefaultBranch(String token, String owner, String repo, String apiBase) {
         try {
-            JsonNode repoNode = getJson(token, githubApiBase + "/repos/" + owner + "/" + repo);
+            JsonNode repoNode = getJson(token, apiBase + "/repos/" + owner + "/" + repo);
             String def = repoNode.path("default_branch").asText("");
             return def.isBlank() ? null : def;
         } catch (Exception e) {
@@ -307,30 +317,26 @@ public class GitHubService {
         }
     }
 
-    private boolean branchHeadExists(String token, String owner, String repo, String branch) {
+    private boolean branchHeadExists(String token, String owner, String repo, String branch, String apiBase) {
         try {
-            getJson(token, branchHeadRefUrl(owner, repo, branch));
+            getJson(token, branchHeadRefUrl(owner, repo, branch, apiBase));
             return true;
         } catch (GitHubAuthException e) {
             return false;
         }
     }
 
-    private String branchHeadRefUrl(String owner, String repo, String branch) {
+    private String branchHeadRefUrl(String owner, String repo, String branch, String apiBase) {
         String ref = "heads/" + branch;
-        return githubApiBase + "/repos/" + owner + "/" + repo + "/git/ref/"
+        return apiBase + "/repos/" + owner + "/" + repo + "/git/ref/"
                 + URLEncoder.encode(ref, StandardCharsets.UTF_8);
     }
 
-    /**
-     * Finds dependency manifest files (repo-wide), patches the library version, and commits to {@code branch}.
-     *
-     * @return true if at least one file was updated and committed
-     */
     private boolean updateDependencyFile(String token, String owner, String repo,
                                           String branch, String baseBranch, String baseTreeSha,
-                                          String libName, String oldVersion, String newVersion) {
-        List<String> paths = discoverManifestPaths(token, owner, repo, baseTreeSha);
+                                          String libName, String oldVersion, String newVersion,
+                                          String apiBase) {
+        List<String> paths = discoverManifestPaths(token, owner, repo, baseTreeSha, apiBase);
         if (paths.isEmpty()) {
             paths = List.of(
                     "package.json", "package-lock.json", "pom.xml", "build.gradle", "build.gradle.kts",
@@ -340,14 +346,13 @@ public class GitHubService {
 
         for (String path : paths) {
             try {
-                // Read from the feature branch (same tree as base right after branch creation)
-                String fileUrl = githubApiBase + "/repos/" + owner + "/" + repo
+                String fileUrl = apiBase + "/repos/" + owner + "/" + repo
                         + "/contents/" + path + "?ref=" + branch;
                 JsonNode fileNode = getJson(token, fileUrl);
-                String sha  = fileNode.path("sha").asText();
-                String b64  = fileNode.path("content").asText().replace("\n", "").replace("\r", "");
-                byte[] raw  = java.util.Base64.getDecoder().decode(b64);
-                String content = new String(raw, java.nio.charset.StandardCharsets.UTF_8);
+                String sha = fileNode.path("sha").asText();
+                String b64 = fileNode.path("content").asText().replace("\n", "").replace("\r", "");
+                byte[] raw = java.util.Base64.getDecoder().decode(b64);
+                String content = new String(raw, StandardCharsets.UTF_8);
 
                 Optional<String> updated = DependencyManifestPatcher.patch(
                         content, path, libName, oldVersion, newVersion);
@@ -356,11 +361,11 @@ public class GitHubService {
                 String commitPayload = objectMapper.createObjectNode()
                         .put("message", "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]")
                         .put("content", java.util.Base64.getEncoder().encodeToString(
-                                updated.get().getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+                                updated.get().getBytes(StandardCharsets.UTF_8)))
                         .put("sha", sha)
                         .put("branch", branch)
                         .toString();
-                putJson(token, githubApiBase + "/repos/" + owner + "/" + repo + "/contents/" + path, commitPayload);
+                putJson(token, apiBase + "/repos/" + owner + "/" + repo + "/contents/" + path, commitPayload);
                 log.info("[GitHub] Updated {} in {}/{} on branch {}", path, owner, repo, branch);
                 return true;
             } catch (Exception e) {
@@ -372,10 +377,9 @@ public class GitHubService {
         return false;
     }
 
-    /** Recursively lists manifest file paths in the repository tree. */
-    private List<String> discoverManifestPaths(String token, String owner, String repo, String treeSha) {
+    private List<String> discoverManifestPaths(String token, String owner, String repo, String treeSha, String apiBase) {
         try {
-            String url = githubApiBase + "/repos/" + owner + "/" + repo + "/git/trees/" + treeSha + "?recursive=1";
+            String url = apiBase + "/repos/" + owner + "/" + repo + "/git/trees/" + treeSha + "?recursive=1";
             JsonNode tree = getJson(token, url);
             Set<String> paths = new LinkedHashSet<>();
             for (JsonNode entry : tree.path("tree")) {
@@ -396,9 +400,9 @@ public class GitHubService {
         }
     }
 
-    private void deleteBranchQuietly(String token, String owner, String repo, String branch) {
+    private void deleteBranchQuietly(String token, String owner, String repo, String branch, String apiBase) {
         try {
-            String url = githubApiBase + "/repos/" + owner + "/" + repo + "/git/refs/heads/" + branch;
+            String url = apiBase + "/repos/" + owner + "/" + repo + "/git/refs/heads/" + branch;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + token)
@@ -413,8 +417,6 @@ public class GitHubService {
             log.debug("[GitHub] Failed to delete branch {} on {}/{}: {}", branch, owner, repo, e.getMessage());
         }
     }
-
-    // ── Internal helpers ─────────────────────────────────────────────────────
 
     private JsonNode getJson(String accessToken, String url) {
         try {
@@ -481,8 +483,6 @@ public class GitHubService {
             throw new GitHubAuthException("Failed to call GitHub API");
         }
     }
-
-    // ── Exception ───────────────────────────────────────────────────────────
 
     public static class GitHubAuthException extends RuntimeException {
         public GitHubAuthException(String message) {

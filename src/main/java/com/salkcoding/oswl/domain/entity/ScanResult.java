@@ -60,6 +60,14 @@ public class ScanResult {
     @Column(name = "security_posture_insight", columnDefinition = "TEXT")
     private String securityPostureInsight;
 
+    /** AI version-diff insight vs the immediately previous completed scan (generated during enrichment) */
+    @Column(name = "version_diff_ai_insight", columnDefinition = "TEXT")
+    private String versionDiffAiInsight;
+
+    /** Scan id compared against when {@link #versionDiffAiInsight} was generated */
+    @Column(name = "version_diff_from_scan_id")
+    private Long versionDiffFromScanId;
+
     /**
      * User who submitted this scan (Quick Import or user-level CLI auth).
      * Anonymous CLI scans submitted with a project API key are null.
@@ -99,6 +107,11 @@ public class ScanResult {
         this.securityPostureInsight = insight;
     }
 
+    public void updateVersionDiffInsight(String insight, Long fromScanId) {
+        this.versionDiffAiInsight = insight;
+        this.versionDiffFromScanId = fromScanId;
+    }
+
     public void startAnalyzing() {
         this.status = ScanStatus.ANALYZING;
     }
@@ -122,5 +135,10 @@ public class ScanResult {
         this.status = ScanStatus.PENDING;
         this.errorMessage = null;
         this.scannedAt = LocalDateTime.now();
+        this.securityAiInsight = null;
+        this.licenseAiInsight = null;
+        this.securityPostureInsight = null;
+        this.versionDiffAiInsight = null;
+        this.versionDiffFromScanId = null;
     }
 }
