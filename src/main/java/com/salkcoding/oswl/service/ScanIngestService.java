@@ -39,6 +39,7 @@ public class ScanIngestService {
     private final LibraryRepository               libraryRepository;
     private final ProjectRepository               projectRepository;
     private final VulnerabilityEnrichmentService  enrichmentService;
+    private final ProjectCliKeyPolicyService      projectCliKeyPolicyService;
 
     /**
      * Persists the scan payload and kicks off async enrichment.
@@ -52,6 +53,8 @@ public class ScanIngestService {
     public ScanResult ingest(Long projectId, ScanPayload payload, Long submittedByUserId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+
+        projectCliKeyPolicyService.assertScanIngestAllowed(projectId);
 
         // Same project + same version → upsert (clear old components, re-run analysis).
         // Same project + different version → always create a new ScanResult row.

@@ -40,6 +40,7 @@ class ScanIngestServiceTest {
     @Mock LibraryRepository libraryRepository;
     @Mock ProjectRepository projectRepository;
     @Mock VulnerabilityEnrichmentService enrichmentService;
+    @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
     @InjectMocks
     ScanIngestService scanIngestService;

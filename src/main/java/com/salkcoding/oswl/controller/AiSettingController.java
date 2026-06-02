@@ -122,7 +122,9 @@ public class AiSettingController implements AiSettingControllerSpec {
             try {
                 resolvedKey = encryptionService.decrypt(stored.get().getApiKey());
             } catch (Exception e) {
-                resolvedKey = stored.get().getApiKey();
+                return ResponseEntity.badRequest().body(
+                        Map.of("success", false,
+                               "message", "Stored API key could not be decrypted. Re-save the key in AI settings."));
             }
         }
 

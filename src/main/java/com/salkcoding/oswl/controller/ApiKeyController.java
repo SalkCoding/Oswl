@@ -6,6 +6,9 @@ import com.salkcoding.oswl.dto.api.ApiKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.ApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.service.ApiKeyTokenSupport;
+import com.salkcoding.oswl.service.IssuedApiKey;
+import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
 public class ApiKeyController implements ApiKeyControllerSpec {
 
     private final ApiKeyService apiKeyService;
+    private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
     /** List API keys for the project */
     @GetMapping
@@ -41,11 +45,12 @@ public class ApiKeyController implements ApiKeyControllerSpec {
             @PathVariable Long projectId,
             @Valid @RequestBody ApiKeyIssueRequest request) {
 
-        ApiKey key = apiKeyService.issue(projectId, request.getLabel(), request.getExpiresAt());
-        // Full token is returned only immediately after issuance (masked on subsequent lookups)
+        projectCliKeyPolicyService.assertCanIssueNewKey(projectId);
+        IssuedApiKey issued = apiKeyService.issue(projectId, request.getLabel(), request.getExpiresAt());
+        ApiKey key = issued.key();
         return ResponseEntity.ok(ApiKeyIssueResponse.builder()
                 .id(key.getId())
-                .token(key.getToken())
+                .token(issued.plainToken())
                 .label(key.getLabel() != null ? key.getLabel() : "")
                 .createdAt(key.getCreatedAt().toString())
                 .message("API key issued. Store this token securely — it won't be shown again.")
@@ -66,7 +71,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
     private ApiKeyResponse toResponse(ApiKey key) {
         return ApiKeyResponse.builder()
                 .id(key.getId())
-                .token(maskToken(key.getToken()))
+                .token(ApiKeyTokenSupport.maskForDisplay(key.getTokenPrefix()))
                 .label(key.getLabel() != null ? key.getLabel() : "")
                 .active(key.isActive())
                 .lastUsedAt(key.getLastUsedAt() != null ? key.getLastUsedAt().toString() : null)
@@ -75,9 +80,4 @@ public class ApiKeyController implements ApiKeyControllerSpec {
                 .build();
     }
 
-    /** oswl_ABCDxxxxxxxx...xxxx → oswl_ABCD...xxxx (first 9 chars + last 4 chars only) */
-    private String maskToken(String token) {
-        if (token == null || token.length() < 14) return "***";
-        return token.substring(0, 9) + "..." + token.substring(token.length() - 4);
-    }
 }

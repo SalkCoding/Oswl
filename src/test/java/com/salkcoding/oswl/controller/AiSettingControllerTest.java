@@ -46,7 +46,7 @@ class AiSettingControllerTest {
     }
 
     private void stubPreferences() {
-        when(aiPreferencesService.getEffective()).thenReturn(defaultPrefs());
+        lenient().when(aiPreferencesService.getEffective()).thenReturn(defaultPrefs());
     }
 
     @BeforeEach
@@ -342,23 +342,23 @@ class AiSettingControllerTest {
     }
 
     @Test
-    @DisplayName("testConnection: 저장된 key decrypt 실패 → legacy plaintext fallback으로 연결 시도")
-    void testConnection_decryptFails_usesPlaintextFallback() throws Exception {
+    @DisplayName("testConnection: 저장된 key decrypt 실패 → 400, 연결 시도 없음")
+    void testConnection_decryptFails_returnsBadRequest() throws Exception {
         AiTestConnectionRequest req = new AiTestConnectionRequest();
         req.setProvider(AiProvider.OPENAI);
         req.setApiKey(null);
 
         AiSetting stored = AiSetting.builder()
                 .provider(AiProvider.OPENAI)
-                .apiKey("plaintext-key-no-enc")
+                .apiKey("ciphertext-not-decryptable")
                 .build();
         when(aiSettingRepository.findByProvider(AiProvider.OPENAI)).thenReturn(Optional.of(stored));
-        when(encryptionService.decrypt("plaintext-key-no-enc")).thenThrow(new RuntimeException("not encrypted"));
-        when(aiAnalysisService.testConnection(any())).thenReturn(true);
+        when(encryptionService.decrypt("ciphertext-not-decryptable")).thenThrow(new RuntimeException("not encrypted"));
 
         ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
 
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody().get("success")).isEqualTo(true);
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(resp.getBody().get("success")).isEqualTo(false);
+        verify(aiAnalysisService, never()).testConnection(any());
     }
 }

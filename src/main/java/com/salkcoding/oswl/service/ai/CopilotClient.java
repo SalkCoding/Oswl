@@ -45,13 +45,14 @@ public class CopilotClient implements AiAnalysisClient {
     @Override
     public String summarizeCve(String cveId, String severity, double cvssScore,
                                String cveType, String component) {
-        return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component), null, "cve.single");
+        return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component),
+                null, "cve.single", null);
     }
 
     @Override
     public String summarizeLicenseRisk(String licenseName, String licenseStatus, String component) {
         return call(promptTemplates.licenseSingle(licenseName, licenseStatus, component,
-                null, "unknown", null), null, "license.single");
+                null, "unknown", null), null, "license.single", null);
     }
 
     public String callWithSetting(String prompt, AiSetting setting) {
@@ -59,13 +60,17 @@ public class CopilotClient implements AiAnalysisClient {
     }
 
     public String callWithSetting(String prompt, AiSetting setting, String operation) {
-        return call(prompt, setting, operation);
+        return callWithSetting(prompt, setting, operation, null);
+    }
+
+    public String callWithSetting(String prompt, AiSetting setting, String operation, String resolvedApiKey) {
+        return call(prompt, setting, operation, resolvedApiKey);
     }
 
     // ── Internal ─────────────────────────────────────────────────────
 
-    private String call(String userPrompt, AiSetting setting, String operation) {
-        String apiKey = setting != null ? setting.getApiKey() : null;
+    private String call(String userPrompt, AiSetting setting, String operation, String resolvedApiKey) {
+        String apiKey = resolvedApiKey;
 
         String url;
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {

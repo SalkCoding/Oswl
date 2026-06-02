@@ -5,6 +5,7 @@ import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,9 +13,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -32,15 +35,30 @@ class QuickImportServiceTest {
     @Mock GitHubService                gitHubService;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
     @Mock MavenBomVersionResolver      bomVersionResolver;
+    @Mock ProjectCliKeyPolicyService   projectCliKeyPolicyService;
 
     @InjectMocks QuickImportService quickImportService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubCliKeyPolicy() {
+        lenient().when(projectCliKeyPolicyService.resolve(anyLong()))
+                .thenReturn(ProjectCliKeyPolicyService.ProjectKeyState.NONE);
+        lenient().doNothing().when(projectCliKeyPolicyService).assertScanIngestAllowed(anyLong());
+    }
 
     // ── getJobStatus ──────────────────────────────────────────────────────
 
     @Test
     @DisplayName("getJobStatus: 알 수 없는 jobId는 null을 반환한다")
     void getJobStatus_unknownId_returnsNull() {
-        assertThat(quickImportService.getJobStatus("unknown-id")).isNull();
+        assertThat(quickImportService.getJobStatus("unknown-id", 1L)).isNull();
+    }
+
+    @Test
+    @DisplayName("getJobStatus: 다른 사용자 job은 null을 반환한다 (IDOR 방지)")
+    void getJobStatus_wrongOwner_returnsNull() {
+        String jobId = quickImportService.startImport("https://github.com/user/repo", "main", 10L);
+        assertThat(quickImportService.getJobStatus(jobId, 99L)).isNull();
     }
 
     // ── startImport ───────────────────────────────────────────────────────
@@ -74,9 +92,44 @@ class QuickImportServiceTest {
 
         // getJobStatus may return QUEUED, FAILED, or any intermediate state
         // but it should NOT be null since the job was registered
-        QuickImportJobStatus status = quickImportService.getJobStatus(jobId);
+        QuickImportJobStatus status = quickImportService.getJobStatus(jobId, 3L);
         assertThat(status).isNotNull();
         assertThat(status.getJobId()).isEqualTo(jobId);
+    }
+
+    @Test
+    @DisplayName("getJobStatus: DONE 첫 폴링만 전체 토큰, 이후 마스킹")
+    void getJobStatus_masksApiTokenAfterFirstDonePoll() {
+        String jobId = "mask-test-job";
+        String fullToken = "oswl_abcdefghijklmnopqrstuvwxyz123456";
+        QuickImportJobStatus done = QuickImportJobStatus.builder()
+                .jobId(jobId)
+                .phase(Phase.DONE)
+                .message("done")
+                .projectId(1L)
+                .projectName("proj")
+                .apiToken(fullToken)
+                .newApiKey(true)
+                .ecosystem("MAVEN")
+                .componentCount(5)
+                .build();
+
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, QuickImportJobStatus> jobs =
+                (ConcurrentHashMap<String, QuickImportJobStatus>)
+                        ReflectionTestUtils.getField(quickImportService, "jobs");
+        @SuppressWarnings("unchecked")
+        ConcurrentHashMap<String, Long> owners =
+                (ConcurrentHashMap<String, Long>)
+                        ReflectionTestUtils.getField(quickImportService, "jobOwners");
+        jobs.put(jobId, done);
+        owners.put(jobId, 1L);
+
+        QuickImportJobStatus first = quickImportService.getJobStatus(jobId, 1L);
+        assertThat(first.getApiToken()).isEqualTo(fullToken);
+
+        QuickImportJobStatus second = quickImportService.getJobStatus(jobId, 1L);
+        assertThat(second.getApiToken()).isEqualTo(QuickImportService.maskApiToken(fullToken));
     }
 
     // ── listRepos ─────────────────────────────────────────────────────────
@@ -84,7 +137,8 @@ class QuickImportServiceTest {
     @Test
     @DisplayName("listRepos: 해당 provider의 VCS 연결이 없으면 빈 목록 반환")
     void listRepos_noConnection_returnsEmpty() {
-        when(vcsConnectionRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of());
+        when(vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(1L, VcsProvider.GITHUB))
+                .thenReturn(Optional.empty());
 
         var result = quickImportService.listRepos(VcsProvider.GITHUB, 1L);
 
@@ -98,7 +152,8 @@ class QuickImportServiceTest {
                 .id(1L).provider(VcsProvider.GITHUB).active(true)
                 .accessTokenEncrypted("encrypted-token")
                 .build();
-        when(vcsConnectionRepository.findByUserIdAndActiveTrue(1L)).thenReturn(List.of(conn));
+        when(vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(1L, VcsProvider.GITHUB))
+                .thenReturn(Optional.of(conn));
         when(encryptionService.decrypt("encrypted-token")).thenThrow(new RuntimeException("bad key"));
 
         var result = quickImportService.listRepos(VcsProvider.GITHUB, 1L);

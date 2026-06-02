@@ -110,10 +110,11 @@ class QuickImportControllerTest {
     @Test
     @DisplayName("jobStatus: found returns 200 with status")
     void jobStatus_found_returns200() {
+        OswlUserPrincipal p = principal(5L);
         QuickImportJobStatus status = mock(QuickImportJobStatus.class);
-        when(quickImportService.getJobStatus("job-123")).thenReturn(status);
+        when(quickImportService.getJobStatus("job-123", 5L)).thenReturn(status);
 
-        ResponseEntity<QuickImportJobStatus> result = controller.jobStatus("job-123");
+        ResponseEntity<QuickImportJobStatus> result = controller.jobStatus("job-123", p);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).isEqualTo(status);
@@ -122,9 +123,10 @@ class QuickImportControllerTest {
     @Test
     @DisplayName("jobStatus: not found returns 404")
     void jobStatus_notFound_returns404() {
-        when(quickImportService.getJobStatus("unknown-job")).thenReturn(null);
+        OswlUserPrincipal p = principal(5L);
+        when(quickImportService.getJobStatus("unknown-job", 5L)).thenReturn(null);
 
-        ResponseEntity<QuickImportJobStatus> result = controller.jobStatus("unknown-job");
+        ResponseEntity<QuickImportJobStatus> result = controller.jobStatus("unknown-job", p);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
