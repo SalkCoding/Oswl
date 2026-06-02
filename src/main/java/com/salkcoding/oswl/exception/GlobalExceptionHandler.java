@@ -68,6 +68,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public Object handleConflict(ConflictException ex, HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        if (accept != null && accept.contains("application/json")) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("error", ex.getMessage(), "status", 409));
+        }
+        return ResponseEntity.status(HttpStatus.CONFLICT).build();
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public Object handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
         String accept = request.getHeader("Accept");

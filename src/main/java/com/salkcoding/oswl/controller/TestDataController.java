@@ -93,11 +93,11 @@ public class TestDataController {
     public ResponseEntity<String> issueTestApiKey() {
         return projectRepository.findAll().stream().findFirst()
                 .map(p -> {
-                    var key = apiKeyService.issue(p.getId(), "cli-qa", null);
+                    var key = apiKeyService.issue(p.getId(), "cli-qa", null).plainToken();
                     return ResponseEntity.ok(
                             "projectId=" + p.getId() + "\n" +
                             "projectName=" + p.getName() + "\n" +
-                            "token=" + key.getToken() + "\n");
+                            "token=" + key + "\n");
                 })
                 .orElseGet(() -> ResponseEntity.status(404)
                         .body("No project. Hit /data/test first.\n"));

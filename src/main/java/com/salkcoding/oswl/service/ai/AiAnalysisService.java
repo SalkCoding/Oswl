@@ -105,7 +105,8 @@ public class AiAnalysisService {
     public boolean testConnection(AiSetting setting) {
         String prompt = promptTemplates.testConnection();
         try {
-            String result = delegate(prompt, setting, "test.connection");
+            // Caller (e.g. test-connection endpoint) supplies a plaintext key on the setting DTO.
+            String result = delegate(prompt, setting, "test.connection", setting.getApiKey());
             if (result != null) {
                 log.info("[AI] {} provider connection test succeeded", setting.getProvider());
                 return true;
@@ -166,27 +167,37 @@ public class AiAnalysisService {
     }
 
     private String delegate(String prompt, AiSetting setting, String operation) {
+        return delegate(prompt, setting, operation, null);
+    }
+
+    private String delegate(String prompt, AiSetting setting, String operation, String resolvedApiKeyOverride) {
+        String resolvedApiKey = resolvedApiKeyOverride != null
+                ? resolvedApiKeyOverride
+                : decryptApiKey(setting);
         return switch (setting.getProvider()) {
-            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting, operation);
-            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting, operation);
-            case COPILOT               -> copilotClient.callWithSetting(prompt, setting, operation);
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
         };
     }
 
     private AiSetting getActiveSetting() {
-        return aiSettingRepository.findByActiveTrue().map(s -> {
-            if (s.getApiKey() != null && !s.getApiKey().isBlank()) {
-                try {
-                    s.update(encryptionService.decrypt(s.getApiKey()), null, null);
-                } catch (Exception e) {
-                    log.warn("[AI] Failed to decrypt API key for {} provider.", s.getProvider());
-                }
-            }
-            return s;
-        }).orElseGet(() -> {
+        return aiSettingRepository.findByActiveTrue().orElseGet(() -> {
             log.debug("[AI] No active AI setting. Skipping analysis.");
             return null;
         });
+    }
+
+    private String decryptApiKey(AiSetting setting) {
+        if (setting == null || setting.getApiKey() == null || setting.getApiKey().isBlank()) {
+            return null;
+        }
+        try {
+            return encryptionService.decrypt(setting.getApiKey());
+        } catch (Exception e) {
+            log.warn("[AI] Failed to decrypt API key for {} provider.", setting.getProvider());
+            return null;
+        }
     }
 
     private Map<String, String> parseBatchSummaryResponse(String response) {

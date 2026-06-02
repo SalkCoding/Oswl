@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.service.ApiKeyTokenSupport;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -8,11 +9,11 @@ import java.time.LocalDateTime;
 
 /**
  * API key used by the CLI client when sending data to the server.
- * Issued per project, and scan data is rejected if the key does not match.
+ * The full token is never stored — only a lookup prefix and BCrypt hash.
  */
 @Entity
 @Table(name = "api_keys",
-        indexes = @Index(name = "idx_api_keys_token", columnList = "token", unique = true))
+        indexes = @Index(name = "idx_api_keys_token_prefix", columnList = "token_prefix", unique = true))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -23,9 +24,20 @@ public class ApiKey {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** `oswl_` prefix + SecureRandom base64 token */
-    @Column(nullable = false, unique = true, length = 100)
-    private String token;
+    /** First {@link com.salkcoding.oswl.service.ApiKeyTokenSupport#PREFIX_LENGTH} chars of the token for lookup */
+    @Column(name = "token_prefix", nullable = false, unique = true, length = 20)
+    private String tokenPrefix;
+
+    /** BCrypt hash of the full token (includes {@code oswl_} prefix) */
+    @Column(name = "token_hash", nullable = false, length = 100)
+    private String tokenHash;
+
+    /**
+     * Legacy plaintext column — populated only before migration; cleared after hashing.
+     * Hibernate ddl-auto may keep the {@code token} column until manually dropped.
+     */
+    @Column(name = "token", length = 100)
+    private String legacyToken;
 
     @Column(length = 200)
     private String label;
@@ -51,12 +63,18 @@ public class ApiKey {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    /**
-     * User who issued this key through CLI authentication (POST /api/cli/auth).
-     * Keys created by an administrator in the UI are null.
-     */
     @Column(name = "created_by_user_id")
     private Long createdByUserId;
+
+    public void applyTokenHash(String plainToken, String tokenHash) {
+        this.tokenPrefix = ApiKeyTokenSupport.extractPrefix(plainToken);
+        this.tokenHash = tokenHash;
+        this.legacyToken = null;
+    }
+
+    public void clearLegacyToken() {
+        this.legacyToken = null;
+    }
 
     public void revoke() {
         this.active = false;
@@ -78,5 +96,11 @@ public class ApiKey {
 
     public boolean isValid() {
         return active && !isExpired();
+    }
+
+    /** Pending migration when legacy plaintext is still present. */
+    public boolean needsTokenMigration() {
+        return legacyToken != null && !legacyToken.isBlank()
+                && (tokenHash == null || tokenHash.isBlank());
     }
 }

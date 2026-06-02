@@ -156,8 +156,8 @@ class MailServiceTest {
     }
 
     @Test
-    @DisplayName("sendOtp: decrypt failure falls back to plaintext password")
-    void sendOtp_decryptFails_fallsBackToPlaintext() {
+    @DisplayName("sendOtp: decrypt failure → IllegalStateException (평문 폴백 없음)")
+    void sendOtp_decryptFails_throwsIllegalStateException() {
         SecuritySetting settings = SecuritySetting.builder()
                 .id(1L)
                 .mailMode(MailMode.SMTP)
@@ -170,10 +170,10 @@ class MailServiceTest {
                 .build();
         when(securitySettingService.getOrCreate()).thenReturn(settings);
         when(encryptionService.decrypt("maybe-plain")).thenThrow(new RuntimeException("decrypt failed"));
-        when(templateEngine.process(anyString(), any(IContext.class))).thenReturn("<html/>");
 
         assertThatThrownBy(() -> mailService.sendOtp("user@test.com", "User", "123456"))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("could not be decrypted");
     }
 
     @Test

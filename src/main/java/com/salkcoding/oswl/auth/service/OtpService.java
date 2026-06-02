@@ -47,12 +47,6 @@ public class OtpService {
     private static final int  MAX_OTP_ATTEMPTS   = 5;
     private static final long RESEND_COOLDOWN_MS = 60_000L;   // 60 seconds
 
-    /**
-     * TODO: Remove the test bypass before production deployment.
-     *       For local development, "000000" is always accepted as a valid OTP.
-     */
-    private static final String TEST_BYPASS_CODE = "000000";
-
     private final MailService    mailService;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
@@ -81,13 +75,13 @@ public class OtpService {
             mailService.sendOtp(email, name, otp);
             session.removeAttribute(SESSION_MAIL_FAILED);
             log.info("[OTP] OTP issued for user='{}', valid={}min", email, OTP_VALID_MINUTES);
+            log.debug("[OTP] Verification code for '{}': {}", email, otp);
         } catch (Exception e) {
             // A delivery failure does not block the authentication flow;
             // the OTP remains stored in the session.
             session.setAttribute(SESSION_MAIL_FAILED, true);
             log.error("[OTP] Failed to send OTP email to '{}': {}", email, e.getMessage());
-            // DEV fallback: print the code for local testing when SMTP is not configured
-            log.debug("[OTP][DEV-FALLBACK] OTP email delivery failed — '{}' code: {}", email, otp);
+            log.debug("[OTP] Verification code for '{}' (delivery failed): {}", email, otp);
         }
     }
 
@@ -125,14 +119,6 @@ public class OtpService {
      */
     public boolean verify(HttpSession session, String code) {
         if (code == null) return false;
-
-        // TODO: Remove test bypass — "000000" should only work for local development
-        if (TEST_BYPASS_CODE.equals(code)) {
-            OswlUserPrincipal p = getPendingPrincipal(session);
-            log.warn("[OTP][TEST] Accepted test bypass '000000' for user '{}'",
-                    p != null ? p.getUsername() : "unknown");
-            return true;
-        }
 
         String stored = (String) session.getAttribute(SESSION_OTP);
         Long   expiry = (Long)   session.getAttribute(SESSION_EXPIRY);
@@ -202,8 +188,10 @@ public class OtpService {
         try {
             mailService.sendOtp(email, displayName, otp);
             log.info("[OTP-STEPUP] Step-up OTP issued for '{}'", email);
+            log.debug("[OTP-STEPUP] Verification code for '{}': {}", email, otp);
         } catch (Exception e) {
             log.error("[OTP-STEPUP] Failed to send step-up OTP to '{}': {}", email, e.getMessage());
+            log.debug("[OTP-STEPUP] Verification code for '{}' (delivery failed): {}", email, otp);
         }
     }
 
@@ -213,9 +201,6 @@ public class OtpService {
      */
     public boolean verifyChangePasswordOtp(HttpSession session, String code) {
         if (code == null) return false;
-
-        // TODO: Remove test bypass before production
-        if (TEST_BYPASS_CODE.equals(code)) return true;
 
         String stored = (String) session.getAttribute(SESSION_CHANGE_PW_OTP);
         Long   expiry = (Long)   session.getAttribute(SESSION_CHANGE_PW_EXPIRY);

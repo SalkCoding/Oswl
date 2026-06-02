@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.domain.entity.ExternalApiSetting;
 import com.salkcoding.oswl.repository.ExternalApiSettingRepository;
+import com.salkcoding.oswl.service.ExternalApiSettingSecretsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,8 +24,17 @@ import static org.mockito.Mockito.*;
 class ExternalSettingsControllerTest {
 
     @Mock ExternalApiSettingRepository externalApiSettingRepository;
+    @Mock ExternalApiSettingSecretsService externalApiSettingSecretsService;
 
     @InjectMocks ExternalSettingsController controller;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubEncryption() {
+        lenient().when(externalApiSettingSecretsService.encryptSecret(any())).thenAnswer(inv -> {
+            String plain = inv.getArgument(0);
+            return plain == null || plain.isBlank() ? null : "enc:" + plain;
+        });
+    }
 
     private ExternalApiSetting defaultSetting() {
         return ExternalApiSetting.builder().build();

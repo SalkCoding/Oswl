@@ -81,7 +81,7 @@ class AnthropicClientTest {
         stubResponse("Analysis complete.");
         AiSetting s = setting("sk-ant-key", "claude-3-5-sonnet-20241022");
 
-        String result = client.callWithSetting("prompt", s);
+        String result = client.callWithSetting("prompt", s, "completion", "sk-ant-key");
 
         assertThat(result).isEqualTo("Analysis complete.");
     }

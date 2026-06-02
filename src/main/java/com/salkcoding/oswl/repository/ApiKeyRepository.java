@@ -9,17 +9,17 @@ import java.util.Optional;
 
 public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
 
-    /** Find a key by its token value (used by the interceptor for authentication) */
-    Optional<ApiKey> findByToken(String token);
+    Optional<ApiKey> findByTokenPrefix(String tokenPrefix);
 
-    /** Find all keys for a project (including inactive ones) */
     List<ApiKey> findByProjectIdOrderByCreatedAtDesc(Long projectId);
 
-    /** Find all keys across all projects (admin use) */
+    long countByProjectId(Long projectId);
+
     @EntityGraph(attributePaths = {"project"})
     List<ApiKey> findAllByOrderByCreatedAtDesc();
 
-    /** Find a key by ID with its project eagerly loaded */
     @EntityGraph(attributePaths = {"project"})
     Optional<ApiKey> findWithProjectById(Long id);
+
+    List<ApiKey> findByLegacyTokenIsNotNull();
 }

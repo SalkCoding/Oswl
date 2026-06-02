@@ -83,10 +83,15 @@ class OtpServiceTest {
     // ── verify ───────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("verify accepts the dev bypass code '000000'")
-    void verify_acceptsTestBypassCode() {
+    @DisplayName("verify rejects the former test bypass code '000000'")
+    void verify_rejectsTestBypassCode() {
+        String otp = "123456";
+        long expiry = Instant.now().plusSeconds(180).toEpochMilli();
         session.setAttribute(OtpService.SESSION_PRINCIPAL, principal);
-        assertThat(otpService.verify(session, "000000")).isTrue();
+        session.setAttribute(OtpService.SESSION_OTP, otp);
+        session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
+
+        assertThat(otpService.verify(session, "000000")).isFalse();
     }
 
     @Test

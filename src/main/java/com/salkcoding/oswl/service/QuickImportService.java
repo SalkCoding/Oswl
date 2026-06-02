@@ -91,6 +91,7 @@ public class QuickImportService {
     private final GitHubService gitHubService;
     private final BitbucketCloudClient bitbucketCloudClient;
     private final EnrichmentProgressHolder enrichmentProgressHolder;
+    private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -141,9 +142,14 @@ public class QuickImportService {
         Thread.ofVirtual().name("quick-import-" + jobId).start(() -> {
             try {
                 runImport(jobId, repoUrl, branch, userId);
+            } catch (com.salkcoding.oswl.exception.ConflictException e) {
+                log.warn("[QuickImport][{}] Blocked by CLI key policy: {}", jobId, e.getMessage());
+                updateJob(jobId, Phase.FAILED, e.getMessage(),
+                        null, null, null, null, null, null);
             } catch (Throwable t) {
                 log.error("[QuickImport][{}] Unhandled error: {}", jobId, t.getMessage(), t);
-                updateJob(jobId, Phase.FAILED, "Unexpected error: " + t.getMessage(),
+                String msg = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
+                updateJob(jobId, Phase.FAILED, "Unexpected error: " + msg,
                         null, null, null, null, null, null);
             } finally {
                 activeJobByUser.remove(userId, jobId);
@@ -494,6 +500,7 @@ public class QuickImportService {
                     branch != null && !branch.isBlank() ? branch : "default",
                     userId);
 
+            projectCliKeyPolicyService.assertScanIngestAllowed(project.getId());
             ApiKeyResult keyResult = getOrIssueApiKey(project);
 
             // 6. Submit scan ───────────────────────────────
@@ -1690,28 +1697,27 @@ public class QuickImportService {
     private record ApiKeyResult(String token, boolean isNew) {}
 
     /**
-     * Returns an existing active API key for the project, or issues a new one
-     * labeled "quick-import". For existing keys the token is intentionally null
-     * to avoid re-exposing a key the user should already have stored.
+     * Returns an existing active API key for the project, or issues a new one when the project
+     * has no api_keys rows. Revoked/inactive-only projects must not reach this method
+     * ({@link ProjectCliKeyPolicyService#assertScanIngestAllowed} runs first).
      */
     private ApiKeyResult getOrIssueApiKey(Project project) {
-        List<ApiKey> existing = apiKeyService.findByProject(project.getId())
-                .stream()
-                .filter(ApiKey::isValid)
-                .toList();
-        if (!existing.isEmpty()) {
-            return new ApiKeyResult(null, false);
-        }
-        ApiKey newKey = apiKeyService.issue(project.getId(), "quick-import", null);
-        return new ApiKeyResult(newKey.getToken(), true);
+        return switch (projectCliKeyPolicyService.resolve(project.getId())) {
+            case ACTIVE_PRESENT -> new ApiKeyResult(null, false);
+            case NONE -> {
+                IssuedApiKey issued = apiKeyService.issue(project.getId(), "quick-import", null);
+                yield new ApiKeyResult(issued.plainToken(), true);
+            }
+            case INACTIVE_ONLY -> throw new IllegalStateException("CLI key policy blocked ingest");
+        };
     }
 
     private String decryptToken(UserVcsConnection conn) {
         try {
             return encryptionService.decrypt(conn.getAccessTokenEncrypted());
         } catch (Exception e) {
-            log.warn("[QuickImport] Failed to decrypt VCS token (legacy plaintext?): {}", e.getMessage());
-            return conn.getAccessTokenEncrypted();
+            throw new IllegalStateException(
+                    "VCS token could not be decrypted. Reconnect the integration in Settings.", e);
         }
     }
 

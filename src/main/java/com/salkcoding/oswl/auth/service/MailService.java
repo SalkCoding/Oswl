@@ -115,8 +115,8 @@ public class MailService {
             try {
                 sender.setPassword(encryptionService.decrypt(s.getMailPassword()));
             } catch (Exception e) {
-                log.warn("[Mail] Failed to decrypt mail password; trying plaintext instead (legacy support).");
-                sender.setPassword(s.getMailPassword());
+                throw new IllegalStateException(
+                        "SMTP password could not be decrypted. Re-save mail settings in Security.", e);
             }
         }
 

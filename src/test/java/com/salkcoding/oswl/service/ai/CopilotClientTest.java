@@ -72,7 +72,7 @@ class CopilotClientTest {
         stubResponse("CVE analysis done.");
         AiSetting s = setting("ghp_github_token", "gpt-4o");
 
-        String result = client.callWithSetting("prompt", s);
+        String result = client.callWithSetting("prompt", s, "completion", "ghp_github_token");
 
         assertThat(result).isEqualTo("CVE analysis done.");
     }

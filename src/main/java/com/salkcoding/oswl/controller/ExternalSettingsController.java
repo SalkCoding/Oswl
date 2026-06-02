@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.domain.entity.ExternalApiSetting;
 import com.salkcoding.oswl.controller.spec.ExternalSettingsControllerSpec;
 import com.salkcoding.oswl.repository.ExternalApiSettingRepository;
+import com.salkcoding.oswl.service.ExternalApiSettingSecretsService;
 import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ import java.util.Map;
 public class ExternalSettingsController implements ExternalSettingsControllerSpec {
 
     private final ExternalApiSettingRepository externalApiSettingRepository;
+    private final ExternalApiSettingSecretsService externalApiSettingSecretsService;
 
     // ── GET ───────────────────────────────────────────────────────────────
 
@@ -50,7 +52,7 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
 
         ExternalApiSetting s = getOrCreateSettings();
         String key = body.getOrDefault("nvdApiKey", "").strip();
-        s.updateNvdApiKey(key.isEmpty() ? null : key);
+        s.updateNvdApiKey(key.isEmpty() ? null : externalApiSettingSecretsService.encryptSecret(key));
         externalApiSettingRepository.save(s);
 
         return ResponseEntity.ok(Map.of("nvdConfigured", s.isNvdEnabled()));
@@ -107,7 +109,12 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
             @RequestBody Map<String, String> body) {
 
         ExternalApiSetting s = getOrCreateSettings();
-        s.updateGithubOAuth(body.get("clientId"), body.get("clientSecret"), body.get("redirectUri"));
+        String secret = body.get("clientSecret");
+        String encryptedSecret = null;
+        if (secret != null) {
+            encryptedSecret = secret.isBlank() ? null : externalApiSettingSecretsService.encryptSecret(secret);
+        }
+        s.updateGithubOAuth(body.get("clientId"), encryptedSecret, body.get("redirectUri"));
         externalApiSettingRepository.save(s);
 
         return ResponseEntity.ok(Map.of("configured", s.isGithubConfigured()));
