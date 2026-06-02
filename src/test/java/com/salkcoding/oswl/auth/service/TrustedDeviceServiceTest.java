@@ -16,20 +16,23 @@ class TrustedDeviceServiceTest {
     private static final String VALID_KEY =
             Base64.getEncoder().encodeToString(new byte[32]);
 
+    private TrustedDeviceService service(boolean cookieSecureOverride) {
+        return new TrustedDeviceService(VALID_KEY, cookieSecureOverride);
+    }
+
     // ── isEnabled ─────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("isEnabled: 키가 빈 문자열이면 false")
     void isEnabled_blankKey_false() {
-        TrustedDeviceService service = new TrustedDeviceService("");
-        assertThat(service.isEnabled()).isFalse();
+        TrustedDeviceService svc = new TrustedDeviceService("", false);
+        assertThat(svc.isEnabled()).isFalse();
     }
 
     @Test
     @DisplayName("isEnabled: 유효한 키가 있으면 true")
     void isEnabled_validKey_true() {
-        TrustedDeviceService service = new TrustedDeviceService(VALID_KEY);
-        assertThat(service.isEnabled()).isTrue();
+        assertThat(service(false).isEnabled()).isTrue();
     }
 
     // ── isTrusted (disabled) ──────────────────────────────────────────────
@@ -37,10 +40,10 @@ class TrustedDeviceServiceTest {
     @Test
     @DisplayName("isTrusted: 서비스가 비활성화 상태이면 항상 false")
     void isTrusted_disabled_alwaysFalse() {
-        TrustedDeviceService service = new TrustedDeviceService("");
+        TrustedDeviceService svc = new TrustedDeviceService("", false);
         MockHttpServletRequest request = new MockHttpServletRequest();
 
-        assertThat(service.isTrusted(1L, request)).isFalse();
+        assertThat(svc.isTrusted(1L, request)).isFalse();
     }
 
     // ── isTrusted (no cookie) ─────────────────────────────────────────────
@@ -48,10 +51,9 @@ class TrustedDeviceServiceTest {
     @Test
     @DisplayName("isTrusted: 쿠키가 없으면 false")
     void isTrusted_noCookie_false() {
-        TrustedDeviceService service = new TrustedDeviceService(VALID_KEY);
         MockHttpServletRequest request = new MockHttpServletRequest();
 
-        assertThat(service.isTrusted(1L, request)).isFalse();
+        assertThat(service(false).isTrusted(1L, request)).isFalse();
     }
 
     // ── setTrusted → isTrusted roundtrip ──────────────────────────────────
@@ -59,34 +61,49 @@ class TrustedDeviceServiceTest {
     @Test
     @DisplayName("setTrusted 후 isTrusted: 동일 userId로 신뢰됨")
     void setTrusted_then_isTrusted_sameUser() {
-        TrustedDeviceService service = new TrustedDeviceService(VALID_KEY);
-
+        TrustedDeviceService svc = service(false);
+        MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
-        service.setTrusted(42L, response);
+
+        svc.setTrusted(42L, request, response);
 
         Cookie cookie = response.getCookie("OSWL_TD");
         assertThat(cookie).isNotNull();
         assertThat(cookie.isHttpOnly()).isTrue();
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(cookie);
 
-        assertThat(service.isTrusted(42L, request)).isTrue();
+        assertThat(svc.isTrusted(42L, request)).isTrue();
+    }
+
+    @Test
+    @DisplayName("setTrusted: HTTPS 요청이면 Secure 쿠키")
+    void setTrusted_secureRequest_setsSecureFlag() {
+        TrustedDeviceService svc = service(false);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setSecure(true);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        svc.setTrusted(42L, request, response);
+
+        Cookie cookie = response.getCookie("OSWL_TD");
+        assertThat(cookie).isNotNull();
+        assertThat(cookie.getSecure()).isTrue();
     }
 
     @Test
     @DisplayName("setTrusted 후 isTrusted: 다른 userId는 신뢰되지 않음")
     void setTrusted_then_isTrusted_differentUser() {
-        TrustedDeviceService service = new TrustedDeviceService(VALID_KEY);
-
+        TrustedDeviceService svc = service(false);
         MockHttpServletResponse response = new MockHttpServletResponse();
-        service.setTrusted(42L, response);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        svc.setTrusted(42L, request, response);
 
         Cookie cookie = response.getCookie("OSWL_TD");
-        MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(cookie);
 
-        assertThat(service.isTrusted(99L, request)).isFalse();
+        assertThat(svc.isTrusted(99L, request)).isFalse();
     }
 
     // ── clearTrusted ──────────────────────────────────────────────────────
@@ -94,10 +111,10 @@ class TrustedDeviceServiceTest {
     @Test
     @DisplayName("clearTrusted: Max-Age=0인 쿠키를 응답에 추가한다")
     void clearTrusted_setsMaxAgeZero() {
-        TrustedDeviceService service = new TrustedDeviceService(VALID_KEY);
-
+        MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
-        service.clearTrusted(response);
+
+        service(false).clearTrusted(request, response);
 
         Cookie cookie = response.getCookie("OSWL_TD");
         assertThat(cookie).isNotNull();
@@ -109,11 +126,9 @@ class TrustedDeviceServiceTest {
     @Test
     @DisplayName("isTrusted: 변조된 쿠키 값이면 false")
     void isTrusted_tamperedCookie_false() {
-        TrustedDeviceService service = new TrustedDeviceService(VALID_KEY);
-
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setCookies(new Cookie("OSWL_TD", "tampered-value!!"));
 
-        assertThat(service.isTrusted(1L, request)).isFalse();
+        assertThat(service(false).isTrusted(1L, request)).isFalse();
     }
 }

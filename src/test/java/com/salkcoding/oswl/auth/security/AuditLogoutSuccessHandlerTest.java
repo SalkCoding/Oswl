@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.auth.security;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.auth.service.TrustedDeviceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +21,7 @@ import static org.mockito.Mockito.*;
 class AuditLogoutSuccessHandlerTest {
 
     @Mock AuditLogService auditLogService;
+    @Mock TrustedDeviceService trustedDeviceService;
     @InjectMocks AuditLogoutSuccessHandler handler;
 
     @Mock HttpServletRequest request;
@@ -31,6 +33,7 @@ class AuditLogoutSuccessHandlerTest {
     void onLogoutSuccess_withAuthentication_logsAndRedirects() throws IOException {
         handler.onLogoutSuccess(request, response, authentication);
 
+        verify(trustedDeviceService).clearTrusted(request, response);
         verify(auditLogService).log("AUTH.LOGOUT", "AUTH", null, null, null);
         verify(response).sendRedirect("/login?logout");
     }
@@ -40,6 +43,7 @@ class AuditLogoutSuccessHandlerTest {
     void onLogoutSuccess_nullAuthentication_skipsLogAndRedirects() throws IOException {
         handler.onLogoutSuccess(request, response, null);
 
+        verify(trustedDeviceService).clearTrusted(request, response);
         verifyNoInteractions(auditLogService);
         verify(response).sendRedirect("/login?logout");
     }

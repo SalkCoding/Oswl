@@ -36,8 +36,9 @@ public class AuthViewController {
             return "redirect:/login";
         }
 
+        var pending = otpService.getPendingIdentity(session);
         model.addAttribute("maskedEmail",
-                maskEmail(otpService.getPendingPrincipal(session).getUsername()));
+                pending != null ? maskEmail(pending.email()) : "");
         model.addAttribute("expirySeconds", otpService.remainingSeconds(session));
         model.addAttribute("mailFailed",
                 Boolean.TRUE.equals(session.getAttribute(OtpService.SESSION_MAIL_FAILED)));
