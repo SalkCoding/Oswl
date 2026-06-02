@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,7 @@ class QuickImportServiceParserTest {
     @Mock ScanIngestService            scanIngestService;
     @Mock ScanResultRepository         scanResultRepository;
     @Mock GitHubService                gitHubService;
+    @Mock BitbucketCloudClient         bitbucketCloudClient;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
     @Mock MavenBomVersionResolver      bomVersionResolver;
 

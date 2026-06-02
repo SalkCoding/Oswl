@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
@@ -88,6 +89,7 @@ public class QuickImportService {
     private final ScanIngestService scanIngestService;
     private final ScanResultRepository scanResultRepository;
     private final GitHubService gitHubService;
+    private final BitbucketCloudClient bitbucketCloudClient;
     private final EnrichmentProgressHolder enrichmentProgressHolder;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
@@ -220,7 +222,7 @@ public class QuickImportService {
 
         try {
             return switch (provider) {
-                case GITHUB   -> listGitHubRepos(token);
+                case GITHUB   -> listGitHubRepos(token, conn.getServerUrl());
                 case GITLAB   -> listGitLabRepos(token, conn.getServerUrl());
                 case BITBUCKET -> isBitbucketCloud(conn.getServerUrl())
                         ? listBitbucketCloudRepos(token, conn.getVcsUsername())
@@ -232,12 +234,13 @@ public class QuickImportService {
         }
     }
 
-    private List<QuickImportRepoDto> listGitHubRepos(String token) {
-        return gitHubService.listAllUserRepos(token).stream()
+    private List<QuickImportRepoDto> listGitHubRepos(String token, String serverUrl) {
+        String webBase = gitHubService.resolveWebBase(serverUrl);
+        return gitHubService.listAllUserRepos(token, serverUrl).stream()
                 .map(r -> new QuickImportRepoDto(
                         r.getName(),
                         r.getFullName(),
-                        "https://github.com/" + r.getFullName(),
+                        webBase + "/" + r.getFullName(),
                         r.getDefaultBranch(),
                         r.isPrivate(),
                         r.getUpdatedAt()))
@@ -311,173 +314,28 @@ public class QuickImportService {
     }
 
     private List<QuickImportRepoDto> listBitbucketCloudRepos(String tokenOrAppPassword, String username) throws Exception {
-        // Bitbucket Cloud authentication methods (as of 2026):
-        //
-        //  ATATT (Atlassian Account API Token from id.atlassian.com)
-        //        → Basic auth with email:token
-        //        → ALL workspace/repo listing endpoints return HTTP 410 (CHANGE-2770):
-        //            /user/permissions/workspaces, /user/permissions/repositories,
-        //            /repositories (unscoped), /workspaces (with Basic auth)
-        //        → Workspace slug is not derivable from any /user API field.
-        //        → NOT SUPPORTED. Users must use a Workspace HTTP Access Token instead.
-        //
-        //  ATATT (Bitbucket Workspace HTTP Access Token from workspace settings)
-        //        → Bearer auth. Username = workspace slug.
-        //        → /2.0/repositories/{slug}  → WORKS ✓  (workspace-scoped per CHANGE-2770)
-        //        → /2.0/workspaces           → WORKS ✓  (NOT deprecated by CHANGE-2770)
-        //
-        //  ATBB  (App Password) — DEPRECATED, brownout 2026-06-09, removed 2026-07-28.
-        //        → Basic auth: accountId:appPassword
-        //        → /2.0/repositories/{slug}  → WORKS while tokens remain valid ✓
-
-        boolean isAtatt = tokenOrAppPassword != null && tokenOrAppPassword.startsWith("ATATT");
-        boolean hasEmail = username != null && username.contains("@");
-        boolean hasSlug  = username != null && !username.isBlank() && !username.contains("@");
-
-        if (isAtatt && hasEmail) {
-            // ── Atlassian Account API Token — email-based Basic auth ──────────────────
-            // CHANGE-2770 (Atlassian): workspace listing endpoints are fully deprecated for
-            // this token type. /user/permissions/workspaces, /workspaces, and
-            // /repositories?role=member all return HTTP 410.
-            // The workspace slug (e.g. "salkcoding") is not derivable from any API field
-            // returned by /user (nickname and username differ from the actual workspace slug).
-            // Users must re-connect using a Workspace HTTP Access Token instead.
-            throw new IllegalStateException(
-                    "Atlassian Account API Tokens (from id.atlassian.com) can no longer list " +
-                    "Bitbucket repositories due to Atlassian's CHANGE-2770 deprecation. " +
-                    "Please disconnect and re-connect using a Workspace HTTP Access Token: " +
-                    "Bitbucket workspace settings → Access management → Access tokens. " +
-                    "Enter your workspace slug (e.g. 'mycompany') as Username and the new token as Access Token.");
-
-        } else if (isAtatt && hasSlug) {
-            // ── Workspace HTTP Access Token — Bearer auth with slug ───────────────────
-            String bearerHeader = "Bearer " + tokenOrAppPassword;
-
-            // Step 1: the specified workspace slug
-            List<QuickImportRepoDto> repos = fetchBitbucketRepoPage(
-                    "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on",
-                    bearerHeader);
-            if (!repos.isEmpty()) return repos;
-
-            // Step 2: discover all accessible workspaces via Bearer
-            List<QuickImportRepoDto> fromWorkspaces = fetchReposViaWorkspaceList(bearerHeader);
-            if (!fromWorkspaces.isEmpty()) return fromWorkspaces;
-
-            throw new IllegalStateException(
-                    "Could not list repositories for workspace '" + username + "'. " +
-                    "Verify the workspace slug, token scopes (Repositories: Read), and that the token is a " +
-                    "Workspace HTTP Access Token from Bitbucket workspace settings → Access management → Access tokens.");
-
-        } else if (isAtatt) {
-            // ── Workspace HTTP Access Token — no username, Bearer-only ────────────────
-            String bearerHeader = "Bearer " + tokenOrAppPassword;
-
-            List<QuickImportRepoDto> fromWorkspaces = fetchReposViaWorkspaceList(bearerHeader);
-            if (!fromWorkspaces.isEmpty()) return fromWorkspaces;
-
-            throw new IllegalStateException(
-                    "Could not list repositories with the Bitbucket HTTP Access Token. " +
-                    "Provide the workspace slug in the Username field to target a specific workspace.");
-
-        } else {
-            // ── Bitbucket App Password (Basic auth, DEPRECATED) ───────────────────────
-            if (username == null || username.isBlank()) {
-                throw new IllegalStateException(
-                        "Bitbucket App Password requires a username. " +
-                        "Enter your Bitbucket account ID in the Username field, or migrate to a Workspace HTTP Access Token.");
-            }
-
-            String basicHeader = "Basic " + Base64.getEncoder().encodeToString(
-                    (username + ":" + tokenOrAppPassword).getBytes(StandardCharsets.UTF_8));
-
-            if (hasSlug) {
-                List<QuickImportRepoDto> repos = fetchBitbucketRepoPage(
-                        "https://api.bitbucket.org/2.0/repositories/" + username + "?pagelen=100&sort=-updated_on",
-                        basicHeader);
-                if (!repos.isEmpty()) return repos;
-            }
-
-            List<QuickImportRepoDto> fromWorkspaces = fetchReposViaWorkspaceList(basicHeader);
-            if (!fromWorkspaces.isEmpty()) return fromWorkspaces;
-
-            throw new IllegalStateException(
-                    "Could not list repositories with the Bitbucket App Password. " +
-                    "Ensure the App Password has 'Repositories: Read' and 'Account: Read' scopes.");
-        }
-    }
-
-    /** Calls GET /2.0/workspaces and fetches repos for each workspace slug found. */
-    private List<QuickImportRepoDto> fetchReposViaWorkspaceList(String authHeader) throws Exception {
-        HttpRequest wsReq = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.bitbucket.org/2.0/workspaces?pagelen=100"))
-                .header("Authorization", authHeader)
-                .header("User-Agent", USER_AGENT)
-                .GET().build();
-        HttpResponse<String> wsResp = httpClient.send(wsReq, HttpResponse.BodyHandlers.ofString());
-        if (wsResp.statusCode() != 200) {
-            log.warn("[RepoBrowser] Bitbucket /workspaces returned HTTP {} — {}", wsResp.statusCode(),
-                    wsResp.body().substring(0, Math.min(200, wsResp.body().length())));
-            return List.of();
-        }
-        JsonNode wsRoot = OBJECT_MAPPER.readTree(wsResp.body());
-        JsonNode workspaces = wsRoot.path("values");
-        if (!workspaces.isArray()) return List.of();
-
-        List<QuickImportRepoDto> result = new ArrayList<>();
-        for (JsonNode ws : workspaces) {
-            String slug = ws.path("slug").asText();
-            if (!slug.isBlank()) {
-                result.addAll(fetchBitbucketRepoPage(
-                        "https://api.bitbucket.org/2.0/repositories/" + slug + "?pagelen=100&sort=-updated_on",
-                        authHeader));
-            }
-        }
-        return result;
-    }
-
-    /** Fetches one page of Bitbucket repos and maps them to DTOs. Returns empty list on non-200. */
-    private List<QuickImportRepoDto> fetchBitbucketRepoPage(String url, String authHeader) throws Exception {
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", authHeader)
-                .header("User-Agent", USER_AGENT)
-                .GET().build();
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        log.info("[RepoBrowser] Bitbucket {} → HTTP {} body-snippet: {}", url,
-                resp.statusCode(), resp.body().substring(0, Math.min(200, resp.body().length())));
-        if (resp.statusCode() != 200) {
-            log.warn("[RepoBrowser] Bitbucket Cloud returned HTTP {} for {}", resp.statusCode(), url);
-            return List.of();
-        }
-        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
-        JsonNode values = root.path("values");
-        if (!values.isArray()) return List.of();
-
-        List<QuickImportRepoDto> result = new ArrayList<>();
-        for (JsonNode r : values) {
-            String webUrl = r.path("links").path("html").path("href").asText();
-            String fullName = r.path("full_name").asText();
-            boolean priv = r.path("is_private").asBoolean(false);
-            String updatedAt = r.path("updated_on").asText();
-            String defaultBranch = r.path("mainbranch").path("name").asText("main");
-            result.add(new QuickImportRepoDto(r.path("name").asText(), fullName, webUrl, defaultBranch, priv, updatedAt));
-        }
-        return result;
+        return bitbucketCloudClient.listRepositories(username, tokenOrAppPassword);
     }
 
     private List<QuickImportRepoDto> listBitbucketServerRepos(String token, String serverUrl) throws Exception {
         String base = serverUrl.replaceAll("/+$", "");
-        String url = base + "/rest/api/1.0/repos?limit=100";
+        String authHeader = "Bearer " + token;
 
+        // Primary: /rest/api/1.0/projects → repos per project (Data Center standard)
+        List<QuickImportRepoDto> fromProjects = listServerReposViaProjects(base, authHeader);
+        if (!fromProjects.isEmpty()) return fromProjects;
+
+        // Fallback: global repo list
+        String url = base + "/rest/api/1.0/repos?limit=100";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", authHeader)
                 .header("User-Agent", USER_AGENT)
                 .GET().build();
 
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() != 200) {
-            log.warn("[RepoBrowser] Bitbucket Server returned HTTP {}", resp.statusCode());
+            log.warn("[RepoBrowser] Bitbucket Server returned HTTP {} for {}", resp.statusCode(), url);
             return List.of();
         }
 
@@ -487,16 +345,62 @@ public class QuickImportService {
 
         List<QuickImportRepoDto> result = new ArrayList<>();
         for (JsonNode r : values) {
-            String repoName = r.path("name").asText();
-            String projectKey = r.path("project").path("key").asText();
-            String slug = r.path("slug").asText();
-            String fullName = projectKey + "/" + slug;
-            // Construct browse URL from self link
-            String webUrl = base + "/projects/" + projectKey + "/repos/" + slug + "/browse";
-            boolean priv = !r.path("public").asBoolean(true);
-            result.add(new QuickImportRepoDto(repoName, fullName, webUrl, "main", priv, ""));
+            result.add(mapServerRepoNode(r, base));
         }
         return result;
+    }
+
+    private List<QuickImportRepoDto> listServerReposViaProjects(String base, String authHeader) throws Exception {
+        HttpRequest projectsReq = HttpRequest.newBuilder()
+                .uri(URI.create(base + "/rest/api/1.0/projects?limit=100"))
+                .header("Authorization", authHeader)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+        HttpResponse<String> projectsResp = httpClient.send(projectsReq, HttpResponse.BodyHandlers.ofString());
+        if (projectsResp.statusCode() != 200) {
+            log.warn("[RepoBrowser] Bitbucket Server /projects returned HTTP {}", projectsResp.statusCode());
+            return List.of();
+        }
+
+        JsonNode projectsRoot = OBJECT_MAPPER.readTree(projectsResp.body());
+        JsonNode projects = projectsRoot.path("values");
+        if (!projects.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode project : projects) {
+            String projectKey = project.path("key").asText();
+            if (projectKey.isBlank()) continue;
+
+            HttpRequest reposReq = HttpRequest.newBuilder()
+                    .uri(URI.create(base + "/rest/api/1.0/projects/" + projectKey + "/repos?limit=100"))
+                    .header("Authorization", authHeader)
+                    .header("User-Agent", USER_AGENT)
+                    .GET().build();
+            HttpResponse<String> reposResp = httpClient.send(reposReq, HttpResponse.BodyHandlers.ofString());
+            if (reposResp.statusCode() != 200) {
+                log.warn("[RepoBrowser] Bitbucket Server /projects/{}/repos returned HTTP {}",
+                        projectKey, reposResp.statusCode());
+                continue;
+            }
+            JsonNode reposRoot = OBJECT_MAPPER.readTree(reposResp.body());
+            JsonNode repos = reposRoot.path("values");
+            if (!repos.isArray()) continue;
+            for (JsonNode r : repos) {
+                result.add(mapServerRepoNode(r, base));
+            }
+        }
+        return result;
+    }
+
+    private QuickImportRepoDto mapServerRepoNode(JsonNode r, String base) {
+        String repoName = r.path("name").asText();
+        String projectKey = r.path("project").path("key").asText();
+        String slug = r.path("slug").asText();
+        String fullName = projectKey + "/" + slug;
+        String webUrl = base + "/projects/" + projectKey + "/repos/" + slug + "/browse";
+        boolean priv = !r.path("public").asBoolean(true);
+        String defaultBranch = r.path("defaultBranch").path("displayId").asText("main");
+        return new QuickImportRepoDto(repoName, fullName, webUrl, defaultBranch, priv, "");
     }
 
 
@@ -602,6 +506,10 @@ public class QuickImportService {
         String host = m.group(1).toLowerCase();
         String path = m.group(2); // starts with /
 
+        // On-premise first: when URL host matches a stored connection's serverUrl
+        ParsedRepoUrl fromConnection = parseFromStoredConnection(host, path, userConnections);
+        if (fromConnection != null) return fromConnection;
+
         // ── Bitbucket Cloud ──────────────────────────────────────────────
         if (host.equals("bitbucket.org") || host.endsWith(".bitbucket.org")) {
             String[] parts = splitTwoPathSegments(path);
@@ -623,7 +531,15 @@ public class QuickImportService {
             return new ParsedRepoUrl(VcsProvider.GITLAB, host, parts[0], parts[1], null);
         }
 
-        // ── Self-hosted: match against stored connections ─────────────────
+        // ── Self-hosted fallback ─────────────────────────────────────────
+        ParsedRepoUrl fallback = parseFromStoredConnection(host, path, userConnections);
+        if (fallback != null) return fallback;
+
+        log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
+        return null;
+    }
+
+    private ParsedRepoUrl parseFromStoredConnection(String host, String path, List<UserVcsConnection> userConnections) {
         for (UserVcsConnection conn : userConnections) {
             if (conn.getServerUrl() == null || conn.getServerUrl().isBlank()) continue;
             try {
@@ -631,27 +547,23 @@ public class QuickImportService {
                 if (!connHost.equals(host)) continue;
 
                 if (conn.getProvider() == VcsProvider.BITBUCKET) {
-                    // Try /scm/{proj}/{repo} pattern (Bitbucket DC/Server HTTPS clone URL)
                     Matcher scm = Pattern.compile("^/scm/([^/]+)/([^/]+)").matcher(path);
                     if (scm.find()) {
                         String proj = scm.group(1);
                         String repo = scm.group(2);
                         return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
                     }
-                    // Try /projects/{PROJ}/repos/{repo} pattern (Bitbucket DC/Server browse URL)
                     Matcher projects = Pattern.compile("^/projects/([^/]+)/repos/([^/]+)").matcher(path);
                     if (projects.find()) {
                         String proj = projects.group(1).toLowerCase();
                         String repo = projects.group(2);
                         return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
                     }
-                    // Fallback: first two path segments
                     String[] parts = splitTwoPathSegments(path);
                     if (parts != null) {
                         return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
                     }
                 } else {
-                    // GitHub Enterprise or GitLab self-hosted via stored connection
                     String[] parts = splitTwoPathSegments(path);
                     if (parts != null) {
                         return new ParsedRepoUrl(conn.getProvider(), host, parts[0], parts[1], null);
@@ -659,8 +571,6 @@ public class QuickImportService {
                 }
             } catch (Exception ignored) {}
         }
-
-        log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
         return null;
     }
 
@@ -678,22 +588,8 @@ public class QuickImportService {
         return switch (parsed.provider()) {
             case GITHUB, GITLAB ->
                     "https://oauth2:" + token + "@" + parsed.host() + "/" + parsed.owner() + "/" + parsed.repo() + ".git";
-            case BITBUCKET -> {
-                // Atlassian API Token (ATATT from id.atlassian.com) must use Basic auth: email:token
-                // Workspace HTTP Access Token (ATATT from Bitbucket workspace settings) uses x-token-auth:token
-                boolean isAtatt = token != null && token.startsWith("ATATT");
-                boolean hasEmail = vcsUsername != null && vcsUsername.contains("@");
-                String encodedToken = URLEncoder.encode(token != null ? token : "", StandardCharsets.UTF_8);
-                if (isAtatt && hasEmail) {
-                    String encodedUser = URLEncoder.encode(vcsUsername, StandardCharsets.UTF_8);
-                    yield "https://" + encodedUser + ":" + encodedToken + "@" + parsed.host() + repoPath + ".git";
-                } else {
-                    String userPart = (vcsUsername != null && !vcsUsername.isBlank() && !vcsUsername.contains("@"))
-                            ? URLEncoder.encode(vcsUsername, StandardCharsets.UTF_8)
-                            : "x-token-auth";
-                    yield "https://" + userPart + ":" + encodedToken + "@" + parsed.host() + repoPath + ".git";
-                }
-            }
+            case BITBUCKET ->
+                    bitbucketCloudClient.buildCloneAuthUrl(vcsUsername, token, parsed.host(), repoPath);
         };
     }
 

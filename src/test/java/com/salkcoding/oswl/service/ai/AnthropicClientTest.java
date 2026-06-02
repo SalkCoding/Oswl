@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -28,7 +29,10 @@ class AnthropicClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new AnthropicClient();
+        AiPromptTemplateService prompts = new AiPromptTemplateService(
+                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+        prompts.reloadWithLocale("en");
+        client = new AnthropicClient(prompts);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }
@@ -123,16 +127,6 @@ class AnthropicClientTest {
     void summarizeCve_noSetting_returnsNull() {
         // summarizeCve calls call(prompt, null) — no apiKey → returns null immediately
         String result = client.summarizeCve("CVE-2023-1234", "HIGH", 8.5, "SQLI", "myapp");
-
-        assertThat(result).isNull();
-        verify(restTemplate, never()).exchange(anyString(), any(), any(), any(ParameterizedTypeReference.class));
-    }
-
-    @Test
-    @DisplayName("generateRiskInsight: no apiKey configured → returns null without HTTP call")
-    @SuppressWarnings("unchecked")
-    void generateRiskInsight_noSetting_returnsNull() {
-        String result = client.generateRiskInsight("App", 2, -1, "v1,v2");
 
         assertThat(result).isNull();
         verify(restTemplate, never()).exchange(anyString(), any(), any(), any(ParameterizedTypeReference.class));
