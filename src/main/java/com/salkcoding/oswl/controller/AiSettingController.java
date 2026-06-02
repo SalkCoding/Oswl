@@ -136,6 +136,9 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .build();
 
         boolean ok = aiAnalysisService.testConnection(tempSetting);
+        auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
+                request.getProvider().name(), request.getProvider().name(),
+                ok ? "success" : "failed");
         return ResponseEntity.ok(ok
                 ? Map.of("success", true,  "message", "Connection successful!")
                 : Map.of("success", false, "message", "Connection failed. Check your API key and model name."));

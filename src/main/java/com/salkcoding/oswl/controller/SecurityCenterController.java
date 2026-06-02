@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.controller.spec.SecurityCenterControllerSpec;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.service.SecurityCenterService;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 public class SecurityCenterController implements SecurityCenterControllerSpec {
 
     private final SecurityCenterService securityCenterService;
+    private final AuditLogService auditLogService;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
@@ -36,6 +38,8 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
                         @RequestParam(required = false) Long scanId,
                         Model model) {
         securityCenterService.populateModel(projectId, scanId, model);
+        auditLogService.log("SECURITY_CENTER.PRINT", "PROJECT", projectId.toString(), null,
+                "scanId=" + (scanId != null ? scanId : "latest"));
         return "security-center/print";
     }
 

@@ -96,6 +96,41 @@
         </div>
     </div>
 
+    <!-- External API settings (NVD / GitHub OAuth) -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[24px]">
+        <div class="flex flex-col gap-[4px]">
+            <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">External API Settings</h3>
+            <p class="text-[13px] text-[var(--grayscale-60)]">Configure NVD API key and GitHub OAuth credentials for enrichment and VCS integration.</p>
+        </div>
+
+        <div class="flex flex-col gap-[12px] max-w-[520px]">
+            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">NVD API Key</label>
+            <input type="password" x-model="external.nvdApiKey" placeholder="Leave blank to keep current / clear key"
+                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
+            <p class="text-[12px] text-[var(--grayscale-50)]" x-text="external.nvdConfigured ? 'NVD key is configured.' : 'No NVD key configured.'"></p>
+            <button type="button" @click="saveNvd()" :disabled="externalSaving"
+                    class="self-start bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">
+                Save NVD Key
+            </button>
+        </div>
+
+        <div class="border-t border-[var(--grayscale-10)] pt-[20px] flex flex-col gap-[12px] max-w-[520px]">
+            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">GitHub OAuth Client ID</label>
+            <input type="text" x-model="external.githubClientId"
+                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
+            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">GitHub OAuth Client Secret</label>
+            <input type="password" x-model="external.githubClientSecret" placeholder="Leave blank to keep current"
+                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
+            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">Redirect URI</label>
+            <input type="text" x-model="external.githubRedirectUri"
+                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
+            <button type="button" @click="saveGithub()" :disabled="externalSaving"
+                    class="self-start bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">
+                Save GitHub OAuth
+            </button>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div x-show="toast" x-cloak
          x-transition:enter="transition ease-out duration-300"
@@ -136,6 +171,8 @@
             unitDropdownOpen: false,
             items: [],
             saving: false, apiError: null, toast: null, clearConfirm: false,
+            external: { nvdApiKey: '', nvdConfigured: false, githubClientId: '', githubClientSecret: '', githubRedirectUri: '' },
+            externalSaving: false,
             csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
             headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
             showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
@@ -164,6 +201,19 @@
                         }
                     }
                 } catch(e) { this.apiError = _cacheI18n.loadFailed; }
+                try {
+                    const er = await fetch('/api/settings/external');
+                    if (er.ok) {
+                        const ext = await er.json();
+                        this.external.nvdConfigured = !!ext.nvdConfigured;
+                    }
+                    const gr = await fetch('/api/settings/external/github');
+                    if (gr.ok) {
+                        const gh = await gr.json();
+                        this.external.githubClientId = gh.clientId || '';
+                        this.external.githubRedirectUri = gh.redirectUri || '';
+                    }
+                } catch(_) {}
             },
             ttlSecondsForPolicy() {
                 if (this.policy === 'always') return 1;
@@ -201,6 +251,36 @@
                 if (r.status === 401) { location.href = '/login'; return; }
                 await this.load();
                 this.showToast(_cacheI18n.cleared);
+            },
+            async saveNvd() {
+                this.externalSaving = true; this.apiError = null;
+                try {
+                    const r = await fetch('/api/settings/external/nvd', {
+                        method: 'PUT', headers: this.headers(),
+                        body: JSON.stringify({ nvdApiKey: this.external.nvdApiKey || '' })
+                    });
+                    if (!r.ok) { this.apiError = _fetchErr(r, 'Failed to save NVD key.'); return; }
+                    const data = await r.json();
+                    this.external.nvdConfigured = !!data.nvdConfigured;
+                    this.external.nvdApiKey = '';
+                    this.showToast('NVD settings saved.');
+                } finally { this.externalSaving = false; }
+            },
+            async saveGithub() {
+                this.externalSaving = true; this.apiError = null;
+                try {
+                    const r = await fetch('/api/settings/external/github', {
+                        method: 'PUT', headers: this.headers(),
+                        body: JSON.stringify({
+                            clientId: this.external.githubClientId,
+                            clientSecret: this.external.githubClientSecret || '',
+                            redirectUri: this.external.githubRedirectUri
+                        })
+                    });
+                    if (!r.ok) { this.apiError = _fetchErr(r, 'Failed to save GitHub OAuth.'); return; }
+                    this.external.githubClientSecret = '';
+                    this.showToast('GitHub OAuth settings saved.');
+                } finally { this.externalSaving = false; }
             }
         };
     }

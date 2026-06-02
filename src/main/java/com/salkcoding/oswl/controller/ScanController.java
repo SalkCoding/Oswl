@@ -113,7 +113,8 @@ public class ScanController implements ScanControllerSpec {
      * callers and users lacking project access receive 401/403.
      */
     @GetMapping("/{scanId}/status")
-    @org.springframework.security.access.prepost.PreAuthorize("hasPermission(null, 'PROJECT_VIEW')")
+    @org.springframework.security.access.prepost.PreAuthorize(
+            "hasPermission(null, 'SCAN_VIEW') or hasPermission(null, 'PROJECT_VIEW') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ScanStatusResponse> scanStatus(@PathVariable Long scanId) {
         return scanResultRepository.findById(scanId)
                 .map(scan -> {

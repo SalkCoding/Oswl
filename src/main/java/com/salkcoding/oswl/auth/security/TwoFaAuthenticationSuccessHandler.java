@@ -2,6 +2,7 @@ package com.salkcoding.oswl.auth.security;
 
 import com.salkcoding.oswl.auth.entity.SecuritySetting;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
+import com.salkcoding.oswl.auth.service.LoginCompletionService;
 import com.salkcoding.oswl.auth.service.OtpService;
 import com.salkcoding.oswl.auth.service.SecuritySettingService;
 import com.salkcoding.oswl.auth.service.TrustedDeviceService;
@@ -36,6 +37,7 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
     private final SecuritySettingService securitySettingService;
     private final OtpService             otpService;
     private final TrustedDeviceService   trustedDeviceService;
+    private final LoginCompletionService loginCompletionService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest  request,
@@ -49,6 +51,7 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
 
             // Skip OTP when the device is trusted
             if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
+                loginCompletionService.recordSuccessfulLogin(principal.getUsername());
                 String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
                 log.info("[Auth] Login succeeded for user='{}' via trusted-device bypass → {}", principal.getUsername(), dest);
                 response.sendRedirect(request.getContextPath() + dest);

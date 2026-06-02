@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/admin/cli-keys")
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
+@PreAuthorize("hasPermission(null, 'SETTINGS_CLI_KEY_MANAGE') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class AdminCliKeyController {
 
@@ -51,8 +51,6 @@ public class AdminCliKeyController {
         projectCliKeyPolicyService.assertCanIssueNewKey(request.getProjectId());
         IssuedApiKey issued = apiKeyService.issue(request.getProjectId(), label, null);
         ApiKey key = issued.key();
-        auditLogService.log("CLI_KEY.CREATE", "CLI_KEY", key.getId().toString(),
-                label + " / " + key.getProject().getName(), null);
         return ResponseEntity.ok(ApiKeyIssueResponse.builder()
                 .id(key.getId())
                 .token(issued.plainToken())

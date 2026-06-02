@@ -64,7 +64,7 @@ public class ApiKeyService {
 
         ApiKey saved = apiKeyRepository.save(apiKey);
         log.info("[ApiKey] Issued projectId={} label={} keyId={}", projectId, label, saved.getId());
-        auditLogService.log("CLI_KEY.PROJECT_CREATE", "API_KEY",
+        auditLogService.log("CLI_KEY.CREATE", "CLI_KEY",
                 saved.getId().toString(),
                 label != null ? label : "-",
                 "projectId=" + projectId);
@@ -100,7 +100,7 @@ public class ApiKeyService {
             throw new IllegalArgumentException("Key does not belong to project " + projectId + ".");
         }
         key.revoke();
-        auditLogService.log("CLI_KEY.PROJECT_REVOKE", "API_KEY",
+        auditLogService.log("CLI_KEY.REVOKE", "CLI_KEY",
                 keyId.toString(),
                 key.getLabel() != null ? key.getLabel() : "-",
                 "projectId=" + projectId);

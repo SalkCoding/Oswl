@@ -24,8 +24,13 @@ public class SettingsTabAccess {
         if (principal.isSystemAdmin()) {
             tabs.add(new TabSpec("admin", "🔐", "Administration"));
         }
-        if (principal.isSystemAdmin()) {
+        if (principal.isSystemAdmin()
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_SECURITY_MANAGE)) {
             tabs.add(new TabSpec("security", "🛡️", "Security"));
+        }
+        if (principal.isSystemAdmin()
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.LICENSE_POLICY_MANAGE)) {
+            tabs.add(new TabSpec("license-policy", "📋", "License Policy"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
             tabs.add(new TabSpec("ai", "🤖", "AI Settings"));

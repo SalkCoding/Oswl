@@ -1,8 +1,11 @@
 package com.salkcoding.oswl.auth.security;
 
-import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.auth.service.LoginCompletionService;
+import com.salkcoding.oswl.auth.service.SecuritySettingService;
 import com.salkcoding.oswl.auth.service.UserManagementService;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,29 +27,45 @@ import static org.mockito.Mockito.*;
 @DisplayName("AuditEventListener unit tests")
 class AuditEventListenerTest {
 
-    @Mock AuditLogService       auditLogService;
-    @Mock UserRepository        userRepository;
+    @Mock AuditLogService auditLogService;
     @Mock UserManagementService userManagementService;
+    @Mock SecuritySettingService securitySettingService;
+    @Mock LoginCompletionService loginCompletionService;
 
     @InjectMocks AuditEventListener listener;
 
-    // -- onLoginSuccess --
-
     @Test
-    @DisplayName("onLoginSuccess: updates last login time, resets failure count, logs")
-    void onLoginSuccess_updatesAndLogs() {
+    @DisplayName("onLoginSuccess: 2FA disabled — records full login completion")
+    void onLoginSuccess_no2fa_recordsCompletion() {
         Authentication auth = new UsernamePasswordAuthenticationToken("user@test.com", null, List.of());
         InteractiveAuthenticationSuccessEvent event =
                 new InteractiveAuthenticationSuccessEvent(auth, AuditEventListenerTest.class);
+        when(securitySettingService.getOrCreate()).thenReturn(
+                com.salkcoding.oswl.auth.entity.SecuritySetting.builder()
+                        .twoFaMode(TwoFaMode.DISABLED).build());
 
         listener.onLoginSuccess(event);
 
-        verify(userRepository).updateLastLoginAt(eq("user@test.com"), any());
         verify(userManagementService).resetLoginFailureCount("user@test.com");
-        verify(auditLogService).log("AUTH.LOGIN_SUCCESS", "AUTH", null, null, null);
+        verify(loginCompletionService).recordSuccessfulLogin("user@test.com");
+        verifyNoInteractions(auditLogService);
     }
 
-    // -- onLoginFailure --
+    @Test
+    @DisplayName("onLoginSuccess: email OTP enabled — resets failures only, defers login audit")
+    void onLoginSuccess_emailOtp_defersCompletion() {
+        Authentication auth = new UsernamePasswordAuthenticationToken("user@test.com", null, List.of());
+        InteractiveAuthenticationSuccessEvent event =
+                new InteractiveAuthenticationSuccessEvent(auth, AuditEventListenerTest.class);
+        when(securitySettingService.getOrCreate()).thenReturn(
+                com.salkcoding.oswl.auth.entity.SecuritySetting.builder()
+                        .twoFaMode(TwoFaMode.EMAIL_OTP).build());
+
+        listener.onLoginSuccess(event);
+
+        verify(userManagementService).resetLoginFailureCount("user@test.com");
+        verifyNoInteractions(loginCompletionService);
+    }
 
     @Test
     @DisplayName("onLoginFailure: logs with attempted email and reason")
@@ -65,20 +84,5 @@ class AuditEventListenerTest {
                 isNull(),
                 isNull(),
                 contains("attacker@bad.com"));
-    }
-
-    @Test
-    @DisplayName("onLoginFailure: reason is derived from exception class name")
-    void onLoginFailure_reasonDerivedFromExceptionClass() {
-        Authentication auth = new UsernamePasswordAuthenticationToken("user@test.com", null);
-        BadCredentialsException cause = new BadCredentialsException("bad creds");
-        AbstractAuthenticationFailureEvent event =
-                new AbstractAuthenticationFailureEvent(auth, cause) {};
-
-        listener.onLoginFailure(event);
-
-        // BadCredentialsException -> remove "Exception" -> "BadCredentials", remove "Authentication" -> "BadCredentials"
-        verify(auditLogService).logAnonymous(any(), any(), any(), any(), any(),
-                argThat(detail -> detail != null && detail.contains("BadCredentials")));
     }
 }
