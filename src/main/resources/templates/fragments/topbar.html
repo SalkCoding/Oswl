@@ -171,7 +171,8 @@
                                         <span th:text="${v.scannedAt}" class="text-white/40 text-[11px]">-</span>
                                     </a>
 
-                                    <div class="shrink-0 w-[30px] flex items-center justify-center">
+                                    <div sec:authorize="hasPermission(null, 'SCAN_HISTORY_DELETE') or hasRole('SYSTEM_ADMIN')"
+                                         class="shrink-0 w-[30px] flex items-center justify-center">
                                         <button type="button"
                                                 :class="showDelete ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                                                 @click.stop="confirming = true; showDelete = false"
@@ -252,31 +253,38 @@
 
         <!-- Lower bar (tabs) -->
         <nav class="bg-[var(--grayscale-10)] flex items-center gap-[32px] pl-[60px] pr-[40px] py-[16px] h-[64px] shrink-0">
-            <a th:href="@{|/projects/${projectId}/security-center|}"
+            <a th:if="${#authorization.expression('hasPermission(null, ''SECURITY_CENTER_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+               th:href="@{|/projects/${projectId}/security-center|}"
                th:classappend="${activeTab == 'security-center'}
                    ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.securityCenter}">Security Center</a>
 
-            <span class="w-1 h-1 rounded-full bg-[var(--grayscale-30)]"></span>
+            <span th:if="${#authorization.expression('hasPermission(null, ''SECURITY_CENTER_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+                  class="w-1 h-1 rounded-full bg-[var(--grayscale-30)]"></span>
 
-            <a th:href="@{|/projects/${projectId}/license|}"
+            <a th:if="${#authorization.expression('hasPermission(null, ''LICENSE_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+               th:href="@{|/projects/${projectId}/license|}"
                th:classappend="${activeTab == 'license'}
                    ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.license}">License</a>
 
-            <span class="w-1 h-1 rounded-full bg-[var(--grayscale-30)]"></span>
+            <span th:if="${#authorization.expression('hasPermission(null, ''LICENSE_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+                  class="w-1 h-1 rounded-full bg-[var(--grayscale-30)]"></span>
 
-            <a th:href="@{|/projects/${projectId}/risk-trend|}"
+            <a th:if="${#authorization.expression('hasPermission(null, ''RISK_TREND_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+               th:href="@{|/projects/${projectId}/risk-trend|}"
                th:classappend="${activeTab == 'risk-trend'}
                    ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.riskTrend}">Risk Trend</a>
 
-            <span class="w-1 h-1 rounded-full bg-[var(--grayscale-30)]"></span>
+            <span th:if="${#authorization.expression('hasPermission(null, ''RISK_TREND_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+                  class="w-1 h-1 rounded-full bg-[var(--grayscale-30)]"></span>
 
-            <a th:href="@{|/projects/${projectId}/scan-history|}"
+            <a th:if="${#authorization.expression('hasPermission(null, ''SCAN_HISTORY_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
+               th:href="@{|/projects/${projectId}/scan-history|}"
                th:classappend="${activeTab == 'scan-history'}
                    ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"

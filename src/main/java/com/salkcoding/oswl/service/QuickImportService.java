@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
@@ -83,6 +85,8 @@ public class QuickImportService {
     private String configuredTempDir;
 
     private final UserVcsConnectionRepository vcsConnectionRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
     private final EncryptionService encryptionService;
     private final ProjectService projectService;
     private final ApiKeyService apiKeyService;
@@ -513,7 +517,6 @@ public class QuickImportService {
             try {
                 scanResult = scanIngestService.ingest(project.getId(), payload, userId);
             } catch (Exception ingestEx) {
-                // Project row was already committed; scan could not be saved.
                 // The project will appear on the Projects page with a "No scan data" indicator.
                 // The user can re-import to retry.
                 log.error("[QuickImport][{}] Scan ingest failed for project {}: {}",
@@ -525,6 +528,13 @@ public class QuickImportService {
                         deps.ecosystem, deps.components.size());
                 return;
             }
+
+            String actorEmail = userRepository.findById(userId)
+                    .map(u -> u.getEmail())
+                    .orElse("user:" + userId);
+            auditLogService.logAnonymous(actorEmail, "SCAN.INGEST", "PROJECT",
+                    project.getId().toString(), scanVersion,
+                    "source=quick-import scanId=" + scanResult.getId());
 
             // 7. Wait for async enrichment (vulnerability analysis + AI) ──
             updateJob(jobId, Phase.ENRICHING,

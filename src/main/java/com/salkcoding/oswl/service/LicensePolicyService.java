@@ -2,7 +2,9 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.LicensePolicyEntry;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.dto.LicensePolicyEntryDto;
 import com.salkcoding.oswl.repository.LicensePolicyRepository;
+import com.salkcoding.oswl.aop.Auditable;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -113,18 +115,39 @@ public class LicensePolicyService {
 
     // ── Policy management ─────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
+    public List<LicensePolicyEntryDto> findAllEntries() {
+        return licensePolicyRepository.findAll().stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     @Transactional
-    public void updateEntry(String spdxId, LicenseStatus newStatus) {
+    @Auditable(action = "LICENSE_POLICY.UPDATE", targetType = "LICENSE_POLICY",
+               targetIdExpr = "#spdxId", targetNameExpr = "#spdxId",
+               detailExpr = "#newStatus.name()")
+    public LicensePolicyEntryDto updateEntry(String spdxId, LicenseStatus newStatus) {
         LicensePolicyEntry entry = licensePolicyRepository.findBySpdxId(spdxId)
                 .orElseGet(() -> {
                     LicensePolicyEntry ne = new LicensePolicyEntry();
-                    ne.setSpdxId(spdxId);
+                    ne.setSpdxId(spdxId.trim());
                     ne.setBuiltIn(false);
                     return ne;
                 });
         entry.updateStatus(newStatus, null);
-        licensePolicyRepository.save(entry);
-        policyCache.put(spdxId.toUpperCase(), newStatus);
+        LicensePolicyEntry saved = licensePolicyRepository.save(entry);
+        policyCache.put(saved.getSpdxId().toUpperCase(), newStatus);
+        return toDto(saved);
+    }
+
+    private LicensePolicyEntryDto toDto(LicensePolicyEntry entry) {
+        return LicensePolicyEntryDto.builder()
+                .id(entry.getId())
+                .spdxId(entry.getSpdxId())
+                .status(entry.getStatus())
+                .reason(entry.getReason())
+                .builtIn(entry.isBuiltIn())
+                .build();
     }
 
     // ── Internals ─────────────────────────────────────────────────────────

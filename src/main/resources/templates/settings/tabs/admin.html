@@ -77,7 +77,10 @@
         'AI Setting':       /*[[#{permission.auditGroup.aiSetting}]]*/ 'AI Setting',
         'Cache':            /*[[#{permission.auditGroup.cache}]]*/ 'Cache',
         'External Setting': /*[[#{permission.auditGroup.externalSetting}]]*/ 'External Setting',
-        'Scan':             /*[[#{permission.auditGroup.scan}]]*/ 'Scan'
+        'Scan':             /*[[#{permission.auditGroup.scan}]]*/ 'Scan',
+        'License':          /*[[#{permission.auditGroup.license}]]*/ 'License',
+        'Component':        /*[[#{permission.auditGroup.component}]]*/ 'Component',
+        'Security Center':  /*[[#{permission.auditGroup.securityCenter}]]*/ 'Security Center'
     };
     </script>
 
@@ -1101,17 +1104,21 @@
             dateDropdownOpen: false,
             minPasswordLength: 8,
             actionGroups: [
-                { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT'] },
+                { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT', 'AUTH.OTP_FAILURE', 'AUTH.OTP_RESEND', 'AUTH.TRUSTED_DEVICE', 'AUTH.PASSWORD_CHANGE'] },
                 { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
                 { label: _auditGroupLabels['Role Template'],    items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
                 { label: _auditGroupLabels['Project'],          items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE'] },
-                { label: _auditGroupLabels['VCS'],              items: ['VCS.CONNECT', 'VCS.DISCONNECT'] },
+                { label: _auditGroupLabels['VCS'],              items: ['VCS.CONNECT', 'VCS.DISCONNECT', 'GITHUB.PAT_CONNECT', 'GITHUB.PAT_DISCONNECT'] },
                 { label: _auditGroupLabels['CLI Key'],          items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
                 { label: _auditGroupLabels['Security'],         items: ['SECURITY_SETTING.UPDATE', 'SECURITY_SETTING.MAIL_TEST'] },
-                { label: _auditGroupLabels['AI Setting'],       items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE'] },
+                { label: _auditGroupLabels['AI Setting'],       items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE', 'AI_SETTING.TEST'] },
                 { label: _auditGroupLabels['Cache'],            items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
                 { label: _auditGroupLabels['External Setting'], items: ['EXTERNAL_SETTING.NVD_UPDATE', 'EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
-                { label: _auditGroupLabels['Scan'],             items: ['SCAN.INGEST'] },
+                { label: _auditGroupLabels['License'],          items: ['LICENSE_POLICY.UPDATE', 'LICENSE.EXPORT'] },
+                { label: _auditGroupLabels['Scan'],             items: ['SCAN.INGEST', 'SCAN.DELETE'] },
+                { label: _auditGroupLabels['Component'],        items: ['COMPONENT.DEFER', 'COMPONENT.DEFER_ALL', 'COMPONENT.CREATE_PR', 'COMPONENT.BULK_STATUS_UPDATE', 'COMPONENT.DEFER_EXPIRE'] },
+                { label: _auditGroupLabels['Security Center'],  items: ['SECURITY_CENTER.EXPORT', 'SECURITY_CENTER.PRINT'] },
+                { label: 'System',                              items: ['SYSTEM.SETUP'] },
             ],
             get filteredAuditUsers() {
                 const q = this.actorSearchQuery.toLowerCase();

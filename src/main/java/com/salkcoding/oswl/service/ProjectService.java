@@ -9,6 +9,7 @@ import com.salkcoding.oswl.dto.TrashProjectDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.aop.Auditable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectVersionRepository projectVersionRepository;
     private final ScanResultRepository scanResultRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> findAll() {
@@ -78,6 +80,7 @@ public class ProjectService {
         String repoKey = owner + "/" + repo;
 
         // 1. Find or create the logical project
+        boolean isNewProject = projectRepository.findByGithubRepo(repoKey).isEmpty();
         Project project = projectRepository.findByGithubRepo(repoKey)
                 .orElseGet(() -> projectRepository.save(
                         Project.builder().name(repoKey).createdByUserId(createdByUserId).build()
@@ -104,6 +107,11 @@ public class ProjectService {
         // 3. Update denormalized fields on the project
         project.markGithubImport(provider, owner, repo, branch);
         Project saved = projectRepository.save(project);
+        if (isNewProject) {
+            auditLogService.log("PROJECT.CREATE", "PROJECT",
+                    saved.getId().toString(), saved.getName(),
+                    "import=" + provider + " repo=" + repoKey);
+        }
         log.info("[Project] {} import projectId={} repo={} branch={}", provider, saved.getId(), repoKey, branch);
         return saved;
     }
@@ -153,6 +161,8 @@ public class ProjectService {
     @Transactional
     public void permanentDeleteAll() {
         List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc();
+        trash.forEach(p -> auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
+                p.getId().toString(), p.getName(), "bulk=all"));
         projectRepository.deleteAll(trash);
         log.info("[Project] Permanently deleted entire trash count={}", trash.size());
     }
@@ -160,10 +170,12 @@ public class ProjectService {
     @Transactional
     public void permanentDeleteSelected(List<Long> ids) {
         ids.forEach(id -> {
-            if (projectRepository.existsById(id)) {
+            projectRepository.findById(id).ifPresent(p -> {
+                auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
+                        id.toString(), p.getName(), "bulk=selected");
                 projectRepository.deleteById(id);
                 log.info("[Project] Permanently deleted selected id={}", id);
-            }
+            });
         });
     }
 
@@ -172,6 +184,8 @@ public class ProjectService {
         ids.forEach(id -> projectRepository.findById(id).ifPresent(p -> {
             p.restore();
             projectRepository.save(p);
+            auditLogService.log("PROJECT.RESTORE", "PROJECT",
+                    id.toString(), p.getName(), "bulk=selected");
             log.info("[Project] Restored selected id={}", id);
         }));
     }

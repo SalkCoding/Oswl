@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.auth.security;
 
-import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.auth.service.LoginCompletionService;
+import com.salkcoding.oswl.auth.service.SecuritySettingService;
 import com.salkcoding.oswl.auth.service.UserManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
@@ -10,12 +12,10 @@ import org.springframework.security.authentication.event.InteractiveAuthenticati
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-
 /**
  * Listens for Spring Security authentication events and records audit logs.
  *
- *  - AUTH.LOGIN_SUCCESS : login success
+ *  - AUTH.LOGIN_SUCCESS : login success (skipped when email OTP is pending)
  *  - AUTH.LOGIN_FAILURE : login failure (including wrong password / disabled account)
  *
  * Logout events are handled by AuditLogoutSuccessHandler.
@@ -25,16 +25,22 @@ import java.time.LocalDateTime;
 public class AuditEventListener {
 
     private final AuditLogService auditLogService;
-    private final UserRepository userRepository;
     private final UserManagementService userManagementService;
+    private final SecuritySettingService securitySettingService;
+    private final LoginCompletionService loginCompletionService;
 
     @EventListener
     @Transactional
     public void onLoginSuccess(InteractiveAuthenticationSuccessEvent event) {
         String email = event.getAuthentication().getName();
-        userRepository.updateLastLoginAt(email, LocalDateTime.now());
         userManagementService.resetLoginFailureCount(email);
-        auditLogService.log("AUTH.LOGIN_SUCCESS", "AUTH", null, null, null);
+
+        // When email OTP is required, full login completes in OtpVerifyController or via trusted device.
+        if (securitySettingService.getOrCreate().getTwoFaMode() == TwoFaMode.EMAIL_OTP) {
+            return;
+        }
+
+        loginCompletionService.recordSuccessfulLogin(email);
     }
 
     @EventListener

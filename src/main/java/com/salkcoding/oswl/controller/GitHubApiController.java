@@ -31,7 +31,7 @@ import java.util.*;
 @Slf4j
 @RestController
 @RequestMapping("/api/github")
-@PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
+@PreAuthorize("hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class GitHubApiController implements GitHubApiControllerSpec {
 
