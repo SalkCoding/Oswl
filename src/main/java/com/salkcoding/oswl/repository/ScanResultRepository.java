@@ -1,7 +1,6 @@
 package com.salkcoding.oswl.repository;
 
 import com.salkcoding.oswl.domain.entity.ScanResult;
-import com.salkcoding.oswl.domain.enums.ScanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,10 +9,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
-
-    /** Latest scan result for the project */
-    Optional<ScanResult> findFirstByProjectIdAndStatusOrderByScannedAtDesc(
-            Long projectId, ScanStatus status);
 
     /** List of completed scans for the project (version history) */
     @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId AND s.status = 'COMPLETED' ORDER BY s.scannedAt DESC")

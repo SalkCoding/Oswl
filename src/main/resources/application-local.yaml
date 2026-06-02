@@ -39,6 +39,7 @@ logging:
     root: INFO
     # Business logic: INFO/WARN/ERROR by default; internals handled via log.debug in code
     com.salkcoding.oswl: DEBUG
+    com.salkcoding.oswl.service.ai: DEBUG
     # Vulnerability/license API communication and DB upsert debugging
     com.salkcoding.oswl.client: DEBUG
     com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
@@ -53,6 +54,10 @@ logging:
     org.springframework.transaction: WARN
 
 oswl:
+  ai:
+    debug:
+      # Log every N seconds while Ollama/cloud LLM is generating (requires DEBUG logging)
+      heartbeat-seconds: 10
   encryption:
     # Stable dev-only key (32 bytes, Base64-encoded). DO NOT use in production.
     # Generate a production key with: openssl rand -base64 32

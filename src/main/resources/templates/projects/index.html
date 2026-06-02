@@ -528,7 +528,7 @@
             </div>
             <div class="flex items-start gap-[10px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[12px]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5e6b70" stroke-width="2" stroke-linecap="round" class="mt-[1px] shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span class="text-[12px] text-[var(--grayscale-60)] leading-[1.5]">After creating, go to the project's CLI Integration tab to issue an API key and push scan results via <code class="text-[var(--primary-120)]">oswl scan</code>.</span>
+                <span class="text-[12px] text-[var(--grayscale-60)] leading-[1.5]" th:utext="#{projects.add.new.infoBox}">After creating, go to the project&apos;s CLI Integration tab to issue an API key and push scan results via <code class="text-[var(--primary-120)]">oswl scan</code>.</span>
             </div>
         </div>
         <!-- Footer -->
@@ -569,6 +569,24 @@
         </p>
     </div>
 
+    <script th:inline="javascript">
+    window.projectsPageI18n = {
+        movedToTrash:           /*[[#{projects.toast.movedToTrash}]]*/ ' moved to trash.',
+        deleteFailed:           /*[[#{projects.toast.deleteFailed}]]*/ 'Failed to delete project.',
+        errorDeleting:          /*[[#{projects.toast.errorDeleting}]]*/ 'Error deleting project.',
+        restored:               /*[[#{projects.toast.restored}]]*/ ' has been restored.',
+        restoreFailed:          /*[[#{projects.toast.restoreFailed}]]*/ 'Failed to restore project.',
+        permanentDeleted:       /*[[#{projects.toast.permanentDeleted}]]*/ ' permanently deleted.',
+        permanentDeleteFailed:  /*[[#{projects.toast.permanentDeleteFailed}]]*/ 'Failed to permanently delete project.',
+        deleteAllSuccess:       /*[[#{projects.toast.deleteAllSuccess}]]*/ 'All trashed projects permanently deleted.',
+        deleteAllFailed:        /*[[#{projects.toast.deleteAllFailed}]]*/ 'Failed to delete all trashed projects.',
+        restoreSelected:        /*[[#{projects.toast.restoreSelected}]]*/ '{0} project(s) restored.',
+        restoreSelectedFailed:  /*[[#{projects.toast.restoreSelectedFailed}]]*/ 'Failed to restore selected projects.',
+        deleteSelected:         /*[[#{projects.toast.deleteSelected}]]*/ '{0} project(s) permanently deleted.',
+        deleteSelectedFailed:   /*[[#{projects.toast.deleteSelectedFailed}]]*/ 'Failed to delete selected projects.',
+        trashEmpty:             /*[[#{projects.trash.emptyLabel}]]*/ 'Trash is empty'
+    };
+    </script>
     <script th:src="@{/js/projects/projects.js}" defer></script>
 
     <!-- SSE: 서버가 스캔 완료를 push하면 그 즉시 리로드 (페이지 이탈 시 자동 연결 해제) -->

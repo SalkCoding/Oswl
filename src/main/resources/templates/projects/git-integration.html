@@ -7,7 +7,14 @@
         connecting:         /*[[#{gitIntegration.loading.connecting}]]*/ 'Connecting to GitHub\u2026',
         loadingRepos:       /*[[#{gitIntegration.loading.loadingRepos}]]*/ 'Loading repositories\u2026',
         connectionFailed:   /*[[#{gitIntegration.error.connectionFailed}]]*/ 'Connection failed. Check your token.',
-        networkError:       /*[[#{gitIntegration.error.networkError}]]*/ 'Network error. Please try again.'
+        networkError:       /*[[#{gitIntegration.error.networkError}]]*/ 'Network error. Please try again.',
+        justNow:            /*[[#{common.time.justNow}]]*/ 'just now',
+        minuteAgo:          /*[[#{common.time.minuteAgo}]]*/ '1 minute ago',
+        minutesAgo:         /*[[#{common.time.minutesAgo}]]*/ '{0} minutes ago',
+        hourAgo:            /*[[#{common.time.hourAgo}]]*/ '1 hour ago',
+        hoursAgo:           /*[[#{common.time.hoursAgo}]]*/ '{0} hours ago',
+        dayAgo:             /*[[#{common.time.dayAgo}]]*/ '1 day ago',
+        daysAgo:            /*[[#{common.time.daysAgo}]]*/ '{0} days ago'
     };
     </script>
     <script>
@@ -388,16 +395,17 @@
                 /* ── format ISO date → human-readable ── */
                 formatUpdatedAt(iso) {
                     if (!iso) return '—';
+                    const fmt = (t, n) => String(t).replace('{0}', n);
                     try {
                         const d = new Date(iso);
                         const diffMin = Math.floor((Date.now() - d) / 60000);
                         const diffH = Math.floor(diffMin / 60);
                         const diffD = Math.floor(diffH / 24);
-                        if (diffMin < 2)  return 'just now';
-                        if (diffMin < 60) return diffMin + ' minutes ago';
-                        if (diffH < 24)   return diffH + ' hour' + (diffH > 1 ? 's' : '') + ' ago';
-                        if (diffD < 30)   return diffD + ' day' + (diffD > 1 ? 's' : '') + ' ago';
-                        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        if (diffMin < 2)  return _gitI18n.justNow;
+                        if (diffMin < 60) return diffMin === 1 ? _gitI18n.minuteAgo : fmt(_gitI18n.minutesAgo, diffMin);
+                        if (diffH < 24)   return diffH === 1 ? _gitI18n.hourAgo : fmt(_gitI18n.hoursAgo, diffH);
+                        if (diffD < 30)   return diffD === 1 ? _gitI18n.dayAgo : fmt(_gitI18n.daysAgo, diffD);
+                        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                     } catch (e) { return iso; }
                 },
 
@@ -444,7 +452,7 @@
         <div class="flex flex-wrap gap-[12px] items-center text-[13px] w-full">
             <div class="bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.2)] rounded-[40px] flex gap-[6px] items-center px-[12px] py-[6px]">
                 <img th:src="@{/icon/icon-github.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
-                <span class="font-medium text-[var(--primary-120)] tracking-[-0.13px]">GitHub</span>
+                <span class="font-medium text-[var(--primary-120)] tracking-[-0.13px]" th:text="#{gitIntegration.badge.github}">GitHub</span>
             </div>
 
             <!-- Loading (initial check or connecting) -->

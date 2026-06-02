@@ -32,7 +32,7 @@ class CopilotClientTest {
         AiPromptTemplateService prompts = new AiPromptTemplateService(
                 new DefaultResourceLoader(), "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
-        client = new CopilotClient(prompts);
+        client = new CopilotClient(prompts, new AiCallTrace(new AiDebugSettings()));
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }

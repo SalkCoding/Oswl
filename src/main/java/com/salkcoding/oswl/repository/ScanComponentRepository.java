@@ -1,7 +1,6 @@
 package com.salkcoding.oswl.repository;
 
 import com.salkcoding.oswl.domain.entity.ScanComponent;
-import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,15 +24,6 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
             """)
     Optional<ScanComponent> findByIdAndProjectIdWithCves(@Param("componentId") Long componentId,
                                                           @Param("projectId") Long projectId);
-
-    /** Count components by their library's license status for a given scan */
-    @Query("""
-            SELECT COUNT(sc) FROM ScanComponent sc
-            WHERE sc.scanResult.id = :scanResultId
-              AND sc.library.licenseStatus = :status
-            """)
-    long countByScanResultIdAndLicenseStatus(@Param("scanResultId") Long scanResultId,
-                                              @Param("status") LicenseStatus status);
 
     long countByScanResultId(Long scanResultId);
 

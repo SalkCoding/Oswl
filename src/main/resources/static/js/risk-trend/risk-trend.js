@@ -116,19 +116,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (variant === 'license') {
             const d = trendData.license;
             return [
-                { label: 'Restricted', data: d.restricted || [], fill: false, borderColor: licensePalette.restricted, backgroundColor: licensePalette.restricted },
-                { label: 'Caution',    data: d.caution    || [], fill: false, borderColor: licensePalette.caution,    backgroundColor: licensePalette.caution },
-                { label: 'Permitted',  data: d.permitted  || [], fill: false, borderColor: licensePalette.permitted,  backgroundColor: licensePalette.permitted },
-                { label: 'Unknown',    data: d.unknown    || [], fill: false, borderColor: licensePalette.unknown,    backgroundColor: licensePalette.unknown }
+                { label: i18n.restricted || 'Restricted', data: d.restricted || [], fill: false, borderColor: licensePalette.restricted, backgroundColor: licensePalette.restricted },
+                { label: i18n.caution    || 'Caution',    data: d.caution    || [], fill: false, borderColor: licensePalette.caution,    backgroundColor: licensePalette.caution },
+                { label: i18n.permitted  || 'Permitted',  data: d.permitted  || [], fill: false, borderColor: licensePalette.permitted,  backgroundColor: licensePalette.permitted },
+                { label: i18n.unknown    || 'Unknown',    data: d.unknown    || [], fill: false, borderColor: licensePalette.unknown,    backgroundColor: licensePalette.unknown }
             ];
         }
         const d = trendData.security;
         return [
-            { label: 'Critical', data: d.critical, fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
-            { label: 'High',     data: d.high,     fill: false, borderColor: palette.high,     backgroundColor: palette.high },
-            { label: 'Medium',   data: d.medium,   fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
-            { label: 'Low',      data: d.low,      fill: false, borderColor: palette.low,      backgroundColor: palette.low },
-            { label: 'Unscored', data: d.none,     fill: false, borderColor: palette.unknown,  backgroundColor: palette.unknown }
+            { label: i18n.critical || 'Critical', data: d.critical, fill: false, borderColor: palette.critical, backgroundColor: palette.critical },
+            { label: i18n.high     || 'High',     data: d.high,     fill: false, borderColor: palette.high,     backgroundColor: palette.high },
+            { label: i18n.medium   || 'Medium',   data: d.medium,   fill: false, borderColor: palette.medium,   backgroundColor: palette.medium },
+            { label: i18n.low      || 'Low',      data: d.low,      fill: false, borderColor: palette.low,      backgroundColor: palette.low },
+            { label: i18n.unscored || 'Unscored', data: d.none,     fill: false, borderColor: palette.unknown,  backgroundColor: palette.unknown }
         ];
     };
 

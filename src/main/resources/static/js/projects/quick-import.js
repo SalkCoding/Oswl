@@ -14,6 +14,14 @@
 
 const REPO_PAGE_SIZE = 10;
 
+function _qi() {
+    return typeof _qiI18n !== 'undefined' ? _qiI18n : {};
+}
+
+function _qiFmt(template, arg) {
+    return String(template).replace('{0}', arg);
+}
+
 function quickImportPage() {
     return {
         /* ── VCS connections ─────────────────────── */
@@ -150,10 +158,10 @@ function quickImportPage() {
             try {
                 const url = new URL(this.repoUrl);
                 if (!['http:', 'https:'].includes(url.protocol)) {
-                    this.urlError = 'URL must use http:// or https://.';
+                    this.urlError = _qi().urlProtocol || 'URL must use http:// or https://.';
                 }
             } catch (_) {
-                this.urlError = 'Please enter a valid URL.';
+                this.urlError = _qi().invalidUrl || 'Please enter a valid URL.';
             }
         },
 
@@ -184,7 +192,7 @@ function quickImportPage() {
                 this._startPolling();
             } catch (err) {
                 console.error('[QuickImport] Start failed:', err);
-                this._appendLog('error', 'Failed to start import: ' + err.message);
+                this._appendLog('error', _qiFmt(_qi().startFailed || 'Failed to start import: {0}', err.message));
                 this.isImporting = false;
             }
         },
@@ -204,7 +212,7 @@ function quickImportPage() {
                 const res = await fetch('/api/quick-import/job/' + this.jobId);
                 if (res.status === 404) {
                     this._stopPolling();
-                    this._appendLog('error', 'Import session expired. The server may have been restarted — please try again.');
+                    this._appendLog('error', _qi().sessionExpired || 'Import session expired. The server may have been restarted — please try again.');
                     this.isImporting = false;
                     return;
                 }
@@ -235,14 +243,15 @@ function quickImportPage() {
                     if (last.status === 'running') last.status = 'done';
                 }
 
+                const q = _qi();
                 const phaseLabels = {
-                    QUEUED:    'Queued',
-                    CLONING:   'Cloning repository…',
-                    PARSING:   'Parsing dependencies…',
-                    SCANNING:  'Running security scan…',
-                    ENRICHING: 'Analyzing components…',
-                    DONE:      'Done',
-                    FAILED:    'Failed',
+                    QUEUED:    q.phaseQueued    || 'Queued',
+                    CLONING:   q.phaseCloning   || 'Cloning repository…',
+                    PARSING:   q.phaseParsing   || 'Parsing dependencies…',
+                    SCANNING:  q.phaseScanning  || 'Running security scan…',
+                    ENRICHING: q.phaseEnriching || 'Analyzing components…',
+                    DONE:      q.phaseDone      || 'Done',
+                    FAILED:    q.phaseFailed    || 'Failed',
                 };
                 const label  = phaseLabels[job.phase] || job.phase;
                 const text   = job.message ? label + ' — ' + job.message : label;
@@ -278,7 +287,7 @@ function quickImportPage() {
             try {
                 const res = await fetch('/api/quick-import/repos?provider=' + provider);
                 if (!res.ok) {
-                    let msg = 'Failed to load repositories.';
+                    let msg = _qi().loadReposFailed || 'Failed to load repositories.';
                     try { const body = await res.json(); if (body.error) msg = body.error; } catch (_) {}
                     throw new Error(msg);
                 }
@@ -351,21 +360,29 @@ function quickImportPage() {
 
         formatRepoDate(dateStr) {
             if (!dateStr) return '';
+            const q = _qi();
+            const fmt = (t, n) => String(t || '').replace('{0}', n);
             try {
                 const d = new Date(dateStr);
                 if (isNaN(d)) return '';
                 const now = new Date();
                 const diff = Math.floor((now - d) / 1000);
-                if (diff < 60)   return 'just now';
-                if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-                if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-                if (diff < 2592000) return Math.floor(diff / 86400) + 'd ago';
+                if (diff < 60)   return q.justNow || 'just now';
+                if (diff < 3600) return fmt(q.minutesShort, Math.floor(diff / 60));
+                if (diff < 86400) return fmt(q.hoursShort, Math.floor(diff / 3600));
+                if (diff < 2592000) return fmt(q.daysShort, Math.floor(diff / 86400));
                 return d.toLocaleDateString();
             } catch (_) { return ''; }
         },
 
         providerLabel(provider) {
-            return { GITHUB: 'GitHub', GITLAB: 'GitLab', BITBUCKET: 'Bitbucket' }[provider] || provider;
+            const q = _qi();
+            const map = {
+                GITHUB: q.providerGithub || 'GitHub',
+                GITLAB: q.providerGitlab || 'GitLab',
+                BITBUCKET: q.providerBitbucket || 'Bitbucket',
+            };
+            return map[provider] || provider;
         },
 
         providerBrandColor(provider) {

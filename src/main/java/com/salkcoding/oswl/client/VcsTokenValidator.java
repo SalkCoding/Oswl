@@ -40,6 +40,7 @@ public class VcsTokenValidator {
                     .header("Authorization", "Bearer " + token)
                     .retrieve()
                     .toBodilessEntity();
+            log.debug("[VcsTokenValidator] GitHub token validated ({})", base);
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {
@@ -62,6 +63,7 @@ public class VcsTokenValidator {
                     .header("PRIVATE-TOKEN", token)
                     .retrieve()
                     .toBodilessEntity();
+            log.debug("[VcsTokenValidator] GitLab token validated via /personal_access_tokens/self ({})", base);
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401) {
@@ -84,6 +86,7 @@ public class VcsTokenValidator {
                     .header("PRIVATE-TOKEN", token)
                     .retrieve()
                     .toBodilessEntity();
+            log.debug("[VcsTokenValidator] GitLab token validated via project list fallback");
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401) {
@@ -99,11 +102,13 @@ public class VcsTokenValidator {
     private void validateBitbucket(String serverUrl, String token, String username) {
         if (serverUrl == null || serverUrl.isBlank()) {
             bitbucketCloudClient.validateToken(username, token);
+            log.debug("[VcsTokenValidator] Bitbucket Cloud token validated");
             return;
         }
         String normalized = serverUrl.trim().replaceAll("/+$", "").toLowerCase();
         if (normalized.equals("https://bitbucket.org") || normalized.equals("http://bitbucket.org")) {
             bitbucketCloudClient.validateToken(username, token);
+            log.debug("[VcsTokenValidator] Bitbucket Cloud token validated");
         } else {
             validateBitbucketServer(serverUrl, token);
         }
@@ -118,6 +123,7 @@ public class VcsTokenValidator {
                     .header("Authorization", "Bearer " + personalAccessToken)
                     .retrieve()
                     .toBodilessEntity();
+            log.debug("[VcsTokenValidator] Bitbucket Server token validated ({})", base);
         } catch (HttpClientErrorException e) {
             int status = e.getStatusCode().value();
             if (status == 401 || status == 403) {

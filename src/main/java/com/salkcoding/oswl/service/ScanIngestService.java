@@ -57,19 +57,23 @@ public class ScanIngestService {
         // Same project + different version → always create a new ScanResult row.
         String incomingVersion = payload.getVersion();
         ScanResult scanResult;
+        boolean rescan = false;
         if (incomingVersion != null) {
-            scanResult = scanResultRepository.findByProjectIdAndVersion(projectId, incomingVersion)
-                    .map(existing -> {
-                        existing.getComponents().clear();
-                        existing.resetForRescan(payload.getRawJson());
-                        return existing;
-                    })
-                    .orElseGet(() -> scanResultRepository.save(ScanResult.builder()
-                            .project(project)
-                            .version(incomingVersion)
-                            .rawPayload(payload.getRawJson())
-                            .submittedByUserId(submittedByUserId)
-                            .build()));
+            var existingOpt = scanResultRepository.findByProjectIdAndVersion(projectId, incomingVersion);
+            if (existingOpt.isPresent()) {
+                rescan = true;
+                ScanResult existing = existingOpt.get();
+                existing.getComponents().clear();
+                existing.resetForRescan(payload.getRawJson());
+                scanResult = existing;
+            } else {
+                scanResult = scanResultRepository.save(ScanResult.builder()
+                        .project(project)
+                        .version(incomingVersion)
+                        .rawPayload(payload.getRawJson())
+                        .submittedByUserId(submittedByUserId)
+                        .build());
+            }
         } else {
             scanResult = scanResultRepository.save(ScanResult.builder()
                     .project(project)
@@ -117,9 +121,10 @@ public class ScanIngestService {
 
         project.updateLastScanned(payload.getVersion(), LocalDateTime.now());
 
-        log.info("[ScanIngest] projectId={} version={} components={} status=SCANNING — enrichment pending",
-                projectId, payload.getVersion(),
-                payload.getComponents() != null ? payload.getComponents().size() : 0);
+        log.info("[ScanIngest] projectId={} scanId={} version={} components={} rescan={} status=SCANNING — enrichment pending",
+                projectId, scanResult.getId(), payload.getVersion(),
+                payload.getComponents() != null ? payload.getComponents().size() : 0, rescan);
+        log.debug("[ScanIngest] scanId={} mode={}", scanResult.getId(), rescan ? "rescan" : "new");
 
         // Fire async enrichment AFTER the current transaction commits
         // (otherwise the async thread can't find the ScanResult in DB)

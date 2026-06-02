@@ -6,11 +6,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface RoleTemplateRepository extends JpaRepository<RoleTemplate, Long> {
-    Optional<RoleTemplate> findByName(String name);
-
     boolean existsByName(String name);
 
     @Query("select count(u) from User u join u.roleTemplates rt where rt.id = :templateId")

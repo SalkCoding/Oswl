@@ -4,7 +4,8 @@
 
     <script th:inline="javascript">
     const _topbarI18n = {
-        deleteFailed: /*[[#{topbar.error.deleteFailed}]]*/ 'Failed to delete.'
+        deleteFailed: /*[[#{topbar.error.deleteFailed}]]*/ 'Failed to delete.',
+        fallbackProjectName: /*[[#{topbar.fallback.projectName}]]*/ 'Project Name'
     };
     </script>
 
@@ -15,13 +16,13 @@
                 class="flex items-center gap-[8px] text-white/80 hover:text-white text-[13px] font-medium tracking-[-0.13px] transition-colors">
             <span class="w-[28px] h-[28px] rounded-full bg-[var(--secondary-100)] text-white flex items-center justify-center text-[12px] font-bold"
                   th:text="${#authentication != null ? #authentication.getPrincipal().displayName.substring(0,1).toUpperCase() : 'U'}">U</span>
-            <span th:text="${#authentication != null ? #authentication.getPrincipal().displayName : 'User'}">User</span>
+            <span th:text="${#authentication != null ? #authentication.getPrincipal().displayName : #{topbar.fallback.user}}">User</span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div x-show="open" x-transition style="display:none;"
              class="absolute right-0 top-[34px] z-30 w-[220px] rounded-[6px] border border-white/20 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-lg p-[10px] flex flex-col gap-[6px]">
             <div class="px-[8px] py-[4px] border-b border-white/15 mb-[2px]">
-                <div class="text-white text-[13px] font-semibold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : 'User'}">User</div>
+                <div class="text-white text-[13px] font-semibold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : #{topbar.fallback.user}}">User</div>
                 <div class="text-white/50 text-[11px]" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
                 <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')" th:text="#{topbar.userMenu.systemAdmin}">??System Admin</div>
             </div>
@@ -125,7 +126,7 @@
                 <a th:href="@{/projects}" class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors" th:text="#{topbar.projects}">Projects</a>
                 <img th:src="@{/icon/icon-chevron-right.svg}" class="w-5 h-5 shrink-0" alt="" aria-hidden="true">
                 <span class="text-white font-bold text-[18px] tracking-[-0.18px] whitespace-nowrap"
-                      th:text="${projectName ?: 'Project Name'}">Project Name</span>
+                      th:text="${projectName != null and !#strings.isEmpty(projectName)} ? ${projectName} : #{topbar.fallback.projectName}">Project Name</span>
                 <div th:unless="${activeTab == 'scan-history'}"
                      th:attr="data-project-id=${projectId}"
                      x-data="{ versionDropdownOpen: false }"
@@ -190,7 +191,7 @@
                                     <button type="button"
                                             @click.stop="confirming = false"
                                             class="px-[8px] py-[4px] rounded-[4px] text-[11px] font-medium text-white/50 hover:text-white hover:bg-white/10 transition">
-                                        Cancel
+                                        <span th:text="#{common.cancel}">Cancel</span>
                                     </button>
                                     <button type="button"
                                             @click.stop="
@@ -200,7 +201,7 @@
                                                     .then(r => { if (r.ok) $el.closest('[data-scan-id]').remove(); else alert(_topbarI18n.deleteFailed); });
                                             "
                                             class="px-[8px] py-[4px] rounded-[4px] text-[11px] font-semibold bg-red-500 hover:bg-red-600 text-white transition">
-                                        Delete
+                                        <span th:text="#{common.delete}">Delete</span>
                                     </button>
                                 </div>
                             </div>

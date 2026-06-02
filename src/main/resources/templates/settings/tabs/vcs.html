@@ -31,7 +31,7 @@
                     </div>
                     <div class="flex flex-col gap-[4px]">
                         <div class="flex items-center gap-[8px]">
-                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]">GitHub</span>
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]" th:text="#{settings.vcs.provider.github}">GitHub</span>
                             <span x-show="connections.some(c=>c.provider==='GITHUB')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
                                 <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{settings.vcs.status.connected}">Connected</span>
                             </span>
@@ -108,7 +108,7 @@
                     </div>
                     <div class="flex flex-col gap-[2px]">
                         <div class="flex items-center gap-[8px]">
-                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]">GitLab</span>
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]" th:text="#{settings.vcs.provider.gitlab}">GitLab</span>
                             <span x-show="connections.some(c=>c.provider==='GITLAB')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
                                 <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{settings.vcs.status.connected}">Connected</span>
                             </span>
@@ -342,18 +342,18 @@
                         <span class="text-white/50 font-normal" x-show="form.provider === 'BITBUCKET'" th:text="#{settings.vcs.slideout.label.serverUrlBitbucketHint}">(Optional — leave blank for Bitbucket Cloud)</span>
                     </label>
                     <input type="url" x-model="form.serverUrl"
-                           :placeholder="form.provider === 'GITLAB' ? 'https://gitlab.example.com' : 'https://bitbucket.example.com'"
+                           :placeholder="form.provider === 'GITLAB' ? _vcsI18n.placeholderGitlabUrl : _vcsI18n.placeholderBitbucketUrl"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
                 <!-- Bitbucket: Username -->
                 <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
                     <label class="text-[12px] font-bold">
-                        <span x-show="!form.serverUrl.trim()">Username / Workspace Slug</span>
-                        <span x-show="form.serverUrl.trim()">Username <span class="text-white/50 font-normal">(Optional)</span></span>
+                        <span x-show="!form.serverUrl.trim()" x-text="_vcsI18n.usernameWorkspaceSlug"></span>
+                        <span x-show="form.serverUrl.trim()"><span x-text="_vcsI18n.usernameOptional"></span></span>
                     </label>
                     <input type="text" x-model="form.vcsUsername"
-                           :placeholder="form.serverUrl.trim() ? 'Account ID (optional)' : 'API Token: Atlassian email  /  Workspace Token: workspace-slug  /  App Password: Bitbucket ID'"
+                           :placeholder="form.serverUrl.trim() ? _vcsI18n.placeholderAccountId : _vcsI18n.placeholderBbUsername"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                 </div>
 
@@ -361,18 +361,18 @@
                 <div class="flex flex-col gap-[6px]" x-show="form.provider" x-cloak>
                     <label class="text-[12px] font-bold">
                         <span x-show="form.provider !== 'BITBUCKET'" th:text="#{settings.vcs.slideout.label.tokenPersonal}">Personal Access Token</span>
-                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()">API Token / App Password</span>
+                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()" x-text="_vcsI18n.apiTokenAppPassword"></span>
                         <span x-show="form.provider === 'BITBUCKET' && form.serverUrl.trim()" th:text="#{settings.vcs.slideout.label.tokenPersonal}">Personal Access Token</span>
                     </label>
                     <input type="password" x-model="form.accessToken"
-                           :placeholder="form.provider === 'GITHUB' ? 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' : form.provider === 'GITLAB' ? 'glpat-xxxxxxxxxxxxxxxxxxxx' : (form.serverUrl.trim() ? 'Personal Access Token' : 'API Token (ATATT-…) or App Password (ATBB-…)')"
+                           :placeholder="form.provider === 'GITHUB' ? _vcsI18n.placeholderGithubToken : form.provider === 'GITLAB' ? _vcsI18n.placeholderGitlabToken : (form.serverUrl.trim() ? _vcsI18n.placeholderBbServerPat : _vcsI18n.placeholderBbCloudToken)"
                            class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
                     <!-- Bitbucket Cloud connection guide -->
                     <div x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()" class="flex flex-col gap-[5px] text-[11px] text-white/50 leading-relaxed mt-[2px]">
-                        <p class="font-semibold text-white/70">Choose one method</p>
-                        <p><span class="text-white/80 font-semibold">① Atlassian API Token</span> <span class="text-emerald-400 font-semibold">(recommended)</span> — id.atlassian.com → Security → API tokens → select Bitbucket scopes<br><span class="text-white/60">Required scopes: read:workspace:bitbucket + read:repository:bitbucket</span><br><span class="text-white/40">Username: Atlassian email &nbsp;·&nbsp; Token: ATATT-…</span></p>
-                        <p><span class="text-white/80 font-semibold">② Workspace HTTP Access Token</span> — Bitbucket workspace settings → Access management → Access tokens<br><span class="text-white/40">Username: workspace-slug (e.g. mycompany) &nbsp;·&nbsp; Token: ATATT-…</span></p>
-                        <p><span class="text-white/80 font-semibold">③ App Password</span> <span class="text-amber-400 font-semibold">⚠ Deprecated — brownout 2026-06-09, removed 2026-07-28.</span><br><span class="text-white/40">Username: Bitbucket account ID &nbsp;·&nbsp; Token: ATBB-…</span></p>
+                        <p class="font-semibold text-white/70" x-text="_vcsI18n.bbChooseMethod"></p>
+                        <p><span class="text-white/80 font-semibold" x-text="_vcsI18n.bbMethod1Title"></span> <span class="text-emerald-400 font-semibold" x-text="_vcsI18n.bbMethod1Recommended"></span> — <span x-text="_vcsI18n.bbMethod1Body"></span><br><span class="text-white/60" x-text="_vcsI18n.bbMethod1Scopes"></span><br><span class="text-white/40" x-text="_vcsI18n.bbMethod1Creds"></span></p>
+                        <p><span class="text-white/80 font-semibold" x-text="_vcsI18n.bbMethod2Title"></span> — <span x-text="_vcsI18n.bbMethod2Body"></span><br><span class="text-white/40" x-text="_vcsI18n.bbMethod2Creds"></span></p>
+                        <p><span class="text-white/80 font-semibold" x-text="_vcsI18n.bbMethod3Title"></span> <span class="text-amber-400 font-semibold" x-text="_vcsI18n.bbMethod3Deprecated"></span><br><span class="text-white/40" x-text="_vcsI18n.bbMethod3Creds"></span></p>
                     </div>
                 </div>
 
@@ -430,8 +430,37 @@
         bbCloudGuide:              /*[[#{settings.vcs.bb.cloudGuideSimple}]]*/ 'Workspace HTTP Access Token + slug.',
         personalAccessToken:       /*[[#{settings.vcs.slideout.label.tokenPersonal}]]*/ 'Personal Access Token',
         placeholderGithubToken:    /*[[#{settings.vcs.placeholder.githubToken}]]*/ 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        placeholderGitlabToken:    /*[[#{settings.vcs.placeholder.gitlabToken}]]*/ 'glpat-xxxxxxxxxxxxxxxxxxxx'
+        placeholderGitlabToken:    /*[[#{settings.vcs.placeholder.gitlabToken}]]*/ 'glpat-xxxxxxxxxxxxxxxxxxxx',
+        providerGithub:            /*[[#{settings.vcs.provider.github}]]*/ 'GitHub',
+        providerGitlab:            /*[[#{settings.vcs.provider.gitlab}]]*/ 'GitLab',
+        providerBitbucket:         /*[[#{settings.vcs.provider.bitbucket}]]*/ 'Bitbucket',
+        providerAtlassian:         /*[[#{settings.vcs.provider.atlassian}]]*/ 'Atlassian',
+        loadConnectionsStatus:     /*[[#{settings.vcs.error.loadConnectionsStatus}]]*/ 'Failed to load connections ({0})',
+        usernameWorkspaceSlug:     /*[[#{settings.vcs.slideout.usernameWorkspaceSlug}]]*/ 'Username / Workspace Slug',
+        usernameOptional:          /*[[#{settings.vcs.slideout.usernameOptional}]]*/ 'Username (Optional)',
+        apiTokenAppPassword:       /*[[#{settings.vcs.slideout.apiTokenAppPassword}]]*/ 'API Token / App Password',
+        placeholderGitlabUrl:      /*[[#{settings.vcs.slideout.placeholder.gitlabUrl}]]*/ 'https://gitlab.example.com',
+        placeholderBitbucketUrl:   /*[[#{settings.vcs.slideout.placeholder.bitbucketUrl}]]*/ 'https://bitbucket.example.com',
+        placeholderAccountId:      /*[[#{settings.vcs.slideout.placeholder.accountId}]]*/ 'Account ID (optional)',
+        placeholderBbUsername:     /*[[#{settings.vcs.slideout.placeholder.bbUsername}]]*/ 'API Token: Atlassian email  /  Workspace Token: workspace-slug  /  App Password: Bitbucket ID',
+        bbChooseMethod:            /*[[#{settings.vcs.slideout.bb.chooseMethod}]]*/ 'Choose one method',
+        bbMethod1Title:            /*[[#{settings.vcs.slideout.bb.method1.title}]]*/ '\u2460 Atlassian API Token',
+        bbMethod1Recommended:      /*[[#{settings.vcs.slideout.bb.method1.recommended}]]*/ '(recommended)',
+        bbMethod1Body:             /*[[#{settings.vcs.slideout.bb.method1.body}]]*/ 'id.atlassian.com \u2192 Security \u2192 API tokens \u2192 select Bitbucket scopes',
+        bbMethod1Scopes:           /*[[#{settings.vcs.slideout.bb.method1.scopes}]]*/ 'Required scopes: read:workspace:bitbucket + read:repository:bitbucket',
+        bbMethod1Creds:            /*[[#{settings.vcs.slideout.bb.method1.creds}]]*/ 'Username: Atlassian email \u00b7 Token: ATATT-\u2026',
+        bbMethod2Title:            /*[[#{settings.vcs.slideout.bb.method2.title}]]*/ '\u2461 Workspace HTTP Access Token',
+        bbMethod2Body:             /*[[#{settings.vcs.slideout.bb.method2.body}]]*/ 'Bitbucket workspace settings \u2192 Access management \u2192 Access tokens',
+        bbMethod2Creds:            /*[[#{settings.vcs.slideout.bb.method2.creds}]]*/ 'Username: workspace-slug (e.g. mycompany) \u00b7 Token: ATATT-\u2026',
+        bbMethod3Title:            /*[[#{settings.vcs.slideout.bb.method3.title}]]*/ '\u2462 App Password',
+        bbMethod3Deprecated:       /*[[#{settings.vcs.slideout.bb.method3.deprecated}]]*/ '\u26a0 Deprecated \u2014 brownout 2026-06-09, removed 2026-07-28.',
+        bbMethod3Creds:            /*[[#{settings.vcs.slideout.bb.method3.creds}]]*/ 'Username: Bitbucket account ID \u00b7 Token: ATBB-\u2026',
+        placeholderBbServerPat:    /*[[#{settings.vcs.slideout.placeholder.bbServerPat}]]*/ 'Personal Access Token',
+        placeholderBbCloudToken:   /*[[#{settings.vcs.slideout.placeholder.bbCloudToken}]]*/ 'API Token (ATATT-\u2026) or App Password (ATBB-\u2026)'
     };
+    function _vcsFmt(template, arg) {
+        return String(template).replace('{0}', arg);
+    }
     </script>
     <script>
     function vcsTab() {
@@ -463,7 +492,10 @@
             },
             formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
             providerLabel(p) {
-                return p === 'GITHUB' ? 'GitHub' : p === 'GITLAB' ? 'GitLab' : p === 'BITBUCKET' ? 'Atlassian' : p;
+                return p === 'GITHUB' ? _vcsI18n.providerGithub
+                    : p === 'GITLAB' ? _vcsI18n.providerGitlab
+                    : p === 'BITBUCKET' ? _vcsI18n.providerAtlassian
+                    : p;
             },
             showToast(msg) {
                 this.toastMsg = msg;
@@ -479,7 +511,7 @@
                 try {
                     const r = await fetch('/api/settings/vcs');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _fetchErr(r, `Failed to load connections (${r.status})`); return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _vcsFmt(_vcsI18n.loadConnectionsStatus, r.status)); return; }
                     this.connections = await r.json();
                 } catch (e) {
                     this.apiError = _vcsI18n.loadFailed;
@@ -563,7 +595,7 @@
                     this.gitlabServerUrl = '';
                     this.gitlabAccessToken = '';
                     await this.loadConnections();
-                    this.showToast('GitLab ' + _vcsI18n.connectedSuffix);
+                    this.showToast(_vcsI18n.providerGitlab + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
                     this.apiError = _vcsI18n.networkError;
                 } finally {
@@ -593,7 +625,7 @@
                     this.githubServerUrl = '';
                     this.githubAccessToken = '';
                     await this.loadConnections();
-                    this.showToast('GitHub ' + _vcsI18n.connectedSuffix);
+                    this.showToast(_vcsI18n.providerGithub + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
                     this.apiError = _vcsI18n.networkError;
                 } finally {
@@ -632,7 +664,7 @@
                     this.bitbucketEmail = '';
                     this.bitbucketAccessToken = '';
                     await this.loadConnections();
-                    this.showToast('Bitbucket ' + _vcsI18n.connectedSuffix);
+                    this.showToast(_vcsI18n.providerBitbucket + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
                     this.apiError = _vcsI18n.networkError;
                 } finally {

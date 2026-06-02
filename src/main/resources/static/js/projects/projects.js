@@ -2,12 +2,18 @@
  * Projects Page Main Script
  */
 
-// ���� ī��Ʈ ���� �ǽð� ������Ʈ ������������������������������������������������������������
+const _p = window.projectsPageI18n || {};
+
+function _fmt(template, n) {
+    return String(template).replace('{0}', n);
+}
+
+// ── 카운트 배지 실시간 업데이트 ─────────────────────────────────────────────
 function updateCounts(activeDelta, trashDelta) {
     if (window.updateProjectCounts) window.updateProjectCounts(activeDelta, trashDelta);
 }
 
-// ���� ������Ʈ ī�� �׸��� ���ΰ�ħ ��������������������������������������������������������
+// ── 프로젝트 카드 그리드 새로고침 ───────────────────────────────────────────
 async function refreshProjectCards() {
     const container = document.getElementById('project-cards-container');
     if (!container) return;
@@ -27,7 +33,7 @@ async function refreshProjectCards() {
     }
 }
 
-// Trash ī�� ���ΰ�ħ (soft delete ���Ŀ��ȣ��)
+// Trash 카드 새로고침 (soft delete 이후에도)
 async function refreshTrashCards() {
     const container = document.getElementById('trash-cards-container');
     if (!container) return;
@@ -47,7 +53,7 @@ async function refreshTrashCards() {
     }
 }
 
-// ���� �佺Ʈ ��������������������������������������������������������������������������������������������������������
+// ── 토스트 ─────────────────────────────────────────────────────────────────
 let _toastHideTimer = null;
 
 function showToast(projectName, suffix) {
@@ -64,7 +70,7 @@ function showToast(projectName, suffix) {
     }, 3000);
 }
 
-// ���� ����Ʈ ���� (�� ������) ����������������������������������������������������������������������
+// ── 프로젝트 삭제 (휴지통 이동) ─────────────────────────────────────────────
 function deleteProject(projectId, projectName, cardEl) {
     if (!projectId) return;
     cardEl.style.transition = 'opacity 0.2s, transform 0.2s';
@@ -81,22 +87,22 @@ function deleteProject(projectId, projectName, cardEl) {
             const option = document.querySelector(`select option[value="${projectId}"]`);
             if (option) option.remove();
             updateCounts(-1, 1);
-            showToast(projectName, ' moved to trash.');
+            showToast(projectName, _p.movedToTrash || ' moved to trash.');
             refreshTrashCards();
         } else {
             cardEl.style.opacity = '1';
             cardEl.style.transform = '';
-            showToast('', 'Failed to delete project.');
+            showToast('', _p.deleteFailed || 'Failed to delete project.');
         }
     })
     .catch(() => {
         cardEl.style.opacity = '1';
         cardEl.style.transform = '';
-        showToast('', 'Error deleting project.');
+        showToast('', _p.errorDeleting || 'Error deleting project.');
     });
 }
 
-// ���� ������: ���� ���� ����������������������������������������������������������������������������������
+// ── 휴지통: 단일 복원 ───────────────────────────────────────────────────────
 function restoreOne(projectId, projectName, cardEl) {
     fetch(`/projects/${projectId}/restore`, { method: 'POST' })
     .then(r => {
@@ -105,15 +111,15 @@ function restoreOne(projectId, projectName, cardEl) {
             cardEl.style.opacity = '0';
             setTimeout(() => { cardEl.remove(); checkTrashEmpty(); }, 200);
             updateCounts(1, -1);
-            showToast(projectName, ' has been restored.');
+            showToast(projectName, _p.restored || ' has been restored.');
             refreshProjectCards();
         } else {
-            showToast('', 'Failed to restore project.');
+            showToast('', _p.restoreFailed || 'Failed to restore project.');
         }
     });
 }
 
-// ���� ������: ���� ���� ���� (��޿��� ȣ��) ��������������������������������������
+// ── 휴지통: 영구 삭제 (단일, 모달에서 호출) ─────────────────────────────────
 function permanentDeleteOne(projectId, projectName, cardEl) {
     fetch(`/projects/${projectId}/permanent`, { method: 'DELETE' })
     .then(r => {
@@ -122,14 +128,14 @@ function permanentDeleteOne(projectId, projectName, cardEl) {
             cardEl.style.opacity = '0';
             setTimeout(() => { cardEl.remove(); checkTrashEmpty(); }, 200);
             updateCounts(0, -1);
-            showToast(projectName, ' permanently deleted.');
+            showToast(projectName, _p.permanentDeleted || ' permanently deleted.');
         } else {
-            showToast('', 'Failed to permanently delete project.');
+            showToast('', _p.permanentDeleteFailed || 'Failed to permanently delete project.');
         }
     });
 }
 
-// ���� ������: ��ü ���� ���� (��޿��� ȣ��) ��������������������������������������
+// ── 휴지통: 전체 영구 삭제 (모달에서 호출) ───────────────────────────────────
 function deleteAllPermanently() {
     const cards = document.querySelectorAll('.trash-card');
     const count = cards.length;
@@ -139,14 +145,14 @@ function deleteAllPermanently() {
             cards.forEach(c => c.remove());
             updateCounts(0, -count);
             checkTrashEmpty();
-            showToast('', 'All trashed projects permanently deleted.');
+            showToast('', _p.deleteAllSuccess || 'All trashed projects permanently deleted.');
         } else {
-            showToast('', 'Failed to delete all trashed projects.');
+            showToast('', _p.deleteAllFailed || 'Failed to delete all trashed projects.');
         }
     });
 }
 
-// ���� ������: ���� ���� ����������������������������������������������������������������������������������
+// ── 휴지통: 선택 복원 ───────────────────────────────────────────────────────
 function restoreSelected() {
     const ids = window.getTrashSelected ? window.getTrashSelected() : [];
     if (!ids.length) return;
@@ -163,15 +169,15 @@ function restoreSelected() {
             updateCounts(ids.length, -ids.length);
             if (window.clearTrashSelected) window.clearTrashSelected();
             setTimeout(checkTrashEmpty, 250);
-            showToast('', `${ids.length} project(s) restored.`);
+            showToast('', _fmt(_p.restoreSelected || '{0} project(s) restored.', ids.length));
             refreshProjectCards();
         } else {
-            showToast('', 'Failed to restore selected projects.');
+            showToast('', _p.restoreSelectedFailed || 'Failed to restore selected projects.');
         }
     });
 }
 
-// ���� ������: ���� ���� ���� (��޿��� ȣ��) ��������������������������������������
+// ── 휴지통: 선택 영구 삭제 (모달에서 호출) ───────────────────────────────────
 function deleteSelected() {
     const ids = window.getTrashSelected ? window.getTrashSelected() : [];
     if (!ids.length) return;
@@ -188,14 +194,14 @@ function deleteSelected() {
             updateCounts(0, -ids.length);
             if (window.clearTrashSelected) window.clearTrashSelected();
             setTimeout(checkTrashEmpty, 250);
-            showToast('', `${ids.length} project(s) permanently deleted.`);
+            showToast('', _fmt(_p.deleteSelected || '{0} project(s) permanently deleted.', ids.length));
         } else {
-            showToast('', 'Failed to delete selected projects.');
+            showToast('', _p.deleteSelectedFailed || 'Failed to delete selected projects.');
         }
     });
 }
 
-// ���� ������ ����� �� empty-state ǥ�� ������������������������������������������������
+// 휴지통 비었을 때 empty-state 표시 ─────────────────────────────────────────
 function checkTrashEmpty() {
     const container = document.getElementById('trash-cards-container');
     if (!container) return;
@@ -205,9 +211,10 @@ function checkTrashEmpty() {
         const emptyDiv = document.createElement('div');
         emptyDiv.id = 'trash-empty-state';
         emptyDiv.className = 'col-span-3 flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]';
+        const label = _p.trashEmpty || 'Trash is empty';
         emptyDiv.innerHTML = `
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-            <p style="font-size:14px;font-weight:500;">Trash is empty</p>`;
+            <p style="font-size:14px;font-weight:500;">${label}</p>`;
         container.appendChild(emptyDiv);
     }
 }

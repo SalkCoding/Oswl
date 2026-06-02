@@ -32,7 +32,7 @@ class OpenAiClientTest {
         AiPromptTemplateService prompts = new AiPromptTemplateService(
                 new DefaultResourceLoader(), "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
-        client = new OpenAiClient(prompts);
+        client = new OpenAiClient(prompts, new AiCallTrace(new AiDebugSettings()));
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }

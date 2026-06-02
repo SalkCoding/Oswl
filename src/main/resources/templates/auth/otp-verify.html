@@ -131,6 +131,12 @@
 </main>
 
 <script th:inline="javascript">
+const _otpI18n = {
+    mailFailed:         /*[[#{auth.otp.msg.mailFailed}]]*/ 'Email delivery failed. Please request a new code or check your mail settings.',
+    codeExpired:        /*[[#{auth.otp.msg.codeExpired}]]*/ 'Code expired. Please request a new one.',
+    invalidCode:        /*[[#{auth.otp.msg.invalidCode}]]*/ 'Invalid code. Please try again.',
+    backendNotConnected:/*[[#{settings.security.error.backendNotConnected}]]*/ 'Backend not yet connected.'
+};
 function otpVerify() {
     return {
         digits: ['', '', '', '', '', ''],
@@ -148,7 +154,7 @@ function otpVerify() {
         init() {
             // Restore server-side mail delivery failure flag as initial notice
             if (/*[[${mailFailed}]]*/ false) {
-                this.setNotice('warning', 'Email delivery failed. Please request a new code or check your mail settings.');
+                this.setNotice('warning', _otpI18n.mailFailed);
             }
             // Focus first box
             this.$nextTick(() => {
@@ -160,7 +166,7 @@ function otpVerify() {
                     this.expirySeconds--;
                     if (this.expirySeconds <= 0) {
                         clearInterval(this._expiryTimer);
-                        this.setNotice('error', 'Code expired. Please request a new one.');
+                        this.setNotice('error', _otpI18n.codeExpired);
                     }
                 }
             }, 1000);
@@ -233,15 +239,15 @@ function otpVerify() {
                     window.location.href = data.redirectUrl || '/projects';
                 } else if (r.status === 401 || r.status === 400) {
                     const data = await r.json().catch(() => ({}));
-                    this.setNotice('error', data.message || 'Invalid code. Please try again.');
+                    this.setNotice('error', data.message || _otpI18n.invalidCode);
                     this.digits = ['', '', '', '', '', ''];
                     this.digits = [...this.digits];
                     this.$nextTick(() => document.getElementById('otp-0')?.focus());
                 } else {
-                    this.setNotice('error', 'Backend not yet connected.');
+                    this.setNotice('error', _otpI18n.backendNotConnected);
                 }
             } catch (e) {
-                this.setNotice('error', 'Backend not yet connected.');
+                this.setNotice('error', _otpI18n.backendNotConnected);
             } finally {
                 this.verifying = false;
             }
@@ -255,7 +261,7 @@ function otpVerify() {
                 if (r.ok) {
                     const data = await r.json().catch(() => ({}));
                     if (data.mailFailed) {
-                        this.setNotice('warning', 'Email delivery failed. Please request a new code or check your mail settings.');
+                        this.setNotice('warning', _otpI18n.mailFailed);
                     }
                     this.expirySeconds = 300;
                     clearInterval(this._expiryTimer);
@@ -264,7 +270,7 @@ function otpVerify() {
                             this.expirySeconds--;
                             if (this.expirySeconds <= 0) {
                                 clearInterval(this._expiryTimer);
-                                this.setNotice('error', 'Code expired. Please request a new one.');
+                                this.setNotice('error', _otpI18n.codeExpired);
                             }
                         }
                     }, 1000);
@@ -275,10 +281,10 @@ function otpVerify() {
                     }, 1000);
                 } else {
                     const data = await r.json().catch(() => ({}));
-                    this.setNotice('error', data.message || 'Backend not yet connected.');
+                    this.setNotice('error', data.message || _otpI18n.backendNotConnected);
                 }
             } catch (e) {
-                this.setNotice('error', 'Backend not yet connected.');
+                this.setNotice('error', _otpI18n.backendNotConnected);
             } finally {
                 this.resending = false;
             }

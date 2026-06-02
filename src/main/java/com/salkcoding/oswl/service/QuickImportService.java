@@ -58,7 +58,7 @@ import org.springframework.scheduling.annotation.Scheduled;
  * </ol>
  *
  * Each import is tracked as an asynchronous job (virtual thread) so the
- * HTTP response is immediate; the UI polls {@link #getJobStatus(String)}.
+ * HTTP response is immediate; the UI polls {@link #getJobStatus(String, Long)}.
  */
 @Slf4j
 @Service
@@ -98,6 +98,10 @@ public class QuickImportService {
     private final ConcurrentHashMap<String, Instant> jobCreatedAt = new ConcurrentHashMap<>();
     /** Prevents concurrent imports for the same user (at most one active job per user). */
     private final ConcurrentHashMap<Long, String> activeJobByUser = new ConcurrentHashMap<>();
+    /** Job owner — used to prevent cross-user status polling (IDOR). */
+    private final ConcurrentHashMap<String, Long> jobOwners = new ConcurrentHashMap<>();
+    /** Tracks whether the full API token was already returned once on DONE. */
+    private final ConcurrentHashMap<String, Boolean> apiTokenRevealed = new ConcurrentHashMap<>();
 
     // ── Public API ────────────────────────────────────────────────────────
 
@@ -128,7 +132,11 @@ public class QuickImportService {
                 .message("Import queued…")
                 .build());
         jobCreatedAt.put(jobId, Instant.now());
+        jobOwners.put(jobId, userId);
         activeJobByUser.put(userId, jobId);
+
+        log.info("[QuickImport][{}] Job queued userId={} repo={}", jobId, userId,
+                repoUrl.replaceAll("(https?://)([^@/]+@)", "$1***@"));
 
         Thread.ofVirtual().name("quick-import-" + jobId).start(() -> {
             try {
@@ -145,8 +153,23 @@ public class QuickImportService {
         return jobId;
     }
 
-    /** Returns the current status of a job, or null if the jobId is unknown. */
-    public QuickImportJobStatus getJobStatus(String jobId) {
+    /**
+     * Returns the current status of a job for the requesting user, or null if the job is unknown
+     * or not owned by that user.
+     */
+    public QuickImportJobStatus getJobStatus(String jobId, Long requestingUserId) {
+        if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) {
+            return null;
+        }
+        return sanitizeApiToken(jobId, resolveJobStatus(jobId));
+    }
+
+    private boolean isJobOwner(String jobId, Long userId) {
+        Long owner = jobOwners.get(jobId);
+        return owner != null && owner.equals(userId);
+    }
+
+    private QuickImportJobStatus resolveJobStatus(String jobId) {
         QuickImportJobStatus job = jobs.get(jobId);
         if (job == null) return null;
 
@@ -194,6 +217,27 @@ public class QuickImportService {
                     .orElse(job);
         }
         return job;
+    }
+
+    /**
+     * Returns the API token in full only on the first DONE poll; subsequent polls receive a masked value.
+     */
+    private QuickImportJobStatus sanitizeApiToken(String jobId, QuickImportJobStatus job) {
+        if (job == null || job.getApiToken() == null || job.getApiToken().isBlank()) {
+            return job;
+        }
+        if (job.getPhase() == Phase.DONE && !Boolean.TRUE.equals(apiTokenRevealed.get(jobId))) {
+            apiTokenRevealed.put(jobId, true);
+            return job;
+        }
+        return job.toBuilder().apiToken(maskApiToken(job.getApiToken())).build();
+    }
+
+    static String maskApiToken(String token) {
+        if (token == null || token.length() < 12) {
+            return null;
+        }
+        return token.substring(0, 8) + "…" + token.substring(token.length() - 4);
     }
 
     // ── Repo browser (for Quick Import list UI) ───────────────────────────
@@ -725,7 +769,7 @@ public class QuickImportService {
             }
         }
 
-        // ── Cargo: Cargo.lock ──────────────────────────────────────────────────
+        // ── Cargo: Cargo.lock, then Cargo.toml fallback ────────────────────────
         for (Path lock : walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> cargoComps = parseTomlPackageLock(lock, "CARGO", repoName);
             if (cargoComps != null && !cargoComps.isEmpty()) {
@@ -733,13 +777,31 @@ public class QuickImportService {
                 mergeComponents(allComps, seen, cargoComps, "CARGO");
             }
         }
+        if (!ecosystems.contains("CARGO")) {
+            for (Path toml : walkManifests(cloneDir, Set.of("Cargo.toml"), MANIFEST_SKIP_DIRS)) {
+                List<ScanPayload.ComponentPayload> cargoComps = parseCargoToml(toml.getParent(), repoName);
+                if (cargoComps != null && !cargoComps.isEmpty()) {
+                    ecosystems.add("CARGO");
+                    mergeComponents(allComps, seen, cargoComps, "CARGO");
+                }
+            }
+        }
 
-        // ── Go: go.sum ────────────────────────────────────────────────────────
+        // ── Go: go.sum, then go.mod fallback ───────────────────────────────────
         for (Path sum : walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> goComps = parseGoSum(sum.getParent(), repoName);
             if (goComps != null && !goComps.isEmpty()) {
                 if (!ecosystems.contains("GO")) ecosystems.add("GO");
                 mergeComponents(allComps, seen, goComps, "GO");
+            }
+        }
+        if (!ecosystems.contains("GO")) {
+            for (Path gomod : walkManifests(cloneDir, Set.of("go.mod"), MANIFEST_SKIP_DIRS)) {
+                List<ScanPayload.ComponentPayload> goComps = parseGoModDeclared(gomod.getParent(), repoName);
+                if (goComps != null && !goComps.isEmpty()) {
+                    ecosystems.add("GO");
+                    mergeComponents(allComps, seen, goComps, "GO");
+                }
             }
         }
 
@@ -775,75 +837,6 @@ public class QuickImportService {
         String primary = ecosystems.get(0);
         log.info("[QuickImport] Multi-scan '{}': {} components across ecosystems={}", repoName, allComps.size(), ecosystems);
         return new ParsedDependencies(primary, allComps);
-    }
-
-    // Maven: parse pom.xml <dependencies>
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseMaven(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            // XXE protection
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            dbf.setNamespaceAware(false);
-            Document doc = dbf.newDocumentBuilder().parse(dir.resolve("pom.xml").toFile());
-            doc.getDocumentElement().normalize();
-            Element project = doc.getDocumentElement();
-
-            // Build property map for ${prop} resolution
-            Map<String, String> props = new HashMap<>();
-            String projectVersion = getDirectChildText(project, "version");
-            String parentVersion = null;
-            Element parent = getDirectChild(project, "parent");
-            if (parent != null) {
-                parentVersion = getDirectChildText(parent, "version");
-                if (projectVersion == null) projectVersion = parentVersion;
-                String parentGroup = getDirectChildText(parent, "groupId");
-                if (parentGroup != null) props.put("project.parent.groupId", parentGroup);
-                if (parentVersion != null) props.put("project.parent.version", parentVersion);
-            }
-            if (projectVersion != null) {
-                props.put("project.version", projectVersion);
-                props.put("version", projectVersion);
-                props.put("pom.version", projectVersion);
-            }
-            Element properties = getDirectChild(project, "properties");
-            if (properties != null) {
-                NodeList children = properties.getChildNodes();
-                for (int i = 0; i < children.getLength(); i++) {
-                    if (children.item(i) instanceof Element pe) {
-                        props.put(pe.getTagName(), pe.getTextContent().trim());
-                    }
-                }
-            }
-
-            // Only walk direct /project/dependencies/dependency (skip dependencyManagement,
-            // <build>/<plugin> deps, profiles).
-            Element depsRoot = getDirectChild(project, "dependencies");
-            if (depsRoot == null) {
-                log.info("[QuickImport][Maven] No <dependencies> in pom.xml of '{}'", repoName);
-                return new ParsedDependencies("MAVEN", comps);
-            }
-            NodeList deps = depsRoot.getChildNodes();
-            for (int i = 0; i < deps.getLength(); i++) {
-                if (!(deps.item(i) instanceof Element dep) || !"dependency".equals(dep.getTagName())) continue;
-                String groupId    = resolveProp(getDirectChildText(dep, "groupId"), props);
-                String artifactId = resolveProp(getDirectChildText(dep, "artifactId"), props);
-                String version    = resolveProp(getDirectChildText(dep, "version"), props);
-                String scope      = getDirectChildText(dep, "scope");
-
-                if (groupId == null || artifactId == null) continue;
-                // Skip test/provided/system scopes for the primary scan (align with CLI)
-                if ("test".equalsIgnoreCase(scope) || "system".equalsIgnoreCase(scope)
-                        || "provided".equalsIgnoreCase(scope)) continue;
-
-                comps.add(buildComponent(groupId + ":" + artifactId, version, "MAVEN"));
-            }
-            log.info("[QuickImport][Maven] Parsed {} components from pom.xml in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[QuickImport][Maven] Failed to parse pom.xml: {}", e.getMessage());
-        }
-        return new ParsedDependencies("MAVEN", comps);
     }
 
     /** Returns text content of the first direct child element with the given tag name, or null. */
@@ -1076,31 +1069,6 @@ public class QuickImportService {
         return comps;
     }
 
-    // npm: try package-lock.json first (full transitive tree), then yarn.lock, then pnpm-lock.yaml,
-    // finally fall back to package.json declared deps only.
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseNpm(Path dir, String repoName) {
-        if (Files.exists(dir.resolve("package-lock.json"))) {
-            List<ScanPayload.ComponentPayload> locked = parseNpmLock(dir, repoName);
-            if (locked != null && !locked.isEmpty()) {
-                return new ParsedDependencies("NPM", locked);
-            }
-        }
-        if (Files.exists(dir.resolve("yarn.lock"))) {
-            List<ScanPayload.ComponentPayload> yarn = parseYarnLock(dir, repoName);
-            if (yarn != null && !yarn.isEmpty()) {
-                return new ParsedDependencies("NPM", yarn);
-            }
-        }
-        if (Files.exists(dir.resolve("pnpm-lock.yaml"))) {
-            List<ScanPayload.ComponentPayload> pnpm = parsePnpmLock(dir, repoName);
-            if (pnpm != null && !pnpm.isEmpty()) {
-                return new ParsedDependencies("NPM", pnpm);
-            }
-        }
-        return parseNpmPackageJson(dir, repoName);
-    }
-
     /** Parse package-lock.json — supports lockfileVersion 1 (npm 5/6), 2 and 3 (npm 7+). */
     private List<ScanPayload.ComponentPayload> parseNpmLock(Path dir, String repoName) {
         try {
@@ -1256,16 +1224,6 @@ public class QuickImportService {
         }
     }
 
-    // Gradle: run gradlew dependencies for full transitive resolution, fall back to static parse
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseGradle(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> resolved = runGradleDependencies(dir, repoName);
-        if (resolved != null && !resolved.isEmpty()) {
-            return new ParsedDependencies("MAVEN", resolved);
-        }
-        return parseGradleStatic(dir, repoName);
-    }
-
     /**
      * Runs {@code gradlew dependencies --configuration runtimeClasspath -q --no-daemon} in the
      * cloned directory to obtain the fully-resolved transitive dependency tree.
@@ -1405,23 +1363,8 @@ public class QuickImportService {
         return new ParsedDependencies("MAVEN", comps);
     }
 
-    // Python: try lock files first (full transitive), fall back to requirements.txt
+    // Python: requirements.txt fallback (lock files are handled in parseDependencies)
     private ParsedDependencies parsePython(Path dir, String repoName) {
-        // poetry.lock — [[package]] TOML blocks with all transitive deps
-        if (Files.exists(dir.resolve("poetry.lock"))) {
-            List<ScanPayload.ComponentPayload> comps = parseTomlPackageLock(dir.resolve("poetry.lock"), "PYPI", repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("PYPI", comps);
-        }
-        // uv.lock — same [[package]] format
-        if (Files.exists(dir.resolve("uv.lock"))) {
-            List<ScanPayload.ComponentPayload> comps = parseTomlPackageLock(dir.resolve("uv.lock"), "PYPI", repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("PYPI", comps);
-        }
-        // Pipfile.lock — JSON with default/develop sections
-        if (Files.exists(dir.resolve("Pipfile.lock"))) {
-            List<ScanPayload.ComponentPayload> comps = parsePipfileLock(dir, repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("PYPI", comps);
-        }
         // requirements.txt fallback
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
@@ -1463,14 +1406,9 @@ public class QuickImportService {
         return new ParsedDependencies("PYPI", comps);
     }
 
-    // Cargo (Rust): try Cargo.lock (full transitive), fall back to static Cargo.toml
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseCargo(Path dir, String repoName) {
-        if (Files.exists(dir.resolve("Cargo.lock"))) {
-            List<ScanPayload.ComponentPayload> comps = parseTomlPackageLock(dir.resolve("Cargo.lock"), "CARGO", repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("CARGO", comps);
-        }
-        // Static Cargo.toml fallback — handles inline string form and table form:
+    /** Static Cargo.toml fallback when Cargo.lock is absent. */
+    private List<ScanPayload.ComponentPayload> parseCargoToml(Path dir, String repoName) {
+        // Static Cargo.toml — handles inline string form and table form:
         //   foo = "1.0"
         //   foo = { version = "1.0", features = [...] }
         //   foo = { git = "..." }   (no version → skip)
@@ -1530,16 +1468,11 @@ public class QuickImportService {
         } catch (Exception e) {
             log.error("[QuickImport][Cargo] Failed to parse Cargo.toml: {}", e.getMessage());
         }
-        return new ParsedDependencies("CARGO", comps);
+        return comps;
     }
 
-    // Go modules: try go.sum (full transitive), fall back to go.mod
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseGoMod(Path dir, String repoName) {
-        if (Files.exists(dir.resolve("go.sum"))) {
-            List<ScanPayload.ComponentPayload> comps = parseGoSum(dir, repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("GO", comps);
-        }
+    /** go.mod fallback when go.sum is absent. */
+    private List<ScanPayload.ComponentPayload> parseGoModDeclared(Path dir, String repoName) {
         // go.mod fallback — we trim each line first, so both block and single patterns
         // match against the trimmed text.
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
@@ -1568,7 +1501,7 @@ public class QuickImportService {
         } catch (Exception e) {
             log.error("[QuickImport][Go] Failed to parse go.mod: {}", e.getMessage());
         }
-        return new ParsedDependencies("GO", comps);
+        return comps;
     }
 
     // ── Lock-file & new-ecosystem parsers ──────────────────────────────────
@@ -1651,16 +1584,6 @@ public class QuickImportService {
         }
     }
 
-    // NuGet / .NET
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseNuGet(Path dir, String repoName) {
-        if (Files.exists(dir.resolve("packages.lock.json"))) {
-            List<ScanPayload.ComponentPayload> comps = parseNuGetLockFile(dir, repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("NUGET", comps);
-        }
-        return parseNuGetStatic(dir, repoName);
-    }
-
     private List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName) {
         try {
             JsonNode root = new ObjectMapper().readTree(dir.resolve("packages.lock.json").toFile());
@@ -1728,17 +1651,6 @@ public class QuickImportService {
         } catch (IOException e) {
             return false;
         }
-    }
-
-    // Ruby / RubyGems
-    @SuppressWarnings("unused")
-    private ParsedDependencies parseRuby(Path dir, String repoName) {
-        if (Files.exists(dir.resolve("Gemfile.lock"))) {
-            List<ScanPayload.ComponentPayload> comps = parseGemfileLock(dir, repoName);
-            if (comps != null && !comps.isEmpty()) return new ParsedDependencies("RUBYGEMS", comps);
-        }
-        log.warn("[QuickImport][Ruby] No Gemfile.lock found in '{}', cannot resolve transitive dependencies", repoName);
-        return new ParsedDependencies("RUBYGEMS", List.of());
     }
 
     private List<ScanPayload.ComponentPayload> parseGemfileLock(Path dir, String repoName) {
@@ -1857,8 +1769,11 @@ public class QuickImportService {
         Instant cutoff = Instant.now().minus(Duration.ofMinutes(30));
         jobCreatedAt.entrySet().removeIf(entry -> {
             if (entry.getValue().isBefore(cutoff)) {
-                jobs.remove(entry.getKey());
-                log.debug("[QuickImport] Evicted expired job {}", entry.getKey());
+                String jobId = entry.getKey();
+                jobs.remove(jobId);
+                jobOwners.remove(jobId);
+                apiTokenRevealed.remove(jobId);
+                log.debug("[QuickImport] Evicted expired job {}", jobId);
                 return true;
             }
             return false;

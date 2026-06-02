@@ -113,6 +113,9 @@ public class BitbucketService {
         String repoSlug    = parts[1];
         String apiBase     = CLOUD_API_BASE + "/repositories/" + workspace + "/" + repoSlug;
 
+        log.debug("[Bitbucket Cloud] Version bump PR {}/{} {}:{} → {} baseBranch={}",
+                workspace, repoSlug, libName, oldVersion, newVersion, baseBranch);
+
         // 1. Fetch the HEAD commit hash of the base branch
         String branchUrl = apiBase + "/refs/branches/" + URLEncoder.encode(baseBranch, StandardCharsets.UTF_8);
         JsonNode branchInfo = getJson(authHeader, branchUrl);
@@ -264,6 +267,9 @@ public class BitbucketService {
         String projectKey = parts[0].toUpperCase();
         String repoSlug   = parts[1];
         String apiBase    = serverApiBase(serverUrl, projectKey, repoSlug);
+
+        log.debug("[Bitbucket Server] Version bump PR {}/{} {}:{} → {} baseBranch={}",
+                projectKey, repoSlug, libName, oldVersion, newVersion, baseBranch);
 
         // 1. Fetch the HEAD commit of the base branch
         String baseSha = resolveServerBranchHead(authHeader, apiBase, baseBranch);

@@ -11,12 +11,14 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.aop.Auditable;
 import com.salkcoding.oswl.client.VcsTokenValidator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VcsConnectionService {
@@ -62,6 +64,9 @@ public class VcsConnectionService {
                 .active(true)
                 .build();
         UserVcsConnection saved = repository.save(conn);
+        log.info("[VCS] Connected userId={} provider={} server={}",
+                userId, saved.getProvider(),
+                saved.getServerUrl() != null ? saved.getServerUrl() : "cloud");
         return VcsConnectionDto.builder()
                 .id(saved.getId())
                 .provider(saved.getProvider())
@@ -79,6 +84,8 @@ public class VcsConnectionService {
             throw new SecurityException("You can only delete your own connections.");
         }
         conn.setActive(false);
+        log.info("[VCS] Disconnected userId={} connectionId={} provider={}",
+                requestingUserId, connectionId, conn.getProvider());
         auditLogService.log("VCS.DISCONNECT", "VCS_CONNECTION", connectionId.toString(),
                 conn.getProvider() + (conn.getServerUrl() != null ? " / " + conn.getServerUrl() : ""), null);
     }

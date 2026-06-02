@@ -5,6 +5,7 @@ import com.salkcoding.oswl.auth.entity.CacheSetting;
 import com.salkcoding.oswl.auth.repository.CacheSettingRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CacheManagementService {
@@ -55,6 +57,7 @@ public class CacheManagementService {
                 .orElse(CacheSetting.builder().cacheKey(cacheKey).ttlSeconds(ttlSeconds).build());
         cs.setTtlSeconds(ttlSeconds);
         cacheSettingRepository.save(cs);
+        log.info("[Cache] TTL updated key={} ttlSeconds={}", cacheKey, ttlSeconds);
     }
 
     @Transactional
@@ -67,6 +70,7 @@ public class CacheManagementService {
                 cs.setLastClearedBy(actorUserId);
             });
             cacheSettingRepository.saveAll(all);
+            log.info("[Cache] Cleared all keys ({} entries) by userId={}", all.size(), actorUserId);
             return;
         }
         CacheSetting cs = cacheSettingRepository.findById(cacheKey)
@@ -74,6 +78,7 @@ public class CacheManagementService {
         cs.setLastClearedAt(clearedAt);
         cs.setLastClearedBy(actorUserId);
         cacheSettingRepository.save(cs);
+        log.info("[Cache] Cleared key={} by userId={}", cacheKey, actorUserId);
     }
 
     private CacheSettingDto toDto(CacheSetting cs) {

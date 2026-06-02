@@ -28,7 +28,9 @@ const _patchI18n = {
     errorFailed:     /*[[#{componentDetail.patch.error.failed}]]*/ 'Failed to create PR ({0}).',
     errorNetwork:    /*[[#{componentDetail.patch.error.network}]]*/ 'Network error. Please try again.',
     errorBranchRequired: /*[[#{componentDetail.patch.error.branchRequired}]]*/ 'Target branch is required.',
-    cancel:          /*[[#{common.cancel}]]*/ 'Cancel'
+    cancel:          /*[[#{common.cancel}]]*/ 'Cancel',
+    criticalSuffix:  /*[[#{componentDetail.patch.label.criticalSuffix}]]*/ ' Critical',
+    highSuffix:      /*[[#{componentDetail.patch.label.highSuffix}]]*/ ' High'
 };
 </script>
 
@@ -147,11 +149,11 @@ const _patchI18n = {
                 <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.willResolve}">Will resolve</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
-                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityCritical} + ' Critical'">8 Critical</span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="|${securityCritical}${#messages.msg('componentDetail.patch.label.criticalSuffix')}|">8 Critical</span>
                 </span>
                 <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
-                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="${securityHigh} + ' High'">20 High</span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="|${securityHigh}${#messages.msg('componentDetail.patch.label.highSuffix')}|">20 High</span>
                 </span>
             </div>
             <!-- outdated (CVE 없음) 안내 -->
@@ -198,9 +200,9 @@ const _patchI18n = {
                 <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.prDescription}">PR Description</label>
                 <textarea id="pr-description-text" rows="4"
                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] leading-[1.3] tracking-[-0.12px] outline-none resize-none focus:border-[#33D1B7]"
-                          th:utext="${hasVulnerabilities}
-                              ? |Bumps ${componentName} from ${componentVersion} to ${recommendedVersion}.&#10;Resolves ${securityCritical} Critical + ${securityHigh} High vulnerabilities.&#10;Triggered by OsWL.|
-                              : |Bumps ${componentName} from ${componentVersion} to ${recommendedVersion}.&#10;Version upgrade to latest stable release.&#10;Triggered by OsWL.|">Bumps library version. Triggered by OsWL.</textarea>
+                          th:text="${hasVulnerabilities}
+                              ? #{componentDetail.patch.pr.body.vuln(${componentName},${componentVersion},${recommendedVersion},${securityCritical},${securityHigh})}
+                              : #{componentDetail.patch.pr.body.upgrade(${componentName},${componentVersion},${recommendedVersion})}">Bumps library version. Triggered by OsWL.</textarea>
             </div>
         </div>
 
