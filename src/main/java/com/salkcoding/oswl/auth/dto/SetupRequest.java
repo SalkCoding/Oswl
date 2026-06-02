@@ -18,7 +18,7 @@ public class SetupRequest {
     @NotBlank @Email
     private String email;
 
-    @NotBlank @Size(min = 8, max = 100)
+    @NotBlank @Size(max = 100)
     private String password;
 
     @NotBlank

@@ -30,10 +30,13 @@ public class TrustedDeviceService {
     private static final String  HMAC_ALGORITHM   = "HmacSHA256";
 
     private final byte[] keyBytes;
+    private final boolean cookieSecureOverride;
 
     public TrustedDeviceService(
-            @Value("${oswl.encryption.key:}") String base64Key) {
+            @Value("${oswl.encryption.key:}") String base64Key,
+            @Value("${oswl.security.trusted-device-cookie-secure:false}") boolean cookieSecureOverride) {
 
+        this.cookieSecureOverride = cookieSecureOverride;
         if (base64Key == null || base64Key.isBlank()) {
             log.warn("[TrustedDevice] Encryption key is not configured — trusted-device functionality has been disabled.");
             this.keyBytes = null;
@@ -71,7 +74,7 @@ public class TrustedDeviceService {
      * Issues a 30-day trusted-device cookie for the given user.
      * Does nothing when the service is disabled.
      */
-    public void setTrusted(Long userId, HttpServletResponse response) {
+    public void setTrusted(Long userId, HttpServletRequest request, HttpServletResponse response) {
         if (!isEnabled()) return;
 
         long expiry   = System.currentTimeMillis() + ((long) MAX_AGE_SECONDS * 1000);
@@ -80,25 +83,39 @@ public class TrustedDeviceService {
         String value   = Base64.getUrlEncoder().withoutPadding()
                                .encodeToString((payload + ":" + hmac).getBytes(StandardCharsets.UTF_8));
 
-        Cookie cookie = new Cookie(COOKIE_NAME, value);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(MAX_AGE_SECONDS);
-        // SameSite=Strict is set through the Set-Cookie header attribute
-        response.addHeader("Set-Cookie",
-                COOKIE_NAME + "=" + value
-                + "; Path=/; Max-Age=" + MAX_AGE_SECONDS
-                + "; HttpOnly; SameSite=Strict");
-        log.debug("[TrustedDevice] Issued cookie for userId={} maxAge={}days", userId, MAX_AGE_SECONDS / 86400);
+        writeCookie(response, value, MAX_AGE_SECONDS, isSecure(request));
+        log.debug("[TrustedDevice] Issued cookie for userId={} maxAge={}days secure={}",
+                userId, MAX_AGE_SECONDS / 86400, isSecure(request));
     }
 
     /** Clears the trusted-device cookie (for example, on explicit logout). */
-    public void clearTrusted(HttpServletResponse response) {
-        response.addHeader("Set-Cookie",
-                COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+    public void clearTrusted(HttpServletRequest request, HttpServletResponse response) {
+        writeCookie(response, "", 0, isSecure(request));
     }
 
     // ── Internal helpers ─────────────────────────────────────────────
+
+    private boolean isSecure(HttpServletRequest request) {
+        return cookieSecureOverride || (request != null && request.isSecure());
+    }
+
+    private void writeCookie(HttpServletResponse response, String value, int maxAge, boolean secure) {
+        StringBuilder header = new StringBuilder()
+                .append(COOKIE_NAME).append('=').append(value)
+                .append("; Path=/; Max-Age=").append(maxAge)
+                .append("; HttpOnly; SameSite=Strict");
+        if (secure) {
+            header.append("; Secure");
+        }
+        response.addHeader("Set-Cookie", header.toString());
+
+        Cookie cookie = new Cookie(COOKIE_NAME, value);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAge);
+        cookie.setSecure(secure);
+        response.addCookie(cookie);
+    }
 
     private boolean validate(Long userId, String cookieValue) {
         try {

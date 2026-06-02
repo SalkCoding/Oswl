@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.security;
 
+import com.salkcoding.oswl.auth.entity.InstanceSetupLock;
+import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -18,6 +20,7 @@ import java.io.IOException;
 public class SetupRedirectFilter extends OncePerRequestFilter {
 
     private final UserRepository userRepository;
+    private final InstanceSetupLockRepository setupLockRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -36,10 +39,15 @@ public class SetupRedirectFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!userRepository.existsByIsSystemAdminTrue()) {
+        if (!isSetupComplete()) {
             response.sendRedirect("/setup");
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isSetupComplete() {
+        return setupLockRepository.existsById(InstanceSetupLock.SINGLETON_ID)
+                || userRepository.existsByIsSystemAdminTrue();
     }
 }

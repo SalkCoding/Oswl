@@ -124,7 +124,8 @@ class AuthViewControllerTest {
     void otpVerifyPage_pending_returnsOtpView() {
         when(request.getSession(false)).thenReturn(session);
         when(otpService.isPending(session)).thenReturn(true);
-        when(otpService.getPendingPrincipal(session)).thenReturn(principal(false));
+        when(otpService.getPendingIdentity(session)).thenReturn(
+                new com.salkcoding.oswl.auth.security.OtpPendingIdentity(1L, "user@test.com", "User", false));
         when(otpService.remainingSeconds(session)).thenReturn(120L);
         when(session.getAttribute(OtpService.SESSION_MAIL_FAILED)).thenReturn(null);
 
@@ -141,7 +142,8 @@ class AuthViewControllerTest {
     void otpVerifyPage_mailFailed_addsTrueToModel() {
         when(request.getSession(false)).thenReturn(session);
         when(otpService.isPending(session)).thenReturn(true);
-        when(otpService.getPendingPrincipal(session)).thenReturn(principal(false));
+        when(otpService.getPendingIdentity(session)).thenReturn(
+                new com.salkcoding.oswl.auth.security.OtpPendingIdentity(1L, "user@test.com", "User", false));
         when(otpService.remainingSeconds(session)).thenReturn(60L);
         when(session.getAttribute(OtpService.SESSION_MAIL_FAILED)).thenReturn(Boolean.TRUE);
 

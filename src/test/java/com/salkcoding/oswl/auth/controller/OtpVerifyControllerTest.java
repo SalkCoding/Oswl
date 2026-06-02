@@ -2,8 +2,10 @@ package com.salkcoding.oswl.auth.controller;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.auth.service.LoginCompletionService;
 import com.salkcoding.oswl.auth.service.OtpService;
 import com.salkcoding.oswl.auth.service.TrustedDeviceService;
+import org.springframework.security.core.session.SessionRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -31,9 +33,11 @@ import static org.mockito.Mockito.*;
 @DisplayName("OtpVerifyController 단위 테스트")
 class OtpVerifyControllerTest {
 
-    @Mock OtpService           otpService;
-    @Mock AuditLogService      auditLogService;
-    @Mock TrustedDeviceService trustedDeviceService;
+    @Mock OtpService              otpService;
+    @Mock AuditLogService         auditLogService;
+    @Mock TrustedDeviceService    trustedDeviceService;
+    @Mock SessionRegistry         sessionRegistry;
+    @Mock LoginCompletionService  loginCompletionService;
 
     @InjectMocks OtpVerifyController controller;
 
@@ -44,6 +48,9 @@ class OtpVerifyControllerTest {
     @BeforeEach
     void setUp() {
         SecurityContextHolder.clearContext();
+        lenient().when(session.getId()).thenReturn("session-old");
+        lenient().when(sessionRegistry.getSessionInformation("session-old")).thenReturn(null);
+        lenient().when(request.getSession(true)).thenReturn(session);
     }
 
     @AfterEach
@@ -136,7 +143,7 @@ class OtpVerifyControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody().get("redirectUrl")).isEqualTo("/projects");
         verify(otpService).clearPending(session);
-        verify(trustedDeviceService, never()).setTrusted(any(), any());
+        verify(trustedDeviceService, never()).setTrusted(anyLong(), any(), any());
     }
 
     @Test
@@ -150,7 +157,7 @@ class OtpVerifyControllerTest {
 
         controller.verifyOtp(Map.of("code", "654321", "trustDevice", true), request, response);
 
-        verify(trustedDeviceService).setTrusted(2L, response);
+        verify(trustedDeviceService).setTrusted(eq(2L), eq(request), eq(response));
     }
 
     @Test
