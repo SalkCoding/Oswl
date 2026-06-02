@@ -5,6 +5,9 @@ import com.salkcoding.oswl.dto.api.AdminCliKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.GlobalApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.service.ApiKeyTokenSupport;
+import com.salkcoding.oswl.service.IssuedApiKey;
+import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +29,7 @@ public class AdminCliKeyController {
 
     private final ApiKeyService apiKeyService;
     private final AuditLogService auditLogService;
+    private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
     /** List all API keys across all projects */
     @GetMapping
@@ -44,12 +48,14 @@ public class AdminCliKeyController {
         }
         String label = (request.getLabel() != null && !request.getLabel().isBlank())
                 ? request.getLabel() : "CLI Key";
-        ApiKey key = apiKeyService.issue(request.getProjectId(), label, null);
+        projectCliKeyPolicyService.assertCanIssueNewKey(request.getProjectId());
+        IssuedApiKey issued = apiKeyService.issue(request.getProjectId(), label, null);
+        ApiKey key = issued.key();
         auditLogService.log("CLI_KEY.CREATE", "CLI_KEY", key.getId().toString(),
                 label + " / " + key.getProject().getName(), null);
         return ResponseEntity.ok(ApiKeyIssueResponse.builder()
                 .id(key.getId())
-                .token(key.getToken())
+                .token(issued.plainToken())
                 .label(key.getLabel() != null ? key.getLabel() : "")
                 .createdAt(key.getCreatedAt().toString())
                 .message("API key issued. Store this token securely — it won't be shown again.")
@@ -71,7 +77,7 @@ public class AdminCliKeyController {
     private GlobalApiKeyResponse toGlobalResponse(ApiKey key) {
         return GlobalApiKeyResponse.builder()
                 .id(key.getId())
-                .token(maskToken(key.getToken()))
+                .token(ApiKeyTokenSupport.maskForDisplay(key.getTokenPrefix()))
                 .projectId(key.getProject().getId())
                 .projectName(key.getProject().getName())
                 .label(key.getLabel() != null ? key.getLabel() : "")
@@ -81,8 +87,4 @@ public class AdminCliKeyController {
                 .build();
     }
 
-    private String maskToken(String token) {
-        if (token == null || token.length() < 14) return "***";
-        return token.substring(0, 9) + "..." + token.substring(token.length() - 4);
-    }
 }

@@ -63,7 +63,7 @@ class OpenAiClientTest {
         stubResponse("Risk: high");
         AiSetting s = setting("key", "gpt-4o", null);
 
-        String result = client.callWithSetting("prompt", s);
+        String result = client.callWithSetting("prompt", s, "completion", "key");
 
         assertThat(result).isEqualTo("Risk: high");
     }
@@ -75,7 +75,7 @@ class OpenAiClientTest {
         when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(), any(ParameterizedTypeReference.class)))
                 .thenThrow(new RuntimeException("connection refused"));
 
-        String result = client.callWithSetting("prompt", setting("key", null, null));
+        String result = client.callWithSetting("prompt", setting("key", null, null), "completion", "key");
 
         assertThat(result).isNull();
     }
@@ -88,7 +88,7 @@ class OpenAiClientTest {
         when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(), any(ParameterizedTypeReference.class)))
                 .thenReturn(ResponseEntity.ok(body));
 
-        assertThat(client.callWithSetting("prompt", setting("key", null, null))).isNull();
+        assertThat(client.callWithSetting("prompt", setting("key", null, null), "completion", "key")).isNull();
     }
 
     @Test
@@ -98,20 +98,21 @@ class OpenAiClientTest {
         when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(), any(ParameterizedTypeReference.class)))
                 .thenReturn(ResponseEntity.ok(null));
 
-        assertThat(client.callWithSetting("prompt", setting("key", null, null))).isNull();
+        assertThat(client.callWithSetting("prompt", setting("key", null, null), "completion", "key")).isNull();
     }
 
     @Test
-    @DisplayName("callWithSetting: setting이 null이면 API 키 없이 기본 모델로 호출한다")
+    @DisplayName("callWithSetting: LOCAL baseUrl이면 API 키 없이 호출한다")
     @SuppressWarnings("unchecked")
-    void callWithSetting_nullSetting_callsWithDefaultModel() {
+    void callWithSetting_localBaseUrl_callsWithoutApiKey() {
         stubResponse("ok");
+        AiSetting local = setting(null, null, "http://localhost:11434/v1");
 
-        String result = client.callWithSetting("hello", null);
+        String result = client.callWithSetting("hello", local, "completion", null);
 
         assertThat(result).isEqualTo("ok");
         verify(restTemplate).exchange(
-                eq("https://api.openai.com/v1/chat/completions"),
+                eq("http://localhost:11434/v1/chat/completions"),
                 eq(HttpMethod.POST), any(), any(ParameterizedTypeReference.class));
     }
 
@@ -123,7 +124,7 @@ class OpenAiClientTest {
     void resolveUrl_noBaseUrl_usesDefault() {
         stubResponse("ok");
 
-        client.callWithSetting("prompt", setting("key", null, null));
+        client.callWithSetting("prompt", setting("key", null, null), "completion", "key");
 
         verify(restTemplate).exchange(
                 eq("https://api.openai.com/v1/chat/completions"),
@@ -163,7 +164,7 @@ class OpenAiClientTest {
     void resolveModel_customModelName_isUsedInBody() {
         stubResponse("ok");
         // We verify by checking the request body is constructed (no exception from model resolution)
-        String result = client.callWithSetting("prompt", setting("key", "gpt-3.5-turbo", null));
+        String result = client.callWithSetting("prompt", setting("key", "gpt-3.5-turbo", null), "completion", "key");
 
         assertThat(result).isEqualTo("ok");
     }
@@ -173,7 +174,7 @@ class OpenAiClientTest {
     void resolveModel_nullModelName_usesDefault() {
         stubResponse("ok");
 
-        String result = client.callWithSetting("prompt", setting("key", null, null));
+        String result = client.callWithSetting("prompt", setting("key", null, null), "completion", "key");
 
         assertThat(result).isEqualTo("ok");
     }
@@ -181,22 +182,16 @@ class OpenAiClientTest {
     // ── prompt builders ───────────────────────────────────────────────────
 
     @Test
-    @DisplayName("summarizeCve: 프롬프트를 구성하고 callWithSetting 결과를 반환한다")
-    void summarizeCve_buildsPromptAndReturnsResult() {
-        stubResponse("High risk CVE.");
-
-        String result = client.summarizeCve("CVE-2021-44228", "CRITICAL", 10.0, "RCE", "log4j");
-
-        assertThat(result).isEqualTo("High risk CVE.");
+    @DisplayName("summarizeCve: API 키 없으면 null (HTTP 호출 없음)")
+    void summarizeCve_noApiKey_returnsNull() {
+        assertThat(client.summarizeCve("CVE-2021-44228", "CRITICAL", 10.0, "RCE", "log4j")).isNull();
+        verifyNoInteractions(restTemplate);
     }
 
     @Test
-    @DisplayName("summarizeLicenseRisk: 프롬프트를 구성하고 callWithSetting 결과를 반환한다")
-    void summarizeLicenseRisk_buildsPromptAndReturnsResult() {
-        stubResponse("License is restricted.");
-
-        String result = client.summarizeLicenseRisk("GPL-3.0", "RESTRICTED", "mylib");
-
-        assertThat(result).isEqualTo("License is restricted.");
+    @DisplayName("summarizeLicenseRisk: API 키 없으면 null (HTTP 호출 없음)")
+    void summarizeLicenseRisk_noApiKey_returnsNull() {
+        assertThat(client.summarizeLicenseRisk("GPL-3.0", "RESTRICTED", "mylib")).isNull();
+        verifyNoInteractions(restTemplate);
     }
 }

@@ -7,6 +7,9 @@ import com.salkcoding.oswl.dto.api.AdminCliKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.GlobalApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.service.ApiKeyTokenSupport;
+import com.salkcoding.oswl.service.IssuedApiKey;
+import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +32,7 @@ class AdminCliKeyControllerTest {
 
     @Mock ApiKeyService   apiKeyService;
     @Mock AuditLogService auditLogService;
+    @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
     @InjectMocks AdminCliKeyController controller;
 
@@ -36,15 +40,24 @@ class AdminCliKeyControllerTest {
         return Project.builder().id(id).name(name).build();
     }
 
-    private ApiKey apiKey(Long id, String token, String label, boolean active, Project project) {
+    private ApiKey apiKey(Long id, String plainToken, String label, boolean active, Project project) {
+        String prefix = plainToken == null ? null
+                : (plainToken.length() >= ApiKeyTokenSupport.PREFIX_LENGTH
+                ? plainToken.substring(0, ApiKeyTokenSupport.PREFIX_LENGTH)
+                : plainToken);
         return ApiKey.builder()
                 .id(id)
-                .token(token)
+                .tokenPrefix(prefix)
+                .tokenHash("bcrypt-hash-stub")
                 .label(label)
                 .active(active)
                 .project(project)
                 .createdAt(LocalDateTime.now())
                 .build();
+    }
+
+    private static IssuedApiKey issued(ApiKey key, String plainToken) {
+        return new IssuedApiKey(key, plainToken);
     }
 
     // ── listAll ───────────────────────────────────────────────────────────
@@ -96,7 +109,8 @@ class AdminCliKeyControllerTest {
         Project p = project(1L, "P1");
         ApiKey key = ApiKey.builder()
                 .id(1L)
-                .token("abc123def456ghi789jkl")
+                .tokenPrefix("abc123def456gh")
+                .tokenHash("hash")
                 .label("Key")
                 .active(true)
                 .project(p)
@@ -133,7 +147,7 @@ class AdminCliKeyControllerTest {
         req.setProjectId(5L);
         req.setLabel(null);
 
-        when(apiKeyService.issue(5L, "CLI Key", null)).thenReturn(key);
+        when(apiKeyService.issue(5L, "CLI Key", null)).thenReturn(issued(key, "tok123456789012345678"));
 
         ResponseEntity<ApiKeyIssueResponse> resp = controller.issue(req);
 
@@ -151,7 +165,7 @@ class AdminCliKeyControllerTest {
         req.setProjectId(6L);
         req.setLabel("MyLabel");
 
-        when(apiKeyService.issue(6L, "MyLabel", null)).thenReturn(key);
+        when(apiKeyService.issue(6L, "MyLabel", null)).thenReturn(issued(key, "tok123456789012345678"));
 
         ResponseEntity<ApiKeyIssueResponse> resp = controller.issue(req);
 
@@ -169,7 +183,7 @@ class AdminCliKeyControllerTest {
         req.setProjectId(7L);
         req.setLabel("   ");
 
-        when(apiKeyService.issue(7L, "CLI Key", null)).thenReturn(key);
+        when(apiKeyService.issue(7L, "CLI Key", null)).thenReturn(issued(key, "tok123456789012345678"));
 
         controller.issue(req);
 
@@ -197,7 +211,8 @@ class AdminCliKeyControllerTest {
         Project p = project(1L, "P1");
         ApiKey key = ApiKey.builder()
                 .id(31L)
-                .token("tok123456789012345678")
+                .tokenPrefix("tok12345678901")
+                .tokenHash("hash")
                 .label("Key")
                 .project(p)
                 .createdAt(LocalDateTime.now())
@@ -218,7 +233,8 @@ class AdminCliKeyControllerTest {
         Project p = project(2L, "P2");
         ApiKey key = ApiKey.builder()
                 .id(32L)
-                .token("tok123456789012345678")
+                .tokenPrefix("tok12345678901")
+                .tokenHash("hash")
                 .label(null)
                 .active(true)
                 .project(p)

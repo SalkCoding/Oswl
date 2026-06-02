@@ -5,6 +5,9 @@ import com.salkcoding.oswl.dto.api.ApiKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.ApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.service.ApiKeyTokenSupport;
+import com.salkcoding.oswl.service.IssuedApiKey;
+import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,20 +28,30 @@ import static org.mockito.Mockito.*;
 class ApiKeyControllerTest {
 
     @Mock ApiKeyService apiKeyService;
+    @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
     @InjectMocks ApiKeyController controller;
 
-    private ApiKey buildKey(Long id, String token, String label, boolean active,
+    private ApiKey buildKey(Long id, String plainToken, String label, boolean active,
                             LocalDateTime created, LocalDateTime lastUsed, LocalDateTime revoked) {
+        String prefix = plainToken == null ? null
+                : (plainToken.length() >= ApiKeyTokenSupport.PREFIX_LENGTH
+                ? plainToken.substring(0, ApiKeyTokenSupport.PREFIX_LENGTH)
+                : plainToken);
         return ApiKey.builder()
                 .id(id)
-                .token(token)
+                .tokenPrefix(prefix)
+                .tokenHash("bcrypt-hash-stub")
                 .label(label)
                 .active(active)
                 .createdAt(created)
                 .lastUsedAt(lastUsed)
                 .revokedAt(revoked)
                 .build();
+    }
+
+    private static IssuedApiKey issued(ApiKey key, String plainToken) {
+        return new IssuedApiKey(key, plainToken);
     }
 
     // ── list ───────────────────────────────────────────────────────────────
@@ -66,9 +79,7 @@ class ApiKeyControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).hasSize(1);
         ApiKeyResponse r = resp.getBody().get(0);
-        assertThat(r.getToken()).startsWith("oswl_ABC");
-        assertThat(r.getToken()).endsWith("last");
-        assertThat(r.getToken()).contains("...");
+        assertThat(r.getToken()).isEqualTo("oswl_ABCDEFGHI12...");
         assertThat(r.isActive()).isTrue();
         assertThat(r.getLabel()).isEqualTo("CI");
     }
@@ -129,7 +140,7 @@ class ApiKeyControllerTest {
     void issue_validRequest_returnsFullToken() {
         LocalDateTime now = LocalDateTime.now();
         ApiKey newKey = buildKey(10L, "oswl_FULLTOKEN123456ABCDEF", "Pipeline", true, now, null, null);
-        when(apiKeyService.issue(1L, "Pipeline", null)).thenReturn(newKey);
+        when(apiKeyService.issue(1L, "Pipeline", null)).thenReturn(issued(newKey, "oswl_FULLTOKEN123456ABCDEF"));
 
         ApiKeyIssueRequest req = new ApiKeyIssueRequest();
         req.setLabel("Pipeline");
@@ -149,7 +160,7 @@ class ApiKeyControllerTest {
     void issue_nullLabel_returnsEmptyLabel() {
         LocalDateTime now = LocalDateTime.now();
         ApiKey newKey = buildKey(11L, "oswl_FULLTOKEN123456ABCDEF", null, true, now, null, null);
-        when(apiKeyService.issue(2L, null, null)).thenReturn(newKey);
+        when(apiKeyService.issue(2L, null, null)).thenReturn(issued(newKey, "oswl_FULLTOKEN123456ABCDEF"));
 
         ApiKeyIssueRequest req = new ApiKeyIssueRequest();
         req.setLabel(null);
@@ -166,7 +177,7 @@ class ApiKeyControllerTest {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiry = now.plusYears(1);
         ApiKey newKey = buildKey(12L, "oswl_FULLTOKEN123456ABCDEF", "Expiring", true, now, null, null);
-        when(apiKeyService.issue(3L, "Expiring", expiry)).thenReturn(newKey);
+        when(apiKeyService.issue(3L, "Expiring", expiry)).thenReturn(issued(newKey, "oswl_FULLTOKEN123456ABCDEF"));
 
         ApiKeyIssueRequest req = new ApiKeyIssueRequest();
         req.setLabel("Expiring");

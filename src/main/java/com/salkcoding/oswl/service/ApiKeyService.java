@@ -3,10 +3,12 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,34 +17,47 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 
-/**
- * Handles API key issuance and revocation.
- * Issued keys are used by the CLI as authentication credentials when sending scan results to the server.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApiKeyService {
 
     private static final String PREFIX = "oswl_";
-    private static final int TOKEN_BYTES = 32; // 256-bit entropy
+    private static final int TOKEN_BYTES = 32;
+    private static final int PREFIX_COLLISION_RETRIES = 5;
 
     private final ApiKeyRepository apiKeyRepository;
     private final ProjectRepository projectRepository;
     private final AuditLogService auditLogService;
+    private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    /** Issues a new API key. */
     @Transactional
-    public ApiKey issue(Long projectId, String label, LocalDateTime expiresAt) {
+    public IssuedApiKey issue(Long projectId, String label, LocalDateTime expiresAt) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        String token = generateToken();
+        String plainToken = null;
+        String tokenPrefix = null;
+        String tokenHash = null;
+
+        for (int attempt = 0; attempt < PREFIX_COLLISION_RETRIES; attempt++) {
+            plainToken = generateToken();
+            tokenPrefix = ApiKeyTokenSupport.extractPrefix(plainToken);
+            if (apiKeyRepository.findByTokenPrefix(tokenPrefix).isEmpty()) {
+                tokenHash = passwordEncoder.encode(plainToken);
+                break;
+            }
+            log.warn("[ApiKey] Token prefix collision on attempt {} — regenerating", attempt + 1);
+        }
+        if (tokenHash == null) {
+            throw new IllegalStateException("Could not generate a unique API key prefix");
+        }
 
         ApiKey apiKey = ApiKey.builder()
                 .project(project)
-                .token(token)
+                .tokenPrefix(tokenPrefix)
+                .tokenHash(tokenHash)
                 .label(label)
                 .expiresAt(expiresAt)
                 .build();
@@ -53,24 +68,30 @@ public class ApiKeyService {
                 saved.getId().toString(),
                 label != null ? label : "-",
                 "projectId=" + projectId);
-        return saved;
+        return new IssuedApiKey(saved, plainToken);
     }
 
-    /** Looks up a valid key by token value (used by the interceptor). */
     @Transactional
     public ApiKey validateAndRecord(String rawToken) {
-        ApiKey key = apiKeyRepository.findByToken(rawToken)
-                .orElseThrow(() -> new com.salkcoding.oswl.exception.UnauthorizedException("API key is invalid."));
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new UnauthorizedException("API key is invalid.");
+        }
+        String prefix = ApiKeyTokenSupport.extractPrefix(rawToken.strip());
+        ApiKey key = apiKeyRepository.findByTokenPrefix(prefix)
+                .orElseThrow(() -> new UnauthorizedException("API key is invalid."));
+
+        if (!passwordEncoder.matches(rawToken.strip(), key.getTokenHash())) {
+            throw new UnauthorizedException("API key is invalid.");
+        }
 
         if (!key.isValid()) {
-            throw new com.salkcoding.oswl.exception.UnauthorizedException("API key has been revoked or expired.");
+            throw new UnauthorizedException("API key has been revoked or expired.");
         }
 
         key.recordUsage();
         return key;
     }
 
-    /** Revokes a key. */
     @Transactional
     public void revoke(Long keyId, Long projectId) {
         ApiKey key = apiKeyRepository.findById(keyId)
@@ -90,13 +111,11 @@ public class ApiKeyService {
         return apiKeyRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
     }
 
-    /** Retrieves keys for all projects (admin only). */
     @Transactional(readOnly = true)
     public List<ApiKey> findAll() {
         return apiKeyRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    /** Toggles key active state (admin only). */
     @Transactional
     public ApiKey toggleActive(Long keyId) {
         ApiKey key = apiKeyRepository.findWithProjectById(keyId)
@@ -109,12 +128,9 @@ public class ApiKeyService {
         return key;
     }
 
-    // ── Internal ─────────────────────────────────────────────────────
-
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);
-        // URL-safe Base64, without padding
         return PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

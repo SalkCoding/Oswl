@@ -102,8 +102,10 @@ public class QuickImportController {
     @GetMapping("/api/quick-import/job/{jobId}")
     @ResponseBody
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<QuickImportJobStatus> jobStatus(@PathVariable String jobId) {
-        QuickImportJobStatus status = quickImportService.getJobStatus(jobId);
+    public ResponseEntity<QuickImportJobStatus> jobStatus(
+            @PathVariable String jobId,
+            @AuthenticationPrincipal OswlUserPrincipal principal) {
+        QuickImportJobStatus status = quickImportService.getJobStatus(jobId, principal.getUserId());
         if (status == null) {
             return ResponseEntity.notFound().build();
         }

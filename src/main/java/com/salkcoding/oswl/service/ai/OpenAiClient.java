@@ -32,13 +32,14 @@ public class OpenAiClient implements AiAnalysisClient {
     @Override
     public String summarizeCve(String cveId, String severity, double cvssScore,
                                String cveType, String component) {
-        return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component), null, "cve.single");
+        return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component),
+                null, "cve.single", null);
     }
 
     @Override
     public String summarizeLicenseRisk(String licenseName, String licenseStatus, String component) {
         return call(promptTemplates.licenseSingle(licenseName, licenseStatus, component,
-                null, "unknown", null), null, "license.single");
+                null, "unknown", null), null, "license.single", null);
     }
 
     /**
@@ -50,15 +51,19 @@ public class OpenAiClient implements AiAnalysisClient {
     }
 
     public String callWithSetting(String prompt, AiSetting setting, String operation) {
-        return call(prompt, setting, operation);
+        return callWithSetting(prompt, setting, operation, null);
+    }
+
+    public String callWithSetting(String prompt, AiSetting setting, String operation, String resolvedApiKey) {
+        return call(prompt, setting, operation, resolvedApiKey);
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────────
 
-    private String call(String userPrompt, AiSetting setting, String operation) {
+    private String call(String userPrompt, AiSetting setting, String operation, String resolvedApiKey) {
         String url   = resolveUrl(setting);
         String model = resolveModel(setting);
-        String apiKey = setting != null ? setting.getApiKey() : null;
+        String apiKey = resolvedApiKey;
         boolean hasAuth = apiKey != null && !apiKey.isBlank();
         String op = operation != null ? operation : "completion";
         String detail = "model=" + model + " promptLen=" + userPrompt.length();

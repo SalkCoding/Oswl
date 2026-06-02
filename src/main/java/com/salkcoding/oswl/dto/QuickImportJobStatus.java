@@ -9,7 +9,7 @@ import lombok.Getter;
  */
 @Schema(description = "Quick Import job status snapshot returned by the status-poll endpoint")
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class QuickImportJobStatus {
 
     @Schema(description = "Import job processing phase")

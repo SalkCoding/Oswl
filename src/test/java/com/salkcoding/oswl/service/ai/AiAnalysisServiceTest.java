@@ -77,12 +77,12 @@ class AiAnalysisServiceTest {
     void summarizeCve_delegatesToOpenAiClient_forOpenAiProvider() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("sk-test").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("RCE risk: critical");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("RCE risk: critical");
 
         String result = aiAnalysisService.summarizeCve("CVE-2024-001", "CRITICAL", 9.8, "RCE");
 
         assertThat(result).isEqualTo("RCE risk: critical");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
         verifyNoInteractions(anthropicClient);
     }
 
@@ -92,11 +92,11 @@ class AiAnalysisServiceTest {
         AiSetting setting = AiSetting.builder()
                 .provider(AiProvider.LOCAL).baseUrl("http://localhost:11434/v1").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("local result");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("local result");
 
         assertThat(aiAnalysisService.summarizeCve("CVE-L", "LOW", 2.0, "Info"))
                 .isEqualTo("local result");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
         verifyNoInteractions(anthropicClient);
     }
 
@@ -105,11 +105,11 @@ class AiAnalysisServiceTest {
     void summarizeCve_delegatesToOpenAiClient_forGeminiProvider() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.GEMINI).apiKey("gemini-key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("gemini result");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("gemini result");
 
         assertThat(aiAnalysisService.summarizeCve("CVE-G", "HIGH", 7.5, "Injection"))
                 .isEqualTo("gemini result");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
         verifyNoInteractions(anthropicClient);
     }
 
@@ -118,12 +118,12 @@ class AiAnalysisServiceTest {
     void summarizeCve_delegatesToAnthropicClient_forAnthropicProvider() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("claude result");
+        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("claude result");
 
         String result = aiAnalysisService.summarizeCve("CVE-2024-002", "HIGH", 8.0, "XSS");
 
         assertThat(result).isEqualTo("claude result");
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
         verifyNoInteractions(openAiClient);
     }
 
@@ -142,12 +142,12 @@ class AiAnalysisServiceTest {
     void summarizeLicenseRisk_delegatesToOpenAiClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("License risk: AGPL must be disclosed");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("License risk: AGPL must be disclosed");
 
         String result = aiAnalysisService.summarizeLicenseRisk("AGPL-3.0", "RESTRICTED", "mylib");
 
         assertThat(result).isEqualTo("License risk: AGPL must be disclosed");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
@@ -155,11 +155,11 @@ class AiAnalysisServiceTest {
     void summarizeLicenseRisk_delegatesToAnthropicClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("CC-BY-SA compliance risk");
+        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("CC-BY-SA compliance risk");
 
         assertThat(aiAnalysisService.summarizeLicenseRisk("CC-BY-SA", "CAUTION", "lib"))
                 .isEqualTo("CC-BY-SA compliance risk");
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     // ── summarizeCve COPILOT ───────────────────────────────────────────────
@@ -169,12 +169,12 @@ class AiAnalysisServiceTest {
     void summarizeCve_delegatesToCopilotClient_forCopilotProvider() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.COPILOT).build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(copilotClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("copilot result");
+        when(copilotClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("copilot result");
 
         String result = aiAnalysisService.summarizeCve("CVE-C", "HIGH", 7.0, "comp");
 
         assertThat(result).isEqualTo("copilot result");
-        verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString(), any());
         verifyNoInteractions(openAiClient, anthropicClient);
     }
 
@@ -193,11 +193,11 @@ class AiAnalysisServiceTest {
     void generateSecurityTrendInsight_delegatesToOpenAiClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("Security trend result");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("Security trend result");
 
         assertThat(aiAnalysisService.generateSecurityTrendInsight("P", 5, "v1, v2", "-"))
                 .isEqualTo("Security trend result");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
@@ -205,11 +205,11 @@ class AiAnalysisServiceTest {
     void generateSecurityTrendInsight_delegatesToAnthropicClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("Anthropic trend");
+        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("Anthropic trend");
 
         assertThat(aiAnalysisService.generateSecurityTrendInsight("P", -2, "v3, v4", "-"))
                 .isEqualTo("Anthropic trend");
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     // ── generateLicenseTrendInsight ───────────────────────────────────────
@@ -227,11 +227,11 @@ class AiAnalysisServiceTest {
     void generateLicenseTrendInsight_delegatesToOpenAiClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("License trend result");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("License trend result");
 
         assertThat(aiAnalysisService.generateLicenseTrendInsight("P", 2, "v1, v2", "-"))
                 .isEqualTo("License trend result");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     // ── summarizeSecurityPosture ──────────────────────────────────────────
@@ -253,11 +253,11 @@ class AiAnalysisServiceTest {
     void summarizeSecurityPosture_delegatesToOpenAiClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("Posture summary");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("Posture summary");
 
         assertThat(aiAnalysisService.summarizeSecurityPosture("MyProject", samplePosture()))
                 .isEqualTo("Posture summary");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
@@ -265,11 +265,11 @@ class AiAnalysisServiceTest {
     void summarizeSecurityPosture_delegatesToAnthropicClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("Claude posture");
+        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("Claude posture");
 
         assertThat(aiAnalysisService.summarizeSecurityPosture("P", samplePosture()))
                 .isEqualTo("Claude posture");
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     // ── summarizeVersionDiff ──────────────────────────────────────────────
@@ -287,11 +287,11 @@ class AiAnalysisServiceTest {
     void summarizeVersionDiff_delegatesToOpenAiClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("Version diff summary");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("Version diff summary");
 
         assertThat(aiAnalysisService.summarizeVersionDiff("MyApp", "v1.0", "v2.0", 5, 2, 10, 3, "threats"))
                 .isEqualTo("Version diff summary");
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
@@ -299,11 +299,11 @@ class AiAnalysisServiceTest {
     void summarizeVersionDiff_delegatesToAnthropicClient() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
         when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("Claude diff");
+        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("Claude diff");
 
         assertThat(aiAnalysisService.summarizeVersionDiff("P", "1.0", "1.1", 1, 0, 3, 1, "-"))
                 .isEqualTo("Claude diff");
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     // ── testConnection ────────────────────────────────────────────────────
@@ -312,17 +312,17 @@ class AiAnalysisServiceTest {
     @DisplayName("testConnection: OPENAI 제공자가 응답하면 true를 반환한다")
     void testConnection_openai_returnsTrue_whenResponseNotNull() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("OK");
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
     @DisplayName("testConnection: 클라이언트가 예외를 던지면 false를 반환한다")
     void testConnection_returnsFalse_whenClientThrows() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString()))
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any()))
                 .thenThrow(new RuntimeException("Connection refused"));
 
         assertThat(aiAnalysisService.testConnection(setting)).isFalse();
@@ -332,18 +332,18 @@ class AiAnalysisServiceTest {
     @DisplayName("testConnection: ANTHROPIC 제공자가 응답하면 true를 반환한다")
     void testConnection_anthropic_returnsTrue() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("OK");
+        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
     @DisplayName("testConnection: COPILOT 제공자가 응답하면 true를 반환한다")
     void testConnection_copilot_returnsTrue() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.COPILOT).build();
-        when(copilotClient.callWithSetting(anyString(), eq(setting), anyString())).thenReturn("OK");
+        when(copilotClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString());
+        verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }}
