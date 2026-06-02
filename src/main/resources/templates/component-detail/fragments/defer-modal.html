@@ -212,7 +212,8 @@ const _deferI18n = {
                             <span class="font-medium text-[12px] text-[#00659c] tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.custom}">Custom</span>
                             <div class="border rounded-[6px] px-[10px] py-[2px] transition-colors ml-[4px]"
                                  :class="expiry === 'custom' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'">
-                                <input type="text" x-model="customDate" placeholder="YYYY-MM-DD"
+                                <input type="text" x-model="customDate"
+                                       th:placeholder="#{componentDetail.defer.placeholder.date}"
                                        @focus="expiry = 'custom'"
                                        class="w-[90px] bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-30)] tracking-[-0.12px]" />
                             </div>

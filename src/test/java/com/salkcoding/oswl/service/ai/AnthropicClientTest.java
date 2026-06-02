@@ -32,7 +32,7 @@ class AnthropicClientTest {
         AiPromptTemplateService prompts = new AiPromptTemplateService(
                 new DefaultResourceLoader(), "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
-        client = new AnthropicClient(prompts);
+        client = new AnthropicClient(prompts, new AiCallTrace(new AiDebugSettings()));
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }

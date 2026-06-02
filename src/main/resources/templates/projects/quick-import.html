@@ -20,7 +20,7 @@
                     </svg>
                 </div>
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
-                    <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0">Quick Import</h2>
+                    <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0" th:text="#{quickImport.title}">Quick Import</h2>
                 </div>
                 <button type="button" @click="openPanel = null"
                         class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
@@ -230,10 +230,10 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-600"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div>
-                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" x-text="_qiI18n.completeTitleTpl.replace('{0}', jobResult.projectName || 'project')"></p>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] m-0" x-text="_qiI18n.completeTitleTpl.replace('{0}', jobResult.projectName || _qiI18n.defaultProjectName)"></p>
                         <p class="text-[13px] text-[var(--grayscale-60)] m-0">
                             <span x-text="jobResult.componentCount || 0"></span><span th:text="#{quickImport.complete.scanned}"> components scanned</span>
-                            (<span x-text="jobResult.ecosystem || 'unknown'"></span>)
+                            (<span x-text="jobResult.ecosystem || _qiI18n.defaultEcosystem"></span>)
                         </p>
                     </div>
                 </div>
@@ -347,7 +347,7 @@
                         <!-- Repo count badge -->
                         <template x-if="!repoBrowsers[provider].loading && repoBrowsers[provider].repos.length > 0">
                             <span class="px-[6px] py-[1px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[11px] font-semibold rounded-full"
-                                  x-text="repoBrowsers[provider].repos.length + ' repos'"></span>
+                                  x-text="_qiFmt(_qiI18n.repoCount, repoBrowsers[provider].repos.length)"></span>
                         </template>
                     </div>
                     <!-- Refresh button -->
@@ -367,7 +367,7 @@
                         <div class="bg-[var(--grayscale-10)] flex gap-[9px] h-[32px] items-center px-[12px] rounded-[75px] border border-transparent focus-within:border-[var(--primary-120)]">
                             <img src="/icon/icon-search.svg" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                             <input type="text"
-                                   :placeholder="'Search ' + providerLabel(provider) + ' repositories…'"
+                                   :placeholder="_qiFmt(_qiI18n.searchRepos, providerLabel(provider))"
                                    x-model="repoBrowsers[provider].search"
                                    @input="onBrowserSearch(provider)"
                                    class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
@@ -473,8 +473,8 @@
                     <template x-if="!repoBrowsers[provider].loading && getBrowserTotalPages(provider) > 1">
                         <div class="flex items-center justify-between px-[16px] py-[10px] border-t border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
                             <span class="text-[12px] text-[var(--grayscale-50)]">
-                                Page <span x-text="repoBrowsers[provider].page"></span>
-                                of <span x-text="getBrowserTotalPages(provider)"></span>
+                                <span th:text="#{quickImport.pagination.page}">Page</span> <span x-text="repoBrowsers[provider].page"></span>
+                                <span th:text="#{quickImport.pagination.of}">of</span> <span x-text="getBrowserTotalPages(provider)"></span>
                             </span>
                             <div class="flex items-center gap-[6px]">
                                 <button @click="browserPrevPage(provider)"
@@ -511,8 +511,41 @@
         tryAgain:            /*[[#{quickImport.btn.tryAgain}]]*/ 'Try Again',
         noRepo:              /*[[#{quickImport.repoBrowser.noRepo}]]*/ 'No repositories found.',
         noRepoSearchTpl:     /*[[#{quickImport.repoBrowser.noRepoSearch}]]*/ 'No repositories matching "{0}"',
-        unexpectedError:     /*[[#{quickImport.error.unexpected}]]*/ 'An unexpected error occurred.'
+        unexpectedError:     /*[[#{quickImport.error.unexpected}]]*/ 'An unexpected error occurred.',
+        invalidUrl:          /*[[#{quickImport.error.invalidUrl}]]*/ 'Please enter a valid URL.',
+        urlProtocol:         /*[[#{quickImport.error.urlProtocol}]]*/ 'URL must use http:// or https://.',
+        loadReposFailed:     /*[[#{quickImport.error.loadRepos}]]*/ 'Failed to load repositories.',
+        startFailed:         /*[[#{quickImport.error.startFailed}]]*/ 'Failed to start import: {0}',
+        sessionExpired:      /*[[#{quickImport.error.sessionExpired}]]*/ 'Import session expired. The server may have been restarted — please try again.',
+        phaseQueued:         /*[[#{quickImport.phase.QUEUED}]]*/ 'Queued',
+        phaseCloning:        /*[[#{quickImport.phase.CLONING}]]*/ 'Cloning repository…',
+        phaseParsing:        /*[[#{quickImport.phase.PARSING}]]*/ 'Parsing dependencies…',
+        phaseScanning:       /*[[#{quickImport.phase.SCANNING}]]*/ 'Running security scan…',
+        phaseEnriching:      /*[[#{quickImport.phase.ENRICHING}]]*/ 'Analyzing components…',
+        phaseDone:           /*[[#{quickImport.phase.DONE}]]*/ 'Done',
+        phaseFailed:         /*[[#{quickImport.phase.FAILED}]]*/ 'Failed',
+        title:               /*[[#{quickImport.title}]]*/ 'Quick Import',
+        repoCount:           /*[[#{quickImport.repoCount}]]*/ '{0} repos',
+        searchRepos:         /*[[#{quickImport.searchRepos}]]*/ 'Search {0} repositories\u2026',
+        defaultProjectName:  /*[[#{quickImport.fallback.projectName}]]*/ 'project',
+        defaultEcosystem:    /*[[#{quickImport.fallback.ecosystem}]]*/ 'unknown',
+        providerGithub:      /*[[#{settings.vcs.provider.github}]]*/ 'GitHub',
+        providerGitlab:      /*[[#{settings.vcs.provider.gitlab}]]*/ 'GitLab',
+        providerBitbucket:   /*[[#{settings.vcs.provider.bitbucket}]]*/ 'Bitbucket',
+        justNow:             /*[[#{common.time.justNow}]]*/ 'just now',
+        minuteAgo:           /*[[#{common.time.minuteAgo}]]*/ '1 minute ago',
+        minutesAgo:          /*[[#{common.time.minutesAgo}]]*/ '{0} minutes ago',
+        hourAgo:             /*[[#{common.time.hourAgo}]]*/ '1 hour ago',
+        hoursAgo:            /*[[#{common.time.hoursAgo}]]*/ '{0} hours ago',
+        dayAgo:              /*[[#{common.time.dayAgo}]]*/ '1 day ago',
+        daysAgo:             /*[[#{common.time.daysAgo}]]*/ '{0} days ago',
+        minutesShort:        /*[[#{common.time.minutesShort}]]*/ '{0}m ago',
+        hoursShort:          /*[[#{common.time.hoursShort}]]*/ '{0}h ago',
+        daysShort:           /*[[#{common.time.daysShort}]]*/ '{0}d ago'
     };
+    function _qiFmt(template, arg) {
+        return String(template).replace('{0}', arg);
+    }
     </script>
 
     <script th:src="@{/js/projects/quick-import.js}"></script>

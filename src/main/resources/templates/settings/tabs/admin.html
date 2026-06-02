@@ -40,6 +40,8 @@
         updateNameFailed:       /*[[#{settings.admin.users.error.updateNameFailed}]]*/ 'Failed to update display name.',
         actionFailed:           /*[[#{settings.admin.users.error.actionFailed}]]*/ 'Operation failed.',
         auditLoadFailed:        /*[[#{settings.admin.auditLog.error.loadFailed}]]*/ 'Failed to load audit logs.',
+        loadDataFailed:         /*[[#{settings.admin.error.loadDataFailed}]]*/ 'Failed to load data. Please verify your session.',
+        noRole:                 /*[[#{settings.admin.users.noRole}]]*/ '\u2014 No role \u2014',
         active:                 /*[[#{settings.admin.users.status.active}]]*/ 'Active',
         inactive:               /*[[#{settings.admin.users.status.inactive}]]*/ 'Inactive',
         signInAgain:            /*[[#{settings.admin.signInAgain}]]*/ 'Sign in again',
@@ -346,14 +348,15 @@
                                             class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
                                             :class="open ? 'border-[var(--primary-120)]' : ''">
                                         <span :class="editingTemplateId ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] font-normal'"
-                                              x-text="editingTemplateId ? (templates.find(t=>t.id===editingTemplateId)||{name:'— No role —'}).name : '— No role —'"></span>
+                                              x-text="editingTemplateId ? (templates.find(t=>t.id===editingTemplateId)||{name:_adminI18n.noRole}).name : _adminI18n.noRole"></span>
                                         <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                                     </button>
                                     <div x-show="open" x-cloak
                                          class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                                         <button type="button" @click="editingTemplateId = null; open = false"
                                                 class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                                :class="!editingTemplateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'">— No role —</button>
+                                                :class="!editingTemplateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'"
+                                                x-text="_adminI18n.noRole"></button>
                                         <template x-for="t in templates" :key="t.id">
                                             <button type="button" @click="editingTemplateId = t.id; open = false"
                                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
@@ -1159,7 +1162,7 @@
                 try {
                     await Promise.all([this.loadUsers(), this.loadTemplates(), this.loadPermissions()]);
                 } catch(e) {
-                    this.apiError = e.message || 'Failed to load data. Please verify your session.';
+                    this.apiError = e.message || _adminI18n.loadDataFailed;
                 }
                 try {
                     const r = await fetch('/api/settings/security');
