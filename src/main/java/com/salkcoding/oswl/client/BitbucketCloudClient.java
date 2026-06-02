@@ -305,8 +305,8 @@ public class BitbucketCloudClient {
                 .header("User-Agent", USER_AGENT)
                 .GET().build();
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        log.info("[BitbucketCloudClient] GET {} → HTTP {}", url, resp.statusCode());
         if (resp.statusCode() != 200) {
+            log.debug("[BitbucketCloudClient] GET {} → HTTP {}", url, resp.statusCode());
             return List.of();
         }
         JsonNode values = objectMapper.readTree(resp.body()).path("values");
@@ -322,6 +322,7 @@ public class BitbucketCloudClient {
                     r.path("is_private").asBoolean(false),
                     r.path("updated_on").asText()));
         }
+        log.debug("[BitbucketCloudClient] GET {} → HTTP {} repos={}", url, resp.statusCode(), result.size());
         return result;
     }
 }

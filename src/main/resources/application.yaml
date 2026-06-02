@@ -40,6 +40,12 @@ oswl:
     enrichment:
       cve-limit: ${OSWL_AI_CVE_LIMIT:10}
       license-limit: ${OSWL_AI_LICENSE_LIMIT:8}
+    debug:
+      # Periodic DEBUG logs while waiting on the LLM (0 = disabled). See application-local.yaml.
+      heartbeat-seconds: ${OSWL_AI_DEBUG_HEARTBEAT_SECONDS:0}
+      excerpt-chars: ${OSWL_AI_DEBUG_EXCERPT_CHARS:500}
+      log-prompt-excerpt: ${OSWL_AI_DEBUG_LOG_PROMPT:true}
+      log-response-excerpt: ${OSWL_AI_DEBUG_LOG_RESPONSE:true}
   audit:
     # Maximum number of records returned per page in the audit log API
     max-page-size: ${OSWL_AUDIT_MAX_PAGE_SIZE:200}

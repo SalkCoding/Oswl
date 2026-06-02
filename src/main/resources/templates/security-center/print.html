@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${projectName} + ' — Security Report'">Security Report</title>
+    <title th:text="|${projectName}#{securityCenter.print.titleSuffix}|">Security Report</title>
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/globals.css}">
@@ -187,7 +187,7 @@
 <div class="print-toolbar">
     <div class="toolbar-left">
         <img th:src="@{/icon/icon-logo-card.svg}" width="14" height="19" alt="OsWL" style="display:block;">
-        <span class="toolbar-title" th:text="${projectName} + ' · Security Report'">Project — Security Report</span>
+        <span class="toolbar-title" th:text="#{securityCenter.print.toolbarSubtitle(${projectName})}">Project — Security Report</span>
         <span class="toolbar-badge" th:text="${projectVersion ?: '—'}">develop</span>
     </div>
     <button class="print-btn" onclick="window.print()">
@@ -195,7 +195,7 @@
             <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
             <rect x="6" y="14" width="12" height="8"/>
         </svg>
-        Save as PDF
+        <span th:text="#{securityCenter.print.saveAsPdf}">Save as PDF</span>
     </button>
 </div>
 
@@ -208,33 +208,33 @@
                 <span class="header-logo-text">OsWL</span>
             </div>
             <div class="header-divider"></div>
-            <span class="header-report-type">Security Report</span>
+            <span class="header-report-type" th:text="#{securityCenter.print.reportType}">Security Report</span>
         </div>
         <div class="header-meta">
             <div class="meta-item">
-                <span class="meta-label">Project</span>
+                <span class="meta-label" th:text="#{securityCenter.print.meta.project}">Project</span>
                 <span class="meta-value" th:text="${projectName}">My Project</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Version / Branch</span>
+                <span class="meta-label" th:text="#{securityCenter.print.meta.versionBranch}">Version / Branch</span>
                 <span class="meta-value" th:text="${projectVersion ?: '—'}">develop</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Scan Date</span>
+                <span class="meta-label" th:text="#{securityCenter.print.meta.scanDate}">Scan Date</span>
                 <span class="meta-value" th:text="${scannedAt}">2025-01-01</span>
             </div>
             <div class="meta-item">
-                <span class="meta-label">Generated</span>
+                <span class="meta-label" th:text="#{securityCenter.print.meta.generated}">Generated</span>
                 <span class="meta-value" th:text="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}">2025-01-01</span>
             </div>
         </div>
     </div>
 
     <div class="section">
-        <div class="section-title">Risk Overview</div>
+        <div class="section-title" th:text="#{securityCenter.print.section.riskOverview}">Risk Overview</div>
         <div class="risk-overview">
             <div class="risk-block">
-                <div class="risk-block-label">Security Risk</div>
+                <div class="risk-block-label" th:text="#{securityCenter.print.section.securityRisk}">Security Risk</div>
                 <div th:with="total=${securityCritical + securityHigh + securityMedium + securityLow + securityUnscored}">
                     <div class="risk-bar" th:if="${total > 0}">
                         <div class="risk-bar-seg critical" th:if="${securityCritical > 0}" th:style="'flex:' + ${securityCritical}"></div>
@@ -245,15 +245,15 @@
                     <div class="risk-bar" th:if="${total == 0}" style="background:var(--grayscale-15)"></div>
                 </div>
                 <div class="risk-legend">
-                    <div class="risk-legend-item"><span class="risk-dot critical"></span><span class="risk-count" th:text="${securityCritical}">0</span><span>Critical</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot high"></span><span class="risk-count" th:text="${securityHigh}">0</span><span>High</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot medium"></span><span class="risk-count" th:text="${securityMedium}">0</span><span>Medium</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot low"></span><span class="risk-count" th:text="${securityLow}">0</span><span>Low</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${securityUnscored}">0</span><span>Unscored</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot critical"></span><span class="risk-count" th:text="${securityCritical}">0</span><span th:text="#{securityCenter.filter.critical}">Critical</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot high"></span><span class="risk-count" th:text="${securityHigh}">0</span><span th:text="#{securityCenter.filter.high}">High</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot medium"></span><span class="risk-count" th:text="${securityMedium}">0</span><span th:text="#{securityCenter.filter.medium}">Medium</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot low"></span><span class="risk-count" th:text="${securityLow}">0</span><span th:text="#{securityCenter.filter.low}">Low</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${securityUnscored}">0</span><span th:text="#{securityCenter.filter.unscored}">Unscored</span></div>
                 </div>
             </div>
             <div class="risk-block">
-                <div class="risk-block-label">License Risk</div>
+                <div class="risk-block-label" th:text="#{securityCenter.print.section.licenseRisk}">License Risk</div>
                 <div th:with="total=${licenseCritical + licenseHigh + licenseMedium + licenseLow}">
                     <div class="risk-bar" th:if="${total > 0}">
                         <div class="risk-bar-seg critical"  th:if="${licenseCritical > 0}" th:style="'flex:' + ${licenseCritical}"></div>
@@ -263,39 +263,39 @@
                     <div class="risk-bar" th:if="${total == 0}" style="background:var(--grayscale-15)"></div>
                 </div>
                 <div class="risk-legend">
-                    <div class="risk-legend-item"><span class="risk-dot restricted"></span><span class="risk-count" th:text="${licenseCritical}">0</span><span>Restricted</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot caution"></span><span class="risk-count" th:text="${licenseHigh}">0</span><span>Caution</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot permitted"></span><span class="risk-count" th:text="${licenseMedium}">0</span><span>Permitted</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${licenseLow}">0</span><span>Unknown</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot restricted"></span><span class="risk-count" th:text="${licenseCritical}">0</span><span th:text="#{securityCenter.filter.restricted}">Restricted</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot caution"></span><span class="risk-count" th:text="${licenseHigh}">0</span><span th:text="#{securityCenter.filter.caution}">Caution</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot permitted"></span><span class="risk-count" th:text="${licenseMedium}">0</span><span th:text="#{securityCenter.filter.permitted}">Permitted</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${licenseLow}">0</span><span th:text="#{securityCenter.filter.unknown}">Unknown</span></div>
                 </div>
             </div>
         </div>
         <div class="stat-strip">
             <div class="stat-item" th:classappend="${securityCritical > 0 ? 'has-critical' : ''}">
                 <span class="stat-num critical" th:text="${securityCritical}">0</span>
-                <span class="stat-label critical">Critical</span>
+                <span class="stat-label critical" th:text="#{securityCenter.filter.critical}">Critical</span>
             </div>
             <div class="stat-item" th:classappend="${securityHigh > 0 ? 'has-high' : ''}">
                 <span class="stat-num high" th:text="${securityHigh}">0</span>
-                <span class="stat-label high">High</span>
+                <span class="stat-label high" th:text="#{securityCenter.filter.high}">High</span>
             </div>
             <div class="stat-item" th:classappend="${securityMedium > 0 ? 'has-medium' : ''}">
                 <span class="stat-num medium" th:text="${securityMedium}">0</span>
-                <span class="stat-label medium">Medium</span>
+                <span class="stat-label medium" th:text="#{securityCenter.filter.medium}">Medium</span>
             </div>
             <div class="stat-item">
                 <span class="stat-num low" th:text="${securityLow}">0</span>
-                <span class="stat-label low">Low</span>
+                <span class="stat-label low" th:text="#{securityCenter.filter.low}">Low</span>
             </div>
             <div class="stat-item">
                 <span class="stat-num unscored" th:text="${securityUnscored}">0</span>
-                <span class="stat-label unscored">Unscored</span>
+                <span class="stat-label unscored" th:text="#{securityCenter.filter.unscored}">Unscored</span>
             </div>
         </div>
     </div>
 
     <div class="section" th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}">
-        <div class="section-title">AI Security Posture</div>
+        <div class="section-title" th:text="#{securityCenter.print.section.aiPosture}">AI Security Posture</div>
         <div class="insight-box">
             <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
@@ -306,9 +306,9 @@
 
     <div class="section" style="padding-bottom:0">
         <div class="section-title">
-            Component Details
+            <span th:text="#{securityCenter.print.section.componentDetails}">Component Details</span>
             <span style="font-weight:400;color:var(--grayscale-40);text-transform:none;letter-spacing:0;margin-left:6px;"
-                  th:text="'(' + ${#lists.size(components)} + ' components)'"></span>
+                  th:text="#{securityCenter.print.componentCount(${#lists.size(components)})}"></span>
         </div>
     </div>
 
@@ -316,12 +316,12 @@
         <table class="comp-table">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Component</th>
-                    <th>Security Issues</th>
-                    <th>Patchability</th>
-                    <th>License</th>
-                    <th>Status</th>
+                    <th th:text="#{securityCenter.print.col.index}">#</th>
+                    <th th:text="#{securityCenter.table.component}">Component</th>
+                    <th th:text="#{securityCenter.table.securityIssues}">Security Issues</th>
+                    <th th:text="#{securityCenter.table.patchability}">Patchability</th>
+                    <th th:text="#{securityCenter.table.license}">License</th>
+                    <th th:text="#{securityCenter.print.col.status}">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -349,24 +349,26 @@
                         <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored > 0}">
                             <div class="patch-cell">
                                 <span class="patch-dot" th:classappend="${comp.patchability == 'patchable' ? 'patchable' : (comp.patchability == 'non-patchable' ? 'non-patchable' : 'unknown')}"></span>
-                                <span class="patch-text" th:text="${comp.patchability == 'patchable' ? 'Patchable' : (comp.patchability == 'non-patchable' ? 'Non-patchable' : '—')}">—</span>
+                                <span th:if="${comp.patchability == 'patchable'}" class="patch-text" th:text="#{securityCenter.filter.patchable}">Patchable</span>
+                                <span th:if="${comp.patchability == 'non-patchable'}" class="patch-text" th:text="#{common.nonPatchable}">Non-Patchable</span>
+                                <span th:if="${comp.patchability != 'patchable' and comp.patchability != 'non-patchable'}" class="patch-text">—</span>
                             </div>
                         </th:block>
                         <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
                             <div class="patch-cell" th:if="${comp.deprecated != null}">
                                 <span class="patch-dot deprecated"></span>
-                                <span class="patch-text">Deprecated</span>
+                                <span class="patch-text" th:text="#{securityCenter.filter.deprecated}">Deprecated</span>
                             </div>
                             <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion == false}">
                                 <span class="patch-dot outdated"></span>
                                 <div>
-                                    <span class="patch-text">Outdated</span>
+                                    <span class="patch-text" th:text="#{securityCenter.filter.outdated}">Outdated</span>
                                     <span class="patch-latest" th:if="${comp.latestVersion != null}" th:text="'→ v' + ${comp.latestVersion}"></span>
                                 </div>
                             </div>
                             <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion != false}">
                                 <span class="patch-dot up-to-date"></span>
-                                <span class="patch-text" style="color:var(--grayscale-50)">Up to date</span>
+                                <span class="patch-text" style="color:var(--grayscale-50)" th:text="#{securityCenter.filter.upToDate}">Up to date</span>
                             </div>
                         </th:block>
                     </td>
@@ -380,27 +382,27 @@
                         <div th:if="${comp.ignored}" class="status-cell">
                             <span class="status-dot ignored"></span>
                             <div>
-                                <span class="status-text">Ignored</span>
-                                <span class="status-by" th:if="${comp.reviewedByName != null}" th:text="'by ' + ${comp.reviewedByName}"></span>
+                                <span class="status-text" th:text="#{securityCenter.filter.ignored}">Ignored</span>
+                                <span class="status-by" th:if="${comp.reviewedByName != null}" th:text="#{common.byUser(${comp.reviewedByName})}"></span>
                             </div>
                         </div>
                         <div th:if="${comp.deferred and !comp.ignored}" class="status-cell">
                             <span class="status-dot deferred"></span>
                             <div>
-                                <span class="status-text">Deferred</span>
-                                <span class="status-by" th:if="${comp.deferredByName != null}" th:text="'by ' + ${comp.deferredByName}"></span>
+                                <span class="status-text" th:text="#{securityCenter.filter.deferred}">Deferred</span>
+                                <span class="status-by" th:if="${comp.deferredByName != null}" th:text="#{common.byUser(${comp.deferredByName})}"></span>
                             </div>
                         </div>
                         <div th:if="${comp.reviewed and !comp.ignored and !comp.deferred}" class="status-cell">
                             <span class="status-dot reviewed"></span>
                             <div>
-                                <span class="status-text">Reviewed</span>
-                                <span class="status-by" th:if="${comp.reviewedByName != null}" th:text="'by ' + ${comp.reviewedByName}"></span>
+                                <span class="status-text" th:text="#{securityCenter.filter.reviewed}">Reviewed</span>
+                                <span class="status-by" th:if="${comp.reviewedByName != null}" th:text="#{common.byUser(${comp.reviewedByName})}"></span>
                             </div>
                         </div>
                         <div th:if="${!comp.reviewed and !comp.ignored and !comp.deferred}" class="status-cell">
                             <span class="status-dot unreviewed"></span>
-                            <span class="status-text" style="color:var(--grayscale-40)">Unreviewed</span>
+                            <span class="status-text" style="color:var(--grayscale-40)" th:text="#{common.unreviewed}">Unreviewed</span>
                         </div>
                     </td>
                 </tr>
@@ -409,8 +411,8 @@
     </div>
 
     <div class="report-footer">
-        <span>Generated by OsWL — Software Composition Analysis</span>
-        <span th:text="'Generated ' + ${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}"></span>
+        <span th:text="#{securityCenter.print.footer.generatedBy}">Generated by OsWL — Software Composition Analysis</span>
+        <span th:text="#{securityCenter.print.footer.generatedOn(${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')})}"></span>
     </div>
 
 </div>

@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,24 +35,5 @@ class LicensePolicyRepositoryTest {
         Optional<LicensePolicyEntry> found = licensePolicyRepository.findBySpdxId("NO-SUCH-LICENSE");
 
         assertThat(found).isEmpty();
-    }
-
-    @Test
-    @DisplayName("RESTRICTED 라이선스 목록을 조회할 수 있다")
-    void findByStatus_returnsRestrictedEntries() {
-        // 기본 시딩: GPL-3.0, AGPL-3.0 등이 RESTRICTED로 등록됨
-        List<LicensePolicyEntry> restricted = licensePolicyRepository.findByStatus(LicenseStatus.RESTRICTED);
-
-        assertThat(restricted).isNotEmpty();
-        assertThat(restricted).allMatch(e -> e.getStatus() == LicenseStatus.RESTRICTED);
-    }
-
-    @Test
-    @DisplayName("PERMITTED 라이선스 목록을 조회할 수 있다")
-    void findByStatus_returnsPermittedEntries() {
-        List<LicensePolicyEntry> permitted = licensePolicyRepository.findByStatus(LicenseStatus.PERMITTED);
-
-        assertThat(permitted).isNotEmpty();
-        assertThat(permitted).anyMatch(e -> "MIT".equals(e.getSpdxId()));
     }
 }

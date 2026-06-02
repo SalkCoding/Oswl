@@ -42,7 +42,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.cveSingle(cveId, severity, cvssScore, component);
-        return delegate(prompt, setting);
+        return delegate(prompt, setting, "cve.single");
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +51,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.securityTrend(projectName, secDelta, recentVersions, changeDetails);
-        return delegate(prompt, setting);
+        return delegate(prompt, setting, "security.trend");
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +60,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.licenseTrend(projectName, licDelta, recentVersions, changeDetails);
-        return delegate(prompt, setting);
+        return delegate(prompt, setting, "license.trend");
     }
 
     @Transactional(readOnly = true)
@@ -75,7 +75,7 @@ public class AiAnalysisService {
         if (setting == null) return null;
         String prompt = promptTemplates.licenseSingle(licenseName, licenseStatus, component,
                 ecosystem, dependencyType, latestVersion);
-        return delegate(prompt, setting);
+        return delegate(prompt, setting, "license.single");
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +83,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.securityPosture(ctx, projectName);
-        return delegate(prompt, setting);
+        return delegate(prompt, setting, "security.posture");
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +94,7 @@ public class AiAnalysisService {
         if (setting == null) return null;
         String prompt = promptTemplates.versionDiff(projectName, fromVersion, toVersion,
                 added, removed, updated, newThreats, threatDetails);
-        return delegate(prompt, setting);
+        return delegate(prompt, setting, "version.diff");
     }
 
     @Transactional(readOnly = true)
@@ -105,8 +105,13 @@ public class AiAnalysisService {
     public boolean testConnection(AiSetting setting) {
         String prompt = promptTemplates.testConnection();
         try {
-            String result = delegate(prompt, setting);
-            return result != null;
+            String result = delegate(prompt, setting, "test.connection");
+            if (result != null) {
+                log.info("[AI] {} provider connection test succeeded", setting.getProvider());
+                return true;
+            }
+            log.warn("[AI] {} provider connection test returned empty response", setting.getProvider());
+            return false;
         } catch (Exception e) {
             log.warn("[AI] {} provider connection test failed: {}", setting.getProvider(), e.getMessage());
             return false;
@@ -117,28 +122,42 @@ public class AiAnalysisService {
     public Map<String, String> batchSummarizeCves(List<CveSummaryRequest> items) {
         AiSetting setting = getActiveSetting();
         if (setting == null || items.isEmpty()) return Map.of();
+        log.debug("[AI] batch.cve start — {} item(s), provider={}", items.size(), setting.getProvider());
         String prompt = promptTemplates.batchCvePrompt(items);
-        return batchWithRetry(prompt, setting, items.size(), "CVE");
+        return batchWithRetry(prompt, setting, items.size(), "CVE", "batch.cve");
     }
 
     @Transactional(readOnly = true)
     public Map<String, String> batchSummarizeLicenses(List<LicenseSummaryRequest> items) {
         AiSetting setting = getActiveSetting();
         if (setting == null || items.isEmpty()) return Map.of();
+        log.debug("[AI] batch.license start — {} item(s), provider={}", items.size(), setting.getProvider());
         String prompt = promptTemplates.batchLicensePrompt(items);
-        return batchWithRetry(prompt, setting, items.size(), "license");
+        return batchWithRetry(prompt, setting, items.size(), "license", "batch.license");
     }
 
-    private Map<String, String> batchWithRetry(String prompt, AiSetting setting, int itemCount, String label) {
+    private Map<String, String> batchWithRetry(String prompt, AiSetting setting, int itemCount,
+                                               String label, String operation) {
         try {
-            Map<String, String> result = parseBatchSummaryResponse(delegate(prompt, setting));
-            if (!result.isEmpty()) return result;
+            Map<String, String> result = parseBatchSummaryResponse(delegate(prompt, setting, operation));
+            if (!result.isEmpty()) {
+                log.debug("[AI] {} parsed {} summary(ies)", operation, result.size());
+                return result;
+            }
             log.warn("[AI] Batch {} summary empty ({} items) — retrying once", label, itemCount);
-            return parseBatchSummaryResponse(delegate(prompt, setting));
+            Map<String, String> retry = parseBatchSummaryResponse(delegate(prompt, setting, operation));
+            if (!retry.isEmpty()) {
+                log.debug("[AI] {} parsed {} summary(ies) on retry", operation, retry.size());
+            }
+            return retry;
         } catch (Exception e) {
             log.warn("[AI] Batch {} summary failed: {} — retrying once", label, e.getMessage());
             try {
-                return parseBatchSummaryResponse(delegate(prompt, setting));
+                Map<String, String> retry = parseBatchSummaryResponse(delegate(prompt, setting, operation));
+                if (!retry.isEmpty()) {
+                    log.debug("[AI] {} parsed {} summary(ies) on retry", operation, retry.size());
+                }
+                return retry;
             } catch (Exception retryEx) {
                 log.warn("[AI] Batch {} summary retry failed: {}", label, retryEx.getMessage());
                 return Map.of();
@@ -146,11 +165,11 @@ public class AiAnalysisService {
         }
     }
 
-    private String delegate(String prompt, AiSetting setting) {
+    private String delegate(String prompt, AiSetting setting, String operation) {
         return switch (setting.getProvider()) {
-            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting);
-            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting);
-            case COPILOT               -> copilotClient.callWithSetting(prompt, setting);
+            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting, operation);
+            case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting, operation);
+            case COPILOT               -> copilotClient.callWithSetting(prompt, setting, operation);
         };
     }
 

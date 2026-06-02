@@ -57,7 +57,7 @@
             </div>
             <div class="flex-1"></div>
             <div class="relative">
-                <input type="text" x-model="searchQuery" placeholder="Search libraries..."
+                <input type="text" x-model="searchQuery" th:placeholder="#{ossNotices.search.placeholder}"
                        class="pl-[36px] pr-[14px] py-[8px] text-[13px] bg-white border border-[var(--grayscale-20)] rounded-[8px] w-[220px] text-[var(--grayscale-90)] tracking-[-0.13px] focus:outline-none focus:border-[var(--primary-100)] transition-colors">
             </div>
         </div>
@@ -94,10 +94,10 @@
                     <!-- Category tag -->
                     <div>
                         <span class="inline-flex items-center px-[9px] py-[4px] rounded-[6px] text-[11px] font-medium tracking-[-0.11px] whitespace-nowrap"
-                              :class="lib.category === 'Backend'
+                              :class="lib.categoryKey === 'backend'
                                   ? 'bg-[rgba(0,101,156,0.07)] text-[var(--copy-info)]'
                                   : 'bg-[rgba(51,209,183,0.07)] text-[var(--primary-120)]'"
-                              x-text="lib.category"></span>
+                              x-text="lib.categoryKey === 'backend' ? _ossI18n.categoryBackend : _ossI18n.categoryFrontend"></span>
                     </div>
                     <!-- Link -->
                     <a :href="lib.url" target="_blank" rel="noopener noreferrer"
@@ -115,7 +115,7 @@
             <div x-show="filteredLibraries.length === 0" x-cloak
                  class="flex flex-col items-center justify-center gap-[10px] py-[60px]">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--grayscale-30)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <p class="text-[13px] text-[var(--grayscale-40)] tracking-[-0.13px] m-0">No libraries match your search.</p>
+                <p class="text-[13px] text-[var(--grayscale-40)] tracking-[-0.13px] m-0" th:text="#{ossNotices.empty.noMatch}">No libraries match your search.</p>
             </div>
         </div>
 
@@ -127,37 +127,47 @@
 
     </main>
 
-    <script>
+    <script th:inline="javascript">
+    const _ossI18n = {
+        categoryBackend:  /*[[#{ossNotices.category.backend}]]*/ 'Backend',
+        categoryFrontend: /*[[#{ossNotices.category.frontend}]]*/ 'Frontend',
+        filterAll:    /*[[#{ossNotices.filter.all}]]*/ 'All',
+        filterApache: /*[[#{ossNotices.filter.apache}]]*/ 'Apache 2.0',
+        filterMit:    /*[[#{ossNotices.filter.mit}]]*/ 'MIT',
+        filterLgpl:   /*[[#{ossNotices.filter.lgpl}]]*/ 'LGPL',
+        filterBsd:    /*[[#{ossNotices.filter.bsd}]]*/ 'BSD',
+        filterEpl:    /*[[#{ossNotices.filter.epl}]]*/ 'EPL / MPL'
+    };
     function ossNotices() {
         const libs = [
-            { name:'Spring Boot',        abbr:'SB', color:'#5f8a2f', description:'Opinionated framework for building production-ready Spring applications',                       url:'https://spring.io/projects/spring-boot',                             license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'Spring Security',    abbr:'SS', color:'#4a6f24', description:'Authentication, authorization and protection against common web exploits',                      url:'https://spring.io/projects/spring-security',                         license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'Spring Data JPA',    abbr:'SJ', color:'#3d7a5e', description:'Simplified JPA-based data access with repository abstraction',                                 url:'https://spring.io/projects/spring-data-jpa',                         license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'Hibernate ORM',      abbr:'HI', color:'#b8890a', description:'High-performance object-relational mapping and JPQL query framework',                          url:'https://hibernate.org/orm/',                                         license:'LGPL 2.1',          licenseGroup:'lgpl',   category:'Backend'  },
-            { name:'Thymeleaf',          abbr:'TH', color:'#007a72', description:'Modern server-side Java template engine for HTML5 web views',                                  url:'https://www.thymeleaf.org/',                                         license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'thymeleaf-extras-springsecurity6', abbr:'TS', color:'#006060', description:'Spring Security dialect and attribute processors for Thymeleaf', url:'https://github.com/thymeleaf/thymeleaf-extras-springsecurity', license:'Apache 2.0', licenseGroup:'apache', category:'Backend' },
-            { name:'springdoc-openapi',  abbr:'SO', color:'#5c35a8', description:'Automated OpenAPI 3 documentation generation for Spring Boot REST APIs',                       url:'https://springdoc.org/',                                             license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'Jackson',            abbr:'JA', color:'#c0392b', description:'High-performance JSON processor — serialization, deserialization and data binding',             url:'https://github.com/FasterXML/jackson',                                license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'Logback Classic',    abbr:'LB', color:'#5e6b70', description:'Reliable and fast logging framework; successor to Log4j',                                      url:'https://logback.qos.ch/',                                            license:'EPL 1.0 / LGPL 2.1',licenseGroup:'lgpl',   category:'Backend'  },
-            { name:'SLF4J API',          abbr:'SL', color:'#849197', description:'Simple facade decoupling application logging from implementation',                              url:'https://www.slf4j.org/',                                             license:'MIT',               licenseGroup:'mit',    category:'Backend'  },
-            { name:'GreenMail',          abbr:'GM', color:'#1a7a42', description:'Embeddable SMTP / IMAP email server for integration testing',                                  url:'https://greenmail-mail-test.github.io/greenmail/',                   license:'Apache 2.0',        licenseGroup:'apache', category:'Backend'  },
-            { name:'H2 Database',        abbr:'H2', color:'#1565c0', description:'Fast embeddable SQL database engine for development and test environments',                    url:'https://h2database.com/',                                            license:'EPL 2.0 / MPL 2.0', licenseGroup:'epl',    category:'Backend'  },
-            { name:'PostgreSQL JDBC',    abbr:'PG', color:'#336791', description:'Official type 4 JDBC driver for PostgreSQL databases',                                         url:'https://jdbc.postgresql.org/',                                       license:'BSD 2-Clause',      licenseGroup:'bsd',    category:'Backend'  },
-            { name:'Project Lombok',     abbr:'LK', color:'e91e63'.replace('','#'), description:'Compile-time annotation processor that eliminates Java boilerplate code',      url:'https://projectlombok.org/',                                         license:'MIT',               licenseGroup:'mit',    category:'Backend'  },
-            { name:'Alpine.js',          abbr:'AL', color:'#1c9ab1', description:'Minimal reactive framework for composing behavior directly in HTML markup',                    url:'https://alpinejs.dev/',                                              license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
-            { name:'@alpinejs/collapse', abbr:'AC', color:'#167a8d', description:'Alpine.js plugin for smooth CSS height transition animations',                                  url:'https://alpinejs.dev/plugins/collapse',                              license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
-            { name:'Chart.js',           abbr:'CH', color:'#c84b6e', description:'Flexible open-source canvas-based charting library for the browser',                           url:'https://www.chartjs.org/',                                           license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
-            { name:'htmx',               abbr:'HX', color:'#2c5282', description:'HTML-native AJAX, WebSockets and CSS transitions without writing JavaScript',                  url:'https://htmx.org/',                                                  license:'BSD 0-Clause',      licenseGroup:'bsd',    category:'Frontend' },
-            { name:'Tailwind CSS',       abbr:'TW', color:'#0ea5ca', description:'Utility-first CSS framework for building custom designs without leaving HTML',                 url:'https://tailwindcss.com/',                                           license:'MIT',               licenseGroup:'mit',    category:'Frontend' },
+            { slug: 'springBoot', abbr: 'SB', color: '#5f8a2f', url: 'https://spring.io/projects/spring-boot', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springBoot.name}]]*/ '', description: /*[[#{ossNotices.lib.springBoot.description}]]*/ '' },
+            { slug: 'springSecurity', abbr: 'SS', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springSecurity.name}]]*/ '', description: /*[[#{ossNotices.lib.springSecurity.description}]]*/ '' },
+            { slug: 'springDataJpa', abbr: 'SJ', color: '#3d7a5e', url: 'https://spring.io/projects/spring-data-jpa', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springDataJpa.name}]]*/ '', description: /*[[#{ossNotices.lib.springDataJpa.description}]]*/ '' },
+            { slug: 'hibernate', abbr: 'HI', color: '#b8890a', url: 'https://hibernate.org/orm/', license: 'LGPL 2.1', licenseGroup: 'lgpl', categoryKey: 'backend', name: /*[[#{ossNotices.lib.hibernate.name}]]*/ '', description: /*[[#{ossNotices.lib.hibernate.description}]]*/ '' },
+            { slug: 'thymeleaf', abbr: 'TH', color: '#007a72', url: 'https://www.thymeleaf.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.thymeleaf.name}]]*/ '', description: /*[[#{ossNotices.lib.thymeleaf.description}]]*/ '' },
+            { slug: 'thymeleafSpringSecurity', abbr: 'TS', color: '#006060', url: 'https://github.com/thymeleaf/thymeleaf-extras-springsecurity', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.thymeleafSpringSecurity.name}]]*/ '', description: /*[[#{ossNotices.lib.thymeleafSpringSecurity.description}]]*/ '' },
+            { slug: 'springdocOpenapi', abbr: 'SO', color: '#5c35a8', url: 'https://springdoc.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springdocOpenapi.name}]]*/ '', description: /*[[#{ossNotices.lib.springdocOpenapi.description}]]*/ '' },
+            { slug: 'jackson', abbr: 'JA', color: '#c0392b', url: 'https://github.com/FasterXML/jackson', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.jackson.name}]]*/ '', description: /*[[#{ossNotices.lib.jackson.description}]]*/ '' },
+            { slug: 'logback', abbr: 'LB', color: '#5e6b70', url: 'https://logback.qos.ch/', license: 'EPL 1.0 / LGPL 2.1', licenseGroup: 'lgpl', categoryKey: 'backend', name: /*[[#{ossNotices.lib.logback.name}]]*/ '', description: /*[[#{ossNotices.lib.logback.description}]]*/ '' },
+            { slug: 'slf4j', abbr: 'SL', color: '#849197', url: 'https://www.slf4j.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', name: /*[[#{ossNotices.lib.slf4j.name}]]*/ '', description: /*[[#{ossNotices.lib.slf4j.description}]]*/ '' },
+            { slug: 'greenmail', abbr: 'GM', color: '#1a7a42', url: 'https://greenmail-mail-test.github.io/greenmail/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.greenmail.name}]]*/ '', description: /*[[#{ossNotices.lib.greenmail.description}]]*/ '' },
+            { slug: 'h2', abbr: 'H2', color: '#1565c0', url: 'https://h2database.com/', license: 'EPL 2.0 / MPL 2.0', licenseGroup: 'epl', categoryKey: 'backend', name: /*[[#{ossNotices.lib.h2.name}]]*/ '', description: /*[[#{ossNotices.lib.h2.description}]]*/ '' },
+            { slug: 'postgresqlJdbc', abbr: 'PG', color: '#336791', url: 'https://jdbc.postgresql.org/', license: 'BSD 2-Clause', licenseGroup: 'bsd', categoryKey: 'backend', name: /*[[#{ossNotices.lib.postgresqlJdbc.name}]]*/ '', description: /*[[#{ossNotices.lib.postgresqlJdbc.description}]]*/ '' },
+            { slug: 'lombok', abbr: 'LK', color: '#e91e63', url: 'https://projectlombok.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', name: /*[[#{ossNotices.lib.lombok.name}]]*/ '', description: /*[[#{ossNotices.lib.lombok.description}]]*/ '' },
+            { slug: 'alpine', abbr: 'AL', color: '#1c9ab1', url: 'https://alpinejs.dev/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.alpine.name}]]*/ '', description: /*[[#{ossNotices.lib.alpine.description}]]*/ '' },
+            { slug: 'alpineCollapse', abbr: 'AC', color: '#167a8d', url: 'https://alpinejs.dev/plugins/collapse', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.alpineCollapse.name}]]*/ '', description: /*[[#{ossNotices.lib.alpineCollapse.description}]]*/ '' },
+            { slug: 'chartjs', abbr: 'CH', color: '#c84b6e', url: 'https://www.chartjs.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.chartjs.name}]]*/ '', description: /*[[#{ossNotices.lib.chartjs.description}]]*/ '' },
+            { slug: 'htmx', abbr: 'HX', color: '#2c5282', url: 'https://htmx.org/', license: 'BSD 0-Clause', licenseGroup: 'bsd', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.htmx.name}]]*/ '', description: /*[[#{ossNotices.lib.htmx.description}]]*/ '' },
+            { slug: 'tailwind', abbr: 'TW', color: '#0ea5ca', url: 'https://tailwindcss.com/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.tailwind.name}]]*/ '', description: /*[[#{ossNotices.lib.tailwind.description}]]*/ '' },
         ];
 
         const allFilters = [
-            { key:'all',    label:'All' },
-            { key:'apache', label:'Apache 2.0' },
-            { key:'mit',    label:'MIT' },
-            { key:'lgpl',   label:'LGPL' },
-            { key:'bsd',    label:'BSD' },
-            { key:'epl',    label:'EPL / MPL' },
+            { key:'all',    label: _ossI18n.filterAll },
+            { key:'apache', label: _ossI18n.filterApache },
+            { key:'mit',    label: _ossI18n.filterMit },
+            { key:'lgpl',   label: _ossI18n.filterLgpl },
+            { key:'bsd',    label: _ossI18n.filterBsd },
+            { key:'epl',    label: _ossI18n.filterEpl },
         ];
 
         return {

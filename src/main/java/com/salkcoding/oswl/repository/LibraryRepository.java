@@ -12,9 +12,6 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
 
     Optional<Library> findByNameAndVersionAndEcosystem(String name, String version, String ecosystem);
 
-    @Query("SELECT l FROM Library l LEFT JOIN FETCH l.cves WHERE l.id = :id")
-    Optional<Library> findByIdWithCves(@Param("id") Long id);
-
     @Query("""
             SELECT DISTINCT l FROM Library l LEFT JOIN FETCH l.cves
             WHERE l.id IN (

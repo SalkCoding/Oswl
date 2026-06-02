@@ -194,7 +194,7 @@
                  class="ml-[28px] flex items-start gap-[6px] rounded-[8px] px-[14px] py-[10px] text-[#92400e] text-[13px]"
                  style="background:rgba(245,145,38,0.05);border:1px solid rgba(245,145,38,0.2);">
                 <img th:src="@{/icon/icon-alert-triangle.svg}" class="shrink-0 mt-[1px] w-[16px] h-[16px]" alt="" aria-hidden="true">
-                <span>Mail Server is not configured. <button type="button" @click="mailMode='SMTP'; $el.closest('[x-data]').scrollIntoView({behavior:'smooth'})" class="underline font-medium hover:text-[#7c3400]">Configure now ↑</button></span>
+                <span><span x-text="_securityI18n.mailNotConfigured"></span> <button type="button" @click="mailMode='SMTP'; $el.closest('[x-data]').scrollIntoView({behavior:'smooth'})" class="underline font-medium hover:text-[#7c3400]" x-text="_securityI18n.mailConfigureNow"></button></span>
             </div>
 
             <!-- Email OTP details when mail is configured -->
@@ -269,7 +269,9 @@ const _securityI18n = {
     testOk:               /*[[#{settings.security.mail.test.success}]]*/ 'Connection successful.',
     testFailed:           /*[[#{settings.security.mail.test.failed}]]*/ 'Connection failed.',
     backendNotConnected:  /*[[#{settings.security.error.backendNotConnected}]]*/ 'Backend not yet connected.',
-    mailTestFailed:       /*[[#{settings.security.error.mailTestFailed}]]*/ 'Failed ({0}).'
+    mailTestFailed:       /*[[#{settings.security.error.mailTestFailed}]]*/ 'Failed ({0}).',
+    mailNotConfigured:    /*[[#{settings.security.mail.notConfigured}]]*/ 'Mail Server is not configured.',
+    mailConfigureNow:     /*[[#{settings.security.mail.configureNow}]]*/ 'Configure now ↑'
 };
 </script>
 <script>
