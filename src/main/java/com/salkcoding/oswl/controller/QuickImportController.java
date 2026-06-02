@@ -38,7 +38,7 @@ public class QuickImportController {
     // ── Page ─────────────────────────────────────────────────────────────
 
     @GetMapping("/projects/quick-import")
-    @PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
     public String quickImportPage() {
         return "projects/quick-import";
     }
@@ -52,7 +52,7 @@ public class QuickImportController {
      */
     @GetMapping("/api/quick-import/connections")
     @ResponseBody
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<List<VcsConnectionDto>> connections(
             @AuthenticationPrincipal OswlUserPrincipal principal) {
         return ResponseEntity.ok(vcsConnectionService.findByCurrentUser(principal.getUserId()));
@@ -66,7 +66,7 @@ public class QuickImportController {
      */
     @GetMapping("/api/quick-import/repos")
     @ResponseBody
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<?> listRepos(
             @RequestParam VcsProvider provider,
             @AuthenticationPrincipal OswlUserPrincipal principal) {
@@ -101,7 +101,7 @@ public class QuickImportController {
      */
     @GetMapping("/api/quick-import/job/{jobId}")
     @ResponseBody
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<QuickImportJobStatus> jobStatus(
             @PathVariable String jobId,
             @AuthenticationPrincipal OswlUserPrincipal principal) {

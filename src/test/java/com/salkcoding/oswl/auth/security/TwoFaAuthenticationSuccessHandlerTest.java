@@ -2,6 +2,7 @@ package com.salkcoding.oswl.auth.security;
 
 import com.salkcoding.oswl.auth.entity.SecuritySetting;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
+import com.salkcoding.oswl.auth.service.LoginCompletionService;
 import com.salkcoding.oswl.auth.service.OtpService;
 import com.salkcoding.oswl.auth.service.SecuritySettingService;
 import com.salkcoding.oswl.auth.service.TrustedDeviceService;
@@ -30,6 +31,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
     @Mock SecuritySettingService  securitySettingService;
     @Mock OtpService              otpService;
     @Mock TrustedDeviceService    trustedDeviceService;
+    @Mock LoginCompletionService  loginCompletionService;
 
     @InjectMocks TwoFaAuthenticationSuccessHandler handler;
 
@@ -105,6 +107,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
+        verify(loginCompletionService).recordSuccessfulLogin("user@test.com");
         verify(response).sendRedirect("/projects");
         verify(otpService, never()).storePendingAuth(any(), any());
     }

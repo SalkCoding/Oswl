@@ -2,6 +2,7 @@ package com.salkcoding.oswl.auth.controller;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.auth.service.LoginCompletionService;
 import com.salkcoding.oswl.auth.service.OtpService;
 import com.salkcoding.oswl.auth.service.TrustedDeviceService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +47,7 @@ public class OtpVerifyController {
     private final AuditLogService       auditLogService;
     private final TrustedDeviceService  trustedDeviceService;
     private final SessionRegistry       sessionRegistry;
+    private final LoginCompletionService loginCompletionService;
 
     @PostMapping("/login/otp-verify")
     public ResponseEntity<Map<String, String>> verifyOtp(
@@ -109,7 +111,11 @@ public class OtpVerifyController {
         boolean trustDevice = Boolean.TRUE.equals(body.get("trustDevice"));
         if (trustDevice) {
             trustedDeviceService.setTrusted(principal.getUserId(), response);
+            auditLogService.log("AUTH.TRUSTED_DEVICE", "AUTH", null, principal.getUsername(),
+                    "Trusted for 30 days");
         }
+
+        loginCompletionService.recordSuccessfulLogin(principal.getUsername());
 
         log.info("[OTP] 2FA authentication succeeded for user {}.", principal.getUsername());
         String redirectUrl = principal.isMustChangePassword() ? "/change-password" : "/projects";
@@ -133,6 +139,10 @@ public class OtpVerifyController {
 
         OswlUserPrincipal principal = otpService.getPendingPrincipal(session);
         otpService.storePendingAuth(session, principal); // regenerates OTP + resets expiry
+
+        auditLogService.logAnonymous(
+                principal != null ? principal.getUsername() : "unknown",
+                "AUTH.OTP_RESEND", "AUTH", null, null, null);
 
         boolean mailFailed = Boolean.TRUE.equals(session.getAttribute(OtpService.SESSION_MAIL_FAILED));
         Map<String, Object> body = new java.util.LinkedHashMap<>();
