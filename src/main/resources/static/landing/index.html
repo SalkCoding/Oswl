@@ -300,9 +300,25 @@ a<!DOCTYPE html>
         }
         .tab-btn.active { background: var(--primary); color: #fff; }
         .tab-btn:not(.active):hover { color: var(--text-primary); background: var(--bg-card-hover); }
-        .screenshot-frame { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-card); display: none; height: 520px; }
-        .screenshot-frame.active { display: block; }
-        .screenshot-frame img { width: 100%; display: block; }
+
+/* screenshot-frame: 고정 height 제거, 반응형 3:2 비율 적용 */
+.screenshot-frame {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-card);
+    display: none;
+    aspect-ratio: 3 / 2;   /* 3:2 비율 고정 */
+    width: 100%;             /* 부모 너비에 맞춰 반응형 */
+}
+.screenshot-frame.active { display: block; }
+
+.screenshot-frame img {
+    width: 100%;
+    height: 100%;           /* 부모(frame) 높이에 꽉 차게 */
+    display: block;
+    object-fit: cover;      /* 비율 유지하며 꽉 채움 (또는 contain) */
+}
 
         /* ── CVE demo table ── */
         .risk-demo { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
