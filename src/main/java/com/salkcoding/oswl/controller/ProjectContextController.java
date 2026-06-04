@@ -1,9 +1,8 @@
 package com.salkcoding.oswl.controller;
 
-import com.salkcoding.oswl.domain.enums.DeploymentProfile;
+import com.salkcoding.oswl.controller.spec.ProjectContextControllerSpec;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ProjectService;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,12 +13,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/projects/{projectId}")
 @RequiredArgsConstructor
-public class ProjectContextController {
+public class ProjectContextController implements ProjectContextControllerSpec {
 
     private final ProjectService projectService;
     private final ProjectAccessService projectAccessService;
-
-    public record DeploymentProfileRequest(@NotNull DeploymentProfile deploymentProfile) {}
 
     @PatchMapping("/deployment-profile")
     @PreAuthorize("hasPermission(null, 'PROJECT_UPDATE') or hasRole('SYSTEM_ADMIN')")

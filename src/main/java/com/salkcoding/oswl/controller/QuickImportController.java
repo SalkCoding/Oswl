@@ -9,6 +9,7 @@ import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.QuickImportRequest;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
+import com.salkcoding.oswl.controller.spec.QuickImportControllerSpec;
 import com.salkcoding.oswl.service.QuickImportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,12 +35,13 @@ import java.util.Map;
  * GET  /api/quick-import/connections        — user's connected VCS accounts
  * GET  /api/quick-import/repos?provider=    — list repos for a VCS provider
  * POST /api/quick-import/start              — start an async import job
- * GET  /api/quick-import/job/{jobId}        — poll job status
+ * GET  /api/quick-import/jobs               — list user's jobs
+ * GET  /api/quick-import/job/{jobId}/stream — SSE job updates
  */
 @Slf4j
 @Controller
 @RequiredArgsConstructor
-public class QuickImportController {
+public class QuickImportController implements QuickImportControllerSpec {
 
     private final QuickImportService quickImportService;
     private final VcsConnectionService vcsConnectionService;

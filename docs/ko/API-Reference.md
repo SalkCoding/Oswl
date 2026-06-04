@@ -52,17 +52,30 @@ Authorization: Bearer oswl_<your_api_key>
 | `DELETE` | `/projects/trash/all` | `PROJECT_PERMANENT_DELETE` | 휴지통 비우기 |
 | `DELETE` | `/projects/trash/selected` | `PROJECT_PERMANENT_DELETE` | 선택 항목 삭제 |
 | `POST` | `/projects/trash/restore-selected` | `PROJECT_RESTORE` | 일괄 복원 |
+| `GET` | `/projects/cards` | `PROJECT_VIEW` | 프로젝트 카드 HTML 조각 (대시보드) |
+| `GET` | `/projects/scan-status/stream?ids=` | `PROJECT_VIEW` | **SSE** — 나열된 프로젝트 스캔 완료 시 `scan-update` |
+| `POST` | `/projects` | `PROJECT_CREATE` | 프로젝트 생성 (JSON) |
+| `PATCH` | `/api/projects/{id}/deployment-profile` | `PROJECT_UPDATE` | AI CVE 트리아지용 배포 프로필 설정 |
 
 ---
 
 ## Quick Import
 
+`PROJECT_CREATE`(또는 시스템 관리자) 및 세션 인증 필요.
+
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | `GET` | `/projects/quick-import` | Quick Import 페이지 |
-| `GET` | `/api/quick-import/connections` | VCS 연결 목록 |
-| `POST` | `/api/quick-import/start` | 임포트 작업 시작 |
-| `GET` | `/api/quick-import/job/{jobId}` | 작업 상태 폴링 |
+| `GET` | `/api/quick-import/connections` | 현재 사용자 VCS 연결 목록 |
+| `GET` | `/api/quick-import/repos?provider=` | 제공업체별 저장소 목록 (`GITHUB`, `GITLAB`, `BITBUCKET`) |
+| `POST` | `/api/quick-import/start` | 새 임포트 작업 큐 등록 (`{ "repoUrl", "branch" }` → `{ "jobId" }`) |
+| `GET` | `/api/quick-import/jobs` | 사용자의 모든 작업 목록 |
+| `GET` | `/api/quick-import/job/{jobId}` | 작업 상태 폴링 (`QuickImportJobStatus`) |
+| `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — `job-update` 이벤트(JSON), 폴링 폴백 가능 |
+
+**단계:** `QUEUED` → `CLONING` → `PARSING` → `SCANNING` → `ENRICHING` → `DONE` | `FAILED`.  
+동시 **2건** 실행(`oswl.quick-import.max-concurrent`), 초과는 FIFO 큐(`queuePosition`).  
+`ENRICHING` 중 `percent`, `subPhase`, `detailLines`, `aiPreviews` 포함.
 
 ---
 
@@ -105,7 +118,18 @@ Authorization: Bearer oswl_<your_api_key>
 
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
-| `GET` | `/projects/{id}/components/{compId}` | `COMPONENT_DETAIL_VIEW` | 컴포넌트 상세 (전체 페이지 또는 fragment) |
+| `GET` | `/projects/{id}/components/{compId}` | `COMPONENT_DETAIL_VIEW` | 컴포넌트 상세 (전체 페이지 또는 HTMX fragment) |
+| `POST` | `/projects/{id}/components/{compId}/cves/{cveDbId}/ai-summarize` | `SECURITY_CENTER_UPDATE_STATUS` | CVE AI 트리아지 재생성 |
+| `POST` | `/projects/{id}/components/{compId}/defer` | `SECURITY_CENTER_UPDATE_STATUS` | 조치 연기 기록 |
+| `POST` | `/projects/{id}/components/{compId}/create-pr` | `SECURITY_CENTER_UPDATE_STATUS` | 의존성 수정 PR 생성 |
+
+---
+
+## AI 피드백
+
+| 메서드 | 경로 | 인증 | 설명 |
+|---|---|---|---|
+| `POST` | `/api/ai/feedback` | 세션 | AI 요약에 대한 도움됨/안됨 피드백 |
 
 ---
 
@@ -207,10 +231,22 @@ Authorization: Bearer oswl_<your_api_key>
 
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
-| `GET` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | AI 설정 조회 |
-| `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | 설정 업데이트 |
-| `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | AI 비활성화 |
-| `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | 제공업체 활성화 |
+| `GET` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | 활성 제공업체 + 보강 기본값(온도, 한도, 배포 프로필 등) |
+| `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | 제공업체 자격증명 및/또는 기본값 저장 |
+| `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | 활성 제공업체 비활성화 |
+| `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | 제공업체 전환 |
+| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함) |
+| `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | 편집 가능 프롬프트 + 오버라이드 |
+| `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | 골든 프롬프트 회귀 테스트 실행 |
+
+제공업체: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`.
+
+### 라이선스 정책
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/settings/license-policy` | `LICENSE_POLICY_MANAGE` | SPDX 정책 항목 목록 |
+| `PUT` | `/api/settings/license-policy/{spdxId}` | `LICENSE_POLICY_MANAGE` | 라이선스 상태 변경 |
 
 ### VCS 연결
 
