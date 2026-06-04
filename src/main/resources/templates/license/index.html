@@ -30,7 +30,7 @@
                     <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px] m-0" th:text="#{license.ai.insight}">AI Insight</p>
                 </div>
                 <p th:if="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:text="#{license.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
-                <p th:unless="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:utext="#{riskTrend.ai.notConfigured}">AI provider is not configured.</p>
+                <p th:unless="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:text="#{riskTrend.ai.notConfigured}">AI provider is not configured.</p>
             </div>
         </div>
 

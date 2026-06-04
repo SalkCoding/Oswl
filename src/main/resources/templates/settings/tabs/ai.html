@@ -457,8 +457,7 @@
             saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
 
             csrf() {
-                const m = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='));
-                return m ? decodeURIComponent(m.split('=')[1]) : '';
+                return window.OswlCsrf ? window.OswlCsrf.token() : '';
             },
 
             async init() {
@@ -492,7 +491,7 @@
                 }
             },
 
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': this.csrf() }; },
+            headers() { return oswlJsonHeaders(); },
 
             showToast(msg) { this.toastMsg = msg; this.toastVisible = true; setTimeout(() => { this.toastVisible = false; }, 3000); },
 

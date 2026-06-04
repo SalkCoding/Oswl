@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VersionDiffService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -13,12 +14,14 @@ import org.springframework.web.bind.annotation.*;
 public class VersionDiffController {
 
     private final VersionDiffService versionDiffService;
+    private final ProjectAccessService projectAccessService;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
                         @RequestParam(required = false) Long from,
                         @RequestParam(required = false) Long to,
                         Model model) {
+        projectAccessService.assertCanViewProject(projectId);
         versionDiffService.populateModel(projectId, from, to, model);
         return "version-diff/index";
     }

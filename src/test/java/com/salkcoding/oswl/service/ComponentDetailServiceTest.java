@@ -208,7 +208,7 @@ class ComponentDetailServiceTest {
         componentDetailService.defer(1L, 20L, req);
 
         // applyDeferral called with null expiry
-        verify(sc).applyDeferral(eq("wont-fix"), isNull(), any());
+        verify(sc).applyDeferral(eq("wont-fix"), isNull(), any(), anyString());
     }
 
     @Test
@@ -228,7 +228,7 @@ class ComponentDetailServiceTest {
 
         componentDetailService.defer(1L, 20L, req);
 
-        verify(sc).applyDeferral(argThat(r -> r.startsWith("other:custom")), isNull(), any());
+        verify(sc).applyDeferral(argThat(r -> r.startsWith("other:custom")), isNull(), any(), anyString());
     }
 
     // ── resolveExpiryDate (via defer) ─────────────────────────────────────
@@ -244,7 +244,7 @@ class ComponentDetailServiceTest {
         DeferralRequest req = buildDeferralRequest("temporary", "1-week", "project");
         componentDetailService.defer(1L, 20L, req);
 
-        verify(sc).applyDeferral(any(), argThat(dt -> dt != null && dt.isAfter(java.time.LocalDateTime.now().plusDays(6))), any());
+        verify(sc).applyDeferral(any(), argThat(dt -> dt != null && dt.isAfter(java.time.LocalDateTime.now().plusDays(6))), any(), anyString());
     }
 
     @Test
@@ -265,7 +265,7 @@ class ComponentDetailServiceTest {
 
         verify(sc).applyDeferral(any(),
                 argThat(dt -> dt != null && dt.getYear() == 2099),
-                any());
+                any(), anyString());
     }
 
     @Test
@@ -286,7 +286,7 @@ class ComponentDetailServiceTest {
 
         verify(sc).applyDeferral(any(),
                 argThat(dt -> dt != null && dt.isAfter(java.time.LocalDateTime.now().plusDays(25))),
-                any());
+                any(), anyString());
     }
     // ── createPullRequest ─────────────────────────────────────────────────
 

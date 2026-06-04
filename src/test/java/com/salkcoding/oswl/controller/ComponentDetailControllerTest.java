@@ -6,6 +6,7 @@ import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.ComponentDetailService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.DisplayName;
@@ -35,10 +36,16 @@ class ComponentDetailControllerTest {
     @Mock ComponentDetailService componentDetailService;
     @Mock ProjectRepository      projectRepository;
     @Mock VcsAuthTokenService    vcsAuthTokenService;
+    @Mock ProjectAccessService   projectAccessService;
     @Mock HttpSession            session;
     @Mock Model                  model;
 
     @InjectMocks ComponentDetailController controller;
+
+    @org.junit.jupiter.api.BeforeEach
+    void allowProjectAccess() {
+        doNothing().when(projectAccessService).assertCanViewProject(anyLong());
+    }
 
     private OswlUserPrincipal principal() {
         return new OswlUserPrincipal(

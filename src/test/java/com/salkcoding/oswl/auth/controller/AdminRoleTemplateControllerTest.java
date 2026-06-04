@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.RoleTemplateDto;
 import com.salkcoding.oswl.auth.dto.RoleTemplateRequest;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.service.RoleTemplateService;
+import org.springframework.context.MessageSource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import static org.mockito.Mockito.*;
 class AdminRoleTemplateControllerTest {
 
     @Mock RoleTemplateService roleTemplateService;
+    @Mock MessageSource messageSource;
 
     @InjectMocks AdminRoleTemplateController controller;
 
@@ -40,6 +42,8 @@ class AdminRoleTemplateControllerTest {
     @Test
     @DisplayName("allPermissions: returns all Permission enum entries as maps")
     void allPermissions_returnsPermissionList() {
+        when(messageSource.getMessage(anyString(), isNull(), anyString(), any()))
+                .thenAnswer(inv -> inv.getArgument(2));
         List<Map<String, String>> result = controller.allPermissions(Locale.ENGLISH);
 
         assertThat(result).hasSizeGreaterThan(0);

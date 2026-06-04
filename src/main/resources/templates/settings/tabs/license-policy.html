@@ -54,8 +54,8 @@
         return {
             entries: [],
             apiError: null,
-            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+            headers() { return oswlJsonHeaders(); },
             async load() {
                 try {
                     const r = await fetch('/api/settings/license-policy');

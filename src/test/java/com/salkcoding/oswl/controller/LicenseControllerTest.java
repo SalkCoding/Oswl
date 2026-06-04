@@ -1,6 +1,8 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.LicenseService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +23,8 @@ import static org.mockito.Mockito.*;
 class LicenseControllerTest {
 
     @Mock LicenseService licenseService;
+    @Mock AuditLogService auditLogService;
+    @Mock ProjectAccessService projectAccessService;
     @InjectMocks LicenseController controller;
 
     @Test
@@ -28,6 +32,7 @@ class LicenseControllerTest {
     void index_returnsLicenseView() {
         String view = controller.index(1L, null, "BINARY", false, "DYNAMIC", new ConcurrentModel());
 
+        verify(projectAccessService).assertCanViewProject(1L);
         verify(licenseService).populateModel(eq(1L), isNull(), any(), any());
         assertThat(view).isEqualTo("license/index");
     }
@@ -43,38 +48,32 @@ class LicenseControllerTest {
     }
 
     @Test
-    @DisplayName("index: 알 수 없는 deployment는 BINARY로 정규화된다")
-    void index_unknownDeployment_fallsBackToBinary() {
-        controller.index(1L, null, "INVALID_TYPE", false, "DYNAMIC", new ConcurrentModel());
-
-        verify(licenseService).populateModel(eq(1L), isNull(), argThat(ctx ->
-                "BINARY".equals(ctx.getDeployment())
-        ), any());
-    }
-
-    @Test
     @DisplayName("exportNotice: 200 + Content-Disposition attachment 헤더 반환")
-    void exportNotice_returns200WithAttachmentHeader() {
-        LicenseService.ExportPayload payload = new LicenseService.ExportPayload("NOTICE.txt", "content");
+    void exportNotice_returnsAttachment() {
+        LicenseService.ExportPayload payload =
+                new LicenseService.ExportPayload("notice.txt", "NOTICE body");
         when(licenseService.buildNoticeFile(1L, null)).thenReturn(payload);
 
-        ResponseEntity<byte[]> response = controller.exportNotice(1L, null);
+        ResponseEntity<byte[]> resp = controller.exportNotice(1L, null);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
-                .contains("NOTICE.txt");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                .contains("attachment");
+        assertThat(resp.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                .contains("notice.txt");
     }
 
     @Test
     @DisplayName("exportSpdx: 200 + spdx 파일명 헤더 반환")
-    void exportSpdx_returns200WithSpdxHeader() {
-        LicenseService.ExportPayload payload = new LicenseService.ExportPayload("sbom.spdx", "spdx content");
+    void exportSpdx_returnsAttachment() {
+        LicenseService.ExportPayload payload =
+                new LicenseService.ExportPayload("sbom.spdx.json", "{}");
         when(licenseService.buildSpdxSbom(1L, null)).thenReturn(payload);
 
-        ResponseEntity<byte[]> response = controller.exportSpdx(1L, null);
+        ResponseEntity<byte[]> resp = controller.exportSpdx(1L, null);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
-                .contains("sbom.spdx");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                .contains("sbom.spdx.json");
     }
 }

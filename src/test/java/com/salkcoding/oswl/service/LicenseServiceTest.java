@@ -11,6 +11,7 @@ import com.salkcoding.oswl.dto.LicenseObligationGroupDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +27,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,8 +37,14 @@ class LicenseServiceTest {
     @Mock ProjectRepository    projectRepository;
     @Mock ScanResultRepository scanResultRepository;
     @Mock LibraryRepository    libraryRepository;
+    @Mock AiAnalysisService    aiAnalysisService;
 
     @InjectMocks LicenseService licenseService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubAiLenient() {
+        lenient().when(aiAnalysisService.isAiConfigured()).thenReturn(false);
+    }
 
     private static final LicenseContextDto DEFAULT_CTX = LicenseContextDto.builder()
             .deployment("BINARY")

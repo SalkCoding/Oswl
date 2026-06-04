@@ -10,6 +10,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.GitLabService;
 import com.salkcoding.oswl.service.BitbucketService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ import java.util.List;
 public class VcsBranchController {
 
     private final ProjectRepository           projectRepository;
+    private final ProjectAccessService        projectAccessService;
     private final UserVcsConnectionRepository vcsConnectionRepository;
     private final EncryptionService           encryptionService;
     private final VcsAuthTokenService           vcsAuthTokenService;
@@ -48,6 +50,7 @@ public class VcsBranchController {
             @AuthenticationPrincipal OswlUserPrincipal principal,
             HttpSession session) {
 
+        projectAccessService.assertCanViewProject(projectId);
         Project project = projectRepository.findById(projectId).orElse(null);
         if (project == null || project.getGithubRepo() == null
                 || !project.getGithubRepo().contains("/")) {

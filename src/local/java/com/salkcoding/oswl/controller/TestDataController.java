@@ -30,7 +30,8 @@ import java.util.UUID;
 
 /**
  * Development-only controller that seeds comprehensive test data.
- * Enabled only in the "local" profile and never exposed in production.
+ * Lives in {@code src/local/java} — packaged for {@code bootRun} and tests only, not in {@code bootJar}.
+ * Enabled for {@code local} and {@code test} profiles.
  *
  * Access: GET /data/test
  * Redirects to the main project page after seeding.

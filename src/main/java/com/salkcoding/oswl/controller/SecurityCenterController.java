@@ -52,6 +52,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
     @ResponseBody
     public ResponseEntity<Void> bulkStatus(@PathVariable Long projectId,
                                            @RequestBody BulkStatusRequest req) {
+        projectAccessService.assertCanViewProject(projectId);
         securityCenterService.bulkUpdateStatus(projectId, req);
         return ResponseEntity.noContent().build();
     }
@@ -65,6 +66,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
         if (!"csv".equalsIgnoreCase(format)) {
             return ResponseEntity.badRequest().build();
         }
+        projectAccessService.assertCanViewProject(projectId);
         byte[] data = securityCenterService.buildExportCsv(projectId, scanId);
         String filename = "security-center-" + projectId + "-" + LocalDate.now() + ".csv";
         return ResponseEntity.ok()
