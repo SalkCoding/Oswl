@@ -32,13 +32,6 @@ public class ApiKey {
     @Column(name = "token_hash", nullable = false, length = 100)
     private String tokenHash;
 
-    /**
-     * Legacy plaintext column — populated only before migration; cleared after hashing.
-     * Hibernate ddl-auto may keep the {@code token} column until manually dropped.
-     */
-    @Column(name = "token", length = 100)
-    private String legacyToken;
-
     @Column(length = 200)
     private String label;
 
@@ -69,11 +62,6 @@ public class ApiKey {
     public void applyTokenHash(String plainToken, String tokenHash) {
         this.tokenPrefix = ApiKeyTokenSupport.extractPrefix(plainToken);
         this.tokenHash = tokenHash;
-        this.legacyToken = null;
-    }
-
-    public void clearLegacyToken() {
-        this.legacyToken = null;
     }
 
     public void revoke() {
@@ -96,11 +84,5 @@ public class ApiKey {
 
     public boolean isValid() {
         return active && !isExpired();
-    }
-
-    /** Pending migration when legacy plaintext is still present. */
-    public boolean needsTokenMigration() {
-        return legacyToken != null && !legacyToken.isBlank()
-                && (tokenHash == null || tokenHash.isBlank());
     }
 }

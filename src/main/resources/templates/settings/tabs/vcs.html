@@ -539,7 +539,6 @@
                         serverUrl: this.form.serverUrl.trim() || null,
                         vcsUsername: this.form.vcsUsername.trim() || null,
                         accessToken: this.form.accessToken
-                        // TODO: actual VCS API validation (verify token against provider)
                     };
                     const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }

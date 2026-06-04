@@ -54,11 +54,6 @@ public class EnrichmentProgressHolder {
         });
     }
 
-    /** @deprecated prefer {@link #setStep} */
-    public void set(Long scanResultId, String message) {
-        setStep(scanResultId, EnrichmentSubPhase.CVE, 1, message);
-    }
-
     public Snapshot getSnapshot(Long scanResultId) {
         Snapshot snap = snapshots.get(scanResultId);
         return snap != null ? snap : null;

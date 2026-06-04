@@ -20,6 +20,4 @@ public interface ApiKeyRepository extends JpaRepository<ApiKey, Long> {
 
     @EntityGraph(attributePaths = {"project"})
     Optional<ApiKey> findWithProjectById(Long id);
-
-    List<ApiKey> findByLegacyTokenIsNotNull();
 }

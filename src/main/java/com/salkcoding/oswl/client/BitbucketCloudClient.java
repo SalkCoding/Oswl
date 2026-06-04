@@ -10,7 +10,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -199,17 +198,6 @@ public class BitbucketCloudClient {
     public com.salkcoding.oswl.service.git.GitCloneCredentials cloneCredentials(String vcsUsername, String token) {
         BitbucketCloudAuth auth = BitbucketCloudAuth.parse(vcsUsername, token);
         return new com.salkcoding.oswl.service.git.GitCloneCredentials(auth.cloneUsername(token), token);
-    }
-
-    /**
-     * @deprecated Use a clean HTTPS URL plus {@link #cloneCredentials(String, String)} and {@code GitCloneExecutor}.
-     */
-    @Deprecated
-    public String buildCloneAuthUrl(String vcsUsername, String token, String host, String repoPath) {
-        BitbucketCloudAuth auth = BitbucketCloudAuth.parse(vcsUsername, token);
-        String encodedToken = URLEncoder.encode(token != null ? token : "", StandardCharsets.UTF_8);
-        String cloneUser = URLEncoder.encode(auth.cloneUsername(token), StandardCharsets.UTF_8);
-        return "https://" + cloneUser + ":" + encodedToken + "@" + host + repoPath + ".git";
     }
 
     /** Returns true when Bitbucket accepts the credentials (any 2xx from repo list or user endpoint). */

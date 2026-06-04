@@ -30,7 +30,6 @@ class AiAnalysisServiceTest {
     @Mock AiSettingRepository aiSettingRepository;
     @Mock OpenAiClient openAiClient;
     @Mock AnthropicClient anthropicClient;
-    @Mock CopilotClient copilotClient;
     @Mock EncryptionService encryptionService;
     @Mock AiUsageLimiterService usageLimiter;
 
@@ -167,22 +166,6 @@ class AiAnalysisServiceTest {
         assertThat(aiAnalysisService.summarizeLicenseRisk("CC-BY-SA", "CAUTION", "lib"))
                 .isEqualTo("CC-BY-SA compliance risk");
         verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
-    }
-
-    // ── summarizeCve COPILOT ───────────────────────────────────────────────
-
-    @Test
-    @DisplayName("COPILOT 제공자는 CopilotClient에 위임한다")
-    void summarizeCve_delegatesToCopilotClient_forCopilotProvider() {
-        AiSetting setting = AiSetting.builder().provider(AiProvider.COPILOT).build();
-        when(aiSettingRepository.findByActiveTrue()).thenReturn(Optional.of(setting));
-        when(copilotClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("copilot result");
-
-        String result = aiAnalysisService.summarizeCve("CVE-C", "HIGH", 7.0, "comp");
-
-        assertThat(result).isEqualTo("copilot result");
-        verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString(), any());
-        verifyNoInteractions(openAiClient, anthropicClient);
     }
 
     // ── generateSecurityTrendInsight ──────────────────────────────────────
@@ -343,16 +326,6 @@ class AiAnalysisServiceTest {
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
         verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
-    }
-
-    @Test
-    @DisplayName("testConnection: COPILOT 제공자가 응답하면 true를 반환한다")
-    void testConnection_copilot_returnsTrue() {
-        AiSetting setting = AiSetting.builder().provider(AiProvider.COPILOT).build();
-        when(copilotClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
-
-        assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString(), any());
     }
 
     @Test
