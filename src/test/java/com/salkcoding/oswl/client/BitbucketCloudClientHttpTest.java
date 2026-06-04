@@ -118,15 +118,13 @@ class BitbucketCloudClientHttpTest {
     }
 
     @Test
-    @DisplayName("clone URL: Atlassian API Token은 x-bitbucket-api-token-auth 사용")
-    void buildCloneAuthUrl_atlassianApiToken_usesStaticGitUsername() {
-        String url = client.buildCloneAuthUrl(
+    @DisplayName("cloneCredentials: Atlassian API Token은 x-bitbucket-api-token-auth 사용")
+    void cloneCredentials_atlassianApiToken_usesStaticGitUsername() {
+        var creds = client.cloneCredentials(
                 "user@example.com|salkcoding",
-                "ATATT-demo",
-                "bitbucket.org",
-                "/salkcoding/test");
+                "ATATT-demo");
 
-        assertThat(url).startsWith("https://x-bitbucket-api-token-auth:");
-        assertThat(url).contains("@bitbucket.org/salkcoding/test.git");
+        assertThat(creds.username()).isEqualTo("x-bitbucket-api-token-auth");
+        assertThat(creds.password()).isEqualTo("ATATT-demo");
     }
 }
