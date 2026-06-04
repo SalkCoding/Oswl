@@ -50,17 +50,30 @@ Authorization: Bearer oswl_<api_key>
 | `DELETE` | `/projects/trash/all` | `PROJECT_PERMANENT_DELETE` | Empty trash |
 | `DELETE` | `/projects/trash/selected` | `PROJECT_PERMANENT_DELETE` | Delete selected trash |
 | `POST` | `/projects/trash/restore-selected` | `PROJECT_RESTORE` | Bulk restore |
+| `GET` | `/projects/cards` | `PROJECT_VIEW` | Project card HTML fragment (dashboard) |
+| `GET` | `/projects/scan-status/stream?ids=` | `PROJECT_VIEW` | **SSE** — `scan-update` when listed projects finish scanning |
+| `POST` | `/projects` | `PROJECT_CREATE` | Create project (JSON) |
+| `PATCH` | `/api/projects/{id}/deployment-profile` | `PROJECT_UPDATE` | Set AI deployment profile for CVE triage (`{ "deploymentProfile" }`) |
 
 ---
 
 ## Quick Import
 
+Requires `PROJECT_CREATE` (or System Admin). Session auth.
+
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/projects/quick-import` | Quick Import page |
-| `GET` | `/api/quick-import/connections` | List VCS connections |
-| `POST` | `/api/quick-import/start` | Trigger import job |
-| `GET` | `/api/quick-import/job/{jobId}` | Poll job status |
+| `GET` | `/api/quick-import/connections` | List VCS connections for the current user |
+| `GET` | `/api/quick-import/repos?provider=` | List repositories from a provider (`GITHUB`, `GITLAB`, `BITBUCKET`) |
+| `POST` | `/api/quick-import/start` | Enqueue a new import job (`{ "repoUrl", "branch" }` → `{ "jobId" }`) |
+| `GET` | `/api/quick-import/jobs` | List all jobs for the current user (queued, running, recent) |
+| `GET` | `/api/quick-import/job/{jobId}` | Poll one job (`QuickImportJobStatus`) |
+| `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — event `job-update` with JSON status (fallback: poll) |
+
+**Job phases:** `QUEUED` → `CLONING` → `PARSING` → `SCANNING` → `ENRICHING` → `DONE` | `FAILED`.  
+Up to **two** imports run concurrently (`oswl.quick-import.max-concurrent`); additional jobs wait in a FIFO queue (`queuePosition`).  
+During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `POSTURE`, `TREND`, `DIFF`), `detailLines`, and `aiPreviews`.
 
 ---
 
@@ -103,7 +116,18 @@ Authorization: Bearer oswl_<api_key>
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
-| `GET` | `/projects/{id}/components/{compId}` | `COMPONENT_DETAIL_VIEW` | Component detail (full page or fragment) |
+| `GET` | `/projects/{id}/components/{compId}` | `COMPONENT_DETAIL_VIEW` | Component detail (full page or HTMX fragment) |
+| `POST` | `/projects/{id}/components/{compId}/cves/{cveDbId}/ai-summarize` | `SECURITY_CENTER_UPDATE_STATUS` | Regenerate AI triage for one CVE |
+| `POST` | `/projects/{id}/components/{compId}/defer` | `SECURITY_CENTER_UPDATE_STATUS` | Record remediation deferral |
+| `POST` | `/projects/{id}/components/{compId}/create-pr` | `SECURITY_CENTER_UPDATE_STATUS` | Open a VCS pull request with a dependency fix |
+
+---
+
+## AI Feedback
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/ai/feedback` | Session | Submit helpful / not helpful feedback on an AI summary |
 
 ---
 
@@ -205,10 +229,22 @@ Authorization: Bearer oswl_<api_key>
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
-| `GET` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | Get AI settings |
-| `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | Update settings |
-| `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | Disable AI |
-| `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | Activate a provider |
+| `GET` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | Active provider + enrichment preferences (temperature, limits, deployment default, …) |
+| `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | Upsert provider credentials and/or preferences |
+| `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | Deactivate active provider (optional preference body) |
+| `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | Switch active provider |
+| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | Test provider connectivity (no persist) |
+| `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | Editable prompt templates + overrides |
+| `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | Run built-in prompt regression fixtures |
+
+Providers: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`.
+
+### License Policy
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/api/settings/license-policy` | `LICENSE_POLICY_MANAGE` | List SPDX policy entries |
+| `PUT` | `/api/settings/license-policy/{spdxId}` | `LICENSE_POLICY_MANAGE` | Update status for one license |
 
 ### VCS Connections
 

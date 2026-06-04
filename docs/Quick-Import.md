@@ -1,6 +1,6 @@
 # Quick Import
 
-Quick Import lets you pull a project directly from a VCS (Version Control System) host — currently **GitHub**, **GitLab**, and **Bitbucket** — without writing any CLI code.
+Quick Import lets you pull a project directly from a VCS host — **GitHub**, **GitLab**, or **Bitbucket** — without writing CLI code.
 
 ---
 
@@ -18,16 +18,13 @@ Quick Import lets you pull a project directly from a VCS (Version Control System
 
 Go to **Settings → VCS** and click **Add Connection**.
 
-Fill in:
-
 | Field | Description |
 |---|---|
 | **Provider** | GitHub / GitLab / Bitbucket |
 | **Display Name** | A friendly label (e.g. "GitHub – my-org") |
 | **Access Token** | PAT or App Password with `repo` / `read_repository` scope |
 
-OsWL immediately validates the token against the provider's API and shows your authenticated username.  
-The token is stored **encrypted at rest** using the instance encryption key (`OSWL_ENCRYPTION_KEY` in production).
+OsWL validates the token against the provider API immediately. Tokens are stored **encrypted at rest** (`OSWL_ENCRYPTION_KEY` in production).
 
 > Required permission: `SETTINGS_VCS_MANAGE` or System Admin.
 
@@ -35,42 +32,55 @@ The token is stored **encrypted at rest** using the instance encryption key (`OS
 
 ## Step 2 — Import a Repository
 
-Navigate to **Projects → Quick Import** (`/projects/quick-import`).
+Open **Projects → Quick Import** (`/projects/quick-import`).
 
-1. Select a VCS **connection** from the dropdown.
-2. The account and its accessible **repositories** are fetched automatically.
-3. Select a **repository**.
-4. Select a **branch**.
-5. Click **Import**.
+You can either:
 
-OsWL clones the repository to a temporary directory, resolves the dependency tree, and submits the scan. A real-time progress indicator shows each phase:
+1. **Paste a repository URL** (and optional branch), then click **Import & Scan**, or  
+2. **Browse** connected accounts — pick a repository and branch from the provider list.
+
+### Progress and concurrency
+
+Each import is an asynchronous **job** with its own progress card:
 
 | Phase | Description |
 |---|---|
-| `SCANNING` | Cloning repository and parsing dependency manifests |
-| `ANALYZING` | Enriching CVE and license data from NVD / OSV / deps.dev |
-| `COMPLETED` | Scan finished successfully |
-| `FAILED` | An error occurred — check the error message on the scan record |
+| `QUEUED` | Waiting for a worker slot or starting soon |
+| `CLONING` | Shallow-cloning the repository |
+| `PARSING` | Detecting ecosystem and parsing dependency manifests |
+| `SCANNING` | Creating the project and submitting the scan payload |
+| `ENRICHING` | CVE/license enrichment and optional AI summaries |
+| `DONE` | Import finished — project and API key available |
+| `FAILED` | Error — see the job message |
 
-> Cloning uses the access token stored in the VCS connection. The temporary clone is deleted after ingestion.
+- Up to **two** imports run at once (`oswl.quick-import.max-concurrent`, default `2`). Additional jobs are queued (FIFO); `queuePosition` shows wait order.
+- You may start **multiple imports** without waiting for the previous one to finish.
+- The UI subscribes to **`GET /api/quick-import/job/{jobId}/stream`** (SSE event `job-update`) and falls back to polling `GET /api/quick-import/job/{jobId}` if needed.
+- During `ENRICHING`, the job exposes `percent` (0–100), `subPhase` (`CVE`, `LICENSE`, `POSTURE`, `TREND`, `DIFF`), `detailLines`, and `aiPreviews` when AI enrichment is enabled.
+
+The temporary clone directory is deleted after ingestion.
 
 ---
 
 ## Re-importing a Branch
 
-Import the same repository/branch again at any time to create a new scan result. OsWL records every scan separately so you can compare them in [Version Diff](Version-Diff.md) and [Risk Trend](Risk-Trend.md).
+Import the same repository/branch again at any time to create a new scan result. Compare results in [Version Diff](Version-Diff.md) and [Risk Trend](Risk-Trend.md).
 
 ---
 
 ## GitHub Enterprise Server (GHES)
 
-To use GitHub Enterprise Server, set the environment variable:
-
 ```bash
 OSWL_GITHUB_API_BASE=https://github.example.com/api/v3
 ```
 
-GitLab and Bitbucket self-hosted instances are supported by supplying the appropriate API base URL in the connection settings.
+GitLab and Bitbucket self-hosted instances are supported via the API base URL in the VCS connection.
+
+---
+
+## REST API summary
+
+See [API Reference — Quick Import](API-Reference.md#quick-import). Interactive schemas: Swagger UI (`local` profile).
 
 ---
 
@@ -78,7 +88,8 @@ GitLab and Bitbucket self-hosted instances are supported by supplying the approp
 
 | Symptom | Likely cause |
 |---|---|
-| "Token validation failed" | PAT scope is missing (`repo` / `read_repository`) or token expired |
-| "Repository not found" | Repository is private and the token doesn't have access |
-| Import stuck at `SCANNING` | Network issue reaching the VCS host, or the clone temp directory is full |
-| Import stuck at `ANALYZING` | NVD / OSV / deps.dev rate limit hit; will retry automatically |
+| "Token validation failed" | PAT scope missing (`repo` / `read_repository`) or token expired |
+| "Repository not found" | Private repo without token access |
+| Stuck at `CLONING` / `PARSING` | Network or disk space on the OsWL host |
+| Stuck at `ENRICHING` | External API rate limits (NVD/OSV); retries continue in the pipeline |
+| Job `404` on poll | Server restarted — in-memory jobs expire after ~30 minutes |

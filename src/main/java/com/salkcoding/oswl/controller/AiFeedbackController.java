@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.controller.spec.AiFeedbackControllerSpec;
 import com.salkcoding.oswl.domain.entity.AiFeedback;
 import com.salkcoding.oswl.dto.api.AiFeedbackRequest;
 import com.salkcoding.oswl.repository.AiFeedbackRepository;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/ai/feedback")
 @RequiredArgsConstructor
-public class AiFeedbackController {
+public class AiFeedbackController implements AiFeedbackControllerSpec {
 
     private final AiFeedbackRepository feedbackRepository;
 
