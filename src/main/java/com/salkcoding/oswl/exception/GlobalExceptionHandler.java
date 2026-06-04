@@ -36,6 +36,16 @@ public class GlobalExceptionHandler {
         return "error/404";
     }
 
+    @ExceptionHandler(TooManyRequestsException.class)
+    public Object handleTooManyRequests(TooManyRequestsException ex, HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        if (accept != null && accept.contains("application/json")) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", ex.getMessage(), "status", 429));
+        }
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public Object handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

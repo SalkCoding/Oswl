@@ -10,6 +10,7 @@ import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.aop.Auditable;
 import com.salkcoding.oswl.client.VcsTokenValidator;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class VcsConnectionService {
     private final EncryptionService encryptionService;
     private final AuditLogService auditLogService;
     private final VcsTokenValidator vcsTokenValidator;
+    private final OutboundUrlValidator outboundUrlValidator;
 
     @Transactional(readOnly = true)
     public List<VcsConnectionDto> findByCurrentUser(Long userId) {
@@ -48,6 +50,9 @@ public class VcsConnectionService {
                targetNameExpr = "#result.provider + (#result.serverUrl != null ? ' / ' + #result.serverUrl : '')")
     public VcsConnectionDto addConnection(Long userId, AddVcsConnectionRequest request) {
         normalizeVcsRequest(request);
+        if (request.getServerUrl() != null && !request.getServerUrl().isBlank()) {
+            outboundUrlValidator.validateHttpUrl(request.getServerUrl());
+        }
         vcsTokenValidator.validate(request.getProvider(), request.getServerUrl(),
                 request.getAccessToken(), request.getVcsUsername());
         User user = userRepository.findById(userId)

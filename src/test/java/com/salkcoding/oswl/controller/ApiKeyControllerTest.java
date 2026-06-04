@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.api.ApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
 import com.salkcoding.oswl.service.ApiKeyTokenSupport;
 import com.salkcoding.oswl.service.IssuedApiKey;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ class ApiKeyControllerTest {
 
     @Mock ApiKeyService apiKeyService;
     @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
+    @Mock ProjectAccessService projectAccessService;
 
     @InjectMocks ApiKeyController controller;
 

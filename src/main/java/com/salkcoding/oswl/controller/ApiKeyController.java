@@ -8,6 +8,7 @@ import com.salkcoding.oswl.dto.api.ApiKeyResponse;
 import com.salkcoding.oswl.service.ApiKeyService;
 import com.salkcoding.oswl.service.ApiKeyTokenSupport;
 import com.salkcoding.oswl.service.IssuedApiKey;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +30,12 @@ public class ApiKeyController implements ApiKeyControllerSpec {
 
     private final ApiKeyService apiKeyService;
     private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
+    private final ProjectAccessService projectAccessService;
 
     /** List API keys for the project */
     @GetMapping
     public ResponseEntity<List<ApiKeyResponse>> list(@PathVariable Long projectId) {
+        projectAccessService.assertCanViewProject(projectId);
         List<ApiKeyResponse> result = apiKeyService.findByProject(projectId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -45,6 +48,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
             @PathVariable Long projectId,
             @Valid @RequestBody ApiKeyIssueRequest request) {
 
+        projectAccessService.assertCanViewProject(projectId);
         projectCliKeyPolicyService.assertCanIssueNewKey(projectId);
         IssuedApiKey issued = apiKeyService.issue(projectId, request.getLabel(), request.getExpiresAt());
         ApiKey key = issued.key();

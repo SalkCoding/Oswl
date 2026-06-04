@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.SecurityCenterControllerSpec;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.SecurityCenterService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +24,13 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
 
     private final SecurityCenterService securityCenterService;
     private final AuditLogService auditLogService;
+    private final ProjectAccessService projectAccessService;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
                         @RequestParam(required = false) Long scanId,
                         Model model) {
+        projectAccessService.assertCanViewProject(projectId);
         securityCenterService.populateModel(projectId, scanId, model);
         return "security-center/index";
     }
@@ -37,6 +40,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
     public String print(@PathVariable Long projectId,
                         @RequestParam(required = false) Long scanId,
                         Model model) {
+        projectAccessService.assertCanViewProject(projectId);
         securityCenterService.populateModel(projectId, scanId, model);
         auditLogService.log("SECURITY_CENTER.PRINT", "PROJECT", projectId.toString(), null,
                 "scanId=" + (scanId != null ? scanId : "latest"));

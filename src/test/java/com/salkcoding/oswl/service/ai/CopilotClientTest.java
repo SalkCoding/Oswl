@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+
+import org.springframework.context.MessageSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,7 +36,11 @@ class CopilotClientTest {
         AiPromptTemplateService prompts = new AiPromptTemplateService(
                 new DefaultResourceLoader(), "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
-        client = new CopilotClient(prompts, new AiCallTrace(new AiDebugSettings()));
+        MessageSource messageSource = mock(MessageSource.class);
+        when(messageSource.getMessage(anyString(), isNull(), anyString(), any(Locale.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        OutboundUrlValidator urlValidator = new OutboundUrlValidator(messageSource);
+        client = new CopilotClient(prompts, new AiCallTrace(new AiDebugSettings()), urlValidator);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }

@@ -9,6 +9,7 @@ import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.client.VcsTokenValidator;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,7 @@ class VcsConnectionServiceTest {
     @Mock EncryptionService           encryptionService;
     @Mock AuditLogService             auditLogService;
     @Mock VcsTokenValidator           vcsTokenValidator;
+    @Mock OutboundUrlValidator        outboundUrlValidator;
 
     @InjectMocks VcsConnectionService vcsConnectionService;
 

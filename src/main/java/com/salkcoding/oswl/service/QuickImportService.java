@@ -21,6 +21,8 @@ import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -96,6 +98,7 @@ public class QuickImportService {
     private final BitbucketCloudClient bitbucketCloudClient;
     private final EnrichmentProgressHolder enrichmentProgressHolder;
     private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
+    private final MessageSource messageSource;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -151,9 +154,10 @@ public class QuickImportService {
                 updateJob(jobId, Phase.FAILED, e.getMessage(),
                         null, null, null, null, null, null);
             } catch (Throwable t) {
-                log.error("[QuickImport][{}] Unhandled error: {}", jobId, t.getMessage(), t);
-                String msg = t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName();
-                updateJob(jobId, Phase.FAILED, "Unexpected error: " + msg,
+                log.error("[QuickImport][{}] Unhandled error", jobId, t);
+                String msg = messageSource.getMessage("quickImport.error.unexpected",
+                        null, LocaleContextHolder.getLocale());
+                updateJob(jobId, Phase.FAILED, msg,
                         null, null, null, null, null, null);
             } finally {
                 activeJobByUser.remove(userId, jobId);
@@ -282,9 +286,12 @@ public class QuickImportService {
                         ? listBitbucketCloudRepos(token, conn.getVcsUsername())
                         : listBitbucketServerRepos(token, conn.getServerUrl());
             };
+        } catch (com.salkcoding.oswl.exception.OutboundUrlBlockedException e) {
+            throw e;
         } catch (Exception e) {
-            log.warn("[RepoBrowser] Failed to list repos for provider {}: {}", provider, e.getMessage());
-            throw new IllegalStateException(e.getMessage(), e);
+            log.warn("[RepoBrowser] Failed to list repos for provider {}: {}", provider, e.toString());
+            throw new com.salkcoding.oswl.exception.QuickImportUpstreamException(
+                    "Could not load repositories from the VCS provider.");
         }
     }
 
@@ -522,7 +529,8 @@ public class QuickImportService {
                 log.error("[QuickImport][{}] Scan ingest failed for project {}: {}",
                         jobId, project.getId(), ingestEx.getMessage(), ingestEx);
                 updateJob(jobId, Phase.FAILED,
-                        "Scan submission failed: " + ingestEx.getMessage(),
+                        messageSource.getMessage("quickImport.error.scanSubmitFailed",
+                                null, LocaleContextHolder.getLocale()),
                         project.getId(), project.getName(),
                         keyResult.token, keyResult.isNew,
                         deps.ecosystem, deps.components.size());

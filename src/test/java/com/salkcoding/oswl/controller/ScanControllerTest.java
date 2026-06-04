@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.api.ScanResponse;
@@ -12,6 +13,8 @@ import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ProjectAccessService;
+import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import com.salkcoding.oswl.service.ScanIngestService;
 import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,12 +42,14 @@ import static org.mockito.Mockito.*;
 @DisplayName("ScanController (CLI integration) unit tests")
 class ScanControllerTest {
 
-    @Mock ScanIngestService       scanIngestService;
-    @Mock ScanResultRepository    scanResultRepository;
+    @Mock ScanIngestService scanIngestService;
+    @Mock ScanResultRepository scanResultRepository;
     @Mock ScanComponentRepository scanComponentRepository;
-    @Mock AuditLogService         auditLogService;
-    @Mock UserDetailsService      userDetailsService;
-    @Mock PasswordEncoder         passwordEncoder;
+    @Mock AuditLogService auditLogService;
+    @Mock UserDetailsService userDetailsService;
+    @Mock PasswordEncoder passwordEncoder;
+    @Mock ProjectAccessService projectAccessService;
+    @Mock ScanApiCredentialThrottleService scanApiCredentialThrottleService;
 
     @InjectMocks ScanController scanController;
 
@@ -62,8 +67,6 @@ class ScanControllerTest {
                 false, true, List.of(), Set.of(), Set.of(), false);
     }
 
-    // ── ping ─────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("ping returns 200 with status=ok and projectId")
     void ping_returns200() {
@@ -78,8 +81,6 @@ class ScanControllerTest {
         assertThat(response.getBody().getProjectId()).isEqualTo(42L);
     }
 
-    // ── receiveScan ───────────────────────────────────────────────────
-
     @Test
     @DisplayName("receiveScan with valid credentials and permission returns 200 with scanId")
     void receiveScan_valid_returns200() throws Exception {
@@ -87,6 +88,7 @@ class ScanControllerTest {
         when(req.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID)).thenReturn(1L);
         when(userDetailsService.loadUserByUsername("dev@company.com")).thenReturn(principalWithScanSubmit);
         when(passwordEncoder.matches("pass", principalWithScanSubmit.getPassword())).thenReturn(true);
+        doNothing().when(projectAccessService).assertCanSubmitScan(1L, 1L);
 
         ScanResult result = mock(ScanResult.class);
         when(result.getId()).thenReturn(99L);
@@ -103,11 +105,13 @@ class ScanControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getScanId()).isEqualTo(99L);
-        assertThat(response.getBody().getProjectId()).isEqualTo(1L);
+        verify(scanApiCredentialThrottleService).recordCredentialSuccess(1L, "dev@company.com");
+        verify(auditLogService).logAnonymous(eq("dev@company.com"), eq("SCAN.INGEST"),
+                eq("PROJECT"), eq("1"), eq("1.2.3"), contains("scanId=99"));
     }
 
     @Test
-    @DisplayName("receiveScan with unknown email throws UnauthorizedException")
+    @DisplayName("receiveScan with unknown email throws UnauthorizedException and audits failure")
     void receiveScan_unknownEmail_throws() {
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID)).thenReturn(1L);
@@ -121,6 +125,8 @@ class ScanControllerTest {
 
         assertThatThrownBy(() -> scanController.receiveScan(payload, req))
                 .isInstanceOf(UnauthorizedException.class);
+        verify(auditLogService).logAnonymous(eq("unknown@company.com"), eq("SCAN.AUTH_FAILURE"),
+                eq("PROJECT"), eq("1"), eq("1.0"), contains("UNKNOWN_USER"));
     }
 
     @Test
@@ -138,6 +144,8 @@ class ScanControllerTest {
 
         assertThatThrownBy(() -> scanController.receiveScan(payload, req))
                 .isInstanceOf(UnauthorizedException.class);
+        verify(auditLogService).logAnonymous(any(), eq("SCAN.AUTH_FAILURE"), any(), any(), any(),
+                contains("INVALID_PASSWORD"));
     }
 
     @Test
@@ -157,16 +165,17 @@ class ScanControllerTest {
                 .isInstanceOf(ForbiddenException.class);
     }
 
-    // ── scanStatus ────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("scanStatus: 존재하는 scanId는 200과 ScanStatusResponse를 반환한다")
     void scanStatus_found_returns200() {
+        Project project = Project.builder().id(3L).name("p").build();
         ScanResult scanResult = mock(ScanResult.class);
         when(scanResult.getId()).thenReturn(10L);
         when(scanResult.getStatus()).thenReturn(ScanStatus.COMPLETED);
+        when(scanResult.getProject()).thenReturn(project);
         when(scanResultRepository.findById(10L)).thenReturn(java.util.Optional.of(scanResult));
         when(scanComponentRepository.countByScanResultId(10L)).thenReturn(5L);
+        doNothing().when(projectAccessService).assertCanViewProject(3L);
 
         var response = scanController.scanStatus(10L);
 
@@ -176,6 +185,19 @@ class ScanControllerTest {
         assertThat(body.getScanId()).isEqualTo(10L);
         assertThat(body.getStatus()).isEqualTo("COMPLETED");
         assertThat(body.getComponentCount()).isEqualTo(5L);
+    }
+
+    @Test
+    @DisplayName("scanStatus: 다른 프로젝트 스캔은 403 ForbiddenException")
+    void scanStatus_otherProject_throws403() {
+        Project project = Project.builder().id(99L).name("other").build();
+        ScanResult scanResult = mock(ScanResult.class);
+        when(scanResult.getProject()).thenReturn(project);
+        when(scanResultRepository.findById(10L)).thenReturn(java.util.Optional.of(scanResult));
+        doThrow(new ForbiddenException("denied")).when(projectAccessService).assertCanViewProject(99L);
+
+        assertThatThrownBy(() -> scanController.scanStatus(10L))
+                .isInstanceOf(ForbiddenException.class);
     }
 
     @Test

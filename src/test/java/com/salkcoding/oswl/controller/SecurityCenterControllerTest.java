@@ -1,6 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.dto.BulkStatusRequest;
+import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.SecurityCenterService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,8 @@ import static org.mockito.Mockito.when;
 class SecurityCenterControllerTest {
 
     @Mock SecurityCenterService securityCenterService;
+    @Mock AuditLogService auditLogService;
+    @Mock ProjectAccessService projectAccessService;
     @InjectMocks SecurityCenterController controller;
 
     @Test

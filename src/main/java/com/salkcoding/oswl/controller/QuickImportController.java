@@ -7,9 +7,14 @@ import com.salkcoding.oswl.auth.service.VcsConnectionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.QuickImportRequest;
+import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.service.QuickImportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +22,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -28,12 +34,14 @@ import java.util.Map;
  * POST /api/quick-import/start              — start an async import job
  * GET  /api/quick-import/job/{jobId}        — poll job status
  */
+@Slf4j
 @Controller
 @RequiredArgsConstructor
 public class QuickImportController {
 
     private final QuickImportService quickImportService;
     private final VcsConnectionService vcsConnectionService;
+    private final MessageSource messageSource;
 
     // ── Page ─────────────────────────────────────────────────────────────
 
@@ -45,11 +53,6 @@ public class QuickImportController {
 
     // ── REST API ──────────────────────────────────────────────────────────
 
-    /**
-     * Returns the currently authenticated user's active VCS connections.
-     * The frontend loads all three providers in parallel (Promise.all) and
-     * renders only those that are connected.
-     */
     @GetMapping("/api/quick-import/connections")
     @ResponseBody
     @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')")
@@ -58,30 +61,28 @@ public class QuickImportController {
         return ResponseEntity.ok(vcsConnectionService.findByCurrentUser(principal.getUserId()));
     }
 
-    /**
-     * Lists all repositories accessible by the authenticated user for the given VCS provider.
-     * Used by the Quick Import repo browser UI.
-     *
-     * @param provider one of GITHUB, GITLAB, BITBUCKET
-     */
     @GetMapping("/api/quick-import/repos")
     @ResponseBody
     @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<?> listRepos(
             @RequestParam VcsProvider provider,
             @AuthenticationPrincipal OswlUserPrincipal principal) {
+        Locale locale = LocaleContextHolder.getLocale();
         try {
             List<QuickImportRepoDto> repos = quickImportService.listRepos(provider, principal.getUserId());
             return ResponseEntity.ok(repos);
-        } catch (Exception e) {
+        } catch (OutboundUrlBlockedException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (QuickImportUpstreamException e) {
             return ResponseEntity.status(502).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            log.warn("[QuickImport] Failed to list repos for provider {} userId={}: {}",
+                    provider, principal.getUserId(), e.toString());
+            String safe = messageSource.getMessage("quickImport.error.loadRepos", null, locale);
+            return ResponseEntity.status(502).body(Map.of("error", safe));
         }
     }
 
-    /**
-     * Kicks off an asynchronous Quick Import job.
-     * Returns the job ID immediately; the UI polls /api/quick-import/job/{jobId}.
-     */
     @PostMapping("/api/quick-import/start")
     @ResponseBody
     @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
@@ -95,10 +96,6 @@ public class QuickImportController {
         return ResponseEntity.ok(Map.of("jobId", jobId));
     }
 
-    /**
-     * Polls the status of an async import job.
-     * Returns 404 if the jobId is unknown or expired (> 30 min old).
-     */
     @GetMapping("/api/quick-import/job/{jobId}")
     @ResponseBody
     @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")

@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,9 @@ class OpenAiClientTest {
         AiPromptTemplateService prompts = new AiPromptTemplateService(
                 new DefaultResourceLoader(), "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
-        client = new OpenAiClient(prompts, new AiCallTrace(new AiDebugSettings()));
+        OutboundUrlValidator urlValidator = mock(OutboundUrlValidator.class);
+        doNothing().when(urlValidator).validateHttpUrl(anyString());
+        client = new OpenAiClient(prompts, new AiCallTrace(new AiDebugSettings()), urlValidator);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }

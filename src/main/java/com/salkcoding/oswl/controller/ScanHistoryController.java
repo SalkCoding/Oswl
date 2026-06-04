@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanHistoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,9 +20,11 @@ public class ScanHistoryController {
     private final ScanHistoryService scanHistoryService;
     private final ScanResultRepository scanResultRepository;
     private final AuditLogService auditLogService;
+    private final ProjectAccessService projectAccessService;
 
     @GetMapping
     public String index(@PathVariable Long projectId, Model model) {
+        projectAccessService.assertCanViewProject(projectId);
         scanHistoryService.populateModel(projectId, model);
         return "scan-history/index";
     }
@@ -32,6 +35,7 @@ public class ScanHistoryController {
     public ResponseEntity<Void> deleteScan(
             @PathVariable Long projectId,
             @PathVariable Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
         scanResultRepository.findByIdAndProjectId(scanId, projectId).ifPresent(scan -> {
             String version = scan.getVersion() != null ? scan.getVersion() : "-";
             scanResultRepository.delete(scan);

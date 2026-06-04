@@ -4,6 +4,7 @@ import com.salkcoding.oswl.domain.entity.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     /** Active projects (not soft-deleted). */
     List<Project> findAllByDeletedAtIsNullOrderByCreatedAtDesc();
+
+    List<Project> findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(Collection<Long> ids);
 
     /** Soft-deleted projects (trash). */
     List<Project> findAllByDeletedAtIsNotNullOrderByDeletedAtAsc();

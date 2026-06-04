@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -25,6 +26,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
     private final AiPromptTemplateService promptTemplates;
     private final AiCallTrace callTrace;
+    private final OutboundUrlValidator outboundUrlValidator;
     private final RestTemplate restTemplate = new RestTemplate();
 
     // ── Called only within the package (delegated by AiAnalysisService) ───────────────
@@ -143,8 +145,8 @@ public class OpenAiClient implements AiAnalysisClient {
 
     private String resolveUrl(AiSetting setting) {
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {
-            // LOCAL example: "http://localhost:11434/v1/chat/completions"
             String base = setting.getBaseUrl();
+            outboundUrlValidator.validateHttpUrl(base);
             return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         }
         return DEFAULT_OPENAI_URL;
