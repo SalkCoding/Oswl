@@ -6,6 +6,8 @@ import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.VcsConnectionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportRequest;
+import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.service.QuickImportService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,14 +15,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,6 +34,7 @@ class QuickImportControllerTest {
 
     @Mock QuickImportService    quickImportService;
     @Mock VcsConnectionService  vcsConnectionService;
+    @Mock MessageSource         messageSource;
 
     @InjectMocks QuickImportController controller;
 
@@ -37,16 +43,12 @@ class QuickImportControllerTest {
                 List.of(), Set.of(), Set.of(Permission.PROJECT_VIEW), false);
     }
 
-    // -- GET /projects/quick-import --
-
     @Test
     @DisplayName("quickImportPage: returns view name")
     void quickImportPage_returnsViewName() {
         String view = controller.quickImportPage();
         assertThat(view).isEqualTo("projects/quick-import");
     }
-
-    // -- GET /api/quick-import/connections --
 
     @Test
     @DisplayName("connections: returns 200 with list of VCS connections")
@@ -58,8 +60,6 @@ class QuickImportControllerTest {
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
-
-    // -- GET /api/quick-import/repos --
 
     @Test
     @DisplayName("listRepos: success returns 200 with list")
@@ -73,21 +73,38 @@ class QuickImportControllerTest {
     }
 
     @Test
-    @DisplayName("listRepos: exception returns 502 with error map")
-    void listRepos_exception_returns502() {
+    @DisplayName("listRepos: exception returns 502 with generic error (no internal details)")
+    void listRepos_exception_returns502WithoutInternalMessage() {
         OswlUserPrincipal p = principal(1L);
         when(quickImportService.listRepos(VcsProvider.GITLAB, 1L))
-                .thenThrow(new RuntimeException("VCS unreachable"));
+                .thenThrow(new RuntimeException("Connection refused: db.internal:5432"));
+        when(messageSource.getMessage(eq("quickImport.error.loadRepos"), isNull(), any(Locale.class)))
+                .thenReturn("Could not load repositories from the VCS provider.");
 
         ResponseEntity<?> result = controller.listRepos(VcsProvider.GITLAB, p);
 
         assertThat(result.getStatusCode().value()).isEqualTo(502);
-        assertThat(result.getBody()).isInstanceOf(Map.class);
-        Object body = result.getBody();
-        assertThat(body.toString()).contains("error");
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) result.getBody();
+        assertThat(body.get("error")).isEqualTo("Could not load repositories from the VCS provider.");
+        assertThat(body.get("error")).doesNotContain("db.internal");
+        assertThat(body.get("error")).doesNotContain("Connection refused");
     }
 
-    // -- POST /api/quick-import/start --
+    @Test
+    @DisplayName("listRepos: blocked VCS URL returns 400 with clear message")
+    void listRepos_blockedUrl_returns400() {
+        OswlUserPrincipal p = principal(1L);
+        when(quickImportService.listRepos(VcsProvider.GITHUB, 1L))
+                .thenThrow(new OutboundUrlBlockedException("Private addresses are not allowed."));
+
+        ResponseEntity<?> result = controller.listRepos(VcsProvider.GITHUB, p);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) result.getBody();
+        assertThat(body.get("error")).contains("Private");
+    }
 
     @Test
     @DisplayName("start: returns 200 with jobId")
@@ -104,8 +121,6 @@ class QuickImportControllerTest {
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(result.getBody()).containsEntry("jobId", "job-123");
     }
-
-    // -- GET /api/quick-import/job/{jobId} --
 
     @Test
     @DisplayName("jobStatus: found returns 200 with status")

@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -40,6 +41,7 @@ public class CopilotClient implements AiAnalysisClient {
 
     private final AiPromptTemplateService promptTemplates;
     private final AiCallTrace callTrace;
+    private final OutboundUrlValidator outboundUrlValidator;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
@@ -75,6 +77,7 @@ public class CopilotClient implements AiAnalysisClient {
         String url;
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {
             String base = setting.getBaseUrl().trim();
+            outboundUrlValidator.validateHttpUrl(base);
             url = base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         } else {
             url = GITHUB_MODELS_URL;

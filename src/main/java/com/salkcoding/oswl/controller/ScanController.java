@@ -14,6 +14,8 @@ import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
+import com.salkcoding.oswl.service.ProjectAccessService;
+import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import com.salkcoding.oswl.service.ScanIngestService;
 import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,12 +47,14 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ScanController implements ScanControllerSpec {
 
-    private final ScanIngestService       scanIngestService;
-    private final ScanResultRepository    scanResultRepository;
+    private final ScanIngestService scanIngestService;
+    private final ScanResultRepository scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
-    private final AuditLogService         auditLogService;
-    private final UserDetailsService      userDetailsService;
-    private final PasswordEncoder         passwordEncoder;
+    private final AuditLogService auditLogService;
+    private final UserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
+    private final ProjectAccessService projectAccessService;
+    private final ScanApiCredentialThrottleService scanApiCredentialThrottleService;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -70,31 +74,41 @@ public class ScanController implements ScanControllerSpec {
             HttpServletRequest request) throws Exception {
 
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
+        String actorEmail = payload.getSubmitterEmail();
 
-        // Authenticate the submitter — credentials are mandatory for all CLI scans.
-        // Validation happens BEFORE scan data is ingested.
+        scanApiCredentialThrottleService.assertCredentialCheckAllowed(projectId, actorEmail);
+
         OswlUserPrincipal principal;
         try {
-            principal = (OswlUserPrincipal) userDetailsService.loadUserByUsername(payload.getSubmitterEmail());
+            principal = (OswlUserPrincipal) userDetailsService.loadUserByUsername(actorEmail);
         } catch (UsernameNotFoundException e) {
+            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "UNKNOWN_USER");
             throw new UnauthorizedException("Invalid credentials");
         }
         if (!passwordEncoder.matches(payload.getSubmitterPassword(), principal.getPassword())) {
+            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "INVALID_PASSWORD");
             throw new UnauthorizedException("Invalid credentials");
         }
         if (!principal.hasPermission(Permission.SCAN_SUBMIT)) {
+            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "MISSING_SCAN_SUBMIT");
             throw new ForbiddenException("User does not have SCAN_SUBMIT permission");
         }
-        String actorEmail = payload.getSubmitterEmail();
+        try {
+            projectAccessService.assertCanSubmitScan(projectId, principal.getUserId());
+        } catch (ForbiddenException e) {
+            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "NOT_PROJECT_MEMBER");
+            throw e;
+        }
 
-        // Preserve raw JSON for audit — submitterPassword is @JsonProperty(WRITE_ONLY)
-        // so it is never included in the serialized output stored here.
+        scanApiCredentialThrottleService.recordCredentialSuccess(projectId, actorEmail);
+
         payload.setRawJson(MAPPER.writeValueAsString(payload));
 
         ScanResult result = scanIngestService.ingest(projectId, payload);
 
         auditLogService.logAnonymous(actorEmail, "SCAN.INGEST", "PROJECT",
-                projectId.toString(), payload.getVersion(), null);
+                projectId.toString(), payload.getVersion(),
+                "scanId=" + result.getId());
 
         return ResponseEntity.ok(ScanResponse.builder()
                 .scanId(result.getId())
@@ -109,8 +123,6 @@ public class ScanController implements ScanControllerSpec {
      * Lightweight poll endpoint for the UI.
      * Returns the current scan status and component count.
      * Used for the Security Center scan progress badge (Alpine.js polling).
-     * Requires an active session with PROJECT_VIEW permission — unauthenticated
-     * callers and users lacking project access receive 401/403.
      */
     @GetMapping("/{scanId}/status")
     @org.springframework.security.access.prepost.PreAuthorize(
@@ -118,6 +130,8 @@ public class ScanController implements ScanControllerSpec {
     public ResponseEntity<ScanStatusResponse> scanStatus(@PathVariable Long scanId) {
         return scanResultRepository.findById(scanId)
                 .map(scan -> {
+                    Long projectId = scan.getProject().getId();
+                    projectAccessService.assertCanViewProject(projectId);
                     long count = scanComponentRepository.countByScanResultId(scan.getId());
                     return ResponseEntity.ok(ScanStatusResponse.builder()
                             .scanId(scan.getId())
@@ -127,5 +141,12 @@ public class ScanController implements ScanControllerSpec {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-}
 
+    private void onScanAuthFailure(Long projectId, String actorEmail, String version, String reason) {
+        scanApiCredentialThrottleService.recordCredentialFailure(projectId, actorEmail);
+        auditLogService.logAnonymous(actorEmail, "SCAN.AUTH_FAILURE", "PROJECT",
+                projectId != null ? projectId.toString() : null,
+                version,
+                "reason=" + reason);
+    }
+}

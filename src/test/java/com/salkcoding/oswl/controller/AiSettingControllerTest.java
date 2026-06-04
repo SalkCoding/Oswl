@@ -9,6 +9,8 @@ import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,7 @@ class AiSettingControllerTest {
     @Mock EncryptionService   encryptionService;
     @Mock AiAnalysisService   aiAnalysisService;
     @Mock AiPreferencesService aiPreferencesService;
+    @Mock OutboundUrlValidator outboundUrlValidator;
 
     @InjectMocks AiSettingController controller;
 
@@ -331,7 +334,7 @@ class AiSettingControllerTest {
         req.setProvider(AiProvider.LOCAL);
         req.setApiKey("");
         req.setModelName("llama3");
-        req.setBaseUrl("http://localhost:11434/v1");
+        req.setBaseUrl("https://llm.example.com/v1");
 
         when(aiAnalysisService.testConnection(any())).thenReturn(true);
 
@@ -339,6 +342,26 @@ class AiSettingControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody().get("success")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("testConnection: 내부 baseUrl 차단 시 success=false와 안내 메시지")
+    void testConnection_blockedBaseUrl_returnsFailureMessage() {
+        AiTestConnectionRequest req = new AiTestConnectionRequest();
+        req.setProvider(AiProvider.LOCAL);
+        req.setApiKey("");
+        req.setModelName("llama3");
+        req.setBaseUrl("http://127.0.0.1:11434/v1");
+
+        doThrow(new OutboundUrlBlockedException("Loopback addresses are not allowed."))
+                .when(outboundUrlValidator).validateHttpUrl("http://127.0.0.1:11434/v1");
+
+        ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody().get("success")).isEqualTo(false);
+        assertThat(resp.getBody().get("message").toString()).contains("Loopback");
+        verify(aiAnalysisService, never()).testConnection(any());
     }
 
     @Test

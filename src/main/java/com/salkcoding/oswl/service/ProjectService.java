@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ProjectVersion;
 import com.salkcoding.oswl.domain.enums.ImportSource;
+import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.dto.TrashProjectDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -31,10 +32,15 @@ public class ProjectService {
     private final ProjectVersionRepository projectVersionRepository;
     private final ScanResultRepository scanResultRepository;
     private final AuditLogService auditLogService;
+    private final ProjectAccessService projectAccessService;
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> findAll() {
-        return projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc().stream()
+        List<Long> accessible = projectAccessService.accessibleProjectIds();
+        if (accessible.isEmpty()) {
+            return List.of();
+        }
+        return projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(accessible).stream()
                 .map(this::toSummary)
                 .collect(Collectors.toList());
     }
@@ -48,16 +54,25 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public Project getById(Long id) {
-        return projectRepository.findById(id)
+        Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
+        projectAccessService.assertCanViewProject(id);
+        return project;
     }
 
     @Transactional
     @Auditable(action = "PROJECT.CREATE", targetType = "PROJECT",
                targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.name")
     public Project create(String name) {
-        Project project = Project.builder().name(name).build();
+        Long creatorId = projectAccessService.currentUserIdOrNull();
+        Project project = Project.builder()
+                .name(name)
+                .createdByUserId(creatorId)
+                .build();
         Project saved = projectRepository.save(project);
+        if (creatorId != null) {
+            projectAccessService.ensureMember(saved.getId(), creatorId, ProjectMemberRole.ADMIN);
+        }
         log.info("[Project] Created id={} name={}", saved.getId(), saved.getName());
         return saved;
     }
@@ -107,6 +122,11 @@ public class ProjectService {
         // 3. Update denormalized fields on the project
         project.markGithubImport(provider, owner, repo, branch);
         Project saved = projectRepository.save(project);
+        if (createdByUserId != null) {
+            projectAccessService.ensureMember(saved.getId(), createdByUserId, ProjectMemberRole.ADMIN);
+        } else {
+            projectAccessService.ensureCreatorMemberIfAbsent(saved);
+        }
         if (isNewProject) {
             auditLogService.log("PROJECT.CREATE", "PROJECT",
                     saved.getId().toString(), saved.getName(),

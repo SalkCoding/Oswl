@@ -42,15 +42,28 @@ class ProjectServiceTest {
     @Mock
     ScanResultRepository scanResultRepository;
 
+    @Mock
+    com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
+
+    @Mock
+    ProjectAccessService projectAccessService;
+
     @InjectMocks
     ProjectService projectService;
+
+    private void stubAccessible(Project... projects) {
+        List<Long> ids = java.util.Arrays.stream(projects).map(Project::getId).toList();
+        when(projectAccessService.accessibleProjectIds()).thenReturn(ids);
+        when(projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(ids))
+                .thenReturn(List.of(projects));
+    }
 
     // ── findAll ───────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("프로젝트가 없으면 빈 리스트를 반환한다")
     void findAll_returnsEmptyList_whenNoProjects() {
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of());
+        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of());
 
         assertThat(projectService.findAll()).isEmpty();
     }
@@ -60,7 +73,7 @@ class ProjectServiceTest {
     void findAll_returnsDashes_whenNoScan() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.empty());
 
         ProjectSummaryDto result = projectService.findAll().get(0);
@@ -98,7 +111,7 @@ class ProjectServiceTest {
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 1, 0, 0));
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
 
         ProjectSummaryDto result = projectService.findAll().get(0);
@@ -136,7 +149,7 @@ class ProjectServiceTest {
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 4, 10, 0));
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
 
         ProjectSummaryDto result = projectService.findAll().get(0);
@@ -157,7 +170,7 @@ class ProjectServiceTest {
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 15, 12, 0));
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
 
         assertThat(projectService.findAll().get(0).getLastScanned()).isEqualTo("2026.04.15");
@@ -168,7 +181,7 @@ class ProjectServiceTest {
     void findAll_returnsZeroCounts_whenNoScan() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.empty());
 
         ProjectSummaryDto result = projectService.findAll().get(0);
@@ -187,7 +200,7 @@ class ProjectServiceTest {
                 .build();
         scanning.setScannedAt(LocalDateTime.now());
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scanning));
 
         ProjectSummaryDto result = projectService.findAll().get(0);
@@ -207,7 +220,7 @@ class ProjectServiceTest {
                 .build();
         failed.setScannedAt(LocalDateTime.now());
 
-        when(projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()).thenReturn(List.of(project));
+        stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(failed));
 
         ProjectSummaryDto result = projectService.findAll().get(0);
@@ -258,6 +271,7 @@ class ProjectServiceTest {
     void getById_returnsProject_whenExists() {
         Project project = Project.builder().id(1L).name("P1").build();
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        doNothing().when(projectAccessService).assertCanViewProject(1L);
 
         assertThat(projectService.getById(1L)).isEqualTo(project);
     }
@@ -358,8 +372,9 @@ class ProjectServiceTest {
     @Test
     @DisplayName("permanentDeleteSelected는 존재하는 ID만 삭제한다")
     void permanentDeleteSelected_deletesOnlyExistingIds() {
-        when(projectRepository.existsById(1L)).thenReturn(true);
-        when(projectRepository.existsById(99L)).thenReturn(false);
+        Project p1 = Project.builder().id(1L).name("P1").build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p1));
+        when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
         projectService.permanentDeleteSelected(List.of(1L, 99L));
 
