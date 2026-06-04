@@ -14,6 +14,21 @@ java {
 	}
 }
 
+// Local-only sources (TestDataController, etc.) — included in bootRun and tests, excluded from bootJar.
+sourceSets {
+	local {
+		java {
+			srcDir 'src/local/java'
+		}
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
+	}
+	test {
+		compileClasspath += sourceSets.local.output
+		runtimeClasspath += sourceSets.local.output
+	}
+}
+
 repositories {
 	mavenCentral()
 }
@@ -54,8 +69,47 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+tasks.named('compileLocalJava') {
+	dependsOn compileJava
+	options.annotationProcessorPath = configurations.annotationProcessor
+}
+
 tasks.named('bootRun') {
+	dependsOn compileLocalJava
 	jvmArgs = ['-Djava.net.preferIPv4Stack=true']
+	classpath = sourceSets.main.runtimeClasspath + sourceSets.local.runtimeClasspath
+}
+
+tasks.named('bootJar') {
+	// Production JAR: main sources only (no src/local/java).
+}
+
+tasks.register('verifyProdJar') {
+	group = 'verification'
+	description = 'Fails if local-only classes (e.g. TestDataController) are packaged in bootJar.'
+	dependsOn bootJar
+	doLast {
+		def jarFile = tasks.named('bootJar').get().archiveFile.get().asFile
+		def forbidden = ['com/salkcoding/oswl/controller/TestDataController.class']
+		jarFile.withInputStream { input ->
+			def zip = new java.util.zip.ZipInputStream(input)
+			def entry
+			while ((entry = zip.nextEntry) != null) {
+				if (forbidden.any { entry.name == it }) {
+					throw new GradleException("Production JAR must not contain ${entry.name}. Use src/local/java and bootRun classpath only.")
+				}
+			}
+		}
+		logger.lifecycle("verifyProdJar: OK — no local-only controllers in ${jarFile.name}")
+	}
+}
+
+tasks.named('compileTestJava') {
+	dependsOn compileLocalJava
+}
+
+tasks.named('test') {
+	dependsOn compileLocalJava
 }
 
 jacoco {

@@ -17,12 +17,13 @@ services:
     env_file:
       - .env.prod
     environment:
-      SPRING_DATASOURCE_URL: "${SPRING_DATASOURCE_URL}"
-      SPRING_DATASOURCE_USERNAME: "${SPRING_DATASOURCE_USERNAME}"
-      SPRING_DATASOURCE_PASSWORD: "${SPRING_DATASOURCE_PASSWORD}"
+      DB_URL: "${DB_URL}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      OSWL_ENCRYPTION_KEY: "${OSWL_ENCRYPTION_KEY}"
       SPRING_PROFILES_ACTIVE: "prod"
+      SERVER_ADDRESS: "${SERVER_ADDRESS:-127.0.0.1}"
       JAVA_OPTS: "-Xms512m -Xmx1g"
-      # SMTP (set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS in .env.prod)
       SPRING_MAIL_HOST: "${SMTP_HOST}"
       SPRING_MAIL_PORT: "${SMTP_PORT}"
       SPRING_MAIL_USERNAME: "${SMTP_USER}"
@@ -30,7 +31,7 @@ services:
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       - db
     restart: unless-stopped

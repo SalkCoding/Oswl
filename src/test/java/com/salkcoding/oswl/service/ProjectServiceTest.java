@@ -238,6 +238,7 @@ class ProjectServiceTest {
         deleted.softDelete();
 
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc()).thenReturn(List.of(deleted));
+        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(1L));
 
         List<TrashProjectDto> result = projectService.findTrash();
 
@@ -256,6 +257,7 @@ class ProjectServiceTest {
         p.softDelete();  // just deleted → 30 daysLeft → "yellow"
 
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc()).thenReturn(List.of(p));
+        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(2L));
 
         TrashProjectDto dto = projectService.findTrash().get(0);
 
@@ -361,6 +363,7 @@ class ProjectServiceTest {
         p2.softDelete();
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc())
                 .thenReturn(List.of(p1, p2));
+        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(1L, 2L));
 
         projectService.permanentDeleteAll();
 

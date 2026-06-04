@@ -1,11 +1,14 @@
 package com.salkcoding.oswl.web.interceptor;
 
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,11 +25,24 @@ import static org.mockito.Mockito.*;
 class ApiKeyAuthInterceptorTest {
 
     @Mock ApiKeyService apiKeyService;
+    @Mock ScanApiCredentialThrottleService scanApiCredentialThrottleService;
+    @Mock AuditLogService auditLogService;
     @InjectMocks ApiKeyAuthInterceptor interceptor;
 
     @Mock HttpServletRequest request;
     @Mock HttpServletResponse response;
     @Mock Object handler;
+
+    @BeforeEach
+    void stubRequestMeta() {
+        lenient().when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        lenient().when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        lenient().when(request.getRequestURI()).thenReturn("/api/scan");
+        lenient().doNothing().when(scanApiCredentialThrottleService).assertApiKeyCheckAllowed(anyString());
+        lenient().doNothing().when(scanApiCredentialThrottleService).recordApiKeyFailure(anyString());
+        lenient().doNothing().when(auditLogService).logAnonymous(
+                anyString(), anyString(), anyString(), nullable(String.class), nullable(String.class), anyString());
+    }
 
     @Test
     @DisplayName("preHandle: Authorization 헤더가 없으면 401을 반환하고 false를 반환한다")
@@ -36,6 +53,7 @@ class ApiKeyAuthInterceptorTest {
 
         assertThat(result).isFalse();
         verify(response).sendError(eq(HttpServletResponse.SC_UNAUTHORIZED), anyString());
+        verify(scanApiCredentialThrottleService).recordApiKeyFailure("127.0.0.1");
     }
 
     @Test
@@ -90,5 +108,6 @@ class ApiKeyAuthInterceptorTest {
 
         assertThat(result).isFalse();
         verify(response).sendError(eq(HttpServletResponse.SC_UNAUTHORIZED), anyString());
+        verify(scanApiCredentialThrottleService).recordApiKeyFailure("127.0.0.1");
     }
 }

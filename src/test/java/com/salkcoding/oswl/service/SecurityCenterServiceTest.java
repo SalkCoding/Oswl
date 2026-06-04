@@ -200,8 +200,8 @@ class SecurityCenterServiceTest {
 
         securityCenterService.bulkUpdateStatus(10L, new BulkStatusRequest(List.of(1L, 2L), true, null));
 
-        verify(sc1).markReviewed(true);
-        verify(sc2).markReviewed(true);
+        verify(sc1).markReviewedBy(eq(true), anyString());
+        verify(sc2).markReviewedBy(eq(true), anyString());
         verify(sc1, never()).markIgnored(anyBoolean());
         verify(sc2, never()).markIgnored(anyBoolean());
     }
@@ -228,7 +228,7 @@ class SecurityCenterServiceTest {
 
         securityCenterService.bulkUpdateStatus(10L, new BulkStatusRequest(List.of(3L), true, true));
 
-        verify(sc).markReviewed(true);
+        verify(sc).markReviewedBy(eq(true), anyString());
         verify(sc).markIgnored(true);
     }
 
@@ -240,7 +240,7 @@ class SecurityCenterServiceTest {
 
         securityCenterService.bulkUpdateStatus(10L, new BulkStatusRequest(List.of(99L), true, true));
 
-        verify(auditLogService).log(anyString(), anyString(), anyString(), isNull(), anyString());
+        verify(auditLogService).log(eq("COMPONENT.BULK_STATUS_UPDATE"), anyString(), anyString(), anyString(), anyString());
     }
 
     // ── buildExportCsv ───────────────────────────────────────────────────

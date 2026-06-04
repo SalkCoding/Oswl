@@ -4,20 +4,30 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("EncryptionService unit tests")
 class EncryptionServiceTest {
 
     private static final String VALID_KEY = "dGVzdC1rZXktMzItYnl0ZXMtZm9yLXRlc3QtMDEyMzQ=";
 
+    @Mock Environment environment;
+
     private EncryptionService encryption;
 
     @BeforeEach
     void setUp() {
-        encryption = new EncryptionService();
+        lenient().when(environment.acceptsProfiles(Profiles.of("prod"))).thenReturn(false);
+        encryption = new EncryptionService(environment);
         ReflectionTestUtils.setField(encryption, "encryptionKeyBase64", VALID_KEY);
         encryption.init();
     }
@@ -47,7 +57,7 @@ class EncryptionServiceTest {
     @Test
     @DisplayName("init with wrong key length (not 32 bytes) throws")
     void init_wrongKeyLength_throws() {
-        EncryptionService svc = new EncryptionService();
+        EncryptionService svc = new EncryptionService(environment);
         ReflectionTestUtils.setField(svc, "encryptionKeyBase64", "dGVzdC1rZXktMTYtYnl0ZXMAAAA=");
         assertThatThrownBy(svc::init)
                 .isInstanceOf(IllegalStateException.class)
@@ -55,12 +65,24 @@ class EncryptionServiceTest {
     }
 
     @Test
-    @DisplayName("init with blank key throws")
-    void init_blankKey_throws() {
-        EncryptionService svc = new EncryptionService();
+    @DisplayName("init with blank key uses ephemeral key for this JVM (non-prod)")
+    void init_blankKey_usesEphemeralKey() {
+        when(environment.acceptsProfiles(Profiles.of("prod"))).thenReturn(false);
+        EncryptionService svc = new EncryptionService(environment);
+        ReflectionTestUtils.setField(svc, "encryptionKeyBase64", "");
+        svc.init();
+        assertThat(svc.isEphemeralKey()).isTrue();
+        assertThat(svc.decrypt(svc.encrypt("ephemeral"))).isEqualTo("ephemeral");
+    }
+
+    @Test
+    @DisplayName("init with blank key in prod throws")
+    void init_blankKey_prod_throws() {
+        when(environment.acceptsProfiles(Profiles.of("prod"))).thenReturn(true);
+        EncryptionService svc = new EncryptionService(environment);
         ReflectionTestUtils.setField(svc, "encryptionKeyBase64", "");
         assertThatThrownBy(svc::init)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("oswl.encryption.key");
+                .hasMessageContaining("OSWL_ENCRYPTION_KEY");
     }
 }

@@ -268,9 +268,10 @@
                                    th:attr="placeholder=#{settings.vcs.bb.placeholder.cloudTokenAny}"
                                    class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                         </div>
-                        <p class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed" th:utext="#{settings.vcs.bb.cloudGuideDual}">
-                            Atlassian API Token (id.atlassian.com): email + workspace slug + token. Workspace HTTP Access Token: slug + token only.
-                        </p>
+                        <div class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed flex flex-col gap-[4px]">
+                            <p class="m-0" th:text="#{settings.vcs.bb.cloudGuideDual.option1}">Atlassian API Token option</p>
+                            <p class="m-0" th:text="#{settings.vcs.bb.cloudGuideDual.option2}">Workspace HTTP Access Token option</p>
+                        </div>
                     </div>
                 </template>
 
@@ -486,9 +487,10 @@
             bitbucketAccessToken: '',
             form: { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' },
             headers() {
-                const m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
-                const token = m ? decodeURIComponent(m[1]) : '';
-                return { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': token };
+                return Object.assign(
+                    { 'Accept': 'application/json' },
+                    oswlJsonHeaders()
+                );
             },
             formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
             providerLabel(p) {

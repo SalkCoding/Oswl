@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VersionDiffService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,13 @@ import static org.mockito.Mockito.verify;
 class VersionDiffControllerTest {
 
     @Mock VersionDiffService versionDiffService;
+    @Mock ProjectAccessService projectAccessService;
     @InjectMocks VersionDiffController controller;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubAccess() {
+        org.mockito.Mockito.doNothing().when(projectAccessService).assertCanViewProject(org.mockito.ArgumentMatchers.anyLong());
+    }
 
     @Test
     @DisplayName("index: version-diff/index 뷰를 반환한다")

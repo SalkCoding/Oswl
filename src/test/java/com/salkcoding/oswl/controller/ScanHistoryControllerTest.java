@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanHistoryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,8 @@ class ScanHistoryControllerTest {
 
     @Mock ScanHistoryService scanHistoryService;
     @Mock ScanResultRepository scanResultRepository;
+    @Mock AuditLogService auditLogService;
+    @Mock ProjectAccessService projectAccessService;
     @InjectMocks ScanHistoryController controller;
 
     @Test
@@ -35,6 +39,7 @@ class ScanHistoryControllerTest {
         String view = controller.index(1L, model);
 
         assertThat(view).isEqualTo("scan-history/index");
+        verify(projectAccessService).assertCanViewProject(1L);
         verify(scanHistoryService).populateModel(1L, model);
     }
 
@@ -47,6 +52,7 @@ class ScanHistoryControllerTest {
         ResponseEntity<Void> response = controller.deleteScan(1L, 42L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectAccessService).assertCanViewProject(1L);
         verify(scanResultRepository).delete(scan);
     }
 
@@ -58,6 +64,7 @@ class ScanHistoryControllerTest {
         ResponseEntity<Void> response = controller.deleteScan(1L, 99L);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectAccessService).assertCanViewProject(1L);
         verify(scanResultRepository, never()).delete(any());
     }
 }
