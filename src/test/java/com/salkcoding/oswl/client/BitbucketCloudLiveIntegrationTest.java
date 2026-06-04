@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -7,7 +8,6 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -30,10 +30,11 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 class BitbucketCloudLiveIntegrationTest {
 
     private final BitbucketCloudClient client = new BitbucketCloudClient();
+    private final GitCloneExecutor gitCloneExecutor = new GitCloneExecutor();
 
     @Test
-    @DisplayName("live: validate → list repos → build clone URL")
-    void live_validateListAndCloneUrl() throws Exception {
+    @DisplayName("live: validate → list repos → clone via GIT_ASKPASS")
+    void live_validateListAndClone() throws Exception {
         String email = env("BITBUCKET_EMAIL");
         String workspace = env("BITBUCKET_WORKSPACE");
         String token = env("BITBUCKET_TOKEN");
@@ -52,21 +53,14 @@ class BitbucketCloudLiveIntegrationTest {
         assertThat(repos).as("Quick Import repo list").isNotEmpty();
         assertThat(repos.stream().anyMatch(r -> repo.equals(r.name()))).isTrue();
 
-        String cloneUrl = client.buildCloneAuthUrl(vcsUsername, token, "bitbucket.org", "/" + workspace + "/" + repo);
-        assertThat(cloneUrl).contains("x-bitbucket-api-token-auth");
-        assertThat(cloneUrl).contains("/" + workspace + "/" + repo + ".git");
+        var creds = client.cloneCredentials(vcsUsername, token);
+        assertThat(creds.username()).isEqualTo("x-bitbucket-api-token-auth");
 
         Assumptions.assumeTrue(isGitAvailable(), "git not available — skipping clone step");
         Path tempDir = Files.createTempDirectory("oswl-bb-live-");
         try {
-            Process proc = new ProcessBuilder(
-                    "git", "clone", "--depth", "1", "--single-branch", "--quiet",
-                    cloneUrl, tempDir.toString())
-                    .redirectErrorStream(true)
-                    .start();
-            boolean finished = proc.waitFor(2, TimeUnit.MINUTES);
-            assertThat(finished).isTrue();
-            assertThat(proc.exitValue()).as("git clone exit code").isZero();
+            String repoUrl = "https://bitbucket.org/" + workspace + "/" + repo + ".git";
+            gitCloneExecutor.clone(repoUrl, creds, null, tempDir, "live-test");
             assertThat(Files.list(tempDir).findAny()).isPresent();
         } finally {
             deleteRecursively(tempDir);
@@ -86,7 +80,7 @@ class BitbucketCloudLiveIntegrationTest {
     private static boolean isGitAvailable() {
         try {
             Process p = new ProcessBuilder("git", "--version").start();
-            return p.waitFor(10, TimeUnit.SECONDS) && p.exitValue() == 0;
+            return p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS) && p.exitValue() == 0;
         } catch (Exception e) {
             return false;
         }

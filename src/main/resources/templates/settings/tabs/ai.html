@@ -196,60 +196,7 @@
             </div>
         </div>
 
-        <!-- ── Option 5: GitHub Copilot ── -->
-        <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='COPILOT'">
-                <img :src="mode==='COPILOT' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.copilot}">GitHub Copilot</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.copilot.description}">Use GitHub Copilot's AI models via a GitHub personal access token (PAT) with the <code class="bg-[var(--grayscale-5)] px-[4px] py-[1px] rounded text-[12px]">copilot</code> scope. Supports GPT, Claude, and Gemini models through the Copilot API.</span>
-                </div>
-            </div>
-            <!-- Copilot Fields -->
-            <div x-show="mode==='COPILOT'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.token}">GitHub Token</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="password" x-model="forms.COPILOT.apiKey" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                    </div>
-                </div>
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
-                    <div class="relative flex-1 max-w-[400px]"
-                         x-data="{ open: false, modelSearch: '' }"
-                         x-init="$watch('forms.COPILOT.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.COPILOT.modelName || ''"
-                         @click.away="open=false; modelSearch = forms.COPILOT.modelName || ''">
-                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
-                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
-                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.copilotModelInput.focus())">
-                            <input type="text" x-ref="copilotModelInput"
-                                   x-model="modelSearch"
-                                   @input="forms.COPILOT.modelName = modelSearch; open = true"
-                                   @focus="open = true"
-                                   @keydown.escape="open=false; modelSearch = forms.COPILOT.modelName || ''"
-                                   placeholder="e.g. gpt-4o"
-                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.copilotModelInput.focus())}else{modelSearch=forms.COPILOT.modelName||''}"
-                                 class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
-                        </div>
-                        <div x-show="open" x-cloak
-                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.3-codex','gpt-5.2','gpt-5.2-codex','gpt-5-mini','gpt-4o','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-sonnet-4-6','claude-sonnet-4-5','claude-haiku-4-5','gemini-3.5-flash','gemini-3.1-pro','gemini-3-flash','gemini-2.5-pro'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
-                                <button type="button" @click="forms.COPILOT.modelName = opt; modelSearch = opt; open = false"
-                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                        :class="forms.COPILOT.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
-                                        x-text="opt"></button>
-                            </template>
-                            <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.3-codex','gpt-5.2','gpt-5.2-codex','gpt-5-mini','gpt-4o','claude-opus-4-7','claude-opus-4-6','claude-opus-4-5','claude-sonnet-4-6','claude-sonnet-4-5','claude-haiku-4-5','gemini-3.5-flash','gemini-3.1-pro','gemini-3-flash','gemini-2.5-pro'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Option 6: Local / Ollama ── -->
+        <!-- ── Option 5: Local / Ollama ── -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
                 <img :src="mode==='LOCAL' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
@@ -523,12 +470,11 @@
     <script>
     function aiTab() {
         return {
-            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'COPILOT' | 'LOCAL'
+            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
             forms: {
                 OPENAI:    { apiKey: '', modelName: 'gpt-5.5',               baseUrl: '' },
                 ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-7',       baseUrl: '' },
                 GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
-                COPILOT:   { apiKey: '', modelName: 'gpt-5.4',                baseUrl: '' },
                 LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
             },
             preferences: {

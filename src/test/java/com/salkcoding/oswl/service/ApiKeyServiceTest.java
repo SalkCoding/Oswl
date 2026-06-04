@@ -72,7 +72,6 @@ class ApiKeyServiceTest {
 
         assertThat(issued.plainToken()).startsWith("oswl_");
         assertThat(issued.key().getTokenHash()).isNotBlank();
-        assertThat(issued.key().getLegacyToken()).isNull();
     }
 
     @Test

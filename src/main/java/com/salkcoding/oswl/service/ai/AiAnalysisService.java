@@ -22,7 +22,6 @@ public class AiAnalysisService {
     private final AiSettingRepository aiSettingRepository;
     private final OpenAiClient openAiClient;
     private final AnthropicClient anthropicClient;
-    private final CopilotClient copilotClient;
     private final EncryptionService encryptionService;
     private final AiPromptTemplateService promptTemplates;
     private final AiUsageLimiterService usageLimiter;
@@ -201,7 +200,6 @@ public class AiAnalysisService {
         return switch (setting.getProvider()) {
             case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
             case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
-            case COPILOT               -> copilotClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
         };
     }
 
