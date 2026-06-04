@@ -3,6 +3,7 @@
 <head th:fragment="head(pageTitle)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" th:content="${_csrf.token}" th:if="${_csrf != null}">
     <title th:text="${pageTitle != null ? 'OsWL - ' + pageTitle : 'OsWL'}">OsWL</title>
 
     <link rel="icon" th:href="@{/graphic/symbol_w.svg}" type="image/svg+xml" media="(prefers-color-scheme: light)">
@@ -19,22 +20,19 @@
     <style>
         [x-cloak] { display: none !important; }
     </style>
+    <script th:src="@{/js/oswl-csrf.js}"></script>
     <script>
-        // Auto-inject CSRF header for same-origin state-changing fetch requests.
+        // Auto-inject CSRF header for same-origin state-changing fetch requests (token from meta, not cookie).
         (function () {
             const origFetch = window.fetch;
-            const xsrf = () => {
-                const m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
-                return m ? decodeURIComponent(m[1]) : null;
-            };
             window.fetch = function (input, init) {
                 init = init || {};
                 const method = (init.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
                 if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
                     const url = typeof input === 'string' ? input : (input && input.url) || '';
                     const sameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(location.origin);
-                    if (sameOrigin) {
-                        const token = xsrf();
+                    if (sameOrigin && window.OswlCsrf) {
+                        const token = window.OswlCsrf.token();
                         if (token) {
                             const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
                             if (!headers.has('X-XSRF-TOKEN')) headers.set('X-XSRF-TOKEN', token);

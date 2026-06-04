@@ -2,7 +2,9 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
+import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -41,23 +44,59 @@ class QuickImportServiceParserTest {
     @Mock BitbucketCloudClient         bitbucketCloudClient;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
     @Mock MavenBomVersionResolver      bomVersionResolver;
+    @Mock GitCloneExecutor              gitCloneExecutor;
+    @Mock com.salkcoding.oswl.auth.repository.UserRepository userRepository;
+    @Mock AuditLogService               auditLogService;
+    @Mock ProjectCliKeyPolicyService    projectCliKeyPolicyService;
+    @Mock org.springframework.context.MessageSource messageSource;
 
     @InjectMocks QuickImportService service;
 
-    // ── reflection helpers ────────────────────────────────────────────────
+    private static final String REPO = "test-repo";
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubBomResolver() {
+        lenient().when(bomVersionResolver.enrichComponentVersions(any(), any()))
+                .thenAnswer(inv -> inv.getArgument(1));
+    }
 
     @SuppressWarnings("unchecked")
-    private List<ScanPayload.ComponentPayload> invokeParser(String methodName, Path dir) throws Exception {
+    private List<ScanPayload.ComponentPayload> invokeList(String methodName, Path dir) throws Exception {
         Method m = QuickImportService.class.getDeclaredMethod(methodName, Path.class, String.class);
         m.setAccessible(true);
-        Object result = m.invoke(service, dir, "test-repo");
-        // handle methods returning ParsedDependencies (private record)
-        if (result instanceof List) {
-            return (List<ScanPayload.ComponentPayload>) result;
+        Object result = m.invoke(service, dir, REPO);
+        if (result == null) {
+            return List.of();
         }
-        Field components = result.getClass().getDeclaredField("components");
+        if (result instanceof List<?> list) {
+            return (List<ScanPayload.ComponentPayload>) list;
+        }
+        return extractComponents(result);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScanPayload.ComponentPayload> invokeMavenPom(Path pomFile, Path projectDir) throws Exception {
+        Method m = QuickImportService.class.getDeclaredMethod(
+                "parseSingleMavenPom", Path.class, Path.class, String.class);
+        m.setAccessible(true);
+        Object result = m.invoke(service, pomFile, projectDir, REPO);
+        return result != null ? (List<ScanPayload.ComponentPayload>) result : List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScanPayload.ComponentPayload> invokeTomlLock(Path lockFile, String ecosystem) throws Exception {
+        Method m = QuickImportService.class.getDeclaredMethod(
+                "parseTomlPackageLock", Path.class, String.class, String.class);
+        m.setAccessible(true);
+        Object result = m.invoke(service, lockFile, ecosystem, REPO);
+        return result != null ? (List<ScanPayload.ComponentPayload>) result : List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ScanPayload.ComponentPayload> extractComponents(Object parsedDeps) throws Exception {
+        Field components = parsedDeps.getClass().getDeclaredField("components");
         components.setAccessible(true);
-        return (List<ScanPayload.ComponentPayload>) components.get(result);
+        return (List<ScanPayload.ComponentPayload>) components.get(parsedDeps);
     }
 
     // ── parseMaven ────────────────────────────────────────────────────────
@@ -86,7 +125,7 @@ class QuickImportServiceParserTest {
             </project>
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseMaven", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeMavenPom(dir.resolve("pom.xml"), dir);
 
         assertThat(comps).hasSize(1); // test scope skipped
         assertThat(comps.get(0).getName()).isEqualTo("org.springframework:spring-core");
@@ -99,7 +138,7 @@ class QuickImportServiceParserTest {
     void parseMaven_noDependencies_returnsEmpty(@TempDir Path dir) throws Exception {
         Files.writeString(dir.resolve("pom.xml"), "<project><groupId>com.e</groupId></project>");
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseMaven", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeMavenPom(dir.resolve("pom.xml"), dir);
 
         assertThat(comps).isEmpty();
     }
@@ -120,7 +159,7 @@ class QuickImportServiceParserTest {
             </project>
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseMaven", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeMavenPom(dir.resolve("pom.xml"), dir);
 
         assertThat(comps).hasSize(1);
         assertThat(comps.get(0).getVersion()).isEqualTo("2.0.0");
@@ -144,7 +183,7 @@ class QuickImportServiceParserTest {
             }
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseNpmPackageJson", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseNpmPackageJson", dir);
 
         assertThat(comps).hasSize(3);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -168,7 +207,7 @@ class QuickImportServiceParserTest {
             }
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseNpmLock", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseNpmLock", dir);
 
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -188,7 +227,7 @@ class QuickImportServiceParserTest {
             }
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseNpmLock", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseNpmLock", dir);
 
         assertThat(comps).hasSize(2);
     }
@@ -206,7 +245,7 @@ class QuickImportServiceParserTest {
             -r other.txt
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parsePython", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parsePython", dir);
 
         assertThat(comps).hasSize(3);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -218,7 +257,7 @@ class QuickImportServiceParserTest {
     @Test
     @DisplayName("parsePython: requirements.txt가 없으면 빈 목록을 반환한다")
     void parsePython_noFile_returnsEmpty(@TempDir Path dir) throws Exception {
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parsePython", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parsePython", dir);
 
         assertThat(comps).isEmpty();
     }
@@ -239,7 +278,7 @@ class QuickImportServiceParserTest {
             )
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseGoMod", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGoModDeclared", dir);
 
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -255,7 +294,7 @@ class QuickImportServiceParserTest {
             require github.com/pkg/errors v0.9.1
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseGoMod", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGoModDeclared", dir);
 
         assertThat(comps).hasSize(1);
         assertThat(comps.get(0).getName()).isEqualTo("github.com/pkg/errors");
@@ -279,7 +318,7 @@ class QuickImportServiceParserTest {
             version = "1.35.1"
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseCargo", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeTomlLock(dir.resolve("Cargo.lock"), "CARGO");
 
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -301,7 +340,7 @@ class QuickImportServiceParserTest {
             </Project>
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseNuGetStatic", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseNuGetStatic", dir);
 
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -331,7 +370,7 @@ class QuickImportServiceParserTest {
             }
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseGradleStatic", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGradleStatic", dir);
 
         assertThat(comps).hasSize(3);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -345,7 +384,7 @@ class QuickImportServiceParserTest {
     @Test
     @DisplayName("parseGradleStatic: 빌드 파일이 없으면 빈 목록을 반환한다")
     void parseGradleStatic_noFile_returnsEmpty(@TempDir Path dir) throws Exception {
-        List<ScanPayload.ComponentPayload> comps = invokeParser("parseGradleStatic", dir);
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGradleStatic", dir);
 
         assertThat(comps).isEmpty();
     }

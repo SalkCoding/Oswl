@@ -1,0 +1,86 @@
+# Production deployment checklist
+
+Use this one-page list before exposing OsWL on the internet. **Do not run `prod` with `local` defaults** (H2, Swagger, `/data/**`, or committed encryption keys).
+
+## 1. Profile and build
+
+| Check | Action |
+|-------|--------|
+| Profile | Set `SPRING_PROFILES_ACTIVE=prod` |
+| JAR | Build with `./gradlew bootJar verifyProdJar` — `TestDataController` must **not** appear in the JAR |
+| Local-only code | `src/local/java` is for `bootRun` / dev only, not packaged in `bootJar` |
+
+## 2. Required environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `DB_URL` | JDBC URL (e.g. `jdbc:postgresql://db:5432/oswl`) |
+| `DB_USERNAME` | Database user |
+| `DB_PASSWORD` | Database password |
+| `OSWL_ENCRYPTION_KEY` | Base64 32-byte AES key: `openssl rand -base64 32` |
+
+Copy `.env.prod.example` → `.env.prod` and fill every value. **No defaults** for DB or encryption in `application-prod.yaml`.
+
+On startup, missing variables and other config issues are printed in **one `OSWL STARTUP WARNINGS` block** in the log (after the application is ready). Without `OSWL_ENCRYPTION_KEY`, the app still starts with a **random ephemeral key** (VCS tokens become unreadable after restart)—set a stable key in production.
+
+## 3. Network binding
+
+| Check | Action |
+|-------|--------|
+| Default bind | `SERVER_ADDRESS=127.0.0.1` (see `application-prod.yaml`) |
+| Public access | Put **nginx / Caddy / Traefik** (or cloud LB) in front; terminate TLS there |
+| Direct `0.0.0.0` | Only if you accept exposing the JVM HTTP stack; document the risk and firewall |
+
+`docker-compose.prod.yml` maps **`127.0.0.1:8080:8080`** so the container is not published on all interfaces by default.
+
+Set `server.forward-headers-strategy=framework` (default in `application.yaml`) when the proxy sends `X-Forwarded-Proto` for HSTS and secure cookies.
+
+## 4. Docker Compose (production)
+
+```bash
+cp .env.prod.example .env.prod
+# Edit DB_*, OSWL_ENCRYPTION_KEY, SMTP_*
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
+
+## 5. Logging and observability
+
+| Check | Action |
+|-------|--------|
+| Log levels | `prod` profile: `com.salkcoding.oswl` at **INFO** only; no DEBUG on AI/clients |
+| AI excerpts | `oswl.ai.debug.log-prompt-excerpt` / `log-response-excerpt` default **false** in prod |
+| Actuator | Only **`/actuator/health`** exposed; all other endpoints disabled |
+| Actuator auth | Requires **SYSTEM_ADMIN** session (not public) |
+
+## 6. Security features enabled in prod
+
+- Springdoc / Swagger UI: **off**
+- H2 console and `/data/**`: **not in prod JAR** (local profile + `src/local/java` only)
+- Security headers + HSTS (behind HTTPS): see `application-prod.yaml` `oswl.security.headers`
+- Trusted-device cookie: `Secure` in prod
+
+## 7. Optional secrets
+
+| Variable | Purpose |
+|----------|---------|
+| `OSWL_TRUSTED_DEVICE_HMAC_KEY` | Dedicated HMAC key for `OSWL_TD` cookie (recommended; separate from `OSWL_ENCRYPTION_KEY`) |
+
+## 8. Post-deploy smoke test
+
+1. Open UI via HTTPS reverse proxy only.
+2. Complete setup / login and 2FA if enabled.
+3. Create a project and VCS connection; restart app — token still decrypts (confirms stable `OSWL_ENCRYPTION_KEY`).
+4. `POST /api/scan` with project API key (see `docs/Scan-Api-Security.md`).
+5. Review audit log for failed auth attempts.
+
+## 9. Operations
+
+- Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens).
+- Rotate API keys and SMTP credentials on compromise.
+- Keep `SPRING_PROFILES_ACTIVE` out of images that should never run as `local`.
+
+---
+
+**Local development:** `SPRING_PROFILES_ACTIVE=local`, copy `.env.example` → `.env`, set `OSWL_ENCRYPTION_KEY`, run `./gradlew bootRun`. H2 file DB, H2 console, Swagger, and `GET /data/test` are available only in this profile.

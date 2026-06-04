@@ -34,20 +34,19 @@ springdoc:
   swagger-ui:
     enabled: true
 
+# Local dev: DEBUG only on packages that help day-to-day work (not the whole tree).
 logging:
   level:
     root: INFO
-    # Business logic: INFO/WARN/ERROR by default; internals handled via log.debug in code
-    com.salkcoding.oswl: DEBUG
-    com.salkcoding.oswl.service.ai: DEBUG
-    # Vulnerability/license API communication and DB upsert debugging
-    com.salkcoding.oswl.client: DEBUG
-    com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
-    # SQL — suppressed normally; change to DEBUG when needed
-    org.hibernate.SQL: INFO
+    com.salkcoding.oswl: INFO
+    com.salkcoding.oswl.service.QuickImportService: DEBUG
     com.salkcoding.oswl.service.ScanIngestService: INFO
+    com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
+    com.salkcoding.oswl.service.ai: DEBUG
+    com.salkcoding.oswl.client: DEBUG
+    com.salkcoding.oswl.auth.security: INFO
+    org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
-    # Suppress Spring internal noise
     org.springframework.web: WARN
     org.springframework.security: WARN
     org.springframework.orm: WARN
@@ -56,11 +55,9 @@ logging:
 oswl:
   ai:
     debug:
-      # Log every N seconds while Ollama/cloud LLM is generating (requires DEBUG logging)
       heartbeat-seconds: 10
-  encryption:
-    # Stable dev-only key (32 bytes, Base64-encoded). DO NOT use in production.
-    # Generate a production key with: openssl rand -base64 32
-    key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      log-prompt-excerpt: true
+      log-response-excerpt: true
+  # encryption.key: set OSWL_ENCRYPTION_KEY in .env (see .env.example). No repo default.
   clone:
-    temp-dir: ""   # empty = use system temp dir (java.io.tmpdir/oswl-clones)
+    temp-dir: ""

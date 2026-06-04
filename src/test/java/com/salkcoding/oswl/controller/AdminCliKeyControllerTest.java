@@ -36,6 +36,11 @@ class AdminCliKeyControllerTest {
 
     @InjectMocks AdminCliKeyController controller;
 
+    @org.junit.jupiter.api.BeforeEach
+    void stubPolicy() {
+        lenient().doNothing().when(projectCliKeyPolicyService).assertCanIssueNewKey(anyLong());
+    }
+
     private Project project(Long id, String name) {
         return Project.builder().id(id).name(name).build();
     }
@@ -153,7 +158,7 @@ class AdminCliKeyControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         verify(apiKeyService).issue(5L, "CLI Key", null);
-        verify(auditLogService).log(eq("CLI_KEY.CREATE"), eq("CLI_KEY"), any(), any(), isNull());
+        verify(projectCliKeyPolicyService).assertCanIssueNewKey(5L);
     }
 
     @Test

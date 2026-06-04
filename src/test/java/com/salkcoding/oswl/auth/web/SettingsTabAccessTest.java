@@ -38,7 +38,7 @@ class SettingsTabAccessTest {
         List<SettingsTabAccess.TabSpec> tabs = SettingsTabAccess.accessibleTabsFor(adminPrincipal());
 
         assertThat(tabs).extracting(SettingsTabAccess.TabSpec::getKey)
-                .containsExactlyInAnyOrder("admin", "security", "ai", "vcs", "cli", "cache");
+                .containsExactlyInAnyOrder("admin", "security", "license-policy", "ai", "vcs", "cli", "cache");
     }
 
     @Test

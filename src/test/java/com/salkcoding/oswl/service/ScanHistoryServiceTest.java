@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.ScanHistoryRowDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
+import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +33,7 @@ class ScanHistoryServiceTest {
     @Mock ProjectRepository       projectRepository;
     @Mock ScanResultRepository    scanResultRepository;
     @Mock ScanComponentRepository scanComponentRepository;
+    @Mock ProjectVersionRepository projectVersionRepository;
 
     @InjectMocks
     ScanHistoryService scanHistoryService;
@@ -75,6 +78,8 @@ class ScanHistoryServiceTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findAllByProjectIdOrderByScannedAtDesc(1L)).thenReturn(List.of(scan));
         when(scanComponentRepository.countByScanResultId(10L)).thenReturn(5L);
+        when(projectVersionRepository.findByProjectAndBranch(any(), any()))
+                .thenReturn(Optional.empty());
 
         Model model = new ConcurrentModel();
         scanHistoryService.populateModel(1L, model);

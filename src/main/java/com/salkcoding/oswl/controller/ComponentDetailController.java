@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.ComponentDetailService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -29,12 +30,14 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
     private final ComponentDetailService componentDetailService;
     private final ProjectRepository      projectRepository;
     private final VcsAuthTokenService    vcsAuthTokenService;
+    private final ProjectAccessService   projectAccessService;
 
     @GetMapping
     public String detail(@PathVariable Long projectId,
                          @PathVariable Long componentId,
                          Model model,
                          HttpServletRequest request) {
+        projectAccessService.assertCanViewProject(projectId);
         componentDetailService.populateModel(projectId, componentId, model);
 
         if ("true".equals(request.getHeader("HX-Request"))) {
@@ -49,6 +52,7 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
     public ResponseEntity<Void> defer(@PathVariable Long projectId,
                                       @PathVariable Long componentId,
                                       @RequestBody DeferralRequest req) {
+        projectAccessService.assertCanViewProject(projectId);
         componentDetailService.defer(projectId, componentId, req);
         return ResponseEntity.noContent().build();
     }
@@ -61,6 +65,7 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
                                                          @RequestBody CreatePrRequest req,
                                                          HttpSession session,
                                                          @AuthenticationPrincipal OswlUserPrincipal principal) {
+        projectAccessService.assertCanViewProject(projectId);
         Long userId = principal != null ? principal.getUserId() : null;
         String githubOwner = projectRepository.findById(projectId)
                 .map(Project::getGithubRepo)

@@ -4,6 +4,7 @@ import com.salkcoding.oswl.controller.spec.LicenseControllerSpec;
 import com.salkcoding.oswl.dto.LicenseContextDto;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.LicenseService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -25,6 +26,7 @@ public class LicenseController implements LicenseControllerSpec {
 
     private final LicenseService licenseService;
     private final AuditLogService auditLogService;
+    private final ProjectAccessService projectAccessService;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
@@ -33,6 +35,7 @@ public class LicenseController implements LicenseControllerSpec {
                         @RequestParam(required = false, defaultValue = "false") boolean modified,
                         @RequestParam(required = false, defaultValue = "DYNAMIC") String linking,
                         Model model) {
+        projectAccessService.assertCanViewProject(projectId);
         LicenseContextDto context = LicenseContextDto.builder()
                 .deployment(normalizeDeployment(deployment))
                 .modified(modified)
@@ -45,6 +48,7 @@ public class LicenseController implements LicenseControllerSpec {
     @GetMapping("/export/notice")
     public ResponseEntity<byte[]> exportNotice(@PathVariable Long projectId,
                                                @RequestParam(required = false) Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
         LicenseService.ExportPayload payload = licenseService.buildNoticeFile(projectId, scanId);
         auditLogService.log("LICENSE.EXPORT", "PROJECT", projectId.toString(), payload.fileName(),
                 "format=notice scanId=" + (scanId != null ? scanId : "latest"));
@@ -54,6 +58,7 @@ public class LicenseController implements LicenseControllerSpec {
     @GetMapping("/export/spdx")
     public ResponseEntity<byte[]> exportSpdx(@PathVariable Long projectId,
                                              @RequestParam(required = false) Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
         LicenseService.ExportPayload payload = licenseService.buildSpdxSbom(projectId, scanId);
         auditLogService.log("LICENSE.EXPORT", "PROJECT", projectId.toString(), payload.fileName(),
                 "format=spdx scanId=" + (scanId != null ? scanId : "latest"));

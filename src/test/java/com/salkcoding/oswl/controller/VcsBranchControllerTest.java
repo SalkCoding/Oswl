@@ -10,6 +10,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.BitbucketService;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.GitLabService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VcsAuthTokenService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.*;
 class VcsBranchControllerTest {
 
     @Mock ProjectRepository           projectRepository;
+    @Mock ProjectAccessService        projectAccessService;
     @Mock UserVcsConnectionRepository vcsConnectionRepository;
     @Mock EncryptionService           encryptionService;
     @Mock VcsAuthTokenService          vcsAuthTokenService;
@@ -41,6 +43,11 @@ class VcsBranchControllerTest {
     @Mock HttpSession                 session;
 
     @InjectMocks VcsBranchController controller;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubProjectAccess() {
+        doNothing().when(projectAccessService).assertCanViewProject(anyLong());
+    }
 
     private OswlUserPrincipal principal(Long userId) {
         return new OswlUserPrincipal(

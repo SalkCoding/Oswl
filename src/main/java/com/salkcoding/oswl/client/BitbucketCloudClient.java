@@ -193,7 +193,18 @@ public class BitbucketCloudClient {
         }
     }
 
-    /** Builds an HTTPS clone URL with embedded credentials. */
+    /**
+     * Credentials for {@code git clone} without embedding secrets in the URL.
+     */
+    public com.salkcoding.oswl.service.git.GitCloneCredentials cloneCredentials(String vcsUsername, String token) {
+        BitbucketCloudAuth auth = BitbucketCloudAuth.parse(vcsUsername, token);
+        return new com.salkcoding.oswl.service.git.GitCloneCredentials(auth.cloneUsername(token), token);
+    }
+
+    /**
+     * @deprecated Use a clean HTTPS URL plus {@link #cloneCredentials(String, String)} and {@code GitCloneExecutor}.
+     */
+    @Deprecated
     public String buildCloneAuthUrl(String vcsUsername, String token, String host, String repoPath) {
         BitbucketCloudAuth auth = BitbucketCloudAuth.parse(vcsUsername, token);
         String encodedToken = URLEncoder.encode(token != null ? token : "", StandardCharsets.UTF_8);

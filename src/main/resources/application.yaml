@@ -16,12 +16,36 @@ spring:
 
 server:
   port: 8080
-  address: 0.0.0.0   # bind to IPv4 only (avoids ::1 / IPv6 loopback in logs)
+  # Default 0.0.0.0 for local/docker dev. Production overrides to 127.0.0.1 in application-prod.yaml.
+  address: 0.0.0.0
+  # Honor X-Forwarded-* from reverse proxies (required for HSTS behind TLS termination).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      enabled: true
+      show-details: never
 
 oswl:
   security:
     # When true, OSWL_TD is always sent with Secure (HTTPS-only). Otherwise Secure follows request.isSecure().
     trusted-device-cookie-secure: ${OSWL_TRUSTED_DEVICE_COOKIE_SECURE:false}
+    trusted-device:
+      # Optional dedicated HMAC key (Base64, 32+ bytes). Falls back to OSWL_ENCRYPTION_KEY if unset.
+      hmac-key: ${OSWL_TRUSTED_DEVICE_HMAC_KEY:}
+    headers:
+      hsts-enabled: ${OSWL_HSTS_ENABLED:true}
+      hsts-max-age-seconds: ${OSWL_HSTS_MAX_AGE:31536000}
+      hsts-include-sub-domains: ${OSWL_HSTS_INCLUDE_SUBDOMAINS:true}
+      hsts-preload: ${OSWL_HSTS_PRELOAD:false}
+      frame-options: ${OSWL_FRAME_OPTIONS:DENY}
+      # Optional: set OSWL_CONTENT_SECURITY_POLICY to override the built-in CSP draft.
   encryption:
     # REQUIRED in production. Generate with: openssl rand -base64 32
     # Set via environment variable: OSWL_ENCRYPTION_KEY
@@ -44,11 +68,11 @@ oswl:
       cve-limit: ${OSWL_AI_CVE_LIMIT:10}
       license-limit: ${OSWL_AI_LICENSE_LIMIT:8}
     debug:
-      # Periodic DEBUG logs while waiting on the LLM (0 = disabled). See application-local.yaml.
+      # Periodic DEBUG logs while waiting on the LLM (0 = disabled). Local profile may override.
       heartbeat-seconds: ${OSWL_AI_DEBUG_HEARTBEAT_SECONDS:0}
       excerpt-chars: ${OSWL_AI_DEBUG_EXCERPT_CHARS:500}
-      log-prompt-excerpt: ${OSWL_AI_DEBUG_LOG_PROMPT:true}
-      log-response-excerpt: ${OSWL_AI_DEBUG_LOG_RESPONSE:true}
+      log-prompt-excerpt: ${OSWL_AI_DEBUG_LOG_PROMPT:false}
+      log-response-excerpt: ${OSWL_AI_DEBUG_LOG_RESPONSE:false}
   scan-api:
     # Failed submitter password / user checks per project+email within the window
     auth-failure-max-attempts: ${OSWL_SCAN_AUTH_FAILURE_MAX:10}

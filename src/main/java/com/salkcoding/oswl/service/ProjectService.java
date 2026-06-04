@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -47,7 +48,9 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public List<TrashProjectDto> findTrash() {
+        var accessible = Set.copyOf(projectAccessService.accessibleProjectIds());
         return projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
+                .filter(p -> accessible.contains(p.getId()))
                 .map(this::toTrash)
                 .collect(Collectors.toList());
     }
@@ -152,6 +155,7 @@ public class ProjectService {
     @Auditable(action = "PROJECT.DELETE", targetType = "PROJECT",
                targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void delete(Long id) {
+        projectAccessService.assertCanViewProject(id);
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
         project.softDelete();
@@ -163,6 +167,7 @@ public class ProjectService {
     @Auditable(action = "PROJECT.RESTORE", targetType = "PROJECT",
                targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void restore(Long id) {
+        projectAccessService.assertCanViewProject(id);
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
         project.restore();
@@ -174,13 +179,17 @@ public class ProjectService {
     @Auditable(action = "PROJECT.PERMANENT_DELETE", targetType = "PROJECT",
                targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
     public void permanentDelete(Long id) {
+        projectAccessService.assertCanViewProject(id);
         projectRepository.deleteById(id);
         log.info("[Project] Permanently deleted id={}", id);
     }
 
     @Transactional
     public void permanentDeleteAll() {
-        List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc();
+        var accessible = Set.copyOf(projectAccessService.accessibleProjectIds());
+        List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
+                .filter(p -> accessible.contains(p.getId()))
+                .toList();
         trash.forEach(p -> auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
                 p.getId().toString(), p.getName(), "bulk=all"));
         projectRepository.deleteAll(trash);
@@ -190,6 +199,7 @@ public class ProjectService {
     @Transactional
     public void permanentDeleteSelected(List<Long> ids) {
         ids.forEach(id -> {
+            projectAccessService.assertCanViewProject(id);
             projectRepository.findById(id).ifPresent(p -> {
                 auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
                         id.toString(), p.getName(), "bulk=selected");
@@ -201,13 +211,16 @@ public class ProjectService {
 
     @Transactional
     public void restoreSelected(List<Long> ids) {
-        ids.forEach(id -> projectRepository.findById(id).ifPresent(p -> {
-            p.restore();
-            projectRepository.save(p);
-            auditLogService.log("PROJECT.RESTORE", "PROJECT",
-                    id.toString(), p.getName(), "bulk=selected");
-            log.info("[Project] Restored selected id={}", id);
-        }));
+        ids.forEach(id -> {
+            projectAccessService.assertCanViewProject(id);
+            projectRepository.findById(id).ifPresent(p -> {
+                p.restore();
+                projectRepository.save(p);
+                auditLogService.log("PROJECT.RESTORE", "PROJECT",
+                        id.toString(), p.getName(), "bulk=selected");
+                log.info("[Project] Restored selected id={}", id);
+            });
+        });
     }
 
     // ── Internal ─────────────────────────────────────────────────────────

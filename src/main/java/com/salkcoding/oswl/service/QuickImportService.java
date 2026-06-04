@@ -3,6 +3,9 @@ package com.salkcoding.oswl.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
+import com.salkcoding.oswl.service.git.CloneRootPathGuard;
+import com.salkcoding.oswl.service.git.GitCloneCredentials;
+import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserRepository;
@@ -37,8 +40,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -86,6 +93,9 @@ public class QuickImportService {
     @Value("${oswl.clone.temp-dir:}")
     private String configuredTempDir;
 
+    private volatile Path cloneBaseReal;
+
+    private final GitCloneExecutor gitCloneExecutor;
     private final UserVcsConnectionRepository vcsConnectionRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
@@ -495,8 +505,9 @@ public class QuickImportService {
 
         Path cloneDir = createTempCloneDir(parsed.owner, parsed.repo, jobId);
         try {
-            String authUrl = buildAuthUrl(parsed, token, conn.getVcsUsername());
-            cloneRepo(authUrl, branch, cloneDir, jobId);
+            String cloneUrl = buildCloneUrl(parsed);
+            GitCloneCredentials credentials = resolveCloneCredentials(parsed, token, conn.getVcsUsername());
+            gitCloneExecutor.clone(cloneUrl, credentials, branch, cloneDir, jobId);
 
             // 4. Parse dependencies ────────────────────────────────────────
             updateJob(jobId, Phase.PARSING, "Detecting ecosystem and parsing dependencies…",
@@ -650,56 +661,22 @@ public class QuickImportService {
         return new String[]{ segs[0], segs[1] };
     }
 
-    private String buildAuthUrl(ParsedRepoUrl parsed, String token, String vcsUsername) {
+    private String buildCloneUrl(ParsedRepoUrl parsed) {
         String repoPath = parsed.clonePath() != null
                 ? parsed.clonePath()
                 : "/" + parsed.owner() + "/" + parsed.repo();
         return switch (parsed.provider()) {
             case GITHUB, GITLAB ->
-                    "https://oauth2:" + token + "@" + parsed.host() + "/" + parsed.owner() + "/" + parsed.repo() + ".git";
-            case BITBUCKET ->
-                    bitbucketCloudClient.buildCloneAuthUrl(vcsUsername, token, parsed.host(), repoPath);
+                    "https://" + parsed.host() + "/" + parsed.owner() + "/" + parsed.repo() + ".git";
+            case BITBUCKET -> "https://" + parsed.host() + repoPath + ".git";
         };
     }
 
-    // ── Git clone ─────────────────────────────────────────────────────────
-
-    private void cloneRepo(String authUrl, String branch, Path targetDir, String jobId) throws Exception {
-        List<String> cmd = new ArrayList<>(List.of(
-                "git", "clone", "--depth", "1", "--single-branch", "--quiet"
-        ));
-        if (branch != null && !branch.isBlank()) {
-            cmd.addAll(List.of("--branch", branch));
-        }
-        cmd.add(authUrl);
-        cmd.add(targetDir.toString());
-
-        ProcessBuilder pb = new ProcessBuilder(cmd)
-                .redirectErrorStream(true);
-        // Mask token in logs by using redacted auth URL
-        log.info("[QuickImport][{}] Running: git clone --depth 1 {}", jobId,
-                authUrl.replaceAll("(https?://)([^@]+@)", "$1***@"));
-
-        Process proc = pb.start();
-        // Drain output in a virtual thread to prevent pipe-buffer deadlock on large clones
-        final String[] outputHolder = {""};
-        Thread outputReader = Thread.ofVirtual().start(() -> {
-            try { outputHolder[0] = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8); }
-            catch (IOException ignored) {}
-        });
-        boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-        if (!finished) {
-            proc.destroyForcibly();
-            throw new RuntimeException("git clone timed out after 5 minutes");
-        }
-        try { outputReader.join(2_000); } catch (InterruptedException ignored) {}
-        String output = outputHolder[0];
-        int exitCode = proc.exitValue();
-
-        if (exitCode != 0) {
-            String safe = output.replaceAll("(https?://)([^@]+@)", "$1***@");
-            throw new RuntimeException("git clone failed (exit " + exitCode + "): " + safe.trim());
-        }
+    private GitCloneCredentials resolveCloneCredentials(ParsedRepoUrl parsed, String token, String vcsUsername) {
+        return switch (parsed.provider()) {
+            case GITHUB, GITLAB -> new GitCloneCredentials("oauth2", token);
+            case BITBUCKET -> bitbucketCloudClient.cloneCredentials(vcsUsername, token);
+        };
     }
 
     // ── Dependency parsing ─────────────────────────────────────────────────
@@ -1006,15 +983,51 @@ public class QuickImportService {
      */
     private List<Path> walkManifests(Path root, Set<String> fileNames, Set<String> skipDirs) {
         List<Path> result = new ArrayList<>();
-        try (Stream<Path> stream = Files.walk(root)) {
-            stream.filter(path -> {
-                if (Files.isDirectory(path)) return false;
-                Path rel = root.relativize(path);
-                for (int i = 0; i < rel.getNameCount() - 1; i++) {
-                    if (skipDirs.contains(rel.getName(i).toString())) return false;
+        final Path rootReal;
+        try {
+            rootReal = new CloneRootPathGuard(root).root();
+        } catch (IOException e) {
+            log.warn("[QuickImport] walkManifests: invalid clone root '{}': {}", root, e.getMessage());
+            return result;
+        }
+        try {
+            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    if (!dir.equals(rootReal)) {
+                        Path rel = rootReal.relativize(dir);
+                        for (int i = 0; i < rel.getNameCount(); i++) {
+                            if (skipDirs.contains(rel.getName(i).toString())) {
+                                return FileVisitResult.SKIP_SUBTREE;
+                            }
+                        }
+                    }
+                    return FileVisitResult.CONTINUE;
                 }
-                return fileNames.contains(path.getFileName().toString());
-            }).forEach(result::add);
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    try {
+                        Path fileReal = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
+                        if (!fileReal.startsWith(rootReal)) {
+                            return FileVisitResult.CONTINUE;
+                        }
+                        if (!fileNames.contains(fileReal.getFileName().toString())) {
+                            return FileVisitResult.CONTINUE;
+                        }
+                        Path rel = rootReal.relativize(fileReal);
+                        for (int i = 0; i < rel.getNameCount() - 1; i++) {
+                            if (skipDirs.contains(rel.getName(i).toString())) {
+                                return FileVisitResult.CONTINUE;
+                            }
+                        }
+                        result.add(fileReal);
+                    } catch (IOException e) {
+                        log.debug("[QuickImport] skip file '{}': {}", file, e.getMessage());
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             log.warn("[QuickImport] walkManifests error under '{}': {}", root, e.getMessage());
         }
@@ -1739,15 +1752,36 @@ public class QuickImportService {
         }
     }
 
+    private Path getCloneBaseReal() throws IOException {
+        Path base = cloneBaseReal;
+        if (base == null) {
+            synchronized (this) {
+                base = cloneBaseReal;
+                if (base == null) {
+                    cloneBaseReal = CloneRootPathGuard.resolveConfiguredBase(configuredTempDir);
+                    base = cloneBaseReal;
+                }
+            }
+        }
+        return base;
+    }
+
+    private static String safePathSegment(String segment) {
+        if (segment == null || segment.isBlank()) {
+            return "unknown";
+        }
+        return segment.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
     private Path createTempCloneDir(String owner, String repo, String jobId) throws IOException {
-        String base = configuredTempDir != null && !configuredTempDir.isBlank()
-                ? configuredTempDir
-                : System.getProperty("java.io.tmpdir") + File.separator + "oswl-clones";
-        Path parent = Path.of(base);
-        Files.createDirectories(parent);
-        Path dir = parent.resolve(owner + "_" + repo + "_" + jobId);
+        Path base = getCloneBaseReal();
+        Path dir = base.resolve(safePathSegment(owner) + "_" + safePathSegment(repo) + "_" + jobId);
         Files.createDirectories(dir);
-        return dir;
+        Path dirReal = dir.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        if (!dirReal.startsWith(base)) {
+            throw new SecurityException("Clone directory escapes configured root: " + dir);
+        }
+        return dirReal;
     }
 
     private void deleteDirectory(Path dir) {

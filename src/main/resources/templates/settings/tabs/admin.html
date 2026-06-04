@@ -1128,7 +1128,7 @@
                     (u.displayName || '').toLowerCase().includes(q)
                 );
             },
-            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
 
             // ── Permission grouping ──
             permissionGroups: {
@@ -1179,7 +1179,7 @@
                     }
                 } catch(_) {}
             },
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            headers() { return oswlJsonHeaders(); },
             async apiGet(url) {
                 const r = await fetch(url);
                 if (r.status === 401) { location.href = '/login'; throw new Error('Unauthorized'); }

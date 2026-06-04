@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.RiskTrendControllerSpec;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.RiskTrendService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class RiskTrendController implements RiskTrendControllerSpec {
 
     private final RiskTrendService riskTrendService;
+    private final ProjectAccessService projectAccessService;
 
     @GetMapping
     public String index(@PathVariable Long projectId, Model model) {
+        projectAccessService.assertCanViewProject(projectId);
         riskTrendService.populateModel(projectId, model);
         return "risk-trend/index";
     }

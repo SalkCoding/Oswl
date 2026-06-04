@@ -15,46 +15,52 @@ import java.util.Base64;
 /**
  * Issues and validates an HMAC-signed "trusted device" cookie for 30-day 2FA bypass.
  *
- * Cookie value format: Base64(userId ":" expiryMs ":" hmac)
- *   where hmac = HMAC-SHA256(userId + ":" + expiryMs, key)
- *
- * If {@code oswl.encryption.key} is missing, the service is disabled —
- * cookies are not issued and {@link #isTrusted} always returns {@code false}.
+ * <p>Uses {@code oswl.security.trusted-device.hmac-key} when set; otherwise falls back to
+ * {@code oswl.encryption.key} for backward compatibility. Prefer a dedicated HMAC key in production.
  */
 @Slf4j
 @Service
 public class TrustedDeviceService {
 
-    private static final String  COOKIE_NAME      = "OSWL_TD";
-    private static final int     MAX_AGE_SECONDS  = 30 * 24 * 3600; // 30 days
-    private static final String  HMAC_ALGORITHM   = "HmacSHA256";
+    private static final String COOKIE_NAME = "OSWL_TD";
+    private static final int MAX_AGE_SECONDS = 30 * 24 * 3600;
+    private static final String HMAC_ALGORITHM = "HmacSHA256";
 
     private final byte[] keyBytes;
     private final boolean cookieSecureOverride;
 
     public TrustedDeviceService(
-            @Value("${oswl.encryption.key:}") String base64Key,
+            @Value("${oswl.encryption.key:}") String encryptionKeyBase64,
+            @Value("${oswl.security.trusted-device.hmac-key:}") String trustedDeviceHmacKeyBase64,
             @Value("${oswl.security.trusted-device-cookie-secure:false}") boolean cookieSecureOverride) {
 
         this.cookieSecureOverride = cookieSecureOverride;
-        if (base64Key == null || base64Key.isBlank()) {
-            log.warn("[TrustedDevice] Encryption key is not configured — trusted-device functionality has been disabled.");
+        String keySource = selectKeySource(encryptionKeyBase64, trustedDeviceHmacKeyBase64);
+        if (keySource == null) {
+            log.warn("[TrustedDevice] No HMAC key configured — trusted-device functionality disabled.");
             this.keyBytes = null;
         } else {
-            this.keyBytes = Base64.getDecoder().decode(base64Key);
+            this.keyBytes = Base64.getDecoder().decode(keySource);
+            if (trustedDeviceHmacKeyBase64 != null && !trustedDeviceHmacKeyBase64.isBlank()) {
+                log.debug("[TrustedDevice] Using dedicated trusted-device HMAC key.");
+            }
         }
     }
 
-    /** Returns whether the service is enabled (true when the key is configured). */
+    private static String selectKeySource(String encryptionKey, String dedicatedHmacKey) {
+        if (dedicatedHmacKey != null && !dedicatedHmacKey.isBlank()) {
+            return dedicatedHmacKey;
+        }
+        if (encryptionKey != null && !encryptionKey.isBlank()) {
+            return encryptionKey;
+        }
+        return null;
+    }
+
     public boolean isEnabled() {
         return keyBytes != null;
     }
 
-    /**
-     * Validates the trusted-device cookie for the given user.
-     *
-     * @return true only if the cookie exists, has a valid signature, and is not expired
-     */
     public boolean isTrusted(Long userId, HttpServletRequest request) {
         if (!isEnabled()) return false;
         Cookie[] cookies = request.getCookies();
@@ -70,30 +76,23 @@ public class TrustedDeviceService {
         return false;
     }
 
-    /**
-     * Issues a 30-day trusted-device cookie for the given user.
-     * Does nothing when the service is disabled.
-     */
     public void setTrusted(Long userId, HttpServletRequest request, HttpServletResponse response) {
         if (!isEnabled()) return;
 
-        long expiry   = System.currentTimeMillis() + ((long) MAX_AGE_SECONDS * 1000);
+        long expiry = System.currentTimeMillis() + ((long) MAX_AGE_SECONDS * 1000);
         String payload = userId + ":" + expiry;
-        String hmac    = hmac(payload);
-        String value   = Base64.getUrlEncoder().withoutPadding()
-                               .encodeToString((payload + ":" + hmac).getBytes(StandardCharsets.UTF_8));
+        String hmac = hmac(payload);
+        String value = Base64.getUrlEncoder().withoutPadding()
+                .encodeToString((payload + ":" + hmac).getBytes(StandardCharsets.UTF_8));
 
         writeCookie(response, value, MAX_AGE_SECONDS, isSecure(request));
         log.debug("[TrustedDevice] Issued cookie for userId={} maxAge={}days secure={}",
                 userId, MAX_AGE_SECONDS / 86400, isSecure(request));
     }
 
-    /** Clears the trusted-device cookie (for example, on explicit logout). */
     public void clearTrusted(HttpServletRequest request, HttpServletResponse response) {
         writeCookie(response, "", 0, isSecure(request));
     }
-
-    // ── Internal helpers ─────────────────────────────────────────────
 
     private boolean isSecure(HttpServletRequest request) {
         return cookieSecureOverride || (request != null && request.isSecure());
@@ -120,25 +119,22 @@ public class TrustedDeviceService {
     private boolean validate(Long userId, String cookieValue) {
         try {
             byte[] decoded = Base64.getUrlDecoder().decode(cookieValue);
-            String raw     = new String(decoded, StandardCharsets.UTF_8);
-            // raw = "userId:expiryMs:hmac"
-            int lastColon  = raw.lastIndexOf(':');
+            String raw = new String(decoded, StandardCharsets.UTF_8);
+            int lastColon = raw.lastIndexOf(':');
             if (lastColon < 0) return false;
 
-            String payload  = raw.substring(0, lastColon);
+            String payload = raw.substring(0, lastColon);
             String suppliedHmac = raw.substring(lastColon + 1);
 
-            // Check whether the userId prefix matches
             String[] parts = payload.split(":", 2);
             if (parts.length != 2) return false;
 
             long cookieUserId = Long.parseLong(parts[0]);
-            long expiryMs     = Long.parseLong(parts[1]);
+            long expiryMs = Long.parseLong(parts[1]);
 
             if (cookieUserId != userId) return false;
             if (System.currentTimeMillis() > expiryMs) return false;
 
-            // Constant-time HMAC comparison
             String expectedHmac = hmac(payload);
             return constantTimeEquals(expectedHmac, suppliedHmac);
 
@@ -159,7 +155,6 @@ public class TrustedDeviceService {
         }
     }
 
-    /** Compares all characters regardless of early mismatch to avoid timing attacks. */
     private boolean constantTimeEquals(String a, String b) {
         byte[] ba = a.getBytes(StandardCharsets.UTF_8);
         byte[] bb = b.getBytes(StandardCharsets.UTF_8);

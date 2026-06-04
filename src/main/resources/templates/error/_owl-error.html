@@ -5,7 +5,7 @@
   파라미터:
     - code      : 에러 코드 문자열 (예: '404', '403', '500')
     - title     : 에러 제목
-    - descHtml  : 본문 설명 (HTML 허용 — <br/> 포함 가능)
+    - descHtml  : 본문 설명 (plain text, escaped)
     - buttonText: CTA 버튼 라벨
     - buttonHref: CTA 링크 URL
 */-->
@@ -155,7 +155,7 @@
 
             <div class="error-code" th:text="${code}">404</div>
             <div class="error-title" th:text="${title}">Page Not Found</div>
-            <div class="error-description" th:utext="${descHtml}">Description</div>
+            <div class="error-description" th:text="${descHtml}">Description</div>
             <a class="home-button" th:href="${buttonHref}" href="/">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M8 1L1 7.5V14.5H6V10H10V14.5H15V7.5L8 1Z" stroke="#CCF5EC" stroke-width="1.5" stroke-linejoin="round"/>

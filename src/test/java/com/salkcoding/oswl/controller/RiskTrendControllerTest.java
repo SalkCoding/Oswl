@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.controller;
 
+import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.RiskTrendService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,13 @@ import static org.mockito.Mockito.verify;
 class RiskTrendControllerTest {
 
     @Mock RiskTrendService riskTrendService;
+    @Mock ProjectAccessService projectAccessService;
     @InjectMocks RiskTrendController controller;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubAccess() {
+        org.mockito.Mockito.doNothing().when(projectAccessService).assertCanViewProject(org.mockito.ArgumentMatchers.anyLong());
+    }
 
     @Test
     @DisplayName("index: risk-trend/index 뷰를 반환하고 서비스에 위임한다")

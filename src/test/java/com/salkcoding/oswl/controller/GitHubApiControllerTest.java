@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.github.GitHubRepoDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.ProjectService;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.SessionCipherService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +33,7 @@ class GitHubApiControllerTest {
     @Mock ProjectService      projectService;
     @Mock ProjectRepository   projectRepository;
     @Mock SessionCipherService sessionCipher;
+    @Mock AuditLogService     auditLogService;
     @Mock HttpSession         session;
 
     @InjectMocks GitHubApiController controller;

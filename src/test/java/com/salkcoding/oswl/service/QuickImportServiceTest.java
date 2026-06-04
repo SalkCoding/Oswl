@@ -2,8 +2,10 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
 import com.salkcoding.oswl.repository.ScanResultRepository;
@@ -36,6 +38,10 @@ class QuickImportServiceTest {
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
     @Mock MavenBomVersionResolver      bomVersionResolver;
     @Mock ProjectCliKeyPolicyService   projectCliKeyPolicyService;
+    @Mock BitbucketCloudClient        bitbucketCloudClient;
+    @Mock com.salkcoding.oswl.service.git.GitCloneExecutor gitCloneExecutor;
+    @Mock com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
+    @Mock org.springframework.context.MessageSource messageSource;
 
     @InjectMocks QuickImportService quickImportService;
 
@@ -176,7 +182,7 @@ class QuickImportServiceTest {
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                 () -> quickImportService.listRepos(VcsProvider.GITHUB, 1L))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(QuickImportUpstreamException.class);
     }
 
     // ── evictExpiredJobs ──────────────────────────────────────────────────

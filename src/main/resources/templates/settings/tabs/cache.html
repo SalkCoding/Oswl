@@ -173,8 +173,8 @@
             saving: false, apiError: null, toast: null, clearConfirm: false,
             external: { nvdApiKey: '', nvdConfigured: false, githubClientId: '', githubClientSecret: '', githubRedirectUri: '' },
             externalSaving: false,
-            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+            headers() { return oswlJsonHeaders(); },
             showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
             formatTtl(hours) {
                 if (!hours || hours <= 0) return _cacheI18n.policyAlways;

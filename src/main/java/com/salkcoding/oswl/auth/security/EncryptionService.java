@@ -2,6 +2,8 @@ package com.salkcoding.oswl.auth.security;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
@@ -26,22 +28,38 @@ public class EncryptionService {
     @Value("${oswl.encryption.key:}")
     private String encryptionKeyBase64;
 
-    private SecretKey secretKey;
+    private final Environment environment;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    private SecretKey secretKey;
+    private boolean ephemeralKey;
+
+    public EncryptionService(Environment environment) {
+        this.environment = environment;
+    }
 
     @PostConstruct
     public void init() {
         if (encryptionKeyBase64 == null || encryptionKeyBase64.isBlank()) {
-            throw new IllegalStateException(
-                "[OsWL] oswl.encryption.key is not configured. " +
-                "Generate a key with: openssl rand -base64 32 " +
-                "For local development, set a stable key in application-local.yaml under oswl.encryption.key");
+            if (environment.acceptsProfiles(Profiles.of("prod"))) {
+                throw new IllegalStateException(
+                        "OSWL_ENCRYPTION_KEY is required in production (oswl.encryption.key). "
+                                + "Generate with: openssl rand -base64 32");
+            }
+            byte[] ephemeral = new byte[32];
+            secureRandom.nextBytes(ephemeral);
+            encryptionKeyBase64 = Base64.getEncoder().encodeToString(ephemeral);
+            ephemeralKey = true;
         }
         byte[] keyBytes = Base64.getDecoder().decode(encryptionKeyBase64);
         if (keyBytes.length != 32) {
             throw new IllegalStateException("oswl.encryption.key must decode to exactly 32 bytes (AES-256). Current length: " + keyBytes.length);
         }
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
+    }
+
+    public boolean isEphemeralKey() {
+        return ephemeralKey;
     }
 
     public String encrypt(String plaintext) {

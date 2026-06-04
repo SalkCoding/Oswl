@@ -75,11 +75,10 @@
                         return;
                     }
                     this.newProjectSaving = true;
-                    const csrf = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '';
                     try {
                         const r = await fetch('/projects', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf },
+                            headers: oswlJsonHeaders(),
                             body: JSON.stringify({ name: this.newProjectName.trim() })
                         });
                         if (!r.ok) {
@@ -535,7 +534,10 @@
             </div>
             <div class="flex items-start gap-[10px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[14px] py-[12px]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5e6b70" stroke-width="2" stroke-linecap="round" class="mt-[1px] shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span class="text-[12px] text-[var(--grayscale-60)] leading-[1.5]" th:utext="#{projects.add.new.infoBox}">After creating, go to the project&apos;s CLI Integration tab to issue an API key and push scan results via <code class="text-[var(--primary-120)]">oswl scan</code>.</span>
+                <span class="text-[12px] text-[var(--grayscale-60)] leading-[1.5]">
+                    <span th:text="#{projects.add.new.infoBox}">After creating, go to the project CLI Integration tab to issue an API key and push scan results via</span>
+                    <code class="text-[var(--primary-120)]" th:text="#{projects.add.new.infoBox.cliCommand}">oswl scan</code>.
+                </span>
             </div>
         </div>
         <!-- Footer -->

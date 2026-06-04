@@ -62,15 +62,6 @@
     background-color: #d3fcf3;
 }
 </style>
-<script>
-function oswlJsonHeaders() {
-    const csrf = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] ?? '';
-    return {
-        'Content-Type': 'application/json',
-        'X-XSRF-TOKEN': decodeURIComponent(csrf)
-    };
-}
-</script>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 h-screen overflow-hidden flex flex-col relative"
       th:data-project-id="${projectId}"
       x-data="{

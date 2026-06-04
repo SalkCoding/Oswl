@@ -193,8 +193,8 @@
             apiError: null,
             newTokenBanner: null,
             form: { projectId: '', label: '' },
-            csrf: document.cookie.split('; ').find(r=>r.startsWith('XSRF-TOKEN='))?.split('=')[1] || '',
-            headers() { return { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(this.csrf) }; },
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+            headers() { return oswlJsonHeaders(); },
             formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
 
             async init() {

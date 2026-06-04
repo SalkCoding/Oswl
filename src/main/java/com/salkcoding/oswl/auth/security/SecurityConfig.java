@@ -3,9 +3,11 @@ package com.salkcoding.oswl.auth.security;
 import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.config.Customizer;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
@@ -28,9 +30,11 @@ import jakarta.servlet.http.HttpServletResponse;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableConfigurationProperties(OswlSecurityHeadersProperties.class)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final OswlSecurityHeadersProperties securityHeadersProperties;
     private final UserRepository userRepository;
     private final InstanceSetupLockRepository setupLockRepository;
     private final PermissionEvaluator oswlPermissionEvaluator;
@@ -64,11 +68,21 @@ public class SecurityConfig {
             }
         };
 
+        CookieCsrfTokenRepository csrfTokenRepository = new CookieCsrfTokenRepository();
+        csrfTokenRepository.setCookieName("XSRF-TOKEN");
+        csrfTokenRepository.setHeaderName("X-XSRF-TOKEN");
+        csrfTokenRepository.setCookiePath("/");
+
         http
             .csrf(csrf -> csrf
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRepository(csrfTokenRepository)
                     .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers("/api/scan/**"))
+                    .ignoringRequestMatchers(
+                            req -> "POST".equalsIgnoreCase(req.getMethod())
+                                    && "/api/scan".equals(req.getRequestURI()),
+                            req -> "GET".equalsIgnoreCase(req.getMethod())
+                                    && "/api/scan/ping".equals(req.getRequestURI())))
+            .headers(headers -> applySecurityHeaders(headers))
             .sessionManagement(s -> s
                     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                     .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
@@ -82,6 +96,7 @@ public class SecurityConfig {
                     .requestMatchers("/landing", "/landing/**").permitAll()
                     .requestMatchers("/oss-notices").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
+                    .requestMatchers("/actuator/**").hasRole("SYSTEM_ADMIN")
                     .anyRequest().authenticated())
             .formLogin(form -> form
                     .loginPage("/login")
@@ -117,6 +132,30 @@ public class SecurityConfig {
                     SetupRedirectFilter.class);
 
         return http.build();
+    }
+
+    private void applySecurityHeaders(
+            org.springframework.security.config.annotation.web.configurers.HeadersConfigurer<?> headers) {
+        headers.contentTypeOptions(Customizer.withDefaults());
+        String frame = securityHeadersProperties.getFrameOptions();
+        if (frame != null && !frame.equalsIgnoreCase("DISABLE")) {
+            if (frame.equalsIgnoreCase("SAMEORIGIN")) {
+                headers.frameOptions(fo -> fo.sameOrigin());
+            } else {
+                headers.frameOptions(fo -> fo.deny());
+            }
+        }
+        if (securityHeadersProperties.isHstsEnabled()) {
+            headers.httpStrictTransportSecurity(hsts -> hsts
+                    .maxAgeInSeconds(securityHeadersProperties.getHstsMaxAgeSeconds())
+                    .includeSubDomains(securityHeadersProperties.isHstsIncludeSubDomains())
+                    .preload(securityHeadersProperties.isHstsPreload())
+                    .requestMatcher(new ForwardedHttpsRequestMatcher()));
+        }
+        String csp = securityHeadersProperties.getContentSecurityPolicy();
+        if (csp != null && !csp.isBlank()) {
+            headers.contentSecurityPolicy(cspConfig -> cspConfig.policyDirectives(csp.trim()));
+        }
     }
 
     @Bean
