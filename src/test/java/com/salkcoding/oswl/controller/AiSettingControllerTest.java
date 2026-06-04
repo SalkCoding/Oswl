@@ -45,7 +45,7 @@ class AiSettingControllerTest {
     @InjectMocks AiSettingController controller;
 
     private AiPreferences defaultPrefs() {
-        return AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH");
+        return AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0);
     }
 
     private void stubPreferences() {

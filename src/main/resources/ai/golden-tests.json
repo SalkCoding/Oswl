@@ -1,0 +1,43 @@
+[
+  {
+    "id": "cve-single-placeholder",
+    "description": "CVE single prompt resolves core placeholders",
+    "templateKey": "cve.single",
+    "vars": {
+      "cveId": "CVE-2021-44228",
+      "severity": "CRITICAL",
+      "cvssScore": "10.0",
+      "component": "log4j 2.14.1",
+      "title": "RCE",
+      "osvSummary": "Remote code execution",
+      "fixVersion": "2.17.1",
+      "cweId": "CWE-502",
+      "cvssVector": "AV:N",
+      "dependencyType": "direct",
+      "patchability": "PATCHABLE"
+    },
+    "mustContain": ["CVE-2021-44228", "log4j"]
+  },
+  {
+    "id": "batch-cve-item-epss",
+    "description": "Batch CVE item includes EPSS/KEV fields",
+    "templateKey": "batch.cve.item",
+    "vars": {
+      "index": 1,
+      "id": "CVE-2021-44228",
+      "component": "log4j",
+      "severity": "CRITICAL",
+      "cvssScore": "10.0",
+      "epss": "0.975",
+      "kevListed": "yes",
+      "title": "-",
+      "osvSummary": "-",
+      "fixVersion": "-",
+      "cweId": "-",
+      "cvssVector": "-",
+      "dependencyType": "direct",
+      "patchability": "PATCHABLE"
+    },
+    "mustContain": ["epss=0.975", "kev=yes"]
+  }
+]

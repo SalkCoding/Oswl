@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,8 +32,11 @@ class AnthropicClientTest {
 
     @BeforeEach
     void setUp() {
+        AiPreferencesRepository prefsRepo = mock(AiPreferencesRepository.class);
+        when(prefsRepo.findById(AiPreferences.SINGLETON_ID)).thenReturn(Optional.of(
+                AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0)));
         AiPromptTemplateService prompts = new AiPromptTemplateService(
-                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+                new DefaultResourceLoader(), prefsRepo, "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
         client = new AnthropicClient(prompts, new AiCallTrace(new AiDebugSettings()));
         restTemplate = mock(RestTemplate.class);

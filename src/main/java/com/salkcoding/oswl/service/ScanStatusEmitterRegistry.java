@@ -35,7 +35,12 @@ public class ScanStatusEmitterRegistry {
 
         Runnable cleanup = () -> projectIds.forEach(id -> {
             CopyOnWriteArrayList<SseEmitter> list = registry.get(id);
-            if (list != null) list.remove(emitter);
+            if (list != null) {
+                list.remove(emitter);
+                if (list.isEmpty()) {
+                    registry.remove(id, list);
+                }
+            }
         });
 
         emitter.onCompletion(cleanup);
@@ -67,6 +72,9 @@ public class ScanStatusEmitterRegistry {
         }
 
         emitters.removeAll(stale);
+        if (emitters.isEmpty()) {
+            registry.remove(projectId, emitters);
+        }
         log.debug("[SSE] notified {} emitter(s) for project {} → {}", emitters.size() + stale.size(), projectId, status);
     }
 }

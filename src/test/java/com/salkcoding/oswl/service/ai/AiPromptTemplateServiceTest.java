@@ -1,22 +1,35 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 @DisplayName("AiPromptTemplateService")
 class AiPromptTemplateServiceTest {
+
+    @Mock AiPreferencesRepository preferencesRepository;
 
     private AiPromptTemplateService service;
 
     @BeforeEach
     void setUp() {
-        service = new AiPromptTemplateService(new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+        when(preferencesRepository.findById(AiPreferences.SINGLETON_ID)).thenReturn(Optional.of(
+                AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0)));
+        service = new AiPromptTemplateService(
+                new DefaultResourceLoader(), preferencesRepository, "classpath:ai/prompts.properties");
         service.reloadWithLocale("en");
     }
 
@@ -48,9 +61,10 @@ class AiPromptTemplateServiceTest {
     void batchCvePrompt_includesItems() {
         String prompt = service.batchCvePrompt(List.of(
                 cveReq("CVE-1", "HIGH", "lib-a 1.0"),
-                cveReq("CVE-2", "LOW", "lib-b 2.0")));
+                cveReq("CVE-2", "LOW", "lib-b 2.0")), "SAAS");
 
         assertThat(prompt).contains("JSON array");
+        assertThat(prompt).contains("SAAS");
         assertThat(prompt).contains("1. id=CVE-1");
         assertThat(prompt).contains("2. id=CVE-2");
         assertThat(prompt).contains("fixVersion=");
@@ -67,6 +81,6 @@ class AiPromptTemplateServiceTest {
     private static AiAnalysisService.CveSummaryRequest cveReq(String id, String sev, String comp) {
         return new AiAnalysisService.CveSummaryRequest(
                 id, sev, 7.5, comp, "title", "summary", "1.2.3", "CWE-1",
-                "CVSS:3.1/AV:N", "direct", "PATCHABLE");
+                "CVSS:3.1/AV:N", "direct", "PATCHABLE", 0.5, false);
     }
 }

@@ -66,6 +66,7 @@ public class ApiKeyController implements ApiKeyControllerSpec {
     public ResponseEntity<Void> revoke(
             @PathVariable Long projectId,
             @PathVariable Long keyId) {
+        projectAccessService.assertCanViewProject(projectId);
         apiKeyService.revoke(keyId, projectId);
         return ResponseEntity.noContent().build();
     }

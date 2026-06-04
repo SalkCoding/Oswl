@@ -1,8 +1,13 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.domain.enums.AiProvider;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
@@ -30,7 +35,10 @@ public class AiPromptTemplateService {
     private static final String DEFAULT_LOCATION = "classpath:ai/prompts.properties";
     private static final String KO_OVERLAY = "classpath:ai/prompts_ko.properties";
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     private final ResourceLoader resourceLoader;
+    private final AiPreferencesRepository preferencesRepository;
     private final String promptsLocation;
 
     private volatile String locale = "en";
@@ -39,8 +47,10 @@ public class AiPromptTemplateService {
 
     public AiPromptTemplateService(
             ResourceLoader resourceLoader,
+            AiPreferencesRepository preferencesRepository,
             @Value("${oswl.ai.prompts.location:" + DEFAULT_LOCATION + "}") String promptsLocation) {
         this.resourceLoader = resourceLoader;
+        this.preferencesRepository = preferencesRepository;
         this.promptsLocation = promptsLocation;
     }
 
@@ -64,6 +74,12 @@ public class AiPromptTemplateService {
                 log.info("[AI] Applied Korean prompt overlay from {}", ko);
             }
         }
+        applyDbOverrides(readPreferences().getPromptOverrides());
+    }
+
+    private AiPreferences readPreferences() {
+        return preferencesRepository.findById(AiPreferences.SINGLETON_ID)
+                .orElseGet(() -> AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0));
     }
 
     public void reload() {
@@ -74,13 +90,47 @@ public class AiPromptTemplateService {
         return require("system.default");
     }
 
+    public String getSystemPrompt(AiProvider provider) {
+        if (provider == null) return getSystemPrompt();
+        String key = "system." + provider.name().toLowerCase();
+        if (templates.containsKey(key)) {
+            return templates.getProperty(key);
+        }
+        return getSystemPrompt();
+    }
+
     public double getTemperature() {
+        Double pref = readPreferences().getTemperature();
+        if (pref != null) return pref;
         return parseDouble(require("params.temperature"), 0.15);
     }
 
     public int getMaxTokens() {
+        Integer pref = readPreferences().getMaxTokens();
+        if (pref != null) return pref;
         return (int) parseDouble(require("params.maxTokens"), 1200);
     }
+
+    public void applyDbOverrides(String jsonOverrides) {
+        if (jsonOverrides == null || jsonOverrides.isBlank()) return;
+        try {
+            Map<String, String> overrides = MAPPER.readValue(jsonOverrides, new TypeReference<>() {});
+            overrides.forEach(templates::setProperty);
+            log.info("[AI] Applied {} DB prompt override(s)", overrides.size());
+        } catch (Exception e) {
+            log.warn("[AI] Invalid prompt_overrides JSON: {}", e.getMessage());
+        }
+    }
+
+    public static final List<String> EDITABLE_PROMPT_KEYS = List.of(
+            "system.default",
+            "batch.cve.header",
+            "batch.cve.item",
+            "batch.license.header",
+            "batch.license.item",
+            "cve.single",
+            "license.single"
+    );
 
     public String cveSingle(String cveId, String severity, double cvssScore, String component) {
         return cveSingleRich(cveId, severity, cvssScore, component,
@@ -190,8 +240,10 @@ public class AiPromptTemplateService {
         return require("test.connection");
     }
 
-    public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items) {
-        StringBuilder sb = new StringBuilder(require("batch.cve.header"));
+    public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items, String deploymentProfile) {
+        String header = render("batch.cve.header", Map.of(
+                "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT"));
+        StringBuilder sb = new StringBuilder(header);
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.CveSummaryRequest r = items.get(i);
             sb.append(render("batch.cve.item", vars(
@@ -200,6 +252,8 @@ public class AiPromptTemplateService {
                     "component", r.component(),
                     "severity", r.severity(),
                     "cvssScore", formatCvss(r.cvssScore()),
+                    "epss", r.epssScore() != null ? String.format("%.3f", r.epssScore()) : "-",
+                    "kevListed", r.kevListed() ? "yes" : "no",
                     "title", AiEnrichmentContextBuilder.orDash(r.title()),
                     "osvSummary", AiEnrichmentContextBuilder.orDash(r.osvSummary()),
                     "fixVersion", AiEnrichmentContextBuilder.orDash(r.fixVersion()),
@@ -221,6 +275,7 @@ public class AiPromptTemplateService {
                     "id", r.id(),
                     "licenseName", r.licenseName(),
                     "licenseStatus", r.licenseStatus(),
+                    "policyReason", AiEnrichmentContextBuilder.orDash(r.policyReason()),
                     "component", r.component(),
                     "ecosystem", AiEnrichmentContextBuilder.orDash(r.ecosystem()),
                     "dependencyType", r.dependencyType(),

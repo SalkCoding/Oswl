@@ -1,10 +1,6 @@
 # API 레퍼런스
 
-이 페이지는 OsWL이 노출하는 모든 REST 엔드포인트를 요약합니다. 요청/응답 스키마를 포함한 인터랙티브 문서는 **Swagger UI**에서 확인하세요:
-
-```
-http://<host>:8080/swagger-ui.html
-```
+이 페이지는 OsWL이 노출하는 모든 REST 엔드포인트를 요약합니다. 인터랙티브 스키마는 **`local` 프로파일**의 Swagger UI(`http://localhost:8080/swagger-ui.html`)에서 확인합니다. **`prod`에서는 Swagger가 꺼져 있습니다.**
 
 OpenAPI 스펙 (JSON): `http://<host>:8080/v3/api-docs`
 
@@ -150,9 +146,9 @@ Authorization: Bearer oswl_<your_api_key>
 
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
-| `GET` | `/api/projects/{id}/api-keys` | `SETTINGS_CLI_KEY_MANAGE` | 프로젝트 키 목록 |
-| `POST` | `/api/projects/{id}/api-keys` | `SETTINGS_CLI_KEY_MANAGE` | 키 생성 |
-| `DELETE` | `/api/projects/{id}/api-keys/{keyId}` | `SETTINGS_CLI_KEY_MANAGE` | 키 취소 |
+| `GET` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 프로젝트 키 목록 |
+| `POST` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 키 생성 |
+| `DELETE` | `/api/projects/{id}/keys/{keyId}` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 키 취소 |
 
 ---
 

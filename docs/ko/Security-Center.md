@@ -4,6 +4,8 @@
 
 URL: `/projects/{id}/security-center`
 
+**접근:** `SECURITY_CENTER_VIEW`(또는 시스템 관리자) 및 [프로젝트 멤버십](Authorization-Layers.md) 필요. 보내기·인쇄는 `SECURITY_CENTER_EXPORT`, 상태 변경은 `SECURITY_CENTER_UPDATE_STATUS`.
+
 ---
 
 ## CVE 목록 이해하기

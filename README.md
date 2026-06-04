@@ -34,7 +34,7 @@ It provides a single dashboard for your entire software portfolio — connect yo
 | **Quick Import** | One-click import from GitHub / GitLab / Bitbucket via VCS connection |
 | **CLI Integration** | Language-agnostic scan submission via REST API with project-scoped API keys |
 | **AI Insights** | Optional LLM-generated risk summaries for CVE posture and license compliance |
-| **Role-Based Access** | Fine-grained permission system with admin-managed role templates |
+| **Role-Based Access** | Role templates (Admin / Developer / Viewer) plus per-project membership |
 | **Audit Logging** | Immutable audit log for all user and system events, with CSV export |
 | **2FA / Trusted Devices** | Email OTP two-factor authentication with per-browser trusted-device support |
 
@@ -90,6 +90,9 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 # Full build (compiles Java + Tailwind CSS)
 ./gradlew build
 
+# Production JAR check (local-only test endpoints must not be packaged)
+./gradlew verifyProdJar
+
 # Rebuild Tailwind CSS only
 ./gradlew buildTailwindCss
 
@@ -111,7 +114,7 @@ All settings are controlled via environment variables or `application.yaml` prof
 | Variable | Default | Description |
 |---|---|---|
 | `SPRING_PROFILES_ACTIVE` | `local` | Active profile: `local` or `prod` |
-| `OSWL_ENCRYPTION_KEY` | *(dummy in local)* | Base64-encoded 32-byte AES key for VCS token encryption. **Required in production.** Generate with `openssl rand -base64 32` |
+| `OSWL_ENCRYPTION_KEY` | *(local dev only)* | Encryption key for stored secrets (VCS tokens). **Required in `prod`** — app will not start without it. Generate with `openssl rand -base64 32` |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/oswl` | PostgreSQL JDBC URL (prod profile) |
 | `DB_USERNAME` | `oswl` | Database user (prod profile) |
 | `DB_PASSWORD` | `oswl` | Database password (prod profile) |
@@ -190,13 +193,7 @@ Library  (shared across projects — group:artifact@version)
 
 ## API Documentation
 
-Interactive Swagger UI is available at:
-
-```
-http://localhost:8080/swagger-ui.html
-```
-
-OpenAPI spec (JSON): `http://localhost:8080/v3/api-docs`
+Interactive Swagger UI is available in the **`local` profile** at `http://localhost:8080/swagger-ui.html`. It is **disabled in `prod`**.
 
 ---
 
@@ -216,6 +213,8 @@ Full documentation is available in the [`docs/`](docs/) folder:
 | [Risk Trend](docs/Risk-Trend.md) | Interpreting historical risk charts |
 | [Version Diff](docs/Version-Diff.md) | Comparing two scan results |
 | [Administration](docs/Administration.md) | Users, roles, audit logs, security settings |
+| [Authorization layers](docs/Authorization-Layers.md) | Role templates vs project membership |
+| [Production deployment](docs/Production-Deployment-Checklist.md) | Production checklist |
 | [API Reference](docs/API-Reference.md) | REST API endpoint summary |
 | [Glossary](docs/Glossary.md) | Terms and definitions |
 

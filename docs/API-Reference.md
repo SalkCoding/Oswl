@@ -1,12 +1,6 @@
 # API Reference
 
-This page summarizes every REST endpoint exposed by OsWL. For interactive documentation with request/response schemas, open the **Swagger UI** at:
-
-```
-http://<host>:8080/swagger-ui.html
-```
-
-OpenAPI spec (JSON): `http://<host>:8080/v3/api-docs`
+This page summarizes every REST endpoint exposed by OsWL. For interactive documentation with request/response schemas, use **Swagger UI** in the **`local` profile** (`http://localhost:8080/swagger-ui.html`). Swagger is **disabled in `prod`**.
 
 ---
 
@@ -150,9 +144,9 @@ Authorization: Bearer oswl_<api_key>
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
-| `GET` | `/api/projects/{id}/api-keys` | `SETTINGS_CLI_KEY_MANAGE` | List project keys |
-| `POST` | `/api/projects/{id}/api-keys` | `SETTINGS_CLI_KEY_MANAGE` | Create a key |
-| `DELETE` | `/api/projects/{id}/api-keys/{keyId}` | `SETTINGS_CLI_KEY_MANAGE` | Revoke a key |
+| `GET` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + project membership | List project keys |
+| `POST` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + project membership | Create a key |
+| `DELETE` | `/api/projects/{id}/keys/{keyId}` | `SETTINGS_CLI_KEY_MANAGE` + project membership | Revoke a key |
 
 ---
 

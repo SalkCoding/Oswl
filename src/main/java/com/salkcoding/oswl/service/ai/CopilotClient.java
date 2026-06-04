@@ -111,7 +111,7 @@ public class CopilotClient implements AiAnalysisClient {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system",
-                               "content", promptTemplates.getSystemPrompt()),
+                               "content", promptTemplates.getSystemPrompt(setting.getProvider())),
                         Map.of("role", "user", "content", userPrompt)
                 ),
                 "max_tokens", promptTemplates.getMaxTokens(),

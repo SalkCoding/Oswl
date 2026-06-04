@@ -2,14 +2,11 @@
    Quick Import Page — Alpine.js component
    Endpoint contract:
      GET  /api/quick-import/connections  → VcsConnectionDto[]
-       { provider: 'GITHUB'|'GITLAB'|'BITBUCKET', vcsUsername: string }
      GET  /api/quick-import/repos?provider=  → QuickImportRepoDto[]
-       { name, fullName, webUrl, defaultBranch, isPrivate, updatedAt }
      POST /api/quick-import/start        → { jobId: string }
-       body: { repoUrl: string, branch: string|null }
-     GET  /api/quick-import/job/:jobId   → QuickImportJobStatus
-       { jobId, phase, message, projectId, projectName, apiToken,
-         newApiKey, ecosystem, componentCount, error }
+     GET  /api/quick-import/jobs         → QuickImportJobStatus[]
+     GET  /api/quick-import/job/:jobId   → QuickImportJobStatus (poll fallback)
+     GET  /api/quick-import/job/:jobId/stream  → SSE job-update events
    ============================================================ */
 
 const REPO_PAGE_SIZE = 10;
@@ -18,8 +15,12 @@ function _qi() {
     return typeof _qiI18n !== 'undefined' ? _qiI18n : {};
 }
 
-function _qiFmt(template, arg) {
-    return String(template).replace('{0}', arg);
+function _qiFmt(template) {
+    let s = String(template);
+    for (let i = 1; i < arguments.length; i++) {
+        s = s.split('{' + (i - 1) + '}').join(arguments[i]);
+    }
+    return s;
 }
 
 function quickImportPage() {
@@ -43,15 +44,11 @@ function quickImportPage() {
         repoUrl: '',
         branch: '',
         urlError: '',
-        isImporting: false,
 
-        /* ── Job polling ─────────────────────────── */
-        jobId: null,
+        /* ── Multi-job tracking ─────────────────── */
+        activeJobs: [],
+        maxConcurrentSlots: 2,
         jobResult: {},
-        progressLog: [],     // [{ status: 'running'|'done'|'error', text: string }]
-        _pollTimer: null,
-        _lastPhase: null,
-        _pollInFlight: false,
 
         /* ── Copy feedback ───────────────────────── */
         keyCopied: false,
@@ -67,6 +64,7 @@ function quickImportPage() {
             for (const p of this.connectedProviders) {
                 this.loadRepoBrowser(p);
             }
+            await this._loadActiveJobs();
         },
 
         /* ── Derived getters ──────────────────────── */
@@ -88,7 +86,6 @@ function quickImportPage() {
                 return null;
             }
 
-            // On-premise: match stored connection serverUrl host first
             for (const provider of ['GITHUB', 'GITLAB', 'BITBUCKET']) {
                 const conn = this.connectionsByProvider[provider];
                 if (!conn || !conn.serverUrl) continue;
@@ -117,11 +114,15 @@ function quickImportPage() {
             if (!this.detectedProvider) return false;
             if (this.providerNotConnected) return false;
             if (this.urlError)          return false;
-            return !this.isImporting;
+            return true;
+        },
+
+        get runningJobCount() {
+            return this.activeJobs.filter(j => j.phase && j.phase !== 'DONE' && j.phase !== 'FAILED').length;
         },
 
         get showProgress() {
-            return this.progressLog.length > 0;
+            return this.activeJobs.length > 0;
         },
 
         get importDone() {
@@ -167,19 +168,14 @@ function quickImportPage() {
 
         async startImport() {
             if (!this.canImport) return;
-            this.isImporting  = true;
-            this.jobResult    = {};
-            this.progressLog  = [];
-            this._lastPhase   = null;
+            const repoUrl = this.repoUrl.trim();
+            const branch = this.branch.trim() || null;
 
             try {
                 const res = await fetch('/api/quick-import/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        repoUrl: this.repoUrl.trim(),
-                        branch:  this.branch.trim() || null,
-                    }),
+                    body: JSON.stringify({ repoUrl, branch }),
                 });
 
                 if (!res.ok) {
@@ -187,93 +183,236 @@ function quickImportPage() {
                     throw new Error(body || 'HTTP ' + res.status);
                 }
 
-                const data  = await res.json();
-                this.jobId  = data.jobId;
-                this._startPolling();
+                const data = await res.json();
+                this._attachJob({
+                    jobId: data.jobId,
+                    phase: 'QUEUED',
+                    repoLabel: this._repoLabelFromUrl(repoUrl),
+                    percent: 0,
+                });
+                this.repoUrl = '';
+                this.branch = '';
             } catch (err) {
                 console.error('[QuickImport] Start failed:', err);
-                this._appendLog('error', _qiFmt(_qi().startFailed || 'Failed to start import: {0}', err.message));
-                this.isImporting = false;
+                this._appendLogToJob(null, 'error',
+                    _qiFmt(_qi().startFailed || 'Failed to start import: {0}', err.message));
             }
         },
 
-        _startPolling() {
-            // Kick off an immediate first poll so the QUEUED phase entry appears right away,
-            // then continue at 1.5s intervals. Guard against concurrent in-flight polls.
-            this._pollInFlight = false;
-            this._pollJob();
-            this._pollTimer = setInterval(() => { if (!this._pollInFlight) this._pollJob(); }, 1500);
+        async _loadActiveJobs() {
+            try {
+                const res = await fetch('/api/quick-import/jobs');
+                if (!res.ok) return;
+                const jobs = await res.json();
+                if (jobs.length > 0 && jobs[0].maxConcurrentSlots) {
+                    this.maxConcurrentSlots = jobs[0].maxConcurrentSlots;
+                }
+                jobs.forEach(j => this._attachJob(j));
+            } catch (err) {
+                console.error('[QuickImport] Failed to load jobs:', err);
+            }
         },
 
-        async _pollJob() {
-            if (this._pollInFlight) return;
-            this._pollInFlight = true;
+        _repoLabelFromUrl(url) {
             try {
-                const res = await fetch('/api/quick-import/job/' + this.jobId);
+                const path = new URL(url).pathname.replace(/^\//, '');
+                return path || url;
+            } catch (_) {
+                return url;
+            }
+        },
+
+        _findTracker(jobId) {
+            return this.activeJobs.find(j => j.jobId === jobId);
+        },
+
+        _attachJob(serverJob) {
+            if (!serverJob || !serverJob.jobId) return;
+            let tracker = this._findTracker(serverJob.jobId);
+            if (!tracker) {
+                tracker = {
+                    jobId: serverJob.jobId,
+                    repoLabel: serverJob.repoLabel || serverJob.jobId,
+                    phase: null,
+                    message: '',
+                    percent: 0,
+                    queuePosition: null,
+                    progressLog: [],
+                    lastPhase: null,
+                    lastAiPreviewCount: 0,
+                    lastDetailCount: 0,
+                    _eventSource: null,
+                    _pollTimer: null,
+                    _pollInFlight: false,
+                };
+                this.activeJobs.push(tracker);
+            }
+            this._applyJobUpdate(tracker, serverJob);
+            if (serverJob.phase !== 'DONE' && serverJob.phase !== 'FAILED') {
+                this._startJobWatch(tracker);
+            }
+        },
+
+        _startJobWatch(tracker) {
+            if (tracker._eventSource || tracker._pollTimer) return;
+            if (typeof EventSource === 'undefined') {
+                this._startPollingFallback(tracker);
+                return;
+            }
+            try {
+                const es = new EventSource('/api/quick-import/job/' + tracker.jobId + '/stream');
+                tracker._eventSource = es;
+                es.addEventListener('job-update', (e) => {
+                    try {
+                        const job = JSON.parse(e.data);
+                        this._applyJobUpdate(tracker, job);
+                    } catch (err) {
+                        console.error('[QuickImport] SSE parse error:', err);
+                    }
+                });
+                es.onerror = () => {
+                    es.close();
+                    tracker._eventSource = null;
+                    if (tracker.phase !== 'DONE' && tracker.phase !== 'FAILED') {
+                        this._startPollingFallback(tracker);
+                    }
+                };
+            } catch (_) {
+                this._startPollingFallback(tracker);
+            }
+        },
+
+        _startPollingFallback(tracker) {
+            if (tracker._pollTimer) return;
+            tracker._pollInFlight = false;
+            const poll = () => this._pollJob(tracker);
+            poll();
+            tracker._pollTimer = setInterval(() => {
+                if (!tracker._pollInFlight) poll();
+            }, 1500);
+        },
+
+        async _pollJob(tracker) {
+            if (tracker._pollInFlight) return;
+            tracker._pollInFlight = true;
+            try {
+                const res = await fetch('/api/quick-import/job/' + tracker.jobId);
                 if (res.status === 404) {
-                    this._stopPolling();
-                    this._appendLog('error', _qi().sessionExpired || 'Import session expired. The server may have been restarted — please try again.');
-                    this.isImporting = false;
+                    this._stopJobWatch(tracker);
+                    this._appendLogToJob(tracker, 'error',
+                        _qi().sessionExpired || 'Import session expired.');
                     return;
                 }
-                if (!res.ok) return; // retry on transient errors
-
+                if (!res.ok) return;
                 const job = await res.json();
-                this._applyJobUpdate(job);
+                this._applyJobUpdate(tracker, job);
             } catch (err) {
                 console.error('[QuickImport] Poll error:', err);
             } finally {
-                this._pollInFlight = false;
+                tracker._pollInFlight = false;
             }
         },
 
-        _applyJobUpdate(job) {
-            if (job.phase === this._lastPhase) {
-                // Phase unchanged — update last log entry message if still running
-                if (this.progressLog.length > 0 && job.message) {
-                    const last = this.progressLog[this.progressLog.length - 1];
+        _applyJobUpdate(tracker, job) {
+            if (!tracker || !job) return;
+
+            if (job.maxConcurrentSlots) {
+                this.maxConcurrentSlots = job.maxConcurrentSlots;
+            }
+            tracker.repoLabel = job.repoLabel || tracker.repoLabel;
+            tracker.phase = job.phase;
+            tracker.message = job.message || '';
+            tracker.percent = job.percent != null ? job.percent : tracker.percent;
+            tracker.queuePosition = job.queuePosition;
+
+            if (job.detailLines && job.detailLines.length > tracker.lastDetailCount) {
+                const newLines = job.detailLines.slice(tracker.lastDetailCount);
+                newLines.forEach(line => this._appendLogToJob(tracker, 'running', line));
+                tracker.lastDetailCount = job.detailLines.length;
+            }
+
+            if (job.aiPreviews && job.aiPreviews.length > tracker.lastAiPreviewCount) {
+                const prefix = _qi().aiPreviewPrefix || 'AI preview: ';
+                job.aiPreviews.slice(tracker.lastAiPreviewCount).forEach(line => {
+                    this._appendLogToJob(tracker, 'done', prefix + line);
+                });
+                tracker.lastAiPreviewCount = job.aiPreviews.length;
+            }
+
+            if (job.phase === tracker.lastPhase) {
+                if (tracker.progressLog.length > 0 && job.message) {
+                    const last = tracker.progressLog[tracker.progressLog.length - 1];
                     if (last.status === 'running') {
-                        last.text = job.message || last.text;
+                        last.text = this._phaseLine(job);
                     }
                 }
             } else {
-                // Phase changed — mark previous as done, add new entry
-                if (this._lastPhase !== null && this.progressLog.length > 0) {
-                    const last = this.progressLog[this.progressLog.length - 1];
+                if (tracker.lastPhase !== null && tracker.progressLog.length > 0) {
+                    const last = tracker.progressLog[tracker.progressLog.length - 1];
                     if (last.status === 'running') last.status = 'done';
                 }
-
-                const q = _qi();
-                const phaseLabels = {
-                    QUEUED:    q.phaseQueued    || 'Queued',
-                    CLONING:   q.phaseCloning   || 'Cloning repository…',
-                    PARSING:   q.phaseParsing   || 'Parsing dependencies…',
-                    SCANNING:  q.phaseScanning  || 'Running security scan…',
-                    ENRICHING: q.phaseEnriching || 'Analyzing components…',
-                    DONE:      q.phaseDone      || 'Done',
-                    FAILED:    q.phaseFailed    || 'Failed',
-                };
-                const label  = phaseLabels[job.phase] || job.phase;
-                const text   = job.message ? label + ' — ' + job.message : label;
                 const status =
                     job.phase === 'DONE'   ? 'done'    :
                     job.phase === 'FAILED' ? 'error'   :
                     'running';
-
-                this._appendLog(status, text);
-                this._lastPhase = job.phase;
+                this._appendLogToJob(tracker, status, this._phaseLine(job));
+                tracker.lastPhase = job.phase;
             }
 
             if (job.phase === 'DONE' || job.phase === 'FAILED') {
-                this._stopPolling();
-                this.jobResult   = job;
-                this.isImporting = false;
-                // Signal projects page to reload so the new card appears.
+                this._stopJobWatch(tracker);
+                this.jobResult = job;
                 if (job.phase === 'DONE') {
                     try { localStorage.setItem('oswl-qi-done', '1'); } catch (_) {}
-                    // Refresh the background project cards immediately, then watch scan completion.
                     this._refreshBackground(job.projectId);
                 }
+            }
+        },
+
+        _phaseLine(job) {
+            const q = _qi();
+            const phaseLabels = {
+                QUEUED:    q.phaseQueued    || 'Queued',
+                CLONING:   q.phaseCloning   || 'Cloning repository…',
+                PARSING:   q.phaseParsing   || 'Parsing dependencies…',
+                SCANNING:  q.phaseScanning  || 'Running security scan…',
+                ENRICHING: q.phaseEnriching || 'Analyzing components…',
+                DONE:      q.phaseDone      || 'Done',
+                FAILED:    q.phaseFailed    || 'Failed',
+            };
+            const subLabels = {
+                CVE: q.subPhaseCve || 'CVE enrichment',
+                LICENSE: q.subPhaseLicense || 'License policy',
+                POSTURE: q.subPhasePosture || 'Security posture',
+                TREND: q.subPhaseTrend || 'Risk trend',
+                DIFF: q.subPhaseDiff || 'Version diff',
+            };
+            let label = phaseLabels[job.phase] || job.phase;
+            if (job.subPhase && subLabels[job.subPhase]) {
+                label = label + ' · ' + subLabels[job.subPhase];
+            }
+            if (job.message) {
+                return label + ' — ' + job.message;
+            }
+            return label;
+        },
+
+        _appendLogToJob(tracker, status, text) {
+            if (!tracker) {
+                console.warn('[QuickImport]', text);
+                return;
+            }
+            tracker.progressLog.push({ status, text });
+        },
+
+        _stopJobWatch(tracker) {
+            if (tracker._pollTimer) {
+                clearInterval(tracker._pollTimer);
+                tracker._pollTimer = null;
+            }
+            if (tracker._eventSource) {
+                tracker._eventSource.close();
+                tracker._eventSource = null;
             }
         },
 
@@ -349,7 +488,6 @@ function quickImportPage() {
             this.repoUrl = repo.webUrl;
             this.branch  = branch !== undefined ? branch : (repo.defaultBranch || '');
             this.urlError = '';
-            // Immediately start import with the selected (or default) branch
             this.startImport().then(() => {
                 this.$nextTick(() => {
                     const progress = document.getElementById('import-progress');
@@ -389,22 +527,6 @@ function quickImportPage() {
             return { GITHUB: '#24292f', GITLAB: '#fc6d26', BITBUCKET: '#0052cc' }[provider] || '#6b7280';
         },
 
-        _appendLog(status, text) {
-            this.progressLog.push({ status, text });
-        },
-
-        _stopPolling() {
-            if (this._pollTimer) {
-                clearInterval(this._pollTimer);
-                this._pollTimer = null;
-            }
-        },
-
-        /**
-         * Refreshes the project card list in the background and subscribes to the
-         * SSE scan-status stream so the card updates automatically once the scan
-         * moves to a terminal state (COMPLETED / FAILED).
-         */
         _refreshBackground(projectId) {
             if (typeof window.refreshProjectCards === 'function') {
                 window.refreshProjectCards();
@@ -438,17 +560,13 @@ function quickImportPage() {
         },
 
         resetForm() {
-            this._stopPolling();
+            this.activeJobs.forEach(j => this._stopJobWatch(j));
             if (this._scanWatcher) { this._scanWatcher.close(); this._scanWatcher = null; }
             this.repoUrl       = '';
             this.branch        = '';
             this.urlError      = '';
-            this.isImporting   = false;
-            this.jobId         = null;
+            this.activeJobs    = [];
             this.jobResult     = {};
-            this.progressLog   = [];
-            this._lastPhase    = null;
-            this._pollInFlight = false;
             this.keyCopied     = false;
         },
     };

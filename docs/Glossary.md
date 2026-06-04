@@ -183,7 +183,13 @@ A browser-based workflow to import a project directly from a VCS provider (GitHu
 A time-series visualization showing how the CVE count and license compliance status have changed across the most recent scans of a project.
 
 **Role Template**  
-An admin-defined named bundle of permissions (e.g. "Developer", "Security Analyst"). Assigned to one or more users. Changes to a template immediately affect all users who hold it.
+An instance-wide named bundle of **permissions** (e.g. Admin, Developer, Viewer). Assigned to users in **Settings → Admin**. Controls *what features* a user may use across OsWL. **Not** the same as project membership. See [Authorization layers](Authorization-Layers.md).
+
+**Project membership**  
+A row in `project_members` linking a user to a specific project. Controls *which projects* a user may open. Works together with role-template permissions. Project membership roles (`ADMIN` / `MEMBER`) are separate from template names.
+
+**System administrator**  
+A user flag set at initial setup. Can manage users, role templates, and audit logs, and can access all projects regardless of membership. Distinct from a role template named "Admin".
 
 **RUBYGEMS**  
 The Ruby package ecosystem managed by the `gem` tool. Packages published to [rubygems.org](https://rubygems.org).
