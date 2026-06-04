@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.controller.spec;
 
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.dto.api.AiPromptsResponse;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
@@ -44,6 +45,21 @@ public interface AiSettingControllerSpec {
                 }))
     })
     ResponseEntity<AiSettingResponse> getCurrent();
+
+    @Operation(summary = "Get editable prompt templates",
+            description = "Returns resolved prompt text for editable keys plus stored JSON overrides from preferences.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Prompt snapshot",
+                    content = @Content(schema = @Schema(implementation = AiPromptsResponse.class)))
+    })
+    ResponseEntity<AiPromptsResponse> getPrompts();
+
+    @Operation(summary = "Run golden prompt regression tests",
+            description = "Executes built-in fixture prompts against the active AI provider. Does not persist results.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Per-fixture pass/fail summary", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> runGoldenTests();
 
     @Operation(
         summary = "Create or update an AI provider setting",
@@ -135,6 +151,15 @@ public interface AiSettingControllerSpec {
             required = true
         )
         @PathVariable AiProvider provider
+    );
+
+    @Operation(summary = "Deactivate the active AI provider",
+            description = "Optional body may include preference fields to update before deactivation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Provider deactivated", content = @Content)
+    })
+    ResponseEntity<Void> deactivate(
+            @org.springframework.web.bind.annotation.RequestBody(required = false) AiSettingUpdateRequest request
     );
 
     @Operation(

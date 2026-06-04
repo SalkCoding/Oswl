@@ -30,7 +30,16 @@ public class OpenApiConfig {
                                 | `POST /api/auth`, `GET /api/scan/ping`, `POST /api/scan`, `GET /api/scan/{id}/status` | **Bearer token** — `Authorization: Bearer oswl_<token>` |
                                 | All other `/api/**` endpoints | **Session cookie** (JSESSIONID) obtained via `POST /login` + OTP |
 
-                                CLI tokens are issued via `POST /api/projects/{projectId}/api-keys` or `POST /api/admin/cli-keys`.
+                                CLI tokens are issued via `POST /api/projects/{projectId}/keys` or `POST /api/admin/cli-keys`.
+
+                                ## Live progress (SSE)
+
+                                | Stream | Event | Payload |
+                                |---|---|---|
+                                | `GET /api/quick-import/job/{jobId}/stream` | `job-update` | `QuickImportJobStatus` JSON |
+                                | `GET /projects/scan-status/stream?ids=` | `scan-update` | scan status JSON |
+
+                                Controller OpenAPI annotations live in `controller/spec/*Spec.java` interfaces.
                                 """)
                         .version("0.0.1")
                         .contact(new Contact()

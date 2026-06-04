@@ -168,16 +168,29 @@ Audit records older than the configured retention period are automatically delet
 
 **Settings → AI**
 
-Configure the LLM provider used for generating security and license insights.
+Configure the LLM provider and enrichment behaviour for CVE/license summaries.
 
 | Provider | Notes |
 |---|---|
 | **Disabled** | No AI insights generated |
-| **OpenAI** | Requires `OPENAI_API_KEY`; configurable model (default: `gpt-4o-mini`) |
-| **Anthropic** | Requires `ANTHROPIC_API_KEY`; configurable model |
-| **Local** | Any OpenAI-compatible endpoint (e.g. Ollama); set base URL and model |
+| **OpenAI** | API key + model (e.g. `gpt-4o-mini`) |
+| **Anthropic** | API key + model |
+| **Gemini** | API key + OpenAI-compatible base URL when required |
+| **Local** | OpenAI-compatible endpoint (e.g. Ollama) |
 
-Only one provider can be active at a time.
+Only one provider is **active** at a time. The tab also exposes:
+
+| Setting | Purpose |
+|---|---|
+| Prompt locale (`en` / `ko`) | Chooses `prompts.properties` vs Korean overlay |
+| CVE / license batch limits & severities | Caps enrichment AI calls per scan |
+| Temperature / max tokens / daily call cap | LLM behaviour and cost guardrails |
+| Default deployment profile | Context for CVE triage when a project has no profile |
+| Prompt overrides | Per-key template edits (see `GET /api/settings/ai/prompts`) |
+
+**API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
+**Per project:** `PATCH /api/projects/{id}/deployment-profile`.  
+**Feedback:** `POST /api/ai/feedback` from component detail / security views.
 
 ---
 
