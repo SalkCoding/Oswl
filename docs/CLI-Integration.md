@@ -26,7 +26,7 @@ OsWL Server
 
 1. A **project** registered in OsWL (or create one via the dashboard first — any name).
 2. A **project API key** (`oswl_...`) issued from **Settings → CLI** tab, or from the project's API keys page.
-3. A **user account** with the `SCAN_SUBMIT` permission that will be used as the scan submitter.
+3. A **user account** with the `SCAN_SUBMIT` permission **and** membership in that project (see [Authorization layers](Authorization-Layers.md)).
 
 ---
 
@@ -35,7 +35,7 @@ OsWL Server
 ### Create a project-scoped key
 
 ```
-POST /api/projects/{projectId}/api-keys
+POST /api/projects/{projectId}/keys
 ```
 
 Via the UI: open the project → **Settings (⚙)** → **CLI** tab → **Generate Key**.
@@ -43,13 +43,13 @@ Via the UI: open the project → **Settings (⚙)** → **CLI** tab → **Genera
 ### List keys
 
 ```
-GET /api/projects/{projectId}/api-keys
+GET /api/projects/{projectId}/keys
 ```
 
 ### Revoke a key
 
 ```
-DELETE /api/projects/{projectId}/api-keys/{keyId}
+DELETE /api/projects/{projectId}/keys/{keyId}
 ```
 
 ### Admin global keys

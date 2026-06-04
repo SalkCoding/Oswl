@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.controller.spec.ComponentDetailControllerSpec;
 import com.salkcoding.oswl.dto.CreatePrRequest;
+import com.salkcoding.oswl.dto.CveDto;
 import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -44,6 +45,21 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
             return "component-detail/fragments/detail-content :: content";
         }
         return "component-detail/index";
+    }
+
+    @PostMapping("/cves/{cveDbId}/ai-summarize")
+    @ResponseBody
+    @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<CveDto> regenerateCveAi(@PathVariable Long projectId,
+                                                    @PathVariable Long componentId,
+                                                    @PathVariable Long cveDbId) {
+        projectAccessService.assertCanViewProject(projectId);
+        try {
+            return ResponseEntity.ok(
+                    componentDetailService.regenerateCveAiSummary(projectId, componentId, cveDbId));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @PostMapping("/defer")

@@ -17,11 +17,11 @@ Use this one-page list before exposing OsWL on the internet. **Do not run `prod`
 | `DB_URL` | JDBC URL (e.g. `jdbc:postgresql://db:5432/oswl`) |
 | `DB_USERNAME` | Database user |
 | `DB_PASSWORD` | Database password |
-| `OSWL_ENCRYPTION_KEY` | Base64 32-byte AES key: `openssl rand -base64 32` |
+| `OSWL_ENCRYPTION_KEY` | Instance encryption key (generate with `openssl rand -base64 32`) |
 
 Copy `.env.prod.example` → `.env.prod` and fill every value. **No defaults** for DB or encryption in `application-prod.yaml`.
 
-On startup, missing variables and other config issues are printed in **one `OSWL STARTUP WARNINGS` block** in the log (after the application is ready). Without `OSWL_ENCRYPTION_KEY`, the app still starts with a **random ephemeral key** (VCS tokens become unreadable after restart)—set a stable key in production.
+On startup, missing variables and other config issues are printed in **one `OSWL STARTUP WARNINGS` block** in the log (after the application is ready). In **`prod`**, if `OSWL_ENCRYPTION_KEY` is missing, the application **fails to start** — set a stable key before go-live. (The `local` profile may use a temporary key for development only.)
 
 ## 3. Network binding
 
@@ -72,8 +72,9 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 1. Open UI via HTTPS reverse proxy only.
 2. Complete setup / login and 2FA if enabled.
 3. Create a project and VCS connection; restart app — token still decrypts (confirms stable `OSWL_ENCRYPTION_KEY`).
-4. `POST /api/scan` with project API key (see `docs/Scan-Api-Security.md`).
-5. Review audit log for failed auth attempts.
+4. `POST /api/scan` with project API key (see [Scan API security](Scan-Api-Security.md)).
+5. Open a project you are a member of — confirm another user’s project ID returns forbidden (project membership).
+6. Review audit log for failed auth attempts.
 
 ## 9. Operations
 

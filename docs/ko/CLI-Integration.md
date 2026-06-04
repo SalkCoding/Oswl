@@ -35,7 +35,7 @@ OsWL 서버
 ### 프로젝트 범위 키 생성
 
 ```
-POST /api/projects/{projectId}/api-keys
+POST /api/projects/{projectId}/keys
 ```
 
 UI를 통해: 프로젝트 열기 → **설정(⚙)** → **CLI** 탭 → **키 생성**.
@@ -43,13 +43,13 @@ UI를 통해: 프로젝트 열기 → **설정(⚙)** → **CLI** 탭 → **키 
 ### 키 목록 조회
 
 ```
-GET /api/projects/{projectId}/api-keys
+GET /api/projects/{projectId}/keys
 ```
 
 ### 키 취소
 
 ```
-DELETE /api/projects/{projectId}/api-keys/{keyId}
+DELETE /api/projects/{projectId}/keys/{keyId}
 ```
 
 ### 관리자 전역 키

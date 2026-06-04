@@ -167,13 +167,13 @@
                                th:placeholder="#{quickImport.url.placeholder}"
                                class="w-full pl-[38px] pr-[14px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors"
                                :class="urlError ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''"
-                               :disabled="isImporting" />
+                               />
                     </div>
                     <input type="text"
                            x-model="branch"
                            th:placeholder="#{quickImport.branch.placeholder}"
                            class="w-[180px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors"
-                           :disabled="isImporting" />
+                           />
                 </div>
                 <!-- URL validation error -->
                 <p x-show="urlError" x-cloak class="text-[12px] text-red-500 m-0" x-text="urlError"></p>
@@ -192,34 +192,48 @@
                     class="self-start inline-flex items-center gap-[8px] px-[20px] py-[10px] rounded-[8px] text-[14px] font-semibold transition-all
                            bg-[var(--primary-120)] text-white hover:bg-[var(--primary-100)]
                            disabled:opacity-40 disabled:cursor-not-allowed">
-                <img x-show="!isImporting" src="/icon/icon-clock.svg" class="w-[23px] h-[23px] shrink-0" alt="" aria-hidden="true">
-                <svg x-show="isImporting" class="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75"/></svg>
-                <span x-text="isImporting ? _qiI18n.importing : _qiI18n.importAndScan"></span>
+                <img src="/icon/icon-clock.svg" class="w-[23px] h-[23px] shrink-0" alt="" aria-hidden="true">
+                <span x-text="_qiI18n.importAndScan"></span>
+                <span x-show="runningJobCount > 0" x-cloak
+                      class="ml-[4px] px-[8px] py-[2px] rounded-full bg-white/20 text-[11px] font-medium"
+                      x-text="_qiFmt(_qiI18n.slotsBadge, runningJobCount, maxConcurrentSlots)"></span>
             </button>
         </div>
 
-        <!-- ── Progress Log ──────────────────────────────────────────────── -->
-        <div x-show="showProgress" x-cloak id="import-progress" class="w-full">
-            <div class="bg-[#001D35] rounded-[12px] p-[20px] flex flex-col gap-[10px]">
-                <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0" th:text="#{quickImport.log.title}">Import Log</p>
-                <template x-for="(entry, idx) in progressLog" :key="idx">
-                    <div class="flex items-start gap-[10px]">
-                        <!-- Phase icon -->
-                        <span class="shrink-0 mt-[1px]">
-                            <template x-if="entry.status === 'done'">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-400"><polyline points="20 6 9 17 4 12"/></svg>
-                            </template>
-                            <template x-if="entry.status === 'error'">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-400"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </template>
-                            <template x-if="entry.status === 'running'">
-                                <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75 text-white"/></svg>
-                            </template>
-                        </span>
-                        <span class="text-[13px] text-white/80 leading-[1.5]" x-text="entry.text"></span>
+        <!-- ── Progress Log (multi-job) ─────────────────────────────────── -->
+        <div x-show="showProgress" x-cloak id="import-progress" class="w-full flex flex-col gap-[14px]">
+            <template x-for="job in activeJobs" :key="job.jobId">
+                <div class="bg-[#001D35] rounded-[12px] p-[20px] flex flex-col gap-[12px]">
+                    <div class="flex items-center justify-between gap-[10px]">
+                        <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0 truncate"
+                           x-text="job.repoLabel || job.jobId"></p>
+                        <span x-show="job.queuePosition" x-cloak
+                              class="text-[10px] text-white/50 shrink-0"
+                              x-text="'#' + job.queuePosition"></span>
                     </div>
-                </template>
-            </div>
+                    <div class="w-full h-[4px] bg-white/10 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-400/90 rounded-full transition-all duration-500"
+                             :style="'width:' + (job.percent != null ? job.percent : 0) + '%'"></div>
+                    </div>
+                    <p x-show="job.message" class="text-[12px] text-white/60 m-0" x-text="job.message"></p>
+                    <template x-for="(entry, idx) in job.progressLog" :key="job.jobId + '-' + idx">
+                        <div class="flex items-start gap-[10px]">
+                            <span class="shrink-0 mt-[1px]">
+                                <template x-if="entry.status === 'done'">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-400"><polyline points="20 6 9 17 4 12"/></svg>
+                                </template>
+                                <template x-if="entry.status === 'error'">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-400"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </template>
+                                <template x-if="entry.status === 'running'">
+                                    <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75 text-white"/></svg>
+                                </template>
+                            </span>
+                            <span class="text-[13px] text-white/80 leading-[1.5]" x-text="entry.text"></span>
+                        </div>
+                    </template>
+                </div>
+            </template>
         </div>
 
         <!-- ── Success Card ──────────────────────────────────────────────── -->
@@ -524,6 +538,13 @@
         phaseEnriching:      /*[[#{quickImport.phase.ENRICHING}]]*/ 'Analyzing components…',
         phaseDone:           /*[[#{quickImport.phase.DONE}]]*/ 'Done',
         phaseFailed:         /*[[#{quickImport.phase.FAILED}]]*/ 'Failed',
+        aiPreviewPrefix:     /*[[#{quickImport.aiPreviewPrefix}]]*/ 'AI preview: ',
+        slotsBadge:          /*[[#{quickImport.slots.badge}]]*/ '{0}/{1} active imports',
+        subPhaseCve:         /*[[#{quickImport.subPhase.CVE}]]*/ 'CVE enrichment',
+        subPhaseLicense:     /*[[#{quickImport.subPhase.LICENSE}]]*/ 'License policy',
+        subPhasePosture:     /*[[#{quickImport.subPhase.POSTURE}]]*/ 'Security posture',
+        subPhaseTrend:       /*[[#{quickImport.subPhase.TREND}]]*/ 'Risk trend',
+        subPhaseDiff:        /*[[#{quickImport.subPhase.DIFF}]]*/ 'Version diff',
         title:               /*[[#{quickImport.title}]]*/ 'Quick Import',
         repoCount:           /*[[#{quickImport.repoCount}]]*/ '{0} repos',
         searchRepos:         /*[[#{quickImport.searchRepos}]]*/ 'Search {0} repositories\u2026',
@@ -543,8 +564,12 @@
         hoursShort:          /*[[#{common.time.hoursShort}]]*/ '{0}h ago',
         daysShort:           /*[[#{common.time.daysShort}]]*/ '{0}d ago'
     };
-    function _qiFmt(template, arg) {
-        return String(template).replace('{0}', arg);
+    function _qiFmt(template) {
+        let s = String(template);
+        for (let i = 1; i < arguments.length; i++) {
+            s = s.split('{' + (i - 1) + '}').join(arguments[i]);
+        }
+        return s;
     }
     </script>
 

@@ -19,6 +19,10 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 | [Risk Trend](Risk-Trend.md) | Historical charts, AI insights, scan limit |
 | [Version Diff](Version-Diff.md) | Comparing two versions side-by-side |
 | [Administration](Administration.md) | User management, roles, audit logs, security & SMTP settings |
+| [Authorization layers](Authorization-Layers.md) | Role templates vs project membership (who can access what) |
+| [Project access control](Project-Access-Control.md) | Technical ACL reference for developers |
+| [Production deployment](Production-Deployment-Checklist.md) | Pre-launch checklist for `prod` profile |
+| [Scan API security](Scan-Api-Security.md) | How CLI scan submission is protected |
 | [API Reference](API-Reference.md) | Full REST endpoint catalogue |
 | [Glossary](Glossary.md) | Definitions of all OsWL terms |
 
@@ -54,6 +58,8 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 
 ## Getting Help
 
-* **Swagger UI**: `http://<host>:8080/swagger-ui.html`
-* **H2 Console** (local only): `http://localhost:8080/h2-console`
+* **Swagger UI** (local profile only): `http://localhost:8080/swagger-ui.html`
+* **H2 Console** (local profile only): `http://localhost:8080/h2-console`
 * **Issues**: [GitHub Issues](https://github.com/SalkCoding/Oswl/issues)
+
+For production, API docs and the H2 console are disabled; use this documentation and [API Reference](API-Reference.md).

@@ -340,11 +340,35 @@
                 <div x-show="open" x-collapse
                      class="px-[20px] pb-[20px] flex flex-col gap-[16px]">
                     <div th:if="${cve.aiSummary}" class="bg-[rgba(51,209,183,0.08)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
-                        <div class="flex items-center gap-[6px]">
+                        <div class="flex items-center gap-[6px] flex-wrap">
                             <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                             <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.aiSummary}">AI Plain Summary</p>
+                            <span th:if="${cve.aiPriority}"
+                                  class="ml-auto bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[10px] py-[2px] rounded-[40px] text-[11px] font-semibold text-[var(--grayscale-80)]"
+                                  th:text="${cve.aiPriority}">P0</span>
                         </div>
                         <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.aiSummary}"></p>
+                        <p th:if="${cve.aiRecommendedAction}" class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.5]">
+                            <span class="font-medium" th:text="#{componentDetail.cve.aiAction} + ':'">Action:</span>
+                            <span th:text="${cve.aiRecommendedAction}"></span>
+                        </p>
+                        <div class="flex flex-wrap gap-[8px] pt-[4px]">
+                            <button type="button"
+                                    th:attr="data-cve-db-id=${cve.cveDbId}"
+                                    onclick="window.oswlRegenerateCveAi && window.oswlRegenerateCveAi(this)"
+                                    class="px-[12px] py-[6px] rounded-[8px] border border-[var(--grayscale-20)] bg-white text-[12px] font-medium text-[var(--grayscale-80)] hover:border-[var(--primary-120)] transition-colors"
+                                    th:text="#{componentDetail.cve.aiRegenerate}">Regenerate AI summary</button>
+                            <button type="button"
+                                    th:attr="data-cve-id=${cve.id}"
+                                    onclick="window.oswlAiFeedback && window.oswlAiFeedback(this, true)"
+                                    class="px-[10px] py-[6px] rounded-[8px] border border-[var(--grayscale-20)] bg-white text-[12px] text-[var(--grayscale-70)] hover:border-[var(--primary-120)] transition-colors"
+                                    th:text="#{componentDetail.cve.aiHelpful}">Helpful</button>
+                            <button type="button"
+                                    th:attr="data-cve-id=${cve.id}"
+                                    onclick="window.oswlAiFeedback && window.oswlAiFeedback(this, false)"
+                                    class="px-[10px] py-[6px] rounded-[8px] border border-[var(--grayscale-20)] bg-white text-[12px] text-[var(--grayscale-70)] hover:border-[var(--grayscale-20)] transition-colors"
+                                    th:text="#{componentDetail.cve.aiNotHelpful}">Not helpful</button>
+                        </div>
                     </div>
                     <div th:if="${cve.aiSummary == null and cve.summary != null}" class="bg-[var(--grayscale-5)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
                         <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.summary}">Summary</p>
@@ -633,5 +657,36 @@
         </div>
     </section>
 
+    <script th:inline="javascript">
+    (function () {
+        const projectId = /*[[${projectId}]]*/ 0;
+        const componentId = /*[[${componentId}]]*/ 0;
+        window.oswlRegenerateCveAi = async function (btn) {
+            const cveDbId = btn.getAttribute('data-cve-db-id');
+            if (!cveDbId) return;
+            btn.disabled = true;
+            try {
+                const r = await fetch(`/projects/${projectId}/components/${componentId}/cves/${cveDbId}/ai-summarize`, {
+                    method: 'POST',
+                    headers: window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}
+                });
+                if (r.ok) location.reload();
+            } finally {
+                btn.disabled = false;
+            }
+        };
+        window.oswlAiFeedback = async function (btn, helpful) {
+            const cveId = btn.getAttribute('data-cve-id');
+            if (!cveId) return;
+            await fetch('/api/ai/feedback', {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' },
+                    window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}),
+                body: JSON.stringify({ targetType: 'CVE', targetKey: cveId, helpful: helpful })
+            });
+            btn.disabled = true;
+        };
+    })();
+    </script>
 
 </div>

@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ProjectVersion;
+import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
@@ -331,6 +332,16 @@ public class ProjectService {
             }
         }
         return new int[]{critical, high, unknown, low};
+    }
+
+    @Transactional
+    public void updateDeploymentProfile(Long projectId, DeploymentProfile profile) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        project.updateDeploymentProfile(profile);
+        projectRepository.save(project);
+        auditLogService.log("PROJECT.DEPLOYMENT_PROFILE", "PROJECT",
+                String.valueOf(projectId), project.getName(), profile.name());
     }
 
     private static final DateTimeFormatter DELETED_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd");

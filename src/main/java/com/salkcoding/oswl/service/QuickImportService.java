@@ -50,11 +50,16 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Orchestrates the Quick Import flow:
@@ -93,6 +98,9 @@ public class QuickImportService {
     @Value("${oswl.clone.temp-dir:}")
     private String configuredTempDir;
 
+    @Value("${oswl.quick-import.max-concurrent:2}")
+    private int maxConcurrentImports;
+
     private volatile Path cloneBaseReal;
 
     private final GitCloneExecutor gitCloneExecutor;
@@ -114,12 +122,19 @@ public class QuickImportService {
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
     /** Tracks job creation times for TTL-based eviction. */
     private final ConcurrentHashMap<String, Instant> jobCreatedAt = new ConcurrentHashMap<>();
-    /** Prevents concurrent imports for the same user (at most one active job per user). */
-    private final ConcurrentHashMap<Long, String> activeJobByUser = new ConcurrentHashMap<>();
     /** Job owner — used to prevent cross-user status polling (IDOR). */
     private final ConcurrentHashMap<String, Long> jobOwners = new ConcurrentHashMap<>();
     /** Tracks whether the full API token was already returned once on DONE. */
     private final ConcurrentHashMap<String, Boolean> apiTokenRevealed = new ConcurrentHashMap<>();
+    /** Per-user job IDs (most recent last) for multi-import UI. */
+    private final ConcurrentHashMap<Long, CopyOnWriteArrayList<String>> userJobIds = new ConcurrentHashMap<>();
+    /** FIFO queue waiting for a worker slot. */
+    private final Deque<PendingImport> pendingQueue = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private final AtomicInteger runningImports = new AtomicInteger(0);
+    private final Object dispatchLock = new Object();
+    private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> jobEmitters = new ConcurrentHashMap<>();
+
+    private record PendingImport(String jobId, String repoUrl, String branch, Long userId, String repoLabel) {}
 
     // ── Public API ────────────────────────────────────────────────────────
 
@@ -132,49 +147,96 @@ public class QuickImportService {
      * @return job ID (UUID string)
      */
     public String startImport(String repoUrl, String branch, Long userId) {
-        // Reject if the user already has a non-terminal job in flight
-        String existingJobId = activeJobByUser.get(userId);
-        if (existingJobId != null) {
-            QuickImportJobStatus existing = jobs.get(existingJobId);
-            if (existing != null && existing.getPhase() != Phase.DONE && existing.getPhase() != Phase.FAILED) {
-                log.info("[QuickImport] User {} already has active job {}, returning it", userId, existingJobId);
-                return existingJobId;
-            }
-            activeJobByUser.remove(userId);
-        }
-
         String jobId = UUID.randomUUID().toString();
-        jobs.put(jobId, QuickImportJobStatus.builder()
-                .jobId(jobId)
+        String repoLabel = extractRepoLabel(repoUrl);
+        int queuePosition = pendingQueue.size() + runningImports.get() + 1;
+
+        jobs.put(jobId, baseJobBuilder(jobId)
                 .phase(Phase.QUEUED)
-                .message("Import queued…")
+                .message(queuedMessage(queuePosition))
+                .repoLabel(repoLabel)
+                .queuePosition(queuePosition)
+                .percent(0)
                 .build());
         jobCreatedAt.put(jobId, Instant.now());
         jobOwners.put(jobId, userId);
-        activeJobByUser.put(userId, jobId);
+        userJobIds.computeIfAbsent(userId, id -> new CopyOnWriteArrayList<>()).add(jobId);
+        notifyJobUpdate(jobId);
 
-        log.info("[QuickImport][{}] Job queued userId={} repo={}", jobId, userId,
-                repoUrl.replaceAll("(https?://)([^@/]+@)", "$1***@"));
+        log.info("[QuickImport][{}] Job queued userId={} repo={} queuePos={}", jobId, userId,
+                repoUrl.replaceAll("(https?://)([^@/]+@)", "$1***@"), queuePosition);
 
-        Thread.ofVirtual().name("quick-import-" + jobId).start(() -> {
-            try {
-                runImport(jobId, repoUrl, branch, userId);
-            } catch (com.salkcoding.oswl.exception.ConflictException e) {
-                log.warn("[QuickImport][{}] Blocked by CLI key policy: {}", jobId, e.getMessage());
-                updateJob(jobId, Phase.FAILED, e.getMessage(),
-                        null, null, null, null, null, null);
-            } catch (Throwable t) {
-                log.error("[QuickImport][{}] Unhandled error", jobId, t);
-                String msg = messageSource.getMessage("quickImport.error.unexpected",
-                        null, LocaleContextHolder.getLocale());
-                updateJob(jobId, Phase.FAILED, msg,
-                        null, null, null, null, null, null);
-            } finally {
-                activeJobByUser.remove(userId, jobId);
-            }
-        });
+        String safeRepo = repoUrl.replaceAll("(https?://)([^@/]+@)", "$1***@");
+        auditLogService.log("QUICK_IMPORT.START", "PROJECT", null, safeRepo,
+                "jobId=" + jobId + " branch=" + (branch != null && !branch.isBlank() ? branch : "default"));
+
+        pendingQueue.offer(new PendingImport(jobId, repoUrl, branch, userId, repoLabel));
+        refreshQueuePositions();
+        dispatchQueue();
 
         return jobId;
+    }
+
+    public List<QuickImportJobStatus> listJobsForUser(Long userId) {
+        CopyOnWriteArrayList<String> ids = userJobIds.get(userId);
+        if (ids == null || ids.isEmpty()) return List.of();
+        return ids.stream()
+                .map(id -> sanitizeApiToken(id, resolveJobStatus(id)))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    public SseEmitter subscribeJobStream(String jobId, Long userId) {
+        if (!isJobOwner(jobId, userId)) {
+            throw new IllegalArgumentException("Job not found");
+        }
+        SseEmitter emitter = new SseEmitter(Duration.ofMinutes(30).toMillis());
+        jobEmitters.computeIfAbsent(jobId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+        emitter.onCompletion(() -> removeEmitter(jobId, emitter));
+        emitter.onTimeout(() -> removeEmitter(jobId, emitter));
+        emitter.onError(e -> removeEmitter(jobId, emitter));
+        try {
+            QuickImportJobStatus status = sanitizeApiToken(jobId, resolveJobStatus(jobId));
+            emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
+        } catch (Exception e) {
+            emitter.completeWithError(e);
+        }
+        return emitter;
+    }
+
+    private void dispatchQueue() {
+        synchronized (dispatchLock) {
+            while (runningImports.get() < maxConcurrentImports && !pendingQueue.isEmpty()) {
+                PendingImport task = pendingQueue.poll();
+                if (task == null) break;
+                runningImports.incrementAndGet();
+                refreshQueuePositions();
+                Thread.ofVirtual().name("quick-import-" + task.jobId()).start(() -> executeImport(task));
+            }
+        }
+    }
+
+    private void executeImport(PendingImport task) {
+        String jobId = task.jobId();
+        try {
+            patchJob(jobId, b -> b.phase(Phase.CLONING)
+                    .message("Starting " + task.repoLabel() + "…")
+                    .queuePosition(null)
+                    .percent(phasePercent(Phase.CLONING, null)));
+            runImport(jobId, task.repoUrl(), task.branch(), task.userId());
+        } catch (com.salkcoding.oswl.exception.ConflictException e) {
+            log.warn("[QuickImport][{}] Blocked by CLI key policy: {}", jobId, e.getMessage());
+            updateJob(jobId, Phase.FAILED, e.getMessage(), null, null, null, null, null, null);
+        } catch (Throwable t) {
+            log.error("[QuickImport][{}] Unhandled error", jobId, t);
+            String msg = messageSource.getMessage("quickImport.error.unexpected",
+                    null, LocaleContextHolder.getLocale());
+            updateJob(jobId, Phase.FAILED, msg, null, null, null, null, null, null);
+        } finally {
+            runningImports.decrementAndGet();
+            refreshQueuePositions();
+            dispatchQueue();
+        }
     }
 
     /**
@@ -197,50 +259,56 @@ public class QuickImportService {
         QuickImportJobStatus job = jobs.get(jobId);
         if (job == null) return null;
 
-        // While in ENRICHING, check the ScanResult status and advance to DONE/FAILED once complete.
-        if (job.getPhase() == Phase.ENRICHING && job.getScanResultId() != null) {
-            // Read live progress message from enrichment pipeline
-            String progressMsg = enrichmentProgressHolder.get(job.getScanResultId());
-            return scanResultRepository.findById(job.getScanResultId())
+        final QuickImportJobStatus current = job.toBuilder()
+                .activeSlotsUsed(runningImports.get())
+                .maxConcurrentSlots(maxConcurrentImports)
+                .build();
+
+        if (current.getPhase() == Phase.ENRICHING && current.getScanResultId() != null) {
+            EnrichmentProgressHolder.Snapshot enrich =
+                    enrichmentProgressHolder.getSnapshot(current.getScanResultId());
+            return scanResultRepository.findById(current.getScanResultId())
                     .map(sr -> {
                         if (sr.getStatus() == ScanStatus.COMPLETED) {
-                            QuickImportJobStatus done = QuickImportJobStatus.builder()
-                                    .jobId(job.getJobId()).phase(Phase.DONE)
-                                    .message("Import complete \u2014 " + job.getComponentCount() + " components scanned.")
-                                    .projectId(job.getProjectId()).projectName(job.getProjectName())
-                                    .apiToken(job.getApiToken()).newApiKey(job.getNewApiKey())
-                                    .ecosystem(job.getEcosystem()).componentCount(job.getComponentCount())
+                            QuickImportJobStatus done = current.toBuilder()
+                                    .phase(Phase.DONE)
+                                    .message("Import complete \u2014 " + current.getComponentCount() + " components scanned.")
+                                    .percent(100)
+                                    .queuePosition(null)
+                                    .subPhase(null)
                                     .build();
                             jobs.put(jobId, done);
+                            notifyJobUpdate(jobId);
                             return done;
                         } else if (sr.getStatus() == ScanStatus.FAILED) {
-                            QuickImportJobStatus failed = QuickImportJobStatus.builder()
-                                    .jobId(job.getJobId()).phase(Phase.FAILED)
+                            QuickImportJobStatus failed = current.toBuilder()
+                                    .phase(Phase.FAILED)
                                     .message("Enrichment failed.")
-                                    .projectId(job.getProjectId()).projectName(job.getProjectName())
-                                    .apiToken(job.getApiToken()).newApiKey(job.getNewApiKey())
-                                    .ecosystem(job.getEcosystem()).componentCount(job.getComponentCount())
                                     .error("Enrichment pipeline failed.")
                                     .build();
                             jobs.put(jobId, failed);
+                            notifyJobUpdate(jobId);
                             return failed;
                         }
-                        // Still running — return job with live progress message if available
-                        if (progressMsg != null) {
-                            return QuickImportJobStatus.builder()
-                                    .jobId(job.getJobId()).phase(Phase.ENRICHING)
-                                    .message(progressMsg)
-                                    .projectId(job.getProjectId()).projectName(job.getProjectName())
-                                    .apiToken(job.getApiToken()).newApiKey(job.getNewApiKey())
-                                    .ecosystem(job.getEcosystem()).componentCount(job.getComponentCount())
-                                    .scanResultId(job.getScanResultId())
-                                    .build();
+                        QuickImportJobStatus.QuickImportJobStatusBuilder enriching = current.toBuilder();
+                        if (enrich != null) {
+                            enriching.message(enrich.message())
+                                    .subPhase(enrich.subPhase() != null ? enrich.subPhase().name() : null)
+                                    .detailLines(enrich.detailLines())
+                                    .aiPreviews(enrich.aiPreviews())
+                                    .percent(enrichingPercent(enrich.percent()));
                         }
-                        return job; // still running, no progress update yet
+                        QuickImportJobStatus live = enriching.build();
+                        jobs.put(jobId, live);
+                        return live;
                     })
-                    .orElse(job);
+                    .orElse(current);
         }
-        return job;
+        return current;
+    }
+
+    private static int enrichingPercent(int enrichStepPercent) {
+        return 60 + (enrichStepPercent * 35 / 100);
     }
 
     /**
@@ -1684,8 +1752,8 @@ public class QuickImportService {
     }
 
     private boolean hasCsprojFiles(Path dir) {
-        try (Stream<Path> stream = Files.list(dir)) {
-            return stream.anyMatch(p -> p.getFileName().toString().endsWith(".csproj"));
+        try (Stream<Path> walk = Files.walk(dir, 8)) {
+            return walk.anyMatch(p -> p.getFileName().toString().endsWith(".csproj"));
         } catch (IOException e) {
             return false;
         }
@@ -1807,18 +1875,107 @@ public class QuickImportService {
                            String apiToken, Boolean newApiKey,
                            String ecosystem, Integer componentCount,
                            Long scanResultId) {
-        jobs.put(jobId, QuickImportJobStatus.builder()
+        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
+                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        patchJob(jobId, b -> {
+            b.phase(phase).message(message)
+                    .projectId(projectId).projectName(projectName)
+                    .apiToken(apiToken).newApiKey(newApiKey)
+                    .ecosystem(ecosystem).componentCount(componentCount)
+                    .scanResultId(scanResultId)
+                    .queuePosition(phase == Phase.QUEUED ? prev.getQueuePosition() : null)
+                    .percent(phasePercent(phase, scanResultId));
+            if (prev.getRepoLabel() != null) b.repoLabel(prev.getRepoLabel());
+        });
+    }
+
+    private void patchJob(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
+        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
+                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        QuickImportJobStatus.QuickImportJobStatusBuilder builder = prev.toBuilder();
+        patch.accept(builder);
+        builder.activeSlotsUsed(runningImports.get()).maxConcurrentSlots(maxConcurrentImports);
+        QuickImportJobStatus next = builder.build();
+        jobs.put(jobId, next);
+        notifyJobUpdate(jobId);
+    }
+
+    private QuickImportJobStatus.QuickImportJobStatusBuilder baseJobBuilder(String jobId) {
+        return QuickImportJobStatus.builder()
                 .jobId(jobId)
-                .phase(phase)
-                .message(message)
-                .projectId(projectId)
-                .projectName(projectName)
-                .apiToken(apiToken)
-                .newApiKey(newApiKey)
-                .ecosystem(ecosystem)
-                .componentCount(componentCount)
-                .scanResultId(scanResultId)
-                .build());
+                .activeSlotsUsed(runningImports.get())
+                .maxConcurrentSlots(maxConcurrentImports);
+    }
+
+    private void refreshQueuePositions() {
+        int position = runningImports.get() + 1;
+        for (PendingImport pending : pendingQueue) {
+            QuickImportJobStatus job = jobs.get(pending.jobId());
+            if (job != null && job.getPhase() == Phase.QUEUED) {
+                jobs.put(pending.jobId(), job.toBuilder()
+                        .queuePosition(position)
+                        .message(queuedMessage(position))
+                        .percent(0)
+                        .activeSlotsUsed(runningImports.get())
+                        .build());
+                notifyJobUpdate(pending.jobId());
+            }
+            position++;
+        }
+    }
+
+    private String queuedMessage(int position) {
+        if (position <= maxConcurrentImports) {
+            return messageSource.getMessage("quickImport.queue.next",
+                    new Object[]{position}, "Starting soon…", LocaleContextHolder.getLocale());
+        }
+        int wait = position - maxConcurrentImports;
+        return messageSource.getMessage("quickImport.queue.waiting",
+                new Object[]{wait}, "Waiting in queue (#" + wait + ")…", LocaleContextHolder.getLocale());
+    }
+
+    private static int phasePercent(Phase phase, Long scanResultId) {
+        return switch (phase) {
+            case QUEUED -> 0;
+            case CLONING -> 12;
+            case PARSING -> 35;
+            case SCANNING -> 55;
+            case ENRICHING -> 60;
+            case DONE -> 100;
+            case FAILED -> 0;
+        };
+    }
+
+    private static String extractRepoLabel(String repoUrl) {
+        try {
+            String path = URI.create(repoUrl.strip()).getPath();
+            if (path != null && path.length() > 1) {
+                return path.startsWith("/") ? path.substring(1) : path;
+            }
+        } catch (Exception ignored) { }
+        return repoUrl.length() > 48 ? repoUrl.substring(0, 45) + "…" : repoUrl;
+    }
+
+    private void notifyJobUpdate(String jobId) {
+        CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.get(jobId);
+        if (emitters == null || emitters.isEmpty()) return;
+        Long owner = jobOwners.get(jobId);
+        QuickImportJobStatus status = owner != null
+                ? sanitizeApiToken(jobId, resolveJobStatus(jobId))
+                : jobs.get(jobId);
+        if (status == null) return;
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
+            } catch (Exception e) {
+                removeEmitter(jobId, emitter);
+            }
+        }
+    }
+
+    private void removeEmitter(String jobId, SseEmitter emitter) {
+        CopyOnWriteArrayList<SseEmitter> list = jobEmitters.get(jobId);
+        if (list != null) list.remove(emitter);
     }
 
     /** Removes jobs older than 30 minutes from memory. Runs every 5 minutes. */
@@ -1827,15 +1984,42 @@ public class QuickImportService {
         Instant cutoff = Instant.now().minus(Duration.ofMinutes(30));
         jobCreatedAt.entrySet().removeIf(entry -> {
             if (entry.getValue().isBefore(cutoff)) {
-                String jobId = entry.getKey();
-                jobs.remove(jobId);
-                jobOwners.remove(jobId);
-                apiTokenRevealed.remove(jobId);
-                log.debug("[QuickImport] Evicted expired job {}", jobId);
+                purgeJobFromMemory(entry.getKey());
                 return true;
             }
             return false;
         });
+    }
+
+    /** Drops all in-memory references for a job (status, SSE, per-user index). */
+    private void purgeJobFromMemory(String jobId) {
+        disposeJobEmitters(jobId);
+        Long ownerId = jobOwners.get(jobId);
+        if (ownerId != null) {
+            CopyOnWriteArrayList<String> ids = userJobIds.get(ownerId);
+            if (ids != null) {
+                ids.remove(jobId);
+                if (ids.isEmpty()) {
+                    userJobIds.remove(ownerId, ids);
+                }
+            }
+        }
+        jobs.remove(jobId);
+        jobOwners.remove(jobId);
+        apiTokenRevealed.remove(jobId);
+        log.debug("[QuickImport] Evicted expired job {}", jobId);
+    }
+
+    private void disposeJobEmitters(String jobId) {
+        CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.remove(jobId);
+        if (emitters == null) return;
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.complete();
+            } catch (Exception ignored) {
+                // already closed or timed out
+            }
+        }
     }
 
 }

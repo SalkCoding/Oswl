@@ -27,7 +27,7 @@ Fill in:
 | **Access Token** | PAT or App Password with `repo` / `read_repository` scope |
 
 OsWL immediately validates the token against the provider's API and shows your authenticated username.  
-The token is stored **encrypted** (AES-256-GCM) using `OSWL_ENCRYPTION_KEY`.
+The token is stored **encrypted at rest** using the instance encryption key (`OSWL_ENCRYPTION_KEY` in production).
 
 > Required permission: `SETTINGS_VCS_MANAGE` or System Admin.
 

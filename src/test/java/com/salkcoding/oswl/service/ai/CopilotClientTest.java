@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.context.MessageSource;
 
@@ -33,8 +36,11 @@ class CopilotClientTest {
 
     @BeforeEach
     void setUp() {
+        AiPreferencesRepository prefsRepo = mock(AiPreferencesRepository.class);
+        when(prefsRepo.findById(AiPreferences.SINGLETON_ID)).thenReturn(Optional.of(
+                AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0)));
         AiPromptTemplateService prompts = new AiPromptTemplateService(
-                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+                new DefaultResourceLoader(), prefsRepo, "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
         MessageSource messageSource = mock(MessageSource.class);
         when(messageSource.getMessage(anyString(), isNull(), anyString(), any(Locale.class)))

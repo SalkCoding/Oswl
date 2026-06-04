@@ -79,13 +79,13 @@ class QuickImportServiceTest {
     }
 
     @Test
-    @DisplayName("startImport: 동일 user가 활성 작업 중이면 기존 jobId를 재사용한다")
-    void startImport_activeJobExists_reusesSameJobId() {
+    @DisplayName("startImport: 동일 user가 연속으로 시작해도 jobId는 각각 새로 발급된다")
+    void startImport_activeJobExists_createsDistinctJobIds() {
         String jobId1 = quickImportService.startImport("https://github.com/user/repo", "main", 2L);
-        // Job was created and is still in QUEUED state
         String jobId2 = quickImportService.startImport("https://github.com/user/repo2", "dev", 2L);
 
-        assertThat(jobId2).isEqualTo(jobId1);
+        assertThat(jobId2).isNotEqualTo(jobId1);
+        assertThat(quickImportService.listJobsForUser(2L)).hasSize(2);
     }
 
     @Test

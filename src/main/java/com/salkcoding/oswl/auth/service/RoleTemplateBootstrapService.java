@@ -30,7 +30,9 @@ public class RoleTemplateBootstrapService {
                         Permission.SCAN_HISTORY_VIEW,
                         Permission.SECURITY_CENTER_VIEW,
                         Permission.SECURITY_CENTER_UPDATE_STATUS,
+                        Permission.SECURITY_CENTER_EXPORT,
                         Permission.LICENSE_VIEW,
+                        Permission.LICENSE_EXPORT,
                         Permission.COMPONENT_DETAIL_VIEW,
                         Permission.VERSION_DIFF_VIEW,
                         Permission.RISK_TREND_VIEW,
@@ -45,6 +47,7 @@ public class RoleTemplateBootstrapService {
                         Permission.SCAN_HISTORY_VIEW,
                         Permission.SECURITY_CENTER_VIEW,
                         Permission.LICENSE_VIEW,
+                        Permission.LICENSE_EXPORT,
                         Permission.COMPONENT_DETAIL_VIEW,
                         Permission.VERSION_DIFF_VIEW,
                         Permission.RISK_TREND_VIEW

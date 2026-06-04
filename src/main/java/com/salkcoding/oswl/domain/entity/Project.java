@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.domain.entity;
 
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -87,6 +88,11 @@ public class Project {
     @Column(name = "created_by_user_id")
     private Long createdByUserId;
 
+    /** Product deployment context for AI triage (nullable → global default from AI preferences). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deployment_profile", length = 40)
+    private DeploymentProfile deploymentProfile;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -145,5 +151,9 @@ public class Project {
 
     public void restore() {
         this.deletedAt = null;
+    }
+
+    public void updateDeploymentProfile(DeploymentProfile profile) {
+        this.deploymentProfile = profile;
     }
 }

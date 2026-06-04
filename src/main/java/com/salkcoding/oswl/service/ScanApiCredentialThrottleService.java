@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.exception.TooManyRequestsException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -84,6 +85,7 @@ public class ScanApiCredentialThrottleService {
             prune(window.events, failureWindowMs);
             window.events.addLast(Instant.now());
         }
+        purgeIdleWindow(key, failureWindows, failureWindowMs);
     }
 
     private static void assertAllowed(String key, ConcurrentHashMap<String, Window> map,
@@ -97,6 +99,43 @@ public class ScanApiCredentialThrottleService {
             }
             window.events.addLast(Instant.now());
         }
+        purgeIdleWindow(key, map, windowMs);
+    }
+
+    /** Drops map entries whose sliding window has no recent events (prevents unbounded key growth). */
+    private static void purgeIdleWindow(String key, ConcurrentHashMap<String, Window> map, long windowMs) {
+        Window window = map.get(key);
+        if (window == null) return;
+        synchronized (window) {
+            prune(window.events, windowMs);
+            if (window.events.isEmpty()) {
+                map.remove(key, window);
+            }
+        }
+    }
+
+    @Scheduled(fixedDelay = 3_600_000)
+    void purgeStaleThrottleWindows() {
+        int removed = 0;
+        removed += purgeMap(failureWindows, failureWindowMs);
+        removed += purgeMap(requestWindows, requestWindowMs);
+        if (removed > 0) {
+            log.debug("[ScanApiThrottle] Purged {} idle rate-limit window(s)", removed);
+        }
+    }
+
+    private static int purgeMap(ConcurrentHashMap<String, Window> map, long windowMs) {
+        int count = 0;
+        for (var entry : map.entrySet()) {
+            Window window = entry.getValue();
+            synchronized (window) {
+                prune(window.events, windowMs);
+                if (window.events.isEmpty() && map.remove(entry.getKey(), window)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private static String requestKey(Long projectId, String email) {

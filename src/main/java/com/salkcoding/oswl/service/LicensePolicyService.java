@@ -35,6 +35,7 @@ public class LicensePolicyService {
 
     /** In-memory cache: SPDX ID (upper-case) → LicenseStatus */
     private final Map<String, LicenseStatus> policyCache = new ConcurrentHashMap<>();
+    private final Map<String, String> reasonCache = new ConcurrentHashMap<>();
 
     // ── Default policy lists ─────────────────────────────────────────────
 
@@ -65,9 +66,39 @@ public class LicensePolicyService {
     /** Reloads the in-memory map from the database. */
     public void refreshCache() {
         policyCache.clear();
+        reasonCache.clear();
         licensePolicyRepository.findAll()
-                .forEach(entry -> policyCache.put(entry.getSpdxId().toUpperCase(), entry.getStatus()));
+                .forEach(entry -> {
+                    String key = entry.getSpdxId().toUpperCase();
+                    policyCache.put(key, entry.getStatus());
+                    if (entry.getReason() != null && !entry.getReason().isBlank()) {
+                        reasonCache.put(key, entry.getReason().strip());
+                    }
+                });
         log.info("[LicensePolicyService] Cache loaded with {} entries", policyCache.size());
+    }
+
+    /** Organization policy rationale for AI prompts (best-effort for SPDX expressions). */
+    public String policyReason(String spdxExpression) {
+        if (spdxExpression == null || spdxExpression.isBlank()) {
+            return "No license identifier";
+        }
+        String baseId = extractBaseSpdxId(spdxExpression.trim());
+        String reason = reasonCache.get(baseId.toUpperCase());
+        if (reason != null) return reason;
+        return switch (classify(spdxExpression)) {
+            case RESTRICTED -> "Restricted by organization policy (strong copyleft or commercial limits)";
+            case CAUTION -> "Requires legal review (weak copyleft or notice obligations)";
+            case PERMITTED -> "Permitted by organization policy";
+            case UNKNOWN -> "Unknown license — requires manual classification";
+        };
+    }
+
+    private static String extractBaseSpdxId(String expr) {
+        if (expr.contains(" OR ")) expr = expr.split(" OR ")[0].trim();
+        if (expr.contains(" AND ")) expr = expr.split(" AND ")[0].trim();
+        if (expr.contains(" WITH ")) expr = expr.split(" WITH ")[0].trim();
+        return expr.replace("(", "").replace(")", "").trim();
     }
 
     // ── Classification ────────────────────────────────────────────────────

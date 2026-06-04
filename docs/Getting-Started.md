@@ -56,7 +56,7 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ./gradlew bootRun
 ```
 
-> ⚠️ **`OSWL_ENCRYPTION_KEY`** — a 32-byte Base64 key used to encrypt stored VCS access tokens. In `local` mode a dummy key is used automatically. In `prod` you **must** set this to a stable, secret value; losing it makes previously stored VCS credentials unrecoverable.
+> **`OSWL_ENCRYPTION_KEY`** — protects stored secrets such as VCS tokens. In `local`, a development key may be generated automatically. In **`prod`**, you **must** set a stable value before startup; the application will not start without it. Losing the key makes previously stored VCS credentials unusable.
 
 The application starts on port **8080** by default.
 
@@ -111,6 +111,11 @@ GET http://localhost:8080/data/test-api-key
 ```
 
 ---
+
+## Access control (recommended reading)
+
+* [Authorization layers](Authorization-Layers.md) — role templates (Admin / Developer / Viewer) vs project membership
+* [Production deployment checklist](Production-Deployment-Checklist.md) — before going live with `prod`
 
 ## Next Steps
 

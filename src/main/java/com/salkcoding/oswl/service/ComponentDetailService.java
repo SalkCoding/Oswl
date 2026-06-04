@@ -6,18 +6,27 @@ import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.client.EpssClient;
+import com.salkcoding.oswl.client.KevCatalogService;
+import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
+import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.CveDto;
 import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.dto.DependencyPathDto;
+import com.salkcoding.oswl.repository.CveRepository;
 import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
+import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.service.ai.AiEnrichmentContextBuilder;
+import com.salkcoding.oswl.service.ai.AiPreferencesService;
+import com.salkcoding.oswl.service.ai.AiStructuredSummary;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -48,6 +57,75 @@ public class ComponentDetailService {
     private final BitbucketService                 bitbucketService;
     private final UserVcsConnectionRepository      vcsConnectionRepository;
     private final EncryptionService                encryptionService;
+    private final CveRepository                    cveRepository;
+    private final AiAnalysisService                aiAnalysisService;
+    private final AiPreferencesService               aiPreferencesService;
+    private final KevCatalogService                kevCatalogService;
+    private final EpssClient                       epssClient;
+
+    @Transactional
+    public CveDto regenerateCveAiSummary(Long projectId, Long componentId, Long cveDbId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        ScanComponent sc = scanComponentRepository
+                .findByIdAndProjectIdWithCves(componentId, projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Component not found: " + componentId));
+        Library lib = sc.getLibrary();
+        Cve cve = lib.getCves().stream()
+                .filter(c -> c.getId().equals(cveDbId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("CVE not found on component: " + cveDbId));
+
+        String cveId = cve.getCveId() != null ? cve.getCveId() : cve.getGhsaId();
+        if (cve.getCveId() != null) {
+            var epss = epssClient.fetchScores(List.of(cve.getCveId()));
+            cve.setThreatIntel(epss.get(cve.getCveId().toUpperCase()),
+                    kevCatalogService.isListed(cve.getCveId()));
+            cveRepository.save(cve);
+        }
+
+        String deployment = project.getDeploymentProfile() != null
+                ? project.getDeploymentProfile().name()
+                : aiPreferencesService.getEffective().getDefaultDeploymentProfile().name();
+
+        var request = new AiAnalysisService.CveSummaryRequest(
+                cveId != null ? cveId : "unknown",
+                cve.getSeverity() != null ? cve.getSeverity().name() : "NONE",
+                cve.getCvssScore() != null ? cve.getCvssScore() : 0.0,
+                lib.getName() + " " + lib.getVersion(),
+                cve.getTitle(), cve.getSummary(), cve.getFixVersion(),
+                cve.getCweId(), cve.getCvss3Vector(),
+                "direct", lib.computePatchability().name(),
+                cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()));
+
+        AiStructuredSummary.ParsedEntry entry =
+                aiAnalysisService.summarizeCveStructured(request, deployment);
+        if (entry == null) {
+            throw new IllegalStateException("AI summary could not be generated. Check AI settings and daily cap.");
+        }
+        cve.setAiTriage(entry.summary(), entry.priority(), entry.recommendedAction());
+        cveRepository.save(cve);
+        auditLogService.log("COMPONENT.CVE_AI_REGENERATE", "CVE",
+                String.valueOf(cveDbId), cveId, entry.priority());
+
+        return CveDto.builder()
+                .id(cveId)
+                .ghsaId(cve.getGhsaId())
+                .title(cve.getTitle())
+                .severity(cve.getSeverity() != null ? cve.getSeverity().name() : "NONE")
+                .cvssScore(cve.getCvssScore() != null ? cve.getCvssScore() : 0.0)
+                .cvss3Vector(cve.getCvss3Vector())
+                .cweId(cve.getCweId())
+                .summary(cve.getSummary())
+                .fixVersion(cve.getFixVersion())
+                .aiSummary(cve.getAiSummary())
+                .aiPriority(cve.getAiPriority())
+                .aiRecommendedAction(cve.getAiRecommendedAction())
+                .epssScore(cve.getEpssScore())
+                .kevListed(cve.getKevListed())
+                .cveDbId(cve.getId())
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public void populateModel(Long projectId, Long componentId, Model model) {
@@ -153,6 +231,11 @@ public class ComponentDetailService {
                         .summary(c.getSummary())
                         .fixVersion(c.getFixVersion())
                         .aiSummary(c.getAiSummary())
+                        .aiPriority(c.getAiPriority())
+                        .aiRecommendedAction(c.getAiRecommendedAction())
+                        .epssScore(c.getEpssScore())
+                        .kevListed(c.getKevListed())
+                        .cveDbId(c.getId())
                         .build())
                 .collect(Collectors.toList());
         model.addAttribute("cves", cveDtos);

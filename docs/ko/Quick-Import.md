@@ -27,7 +27,7 @@ Quick Import를 사용하면 CLI 코드 작성 없이 VCS(Version Control System
 | **액세스 토큰** | `repo` / `read_repository` 권한이 있는 PAT 또는 App Password |
 
 OsWL이 즉시 제공업체 API에 대해 토큰을 검증하고 인증된 사용자 이름을 표시합니다.  
-토큰은 `OSWL_ENCRYPTION_KEY`를 사용하여 **암호화**(AES-256-GCM)되어 저장됩니다.
+토큰은 인스턴스 암호화 키(`OSWL_ENCRYPTION_KEY`, 운영 환경 필수)로 **저장 시 암호화**됩니다.
 
 > 필요 권한: `SETTINGS_VCS_MANAGE` 또는 시스템 관리자.
 

@@ -15,11 +15,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Locale;
@@ -107,5 +109,22 @@ public class QuickImportController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(status);
+    }
+
+    @GetMapping("/api/quick-import/jobs")
+    @ResponseBody
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<List<QuickImportJobStatus>> listJobs(
+            @AuthenticationPrincipal OswlUserPrincipal principal) {
+        return ResponseEntity.ok(quickImportService.listJobsForUser(principal.getUserId()));
+    }
+
+    @GetMapping(value = "/api/quick-import/job/{jobId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @ResponseBody
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
+    public SseEmitter jobStream(
+            @PathVariable String jobId,
+            @AuthenticationPrincipal OswlUserPrincipal principal) {
+        return quickImportService.subscribeJobStream(jobId, principal.getUserId());
     }
 }

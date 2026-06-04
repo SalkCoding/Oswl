@@ -1,8 +1,10 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -29,17 +32,21 @@ class AiAnalysisServiceTest {
     @Mock AnthropicClient anthropicClient;
     @Mock CopilotClient copilotClient;
     @Mock EncryptionService encryptionService;
+    @Mock AiUsageLimiterService usageLimiter;
 
     @InjectMocks
     AiAnalysisService aiAnalysisService;
 
     @BeforeEach
     void injectPromptTemplates() {
+        AiPreferencesRepository prefsRepo = mock(AiPreferencesRepository.class);
+        when(prefsRepo.findById(AiPreferences.SINGLETON_ID)).thenReturn(Optional.of(
+                AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0)));
         AiPromptTemplateService prompts = new AiPromptTemplateService(
-                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+                new DefaultResourceLoader(), prefsRepo, "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
-        prompts.load();
         ReflectionTestUtils.setField(aiAnalysisService, "promptTemplates", prompts);
+        lenient().when(usageLimiter.tryConsume(any())).thenReturn(true);
     }
 
     // ── isAiConfigured ────────────────────────────────────────────────────
@@ -346,4 +353,15 @@ class AiAnalysisServiceTest {
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
         verify(copilotClient).callWithSetting(anyString(), eq(setting), anyString(), any());
-    }}
+    }
+
+    @Test
+    @DisplayName("testConnection: GEMINI 제공자가 응답하면 true를 반환한다")
+    void testConnection_gemini_returnsTrue() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.GEMINI).apiKey("gemini-key").build();
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
+
+        assertThat(aiAnalysisService.testConnection(setting)).isTrue();
+        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
+    }
+}

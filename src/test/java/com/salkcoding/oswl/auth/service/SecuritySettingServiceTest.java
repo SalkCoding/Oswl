@@ -251,4 +251,30 @@ class SecuritySettingServiceTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> securitySettingService.testMailConnection(req))
                 .isInstanceOf(jakarta.mail.MessagingException.class);
     }
+
+    @Test
+    @DisplayName("testMailConnection: 폼 비밀번호가 비어 있으면 저장된 암호화 비밀번호를 복호화해 사용한다")
+    void testMailConnection_blankPassword_usesStoredEncryptedPassword() throws Exception {
+        SecuritySetting stored = SecuritySetting.builder()
+                .id(1L)
+                .mailHost("smtp.gmail.com")
+                .mailPort(587)
+                .mailEncryption("STARTTLS")
+                .mailUsername("user@gmail.com")
+                .mailPassword("enc-pw")
+                .build();
+        when(repository.findById(1L)).thenReturn(java.util.Optional.of(stored));
+        when(encryptionService.decrypt("enc-pw")).thenReturn("app-password");
+
+        com.salkcoding.oswl.auth.dto.MailTestRequest req = new com.salkcoding.oswl.auth.dto.MailTestRequest();
+        req.setHost("smtp.gmail.com");
+        req.setPort(587);
+        req.setEncryption("STARTTLS");
+        req.setUsername("user@gmail.com");
+        // password intentionally blank (UI after save)
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> securitySettingService.testMailConnection(req))
+                .isInstanceOf(jakarta.mail.MessagingException.class);
+        verify(encryptionService).decrypt("enc-pw");
+    }
 }

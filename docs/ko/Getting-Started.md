@@ -56,7 +56,7 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ./gradlew bootRun
 ```
 
-> ⚠️ **`OSWL_ENCRYPTION_KEY`** — 저장된 VCS 액세스 토큰을 암호화하는 데 사용되는 32바이트 Base64 키입니다. `local` 모드에서는 더미 키가 자동으로 사용됩니다. `prod` 환경에서는 반드시 안정적이고 비밀스러운 값을 설정해야 합니다. 분실 시 기존에 저장된 VCS 자격증명을 복구할 수 없습니다.
+> **`OSWL_ENCRYPTION_KEY`** — VCS 등 저장 비밀 보호용. `local`에서는 개발용 키가 자동 생성될 수 있습니다. **`prod`에서는 기동 전 필수**이며, 없으면 애플리케이션이 시작되지 않습니다. 키 분실 시 기존 저장 자격증명을 사용할 수 없습니다.
 
 애플리케이션은 기본적으로 포트 **8080**에서 시작됩니다.
 
@@ -111,6 +111,11 @@ GET http://localhost:8080/data/test-api-key
 ```
 
 ---
+
+## 접근 제어 (권장)
+
+* [권한 레이어](Authorization-Layers.md) — 역할 템플릿 vs 프로젝트 멤버십
+* [운영 배포 체크리스트](../Production-Deployment-Checklist.md)
 
 ## 다음 단계
 

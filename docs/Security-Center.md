@@ -4,6 +4,8 @@ The Security Center is the primary vulnerability management interface in OsWL. I
 
 URL: `/projects/{id}/security-center`
 
+**Access:** Requires `SECURITY_CENTER_VIEW` (or System Admin) **and** [project membership](Authorization-Layers.md). Export and print require `SECURITY_CENTER_EXPORT`. Status changes require `SECURITY_CENTER_UPDATE_STATUS`.
+
 ---
 
 ## Understanding the CVE List

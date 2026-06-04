@@ -22,6 +22,7 @@ public enum Permission {
     SECURITY_CENTER_EXPORT("Export Results"),
 
     LICENSE_VIEW("View License Analysis"),
+    LICENSE_EXPORT("Export License Reports"),
     LICENSE_POLICY_MANAGE("Manage License Policy"),
 
     COMPONENT_DETAIL_VIEW("View Component Details"),

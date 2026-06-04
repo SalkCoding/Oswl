@@ -215,6 +215,27 @@ class QuickImportServiceParserTest {
     }
 
     @Test
+    @DisplayName("parseNpmLock: package-lock.json v3 (lockfileVersion 3) 형식을 파싱한다")
+    void parseNpmLock_v3Format_returnsComponents(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("package-lock.json"), """
+            {
+              "lockfileVersion": 3,
+              "packages": {
+                "": { "name": "koa" },
+                "node_modules/koa": { "version": "2.15.0" },
+                "node_modules/accepts": { "version": "1.3.8" }
+              }
+            }
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseNpmLock", dir);
+
+        assertThat(comps).hasSize(2);
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .containsExactlyInAnyOrder("koa", "accepts");
+    }
+
+    @Test
     @DisplayName("parseNpmLock: package-lock.json v1 (dependencies) 형식을 파싱한다")
     void parseNpmLock_v1Format_returnsComponents(@TempDir Path dir) throws Exception {
         Files.writeString(dir.resolve("package-lock.json"), """
@@ -260,6 +281,81 @@ class QuickImportServiceParserTest {
         List<ScanPayload.ComponentPayload> comps = invokeList("parsePython", dir);
 
         assertThat(comps).isEmpty();
+    }
+
+    @Test
+    @DisplayName("parseTomlPackageLock: poetry.lock [[package]] 블록을 파싱한다")
+    void parsePoetryLock_returnsComponents(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("poetry.lock"), """
+            [[package]]
+            name = "httpx"
+            version = "0.27.0"
+
+            [[package]]
+            name = "anyio"
+            version = "4.3.0"
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeTomlLock(dir.resolve("poetry.lock"), "PYPI");
+
+        assertThat(comps).hasSize(2);
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .containsExactlyInAnyOrder("httpx", "anyio");
+    }
+
+    @Test
+    @DisplayName("parsePipfileLock: Pipfile.lock default/develop 섹션을 파싱한다")
+    void parsePipfileLock_returnsComponents(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("Pipfile.lock"), """
+            {
+              "default": {
+                "requests": { "version": "==2.31.0" }
+              },
+              "develop": {
+                "pytest": { "version": "==8.0.0" }
+              }
+            }
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parsePipfileLock", dir);
+
+        assertThat(comps).hasSize(2);
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .containsExactlyInAnyOrder("requests", "pytest");
+    }
+
+    @Test
+    @DisplayName("parseGoSum: go.sum 모듈/버전 쌍을 파싱한다")
+    void parseGoSum_returnsComponents(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("go.sum"), """
+            github.com/gin-gonic/gin v1.9.1 h1=abc
+            github.com/gin-gonic/gin v1.9.1/go.mod h1=def
+            golang.org/x/net v0.20.0 h1=ghi
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGoSum", dir);
+
+        assertThat(comps).hasSize(2);
+        assertThat(comps.get(0).getEcosystem()).isEqualTo("GO");
+    }
+
+    @Test
+    @DisplayName("parseGemfileLock: Gemfile.lock specs 섹션을 파싱한다")
+    void parseGemfileLock_returnsComponents(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("Gemfile.lock"), """
+            GEM
+              remote: https://rubygems.org/
+              specs:
+                jekyll (4.3.3)
+                  mercenary (~> 0.3)
+                mercenary (0.4.0)
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGemfileLock", dir);
+
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .contains("jekyll", "mercenary");
+        assertThat(comps.get(0).getEcosystem()).isEqualTo("RUBYGEMS");
     }
 
     // ── parseGoMod ────────────────────────────────────────────────────────

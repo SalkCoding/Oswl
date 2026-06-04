@@ -42,4 +42,10 @@ public class AiSettingResponse {
 
     @Schema(description = "CVE severities included in AI batch summaries", example = "CRITICAL,HIGH")
     private final String     cveSeverities;
+
+    private final Double     temperature;
+    private final Integer    maxTokens;
+    private final Integer    dailyCallCap;
+    private final String     promptOverrides;
+    private final String     defaultDeploymentProfile;
 }
