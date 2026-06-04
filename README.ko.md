@@ -34,7 +34,7 @@
 | **Quick Import** | VCS 연결을 통해 GitHub / GitLab / Bitbucket에서 원클릭 임포트 |
 | **CLI 연동** | 프로젝트 범위 API 키를 사용한 언어 무관 스캔 제출 REST API |
 | **AI 인사이트** | CVE 현황 및 라이선스 컴플라이언스에 대한 선택적 LLM 생성 요약 |
-| **역할 기반 접근 제어** | 관리자가 관리하는 역할 템플릿을 통한 세밀한 권한 시스템 |
+| **역할 기반 접근 제어** | 역할 템플릿(Admin/Developer/Viewer) + 프로젝트 멤버십 |
 | **감사 로그** | 모든 사용자·시스템 이벤트에 대한 불변 감사 로그 (CSV 내보내기 지원) |
 | **2FA / 신뢰 기기** | 브라우저별 신뢰 기기 지원을 포함한 이메일 OTP 이중 인증 |
 
@@ -89,6 +89,9 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ```bash
 # 전체 빌드 (Java + Tailwind CSS 컴파일)
 ./gradlew build
+
+# 운영 JAR 검증 (로컬 전용 테스트 엔드포인트 미포함)
+./gradlew verifyProdJar
 
 # Tailwind CSS만 재빌드
 ./gradlew buildTailwindCss
@@ -190,13 +193,7 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ## API 문서
 
-인터랙티브 Swagger UI:
-
-```
-http://localhost:8080/swagger-ui.html
-```
-
-OpenAPI 스펙 (JSON): `http://localhost:8080/v3/api-docs`
+**`local` 프로파일**에서만 Swagger UI: `http://localhost:8080/swagger-ui.html`. **`prod`에서는 비활성화**됩니다.
 
 ---
 
@@ -217,6 +214,8 @@ OpenAPI 스펙 (JSON): `http://localhost:8080/v3/api-docs`
 | [버전 비교](docs/ko/Version-Diff.md) | 두 스캔 결과 비교 |
 | [스캔 히스토리](docs/ko/Scan-History.md) | 스캔 기록 관리 |
 | [관리](docs/ko/Administration.md) | 사용자, 역할, 감사 로그, 보안 설정 |
+| [권한 레이어](docs/ko/Authorization-Layers.md) | 역할 템플릿 vs 프로젝트 멤버십 |
+| [운영 배포](docs/Production-Deployment-Checklist.md) | 운영 체크리스트 |
 | [API 레퍼런스](docs/ko/API-Reference.md) | REST API 엔드포인트 요약 |
 | [용어사전](docs/ko/Glossary.md) | 용어 및 정의 |
 

@@ -1,6 +1,8 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.domain.enums.DeploymentProfile;
+import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.salkcoding.oswl.domain.enums.RiskLevel;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -36,6 +37,9 @@ public class AiPreferencesService {
 
     @Value("${oswl.ai.enrichment.cve-severities:CRITICAL,HIGH}")
     private String defaultCveSeverities;
+
+    @Value("${oswl.ai.enrichment.daily-call-cap:0}")
+    private int defaultDailyCallCap;
 
     @PostConstruct
     void init() {
@@ -75,20 +79,37 @@ public class AiPreferencesService {
     }
 
     @Transactional
-    public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities) {
+    public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities,
+                            Double temperature, Integer maxTokens, int dailyCallCap,
+                            String promptOverrides, DeploymentProfile defaultDeploymentProfile) {
         String locale = normalizeLocale(promptsLocale);
         int cve = clamp(cveLimit, 1, 50, defaultCveLimit);
         int lic = clamp(licenseLimit, 1, 50, defaultLicenseLimit);
         String severities = normalizeCveSeverities(cveSeverities);
+        Double temp = temperature != null ? clampDouble(temperature, 0.0, 2.0) : null;
+        Integer tokens = maxTokens != null ? clamp(maxTokens, 256, 8192, 1200) : null;
+        int cap = Math.max(0, dailyCallCap);
+        DeploymentProfile profile = defaultDeploymentProfile != null
+                ? defaultDeploymentProfile
+                : DeploymentProfile.COMMERCIAL_PRODUCT;
 
         AiPreferences prefs = repository.findById(AiPreferences.SINGLETON_ID)
                 .orElseGet(this::defaultPreferences);
-        prefs.update(locale, cve, lic, severities);
+        prefs.update(locale, cve, lic, severities, temp, tokens, cap, promptOverrides, profile);
         repository.save(prefs);
         promptTemplateService.reloadWithLocale(locale);
-        log.info("[AI] Preferences saved locale={} cveLimit={} licenseLimit={} cveSeverities={}",
-                locale, cve, lic, severities);
+        log.info("[AI] Preferences saved locale={} cveLimit={} licenseLimit={} cveSeverities={} dailyCap={}",
+                locale, cve, lic, severities, cap);
         return prefs;
+    }
+
+    /** Backward-compatible overload for tests and simple callers. */
+    @Transactional
+    public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities) {
+        AiPreferences current = getEffective();
+        return save(promptsLocale, cveLimit, licenseLimit, cveSeverities,
+                current.getTemperature(), current.getMaxTokens(), current.getDailyCallCap(),
+                current.getPromptOverrides(), current.getDefaultDeploymentProfile());
     }
 
     private void ensureDefaults() {
@@ -102,7 +123,8 @@ public class AiPreferencesService {
                 normalizeLocale(defaultLocale),
                 clamp(defaultCveLimit, 1, 50, 10),
                 clamp(defaultLicenseLimit, 1, 50, 8),
-                normalizeCveSeverities(defaultCveSeverities));
+                normalizeCveSeverities(defaultCveSeverities),
+                defaultDailyCallCap);
     }
 
     private static String normalizeCveSeverities(String raw) {
@@ -126,6 +148,12 @@ public class AiPreferencesService {
 
     private static int clamp(int value, int min, int max, int fallback) {
         if (value < min || value > max) return fallback;
+        return value;
+    }
+
+    private static Double clampDouble(double value, double min, double max) {
+        if (value < min) return min;
+        if (value > max) return max;
         return value;
     }
 }

@@ -201,6 +201,7 @@ class ApiKeyControllerTest {
         ResponseEntity<Void> resp = controller.revoke(1L, 99L);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectAccessService).assertCanViewProject(1L);
         verify(apiKeyService).revoke(99L, 1L);
     }
 
@@ -211,6 +212,7 @@ class ApiKeyControllerTest {
 
         controller.revoke(55L, 77L);
 
+        verify(projectAccessService).assertCanViewProject(55L);
         verify(apiKeyService).revoke(77L, 55L);
     }
 }

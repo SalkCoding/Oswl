@@ -72,19 +72,20 @@ public class SecuritySettingService {
      * Throws {@link MessagingException} if the connection fails.
      */
     public void testMailConnection(MailTestRequest req) throws MessagingException {
+        MailTestRequest effective = enrichMailTestRequest(req);
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
-        sender.setHost(req.getHost() != null ? req.getHost() : "");
-        sender.setPort(req.getPort() != null ? req.getPort() : 587);
+        sender.setHost(effective.getHost() != null ? effective.getHost() : "");
+        sender.setPort(effective.getPort() != null ? effective.getPort() : 587);
 
-        if (req.getUsername() != null) sender.setUsername(req.getUsername());
-        if (req.getPassword() != null) sender.setPassword(req.getPassword());
+        if (effective.getUsername() != null) sender.setUsername(effective.getUsername());
+        if (effective.getPassword() != null) sender.setPassword(effective.getPassword());
 
         Properties props = sender.getJavaMailProperties();
         props.put("mail.smtp.connectiontimeout", "5000");
         props.put("mail.smtp.timeout",           "5000");
         props.put("mail.smtp.writetimeout",      "5000");
 
-        String enc = req.getEncryption();
+        String enc = effective.getEncryption();
         if ("STARTTLS".equalsIgnoreCase(enc)) {
             props.put("mail.smtp.auth",               "true");
             props.put("mail.smtp.starttls.enable",    "true");
@@ -95,10 +96,39 @@ public class SecuritySettingService {
             props.put("mail.smtp.ssl.enable",         "true");
         } else {
             // NONE — allow unauthenticated relay
-            props.put("mail.smtp.auth", req.getUsername() != null && !req.getUsername().isBlank() ? "true" : "false");
+            props.put("mail.smtp.auth", effective.getUsername() != null && !effective.getUsername().isBlank()
+                    ? "true" : "false");
         }
 
         sender.testConnection();
+    }
+
+    /**
+     * UI does not reload SMTP passwords after save; merge host/port/username from the request
+     * and use the stored encrypted password when the test form leaves password blank.
+     */
+    private MailTestRequest enrichMailTestRequest(MailTestRequest req) {
+        if (req.getPassword() != null && !req.getPassword().isBlank()) {
+            return req;
+        }
+        SecuritySetting stored = repository.findById(SETTINGS_ID).orElse(null);
+        if (stored == null || stored.getMailPassword() == null || stored.getMailPassword().isBlank()) {
+            return req;
+        }
+        try {
+            MailTestRequest merged = new MailTestRequest();
+            merged.setHost(req.getHost() != null ? req.getHost() : stored.getMailHost());
+            merged.setPort(req.getPort() != null ? req.getPort() : stored.getMailPort());
+            merged.setEncryption(req.getEncryption() != null ? req.getEncryption() : stored.getMailEncryption());
+            merged.setUsername(req.getUsername() != null ? req.getUsername() : stored.getMailUsername());
+            merged.setPassword(encryptionService.decrypt(stored.getMailPassword()));
+            merged.setSenderName(req.getSenderName());
+            merged.setSenderAddress(req.getSenderAddress());
+            return merged;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "SMTP password could not be decrypted. Re-save mail settings in Security.", e);
+        }
     }
 
     // ── Response mapping ─────────────────────────────────────────────

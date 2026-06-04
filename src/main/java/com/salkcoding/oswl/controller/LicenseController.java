@@ -46,6 +46,8 @@ public class LicenseController implements LicenseControllerSpec {
     }
 
     @GetMapping("/export/notice")
+    @org.springframework.security.access.prepost.PreAuthorize(
+            "hasPermission(null, 'LICENSE_EXPORT') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<byte[]> exportNotice(@PathVariable Long projectId,
                                                @RequestParam(required = false) Long scanId) {
         projectAccessService.assertCanViewProject(projectId);
@@ -56,6 +58,8 @@ public class LicenseController implements LicenseControllerSpec {
     }
 
     @GetMapping("/export/spdx")
+    @org.springframework.security.access.prepost.PreAuthorize(
+            "hasPermission(null, 'LICENSE_EXPORT') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<byte[]> exportSpdx(@PathVariable Long projectId,
                                              @RequestParam(required = false) Long scanId) {
         projectAccessService.assertCanViewProject(projectId);

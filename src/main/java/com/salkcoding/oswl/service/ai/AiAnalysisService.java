@@ -25,17 +25,19 @@ public class AiAnalysisService {
     private final CopilotClient copilotClient;
     private final EncryptionService encryptionService;
     private final AiPromptTemplateService promptTemplates;
+    private final AiUsageLimiterService usageLimiter;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public record CveSummaryRequest(
             String id, String severity, double cvssScore, String component,
             String title, String osvSummary, String fixVersion, String cweId,
-            String cvssVector, String dependencyType, String patchability) {}
+            String cvssVector, String dependencyType, String patchability,
+            Double epssScore, boolean kevListed) {}
 
     public record LicenseSummaryRequest(
-            String id, String licenseName, String licenseStatus, String component,
-            String ecosystem, String dependencyType, String latestVersion) {}
+            String id, String licenseName, String licenseStatus, String policyReason,
+            String component, String ecosystem, String dependencyType, String latestVersion) {}
 
     @Transactional(readOnly = true)
     public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
@@ -120,12 +122,20 @@ public class AiAnalysisService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, String> batchSummarizeCves(List<CveSummaryRequest> items) {
+    public Map<String, AiStructuredSummary.ParsedEntry> batchSummarizeCves(
+            List<CveSummaryRequest> items, String deploymentProfile) {
         AiSetting setting = getActiveSetting();
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.cve start — {} item(s), provider={}", items.size(), setting.getProvider());
-        String prompt = promptTemplates.batchCvePrompt(items);
-        return batchWithRetry(prompt, setting, items.size(), "CVE", "batch.cve");
+        String prompt = promptTemplates.batchCvePrompt(items, deploymentProfile);
+        return batchStructuredWithRetry(prompt, setting, items.size(), "CVE", "batch.cve");
+    }
+
+    @Transactional(readOnly = true)
+    public AiStructuredSummary.ParsedEntry summarizeCveStructured(CveSummaryRequest item, String deploymentProfile) {
+        Map<String, AiStructuredSummary.ParsedEntry> map =
+                batchSummarizeCves(List.of(item), deploymentProfile);
+        return map.get(item.id());
     }
 
     @Transactional(readOnly = true)
@@ -140,13 +150,13 @@ public class AiAnalysisService {
     private Map<String, String> batchWithRetry(String prompt, AiSetting setting, int itemCount,
                                                String label, String operation) {
         try {
-            Map<String, String> result = parseBatchSummaryResponse(delegate(prompt, setting, operation));
+            Map<String, String> result = parseBatchDisplayResponse(delegate(prompt, setting, operation));
             if (!result.isEmpty()) {
                 log.debug("[AI] {} parsed {} summary(ies)", operation, result.size());
                 return result;
             }
             log.warn("[AI] Batch {} summary empty ({} items) — retrying once", label, itemCount);
-            Map<String, String> retry = parseBatchSummaryResponse(delegate(prompt, setting, operation));
+            Map<String, String> retry = parseBatchDisplayResponse(delegate(prompt, setting, operation));
             if (!retry.isEmpty()) {
                 log.debug("[AI] {} parsed {} summary(ies) on retry", operation, retry.size());
             }
@@ -154,15 +164,25 @@ public class AiAnalysisService {
         } catch (Exception e) {
             log.warn("[AI] Batch {} summary failed: {} — retrying once", label, e.getMessage());
             try {
-                Map<String, String> retry = parseBatchSummaryResponse(delegate(prompt, setting, operation));
-                if (!retry.isEmpty()) {
-                    log.debug("[AI] {} parsed {} summary(ies) on retry", operation, retry.size());
-                }
-                return retry;
+                return parseBatchDisplayResponse(delegate(prompt, setting, operation));
             } catch (Exception retryEx) {
                 log.warn("[AI] Batch {} summary retry failed: {}", label, retryEx.getMessage());
                 return Map.of();
             }
+        }
+    }
+
+    private Map<String, AiStructuredSummary.ParsedEntry> batchStructuredWithRetry(
+            String prompt, AiSetting setting, int itemCount, String label, String operation) {
+        try {
+            Map<String, AiStructuredSummary.ParsedEntry> result =
+                    parseBatchStructuredResponse(delegate(prompt, setting, operation));
+            if (!result.isEmpty()) return result;
+            log.warn("[AI] Batch {} structured empty ({} items) — retrying once", label, itemCount);
+            return parseBatchStructuredResponse(delegate(prompt, setting, operation));
+        } catch (Exception e) {
+            log.warn("[AI] Batch {} structured failed: {}", label, e.getMessage());
+            return Map.of();
         }
     }
 
@@ -171,6 +191,10 @@ public class AiAnalysisService {
     }
 
     private String delegate(String prompt, AiSetting setting, String operation, String resolvedApiKeyOverride) {
+        if (!usageLimiter.tryConsume(setting.getProvider())) {
+            log.warn("[AI] Skipping {} — daily call cap reached for {}", operation, setting.getProvider());
+            return null;
+        }
         String resolvedApiKey = resolvedApiKeyOverride != null
                 ? resolvedApiKeyOverride
                 : decryptApiKey(setting);
@@ -200,7 +224,14 @@ public class AiAnalysisService {
         }
     }
 
-    private Map<String, String> parseBatchSummaryResponse(String response) {
+    private Map<String, String> parseBatchDisplayResponse(String response) {
+        Map<String, AiStructuredSummary.ParsedEntry> structured = parseBatchStructuredResponse(response);
+        Map<String, String> display = new LinkedHashMap<>();
+        structured.forEach((id, entry) -> display.put(id, entry.formatForDisplay()));
+        return display;
+    }
+
+    private Map<String, AiStructuredSummary.ParsedEntry> parseBatchStructuredResponse(String response) {
         if (response == null || response.isBlank()) return Map.of();
         try {
             int start = response.indexOf('[');
@@ -208,12 +239,12 @@ public class AiAnalysisService {
             if (start < 0 || end <= start) return Map.of();
             String json = response.substring(start, end + 1);
             List<Map<String, String>> list = MAPPER.readValue(json, new TypeReference<>() {});
-            Map<String, String> result = new LinkedHashMap<>();
+            Map<String, AiStructuredSummary.ParsedEntry> result = new LinkedHashMap<>();
             for (Map<String, String> entry : list) {
                 String id = entry.get("id");
-                String formatted = AiStructuredSummary.formatForDisplay(entry);
-                if (id != null && formatted != null) {
-                    result.put(id.strip(), formatted);
+                AiStructuredSummary.ParsedEntry parsed = AiStructuredSummary.ParsedEntry.fromMap(entry);
+                if (id != null && parsed != null) {
+                    result.put(id.strip(), parsed);
                 }
             }
             return result;

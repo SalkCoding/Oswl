@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,8 +33,11 @@ class OpenAiClientTest {
 
     @BeforeEach
     void setUp() {
+        AiPreferencesRepository prefsRepo = mock(AiPreferencesRepository.class);
+        when(prefsRepo.findById(AiPreferences.SINGLETON_ID)).thenReturn(Optional.of(
+                AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0)));
         AiPromptTemplateService prompts = new AiPromptTemplateService(
-                new DefaultResourceLoader(), "classpath:ai/prompts.properties");
+                new DefaultResourceLoader(), prefsRepo, "classpath:ai/prompts.properties");
         prompts.reloadWithLocale("en");
         OutboundUrlValidator urlValidator = mock(OutboundUrlValidator.class);
         doNothing().when(urlValidator).validateHttpUrl(anyString());
@@ -180,6 +186,23 @@ class OpenAiClientTest {
         String result = client.callWithSetting("prompt", setting("key", null, null), "completion", "key");
 
         assertThat(result).isEqualTo("ok");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    @DisplayName("resolveUrl: GEMINI provider with no baseUrl uses Google OpenAI-compatible endpoint")
+    void resolveUrl_geminiProvider_usesGeminiDefault() {
+        stubResponse("ok");
+        AiSetting gemini = AiSetting.builder()
+                .provider(AiProvider.GEMINI)
+                .apiKey("gemini-key")
+                .build();
+
+        client.callWithSetting("prompt", gemini, "test.connection", "gemini-key");
+
+        verify(restTemplate).exchange(
+                eq(OpenAiClient.DEFAULT_GEMINI_OPENAI_BASE + "/chat/completions"),
+                any(), any(), any(ParameterizedTypeReference.class));
     }
 
     // ── prompt builders ───────────────────────────────────────────────────

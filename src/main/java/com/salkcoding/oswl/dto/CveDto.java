@@ -40,5 +40,20 @@ public class CveDto {
 
     @Schema(description = "AI-generated risk summary (null if not yet analysed)")
     private final String aiSummary;
+
+    @Schema(description = "AI triage priority (P0–P3)")
+    private final String aiPriority;
+
+    @Schema(description = "AI recommended remediation action")
+    private final String aiRecommendedAction;
+
+    @Schema(description = "EPSS exploit probability (0.0–1.0)")
+    private final Double epssScore;
+
+    @Schema(description = "Listed in CISA Known Exploited Vulnerabilities catalog")
+    private final Boolean kevListed;
+
+    /** Database CVE row id for on-demand AI refresh */
+    private final Long cveDbId;
 }
 

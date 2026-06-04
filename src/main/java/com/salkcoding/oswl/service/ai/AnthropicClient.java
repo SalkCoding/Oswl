@@ -79,7 +79,7 @@ public class AnthropicClient implements AiAnalysisClient {
         Map<String, Object> body = Map.of(
                 "model", model,
                 "max_tokens", promptTemplates.getMaxTokens(),
-                "system", promptTemplates.getSystemPrompt(),
+                "system", promptTemplates.getSystemPrompt(setting.getProvider()),
                 "messages", List.of(Map.of("role", "user", "content", userPrompt))
         );
 

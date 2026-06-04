@@ -404,6 +404,84 @@
                 <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
             </div>
         </div>
+
+        <!-- Model parameters -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.title}">Model parameters</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.description}">Temperature and token limits for LLM calls. Leave blank to use template defaults.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" x-model.number="preferences.dailyCallCap"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
+            </div>
+        </div>
+
+        <!-- Default deployment context -->
+        <div class="flex flex-col gap-[14px] pl-[28px]">
+            <div class="flex items-center gap-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.deploymentProfile}">Deployment</span>
+                <div class="relative flex-1 max-w-[400px]">
+                    <select x-model="preferences.defaultDeploymentProfile"
+                            class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
+                        <option value="COMMERCIAL_PRODUCT" th:text="#{settings.ai.deployment.commercial}">Commercial product</option>
+                        <option value="SAAS" th:text="#{settings.ai.deployment.saas}">SaaS / network service</option>
+                        <option value="INTERNAL_TOOL" th:text="#{settings.ai.deployment.internal}">Internal tool</option>
+                        <option value="ON_PREMISE_DISTRIBUTION" th:text="#{settings.ai.deployment.onPrem}">On-prem / shipped</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prompt templates -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.title}">Prompt templates</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.description}">Preview and override key prompts (saved with AI settings; no restart required).</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.promptKey}">Template</span>
+                    <div class="relative flex-1 max-w-[400px]">
+                        <select x-model="promptEditKey" @change="loadPromptEditor()"
+                                class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
+                            <template x-for="key in promptKeys" :key="key">
+                                <option :value="key" x-text="key"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-start gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.promptBody}">Text</span>
+                    <textarea x-model="promptEditText" rows="6"
+                              class="flex-1 max-w-[526px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] font-mono text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]"></textarea>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ── Toast ── -->
@@ -453,7 +531,12 @@
                 COPILOT:   { apiKey: '', modelName: 'gpt-5.4',                baseUrl: '' },
                 LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
             },
-            preferences: { promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'] },
+            preferences: {
+                promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'],
+                temperature: null, maxTokens: null, dailyCallCap: 0,
+                defaultDeploymentProfile: 'COMMERCIAL_PRODUCT'
+            },
+            promptKeys: [], promptOverrides: {}, promptEditKey: 'batch.cve.header', promptEditText: '',
             saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
 
             csrf() {
@@ -480,7 +563,39 @@
                     if (data.cveSeverities) {
                         this.preferences.cveSeverities = data.cveSeverities.split(',').map(s => s.trim()).filter(Boolean);
                     }
+                    if (data.temperature != null) this.preferences.temperature = data.temperature;
+                    if (data.maxTokens != null) this.preferences.maxTokens = data.maxTokens;
+                    if (data.dailyCallCap != null) this.preferences.dailyCallCap = data.dailyCallCap;
+                    if (data.defaultDeploymentProfile) {
+                        this.preferences.defaultDeploymentProfile = data.defaultDeploymentProfile;
+                    }
+                    await this.loadPrompts();
                 } catch (e) { this.apiError = _aiI18n.loadFailed; }
+            },
+
+            async loadPrompts() {
+                try {
+                    const r = await fetch('/api/settings/ai/prompts');
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    this.promptKeys = data.editableKeys || [];
+                    this.promptOverrides = data.overrides || {};
+                    if (this.promptKeys.length && !this.promptKeys.includes(this.promptEditKey)) {
+                        this.promptEditKey = this.promptKeys[0];
+                    }
+                    this.loadPromptEditor();
+                } catch (_) { /* optional */ }
+            },
+
+            loadPromptEditor() {
+                const key = this.promptEditKey;
+                if (this.promptOverrides[key]) {
+                    this.promptEditText = this.promptOverrides[key];
+                } else {
+                    fetch('/api/settings/ai/prompts').then(r => r.json()).then(data => {
+                        this.promptEditText = (data.resolvedTemplates && data.resolvedTemplates[key]) || '';
+                    });
+                }
             },
 
             toggleCveSeverity(level, checked) {
@@ -499,11 +614,20 @@
                 const severities = this.preferences.cveSeverities.length
                     ? this.preferences.cveSeverities
                     : ['CRITICAL', 'HIGH'];
+                const overrides = { ...this.promptOverrides };
+                if (this.promptEditKey && this.promptEditText) {
+                    overrides[this.promptEditKey] = this.promptEditText;
+                }
                 return {
                     promptsLocale: this.preferences.promptsLocale || 'en',
                     cveLimit:      Number(this.preferences.cveLimit) || 10,
                     licenseLimit:  Number(this.preferences.licenseLimit) || 8,
-                    cveSeverities: severities.join(',')
+                    cveSeverities: severities.join(','),
+                    temperature:   this.preferences.temperature,
+                    maxTokens:     this.preferences.maxTokens,
+                    dailyCallCap:  Number(this.preferences.dailyCallCap) || 0,
+                    defaultDeploymentProfile: this.preferences.defaultDeploymentProfile || 'COMMERCIAL_PRODUCT',
+                    promptOverrides: Object.keys(overrides).length ? JSON.stringify(overrides) : null
                 };
             },
 

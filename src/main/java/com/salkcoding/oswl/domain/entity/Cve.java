@@ -64,9 +64,23 @@ public class Cve {
     @Column(name = "cwe_id", length = 30)
     private String cweId;
 
-    /** AI-generated one-line risk summary (nullable) */
+    /** AI-generated impact summary (nullable) */
     @Column(name = "ai_summary", columnDefinition = "TEXT")
     private String aiSummary;
+
+    @Column(name = "ai_priority", length = 10)
+    private String aiPriority;
+
+    @Column(name = "ai_recommended_action", columnDefinition = "TEXT")
+    private String aiRecommendedAction;
+
+    /** EPSS exploit probability (0.0–1.0), optional */
+    @Column(name = "epss_score")
+    private Double epssScore;
+
+    /** True when listed in CISA KEV catalog */
+    @Column(name = "kev_listed")
+    private Boolean kevListed;
 
     // ── Mutation helpers ─────────────────────────────────────────────────
 
@@ -90,6 +104,23 @@ public class Cve {
 
     public void setAiSummary(String summary) {
         this.aiSummary = summary;
+    }
+
+    public void setAiTriage(String summary, String priority, String recommendedAction) {
+        this.aiSummary = summary;
+        this.aiPriority = priority;
+        this.aiRecommendedAction = recommendedAction;
+    }
+
+    public void clearAiTriage() {
+        this.aiSummary = null;
+        this.aiPriority = null;
+        this.aiRecommendedAction = null;
+    }
+
+    public void setThreatIntel(Double epssScore, boolean kevListed) {
+        this.epssScore = epssScore;
+        this.kevListed = kevListed;
     }
 
     public void updateFixVersion(String fixVersion) {

@@ -67,6 +67,7 @@ oswl:
     enrichment:
       cve-limit: ${OSWL_AI_CVE_LIMIT:10}
       license-limit: ${OSWL_AI_LICENSE_LIMIT:8}
+      daily-call-cap: ${OSWL_AI_DAILY_CALL_CAP:0}
     debug:
       # Periodic DEBUG logs while waiting on the LLM (0 = disabled). Local profile may override.
       heartbeat-seconds: ${OSWL_AI_DEBUG_HEARTBEAT_SECONDS:0}
@@ -84,4 +85,6 @@ oswl:
     max-page-size: ${OSWL_AUDIT_MAX_PAGE_SIZE:200}
     # Audit log records older than this many months are automatically deleted
     retention-months: ${OSWL_AUDIT_RETENTION_MONTHS:6}
+
+# Logs: stdout/stderr only (no logback file appender). Rotate via container/process manager if needed.
 

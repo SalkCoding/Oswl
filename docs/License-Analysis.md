@@ -87,3 +87,14 @@ The License Analysis page also surfaces two additional signals from deps.dev:
 | **Deprecated** | The package version is officially deprecated; the deprecation reason is shown |
 
 These signals are informational and do not affect the license status.
+
+---
+
+## Exporting reports
+
+Users with **`LICENSE_EXPORT`** (or System Admin) can download:
+
+* **NOTICE** file — attribution text for distributions  
+* **SPDX SBOM** — machine-readable bill of materials  
+
+Exports require **project membership** as well as the permission. See [Authorization layers](Authorization-Layers.md).

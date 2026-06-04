@@ -4,6 +4,8 @@ This page covers all admin-only features: user management, role templates, audit
 
 > All actions on this page require **System Admin** privileges unless noted otherwise.
 
+Role templates here control **instance-wide permissions**, not which projects a user can open. See [Authorization layers](Authorization-Layers.md).
+
 ---
 
 ## User Management
@@ -39,9 +41,19 @@ The user receives an email with a temporary password and is forced to change it 
 
 A Role Template is a named bundle of permissions that can be assigned to multiple users.
 
-### Built-in Roles
+### Built-in role templates
 
-OsWL does not ship with fixed built-in roles — instead, the admin creates templates from the available permission list on first setup.
+On the **first startup with an empty database**, OsWL creates three templates you can edit:
+
+| Template | Intended audience |
+|----------|-------------------|
+| **Admin** | Full permission catalog (instance operators) |
+| **Developer** | Scan, triage, license view/export, VCS and CLI keys |
+| **Viewer** | Read-only analysis pages and exports |
+
+These are **role templates** (Layer A). They do not automatically add users to every project — see [Authorization layers](Authorization-Layers.md).
+
+You can create additional templates or change permissions at any time.
 
 ### Permissions Reference
 
@@ -59,7 +71,9 @@ OsWL does not ship with fixed built-in roles — instead, the admin creates temp
 | `SECURITY_CENTER_UPDATE_STATUS` | Update CVE triage status |
 | `SECURITY_CENTER_EXPORT` | Export Security Center results |
 | `LICENSE_VIEW` | View the License Analysis page |
+| `LICENSE_EXPORT` | Download NOTICE and SPDX SBOM files |
 | `LICENSE_POLICY_MANAGE` | Add / edit / remove license policy entries |
+| `SCAN_HISTORY_DELETE` | Delete entries from scan history |
 | `COMPONENT_DETAIL_VIEW` | View the Component Detail panel |
 | `VERSION_DIFF_VIEW` | View Version Diff |
 | `RISK_TREND_VIEW` | View Risk Trend charts |
@@ -91,7 +105,7 @@ OsWL uses SMTP to send OTP emails for two-factor authentication and user invitat
 | **Mail Mode** | `DISABLED` (no mail), `SMTP` (standard relay), `STARTTLS` / `SSL_TLS` |
 | **Host** | SMTP server hostname |
 | **Port** | SMTP port (typically 25, 465, or 587) |
-| **Username / Password** | SMTP credentials (password stored AES-256-GCM encrypted) |
+| **Username / Password** | SMTP credentials (password stored encrypted at rest) |
 | **Sender Name / Address** | The "From" display name and address |
 
 Click **Send Test Email** to verify the configuration before saving.
@@ -126,14 +140,14 @@ The audit log records every significant user and system action.
 |---|---|
 | **Timestamp** | When the event occurred |
 | **Actor** | User email or `SYSTEM` |
-| **Action** | Event code (e.g. `SCAN.INGEST`, `USER.LOGIN`, `CVE.STATUS_UPDATE`) |
+| **Action** | Event code (e.g. `SCAN.INGEST`, `AUTH.LOGIN_SUCCESS`, `LICENSE.EXPORT`) |
 | **Resource Type** | Entity affected (PROJECT, SCAN, USER, …) |
 | **Resource ID** | ID of the affected entity |
 | **Detail** | Additional context (new value, version string, etc.) |
 
 ### Filtering
 
-Filter by actor, action, resource type, date range.
+Filter by actor, action (grouped in the UI — includes auth, projects, scans, CLI keys, components, and settings), and date range.
 
 ### Export
 

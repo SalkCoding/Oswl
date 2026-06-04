@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,10 @@ import org.springframework.core.ParameterizedTypeReference;
 public class OpenAiClient implements AiAnalysisClient {
 
     private static final String DEFAULT_OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+    /** Google AI Studio OpenAI-compatible base (see https://ai.google.dev/gemini-api/docs/openai). */
+    public static final String DEFAULT_GEMINI_OPENAI_BASE =
+            "https://generativelanguage.googleapis.com/v1beta/openai";
+    private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
     private static final String PROVIDER_TAG = "OpenAI";
 
     private final AiPromptTemplateService promptTemplates;
@@ -91,7 +96,7 @@ public class OpenAiClient implements AiAnalysisClient {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system",
-                               "content", promptTemplates.getSystemPrompt()),
+                               "content", promptTemplates.getSystemPrompt(setting.getProvider())),
                         Map.of("role", "user", "content", userPrompt)
                 ),
                 "max_tokens", promptTemplates.getMaxTokens(),
@@ -149,12 +154,18 @@ public class OpenAiClient implements AiAnalysisClient {
             outboundUrlValidator.validateHttpUrl(base);
             return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         }
+        if (setting != null && setting.getProvider() == AiProvider.GEMINI) {
+            return DEFAULT_GEMINI_OPENAI_BASE + "/chat/completions";
+        }
         return DEFAULT_OPENAI_URL;
     }
 
     private String resolveModel(AiSetting setting) {
         if (setting != null && setting.getModelName() != null && !setting.getModelName().isBlank()) {
             return setting.getModelName();
+        }
+        if (setting != null && setting.getProvider() == AiProvider.GEMINI) {
+            return DEFAULT_GEMINI_MODEL;
         }
         return "gpt-4o-mini";
     }

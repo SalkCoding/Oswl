@@ -1,13 +1,63 @@
-# CLI 스캔 API 보안 (`POST /api/scan`)
+# CLI 스캔 API 보안
 
-영문 전문: [Scan-Api-Security.md](../Scan-Api-Security.md)
+자동 스캔 제출(`POST /api/scan`) 보호 방식을 보안·운영 담당자용으로 정리합니다. 일상 설정은 [CLI 연동](CLI-Integration.md)을 참고하세요.
 
-## 요약
+---
 
-- 브라우저 CSRF 토큰은 **CLI 스캔 ingest에 사용하지 않습니다** (의도된 설계).
-- 인증: `Authorization: Bearer <project_api_key>` + 본문 `submitterEmail` / `submitterPassword` + `SCAN_SUBMIT` 권한 + 프로젝트 멤버십.
-- 실패 시 rate limit 및 감사 로그(`SCAN.API_KEY_FAILURE`, `SCAN.AUTH_FAILURE` 등)가 기록됩니다.
+## 브라우저와 CLI의 차이
 
-## 본문 비밀번호 — 장기 개선 (#39)
+| 클라이언트 | 인증 | CSRF(브라우저 토큰) |
+|------------|------|---------------------|
+| **웹 UI** | 세션 쿠키 + 로그인 | 상태 변경 요청에 필요 |
+| **CLI / CI** | Bearer API 키 + 제출자 자격 증명 | 미사용(세션 쿠키 없음) |
 
-현재 CLI는 API 키와 함께 `submitterPassword`를 JSON 본문으로 보냅니다. 비밀번호는 DB `rawJson`에 저장되지 않지만, TLS 위에서 매 요청마다 전송됩니다. 권장 방향: **scoped scan token** 교환, PAT/OAuth, 또는 mTLS. 상세는 영문 문서의 “Submitter password in JSON body” 절을 참고하세요.
+CSRF 보호는 **쿠키 기반 브라우저 세션**용입니다. CLI는 헤더·본문에 비밀을 직접 넣습니다.
+
+CSRF 예외는 다음만 해당합니다.
+
+- `POST /api/scan`
+- `GET /api/scan/ping`
+
+그 외 경로는 UI용 CSRF가 유지됩니다.
+
+---
+
+## 인증(세 단계)
+
+| 단계 | 검증 내용 |
+|------|-----------|
+| 1 | `Authorization: Bearer` **프로젝트 API 키** |
+| 2 | 본문의 제출자 **이메일·비밀번호** |
+| 3 | 제출자에게 **`SCAN_SUBMIT`** 권한 및 해당 프로젝트 **`project_members`** 등록 |
+
+역할 템플릿과 프로젝트 멤버십: [권한 레이어](Authorization-Layers.md).
+
+---
+
+## 남용 방지
+
+- 실패 시 **속도 제한**(설정 가능).
+- **감사 로그**: `SCAN.API_KEY_FAILURE`, `SCAN.AUTH_FAILURE`, `SCAN.AUTH_RATE_LIMITED`, 성공 시 `SCAN.INGEST`.
+
+---
+
+## 스캔 상태 조회(브라우저)
+
+`GET /api/scan/{scanId}/status` 는 **웹 세션**과 **프로젝트 멤버십**을 사용합니다.
+
+---
+
+## 운영 권장
+
+- **HTTPS** 필수.
+- API 키·제출자 비밀번호는 운영 비밀로 관리, 유출 시 교체.
+- 감사 로그에서 스캔 인증 실패 모니터링.
+- CI 전용 계정에 `SCAN_SUBMIT` 및 프로젝트 멤버십 부여.
+
+---
+
+## 관련 문서
+
+- [CLI 연동](CLI-Integration.md)
+- [권한 레이어](Authorization-Layers.md)
+- [프로젝트 접근 제어](Project-Access-Control.md)
