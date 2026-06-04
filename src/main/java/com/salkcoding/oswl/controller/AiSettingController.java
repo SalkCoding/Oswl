@@ -11,6 +11,8 @@ import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final EncryptionService encryptionService;
     private final AiAnalysisService aiAnalysisService;
     private final AiPreferencesService aiPreferencesService;
+    private final OutboundUrlValidator outboundUrlValidator;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -60,6 +63,9 @@ public class AiSettingController implements AiSettingControllerSpec {
         String encryptedKey = request.getApiKey() != null && !request.getApiKey().isBlank()
                 ? encryptionService.encrypt(request.getApiKey())
                 : request.getApiKey();
+        if (request.getBaseUrl() != null && !request.getBaseUrl().isBlank()) {
+            outboundUrlValidator.validateHttpUrl(request.getBaseUrl());
+        }
         setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
 
         if (Boolean.TRUE.equals(request.getActivate())) {
@@ -126,6 +132,16 @@ public class AiSettingController implements AiSettingControllerSpec {
                         Map.of("success", false,
                                "message", "Stored API key could not be decrypted. Re-save the key in AI settings."));
             }
+        }
+
+        try {
+            if (request.getBaseUrl() != null && !request.getBaseUrl().isBlank()) {
+                outboundUrlValidator.validateHttpUrl(request.getBaseUrl());
+            }
+        } catch (OutboundUrlBlockedException e) {
+            auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
+                    request.getProvider().name(), request.getProvider().name(), "blocked-url");
+            return ResponseEntity.ok(Map.of("success", false, "message", e.getMessage()));
         }
 
         AiSetting tempSetting = AiSetting.builder()

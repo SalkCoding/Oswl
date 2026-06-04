@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.client;
 
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestClientException;
 public class VcsTokenValidator {
 
     private final BitbucketCloudClient bitbucketCloudClient;
+    private final OutboundUrlValidator outboundUrlValidator;
 
     public void validate(VcsProvider provider, String serverUrl, String accessToken, String vcsUsername) {
         switch (provider) {
@@ -31,6 +33,9 @@ public class VcsTokenValidator {
         String base = (serverUrl != null && !serverUrl.isBlank())
                 ? serverUrl.replaceAll("/+$", "") + "/api/v3"
                 : "https://api.github.com";
+        if (serverUrl != null && !serverUrl.isBlank()) {
+            outboundUrlValidator.validateHttpUrl(serverUrl);
+        }
         RestClient client = RestClient.builder()
                 .baseUrl(base)
                 .defaultHeader("Accept", "application/vnd.github+json")
@@ -57,6 +62,9 @@ public class VcsTokenValidator {
         String base = (serverUrl != null && !serverUrl.isBlank())
                 ? serverUrl.replaceAll("/+$", "")
                 : "https://gitlab.com";
+        if (serverUrl != null && !serverUrl.isBlank()) {
+            outboundUrlValidator.validateHttpUrl(serverUrl);
+        }
         RestClient client = RestClient.builder().baseUrl(base).build();
         try {
             client.get().uri("/api/v4/personal_access_tokens/self")
@@ -116,6 +124,7 @@ public class VcsTokenValidator {
 
     /** Validates a Personal Access Token against a Bitbucket Data Center / Server instance. */
     private void validateBitbucketServer(String serverUrl, String personalAccessToken) {
+        outboundUrlValidator.validateHttpUrl(serverUrl);
         String base = serverUrl.replaceAll("/+$", "");
         RestClient client = RestClient.builder().baseUrl(base).build();
         try {

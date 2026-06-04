@@ -1,12 +1,20 @@
 package com.salkcoding.oswl.controller;
 
-import com.salkcoding.oswl.auth.service.MailService;
+import com.salkcoding.oswl.auth.entity.RoleTemplate;
+import com.salkcoding.oswl.auth.entity.User;
+import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
+import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.service.MailService;
+import com.salkcoding.oswl.auth.service.RoleTemplateBootstrapService;
 import com.salkcoding.oswl.domain.entity.*;
 import com.salkcoding.oswl.domain.enums.*;
 import com.salkcoding.oswl.repository.*;
 import com.salkcoding.oswl.service.ApiKeyService;
+import com.salkcoding.oswl.service.ProjectAccessService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -52,14 +60,32 @@ import java.util.UUID;
  *  - ScanResult.submittedByUserId set (identify Quick Import scans)
  *  - ScanComponent deferrals (exceptions): legal-review / false-positive / wont-fix / temporary
  *    (including indefinite and expiring deferrals)
+ *  - CVEs with and without {@code aiSummary} (Component Detail AI block vs technical summary)
+ *  - Built-in role templates (Admin / Developer / Viewer) plus deletable "QA Custom" template
+ *  - QA users for permission-matrix manual/BVT runs (viewer, developer, no-project, disabled, custom)
+ *  - {@code project_members} rows for project-scoped ACL (non-admin project list filtering)
  */
 @Controller
 @RequestMapping("/data")
 @RequiredArgsConstructor
-@Profile("local")
+@Profile({"local", "test"})
 public class TestDataController {
 
+    /** Shared password for all QA seed users (local/BVT only). */
+    static final String QA_SEED_PASSWORD = "Qa!Test1234";
+
+    private static final String QA_CUSTOM_TEMPLATE = "QA Custom";
+
+    private static final List<String> QA_SEED_USER_EMAILS = List.of(
+            "viewer@oswl.local",
+            "developer@oswl.local",
+            "noproject@oswl.local",
+            "disabled@oswl.local",
+            "custom@oswl.local"
+    );
+
     private final ProjectRepository         projectRepository;
+    private final ProjectMemberRepository   projectMemberRepository;
     private final ProjectVersionRepository  projectVersionRepository;
     private final LibraryRepository         libraryRepository;
     private final ScanResultRepository      scanResultRepository;
@@ -67,6 +93,11 @@ public class TestDataController {
     private final DependencyPathRepository  dependencyPathRepository;
     private final ApiKeyService             apiKeyService;
     private final MailService               mailService;
+    private final UserRepository            userRepository;
+    private final RoleTemplateRepository    roleTemplateRepository;
+    private final RoleTemplateBootstrapService roleTemplateBootstrapService;
+    private final ProjectAccessService      projectAccessService;
+    private final PasswordEncoder           passwordEncoder;
 
     /**
      * Renders the OTP email template with dummy data for local visual preview.
@@ -112,6 +143,9 @@ public class TestDataController {
         // ================================
         // Project cascades ALL — ProjectVersion, ScanResult — ScanComponent — DependencyPath
         // Library cascades ALL — Cve
+        // project_members has FK to projects (no cascade from Project entity) — clear first
+        projectMemberRepository.deleteAll();
+        projectMemberRepository.flush();
         List<Project> existingProjects = projectRepository.findAll();
         projectRepository.deleteAll(existingProjects);
         projectRepository.flush();
@@ -710,6 +744,13 @@ public class TestDataController {
                 "Moment.js Path Traversal in locale file loading",
                 "Moment.js vulnerable to path traversal when user-provided locale strings are passed to moment.locale().",
                 "2.29.2", "CWE-22", null);
+
+        // angularCore — GHSA-only (no CVE ID assigned yet)
+        cve(angularCore, "GHSA-4xg5-q8c2-7q8w", null, RiskLevel.MEDIUM, 5.9,
+                "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N",
+                "Angular advisory: unsanitized template binding",
+                "Certain Angular template bindings may allow script injection when user content is not sanitized.",
+                "15.2.10", "CWE-79", null);
 
         // qs — CRITICAL (prototype pollution)
         cve(qs, "GHSA-gqgv-6jq5-jjj9", "CVE-2022-24999", RiskLevel.CRITICAL, 9.8,
@@ -1523,6 +1564,11 @@ public class TestDataController {
         deferComp(scanC4, pillow, "other", null,
                 "Tracked through security backlog item ML-882; no patched version is currently compatible with the TF stack.");
 
+        // ================================
+        // 13. Auth — role templates, QA users, project ACL
+        // ================================
+        seedAuthAndProjectAcl(projectA, projectB, projectC, projectE);
+
         return "redirect:/projects";
     }
 
@@ -1628,5 +1674,99 @@ public class TestDataController {
                     sc.applyDeferral(reason, expiresAt, note);
                     scanComponentRepository.save(sc);
                 });
+    }
+
+    /**
+     * Ensures built-in permission templates, a deletable custom template, QA users, and
+     * {@code project_members} for manual QA / BVT (E-02, SA-06/07, P-01 non-admin list, SC-07).
+     */
+    private void seedAuthAndProjectAcl(Project projectA, Project projectB, Project projectC,
+                                       Project projectE) {
+        roleTemplateBootstrapService.ensureBuiltInTemplates();
+        removeQaSeedUsers();
+        removeQaCustomTemplateIfUnused();
+
+        RoleTemplate viewerTemplate = requireTemplate("Viewer");
+        RoleTemplate developerTemplate = requireTemplate("Developer");
+        RoleTemplate qaCustomTemplate = ensureQaCustomTemplate();
+
+        String encodedPassword = passwordEncoder.encode(QA_SEED_PASSWORD);
+
+        User viewer = saveQaUser("viewer@oswl.local", "QA Viewer", encodedPassword,
+                viewerTemplate, true, false);
+        User developer = saveQaUser("developer@oswl.local", "QA Developer", encodedPassword,
+                developerTemplate, true, false);
+        saveQaUser("noproject@oswl.local", "QA No Projects", encodedPassword,
+                viewerTemplate, true, false);
+        saveQaUser("disabled@oswl.local", "QA Disabled", encodedPassword,
+                viewerTemplate, false, false);
+        User custom = saveQaUser("custom@oswl.local", "QA Custom Role", encodedPassword,
+                qaCustomTemplate, true, false);
+
+        projectAccessService.ensureCreatorMemberIfAbsent(projectA);
+        projectAccessService.ensureCreatorMemberIfAbsent(projectB);
+        projectAccessService.ensureCreatorMemberIfAbsent(projectE);
+
+        projectAccessService.ensureMember(projectA.getId(), developer.getId(), ProjectMemberRole.ADMIN);
+        projectAccessService.ensureMember(projectB.getId(), viewer.getId(), ProjectMemberRole.MEMBER);
+        projectAccessService.ensureMember(projectB.getId(), developer.getId(), ProjectMemberRole.MEMBER);
+        projectAccessService.ensureMember(projectC.getId(), viewer.getId(), ProjectMemberRole.MEMBER);
+        projectAccessService.ensureMember(projectE.getId(), developer.getId(), ProjectMemberRole.MEMBER);
+        projectAccessService.ensureMember(projectC.getId(), custom.getId(), ProjectMemberRole.MEMBER);
+    }
+
+    private void removeQaSeedUsers() {
+        for (String email : QA_SEED_USER_EMAILS) {
+            userRepository.findByEmail(email).ifPresent(user -> {
+                if (!user.isSystemAdmin()) {
+                    userRepository.delete(user);
+                }
+            });
+        }
+        userRepository.flush();
+    }
+
+    private void removeQaCustomTemplateIfUnused() {
+        roleTemplateRepository.findAll().stream()
+                .filter(rt -> QA_CUSTOM_TEMPLATE.equals(rt.getName()))
+                .filter(rt -> roleTemplateRepository.countUsersByTemplateId(rt.getId()) == 0)
+                .forEach(roleTemplateRepository::delete);
+    }
+
+    private RoleTemplate ensureQaCustomTemplate() {
+        return roleTemplateRepository.findAll().stream()
+                .filter(rt -> QA_CUSTOM_TEMPLATE.equals(rt.getName()))
+                .findFirst()
+                .orElseGet(() -> roleTemplateRepository.save(RoleTemplate.builder()
+                        .name(QA_CUSTOM_TEMPLATE)
+                        .description("QA seed: view projects/scans only (no Security Center status updates)")
+                        .isBuiltIn(false)
+                        .permissions(java.util.EnumSet.of(
+                                Permission.PROJECT_VIEW,
+                                Permission.SCAN_VIEW,
+                                Permission.COMPONENT_DETAIL_VIEW))
+                        .build()));
+    }
+
+    private RoleTemplate requireTemplate(String name) {
+        return roleTemplateRepository.findAll().stream()
+                .filter(rt -> name.equals(rt.getName()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "Built-in role template missing: " + name + " — run setup or bootstrap first"));
+    }
+
+    private User saveQaUser(String email, String displayName, String passwordHash,
+                            RoleTemplate template, boolean enabled, boolean mustChangePassword) {
+        User user = User.builder()
+                .email(email)
+                .displayName(displayName)
+                .passwordHash(passwordHash)
+                .isSystemAdmin(false)
+                .enabled(enabled)
+                .mustChangePassword(mustChangePassword)
+                .build();
+        user.getRoleTemplates().add(template);
+        return userRepository.save(user);
     }
 }

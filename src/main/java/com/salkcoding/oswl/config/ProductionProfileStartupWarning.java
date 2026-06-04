@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @Component
 public class ProductionProfileStartupWarning implements ApplicationListener<ApplicationReadyEvent> {
 
-    private static final String SEPARATOR = "!".repeat(72);
+    private static final String SEPARATOR = "=".repeat(72);
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
@@ -34,7 +34,7 @@ public class ProductionProfileStartupWarning implements ApplicationListener<Appl
                 ? "(none — check spring.profiles.active; default may be 'local')"
                 : Arrays.stream(profiles).map(String::trim).collect(Collectors.joining(", "));
 
-        log.error("""
+        log.warn("""
                 
                 {}
                  SECURITY WARNING — NOT RUNNING WITH 'prod' PROFILE
