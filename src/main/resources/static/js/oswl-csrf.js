@@ -6,7 +6,13 @@
 
     function token() {
         var el = document.querySelector('meta[name="csrf-token"]');
-        return el ? el.getAttribute('content') || '' : '';
+        var fromMeta = el ? el.getAttribute('content') || '' : '';
+        if (fromMeta) {
+            return fromMeta;
+        }
+        // Fallback: Spring CookieCsrfTokenRepository cookie (non-HttpOnly by default).
+        var m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
     }
 
     function jsonHeaders(extra) {
