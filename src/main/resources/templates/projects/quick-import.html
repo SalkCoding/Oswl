@@ -1,7 +1,9 @@
 <div th:fragment="slideout"
      class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto custom-scrollbar w-full"
      x-data="quickImportPage()"
-     x-init="init()">
+     x-init="init()"
+     @qi-panel-open.window="onPanelOpen()"
+     @qi-panel-close.window="onPanelClose()">
 
     <!-- Header -->
     <div class="bg-white flex flex-col gap-[20px] p-[40px] w-full shrink-0 border-b border-[var(--grayscale-20)]">
@@ -22,7 +24,7 @@
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
                     <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0" th:text="#{quickImport.title}">Quick Import</h2>
                 </div>
-                <button type="button" @click="openPanel = null"
+                <button type="button" @click="window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null"
                         class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
                     <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                 </button>

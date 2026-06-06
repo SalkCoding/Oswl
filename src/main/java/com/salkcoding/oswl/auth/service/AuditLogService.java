@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -35,7 +36,8 @@ public class AuditLogService {
     @Value("${oswl.audit.retention-months:6}")
     private int retentionMonths;
 
-    @Transactional
+    /** Commits in a separate transaction so audit rows survive business rollback. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(String action, String targetType, String targetId, String targetName, String detail) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email       = auth != null ? auth.getName() : "system";
@@ -62,7 +64,7 @@ public class AuditLogService {
      * Writes a log entry by specifying actor information directly without a SecurityContext.
      * Used for events without an authentication context, such as login failures and initial setup.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logAnonymous(String actorEmail, String action, String targetType,
                              String targetId, String targetName, String detail) {
         auditLogRepository.save(AuditLog.builder()

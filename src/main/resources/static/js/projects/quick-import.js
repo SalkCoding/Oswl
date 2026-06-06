@@ -60,11 +60,37 @@ function quickImportPage() {
         /* ─────────────────────────────────────────── */
 
         async init() {
+            await this.onPanelOpen();
+        },
+
+        /** Called when the slide-out panel opens (also on first mount). */
+        async onPanelOpen() {
             await this.loadConnections();
             for (const p of this.connectedProviders) {
                 this.loadRepoBrowser(p);
             }
             await this._loadActiveJobs();
+        },
+
+        /**
+         * Called when the slide-out panel closes.
+         * Clears completed import UI so the next open starts fresh, but keeps in-flight jobs.
+         */
+        onPanelClose() {
+            this.activeJobs.forEach(j => {
+                if (j.phase === 'DONE' || j.phase === 'FAILED') {
+                    this._stopJobWatch(j);
+                }
+            });
+            this.activeJobs = this.activeJobs.filter(j =>
+                j.phase && j.phase !== 'DONE' && j.phase !== 'FAILED'
+            );
+            if (this.importDone || this.importFailed) {
+                this.jobResult = {};
+            }
+            this.repoUrl = '';
+            this.branch = '';
+            this.urlError = '';
         },
 
         /* ── Derived getters ──────────────────────── */
@@ -166,10 +192,14 @@ function quickImportPage() {
             }
         },
 
-        async startImport() {
-            if (!this.canImport) return;
+        async startImport(fromRepoBrowser = false) {
+            if (!fromRepoBrowser && !this.canImport) return;
             const repoUrl = this.repoUrl.trim();
+            if (!repoUrl) return;
             const branch = this.branch.trim() || null;
+
+            // Clear previous success/failure card when starting a new import
+            this.jobResult = {};
 
             try {
                 const res = await fetch('/api/quick-import/start', {
@@ -207,7 +237,13 @@ function quickImportPage() {
                 if (jobs.length > 0 && jobs[0].maxConcurrentSlots) {
                     this.maxConcurrentSlots = jobs[0].maxConcurrentSlots;
                 }
-                jobs.forEach(j => this._attachJob(j));
+                // Only resume in-flight jobs — completed jobs should not block the next import.
+                jobs.forEach(j => {
+                    const phase = this._normalizePhase(j.phase);
+                    if (phase !== 'DONE' && phase !== 'FAILED') {
+                        this._attachJob(j);
+                    }
+                });
             } catch (err) {
                 console.error('[QuickImport] Failed to load jobs:', err);
             }
@@ -235,6 +271,28 @@ function quickImportPage() {
         _normalizeJob(job) {
             if (!job) return job;
             return { ...job, phase: this._normalizePhase(job.phase) };
+        },
+
+        /** Server masks apiToken after the first HTTP poll; SSE + polling can race and overwrite the full key. */
+        _looksMaskedApiToken(token) {
+            return typeof token === 'string' && (token.includes('\u2026') || token.includes('…'));
+        },
+
+        _captureRevealedApiToken(tracker, job) {
+            if (!tracker || !job || job.phase !== 'DONE' || !job.newApiKey || !job.apiToken) return;
+            if (!this._looksMaskedApiToken(job.apiToken)) {
+                tracker.revealedApiToken = job.apiToken;
+            }
+        },
+
+        _withPreservedApiToken(tracker, job) {
+            if (!job || job.phase !== 'DONE' || !job.newApiKey) return job;
+            const full = tracker?.revealedApiToken;
+            if (!full) return job;
+            if (!job.apiToken || this._looksMaskedApiToken(job.apiToken)) {
+                return { ...job, apiToken: full };
+            }
+            return job;
         },
 
         /** Re-assign tracker in activeJobs so Alpine picks up nested mutations. */
@@ -265,6 +323,7 @@ function quickImportPage() {
                     _eventSource: null,
                     _pollTimer: null,
                     _pollInFlight: false,
+                    revealedApiToken: null,
                 };
                 this.activeJobs.push(tracker);
             }
@@ -384,9 +443,11 @@ function quickImportPage() {
                 tracker.lastPhase = job.phase;
             }
 
+            this._captureRevealedApiToken(tracker, job);
+
             if (job.phase === 'DONE' || job.phase === 'FAILED') {
                 this._stopJobWatch(tracker);
-                this.jobResult = job;
+                this.jobResult = this._withPreservedApiToken(tracker, job);
                 if (job.phase === 'DONE') {
                     try { localStorage.setItem('oswl-qi-done', '1'); } catch (_) {}
                     this._refreshBackground(job.projectId);
@@ -515,7 +576,7 @@ function quickImportPage() {
             this.repoUrl = repo.webUrl;
             this.branch  = branch !== undefined ? branch : (repo.defaultBranch || '');
             this.urlError = '';
-            this.startImport().then(() => {
+            this.startImport(true).then(() => {
                 this.$nextTick(() => {
                     const progress = document.getElementById('import-progress');
                     if (progress) progress.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -575,8 +636,12 @@ function quickImportPage() {
         },
 
         async copyApiKey() {
-            const key = this.jobResult && this.jobResult.apiToken;
-            if (!key) return;
+            const tracker = this.jobResult?.jobId
+                ? this._findTracker(this.jobResult.jobId)
+                : null;
+            const key = tracker?.revealedApiToken
+                || (this.jobResult && this.jobResult.apiToken);
+            if (!key || this._looksMaskedApiToken(key)) return;
             try {
                 await navigator.clipboard.writeText(key);
                 this.keyCopied = true;

@@ -188,7 +188,7 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
 **프로젝트별:** `PATCH /api/projects/{id}/deployment-profile`.  
-**피드백:** 컴포넌트 상세 등에서 `POST /api/ai/feedback`.
+**컴포넌트 상세:** `POST .../cves/{cveDbId}/ai-summarize`로 CVE AI 요약 새로고침 (`COMPONENT.CVE_AI_REGENERATE` 감사 로그).
 
 ---
 

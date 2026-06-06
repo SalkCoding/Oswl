@@ -124,7 +124,7 @@
                     </div>
                 </button>
 
-                <button type="button" @click="openPanel = 'quickImport'"
+                <button type="button" @click="openPanel = 'quickImport'; $nextTick(() => window.dispatchEvent(new CustomEvent('qi-panel-open')))"
                    class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
@@ -455,7 +455,7 @@
     <div x-show="openPanel !== null"
          x-transition.opacity
          class="fixed inset-0 bg-black/30 z-[100]"
-         @click="openPanel = null"
+         @click="if (openPanel === 'quickImport') window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null"
          style="display: none;"></div>
 
     <!-- CLI Integration Panel -->

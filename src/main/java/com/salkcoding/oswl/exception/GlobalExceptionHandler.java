@@ -88,6 +88,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).build();
     }
 
+    @ExceptionHandler(AiSummaryException.class)
+    public ResponseEntity<Map<String, Object>> handleAiSummary(AiSummaryException ex, Locale locale) {
+        String msg = messageSource.getMessage(ex.getMessageKey(), ex.getArgs(), locale);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(
+                        "code", ex.getCode().name(),
+                        "message", msg,
+                        "status", 400));
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public Object handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
         String accept = request.getHeader("Accept");

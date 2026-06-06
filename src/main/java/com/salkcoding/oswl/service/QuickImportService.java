@@ -196,7 +196,8 @@ public class QuickImportService {
         emitter.onTimeout(() -> removeEmitter(jobId, emitter));
         emitter.onError(e -> removeEmitter(jobId, emitter));
         try {
-            QuickImportJobStatus status = sanitizeApiToken(jobId, resolveJobStatus(jobId));
+            // SSE is owner-scoped; do not consume the one-time HTTP reveal slot or mask the token here.
+            QuickImportJobStatus status = resolveJobStatus(jobId);
             emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
         } catch (Exception e) {
             emitter.completeWithError(e);
@@ -353,7 +354,9 @@ public class QuickImportService {
             token = encryptionService.decrypt(conn.getAccessTokenEncrypted());
         } catch (Exception e) {
             log.warn("[RepoBrowser] Failed to decrypt token for provider {}: {}", provider, e.getMessage());
-            return List.of();
+            String msg = messageSource.getMessage("quickImport.error.tokenDecrypt",
+                    null, LocaleContextHolder.getLocale());
+            throw new com.salkcoding.oswl.exception.QuickImportUpstreamException(msg);
         }
 
         try {
@@ -1960,8 +1963,9 @@ public class QuickImportService {
         CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.get(jobId);
         if (emitters == null || emitters.isEmpty()) return;
         Long owner = jobOwners.get(jobId);
+        // Live SSE updates carry the in-memory status (full apiToken until job eviction).
         QuickImportJobStatus status = owner != null
-                ? sanitizeApiToken(jobId, resolveJobStatus(jobId))
+                ? resolveJobStatus(jobId)
                 : jobs.get(jobId);
         if (status == null) return;
         for (SseEmitter emitter : emitters) {

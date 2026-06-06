@@ -9,7 +9,7 @@
         <div th:replace="~{risk-trend/components/risk-trend :: risk-trend(${securityIssues}, ${securityDelta}, ${licenseIssues}, ${licenseDelta})}"></div>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script th:src="@{/js/vendor/chart.umd.min.js}"></script>
     <script th:inline="javascript">
     /*<![CDATA[*/
     window.riskTrendData = {
@@ -33,6 +33,7 @@
         yAxis:   /*[[#{riskTrend.chart.yAxis}]]*/ 'Issue Count',
         noData:  /*[[#{riskTrend.noData}]]*/ 'No scan data yet',
         noDataHint: /*[[#{riskTrend.noData.hint}]]*/ 'Run a scan to see the risk trend over time.',
+        chartLoadFailed: /*[[#{riskTrend.chart.loadFailed}]]*/ 'Chart could not be loaded.',
         restricted: /*[[#{riskTrend.legend.restricted}]]*/ 'Restricted',
         caution:    /*[[#{riskTrend.legend.caution}]]*/ 'Caution',
         permitted:  /*[[#{riskTrend.legend.permitted}]]*/ 'Permitted',

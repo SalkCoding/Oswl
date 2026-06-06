@@ -31,6 +31,10 @@ public class OswlStartupWarnings implements ApplicationListener<ApplicationReady
 
         if (!isProd(env)) {
             sections.add(nonProdSection(env));
+            if (env.acceptsProfiles(Profiles.of("local", "test"))
+                    && !context.containsBean("testDataController")) {
+                sections.add(testDataClasspathSection());
+            }
         }
 
         EncryptionService encryption = context.getBean(EncryptionService.class);
@@ -76,6 +80,15 @@ public class OswlStartupWarnings implements ApplicationListener<ApplicationReady
                 SEPARATOR,
                 body,
                 SEPARATOR);
+    }
+
+    private static String testDataClasspathSection() {
+        return """
+                [TEST DATA ENDPOINT UNAVAILABLE — /data/test will 404]
+                 TestDataController lives in src/local/java and is not on the runtime classpath.
+                
+                 Fix: stop the app, run "Java: Clean Java Language Server Workspace" (or reload Gradle),
+                 then restart — or use ./gradlew bootRun (includes local sources automatically).""";
     }
 
     private static String nonProdSection(Environment env) {

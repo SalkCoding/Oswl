@@ -1,6 +1,7 @@
 <div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative"
      th:attr="data-project-id=${projectId}, data-component-id=${componentId}, data-scan-version=${projectVersion}"
-     x-data="{ modal: null }">
+     x-data="{ modal: null, aiToast: null, _aiToastTimer: null }"
+     @oswl-ai-toast="aiToast = $event.detail.message; clearTimeout(_aiToastTimer); _aiToastTimer = setTimeout(() => aiToast = null, 5000)">
 
     <!-- Modals i18n bundles -->
     <th:block th:replace="~{component-detail/fragments/defer-modal :: defer-i18n}"></th:block>
@@ -9,6 +10,12 @@
     <!-- Modals -->
     <div th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"></div>
     <div th:replace="~{component-detail/fragments/defer-modal :: defer}"></div>
+
+    <!-- AI refresh error toast -->
+    <div x-show="aiToast" x-cloak
+         class="fixed bottom-[24px] left-1/2 -translate-x-1/2 z-[200] px-[18px] py-[12px] rounded-[10px] bg-[#e62727] shadow-lg max-w-[min(92vw,480px)]">
+        <span class="font-medium text-[14px] text-white tracking-[-0.14px] leading-[1.4]" x-text="aiToast"></span>
+    </div>
 
     <!-- Header -->
     <section class="flex flex-col gap-[16px] px-[40px] pt-[32px] pb-[24px] border-b border-[var(--grayscale-15)] bg-white sticky top-0 z-10">
@@ -187,7 +194,7 @@
                 <div class="flex gap-[12px]">
                     <!-- VCS 연결 + latestVersion 있음 → Create PR 버튼 활성 -->
                     <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
-                            th:if="${canCreatePr and latestVersion != null}"
+                            th:if="${canCreatePr and prTargetVersion != null}"
                             class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
@@ -270,7 +277,7 @@
                 <div class="flex gap-[12px]">
                     <!-- GitHub + patch available → active button -->
                     <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
-                            th:if="${canCreatePr and securityFixVersion != null}"
+                            th:if="${canCreatePr and prTargetVersion != null}"
                             class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
@@ -289,7 +296,11 @@
                         <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                     </button>
                 </div>
-                <p th:if="${canCreatePr and securityFixVersion == null}"
+                <p th:if="${canCreatePr and securityFixVersion == null and prTargetVersion != null}"
+                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.prLatestHint}">
+                    PR will upgrade to the latest release (may not resolve all CVEs).
+                </p>
+                <p th:if="${canCreatePr and prTargetVersion == null}"
                    class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPatchNow}">
                     No patch version available at this time.
                 </p>
@@ -346,35 +357,28 @@
                 <div x-show="open" x-collapse
                      class="px-[20px] pb-[20px] flex flex-col gap-[16px]">
                     <div th:if="${cve.aiSummary}" class="bg-[rgba(51,209,183,0.08)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
-                        <div class="flex items-center gap-[6px] flex-wrap">
+                        <div class="flex items-center gap-[6px] flex-wrap w-full">
                             <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                             <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.aiSummary}">AI Plain Summary</p>
-                            <span th:if="${cve.aiPriority}"
-                                  class="ml-auto bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[10px] py-[2px] rounded-[40px] text-[11px] font-semibold text-[var(--grayscale-80)]"
-                                  th:text="${cve.aiPriority}">P0</span>
+                            <div class="ml-auto flex items-center gap-[6px]">
+                                <span th:if="${cve.aiPriority}"
+                                      class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[10px] py-[2px] rounded-[40px] text-[11px] font-semibold text-[var(--grayscale-80)]"
+                                      th:text="${cve.aiPriority}">P0</span>
+                                <button type="button"
+                                        th:attr="data-cve-db-id=${cve.cveDbId}"
+                                        th:title="#{componentDetail.cve.aiRegenerate}"
+                                        th:aria-label="#{componentDetail.cve.aiRegenerate}"
+                                        onclick="window.oswlRegenerateCveAi && window.oswlRegenerateCveAi(this)"
+                                        class="p-0 border-0 bg-transparent shrink-0 opacity-45 hover:opacity-100 transition-opacity focus:outline-none disabled:opacity-25 disabled:cursor-wait">
+                                    <img th:src="@{/icon/icon-refresh.svg}" class="w-[14px] h-[14px] oswl-ai-refresh-icon" alt="" aria-hidden="true">
+                                </button>
+                            </div>
                         </div>
                         <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.aiSummary}"></p>
                         <p th:if="${cve.aiRecommendedAction}" class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.5]">
                             <span class="font-medium" th:text="#{componentDetail.cve.aiAction} + ':'">Action:</span>
                             <span th:text="${cve.aiRecommendedAction}"></span>
                         </p>
-                        <div class="flex flex-wrap gap-[8px] pt-[4px]">
-                            <button type="button"
-                                    th:attr="data-cve-db-id=${cve.cveDbId}"
-                                    onclick="window.oswlRegenerateCveAi && window.oswlRegenerateCveAi(this)"
-                                    class="px-[12px] py-[6px] rounded-[8px] border border-[var(--grayscale-20)] bg-white text-[12px] font-medium text-[var(--grayscale-80)] hover:border-[var(--primary-120)] transition-colors"
-                                    th:text="#{componentDetail.cve.aiRegenerate}">Regenerate AI summary</button>
-                            <button type="button"
-                                    th:attr="data-cve-id=${cve.id}"
-                                    onclick="window.oswlAiFeedback && window.oswlAiFeedback(this, true)"
-                                    class="px-[10px] py-[6px] rounded-[8px] border border-[var(--grayscale-20)] bg-white text-[12px] text-[var(--grayscale-70)] hover:border-[var(--primary-120)] transition-colors"
-                                    th:text="#{componentDetail.cve.aiHelpful}">Helpful</button>
-                            <button type="button"
-                                    th:attr="data-cve-id=${cve.id}"
-                                    onclick="window.oswlAiFeedback && window.oswlAiFeedback(this, false)"
-                                    class="px-[10px] py-[6px] rounded-[8px] border border-[var(--grayscale-20)] bg-white text-[12px] text-[var(--grayscale-70)] hover:border-[var(--grayscale-20)] transition-colors"
-                                    th:text="#{componentDetail.cve.aiNotHelpful}">Not helpful</button>
-                        </div>
                     </div>
                     <div th:if="${cve.aiSummary == null and cve.summary != null}" class="bg-[var(--grayscale-5)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
                         <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.summary}">Summary</p>
@@ -667,30 +671,44 @@
     (function () {
         const projectId = /*[[${projectId}]]*/ 0;
         const componentId = /*[[${componentId}]]*/ 0;
+        const _aiI18n = {
+            generic: /*[[#{componentDetail.cve.aiError.generic}]]*/ 'AI summary refresh failed.'
+        };
+        const root = document.getElementById('component-detail-content');
+        function showAiToast(message) {
+            if (!message) return;
+            root?.dispatchEvent(new CustomEvent('oswl-ai-toast', { detail: { message }, bubbles: false }));
+        }
         window.oswlRegenerateCveAi = async function (btn) {
             const cveDbId = btn.getAttribute('data-cve-db-id');
             if (!cveDbId) return;
+            const icon = btn.querySelector('.oswl-ai-refresh-icon');
             btn.disabled = true;
+            if (icon) icon.classList.add('animate-spin');
             try {
                 const r = await fetch(`/projects/${projectId}/components/${componentId}/cves/${cveDbId}/ai-summarize`, {
                     method: 'POST',
-                    headers: window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}
+                    headers: Object.assign(
+                        { 'Accept': 'application/json' },
+                        window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}
+                    )
                 });
-                if (r.ok) location.reload();
+                if (r.ok) {
+                    location.reload();
+                    return;
+                }
+                let message = _aiI18n.generic;
+                try {
+                    const body = await r.json();
+                    if (body && body.message) message = body.message;
+                } catch (_) { /* ignore */ }
+                showAiToast(message);
+            } catch (_) {
+                showAiToast(_aiI18n.generic);
             } finally {
                 btn.disabled = false;
+                if (icon) icon.classList.remove('animate-spin');
             }
-        };
-        window.oswlAiFeedback = async function (btn, helpful) {
-            const cveId = btn.getAttribute('data-cve-id');
-            if (!cveId) return;
-            await fetch('/api/ai/feedback', {
-                method: 'POST',
-                headers: Object.assign({ 'Content-Type': 'application/json' },
-                    window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}),
-                body: JSON.stringify({ targetType: 'CVE', targetKey: cveId, helpful: helpful })
-            });
-            btn.disabled = true;
         };
     })();
     </script>

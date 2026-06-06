@@ -3,6 +3,8 @@ package com.salkcoding.oswl.service.ai;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,24 @@ public class AiAnalysisService {
     public record LicenseSummaryRequest(
             String id, String licenseName, String licenseStatus, String policyReason,
             String component, String ecosystem, String dependencyType, String latestVersion) {}
+
+    public record CveSummarizeOutcome(
+            AiStructuredSummary.ParsedEntry entry,
+            AiSummaryFailureReason failure,
+            Object[] failureArgs) {
+
+        public static CveSummarizeOutcome ok(AiStructuredSummary.ParsedEntry entry) {
+            return new CveSummarizeOutcome(entry, null, null);
+        }
+
+        public static CveSummarizeOutcome fail(AiSummaryFailureReason reason, Object... args) {
+            return new CveSummarizeOutcome(null, reason, args);
+        }
+
+        public boolean success() {
+            return entry != null;
+        }
+    }
 
     @Transactional(readOnly = true)
     public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
@@ -132,9 +152,62 @@ public class AiAnalysisService {
 
     @Transactional(readOnly = true)
     public AiStructuredSummary.ParsedEntry summarizeCveStructured(CveSummaryRequest item, String deploymentProfile) {
-        Map<String, AiStructuredSummary.ParsedEntry> map =
-                batchSummarizeCves(List.of(item), deploymentProfile);
-        return map.get(item.id());
+        CveSummarizeOutcome outcome = summarizeCveWithOutcome(item, deploymentProfile);
+        return outcome.entry();
+    }
+
+    /**
+     * On-demand CVE triage with an explicit failure reason (used by component-detail refresh).
+     */
+    @Transactional(readOnly = true)
+    public CveSummarizeOutcome summarizeCveWithOutcome(CveSummaryRequest item, String deploymentProfile) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null) {
+            return CveSummarizeOutcome.fail(AiSummaryFailureReason.NOT_CONFIGURED);
+        }
+        if (isApiKeyUnavailable(setting)) {
+            return CveSummarizeOutcome.fail(AiSummaryFailureReason.API_KEY_INVALID);
+        }
+        if (usageLimiter.isCapReached(setting.getProvider())) {
+            return CveSummarizeOutcome.fail(
+                    AiSummaryFailureReason.DAILY_CAP,
+                    usageLimiter.getTodayCount(setting.getProvider()),
+                    usageLimiter.getDailyCallCap());
+        }
+
+        String prompt = promptTemplates.batchCvePrompt(List.of(item), deploymentProfile);
+        String response;
+        try {
+            response = delegate(prompt, setting, "batch.cve");
+        } catch (Exception e) {
+            log.warn("[AI] On-demand CVE summarize failed: {}", e.getMessage());
+            return CveSummarizeOutcome.fail(AiSummaryFailureReason.PROVIDER_ERROR);
+        }
+        if (response == null || response.isBlank()) {
+            if (isApiKeyUnavailable(setting)) {
+                return CveSummarizeOutcome.fail(AiSummaryFailureReason.API_KEY_INVALID);
+            }
+            return CveSummarizeOutcome.fail(AiSummaryFailureReason.PROVIDER_ERROR);
+        }
+
+        Map<String, AiStructuredSummary.ParsedEntry> parsed = parseBatchStructuredResponse(response);
+        if (parsed.isEmpty()) {
+            log.warn("[AI] On-demand CVE summarize — empty structured parse for id={}", item.id());
+            return CveSummarizeOutcome.fail(AiSummaryFailureReason.PARSE_ERROR);
+        }
+        AiStructuredSummary.ParsedEntry entry = parsed.get(item.id());
+        if (entry == null) {
+            return CveSummarizeOutcome.fail(AiSummaryFailureReason.PARSE_ERROR);
+        }
+        return CveSummarizeOutcome.ok(entry);
+    }
+
+    private boolean isApiKeyUnavailable(AiSetting setting) {
+        if (setting.getProvider() == AiProvider.LOCAL) {
+            return false;
+        }
+        String key = decryptApiKey(setting);
+        return key == null || key.isBlank();
     }
 
     @Transactional(readOnly = true)

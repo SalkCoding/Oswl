@@ -50,6 +50,8 @@ dependencies {
 
     compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	// Local-only controllers (TestDataController) — on IDE/bootRun classpath, excluded from bootJar.
+	developmentOnly sourceSets.local.output
 	implementation 'com.h2database:h2'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -72,6 +74,11 @@ tasks.named('test') {
 tasks.named('compileLocalJava') {
 	dependsOn compileJava
 	options.annotationProcessorPath = configurations.annotationProcessor
+}
+
+// Ensure local sources compile on every dev build (IDE "Run" as well as Gradle).
+tasks.named('compileJava') {
+	finalizedBy compileLocalJava
 }
 
 tasks.named('bootRun') {
@@ -226,6 +233,7 @@ processResources.dependsOn 'buildTailwindCss'
 ext {
 	alpineVersion = '3.14.9'
 	htmxVersion = '1.9.10'
+	chartJsVersion = '4.4.1'
 }
 
 tasks.register('downloadVendorJs') {
@@ -236,6 +244,7 @@ tasks.register('downloadVendorJs') {
 		[name: 'alpine-collapse.min.js', url: "https://cdn.jsdelivr.net/npm/@alpinejs/collapse@${alpineVersion}/dist/cdn.min.js"],
 		[name: 'alpine.min.js',          url: "https://cdn.jsdelivr.net/npm/alpinejs@${alpineVersion}/dist/cdn.min.js"],
 		[name: 'htmx.min.js',            url: "https://unpkg.com/htmx.org@${htmxVersion}/dist/htmx.min.js"],
+		[name: 'chart.umd.min.js',       url: "https://cdn.jsdelivr.net/npm/chart.js@${chartJsVersion}/dist/chart.umd.min.js"],
 	]
 	outputs.dir(vendorDir)
 	doLast {
@@ -244,7 +253,7 @@ tasks.register('downloadVendorJs') {
 			def target = new File(vendorDir, f.name)
 			if (!target.exists()) {
 				logger.lifecycle("[vendor-js] downloading ${f.url}")
-				Url.toUrl(f.url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+				f.url.toURL().withInputStream { i -> target.withOutputStream { o -> o << i } }
 			}
 		}
 	}
