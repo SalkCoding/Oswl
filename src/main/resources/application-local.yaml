@@ -53,6 +53,10 @@ logging:
     org.springframework.transaction: WARN
 
 oswl:
+  encryption:
+    # Stable local default so VCS tokens survive restarts. Override with OSWL_ENCRYPTION_KEY in .env.
+    # (32-byte key, Base64) — dev-only; never use in production.
+    key: ${OSWL_ENCRYPTION_KEY:b3N3bC1sb2NhbC1kZXYtZW5jcnlwdGlvbi1rZXkhITA=}
   ai:
     debug:
       heartbeat-seconds: 10

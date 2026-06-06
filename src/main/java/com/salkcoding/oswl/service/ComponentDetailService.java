@@ -19,6 +19,8 @@ import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.CveDto;
 import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.dto.DependencyPathDto;
+import com.salkcoding.oswl.exception.AiSummaryException;
+import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.repository.CveRepository;
 import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -98,15 +100,24 @@ public class ComponentDetailService {
                 "direct", lib.computePatchability().name(),
                 cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()));
 
-        AiStructuredSummary.ParsedEntry entry =
-                aiAnalysisService.summarizeCveStructured(request, deployment);
-        if (entry == null) {
-            throw new IllegalStateException("AI summary could not be generated. Check AI settings and daily cap.");
+        var outcome = aiAnalysisService.summarizeCveWithOutcome(request, deployment);
+        if (!outcome.success()) {
+            AiSummaryFailureReason reason = outcome.failure() != null
+                    ? outcome.failure() : AiSummaryFailureReason.UNKNOWN;
+            auditLogService.log("COMPONENT.CVE_AI_REGENERATE_FAILED", "CVE",
+                    String.valueOf(cveDbId), cveId,
+                    "projectId=" + projectId + ", componentId=" + componentId
+                            + ", reason=" + reason.name());
+            throw new AiSummaryException(reason, outcome.failureArgs());
         }
+        AiStructuredSummary.ParsedEntry entry = outcome.entry();
         cve.setAiTriage(entry.summary(), entry.priority(), entry.recommendedAction());
         cveRepository.save(cve);
         auditLogService.log("COMPONENT.CVE_AI_REGENERATE", "CVE",
-                String.valueOf(cveDbId), cveId, entry.priority());
+                String.valueOf(cveDbId), cveId,
+                "projectId=" + projectId + ", componentId=" + componentId
+                        + ", lib=" + lib.getName() + " " + lib.getVersion()
+                        + ", deployment=" + deployment + ", priority=" + entry.priority());
 
         return CveDto.builder()
                 .id(cveId)
@@ -195,6 +206,9 @@ public class ComponentDetailService {
         String securityFixVersion = lib.bestFixVersion();
         model.addAttribute("securityFixVersion", securityFixVersion);
         model.addAttribute("recommendedVersion", securityFixVersion);
+
+        // PR target: patch (CVE fix) version first, else latest when outdated; null → no PR
+        model.addAttribute("prTargetVersion", lib.resolvePrTargetVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
         // Deferral info
@@ -414,23 +428,10 @@ public class ComponentDetailService {
         Library lib    = sc.getLibrary();
         String libName = lib.getName();
         String oldVer  = lib.getVersion() != null ? lib.getVersion() : "?";
-        boolean hasVulns = lib.getCves().stream()
-                .anyMatch(c -> c.getSeverity() != null
-                        && c.getSeverity() != com.salkcoding.oswl.domain.enums.RiskLevel.NONE);
-        String newVer;
-        if (hasVulns) {
-            String bestFix = lib.bestFixVersion();
-            if (bestFix == null || bestFix.isBlank()) {
-                throw new IllegalStateException(
-                        "No documented fix version is available for this component's CVEs.");
-            }
-            newVer = bestFix;
-        } else {
-            String latest = lib.getLatestVersion();
-            if (latest == null || latest.isBlank()) {
-                throw new IllegalStateException("No newer version is available for this component.");
-            }
-            newVer = latest;
+        String newVer  = lib.resolvePrTargetVersion();
+        if (newVer == null || newVer.isBlank()) {
+            throw new IllegalStateException(
+                    "No patch or newer version is available for this component.");
         }
         if (req.getTargetBranch() == null || req.getTargetBranch().isBlank()) {
             throw new IllegalArgumentException("Target branch is required.");

@@ -125,14 +125,6 @@ Authorization: Bearer oswl_<your_api_key>
 
 ---
 
-## AI 피드백
-
-| 메서드 | 경로 | 인증 | 설명 |
-|---|---|---|---|
-| `POST` | `/api/ai/feedback` | 세션 | AI 요약에 대한 도움됨/안됨 피드백 |
-
----
-
 ## 라이선스
 
 | 메서드 | 경로 | 필요 권한 | 설명 |

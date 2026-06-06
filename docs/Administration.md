@@ -190,7 +190,7 @@ Only one provider is **active** at a time. The tab also exposes:
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
 **Per project:** `PATCH /api/projects/{id}/deployment-profile`.  
-**Feedback:** `POST /api/ai/feedback` from component detail / security views.
+**Component detail:** `POST .../cves/{cveDbId}/ai-summarize` to refresh a CVE AI summary (logged as `COMPONENT.CVE_AI_REGENERATE`).
 
 ---
 
