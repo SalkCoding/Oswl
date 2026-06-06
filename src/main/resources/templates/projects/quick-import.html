@@ -201,35 +201,36 @@
         </div>
 
         <!-- ── Progress Log (multi-job) ─────────────────────────────────── -->
-        <div x-show="showProgress" x-cloak id="import-progress" class="w-full flex flex-col gap-[14px]">
+        <div x-show="showProgress" x-cloak id="import-progress" class="w-full flex flex-col gap-[12px]">
+            <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] m-0" th:text="#{quickImport.progress.heading}">Import progress</p>
             <template x-for="job in activeJobs" :key="job.jobId">
-                <div class="bg-[#001D35] rounded-[12px] p-[20px] flex flex-col gap-[12px]">
+                <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
                     <div class="flex items-center justify-between gap-[10px]">
-                        <p class="text-[11px] font-semibold text-[var(--grayscale-40)] uppercase tracking-[0.6px] m-0 truncate"
+                        <p class="text-[13px] font-semibold text-[var(--grayscale-100)] m-0 truncate"
                            x-text="job.repoLabel || job.jobId"></p>
                         <span x-show="job.queuePosition" x-cloak
-                              class="text-[10px] text-white/50 shrink-0"
+                              class="text-[11px] text-[var(--grayscale-50)] shrink-0 font-medium"
                               x-text="'#' + job.queuePosition"></span>
                     </div>
-                    <div class="w-full h-[4px] bg-white/10 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-400/90 rounded-full transition-all duration-500"
+                    <div class="w-full h-[4px] bg-[var(--grayscale-10)] rounded-full overflow-hidden">
+                        <div class="h-full bg-[var(--primary-120)] rounded-full transition-all duration-500"
                              :style="'width:' + (job.percent != null ? job.percent : 0) + '%'"></div>
                     </div>
-                    <p x-show="job.message" class="text-[12px] text-white/60 m-0" x-text="job.message"></p>
+                    <p x-show="job.message" class="text-[12px] text-[var(--grayscale-60)] m-0" x-text="job.message"></p>
                     <template x-for="(entry, idx) in job.progressLog" :key="job.jobId + '-' + idx">
                         <div class="flex items-start gap-[10px]">
                             <span class="shrink-0 mt-[1px]">
                                 <template x-if="entry.status === 'done'">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-400"><polyline points="20 6 9 17 4 12"/></svg>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-emerald-500"><polyline points="20 6 9 17 4 12"/></svg>
                                 </template>
                                 <template x-if="entry.status === 'error'">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-400"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-red-500"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </template>
                                 <template x-if="entry.status === 'running'">
-                                    <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75 text-white"/></svg>
+                                    <svg class="animate-spin text-[var(--primary-120)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10" class="opacity-25"/><path d="M12 2a10 10 0 0 1 10 10" class="opacity-75"/></svg>
                                 </template>
                             </span>
-                            <span class="text-[13px] text-white/80 leading-[1.5]" x-text="entry.text"></span>
+                            <span class="text-[13px] text-[var(--grayscale-80)] leading-[1.5]" x-text="entry.text"></span>
                         </div>
                     </template>
                 </div>

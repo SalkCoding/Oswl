@@ -7,9 +7,9 @@
      class="flex flex-col gap-[20px] relative">
 
     <!-- Heading -->
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]" th:text="#{settings.vcs.heading}">VCS Account Connections</h2>
-        <p class="font-normal text-[14px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.description}">Connect your VCS accounts so OsWL can fetch repositories and sync scan results.</p>
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.vcs.heading}">VCS Account Connections</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.vcs.description}">Connect your VCS accounts so OsWL can fetch repositories and sync scan results.</p>
     </div>
 
     <!-- API Error -->
@@ -23,7 +23,7 @@
     <div x-show="!loading" x-cloak class="flex flex-col gap-[12px]">
 
         <!-- ── GitHub Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[16px]">
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
@@ -71,12 +71,14 @@
                 </div>
                 <template x-if="githubMode === 'enterprise'">
                     <div class="flex flex-col gap-[12px]">
-                        <div class="flex items-center gap-[12px]">
-                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.serverUrl}">Server URL</label>
-                            <input type="url" x-model="githubServerUrl" required
-                                   th:attr="placeholder=#{settings.vcs.gh.placeholder.serverUrlRequired}"
-                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
-                        </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.vcs.label.serverUrl}">Server URL</span>
+                    <div class="flex-1 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="url" x-model="githubServerUrl" required
+                               th:attr="placeholder=#{settings.vcs.gh.placeholder.serverUrlRequired}"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                    </div>
+                </div>
                         <p class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed" th:text="#{settings.vcs.gh.enterpriseGuide}">
                             Enter your GitHub Enterprise Server URL. API calls use /api/v3 on this host.
                         </p>
@@ -100,7 +102,7 @@
         </div>
 
         <!-- ── GitLab Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[16px]">
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
@@ -177,7 +179,7 @@
         </div>
 
         <!-- ── Atlassian / Bitbucket Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[16px]">
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
@@ -324,15 +326,34 @@
                 <!-- Provider dropdown -->
                 <div class="flex flex-col gap-[6px]">
                     <label class="text-[12px] font-bold" th:text="#{settings.vcs.slideout.label.provider}">Provider</label>
-                    <div class="relative">
-                        <select x-model="form.provider"
-                                class="w-full px-[12px] py-[10px] pr-[30px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white focus:outline-none focus:border-[#33D1B7] appearance-none cursor-pointer">
-                            <option value="" class="bg-[#001d35]" th:text="#{settings.vcs.slideout.label.selectProvider}">Select a provider</option>
-                            <option value="GITHUB" class="bg-[#001d35]">GitHub</option>
-                            <option value="GITLAB" class="bg-[#001d35]">GitLab</option>
-                            <option value="BITBUCKET" class="bg-[#001d35]">Atlassian / Bitbucket</option>
-                        </select>
-                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none w-[12px] h-[12px] opacity-50" style="filter: brightness(0) invert(1);" alt="" aria-hidden="true">
+                    <div class="relative" @click.away="providerDropdownOpen=false">
+                        <button type="button" @click="providerDropdownOpen=!providerDropdownOpen"
+                                class="w-full flex items-center justify-between bg-white/5 border border-white/15 rounded-[8px] px-[12px] py-[10px] text-[13px] transition-colors cursor-pointer"
+                                :class="providerDropdownOpen ? 'border-[#33D1B7]' : ''">
+                            <span :class="form.provider ? 'text-white' : 'text-white/50'"
+                                  x-text="form.provider ? providerLabel(form.provider) : _vcsI18n.selectProvider"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="providerDropdownOpen ? 'rotate-180' : ''"
+                                 class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] opacity-70 ml-[8px]" style="filter: brightness(0) invert(1);" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="providerDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-[#001d35] border border-white/15 rounded-[8px] shadow-lg overflow-hidden">
+                            <button type="button" @click="form.provider=''; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="!form.provider ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white/70 hover:bg-white/5'"
+                                    th:text="#{settings.vcs.slideout.label.selectProvider}">Select a provider</button>
+                            <button type="button" @click="form.provider='GITHUB'; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="form.provider==='GITHUB' ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white hover:bg-white/5'"
+                                    th:text="#{settings.vcs.provider.github}">GitHub</button>
+                            <button type="button" @click="form.provider='GITLAB'; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="form.provider==='GITLAB' ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white hover:bg-white/5'"
+                                    th:text="#{settings.vcs.provider.gitlab}">GitLab</button>
+                            <button type="button" @click="form.provider='BITBUCKET'; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="form.provider==='BITBUCKET' ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white hover:bg-white/5'"
+                                    th:text="#{settings.vcs.provider.atlassian}">Atlassian</button>
+                        </div>
                     </div>
                 </div>
 
@@ -457,7 +478,8 @@
         bbMethod3Deprecated:       /*[[#{settings.vcs.slideout.bb.method3.deprecated}]]*/ '\u26a0 Deprecated \u2014 brownout 2026-06-09, removed 2026-07-28.',
         bbMethod3Creds:            /*[[#{settings.vcs.slideout.bb.method3.creds}]]*/ 'Username: Bitbucket account ID \u00b7 Token: ATBB-\u2026',
         placeholderBbServerPat:    /*[[#{settings.vcs.slideout.placeholder.bbServerPat}]]*/ 'Personal Access Token',
-        placeholderBbCloudToken:   /*[[#{settings.vcs.slideout.placeholder.bbCloudToken}]]*/ 'API Token (ATATT-\u2026) or App Password (ATBB-\u2026)'
+        placeholderBbCloudToken:   /*[[#{settings.vcs.slideout.placeholder.bbCloudToken}]]*/ 'API Token (ATATT-\u2026) or App Password (ATBB-\u2026)',
+        selectProvider:            /*[[#{settings.vcs.slideout.label.selectProvider}]]*/ 'Select a provider'
     };
     function _vcsFmt(template, arg) {
         return String(template).replace('{0}', arg);
@@ -469,6 +491,7 @@
             connections: [],
             loading: true,
             slideout: false,
+            providerDropdownOpen: false,
             creating: false,
             confirmingDisconnect: null,
             apiError: null,
@@ -523,9 +546,11 @@
             },
             openCreate() {
                 this.form = { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' };
+                this.providerDropdownOpen = false;
                 this.slideout = true;
             },
             closeCreate() {
+                this.providerDropdownOpen = false;
                 this.slideout = false;
             },
             async addConnection() {
