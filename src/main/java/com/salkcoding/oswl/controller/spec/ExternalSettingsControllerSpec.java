@@ -70,7 +70,7 @@ public interface ExternalSettingsControllerSpec {
         )
     )
     ResponseEntity<Map<String, Object>> updateNvd(
-        @org.springframework.web.bind.annotation.RequestBody Map<String, String> body
+        @RequestBody Map<String, String> body
     );
 
     @Operation(
@@ -108,6 +108,6 @@ public interface ExternalSettingsControllerSpec {
         )
     )
     ResponseEntity<Map<String, Object>> updateCache(
-        @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body
+        @RequestBody Map<String, Object> body
     );
 }

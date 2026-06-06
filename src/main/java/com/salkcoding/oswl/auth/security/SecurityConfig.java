@@ -55,6 +55,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) -> {
             String accept = request.getHeader("Accept");
@@ -72,11 +73,16 @@ public class SecurityConfig {
         csrfTokenRepository.setCookieName("XSRF-TOKEN");
         csrfTokenRepository.setHeaderName("X-XSRF-TOKEN");
         csrfTokenRepository.setCookiePath("/");
+        // Non-HttpOnly so oswl-csrf.js can fall back to the cookie when the meta tag is absent.
+        csrfTokenRepository.setCookieCustomizer(cookie -> cookie.httpOnly(false));
+
+        CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
+        csrfRequestHandler.setCsrfRequestAttributeName("_csrf");
 
         http
             .csrf(csrf -> csrf
                     .csrfTokenRepository(csrfTokenRepository)
-                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                    .csrfTokenRequestHandler(csrfRequestHandler)
                     .ignoringRequestMatchers(
                             req -> "POST".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan".equals(req.getRequestURI()),

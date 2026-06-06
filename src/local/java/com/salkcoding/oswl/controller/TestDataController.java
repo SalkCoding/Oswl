@@ -107,8 +107,8 @@ public class TestDataController {
     @GetMapping("/mail-preview")
     @ResponseBody
     public ResponseEntity<String> mailPreview(
-            @org.springframework.web.bind.annotation.RequestParam(name = "name", defaultValue = "test") String name,
-            @org.springframework.web.bind.annotation.RequestParam(name = "ai",   defaultValue = "true") boolean ai) {
+            @RequestParam(name = "name", defaultValue = "test") String name,
+            @RequestParam(name = "ai",   defaultValue = "true") boolean ai) {
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
                 .body(mailService.buildOtpEmailPreview(name, ai));
