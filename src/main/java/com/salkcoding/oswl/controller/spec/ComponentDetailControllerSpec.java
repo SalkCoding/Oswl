@@ -55,7 +55,7 @@ public interface ComponentDetailControllerSpec {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Updated CVE with AI fields",
                     content = @Content(schema = @Schema(implementation = CveDto.class))),
-            @ApiResponse(responseCode = "400", description = "AI not configured or CVE not found", content = @Content)
+            @ApiResponse(responseCode = "400", description = "AI unavailable (not configured, cap reached, provider error, etc.)", content = @Content)
     })
     ResponseEntity<CveDto> regenerateCveAi(
             @PathVariable Long projectId,

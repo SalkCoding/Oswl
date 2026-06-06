@@ -1,9 +1,30 @@
 /**
  * Initialize Line Charts for Risk Trend Dashboard
  */
+function showChartPlaceholder(canvasId, title, hint) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const container = canvas.closest('.relative') || canvas.parentElement;
+    canvas.style.display = 'none';
+    const msg = document.createElement('div');
+    msg.className = 'flex flex-col items-center justify-center h-full gap-[8px] text-center';
+    msg.innerHTML = `<p class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">${title}</p>` +
+                    (hint ? `<p class="text-[12px] text-[var(--grayscale-30)] tracking-[-0.12px]">${hint}</p>` : '');
+    container.appendChild(msg);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    const i18nEarly = window.riskTrendI18n || {
+        noData: 'No scan data yet',
+        noDataHint: 'Run a scan to see the risk trend over time.',
+        chartLoadFailed: 'Chart could not be loaded.'
+    };
+
     if (typeof Chart === 'undefined') {
         console.warn('Chart.js is not loaded. Please include it in your layout.');
+        ['securityRiskChart', 'licenseRiskChart'].forEach(id => {
+            showChartPlaceholder(id, i18nEarly.chartLoadFailed || 'Chart could not be loaded.', null);
+        });
         return;
     }
 
@@ -37,15 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!trendData) {
         // No scan data: show empty-state message in each chart canvas
         ['securityRiskChart', 'licenseRiskChart'].forEach(id => {
-            const canvas = document.getElementById(id);
-            if (!canvas) return;
-            const container = canvas.closest('.relative') || canvas.parentElement;
-            canvas.style.display = 'none';
-            const msg = document.createElement('div');
-            msg.className = 'flex flex-col items-center justify-center h-full gap-[8px] text-center';
-            msg.innerHTML = `<p class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">${i18n.noData}</p>` +
-                            `<p class="text-[12px] text-[var(--grayscale-30)] tracking-[-0.12px]">${i18n.noDataHint}</p>`;
-            container.appendChild(msg);
+            showChartPlaceholder(id, i18n.noData, i18n.noDataHint);
         });
         // Hide AI insight boxes when no data
         document.querySelectorAll('.ai-insight-box').forEach(el => el.style.display = 'none');

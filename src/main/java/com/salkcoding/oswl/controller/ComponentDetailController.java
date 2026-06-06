@@ -54,12 +54,8 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
                                                     @PathVariable Long componentId,
                                                     @PathVariable Long cveDbId) {
         projectAccessService.assertCanViewProject(projectId);
-        try {
-            return ResponseEntity.ok(
-                    componentDetailService.regenerateCveAiSummary(projectId, componentId, cveDbId));
-        } catch (IllegalStateException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        return ResponseEntity.ok(
+                componentDetailService.regenerateCveAiSummary(projectId, componentId, cveDbId));
     }
 
     @PostMapping("/defer")

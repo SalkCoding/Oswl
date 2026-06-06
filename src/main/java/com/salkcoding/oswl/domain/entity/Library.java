@@ -154,4 +154,22 @@ public class Library {
                 .map(Cve::getFixVersion)
                 .orElse(null);
     }
+
+    /**
+     * Target version for an upgrade PR: documented CVE fix first, else latest release when outdated.
+     * Returns null when there is no version to bump to (UI hides the PR button; API rejects).
+     */
+    public String resolvePrTargetVersion() {
+        String current = (version != null && !version.isBlank()) ? version : null;
+        String fix = bestFixVersion();
+        if (fix != null && !fix.isBlank() && !fix.equals(current)) {
+            return fix;
+        }
+        if (latestVersion != null && !latestVersion.isBlank()
+                && !Boolean.TRUE.equals(isLatestVersion)
+                && !latestVersion.equals(current)) {
+            return latestVersion;
+        }
+        return null;
+    }
 }

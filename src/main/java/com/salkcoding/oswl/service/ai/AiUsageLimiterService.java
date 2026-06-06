@@ -49,4 +49,17 @@ public class AiUsageLimiterService {
                 .map(AiDailyUsage::getCallCount)
                 .orElse(0);
     }
+
+    /** @return true when {@code dailyCallCap > 0} and today's usage has reached the cap */
+    @Transactional(readOnly = true)
+    public boolean isCapReached(AiProvider provider) {
+        int cap = preferencesService.getEffective().getDailyCallCap();
+        if (cap <= 0) return false;
+        return getTodayCount(provider) >= cap;
+    }
+
+    @Transactional(readOnly = true)
+    public int getDailyCallCap() {
+        return preferencesService.getEffective().getDailyCallCap();
+    }
 }

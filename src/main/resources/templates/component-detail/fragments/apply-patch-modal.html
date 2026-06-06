@@ -141,11 +141,11 @@ const _patchI18n = {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
                 <span class="bg-[rgba(51,209,183,0.08)] border border-[rgba(51,209,183,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]"
-                      th:text="${'v' + (hasVulnerabilities ? securityFixVersion : latestVersion)}">v2.2.1-alpha01</span>
+                      th:text="${prTargetVersion != null ? 'v' + prTargetVersion : '—'}">v2.2.1-alpha01</span>
             </div>
 
-            <!-- CVE 있을 때만 표시 -->
-            <div th:if="${hasVulnerabilities}" class="flex flex-wrap gap-[12px] items-center">
+            <!-- CVE + documented fix version -->
+            <div th:if="${hasVulnerabilities and securityFixVersion != null}" class="flex flex-wrap gap-[12px] items-center">
                 <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.willResolve}">Will resolve</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
@@ -154,6 +154,13 @@ const _patchI18n = {
                 <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="|${securityHigh}${#messages.msg('componentDetail.patch.label.highSuffix')}|">20 High</span>
+                </span>
+            </div>
+            <!-- CVE 있으나 fix version 없음 → latest로 업그레이드 -->
+            <div th:if="${hasVulnerabilities and securityFixVersion == null and prTargetVersion != null}" class="flex flex-wrap gap-[12px] items-center">
+                <span class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-caution)]"></span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.patch.latestUpgrade}">Latest release upgrade — may not resolve all CVEs.</span>
                 </span>
             </div>
             <!-- outdated (CVE 없음) 안내 -->
@@ -200,9 +207,9 @@ const _patchI18n = {
                 <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.prDescription}">PR Description</label>
                 <textarea id="pr-description-text" rows="4"
                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] leading-[1.3] tracking-[-0.12px] outline-none resize-none focus:border-[#33D1B7]"
-                          th:text="${hasVulnerabilities}
+                          th:text="${hasVulnerabilities and securityFixVersion != null}
                               ? #{componentDetail.patch.pr.body.vuln(${componentName},${componentVersion},${securityFixVersion},${securityCritical},${securityHigh})}
-                              : #{componentDetail.patch.pr.body.upgrade(${componentName},${componentVersion},${latestVersion})}">Bumps library version. Triggered by OsWL.</textarea>
+                              : #{componentDetail.patch.pr.body.upgrade(${componentName},${componentVersion},${prTargetVersion})}">Bumps library version. Triggered by OsWL.</textarea>
             </div>
         </div>
 

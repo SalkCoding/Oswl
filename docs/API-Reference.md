@@ -123,14 +123,6 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 
 ---
 
-## AI Feedback
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/ai/feedback` | Session | Submit helpful / not helpful feedback on an AI summary |
-
----
-
 ## License
 
 | Method | Path | Permission | Description |
