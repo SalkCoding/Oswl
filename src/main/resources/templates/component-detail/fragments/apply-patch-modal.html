@@ -141,7 +141,7 @@ const _patchI18n = {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
                 <span class="bg-[rgba(51,209,183,0.08)] border border-[rgba(51,209,183,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]"
-                      th:text="${'v' + recommendedVersion}">v2.2.1-alpha01</span>
+                      th:text="${'v' + (hasVulnerabilities ? securityFixVersion : latestVersion)}">v2.2.1-alpha01</span>
             </div>
 
             <!-- CVE 있을 때만 표시 -->
@@ -201,8 +201,8 @@ const _patchI18n = {
                 <textarea id="pr-description-text" rows="4"
                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] leading-[1.3] tracking-[-0.12px] outline-none resize-none focus:border-[#33D1B7]"
                           th:text="${hasVulnerabilities}
-                              ? #{componentDetail.patch.pr.body.vuln(${componentName},${componentVersion},${recommendedVersion},${securityCritical},${securityHigh})}
-                              : #{componentDetail.patch.pr.body.upgrade(${componentName},${componentVersion},${recommendedVersion})}">Bumps library version. Triggered by OsWL.</textarea>
+                              ? #{componentDetail.patch.pr.body.vuln(${componentName},${componentVersion},${securityFixVersion},${securityCritical},${securityHigh})}
+                              : #{componentDetail.patch.pr.body.upgrade(${componentName},${componentVersion},${latestVersion})}">Bumps library version. Triggered by OsWL.</textarea>
             </div>
         </div>
 

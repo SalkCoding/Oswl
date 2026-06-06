@@ -191,12 +191,10 @@ public class ComponentDetailService {
         model.addAttribute("deprecatedReason", deprecated);
         model.addAttribute("latestVersion", lib.getLatestVersion());
 
-        // CVE fix version 우선, 없으면 outdated 상태의 latestVersion 사용
-        String recommendedVersion = lib.bestFixVersion();
-        if (recommendedVersion == null && Boolean.FALSE.equals(isLatest) && lib.getLatestVersion() != null) {
-            recommendedVersion = lib.getLatestVersion();
-        }
-        model.addAttribute("recommendedVersion", recommendedVersion);
+        // CVE/OSV에 문서화된 수정 버전만 보안 권장 버전으로 사용 (deps.dev 최신 버전과 혼동하지 않음)
+        String securityFixVersion = lib.bestFixVersion();
+        model.addAttribute("securityFixVersion", securityFixVersion);
+        model.addAttribute("recommendedVersion", securityFixVersion);
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
         // Deferral info
@@ -416,9 +414,24 @@ public class ComponentDetailService {
         Library lib    = sc.getLibrary();
         String libName = lib.getName();
         String oldVer  = lib.getVersion() != null ? lib.getVersion() : "?";
-        String bestFix = lib.bestFixVersion();
-        String newVer  = bestFix != null ? bestFix
-                : (lib.getLatestVersion() != null ? lib.getLatestVersion() : oldVer);
+        boolean hasVulns = lib.getCves().stream()
+                .anyMatch(c -> c.getSeverity() != null
+                        && c.getSeverity() != com.salkcoding.oswl.domain.enums.RiskLevel.NONE);
+        String newVer;
+        if (hasVulns) {
+            String bestFix = lib.bestFixVersion();
+            if (bestFix == null || bestFix.isBlank()) {
+                throw new IllegalStateException(
+                        "No documented fix version is available for this component's CVEs.");
+            }
+            newVer = bestFix;
+        } else {
+            String latest = lib.getLatestVersion();
+            if (latest == null || latest.isBlank()) {
+                throw new IllegalStateException("No newer version is available for this component.");
+            }
+            newVer = latest;
+        }
         if (req.getTargetBranch() == null || req.getTargetBranch().isBlank()) {
             throw new IllegalArgumentException("Target branch is required.");
         }

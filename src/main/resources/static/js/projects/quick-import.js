@@ -226,6 +226,27 @@ function quickImportPage() {
             return this.activeJobs.find(j => j.jobId === jobId);
         },
 
+        _normalizePhase(phase) {
+            if (!phase) return phase;
+            if (typeof phase === 'string') return phase;
+            return phase.name || String(phase);
+        },
+
+        _normalizeJob(job) {
+            if (!job) return job;
+            return { ...job, phase: this._normalizePhase(job.phase) };
+        },
+
+        /** Re-assign tracker in activeJobs so Alpine picks up nested mutations. */
+        _syncTracker(tracker) {
+            const idx = this.activeJobs.findIndex(j => j.jobId === tracker.jobId);
+            if (idx < 0) return;
+            this.activeJobs.splice(idx, 1, {
+                ...tracker,
+                progressLog: tracker.progressLog.map(e => ({ ...e })),
+            });
+        },
+
         _attachJob(serverJob) {
             if (!serverJob || !serverJob.jobId) return;
             let tracker = this._findTracker(serverJob.jobId);
@@ -254,9 +275,11 @@ function quickImportPage() {
         },
 
         _startJobWatch(tracker) {
-            if (tracker._eventSource || tracker._pollTimer) return;
-            if (typeof EventSource === 'undefined') {
+            // Poll immediately (pre–multi-job behavior); SSE is an optional fast path.
+            if (!tracker._pollTimer) {
                 this._startPollingFallback(tracker);
+            }
+            if (tracker._eventSource || typeof EventSource === 'undefined') {
                 return;
             }
             try {
@@ -264,7 +287,7 @@ function quickImportPage() {
                 tracker._eventSource = es;
                 es.addEventListener('job-update', (e) => {
                     try {
-                        const job = JSON.parse(e.data);
+                        const job = this._normalizeJob(JSON.parse(e.data));
                         this._applyJobUpdate(tracker, job);
                     } catch (err) {
                         console.error('[QuickImport] SSE parse error:', err);
@@ -273,13 +296,8 @@ function quickImportPage() {
                 es.onerror = () => {
                     es.close();
                     tracker._eventSource = null;
-                    if (tracker.phase !== 'DONE' && tracker.phase !== 'FAILED') {
-                        this._startPollingFallback(tracker);
-                    }
                 };
-            } catch (_) {
-                this._startPollingFallback(tracker);
-            }
+            } catch (_) { /* polling already active */ }
         },
 
         _startPollingFallback(tracker) {
@@ -304,7 +322,7 @@ function quickImportPage() {
                     return;
                 }
                 if (!res.ok) return;
-                const job = await res.json();
+                const job = this._normalizeJob(await res.json());
                 this._applyJobUpdate(tracker, job);
             } catch (err) {
                 console.error('[QuickImport] Poll error:', err);
@@ -315,6 +333,7 @@ function quickImportPage() {
 
         _applyJobUpdate(tracker, job) {
             if (!tracker || !job) return;
+            job = this._normalizeJob(job);
 
             if (job.maxConcurrentSlots) {
                 this.maxConcurrentSlots = job.maxConcurrentSlots;
@@ -341,15 +360,21 @@ function quickImportPage() {
 
             if (job.phase === tracker.lastPhase) {
                 if (tracker.progressLog.length > 0 && job.message) {
-                    const last = tracker.progressLog[tracker.progressLog.length - 1];
-                    if (last.status === 'running') {
-                        last.text = this._phaseLine(job);
+                    const log = [...tracker.progressLog];
+                    const lastIdx = log.length - 1;
+                    if (log[lastIdx].status === 'running') {
+                        log[lastIdx] = { ...log[lastIdx], text: this._phaseLine(job) };
+                        tracker.progressLog = log;
                     }
                 }
             } else {
                 if (tracker.lastPhase !== null && tracker.progressLog.length > 0) {
-                    const last = tracker.progressLog[tracker.progressLog.length - 1];
-                    if (last.status === 'running') last.status = 'done';
+                    const log = [...tracker.progressLog];
+                    const lastIdx = log.length - 1;
+                    if (log[lastIdx].status === 'running') {
+                        log[lastIdx] = { ...log[lastIdx], status: 'done' };
+                        tracker.progressLog = log;
+                    }
                 }
                 const status =
                     job.phase === 'DONE'   ? 'done'    :
@@ -367,6 +392,8 @@ function quickImportPage() {
                     this._refreshBackground(job.projectId);
                 }
             }
+
+            this._syncTracker(tracker);
         },
 
         _phaseLine(job) {
@@ -402,7 +429,7 @@ function quickImportPage() {
                 console.warn('[QuickImport]', text);
                 return;
             }
-            tracker.progressLog.push({ status, text });
+            tracker.progressLog = [...tracker.progressLog, { status, text }];
         },
 
         _stopJobWatch(tracker) {

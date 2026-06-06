@@ -233,14 +233,20 @@
         <div th:if="${hasVulnerabilities}"
              class="bg-white border border-[var(--grayscale-15)] rounded-[10px] p-[24px] flex flex-col gap-[18px]">
             <p class="text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.5]">
-                <span th:if="${recommendedVersion != null}">
+                <span th:if="${securityFixVersion != null}">
                     <th:block th:text="#{componentDetail.vuln.upgradeHint}">Upgrade to version</th:block>
-                    <span class="font-bold text-[var(--primary-120)]" th:text="${recommendedVersion}">...</span>
+                    <span class="font-bold text-[var(--primary-120)]" th:text="${securityFixVersion}">...</span>
                     <th:block th:text="#{componentDetail.vuln.upgradeHint2}">to resolve known CVEs.</th:block>
                 </span>
-                <span th:if="${recommendedVersion == null}" th:text="#{componentDetail.vuln.noFix}">
+                <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.vuln.noFix}">
                     No patched version is currently available. Monitor this library for security updates.
                 </span>
+            </p>
+            <p th:if="${securityFixVersion == null and latestVersion != null and isLatestVersion == false}"
+               class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.5] m-0">
+                <th:block th:text="#{componentDetail.vuln.latestReleaseHint}">Latest release:</th:block>
+                <span class="font-medium text-[var(--grayscale-70)]" th:text="'v' + ${latestVersion}">v2.0.0</span>
+                <th:block th:text="#{componentDetail.vuln.latestReleaseHint2}">— may not address the known CVEs.</th:block>
             </p>
 
             <ul class="flex flex-col gap-[10px] text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]">
@@ -264,7 +270,7 @@
                 <div class="flex gap-[12px]">
                     <!-- GitHub + patch available → active button -->
                     <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
-                            th:if="${canCreatePr and recommendedVersion != null}"
+                            th:if="${canCreatePr and securityFixVersion != null}"
                             class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
@@ -283,7 +289,7 @@
                         <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                     </button>
                 </div>
-                <p th:if="${canCreatePr and recommendedVersion == null}"
+                <p th:if="${canCreatePr and securityFixVersion == null}"
                    class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPatchNow}">
                     No patch version available at this time.
                 </p>
@@ -646,10 +652,10 @@
             </p>
             <p th:if="${hasVulnerabilities}">
                 <th:block th:text="#{componentDetail.desc.hasVulnerabilities}">This version has known security vulnerabilities.</th:block>
-                <span th:if="${recommendedVersion != null}">
-                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">Upgrading to</th:block> <span class="font-medium text-[var(--primary-120)]" th:text="${recommendedVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">is recommended to resolve the known issues.</th:block>
+                <span th:if="${securityFixVersion != null}">
+                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">Upgrading to</th:block> <span class="font-medium text-[var(--primary-120)]" th:text="${securityFixVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">is recommended to resolve the known issues.</th:block>
                 </span>
-                <span th:if="${recommendedVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
+                <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
             </p>
             <p th:if="${!hasVulnerabilities}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
             <p><th:block th:text="#{componentDetail.desc.licenseLabel} + ': '">License: </th:block><span class="font-medium" th:text="${licenseName ?: 'Unknown'}">-</span>
