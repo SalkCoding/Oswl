@@ -25,7 +25,8 @@ public class OswlSecurityHeadersProperties {
      * Content-Security-Policy directive string. Empty disables CSP (not recommended for production).
      */
     private String contentSecurityPolicy = "default-src 'self'; "
-            + "script-src 'self' https://cdn.jsdelivr.net https://unpkg.com 'unsafe-inline'; "
+            // Alpine.js evaluates x-data / @click expressions via AsyncFunction (requires unsafe-eval).
+            + "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
             + "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; "
             + "font-src 'self' https://fonts.gstatic.com data:; "
             + "img-src 'self' data:; "

@@ -194,7 +194,7 @@ tasks.register('downloadTailwindCli') {
 tasks.register('buildTailwindCss', Exec) {
 	description = 'Compiles Tailwind CSS to src/main/resources/static/css/tailwind.css.'
 	group = 'frontend'
-	dependsOn 'downloadTailwindCli'
+	dependsOn 'downloadTailwindCli', 'downloadVendorJs'
 
 	def binFile  = new File(tailwindToolDir, tailwindBinaryName())
 	def inputCss = file('tailwind/input.css')
@@ -219,3 +219,35 @@ tasks.register('buildTailwindCss', Exec) {
 }
 
 processResources.dependsOn 'buildTailwindCss'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Frontend vendor JS (Alpine.js, collapse plugin, HTMX) — served from /js/vendor/
+// ─────────────────────────────────────────────────────────────────────────────
+ext {
+	alpineVersion = '3.14.9'
+	htmxVersion = '1.9.10'
+}
+
+tasks.register('downloadVendorJs') {
+	description = 'Downloads Alpine.js, @alpinejs/collapse, and HTMX into static/js/vendor/.'
+	group = 'frontend'
+	def vendorDir = file('src/main/resources/static/js/vendor')
+	def files = [
+		[name: 'alpine-collapse.min.js', url: "https://cdn.jsdelivr.net/npm/@alpinejs/collapse@${alpineVersion}/dist/cdn.min.js"],
+		[name: 'alpine.min.js',          url: "https://cdn.jsdelivr.net/npm/alpinejs@${alpineVersion}/dist/cdn.min.js"],
+		[name: 'htmx.min.js',            url: "https://unpkg.com/htmx.org@${htmxVersion}/dist/htmx.min.js"],
+	]
+	outputs.dir(vendorDir)
+	doLast {
+		vendorDir.mkdirs()
+		files.each { f ->
+			def target = new File(vendorDir, f.name)
+			if (!target.exists()) {
+				logger.lifecycle("[vendor-js] downloading ${f.url}")
+				Url.toUrl(f.url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+			}
+		}
+	}
+}
+
+processResources.dependsOn 'downloadVendorJs'

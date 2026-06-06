@@ -50,7 +50,7 @@ public interface GitHubApiControllerSpec {
         )
     )
     ResponseEntity<Map<String, Object>> connect(
-        @org.springframework.web.bind.annotation.RequestBody Map<String, String> body,
+        @RequestBody Map<String, String> body,
         @Parameter(hidden = true) HttpSession session
     );
 
@@ -211,7 +211,7 @@ public interface GitHubApiControllerSpec {
         )
     )
     ResponseEntity<Map<String, Object>> importRepo(
-        @org.springframework.web.bind.annotation.RequestBody GitHubImportRequest request,
+        @RequestBody GitHubImportRequest request,
         @Parameter(hidden = true) HttpSession session
     );
 }
