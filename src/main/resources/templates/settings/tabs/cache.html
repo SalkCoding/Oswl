@@ -7,8 +7,8 @@
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]" th:text="#{settings.cache.heading}">Cache Settings</h2>
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.cache.heading}">Cache Settings</h2>
         <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.cache.description}">Configure caching policies for library vulnerability data.</p>
     </div>
 
@@ -97,37 +97,60 @@
     </div>
 
     <!-- External API settings (NVD / GitHub OAuth) -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[24px]">
-        <div class="flex flex-col gap-[4px]">
-            <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]">External API Settings</h3>
-            <p class="text-[13px] text-[var(--grayscale-60)]">Configure NVD API key and GitHub OAuth credentials for enrichment and VCS integration.</p>
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+        <div class="flex flex-col gap-[8px]">
+            <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.cache.external.heading}">External API Settings</h3>
+            <p class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.external.description}">Configure NVD API key and GitHub OAuth credentials for enrichment and VCS integration.</p>
         </div>
 
-        <div class="flex flex-col gap-[12px] max-w-[520px]">
-            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">NVD API Key</label>
-            <input type="password" x-model="external.nvdApiKey" placeholder="Leave blank to keep current / clear key"
-                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
-            <p class="text-[12px] text-[var(--grayscale-50)]" x-text="external.nvdConfigured ? 'NVD key is configured.' : 'No NVD key configured.'"></p>
-            <button type="button" @click="saveNvd()" :disabled="externalSaving"
-                    class="self-start bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">
-                Save NVD Key
-            </button>
+        <div class="flex flex-col gap-[14px]">
+            <div class="flex items-center gap-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[130px] shrink-0" th:text="#{settings.cache.external.nvdKey}">NVD API Key</span>
+                <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                    <input type="password" x-model="external.nvdApiKey"
+                           th:attr="placeholder=#{settings.cache.external.nvdPlaceholder}"
+                           class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                </div>
+            </div>
+            <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] pl-[146px] max-w-[546px]"
+               x-text="external.nvdConfigured ? _cacheI18n.nvdConfigured : _cacheI18n.nvdNotConfigured"></p>
+            <div class="flex justify-end max-w-[546px]">
+                <button type="button" @click="saveNvd()" :disabled="externalSaving"
+                        class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
+                    <span x-text="externalSaving ? _cacheI18n.saving : _cacheI18n.saveNvd"></span>
+                </button>
+            </div>
         </div>
 
-        <div class="border-t border-[var(--grayscale-10)] pt-[20px] flex flex-col gap-[12px] max-w-[520px]">
-            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">GitHub OAuth Client ID</label>
-            <input type="text" x-model="external.githubClientId"
-                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
-            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">GitHub OAuth Client Secret</label>
-            <input type="password" x-model="external.githubClientSecret" placeholder="Leave blank to keep current"
-                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
-            <label class="text-[13px] font-medium text-[var(--grayscale-80)]">Redirect URI</label>
-            <input type="text" x-model="external.githubRedirectUri"
-                   class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px]"/>
-            <button type="button" @click="saveGithub()" :disabled="externalSaving"
-                    class="self-start bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px]">
-                Save GitHub OAuth
-            </button>
+        <div class="border-t border-[var(--grayscale-10)] pt-[24px] flex flex-col gap-[14px]">
+            <div class="flex items-center gap-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[130px] shrink-0" th:text="#{settings.cache.external.githubClientId}">GitHub OAuth Client ID</span>
+                <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                    <input type="text" x-model="external.githubClientId"
+                           class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                </div>
+            </div>
+            <div class="flex items-center gap-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[130px] shrink-0" th:text="#{settings.cache.external.githubClientSecret}">GitHub OAuth Client Secret</span>
+                <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                    <input type="password" x-model="external.githubClientSecret"
+                           th:attr="placeholder=#{settings.cache.external.githubSecretPlaceholder}"
+                           class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                </div>
+            </div>
+            <div class="flex items-center gap-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[130px] shrink-0" th:text="#{settings.cache.external.githubRedirectUri}">Redirect URI</span>
+                <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                    <input type="text" x-model="external.githubRedirectUri"
+                           class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                </div>
+            </div>
+            <div class="flex justify-end max-w-[546px]">
+                <button type="button" @click="saveGithub()" :disabled="externalSaving"
+                        class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
+                    <span x-text="externalSaving ? _cacheI18n.saving : _cacheI18n.saveGithub"></span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -160,7 +183,15 @@
         saveFailed:      /*[[#{settings.cache.error.saveFailed}]]*/ 'Save failed.',
         policyAlways:    /*[[#{settings.cache.policy.savedAlways}]]*/ 'Cache policy set to Always Refresh.',
         policyPermanent: /*[[#{settings.cache.policy.savedPermanent}]]*/ 'Cache policy set to Permanent.',
-        cleared:         /*[[#{settings.cache.cleared}]]*/ 'All cache has been cleared.'
+        cleared:         /*[[#{settings.cache.cleared}]]*/ 'All cache has been cleared.',
+        nvdConfigured:   /*[[#{settings.cache.external.nvdConfigured}]]*/ 'NVD key is configured.',
+        nvdNotConfigured:/*[[#{settings.cache.external.nvdNotConfigured}]]*/ 'No NVD key configured.',
+        saveNvd:         /*[[#{settings.cache.external.saveNvd}]]*/ 'Save NVD Key',
+        nvdSaved:        /*[[#{settings.cache.external.nvdSaved}]]*/ 'NVD settings saved.',
+        nvdSaveFailed:   /*[[#{settings.cache.external.nvdSaveFailed}]]*/ 'Failed to save NVD key.',
+        saveGithub:      /*[[#{settings.cache.external.saveGithub}]]*/ 'Save GitHub OAuth',
+        githubSaved:     /*[[#{settings.cache.external.githubSaved}]]*/ 'GitHub OAuth settings saved.',
+        githubSaveFailed:/*[[#{settings.cache.external.githubSaveFailed}]]*/ 'Failed to save GitHub OAuth.'
     };
     </script>
     <script>
@@ -259,11 +290,11 @@
                         method: 'PUT', headers: this.headers(),
                         body: JSON.stringify({ nvdApiKey: this.external.nvdApiKey || '' })
                     });
-                    if (!r.ok) { this.apiError = _fetchErr(r, 'Failed to save NVD key.'); return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.nvdSaveFailed); return; }
                     const data = await r.json();
                     this.external.nvdConfigured = !!data.nvdConfigured;
                     this.external.nvdApiKey = '';
-                    this.showToast('NVD settings saved.');
+                    this.showToast(_cacheI18n.nvdSaved);
                 } finally { this.externalSaving = false; }
             },
             async saveGithub() {
@@ -277,9 +308,9 @@
                             redirectUri: this.external.githubRedirectUri
                         })
                     });
-                    if (!r.ok) { this.apiError = _fetchErr(r, 'Failed to save GitHub OAuth.'); return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.githubSaveFailed); return; }
                     this.external.githubClientSecret = '';
-                    this.showToast('GitHub OAuth settings saved.');
+                    this.showToast(_cacheI18n.githubSaved);
                 } finally { this.externalSaving = false; }
             }
         };

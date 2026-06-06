@@ -287,12 +287,25 @@
             <div class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.promptsLocale}">Language</span>
-                    <div class="relative flex-1 max-w-[400px]">
-                        <select x-model="preferences.promptsLocale"
-                                class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
-                            <option value="en" th:text="#{settings.ai.locale.en}">English</option>
-                            <option value="ko" th:text="#{settings.ai.locale.ko}">Korean</option>
-                        </select>
+                    <div class="relative flex-1 max-w-[400px]" @click.away="localeDropdownOpen=false">
+                        <button type="button" @click="localeDropdownOpen=!localeDropdownOpen"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                                :class="localeDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                            <span x-text="localeLabel()"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="localeDropdownOpen ? 'rotate-180' : ''"
+                                 class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="localeDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                            <button type="button" @click="preferences.promptsLocale='en'; localeDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.promptsLocale==='en' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    th:text="#{settings.ai.locale.en}">English</button>
+                            <button type="button" @click="preferences.promptsLocale='ko'; localeDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.promptsLocale==='ko' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    th:text="#{settings.ai.locale.ko}">Korean</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -390,14 +403,24 @@
         <div class="flex flex-col gap-[14px] pl-[28px]">
             <div class="flex items-center gap-[16px]">
                 <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.deploymentProfile}">Deployment</span>
-                <div class="relative flex-1 max-w-[400px]">
-                    <select x-model="preferences.defaultDeploymentProfile"
-                            class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
-                        <option value="COMMERCIAL_PRODUCT" th:text="#{settings.ai.deployment.commercial}">Commercial product</option>
-                        <option value="SAAS" th:text="#{settings.ai.deployment.saas}">SaaS / network service</option>
-                        <option value="INTERNAL_TOOL" th:text="#{settings.ai.deployment.internal}">Internal tool</option>
-                        <option value="ON_PREMISE_DISTRIBUTION" th:text="#{settings.ai.deployment.onPrem}">On-prem / shipped</option>
-                    </select>
+                <div class="relative flex-1 max-w-[400px]" @click.away="deploymentDropdownOpen=false">
+                    <button type="button" @click="deploymentDropdownOpen=!deploymentDropdownOpen"
+                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                            :class="deploymentDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                        <span x-text="deploymentLabel()"></span>
+                        <img src="/icon/icon-triangle-down.svg" :class="deploymentDropdownOpen ? 'rotate-180' : ''"
+                             class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="deploymentDropdownOpen" x-cloak
+                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                        <template x-for="opt in deploymentOptions" :key="opt.value">
+                            <button type="button"
+                                    @click="preferences.defaultDeploymentProfile=opt.value; deploymentDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.defaultDeploymentProfile===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    x-text="opt.label"></button>
+                        </template>
+                    </div>
                 </div>
             </div>
         </div>
@@ -413,13 +436,24 @@
             <div class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.promptKey}">Template</span>
-                    <div class="relative flex-1 max-w-[400px]">
-                        <select x-model="promptEditKey" @change="loadPromptEditor()"
-                                class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
+                    <div class="relative flex-1 max-w-[400px]" @click.away="promptKeyDropdownOpen=false">
+                        <button type="button" @click="promptKeyDropdownOpen=!promptKeyDropdownOpen"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] font-mono text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                                :class="promptKeyDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                            <span class="truncate text-left" x-text="promptEditKey || '—'"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="promptKeyDropdownOpen ? 'rotate-180' : ''"
+                                 class="transition-transform duration-150 shrink-0 w-[14px] h-[14px] ml-[8px]" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="promptKeyDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="key in promptKeys" :key="key">
-                                <option :value="key" x-text="key"></option>
+                                <button type="button"
+                                        @click="promptEditKey=key; promptKeyDropdownOpen=false; loadPromptEditor()"
+                                        class="w-full text-left px-[12px] py-[9px] text-[12px] font-mono transition-colors"
+                                        :class="promptEditKey===key ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="key"></button>
                             </template>
-                        </select>
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-start gap-[16px]">
@@ -463,7 +497,13 @@
         disableFailed:  /*[[#{settings.ai.error.disableFailed}]]*/ 'Failed to disable AI.',
         testFailed:     /*[[#{settings.ai.error.testFailed}]]*/ 'Connection test failed.',
         customModel:    /*[[#{settings.ai.customModel}]]*/ 'Custom model will be used',
-        saveFailed:     /*[[#{settings.ai.error.saveFailed}]]*/ 'Save failed.'
+        saveFailed:     /*[[#{settings.ai.error.saveFailed}]]*/ 'Save failed.',
+        localeEn:       /*[[#{settings.ai.locale.en}]]*/ 'English',
+        localeKo:       /*[[#{settings.ai.locale.ko}]]*/ 'Korean',
+        deployCommercial: /*[[#{settings.ai.deployment.commercial}]]*/ 'Commercial product',
+        deploySaas:     /*[[#{settings.ai.deployment.saas}]]*/ 'SaaS / network service',
+        deployInternal: /*[[#{settings.ai.deployment.internal}]]*/ 'Internal tool',
+        deployOnPrem:   /*[[#{settings.ai.deployment.onPrem}]]*/ 'On-prem / shipped'
     };
     </script>
 
@@ -483,7 +523,24 @@
                 defaultDeploymentProfile: 'COMMERCIAL_PRODUCT'
             },
             promptKeys: [], promptOverrides: {}, promptEditKey: 'batch.cve.header', promptEditText: '',
+            localeDropdownOpen: false,
+            deploymentDropdownOpen: false,
+            promptKeyDropdownOpen: false,
+            deploymentOptions: [
+                { value: 'COMMERCIAL_PRODUCT',      label: _aiI18n.deployCommercial },
+                { value: 'SAAS',                    label: _aiI18n.deploySaas },
+                { value: 'INTERNAL_TOOL',           label: _aiI18n.deployInternal },
+                { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
+            ],
             saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
+
+            localeLabel() {
+                return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
+            },
+            deploymentLabel() {
+                const opt = this.deploymentOptions.find(o => o.value === this.preferences.defaultDeploymentProfile);
+                return opt ? opt.label : this.preferences.defaultDeploymentProfile;
+            },
 
             csrf() {
                 return window.OswlCsrf ? window.OswlCsrf.token() : '';

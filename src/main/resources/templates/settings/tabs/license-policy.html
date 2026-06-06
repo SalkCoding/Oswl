@@ -6,9 +6,9 @@
      x-init="load()"
      class="flex flex-col gap-[20px]">
 
-    <div class="flex flex-col gap-[4px]">
-        <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px]">License Policy</h2>
-        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]">
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.licensePolicy.heading}">License Policy</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.licensePolicy.description}">
             Map SPDX license identifiers to Permitted, Caution, Restricted, or Unknown classifications used during scans.
         </p>
     </div>
@@ -16,31 +16,47 @@
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
 
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] overflow-hidden">
+    <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
         <table class="w-full text-[13px]">
             <thead>
             <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                <th class="px-[16px] py-[12px] font-bold">SPDX ID</th>
-                <th class="px-[16px] py-[12px] font-bold">Status</th>
-                <th class="px-[16px] py-[12px] font-bold w-[160px]">Action</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.licensePolicy.col.spdxId}">SPDX ID</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.licensePolicy.col.status}">Status</th>
+                <th class="px-[16px] py-[12px] font-bold w-[120px]" th:text="#{settings.licensePolicy.col.action}">Action</th>
             </tr>
             </thead>
             <tbody>
             <template x-for="entry in entries" :key="entry.spdxId">
                 <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
-                    <td class="px-[16px] py-[12px] font-mono text-[12px]" x-text="entry.spdxId"></td>
+                    <td class="px-[16px] py-[12px] font-mono text-[12px] text-[var(--grayscale-80)]" x-text="entry.spdxId"></td>
                     <td class="px-[16px] py-[12px]">
-                        <select x-model="entry.status" class="border border-[var(--grayscale-20)] rounded-[6px] px-[8px] py-[4px] text-[12px]">
-                            <option value="PERMITTED">Permitted</option>
-                            <option value="CAUTION">Caution</option>
-                            <option value="RESTRICTED">Restricted</option>
-                            <option value="UNKNOWN">Unknown</option>
-                        </select>
+                        <div class="relative min-w-[140px]"
+                             @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
+                            <button type="button"
+                                    @click="openStatusDropdown = openStatusDropdown === entry.spdxId ? null : entry.spdxId"
+                                    class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] transition-colors cursor-pointer"
+                                    :class="openStatusDropdown === entry.spdxId ? 'border-[var(--primary-120)]' : ''">
+                                <span x-text="statusLabel(entry.status)"></span>
+                                <img src="/icon/icon-triangle-down.svg"
+                                     :class="openStatusDropdown === entry.spdxId ? 'rotate-180' : ''"
+                                     class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
+                            </button>
+                            <div x-show="openStatusDropdown === entry.spdxId" x-cloak
+                                 class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                                <template x-for="opt in statusOptions" :key="opt.value">
+                                    <button type="button"
+                                            @click="entry.status = opt.value; openStatusDropdown = null"
+                                            class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                            :class="entry.status === opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                            x-text="opt.label"></button>
+                                </template>
+                            </div>
+                        </div>
                     </td>
                     <td class="px-[16px] py-[12px]">
                         <button type="button" @click="save(entry)"
-                                class="text-[12px] font-semibold text-[var(--primary-120)] hover:underline">
-                            Save
+                                class="text-[13px] font-semibold text-[var(--primary-120)] hover:text-[var(--primary-100)] transition-colors">
+                            <span th:text="#{common.save}">Save</span>
                         </button>
                     </td>
                 </tr>
@@ -49,20 +65,67 @@
         </table>
     </div>
 
+    <!-- Toast -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _licensePolicyI18n = {
+        loadFailed:       /*[[#{settings.licensePolicy.error.loadFailed}]]*/ 'Failed to load license policy.',
+        saveFailed:       /*[[#{settings.licensePolicy.error.saveFailed}]]*/ 'Failed to update entry.',
+        saved:            /*[[#{settings.licensePolicy.saved}]]*/ 'License policy updated.',
+        statusPermitted:  /*[[#{settings.licensePolicy.status.permitted}]]*/ 'Permitted',
+        statusCaution:    /*[[#{settings.licensePolicy.status.caution}]]*/ 'Caution',
+        statusRestricted: /*[[#{settings.licensePolicy.status.restricted}]]*/ 'Restricted',
+        statusUnknown:    /*[[#{settings.licensePolicy.status.unknown}]]*/ 'Unknown'
+    };
+    </script>
     <script>
     function licensePolicyTab() {
         return {
             entries: [],
+            openStatusDropdown: null,
+            statusOptions: [
+                { value: 'PERMITTED',  label: _licensePolicyI18n.statusPermitted },
+                { value: 'CAUTION',    label: _licensePolicyI18n.statusCaution },
+                { value: 'RESTRICTED', label: _licensePolicyI18n.statusRestricted },
+                { value: 'UNKNOWN',    label: _licensePolicyI18n.statusUnknown }
+            ],
             apiError: null,
-            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+            toastVisible: false,
+            toastMsg: '',
             headers() { return oswlJsonHeaders(); },
+            statusLabel(status) {
+                const opt = this.statusOptions.find(o => o.value === status);
+                return opt ? opt.label : status;
+            },
+            showToast(msg) {
+                this.toastMsg = msg;
+                this.toastVisible = true;
+                setTimeout(() => { this.toastVisible = false; }, 2500);
+            },
             async load() {
                 try {
                     const r = await fetch('/api/settings/license-policy');
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _fetchErr(r, 'Failed to load license policy.'); return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.loadFailed); return; }
                     this.entries = await r.json();
-                } catch(e) { this.apiError = 'Failed to load license policy.'; }
+                } catch(e) { this.apiError = _licensePolicyI18n.loadFailed; }
             },
             async save(entry) {
                 this.apiError = null;
@@ -71,7 +134,8 @@
                     method: 'PUT', headers: this.headers(), body: JSON.stringify({ status: entry.status })
                 });
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.apiError = _fetchErr(r, 'Failed to update entry.'); return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.saveFailed); return; }
+                this.showToast(_licensePolicyI18n.saved);
             }
         };
     }
