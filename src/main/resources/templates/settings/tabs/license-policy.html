@@ -20,17 +20,17 @@
         <table class="w-full text-[13px]">
             <thead>
             <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.licensePolicy.col.spdxId}">SPDX ID</th>
-                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.licensePolicy.col.status}">Status</th>
-                <th class="px-[16px] py-[12px] font-bold w-[120px]" th:text="#{settings.licensePolicy.col.action}">Action</th>
+                <th class="px-[18px] py-[12px] font-bold flex-1" th:text="#{settings.licensePolicy.col.spdxId}">SPDX ID</th>
+                <th class="px-[18px] py-[12px] font-bold w-[240px]" th:text="#{settings.licensePolicy.col.status}">Status</th>
+                <th class="px-[18px] py-[12px] font-bold w-[200px]" th:text="#{settings.licensePolicy.col.action}">Action</th>
             </tr>
             </thead>
             <tbody>
             <template x-for="entry in entries" :key="entry.spdxId">
                 <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
-                    <td class="px-[16px] py-[12px] font-mono text-[12px] text-[var(--grayscale-80)]" x-text="entry.spdxId"></td>
-                    <td class="px-[16px] py-[12px]">
-                        <div class="relative min-w-[140px]"
+                    <td class="px-[18px] py-[12px] font-mono text-[12px] text-[var(--grayscale-80)] flex-1" x-text="entry.spdxId"></td>
+                    <td class="px-[18px] py-[12px] w-[240px]">
+                        <div class="relative min-w-[100px]"
                              @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
                             <button type="button"
                                     @click="openStatusDropdown = openStatusDropdown === entry.spdxId ? null : entry.spdxId"
@@ -53,10 +53,15 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-[16px] py-[12px]">
+                    <td class="px-[18px] py-[12px] w-[200px]">
                         <button type="button" @click="save(entry)"
-                                class="text-[13px] font-semibold text-[var(--primary-120)] hover:text-[var(--primary-100)] transition-colors">
-                            <span th:text="#{common.save}">Save</span>
+                                class="bg-[#00A093] hover:bg-[#008f83] px-[8px] py-[6px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[88px] transition-colors cursor-pointer">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                <polyline points="17 21 17 13 7 13 7 21"/>
+                                <polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            <span class="font-medium text-[13px] text-white tracking-[-0.13px] whitespace-nowrap" th:text="#{common.save}">Save</span>
                         </button>
                     </td>
                 </tr>
