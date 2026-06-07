@@ -41,6 +41,7 @@ class OpenAiClientTest {
         prompts.reloadWithLocale("en");
         OutboundUrlValidator urlValidator = mock(OutboundUrlValidator.class);
         doNothing().when(urlValidator).validateHttpUrl(anyString());
+        doNothing().when(urlValidator).validateLocalAiBaseUrl(anyString());
         client = new OpenAiClient(prompts, new AiCallTrace(new AiDebugSettings()), urlValidator);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
@@ -115,7 +116,10 @@ class OpenAiClientTest {
     @SuppressWarnings("unchecked")
     void callWithSetting_localBaseUrl_callsWithoutApiKey() {
         stubResponse("ok");
-        AiSetting local = setting(null, null, "http://localhost:11434/v1");
+        AiSetting local = AiSetting.builder()
+                .provider(AiProvider.LOCAL)
+                .baseUrl("http://localhost:11434/v1")
+                .build();
 
         String result = client.callWithSetting("hello", local, "completion", null);
 

@@ -2,39 +2,53 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.LicensePolicyEntry;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.license.SpdxLicenseRegistry;
 import com.salkcoding.oswl.repository.LicensePolicyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("LicensePolicyService 단위 테스트")
 class LicensePolicyServiceTest {
 
     @Mock
     LicensePolicyRepository licensePolicyRepository;
 
+    @Mock
+    SpdxLicenseRegistry spdxLicenseRegistry;
+
     @InjectMocks
     LicensePolicyService licensePolicyService;
 
     @BeforeEach
     void seedCache() {
+        when(spdxLicenseRegistry.displayName(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(inv -> inv.getArgument(0));
         when(licensePolicyRepository.findAll()).thenReturn(List.of(
                 entry("MIT",        LicenseStatus.PERMITTED),
                 entry("APACHE-2.0", LicenseStatus.PERMITTED),
                 entry("LGPL-2.1",   LicenseStatus.CAUTION),
-                entry("GPL-3.0",    LicenseStatus.RESTRICTED),
-                entry("AGPL-3.0",   LicenseStatus.RESTRICTED)
+                entry("GPL-3.0",      LicenseStatus.RESTRICTED),
+                entry("GPL-3.0-only", LicenseStatus.RESTRICTED),
+                entry("AGPL-3.0",     LicenseStatus.RESTRICTED)
         ));
         licensePolicyService.refreshCache();
     }
@@ -77,6 +91,12 @@ class LicensePolicyServiceTest {
     @DisplayName("RESTRICTED 라이선스를 올바르게 반환한다")
     void classify_returnsRestricted_forGpl() {
         assertThat(licensePolicyService.classify("GPL-3.0")).isEqualTo(LicenseStatus.RESTRICTED);
+    }
+
+    @Test
+    @DisplayName("GPL-3.0-only SPDX suffix도 RESTRICTED로 분류한다")
+    void classify_returnsRestricted_forGplOnlySuffix() {
+        assertThat(licensePolicyService.classify("GPL-3.0-only")).isEqualTo(LicenseStatus.RESTRICTED);
     }
 
     @Test
@@ -142,6 +162,23 @@ class LicensePolicyServiceTest {
 
     private static LicensePolicyEntry entry(String spdxId, LicenseStatus status) {
         return LicensePolicyEntry.builder().spdxId(spdxId).status(status).build();
+    }
+
+    @Test
+    @DisplayName("findEntries: 페이지 단위로 SPDX 항목을 반환한다")
+    void findEntries_returnsPagedResults() {
+        List<LicensePolicyEntry> pageItems = List.of(
+                entry("0BSD", LicenseStatus.PERMITTED),
+                entry("MIT", LicenseStatus.PERMITTED)
+        );
+        Page<LicensePolicyEntry> page = new PageImpl<>(pageItems, Pageable.ofSize(50), 697);
+        when(licensePolicyRepository.findAll(any(Pageable.class))).thenReturn(page);
+
+        var result = licensePolicyService.findEntries(null, 0, 50);
+
+        assertThat(result.getItems()).hasSize(2);
+        assertThat(result.getTotal()).isEqualTo(697);
+        assertThat(result.isHasMore()).isTrue();
     }
 
     // ── updateEntry ───────────────────────────────────────────────────────

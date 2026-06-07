@@ -37,7 +37,8 @@ CSRF 예외는 다음만 해당합니다.
 ## 남용 방지
 
 - 실패 시 **속도 제한**(설정 가능).
-- **감사 로그**: `SCAN.API_KEY_FAILURE`, `SCAN.AUTH_FAILURE`, `SCAN.AUTH_RATE_LIMITED`, 성공 시 `SCAN.INGEST`.
+- **감사 로그**: `SCAN.API_KEY_FAILURE`, `SCAN.AUTH_FAILURE`, `SCAN.AUTH_RATE_LIMITED`, 성공 시 `SCAN.INGEST`(제출자 **이메일** 기록). `scan_results`에는 `submitted_by_user_id` 컬럼을 저장하지 않습니다.
+- CLI 키 발급은 `CLI_KEY.CREATE`로 기록되며, 행위자는 **현재 세션 사용자**입니다(`api_keys`에 발급자 ID 컬럼 없음).
 
 ---
 

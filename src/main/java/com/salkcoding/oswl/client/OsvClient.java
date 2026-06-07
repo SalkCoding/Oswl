@@ -40,7 +40,8 @@ public class OsvClient {
             String osvId,
             String cveId,
             String summary,
-            String fixVersion) {}
+            String fixVersion,
+            String cweId) {}
 
     /** Result set for a single query, aligned with the input batch index. */
     public record OsvResult(List<OsvVuln> vulns) {}
@@ -186,7 +187,34 @@ public class OsvClient {
             }
         }
 
-        return new OsvVuln(osvId, cveId, summary, fixVersion);
+        return new OsvVuln(osvId, cveId, summary, fixVersion, extractCweId(vuln));
+    }
+
+    /**
+     * Reads the first CWE from OSV {@code database_specific.cwe_ids} when present.
+     * Package-visible for unit tests.
+     */
+    static String extractCweId(Map<String, Object> vuln) {
+        Object dbSpec = vuln.get("database_specific");
+        if (!(dbSpec instanceof Map<?, ?> spec)) {
+            return null;
+        }
+        Object cweIds = spec.get("cwe_ids");
+        if (!(cweIds instanceof List<?> list) || list.isEmpty()) {
+            return null;
+        }
+        Object first = list.get(0);
+        if (!(first instanceof String raw) || raw.isBlank()) {
+            return null;
+        }
+        String trimmed = raw.strip();
+        if (trimmed.startsWith("CWE-")) {
+            return trimmed;
+        }
+        if (trimmed.matches("\\d+")) {
+            return "CWE-" + trimmed;
+        }
+        return trimmed;
     }
 
     // ── Value types ───────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.VcsConnectionDto;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportJobsResponse;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.QuickImportRequest;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -29,7 +30,8 @@ import java.util.Map;
 
 @Tag(name = "Quick Import", description = """
         Async repository import from GitHub, GitLab, or Bitbucket.
-        Up to two imports run concurrently; additional jobs are queued (FIFO).
+        Up to three imports run concurrently (instance-wide); additional jobs are queued FIFO.
+        Each user may have at most three queued jobs; exceeding that returns HTTP 429.
         Progress is available via polling or Server-Sent Events (SSE).
         """)
 public interface QuickImportControllerSpec {
@@ -70,20 +72,25 @@ public interface QuickImportControllerSpec {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Job enqueued",
                     content = @Content(schema = @Schema(example = "{\"jobId\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\"}"))),
-            @ApiResponse(responseCode = "400", description = "Validation error", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Validation error", content = @Content),
+            @ApiResponse(responseCode = "429", description = "Per-user queued job limit reached",
+                    content = @Content(schema = @Schema(example = "{\"error\": \"You can queue up to 3 imports.\"}")))
     })
-    ResponseEntity<Map<String, String>> start(
+    ResponseEntity<?> start(
             @Valid @RequestBody QuickImportRequest request,
             @Parameter(hidden = true) @AuthenticationPrincipal OswlUserPrincipal principal
     );
 
     @Operation(summary = "List Quick Import jobs for the current user",
-            description = "Returns all in-memory jobs owned by the user (active, queued, and recently finished).")
+            description = """
+                    Returns all in-memory jobs owned by the user plus queue capacity snapshot
+                    (`activeSlotsUsed`, `userQueuedCount`, `userRunningCount`).
+                    """)
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Job list",
-                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = QuickImportJobStatus.class))))
+            @ApiResponse(responseCode = "200", description = "Job list with queue snapshot",
+                    content = @Content(schema = @Schema(implementation = QuickImportJobsResponse.class)))
     })
-    ResponseEntity<List<QuickImportJobStatus>> listJobs(
+    ResponseEntity<QuickImportJobsResponse> listJobs(
             @Parameter(hidden = true) @AuthenticationPrincipal OswlUserPrincipal principal
     );
 

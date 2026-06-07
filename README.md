@@ -215,6 +215,8 @@ Full documentation is available in the [`docs/`](docs/) folder:
 | [Administration](docs/Administration.md) | Users, roles, audit logs, security settings |
 | [Authorization layers](docs/Authorization-Layers.md) | Role templates vs project membership |
 | [Production deployment](docs/Production-Deployment-Checklist.md) | Production checklist |
+| [Database schema](docs/Database-Schema.md) | `ddl-auto` strategy and SQL migrations |
+| [Scan API security](docs/Scan-Api-Security.md) | CLI scan auth and audit logging |
 | [API Reference](docs/API-Reference.md) | REST API endpoint summary |
 | [Glossary](docs/Glossary.md) | Terms and definitions |
 

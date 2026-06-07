@@ -426,8 +426,8 @@ class ProjectServiceTest {
     }
 
     @Test
-    @DisplayName("upsertFromGitHub — 이미 존재하는 브랜치이면 touch()만 호출한다")
-    void upsertFromGitHub_touchesExistingBranch_whenSameBranchFound() {
+    @DisplayName("upsertFromGitHub — 이미 존재하는 브랜치이면 ProjectVersion을 추가하지 않는다")
+    void upsertFromGitHub_skipsVersion_whenSameBranchFound() {
         Project existing = Project.builder().id(5L).name("owner/repo").build();
         ProjectVersion existingVersion = ProjectVersion.builder()
                 .project(existing).branch("main").versionNumber(1)
@@ -436,12 +436,11 @@ class ProjectServiceTest {
         when(projectRepository.findByGithubRepo("owner/repo")).thenReturn(Optional.of(existing));
         when(projectVersionRepository.findByProjectAndBranch(existing, "main"))
                 .thenReturn(Optional.of(existingVersion));
-        when(projectVersionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         projectService.upsertFromGitHub("owner", "repo", "main");
 
-        // New version should NOT be created for existing branch
+        verify(projectVersionRepository, never()).save(any());
         verify(projectVersionRepository, never()).findMaxVersionNumber(any());
     }
 }

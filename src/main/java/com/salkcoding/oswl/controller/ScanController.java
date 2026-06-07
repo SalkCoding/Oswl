@@ -1,6 +1,5 @@
 package com.salkcoding.oswl.controller;
 
-import tools.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.domain.entity.ScanResult;
@@ -56,8 +55,6 @@ public class ScanController implements ScanControllerSpec {
     private final ProjectAccessService projectAccessService;
     private final ScanApiCredentialThrottleService scanApiCredentialThrottleService;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     /** Ping endpoint used by the CLI auth command for a connection test */
     @GetMapping("/ping")
     public ResponseEntity<PingResponse> ping(HttpServletRequest request) {
@@ -71,7 +68,7 @@ public class ScanController implements ScanControllerSpec {
     @PostMapping
     public ResponseEntity<ScanResponse> receiveScan(
             @Valid @RequestBody ScanPayload payload,
-            HttpServletRequest request) throws Exception {
+            HttpServletRequest request) {
 
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
         String actorEmail = payload.getSubmitterEmail();
@@ -101,8 +98,6 @@ public class ScanController implements ScanControllerSpec {
         }
 
         scanApiCredentialThrottleService.recordCredentialSuccess(projectId, actorEmail);
-
-        payload.setRawJson(MAPPER.writeValueAsString(payload));
 
         ScanResult result = scanIngestService.ingest(projectId, payload);
 

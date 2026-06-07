@@ -22,7 +22,7 @@ Authorization: Bearer oswl_<your_api_key>
 
 ### CLI 스캔 제출자 자격증명
 
-`POST /api/scan`에는 JSON 본문에 `submitterEmail`과 `submitterPassword`도 필요하여 스캔을 인증하고 귀속시킵니다.
+`POST /api/scan`에는 JSON 본문에 `submitterEmail`과 `submitterPassword`도 필요하여 스캔을 인증하고 귀속시킵니다. 성공한 수집은 **감사 로그**(`SCAN.INGEST`)에 제출자 이메일로 기록되며, `scan_results` 전용 컬럼에는 저장하지 않습니다.
 
 ---
 
@@ -248,22 +248,25 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/api/settings/vcs` | `SETTINGS_VCS_MANAGE` | 연결 추가 |
 | `DELETE` | `/api/settings/vcs/{id}` | `SETTINGS_VCS_MANAGE` | 연결 제거 |
 
-### 캐시
+### 캐시 (보강 정책)
+
+**deps.dev**·**OSV**에서 가져온 라이브러리 CVE/라이선스 데이터를 스캔 간 얼마나 재사용할지 제어합니다.
 
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
-| `GET` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | 캐시 설정 조회 |
-| `PUT` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | 설정 업데이트 |
-| `POST` | `/api/settings/cache/clear` | `SETTINGS_CACHE_MANAGE` | 모든 캐시 초기화 |
+| `GET` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | 캐시 키(`DEPS_DEV`, `OSV_VULN`) 목록, TTL, 마지막 클리어 시각 |
+| `PUT` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | 키별 TTL 변경 (`cacheKey`, `ttlSeconds`) |
+| `POST` | `/api/settings/cache/clear?cacheKey=…` | `SETTINGS_CACHE_MANAGE` | 캐시 클리어 — 해당 시각 이전에 fetch된 라이브러리는 다음 보강 시 재조회 |
 
-### 외부 API (캐시 정책, GitHub OAuth)
+**TTL 의미** (설정 → 캐시 UI는 보강 파이프라인의 `DEPS_DEV` TTL에 매핑):
 
-| 메서드 | 경로 | 설명 |
+| UI 모드 | `ttlSeconds` | 동작 |
 |---|---|---|
-| `GET` | `/api/settings/external` | 라이브러리 캐시 정책 조회 (`permanentCache`, `cacheTtlDays`) |
-| `PUT` | `/api/settings/external/cache` | 라이브러리 캐시 정책 업데이트 |
-| `GET` | `/api/settings/external/github` | GitHub OAuth 설정 조회 (클라이언트 ID, 리다이렉트 URI; 시크릿 미반환) |
-| `PUT` | `/api/settings/external/github` | GitHub OAuth 클라이언트 ID, 시크릿, 리다이렉트 URI 설정 |
+| 항상 새로고침 | `1` | 매 스캔마다 전체 재조회 |
+| 사용자 지정 TTL | `N` (초) | `libraries.fetched_at`이 N초보다 오래되면 재조회 |
+| 영구 캐시 | 매우 큰 값 (예: 50년) | 라이브러리당 최초 1회만 조회 |
+
+> **참고:** 예전 `/api/settings/external` API와 `external_api_settings` 테이블은 제거되었습니다. 캐시는 `/api/settings/cache`만 사용합니다.
 
 ---
 

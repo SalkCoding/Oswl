@@ -20,7 +20,7 @@ Authorization: Bearer oswl_<api_key>
 
 ### CLI Scan Submitter Credentials
 
-`POST /api/scan` additionally requires `submitterEmail` and `submitterPassword` in the JSON body to authenticate and attribute the scan.
+`POST /api/scan` additionally requires `submitterEmail` and `submitterPassword` in the JSON body to authenticate the submitter. Successful ingests are recorded in the **audit log** (`SCAN.INGEST`) with the submitter email — not in a dedicated scan-result column.
 
 ---
 
@@ -246,22 +246,25 @@ Providers: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`.
 | `POST` | `/api/settings/vcs` | `SETTINGS_VCS_MANAGE` | Add connection |
 | `DELETE` | `/api/settings/vcs/{id}` | `SETTINGS_VCS_MANAGE` | Remove connection |
 
-### Cache
+### Cache (enrichment policy)
+
+Controls how long library CVE/license data from **deps.dev** and **OSV** is reused between scans.
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
-| `GET` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | Get cache settings |
-| `PUT` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | Update settings |
-| `POST` | `/api/settings/cache/clear` | `SETTINGS_CACHE_MANAGE` | Flush all caches |
+| `GET` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | List cache keys (`DEPS_DEV`, `OSV_VULN`) with TTL and last-cleared metadata |
+| `PUT` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | Update TTL for one key (`cacheKey`, `ttlSeconds`) |
+| `POST` | `/api/settings/cache/clear?cacheKey=…` | `SETTINGS_CACHE_MANAGE` | Mark cache cleared — libraries fetched before that time are re-fetched on the next enrichment |
 
-### External APIs (cache policy, GitHub OAuth)
+**TTL semantics** (Settings → Cache UI maps to `DEPS_DEV` TTL used by enrichment):
 
-| Method | Path | Description |
+| UI mode | `ttlSeconds` | Behaviour |
 |---|---|---|
-| `GET` | `/api/settings/external` | Get library cache policy (`permanentCache`, `cacheTtlDays`) |
-| `PUT` | `/api/settings/external/cache` | Update library cache policy |
-| `GET` | `/api/settings/external/github` | Get GitHub OAuth settings (client ID, redirect URI; secret never returned) |
-| `PUT` | `/api/settings/external/github` | Set GitHub OAuth client ID, secret, and redirect URI |
+| Always Refresh | `1` | Re-fetch every library on every scan |
+| Custom TTL | `N` (seconds) | Re-fetch when `libraries.fetched_at` is older than N |
+| Permanent Cache | very large (e.g. 50 years) | Fetch each library only once |
+
+> **Note:** The former `/api/settings/external` endpoints and `external_api_settings` table were removed. Cache is managed solely via `/api/settings/cache`.
 
 ---
 

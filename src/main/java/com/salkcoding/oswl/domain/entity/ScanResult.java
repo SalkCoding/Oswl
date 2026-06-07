@@ -3,8 +3,6 @@ package com.salkcoding.oswl.domain.entity;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,11 +37,6 @@ public class ScanResult {
     @Builder.Default
     private ScanStatus status = ScanStatus.PENDING;
 
-    /** Raw JSON payload sent by the CLI (for audit purposes) */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "raw_payload", columnDefinition = "jsonb")
-    private String rawPayload;
-
     /** Error message, etc., when AI analysis fails */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
@@ -67,13 +60,6 @@ public class ScanResult {
     /** Scan id compared against when {@link #versionDiffAiInsight} was generated */
     @Column(name = "version_diff_from_scan_id")
     private Long versionDiffFromScanId;
-
-    /**
-     * User who submitted this scan (Quick Import or user-level CLI auth).
-     * Anonymous CLI scans submitted with a project API key are null.
-     */
-    @Column(name = "submitted_by_user_id")
-    private Long submittedByUserId;
 
     @Column(name = "scanned_at")
     private LocalDateTime scannedAt;
@@ -130,8 +116,7 @@ public class ScanResult {
      * Clears the previous payload/state so new component data can be received again.
      * Callers must clear the components collection before invoking this method.
      */
-    public void resetForRescan(String newRawPayload) {
-        this.rawPayload = newRawPayload;
+    public void resetForRescan() {
         this.status = ScanStatus.PENDING;
         this.errorMessage = null;
         this.scannedAt = LocalDateTime.now();

@@ -5,9 +5,11 @@ import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
+import com.salkcoding.oswl.dto.QuickImportJobsResponse;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,8 +44,6 @@ class QuickImportServiceTest {
     @Mock BitbucketCloudClient        bitbucketCloudClient;
     @Mock com.salkcoding.oswl.service.git.GitCloneExecutor gitCloneExecutor;
     @Mock com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
-    @Mock org.springframework.context.MessageSource messageSource;
-
     @InjectMocks QuickImportService quickImportService;
 
     @org.junit.jupiter.api.BeforeEach
@@ -50,6 +51,8 @@ class QuickImportServiceTest {
         lenient().when(projectCliKeyPolicyService.resolve(anyLong()))
                 .thenReturn(ProjectCliKeyPolicyService.ProjectKeyState.NONE);
         lenient().doNothing().when(projectCliKeyPolicyService).assertScanIngestAllowed(anyLong());
+        ReflectionTestUtils.setField(quickImportService, "maxQueuedPerUser", 3);
+        ReflectionTestUtils.setField(quickImportService, "maxConcurrentImports", 3);
     }
 
     // ── getJobStatus ──────────────────────────────────────────────────────
@@ -86,6 +89,43 @@ class QuickImportServiceTest {
 
         assertThat(jobId2).isNotEqualTo(jobId1);
         assertThat(quickImportService.listJobsForUser(2L)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("listJobsSnapshot: 대기·실행 슬롯 수를 함께 반환한다")
+    void listJobsSnapshot_reportsQueueCounts() {
+        ReflectionTestUtils.setField(quickImportService, "maxQueuedPerUser", 3);
+        ReflectionTestUtils.setField(quickImportService, "maxConcurrentImports", 0);
+
+        quickImportService.startImport("https://github.com/user/repo1", "main", 7L);
+        quickImportService.startImport("https://github.com/user/repo2", "main", 7L);
+
+        QuickImportJobsResponse snapshot = quickImportService.listJobsSnapshot(7L);
+
+        assertThat(snapshot.getJobs()).hasSize(2);
+        assertThat(snapshot.getUserQueuedCount()).isEqualTo(2);
+        assertThat(snapshot.getUserRunningCount()).isZero();
+        assertThat(snapshot.getActiveSlotsUsed()).isZero();
+        assertThat(snapshot.getMaxConcurrentSlots()).isEqualTo(0);
+        assertThat(snapshot.getMaxQueuedSlots()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("startImport: 사용자당 QUEUED 한도 초과 시 QuickImportQueueFullException")
+    void startImport_userQueueFull_throws() {
+        ReflectionTestUtils.setField(quickImportService, "maxQueuedPerUser", 2);
+        ReflectionTestUtils.setField(quickImportService, "maxConcurrentImports", 0);
+        quickImportService.startImport("https://github.com/user/repo1", "main", 5L);
+        quickImportService.startImport("https://github.com/user/repo2", "main", 5L);
+
+        assertThatThrownBy(() ->
+                quickImportService.startImport("https://github.com/user/repo3", "main", 5L))
+                .isInstanceOf(QuickImportQueueFullException.class)
+                .satisfies(ex -> {
+                    QuickImportQueueFullException qe = (QuickImportQueueFullException) ex;
+                    assertThat(qe.getMessageKey()).isEqualTo(com.salkcoding.oswl.dto.QuickImportMessageKeys.QUEUE_FULL);
+                    assertThat(qe.getMessageArgs()).containsExactly("2");
+                });
     }
 
     @Test
@@ -152,8 +192,8 @@ class QuickImportServiceTest {
     }
 
     @Test
-    @DisplayName("listRepos: 토큰 복호화 실패 시 빈 목록 반환")
-    void listRepos_decryptFails_returnsEmpty() throws Exception {
+    @DisplayName("listRepos: 토큰 복호화 실패 시 QuickImportUpstreamException")
+    void listRepos_decryptFails_throwsUpstream() throws Exception {
         UserVcsConnection conn = UserVcsConnection.builder()
                 .id(1L).provider(VcsProvider.GITHUB).active(true)
                 .accessTokenEncrypted("encrypted-token")
@@ -162,9 +202,8 @@ class QuickImportServiceTest {
                 .thenReturn(Optional.of(conn));
         when(encryptionService.decrypt("encrypted-token")).thenThrow(new RuntimeException("bad key"));
 
-        var result = quickImportService.listRepos(VcsProvider.GITHUB, 1L);
-
-        assertThat(result).isEmpty();
+        assertThatThrownBy(() -> quickImportService.listRepos(VcsProvider.GITHUB, 1L))
+                .isInstanceOf(QuickImportUpstreamException.class);
     }
 
     @Test

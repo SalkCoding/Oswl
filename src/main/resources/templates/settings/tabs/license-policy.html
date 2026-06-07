@@ -3,7 +3,7 @@
 <body>
 <div th:fragment="tab"
      x-data="licensePolicyTab()"
-     x-init="load()"
+     x-init="init()"
      class="flex flex-col gap-[20px]">
 
     <div class="flex flex-col gap-[8px]">
@@ -16,20 +16,53 @@
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
 
+    <div class="bg-[var(--grayscale-10)] flex gap-[9px] h-[40px] items-center max-w-[560px] px-[14px] rounded-[75px] border border-transparent focus-within:border-[var(--primary-120)]">
+        <img th:src="@{/icon/icon-search.svg}" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
+        <input type="search"
+               x-model="searchQuery"
+               @input.debounce.300ms="onSearchChange()"
+               class="flex-1 bg-transparent border-none outline-none text-[13px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-50)] tracking-[-0.13px]"
+               th:placeholder="#{settings.licensePolicy.search.placeholder}"
+               placeholder="Search by SPDX ID or license name">
+    </div>
+
+    <p x-show="total > 0" x-cloak
+       class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
+       x-text="resultSummary()"></p>
+
     <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
         <table class="w-full text-[13px]">
             <thead>
             <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
-                <th class="px-[18px] py-[12px] font-bold flex-1" th:text="#{settings.licensePolicy.col.spdxId}">SPDX ID</th>
-                <th class="px-[18px] py-[12px] font-bold w-[240px]" th:text="#{settings.licensePolicy.col.status}">Status</th>
-                <th class="px-[18px] py-[12px] font-bold w-[200px]" th:text="#{settings.licensePolicy.col.action}">Action</th>
+                <th class="px-[18px] py-[12px] font-bold w-[180px]" th:text="#{settings.licensePolicy.col.spdxId}">SPDX ID</th>
+                <th class="px-[18px] py-[12px] font-bold flex-1" th:text="#{settings.licensePolicy.col.name}">License name</th>
+                <th class="px-[18px] py-[12px] font-bold w-[200px]" th:text="#{settings.licensePolicy.col.status}">Status</th>
+                <th class="px-[18px] py-[12px] font-bold w-[120px]" th:text="#{settings.licensePolicy.col.action}">Action</th>
             </tr>
             </thead>
             <tbody>
-            <template x-for="entry in entries" :key="entry.spdxId">
+            <tr x-show="visibleEntries.length === 0 && !fetching" x-cloak>
+                <td colspan="4" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-50)]"
+                    th:text="#{settings.licensePolicy.search.noResults}">No licenses match your search.</td>
+            </tr>
+            <template x-for="entry in visibleEntries" :key="entry.spdxId">
                 <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
-                    <td class="px-[18px] py-[12px] font-mono text-[12px] text-[var(--grayscale-80)] flex-1" x-text="entry.spdxId"></td>
-                    <td class="px-[18px] py-[12px] w-[240px]">
+                    <td class="px-[18px] py-[12px] w-[180px]">
+                        <div class="flex items-center gap-[6px]">
+                            <span class="font-mono text-[12px] text-[var(--grayscale-80)]" x-text="entry.spdxId"></span>
+                            <a x-show="entry.spdxUrl" :href="entry.spdxUrl" target="_blank" rel="noopener noreferrer"
+                               @click.stop=""
+                               class="inline-flex items-center text-[var(--grayscale-50)] hover:text-[var(--primary-120)] shrink-0"
+                               :title="_licensePolicyI18n.viewSpdx">
+                                <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                                <span class="sr-only" x-text="_licensePolicyI18n.viewSpdx"></span>
+                            </a>
+                        </div>
+                    </td>
+                    <td class="px-[18px] py-[12px] text-[13px] text-[var(--grayscale-90)] flex-1" x-text="entry.displayName || entry.spdxId"></td>
+                    <td class="px-[18px] py-[12px] w-[200px]">
                         <div class="relative min-w-[100px]"
                              @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
                             <button type="button"
@@ -53,7 +86,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="px-[18px] py-[12px] w-[200px]">
+                    <td class="px-[18px] py-[12px] w-[120px]">
                         <button type="button" @click="save(entry)"
                                 class="bg-[#00A093] hover:bg-[#008f83] px-[8px] py-[6px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[88px] transition-colors cursor-pointer">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -66,6 +99,9 @@
                     </td>
                 </tr>
             </template>
+            <tr x-ref="scrollSentinel" class="h-0 border-0" aria-hidden="true">
+                <td colspan="4" class="p-0 h-[1px] leading-[0]"></td>
+            </tr>
             </tbody>
         </table>
     </div>
@@ -97,13 +133,27 @@
         statusPermitted:  /*[[#{settings.licensePolicy.status.permitted}]]*/ 'Permitted',
         statusCaution:    /*[[#{settings.licensePolicy.status.caution}]]*/ 'Caution',
         statusRestricted: /*[[#{settings.licensePolicy.status.restricted}]]*/ 'Restricted',
-        statusUnknown:    /*[[#{settings.licensePolicy.status.unknown}]]*/ 'Unknown'
+        statusUnknown:    /*[[#{settings.licensePolicy.status.unknown}]]*/ 'Unknown',
+        resultSummary:    /*[[#{settings.licensePolicy.resultSummary}]]*/ '{0} licenses',
+        searchSummary:    /*[[#{settings.licensePolicy.search.summary}]]*/ '{0} matches',
+        viewSpdx:         /*[[#{license.obligations.viewSpdx}]]*/ 'View full SPDX license text'
     };
     </script>
     <script>
     function licensePolicyTab() {
         return {
             entries: [],
+            searchQuery: '',
+            page: 0,
+            pageSize: 50,
+            renderCount: 50,
+            total: 0,
+            hasMore: false,
+            allLoaded: false,
+            fetching: false,
+            prefetching: false,
+            _prefetchToken: 0,
+            _scrollObserver: null,
             openStatusDropdown: null,
             statusOptions: [
                 { value: 'PERMITTED',  label: _licensePolicyI18n.statusPermitted },
@@ -119,18 +169,129 @@
                 const opt = this.statusOptions.find(o => o.value === status);
                 return opt ? opt.label : status;
             },
+            get filteredPool() {
+                const q = this.searchQuery.trim().toLowerCase();
+                if (!q) return this.entries;
+                if (!this.allLoaded) return this.entries;
+                return this.entries.filter(entry => {
+                    const id = (entry.spdxId || '').toLowerCase();
+                    const name = (entry.displayName || '').toLowerCase();
+                    return id.includes(q) || name.includes(q);
+                });
+            },
+            get visibleEntries() {
+                return this.filteredPool.slice(0, this.renderCount);
+            },
+            get canExpandRender() {
+                return this.allLoaded && this.renderCount < this.filteredPool.length;
+            },
+            resultSummary() {
+                const q = this.searchQuery.trim();
+                if (q) {
+                    const count = this.allLoaded ? this.filteredPool.length : this.total;
+                    return _licensePolicyI18n.searchSummary.replace('{0}', String(count));
+                }
+                return _licensePolicyI18n.resultSummary.replace('{0}', String(this.total));
+            },
+            init() {
+                this.$nextTick(() => {
+                    this._scrollObserver = new IntersectionObserver((hits) => {
+                        if (hits.some(h => h.isIntersecting)) this.loadMore();
+                    }, { rootMargin: '320px' });
+                    if (this.$refs.scrollSentinel) {
+                        this._scrollObserver.observe(this.$refs.scrollSentinel);
+                    }
+                });
+                this.resetAndLoad();
+            },
             showToast(msg) {
                 this.toastMsg = msg;
                 this.toastVisible = true;
                 setTimeout(() => { this.toastVisible = false; }, 2500);
             },
-            async load() {
+            onSearchChange() {
+                if (this.allLoaded) {
+                    this.renderCount = this.pageSize;
+                    return;
+                }
+                this.resetAndLoad();
+            },
+            async resetAndLoad() {
+                this._prefetchToken++;
+                const token = this._prefetchToken;
+                this.prefetching = false;
+                this.allLoaded = false;
+                this.renderCount = this.pageSize;
+                this.page = 0;
+                this.entries = [];
+                this.hasMore = false;
+                this.total = 0;
+                await this.fetchPage(0, false, token);
+                if (token !== this._prefetchToken) return;
+                if (!this.searchQuery.trim()) {
+                    this.prefetchRemaining(token);
+                }
+            },
+            async loadMore() {
+                if (this.canExpandRender) {
+                    this.renderCount = Math.min(this.renderCount + this.pageSize, this.filteredPool.length);
+                    return;
+                }
+                if (!this.hasMore || this.fetching || this.prefetching) return;
+                if (this.searchQuery.trim() && !this.allLoaded) return;
+                const token = this._prefetchToken;
+                await this.fetchPage(this.page + 1, true, token);
+            },
+            async prefetchRemaining(token) {
+                if (this.prefetching || token !== this._prefetchToken) return;
+                this.prefetching = true;
                 try {
-                    const r = await fetch('/api/settings/license-policy');
+                    while (this.hasMore && token === this._prefetchToken && !this.searchQuery.trim()) {
+                        await this.fetchPage(this.page + 1, true, token);
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                    if (token === this._prefetchToken && !this.hasMore) {
+                        this.allLoaded = true;
+                    }
+                } finally {
+                    if (token === this._prefetchToken) {
+                        this.prefetching = false;
+                    }
+                }
+            },
+            async fetchPage(page, append, token) {
+                if (token !== this._prefetchToken) return;
+                this.fetching = true;
+                this.apiError = null;
+                try {
+                    const params = new URLSearchParams({
+                        page: String(page),
+                        size: String(this.pageSize)
+                    });
+                    const q = this.searchQuery.trim();
+                    if (q) params.set('q', q);
+                    const r = await fetch('/api/settings/license-policy?' + params.toString());
+                    if (token !== this._prefetchToken) return;
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.loadFailed); return; }
-                    this.entries = await r.json();
-                } catch(e) { this.apiError = _licensePolicyI18n.loadFailed; }
+                    const data = await r.json();
+                    this.page = data.page;
+                    this.total = data.total;
+                    this.hasMore = data.hasMore;
+                    const items = data.items || [];
+                    this.entries = append ? this.entries.concat(items) : items;
+                    if (!this.hasMore && !q) {
+                        this.allLoaded = true;
+                    }
+                } catch (e) {
+                    if (token === this._prefetchToken) {
+                        this.apiError = _licensePolicyI18n.loadFailed;
+                    }
+                } finally {
+                    if (token === this._prefetchToken) {
+                        this.fetching = false;
+                    }
+                }
             },
             async save(entry) {
                 this.apiError = null;

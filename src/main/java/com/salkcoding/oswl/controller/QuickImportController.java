@@ -4,18 +4,20 @@ import com.salkcoding.oswl.auth.dto.VcsConnectionDto;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.VcsConnectionService;
+import com.salkcoding.oswl.dto.QuickImportApiError;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportJobsResponse;
+import com.salkcoding.oswl.dto.QuickImportMessageKeys;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.QuickImportRequest;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.controller.spec.QuickImportControllerSpec;
 import com.salkcoding.oswl.service.QuickImportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,7 +47,6 @@ public class QuickImportController implements QuickImportControllerSpec {
 
     private final QuickImportService quickImportService;
     private final VcsConnectionService vcsConnectionService;
-    private final MessageSource messageSource;
 
     // ── Page ─────────────────────────────────────────────────────────────
 
@@ -71,33 +72,39 @@ public class QuickImportController implements QuickImportControllerSpec {
     public ResponseEntity<?> listRepos(
             @RequestParam VcsProvider provider,
             @AuthenticationPrincipal OswlUserPrincipal principal) {
-        Locale locale = LocaleContextHolder.getLocale();
         try {
             List<QuickImportRepoDto> repos = quickImportService.listRepos(provider, principal.getUserId());
             return ResponseEntity.ok(repos);
         } catch (OutboundUrlBlockedException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest()
+                    .body(QuickImportApiError.body(QuickImportMessageKeys.LOAD_REPOS, List.of()));
         } catch (QuickImportUpstreamException e) {
-            return ResponseEntity.status(502).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(502)
+                    .body(QuickImportApiError.body(e.getMessageKey(), e.getMessageArgs()));
         } catch (Exception e) {
             log.warn("[QuickImport] Failed to list repos for provider {} userId={}: {}",
                     provider, principal.getUserId(), e.toString());
-            String safe = messageSource.getMessage("quickImport.error.loadRepos", null, locale);
-            return ResponseEntity.status(502).body(Map.of("error", safe));
+            return ResponseEntity.status(502)
+                    .body(QuickImportApiError.body(QuickImportMessageKeys.LOAD_REPOS, List.of()));
         }
     }
 
     @PostMapping("/api/quick-import/start")
     @ResponseBody
     @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
-    public ResponseEntity<Map<String, String>> start(
+    public ResponseEntity<?> start(
             @Valid @RequestBody QuickImportRequest request,
             @AuthenticationPrincipal OswlUserPrincipal principal) {
-        String jobId = quickImportService.startImport(
-                request.getRepoUrl(),
-                request.getBranch(),
-                principal.getUserId());
-        return ResponseEntity.ok(Map.of("jobId", jobId));
+        try {
+            String jobId = quickImportService.startImport(
+                    request.getRepoUrl(),
+                    request.getBranch(),
+                    principal.getUserId());
+            return ResponseEntity.ok(Map.of("jobId", jobId));
+        } catch (QuickImportQueueFullException e) {
+            return ResponseEntity.status(429)
+                    .body(QuickImportApiError.body(e.getMessageKey(), e.getMessageArgs()));
+        }
     }
 
     @GetMapping("/api/quick-import/job/{jobId}")
@@ -116,9 +123,9 @@ public class QuickImportController implements QuickImportControllerSpec {
     @GetMapping("/api/quick-import/jobs")
     @ResponseBody
     @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
-    public ResponseEntity<List<QuickImportJobStatus>> listJobs(
+    public ResponseEntity<QuickImportJobsResponse> listJobs(
             @AuthenticationPrincipal OswlUserPrincipal principal) {
-        return ResponseEntity.ok(quickImportService.listJobsForUser(principal.getUserId()));
+        return ResponseEntity.ok(quickImportService.listJobsSnapshot(principal.getUserId()));
     }
 
     @GetMapping(value = "/api/quick-import/job/{jobId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

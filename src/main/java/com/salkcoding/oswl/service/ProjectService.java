@@ -86,7 +86,7 @@ public class ProjectService {
      * {@link ProjectVersion} for the given branch.
      *
      * <ul>
-     *   <li>Same owner/repo + same branch → update {@code lastUpdatedAt} (re-import).</li>
+     *   <li>Same owner/repo + same branch → no new {@link ProjectVersion} row.</li>
      *   <li>Same owner/repo + new branch → create a new version with the next sequential number.</li>
      *   <li>New owner/repo → create a new Project (UUID auto-generated) and first version.</li>
      * </ul>
@@ -105,23 +105,16 @@ public class ProjectService {
                         Project.builder().name(repoKey).createdByUserId(createdByUserId).build()
                 ));
 
-        // 2. Upsert the branch-level version
-        projectVersionRepository.findByProjectAndBranch(project, branch)
-                .ifPresentOrElse(
-                        version -> {
-                            version.touch();
-                            projectVersionRepository.save(version);
-                        },
-                        () -> {
-                            int nextNum = projectVersionRepository.findMaxVersionNumber(project) + 1;
-                            projectVersionRepository.save(ProjectVersion.builder()
-                                    .project(project)
-                                    .branch(branch)
-                                    .versionNumber(nextNum)
-                                    .importSource(ImportSource.GIT)
-                                    .build());
-                        }
-                );
+        // 2. Create branch-level version row on first import of this branch
+        if (projectVersionRepository.findByProjectAndBranch(project, branch).isEmpty()) {
+            int nextNum = projectVersionRepository.findMaxVersionNumber(project) + 1;
+            projectVersionRepository.save(ProjectVersion.builder()
+                    .project(project)
+                    .branch(branch)
+                    .versionNumber(nextNum)
+                    .importSource(ImportSource.GIT)
+                    .build());
+        }
 
         // 3. Update denormalized fields on the project
         project.markGithubImport(provider, owner, repo, branch);

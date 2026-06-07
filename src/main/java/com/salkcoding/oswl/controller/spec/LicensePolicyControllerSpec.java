@@ -2,9 +2,9 @@ package com.salkcoding.oswl.controller.spec;
 
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.LicensePolicyEntryDto;
+import com.salkcoding.oswl.dto.LicensePolicyPageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -14,18 +14,24 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-
-import java.util.List;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "License Policy", description = "Instance-wide SPDX license policy used during enrichment and AI license triage.")
 public interface LicensePolicyControllerSpec {
 
-    @Operation(summary = "List license policy entries")
+    @Operation(summary = "List license policy entries (paginated)")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "All SPDX entries with policy status",
-                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = LicensePolicyEntryDto.class))))
+            @ApiResponse(responseCode = "200", description = "Paged SPDX entries with policy status",
+                    content = @Content(schema = @Schema(implementation = LicensePolicyPageResponse.class)))
     })
-    List<LicensePolicyEntryDto> list();
+    LicensePolicyPageResponse list(
+            @Parameter(description = "Zero-based page index", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size (max 100)", example = "50")
+            @RequestParam(defaultValue = "50") int size,
+            @Parameter(description = "Filter by SPDX ID or license name", example = "mit")
+            @RequestParam(required = false) String q
+    );
 
     @Operation(summary = "Update policy status for an SPDX ID")
     @ApiResponses({

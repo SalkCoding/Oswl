@@ -56,9 +56,6 @@ public class ApiKey {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    @Column(name = "created_by_user_id")
-    private Long createdByUserId;
-
     public void applyTokenHash(String plainToken, String tokenHash) {
         this.tokenPrefix = ApiKeyTokenSupport.extractPrefix(plainToken);
         this.tokenHash = tokenHash;

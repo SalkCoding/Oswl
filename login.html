@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="0efb5be8-9090-4785-be21-9cafed81cd21">
+    <title>OsWL - Sign In</title>
+
+    <link rel="icon" href="/graphic/symbol_w.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="/icon/icon-logo.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS — precompiled by the buildTailwindCss Gradle task (no CDN runtime). -->
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <!-- Alpine collapse plugin must load before Alpine (vendored — no CDN). -->
+    <script defer src="/js/vendor/alpine-collapse.min.js"></script>
+    <script defer src="/js/vendor/alpine.min.js"></script>
+    <script defer src="/js/vendor/htmx.min.js"></script>
+
+    <link rel="stylesheet" href="/css/globals.css">
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    <script src="/js/oswl-csrf.js"></script>
+    <script>
+        // Auto-inject CSRF header for same-origin state-changing fetch requests (token from meta, not cookie).
+        (function () {
+            const origFetch = window.fetch;
+            window.fetch = function (input, init) {
+                init = init || {};
+                const method = (init.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
+                if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                    const url = typeof input === 'string' ? input : (input && input.url) || '';
+                    const sameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(location.origin);
+                    if (sameOrigin && window.OswlCsrf) {
+                        const token = window.OswlCsrf.token();
+                        if (token) {
+                            const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
+                            if (!headers.has('X-XSRF-TOKEN')) headers.set('X-XSRF-TOKEN', token);
+                            init.headers = headers;
+                        }
+                    }
+                }
+                return origFetch.call(this, input, init);
+            };
+        })();
+    </script>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased relative" style="background: transparent;">
+
+<!-- Background image (full viewport, behind everything) -->
+<img src="/img/login-bg.png" alt="" aria-hidden="true"
+     class="fixed inset-0 w-full h-full object-cover pointer-events-none select-none -z-10"/>
+
+<!-- Top bar -->
+<header class="bg-[var(--background-dark)] flex items-center h-[64px] gap-[44px] pl-[60px] pr-[40px] py-[16px] w-full shrink-0 relative z-10">
+    <div class="flex gap-[12px] items-center shrink-0">
+        <img src="/icon/icon-logo.svg" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
+        <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
+    </div>
+    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap">Sign In</h2>
+</header>
+
+<!-- Centered card -->
+<main class="flex-1 flex items-center justify-center px-[24px] py-[40px] relative z-10">
+
+    <div class="w-full max-w-[480px] bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[28px]
+                flex flex-col gap-[28px] items-center"
+         style="filter: drop-shadow(0px 0px 20px rgba(0,29,53,0.03));"
+         x-data="{ showPwd: false }">
+
+        <!-- Brand block -->
+        <div class="flex flex-col items-center">
+            <img src="/icon/icon-logo-card.svg" class="w-[90px] h-[124px] mb-[6px]" alt="OsWL" aria-hidden="true">
+            <p class="font-extrabold text-[32px] text-[var(--primary-120)] tracking-[-0.32px] leading-[1.3]">OsWL</p>
+            <p class="mt-[16px] text-[16px] font-normal text-[var(--grayscale-70)] tracking-[-0.16px] leading-[1.3]">Open Source Watch List</p>
+        </div>
+
+        <!-- Alerts (logout / setup only — login error is shown inline) -->
+        
+        
+        
+
+        <!-- Form -->
+        <form action="/login" method="post" class="w-full flex flex-col gap-[28px]"><input type="hidden" name="_csrf" value="0efb5be8-9090-4785-be21-9cafed81cd21"/>
+            <input type="hidden" name="_csrf" value="0efb5be8-9090-4785-be21-9cafed81cd21"/>
+
+            <!-- Email field -->
+            <div class="w-full flex flex-col gap-[10px] items-start">
+                <label for="login-email"
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">Email</label>
+                <div class="w-full border rounded-[8px] px-[14px] py-[10px] flex items-center transition-colors border-[var(--grayscale-20)] focus-within:border-[var(--primary-100)]">
+                    <input id="login-email" type="email" name="email" autocomplete="email" required
+                           placeholder="oswl@company.com"
+                           class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
+                                  placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
+                </div>
+            </div>
+
+            <!-- Password field -->
+            <div class="w-full flex flex-col gap-[10px] items-start">
+                <label for="login-password"
+                       class="w-full font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.3]">Password</label>
+                <div class="w-full border rounded-[8px] px-[14px] py-[10px] flex items-center gap-[10px] transition-colors border-[var(--grayscale-20)] focus-within:border-[var(--primary-100)]">
+                    <input id="login-password" :type="showPwd ? 'text' : 'password'"
+                           name="password" autocomplete="current-password" required
+                           placeholder="Enter your password"
+                           class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
+                                  placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
+                    <button type="button" tabindex="-1" @click="showPwd = !showPwd"
+                            :aria-label="showPwd ? $el.dataset.hide : $el.dataset.show"
+                            data-hide="Hide password"
+                            data-show="Show password"
+                            class="shrink-0 w-[17px] h-[17px] flex items-center justify-center text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] transition-colors">
+                        <svg x-show="!showPwd" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <svg x-show="showPwd" x-cloak width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.77 19.77 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.93 10.93 0 0 1 12 4c7 0 11 8 11 8a19.86 19.86 0 0 1-3.16 4.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Login error message -->
+            
+
+            <!-- Disabled account error message -->
+            
+
+            <!-- Submit -->
+            <button type="submit"
+                    class="w-full bg-[var(--primary-120)] hover:bg-[var(--primary-100)]
+                           text-white font-bold text-[14px] tracking-[-0.14px] leading-[1.3]
+                           rounded-[8px] px-[14px] py-[9px] transition-colors">Sign In</button>
+        </form>
+    </div>
+</main>
+
+<footer class="mt-auto shrink-0 w-full border-t border-[var(--grayscale-15)] bg-white">
+        <div class="max-w-[1440px] mx-auto px-[24px] sm:px-[60px] py-[20px] flex flex-wrap items-center justify-between gap-x-[16px] gap-y-[8px] text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
+            <span>Copyright (c) 2026 OsWL, Licensed under the MIT License.</span>
+            <div class="flex items-center gap-[10px] shrink-0">
+                <a href="/oss-notices"
+                   class="text-[var(--grayscale-60)] hover:text-[var(--primary-120)] no-underline transition-colors">Open Source Notices</a>
+                <span class="text-[var(--grayscale-25)]" aria-hidden="true">·</span>
+                <nav class="flex items-center gap-[6px]" aria-label="Language">
+                    <a href="?lang=en"
+                       class="no-underline transition-colors font-semibold text-[var(--grayscale-80)]">EN</a>
+                    <span class="text-[var(--grayscale-25)]" aria-hidden="true">|</span>
+                    <a href="?lang=ko"
+                       class="no-underline transition-colors text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)]">KO</a>
+                </nav>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

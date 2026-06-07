@@ -25,13 +25,21 @@ public class GitCloneExecutor {
     private static final String ENV_USERNAME = "OSWL_GIT_USERNAME";
     private static final String ENV_PASSWORD = "OSWL_GIT_PASSWORD";
 
+    /**
+     * @param credentials {@code null} for anonymous HTTPS clone (public repositories).
+     */
     public void clone(String repositoryUrl, GitCloneCredentials credentials, String branch,
                       Path targetDir, String jobId) throws Exception {
-        Path askpass = writeAskpassScript();
+        Path askpass = credentials != null ? writeAskpassScript() : null;
         try {
-            List<String> cmd = new ArrayList<>(List.of(
-                    "git", "clone", "--depth", "1", "--single-branch", "--quiet"
-            ));
+            boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+            List<String> cmd = new ArrayList<>();
+            cmd.add("git");
+            if (windows) {
+                cmd.add("-c");
+                cmd.add("core.longpaths=true");
+            }
+            cmd.addAll(List.of("clone", "--depth", "1", "--single-branch", "--quiet"));
             if (branch != null && !branch.isBlank()) {
                 cmd.addAll(List.of("--branch", branch));
             }
@@ -40,12 +48,16 @@ public class GitCloneExecutor {
 
             ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
             pb.environment().put("GIT_TERMINAL_PROMPT", "0");
-            pb.environment().put("GIT_ASKPASS", askpass.toAbsolutePath().toString());
-            pb.environment().put(ENV_USERNAME, credentials.username());
-            pb.environment().put(ENV_PASSWORD, credentials.password());
-
-            log.info("[QuickImport][{}] Running: git clone --depth 1 {} (credentials via GIT_ASKPASS)",
-                    jobId, repositoryUrl);
+            if (credentials != null && askpass != null) {
+                pb.environment().put("GIT_ASKPASS", askpass.toAbsolutePath().toString());
+                pb.environment().put(ENV_USERNAME, credentials.username());
+                pb.environment().put(ENV_PASSWORD, credentials.password());
+                log.info("[QuickImport][{}] Running: git clone --depth 1 {} (credentials via GIT_ASKPASS)",
+                        jobId, repositoryUrl);
+            } else {
+                log.info("[QuickImport][{}] Running: git clone --depth 1 {} (anonymous)",
+                        jobId, repositoryUrl);
+            }
 
             Process proc = pb.start();
             final String[] outputHolder = {""};
@@ -70,10 +82,12 @@ public class GitCloneExecutor {
                 throw new RuntimeException("git clone failed (exit " + exitCode + "): " + safe.trim());
             }
         } finally {
-            try {
-                Files.deleteIfExists(askpass);
-            } catch (IOException e) {
-                log.debug("[QuickImport][{}] Could not delete GIT_ASKPASS script: {}", jobId, e.getMessage());
+            if (askpass != null) {
+                try {
+                    Files.deleteIfExists(askpass);
+                } catch (IOException e) {
+                    log.debug("[QuickImport][{}] Could not delete GIT_ASKPASS script: {}", jobId, e.getMessage());
+                }
             }
         }
     }

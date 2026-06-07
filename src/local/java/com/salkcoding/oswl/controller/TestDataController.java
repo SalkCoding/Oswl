@@ -59,7 +59,6 @@ import java.util.UUID;
  *  - VCS provider modes: GITHUB (default) and GITLAB (non-default provider)
  *  - Soft-deleted projects (deletedAt != null) — trash/restore UI
  *  - ScanResult lifecycle states: PENDING / SCANNING / ANALYZING / COMPLETED / FAILED
- *  - ScanResult.submittedByUserId set (identify Quick Import scans)
  *  - ScanComponent deferrals (exceptions): legal-review / false-positive / wont-fix / temporary
  *    (including indefinite and expiring deferrals)
  *  - CVEs with and without {@code aiSummary} (Component Detail AI block vs technical summary)
@@ -164,34 +163,28 @@ public class TestDataController {
         Project projectA = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("backend-api")
-                .version("3.2.0")
                 .githubRepo("acme-corp/backend-api")
                 .vcsProvider(VcsProvider.GITHUB)
                 .latestBranch("main")
                 .importedAt(LocalDateTime.now().minusDays(90))
                 .createdByUserId(1L)
-                .lastScannedAt(LocalDateTime.now().minusHours(1))
                 .build());
 
         // projectB — TypeScript/NPM, GitHub, multiple branches
         Project projectB = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("frontend-dashboard")
-                .version("2.1.0")
                 .githubRepo("acme-corp/frontend-dashboard")
                 .vcsProvider(VcsProvider.GITHUB)
                 .latestBranch("release/2.1")
                 .importedAt(LocalDateTime.now().minusDays(60))
                 .createdByUserId(1L)
-                .lastScannedAt(LocalDateTime.now().minusDays(1))
                 .build());
 
         // projectC — Python, CLI-only, medium-depth history
         Project projectC = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("ml-pipeline")
-                .version("0.8.3")
-                .lastScannedAt(LocalDateTime.now().minusDays(3))
                 .build());
 
         // projectD — no scans (empty-state edge case)
@@ -204,25 +197,21 @@ public class TestDataController {
         Project projectE = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("payment-gateway")
-                .version("1.4.2")
                 .githubRepo("acme-internal/payment-gateway")
                 .vcsProvider(VcsProvider.GITLAB)
                 .latestBranch("main")
                 .importedAt(LocalDateTime.now().minusDays(20))
                 .createdByUserId(1L)
-                .lastScannedAt(LocalDateTime.now().minusDays(2))
                 .build());
 
         // projectF — soft-delete (trash) edge case — trash/restore UI
         Project projectTrash = projectRepository.save(Project.builder()
                 .projectUuid(UUID.randomUUID().toString())
                 .name("legacy-monolith")
-                .version("0.9.0")
                 .githubRepo("acme-corp/legacy-monolith")
                 .vcsProvider(VcsProvider.GITHUB)
                 .latestBranch("main")
                 .importedAt(LocalDateTime.now().minusDays(180))
-                .lastScannedAt(LocalDateTime.now().minusDays(60))
                 .build());
         projectTrash.softDelete();
         projectRepository.save(projectTrash);
@@ -1091,9 +1080,8 @@ public class TestDataController {
         ScanResult scanB1 = scan(projectB, "1.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(60));
         ScanResult scanB2 = scan(projectB, "1.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(30));
         ScanResult scanB3 = scan(projectB, "2.0.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(14));
-        // Latest projectB scan linked to Quick Import user (submittedByUserId edge case)
-        ScanResult scanB4 = scanByUser(projectB, "2.1.0", ScanStatus.COMPLETED,
-                LocalDateTime.now().minusDays(1), 1L);
+        ScanResult scanB4 = scan(projectB, "2.1.0", ScanStatus.COMPLETED,
+                LocalDateTime.now().minusDays(1));
 
         ScanResult scanC1 = scan(projectC, "0.5.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(45));
         ScanResult scanC2 = scan(projectC, "0.6.0", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(30));
@@ -1101,8 +1089,8 @@ public class TestDataController {
         ScanResult scanC4 = scan(projectC, "0.8.3", ScanStatus.COMPLETED, LocalDateTime.now().minusDays(3));
 
         // GitLab project — single completed scan (sanity check for VCS provider variation)
-        ScanResult scanE1 = scanByUser(projectE, "1.4.2", ScanStatus.COMPLETED,
-                LocalDateTime.now().minusDays(2), 1L);
+        ScanResult scanE1 = scan(projectE, "1.4.2", ScanStatus.COMPLETED,
+                LocalDateTime.now().minusDays(2));
 
         // Trash project — preserve historical scans on soft-deleted records
         ScanResult scanTrash1 = scan(projectTrash, "0.9.0", ScanStatus.COMPLETED,
@@ -1620,19 +1608,6 @@ public class TestDataController {
                 .project(project)
                 .version(version)
                 .status(status)
-                .build();
-        s.setScannedAt(scannedAt);
-        return scanResultRepository.save(s);
-    }
-
-    /** Variant that attributes the scan to a user (Quick Import / future user-level CLI auth). */
-    private ScanResult scanByUser(Project project, String version, ScanStatus status,
-                                  LocalDateTime scannedAt, Long submittedByUserId) {
-        ScanResult s = ScanResult.builder()
-                .project(project)
-                .version(version)
-                .status(status)
-                .submittedByUserId(submittedByUserId)
                 .build();
         s.setScannedAt(scannedAt);
         return scanResultRepository.save(s);

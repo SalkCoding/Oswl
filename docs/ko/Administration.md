@@ -196,20 +196,18 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 
 **설정 → 캐시**
 
-CVE 및 라이선스 보강 데이터의 인메모리 및 영구 캐시를 제어합니다.
+라이브러리 **보강 캐시**(deps.dev + OSV)의 유일한 제어 화면입니다. 별도의 “외부 API 설정” 메뉴/API는 없습니다.
 
-| 작업 | 설명 |
-|---|---|
-| **설정 보기** | 현재 TTL 및 캐시 크기 구성 확인 |
-| **설정 업데이트** | TTL 값 변경 |
-| **캐시 지우기** | 모든 캐시된 보강 데이터 초기화 — 다음 스캔 시 OSV / deps.dev에서 새로 가져옴 |
+| 캐시 키 | 기본 TTL | 용도 |
+|---|---|---|
+| `DEPS_DEV` | 7일 | 보강 재조회 정책의 기준 (버전 정보, 어드바이저리, fetch 여부) |
+| `OSV_VULN` | 7일 | deps.dev와 함께 관리; 클리어 시각이 재조회 판단에 반영 |
 
----
+| 작업 | API | 설명 |
+|---|---|---|
+| **조회** | `GET /api/settings/cache` | 키별 TTL, 마지막 클리어 사용자·시각 |
+| **TTL 변경** | `PUT /api/settings/cache` | `cacheKey` + `ttlSeconds` (UI: 항상 새로고침 / 사용자 지정 / 영구) |
+| **클리어** | `POST /api/settings/cache/clear?cacheKey=…` | 클리어 시각 이전에 fetch된 라이브러리는 다음 스캔에서 stale 처리 |
 
-## 외부 API 설정
+변경 사항은 `CACHE.UPDATE_TTL`, `CACHE.CLEAR`로 감사 로그에 기록됩니다.
 
-**설정 → 캐시** (외부 API 섹션)
-
-VCS 연동에 사용하는 GitHub OAuth 자격 증명을 구성합니다:
-
-* **GitHub OAuth** — Client ID, 클라이언트 시크릿, 리다이렉트 URI

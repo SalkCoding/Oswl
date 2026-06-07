@@ -38,7 +38,8 @@ See [Authorization layers](Authorization-Layers.md) for how role templates diffe
 
 - Failed API key or password attempts are **rate-limited** (configurable).
 - Failures are written to the **audit log** (`SCAN.API_KEY_FAILURE`, `SCAN.AUTH_FAILURE`, `SCAN.AUTH_RATE_LIMITED`).
-- Successful ingests are logged as `SCAN.INGEST`.
+- Successful ingests are logged as `SCAN.INGEST` with the **submitter email** in the audit log (`actorEmail` / detail). OsWL does not store a `submitted_by_user_id` column on `scan_results`.
+- CLI key issuance is logged as `CLI_KEY.CREATE` with the **current session user** as actor (not a column on `api_keys`).
 
 ---
 

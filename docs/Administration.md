@@ -198,20 +198,18 @@ Only one provider is **active** at a time. The tab also exposes:
 
 **Settings → Cache**
 
-Controls the in-memory and persistence cache for CVE and license enrichment data.
+Single control point for **library enrichment cache** (deps.dev + OSV). There is no separate “external API settings” screen or API.
 
-| Action | Description |
-|---|---|
-| **View Settings** | See current TTL and cache size configuration |
-| **Update Settings** | Change TTL values |
-| **Clear Cache** | Flush all cached enrichment data — forces a fresh fetch from OSV / deps.dev on next scan |
+| Cache key | Default TTL | Used for |
+|---|---|---|
+| `DEPS_DEV` | 7 days | Primary enrichment cache policy (version info, advisories, refetch decisions) |
+| `OSV_VULN` | 7 days | Tracked alongside deps.dev; clear timestamps participate in “last cleared” logic |
 
----
+| Action | API | Description |
+|---|---|---|
+| **View** | `GET /api/settings/cache` | TTL per key, who cleared last, when |
+| **Update TTL** | `PUT /api/settings/cache` | Set `cacheKey` + `ttlSeconds` (UI: Always Refresh / Custom / Permanent) |
+| **Clear** | `POST /api/settings/cache/clear?cacheKey=…` | Libraries fetched on or before the clear time are treated as stale on the next scan |
 
-## External API Settings
+Changes are audited as `CACHE.UPDATE_TTL` and `CACHE.CLEAR`.
 
-**Settings → Cache** (External API section)
-
-Configure GitHub OAuth credentials used by VCS integration flows:
-
-* **GitHub OAuth** — Client ID, client secret, and redirect URI for GitHub-based VCS features

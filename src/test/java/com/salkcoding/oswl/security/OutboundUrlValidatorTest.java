@@ -70,6 +70,24 @@ class OutboundUrlValidatorTest {
     }
 
     @Test
+    @DisplayName("validateLocalAiBaseUrl allows localhost for Ollama")
+    void validateLocalAiBaseUrl_allowsLocalhost() {
+        assertThatCode(() -> validator.validateLocalAiBaseUrl("http://localhost:11434/v1"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> validator.validateLocalAiBaseUrl("http://127.0.0.1:11434/v1"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> validator.validateLocalAiBaseUrl("http://192.168.1.10:11434/v1"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("validateLocalAiBaseUrl still blocks cloud metadata")
+    void validateLocalAiBaseUrl_blocksMetadata() {
+        assertThatThrownBy(() -> validator.validateLocalAiBaseUrl("http://169.254.169.254/latest/meta-data"))
+                .isInstanceOf(OutboundUrlBlockedException.class);
+    }
+
+    @Test
     @DisplayName("isBlockedAddress detects RFC1918")
     void isBlockedAddress_privateIpv4() throws Exception {
         assertThat(OutboundUrlValidator.isBlockedAddress(InetAddress.getByName("10.0.0.1"))).isTrue();
