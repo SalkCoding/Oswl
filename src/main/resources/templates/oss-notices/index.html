@@ -57,8 +57,10 @@
             </div>
             <div class="flex-1"></div>
             <div class="relative">
+                <img th:src="@{/icon/icon-search.svg}" alt="Search" aria-hidden="true"
+                     class="absolute left-[12px] top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-[var(--grayscale-50)] pointer-events-none"/>
                 <input type="text" x-model="searchQuery" th:placeholder="#{ossNotices.search.placeholder}"
-                       class="pl-[36px] pr-[14px] py-[8px] text-[13px] bg-white border border-[var(--grayscale-20)] rounded-[8px] w-[220px] text-[var(--grayscale-90)] tracking-[-0.13px] focus:outline-none focus:border-[var(--primary-100)] transition-colors">
+                       class="pl-[36px] pr-[14px] py-[8px] text-[13px] bg-white border border-[var(--grayscale-20)] rounded-full w-[220px] text-[var(--grayscale-90)] tracking-[-0.13px] focus:outline-none focus:border-[var(--primary-100)] transition-colors">
             </div>
         </div>
 
