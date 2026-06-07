@@ -42,7 +42,7 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 * A **Project** is the top-level unit — usually one repository.
 * A **Scan** captures the full dependency tree at a point in time.
 * A **Library** is a globally-shared record (name + version + ecosystem) so CVE data is enriched once and reused across all projects.
-* **CVEs** are pulled from NVD and OSV; license data from deps.dev.
+* **CVEs** are pulled from deps.dev and OSV; license data from deps.dev.
 
 ---
 

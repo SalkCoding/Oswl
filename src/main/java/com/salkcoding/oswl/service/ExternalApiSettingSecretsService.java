@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Encrypts NVD / GitHub OAuth secrets at rest and decrypts them for server-side use only.
+ * Encrypts GitHub OAuth secrets at rest and decrypts them for server-side use only.
  */
 @Slf4j
 @Service
@@ -53,13 +53,6 @@ public class ExternalApiSettingSecretsService implements ApplicationListener<App
         }
     }
 
-    public String resolveNvdApiKey(ExternalApiSetting settings) {
-        if (settings == null || !settings.isNvdEnabled()) {
-            return null;
-        }
-        return decryptSecret(settings.getNvdApiKey());
-    }
-
     public String resolveGithubClientSecret(ExternalApiSetting settings) {
         if (settings == null || settings.getGithubClientSecret() == null
                 || settings.getGithubClientSecret().isBlank()) {
@@ -75,11 +68,6 @@ public class ExternalApiSettingSecretsService implements ApplicationListener<App
 
     private void migrateRow(ExternalApiSetting s) {
         boolean dirty = false;
-        if (s.getNvdApiKey() != null && !s.getNvdApiKey().isBlank() && !isEncrypted(s.getNvdApiKey())) {
-            s.updateNvdApiKey(encryptSecret(s.getNvdApiKey()));
-            dirty = true;
-            log.info("[ExternalApi] Migrated NVD API key to encrypted storage");
-        }
         if (s.getGithubClientSecret() != null && !s.getGithubClientSecret().isBlank()
                 && !isEncrypted(s.getGithubClientSecret())) {
             String plain = s.getGithubClientSecret();

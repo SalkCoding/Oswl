@@ -172,7 +172,7 @@ Spring MVC 컨트롤러  (얇은 레이어 — Service에 위임)
    ┌─┴──────────────────┐
    ▼                    ▼
 JPA 리포지토리      외부 클라이언트
-(PostgreSQL / H2)   (NVD · OSV · deps.dev · VCS API)
+(PostgreSQL / H2)   (OSV · deps.dev · VCS API)
 ```
 
 **핵심 도메인 모델:**

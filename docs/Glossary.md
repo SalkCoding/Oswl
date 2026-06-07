@@ -60,14 +60,14 @@ A library explicitly declared in the project's manifest (e.g. `pom.xml`, `packag
 The package management system a library belongs to. OsWL supports: `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS`.
 
 **Enrichment**  
-The asynchronous post-processing phase after a scan is ingested. OsWL queries NVD, OSV, and deps.dev to populate CVE data, CVSS scores, fix versions, license names, and version status for every detected library.
+The asynchronous post-processing phase after a scan is ingested. OsWL queries OSV and deps.dev to populate CVE data, CVSS scores, fix versions, license names, and version status for every detected library.
 
 ---
 
 ## F
 
 **Fix Version**  
-The earliest version of a library in which the associated CVE is patched. Sourced from OSV and NVD advisory data. Shown in the Security Center as the recommended upgrade target.
+The earliest version of a library in which the associated CVE is patched. Sourced from OSV advisory data. Shown in the Security Center as the recommended upgrade target.
 
 **False Positive**  
 A CVE triage status indicating that the vulnerability has been confirmed as not applicable to this project (e.g. the vulnerable code path is not exercised, or the affected feature is not used).
@@ -121,9 +121,6 @@ The Node.js/JavaScript package ecosystem managed by the `npm` tool. Packages pub
 
 **NUGET**  
 The .NET package ecosystem. Packages published to [nuget.org](https://www.nuget.org).
-
-**NVD (National Vulnerability Database)**  
-The U.S. government repository of CVE data, maintained by NIST. OsWL queries the NVD REST API to fetch CVSS scores and descriptions. An API key (configurable in Settings → External APIs) increases the rate limit from 5 to 50 requests per 30 seconds.
 
 ---
 

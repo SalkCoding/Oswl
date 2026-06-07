@@ -27,7 +27,7 @@ OsWL is an in-house SCA (Software Composition Analysis) platform for tracking an
     src/main/java/com/salkcoding/oswl/
     ├── aop/             # Cross-cutting concerns (audit logging)
     ├── auth/            # Auth module — config, controller, dto, entity, enums, repo, security, service, web
-    ├── client/          # External API clients (NVD, OSV, GitHub…)
+    ├── client/          # External API clients (OSV, deps.dev, GitHub…)
     ├── controller/      # Business controllers
     │   └── spec/        # Controller spec interfaces (all springdoc annotations here)
     ├── domain/entity/   # JPA entities

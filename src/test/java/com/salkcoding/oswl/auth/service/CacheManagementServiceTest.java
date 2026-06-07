@@ -34,29 +34,25 @@ class CacheManagementServiceTest {
     @Test
     @DisplayName("findAll: 이미 존재하는 키는 새로 저장하지 않는다")
     void findAll_skipsExistingKeys() {
-        when(cacheSettingRepository.existsById("NVD_CVE")).thenReturn(true);
         when(cacheSettingRepository.existsById("OSV_VULN")).thenReturn(true);
         when(cacheSettingRepository.existsById("DEPS_DEV")).thenReturn(true);
         when(cacheSettingRepository.findAll()).thenReturn(List.of(
-                buildCs("NVD_CVE", 604800),
                 buildCs("OSV_VULN", 604800),
                 buildCs("DEPS_DEV", 604800)
         ));
 
         List<CacheSettingDto> result = cacheManagementService.findAll();
 
-        assertThat(result).hasSize(3);
+        assertThat(result).hasSize(2);
         verify(cacheSettingRepository, never()).save(any());
     }
 
     @Test
     @DisplayName("findAll: 누락된 키는 기본 TTL로 저장된다")
     void findAll_initializesMissingKeys() {
-        when(cacheSettingRepository.existsById("NVD_CVE")).thenReturn(false);
-        when(cacheSettingRepository.existsById("OSV_VULN")).thenReturn(true);
+        when(cacheSettingRepository.existsById("OSV_VULN")).thenReturn(false);
         when(cacheSettingRepository.existsById("DEPS_DEV")).thenReturn(true);
         when(cacheSettingRepository.findAll()).thenReturn(List.of(
-                buildCs("NVD_CVE", 604800),
                 buildCs("OSV_VULN", 604800),
                 buildCs("DEPS_DEV", 604800)
         ));
@@ -64,14 +60,14 @@ class CacheManagementServiceTest {
         cacheManagementService.findAll();
 
         verify(cacheSettingRepository).save(argThat(cs ->
-                "NVD_CVE".equals(cs.getCacheKey()) && cs.getTtlSeconds() == 604800));
+                "OSV_VULN".equals(cs.getCacheKey()) && cs.getTtlSeconds() == 604800));
     }
 
     @Test
     @DisplayName("findAll: lastClearedBy가 null이면 lastClearedByName도 null이다")
     void findAll_noLastClearedBy_nullName() {
         when(cacheSettingRepository.existsById(any())).thenReturn(true);
-        CacheSetting cs = buildCs("NVD_CVE", 3600);
+        CacheSetting cs = buildCs("OSV_VULN", 3600);
         // lastClearedBy is null by default
         when(cacheSettingRepository.findAll()).thenReturn(List.of(cs));
 
@@ -85,7 +81,7 @@ class CacheManagementServiceTest {
     @DisplayName("findAll: lastClearedBy가 설정되면 유저 이름이 DTO에 포함된다")
     void findAll_withLastClearedBy_includesName() {
         when(cacheSettingRepository.existsById(any())).thenReturn(true);
-        CacheSetting cs = buildCs("NVD_CVE", 3600);
+        CacheSetting cs = buildCs("OSV_VULN", 3600);
         cs.setLastClearedBy(42L);
         when(cacheSettingRepository.findAll()).thenReturn(List.of(cs));
 
@@ -104,20 +100,20 @@ class CacheManagementServiceTest {
     @Test
     @DisplayName("updateTtl: TTL이 0 이하이면 IllegalArgumentException을 던진다")
     void updateTtl_zeroOrNegative_throws() {
-        assertThatThrownBy(() -> cacheManagementService.updateTtl("NVD_CVE", 0))
+        assertThatThrownBy(() -> cacheManagementService.updateTtl("OSV_VULN", 0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("positive");
-        assertThatThrownBy(() -> cacheManagementService.updateTtl("NVD_CVE", -100))
+        assertThatThrownBy(() -> cacheManagementService.updateTtl("OSV_VULN", -100))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("updateTtl: 기존 CacheSetting이 있으면 TTL을 업데이트한다")
     void updateTtl_existingKey_updates() {
-        CacheSetting cs = buildCs("NVD_CVE", 604800);
-        when(cacheSettingRepository.findById("NVD_CVE")).thenReturn(Optional.of(cs));
+        CacheSetting cs = buildCs("OSV_VULN", 604800);
+        when(cacheSettingRepository.findById("OSV_VULN")).thenReturn(Optional.of(cs));
 
-        cacheManagementService.updateTtl("NVD_CVE", 3600);
+        cacheManagementService.updateTtl("OSV_VULN", 3600);
 
         assertThat(cs.getTtlSeconds()).isEqualTo(3600);
         verify(cacheSettingRepository).save(cs);
@@ -139,8 +135,8 @@ class CacheManagementServiceTest {
     @Test
     @DisplayName("clearCache: ALL이면 모든 캐시의 lastClearedAt을 갱신한다")
     void clearCache_all_updatesAll() {
-        CacheSetting cs1 = buildCs("NVD_CVE", 604800);
-        CacheSetting cs2 = buildCs("OSV_VULN", 604800);
+        CacheSetting cs1 = buildCs("OSV_VULN", 604800);
+        CacheSetting cs2 = buildCs("DEPS_DEV", 604800);
         when(cacheSettingRepository.findAll()).thenReturn(List.of(cs1, cs2));
 
         cacheManagementService.clearCache("ALL", 1L);
@@ -154,10 +150,10 @@ class CacheManagementServiceTest {
     @Test
     @DisplayName("clearCache: 특정 키가 존재하면 그것만 갱신한다")
     void clearCache_specificKey_updates() {
-        CacheSetting cs = buildCs("NVD_CVE", 604800);
-        when(cacheSettingRepository.findById("NVD_CVE")).thenReturn(Optional.of(cs));
+        CacheSetting cs = buildCs("OSV_VULN", 604800);
+        when(cacheSettingRepository.findById("OSV_VULN")).thenReturn(Optional.of(cs));
 
-        cacheManagementService.clearCache("NVD_CVE", 2L);
+        cacheManagementService.clearCache("OSV_VULN", 2L);
 
         assertThat(cs.getLastClearedAt()).isNotNull();
         assertThat(cs.getLastClearedBy()).isEqualTo(2L);
@@ -177,7 +173,7 @@ class CacheManagementServiceTest {
     @Test
     @DisplayName("clearCache: 'all' 소문자도 전체 캐시를 지운다")
     void clearCache_allLowercase_updatesAll() {
-        CacheSetting cs = buildCs("NVD_CVE", 604800);
+        CacheSetting cs = buildCs("OSV_VULN", 604800);
         when(cacheSettingRepository.findAll()).thenReturn(List.of(cs));
 
         cacheManagementService.clearCache("all", 1L);
@@ -188,10 +184,10 @@ class CacheManagementServiceTest {
     // ── DEFAULT_TTLS ─────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("DEFAULT_TTLS: 기본 TTL 맵에 3개의 키가 있다")
-    void defaultTtls_hasThreeKeys() {
-        assertThat(CacheManagementService.DEFAULT_TTLS).containsKeys("NVD_CVE", "OSV_VULN", "DEPS_DEV");
-        assertThat(CacheManagementService.DEFAULT_TTLS.get("NVD_CVE")).isEqualTo(604800);
+    @DisplayName("DEFAULT_TTLS: 기본 TTL 맵에 2개의 키가 있다")
+    void defaultTtls_hasTwoKeys() {
+        assertThat(CacheManagementService.DEFAULT_TTLS).containsKeys("OSV_VULN", "DEPS_DEV");
+        assertThat(CacheManagementService.DEFAULT_TTLS.get("OSV_VULN")).isEqualTo(604800);
     }
 
     // ── helper ────────────────────────────────────────────────────────────

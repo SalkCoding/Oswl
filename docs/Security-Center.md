@@ -16,7 +16,7 @@ Each row in the Security Center represents one **CVE** (Common Vulnerabilities a
 |---|---|
 | **Component** | Library name and version |
 | **Ecosystem** | Package ecosystem (MAVEN, NPM, PYPI, …) |
-| **CVE ID** | NVD/OSV identifier (e.g. `CVE-2021-44228`) |
+| **CVE ID** | CVE or GHSA identifier from deps.dev/OSV (e.g. `CVE-2021-44228`) |
 | **CVSS Score** | Numeric severity score (0.0–10.0) |
 | **Severity** | CRITICAL / HIGH / MEDIUM / LOW |
 | **Fix Version** | Suggested remediation version (if known) |
@@ -27,7 +27,7 @@ Each row in the Security Center represents one **CVE** (Common Vulnerabilities a
 
 ## Severity Levels
 
-OsWL maps CVSS base scores to severity buckets following the standard NVD convention:
+OsWL maps CVSS base scores to severity buckets using the standard CVSS 3.x ranges:
 
 | Severity | CVSS Score Range | Meaning |
 |---|---|---|
@@ -119,7 +119,7 @@ OsWL derives patchability from the `fixVersion` field across all CVEs for a libr
 
 CVE data is pulled from two sources and merged:
 
-* **NVD** (National Vulnerability Database) — `GET /nvdcve/1.1/cves.json`
-* **OSV** (Open Source Vulnerabilities) — `POST https://api.osv.dev/v1/query`
+* **deps.dev** — GHSA advisories, CVE aliases, CVSS scores, and titles via `GetAdvisory`
+* **OSV** (Open Source Vulnerabilities) — summaries and fix versions via `POST https://api.osv.dev/v1/querybatch`
 
-Enrichment runs automatically after each scan and is refreshed on a configurable schedule.
+Enrichment runs automatically after each scan and is refreshed according to the cache policy in Settings → Cache.

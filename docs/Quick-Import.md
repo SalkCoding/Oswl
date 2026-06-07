@@ -91,5 +91,5 @@ See [API Reference — Quick Import](API-Reference.md#quick-import). Interactive
 | "Token validation failed" | PAT scope missing (`repo` / `read_repository`) or token expired |
 | "Repository not found" | Private repo without token access |
 | Stuck at `CLONING` / `PARSING` | Network or disk space on the OsWL host |
-| Stuck at `ENRICHING` | External API rate limits (NVD/OSV); retries continue in the pipeline |
+| Stuck at `ENRICHING` | External API rate limits (OSV / deps.dev); retries continue in the pipeline |
 | Job `404` on poll | Server restarted — in-memory jobs expire after ~30 minutes |

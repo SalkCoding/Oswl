@@ -25,7 +25,7 @@ URL: `/projects/{id}/scan-history`
 |---|---|
 | `PENDING` | Scan received; queued for processing |
 | `SCANNING` | Dependency manifests are being parsed |
-| `ANALYZING` | CVE and license enrichment in progress (NVD / OSV / deps.dev) |
+| `ANALYZING` | CVE and license enrichment in progress (OSV / deps.dev) |
 | `COMPLETED` | All enrichment done; Security Center is up to date |
 | `FAILED` | An error occurred; check the error message on the scan row |
 

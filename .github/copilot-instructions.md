@@ -32,7 +32,7 @@ OsWL/
 │   │   │   ├── config/          # SecurityConfig, LocalSmtpConfig 등
 │   │   │   ├── controller/      # /login, /setup, /api/admin/*, /api/settings/{security,vcs,cache}
 │   │   │   ├── dto/  entity/  enums/  repository/  security/  service/  web/
-│   │   ├── client/              # 외부 API 클라이언트 (NVD, OSV, GitHub …)
+│   │   ├── client/              # 외부 API 클라이언트 (OSV, deps.dev, GitHub …)
 │   │   ├── controller/          # 비즈니스 컨트롤러 (Project, SecurityCenter, License, RiskTrend …)
 │   │   │   └── spec/            # 컨트롤러 스펙 인터페이스 (springdoc 어노테이션 집중)
 │   │   ├── domain/entity/       # JPA 엔티티 (Project, ScanResult, Library, Cve …)
@@ -89,7 +89,7 @@ OsWL/
 - **Glossary / Docs**: `GET /glossary`, `GET /docs/**`
 - **Settings / Admin**: `GET /settings` (탭: admin/security/ai/vcs/cli/cache), `GET/PUT /api/settings/security`, `POST /api/settings/security/mail/test`, `GET/PUT /api/settings/ai`, `PUT /api/settings/ai/deactivate`, `PUT /api/settings/ai/activate/{provider}`, `GET/POST /api/settings/vcs`, `DELETE /api/settings/vcs/{id}`, `GET/PUT /api/settings/cache`, `POST /api/settings/cache/clear`, `GET/PUT /api/settings/external`
 - **Admin Users / Role Templates / Audit**: `GET/POST /api/admin/users`, `PUT /api/admin/users/{id}/{roles|display-name|activate|deactivate}`, `DELETE /api/admin/users/{id}`, `GET/POST /api/admin/role-templates`, `GET /api/admin/role-templates/permissions`, `PUT/DELETE /api/admin/role-templates/{id}`, `GET /api/admin/audit-logs`, `GET /api/admin/audit-logs/export.csv`
-- **AI / Enrichment / External Data**: `POST /api/ai/assist`, `GET/PUT /api/settings/ai`, `POST /api/external/enrich/{libraryId}`, `GET /api/external/{nvd|osv}/status`
+- **AI / Enrichment / External Data**: `POST /api/ai/assist`, `GET/PUT /api/settings/ai`, `POST /api/external/enrich/{libraryId}`
 - **Webhooks & Integrations**: `POST/GET/DELETE /api/webhooks`, `POST /api/webhooks/test`, `POST /api/external/push` (integration callbacks)
 - **CLI Keys / API Keys**: `GET/POST /api/projects/{id}/api-keys`, `DELETE /api/projects/{id}/api-keys/{keyId}`, `GET/POST /api/admin/cli-keys`, `PATCH /api/admin/cli-keys/{keyId}/toggle`
 - **CLI Public API / Scan API**: `POST /api/auth` (CLI token), `GET /api/scan/ping`, `POST /api/scan`, `GET /api/scan/{scanId}/status`, `GET /api/scan/{scanId}/result` 

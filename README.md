@@ -172,7 +172,7 @@ Service Layer           (business logic, transactions)
    ┌─┴──────────────────┐
    ▼                    ▼
 JPA Repositories    External Clients
-(PostgreSQL / H2)   (NVD · OSV · deps.dev · VCS APIs)
+(PostgreSQL / H2)   (OSV · deps.dev · VCS APIs)
 ```
 
 **Core domain model:**

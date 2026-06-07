@@ -16,7 +16,7 @@ URL: `/projects/{id}/security-center`
 |---|---|
 | **컴포넌트** | 라이브러리 이름과 버전 |
 | **에코시스템** | 패키지 에코시스템 (MAVEN, NPM, PYPI, …) |
-| **CVE ID** | NVD/OSV 식별자 (예: `CVE-2021-44228`) |
+| **CVE ID** | deps.dev/OSV의 CVE 또는 GHSA 식별자 (예: `CVE-2021-44228`) |
 | **CVSS 점수** | 수치 심각도 점수 (0.0–10.0) |
 | **심각도** | CRITICAL / HIGH / MEDIUM / LOW |
 | **수정 버전** | 권장 수정 버전 (알려진 경우) |
@@ -27,7 +27,7 @@ URL: `/projects/{id}/security-center`
 
 ## 심각도 수준
 
-OsWL은 표준 NVD 기준에 따라 CVSS 기본 점수를 심각도로 분류합니다:
+OsWL은 표준 CVSS 3.x 구간에 따라 기본 점수를 심각도로 분류합니다:
 
 | 심각도 | CVSS 점수 범위 | 의미 |
 |---|---|---|
@@ -119,7 +119,7 @@ OsWL은 라이브러리의 모든 CVE에서 `fixVersion` 필드를 기반으로 
 
 CVE 데이터는 두 출처에서 가져와 병합됩니다:
 
-* **NVD** (National Vulnerability Database) — `GET /nvdcve/1.1/cves.json`
-* **OSV** (Open Source Vulnerabilities) — `POST https://api.osv.dev/v1/query`
+* **deps.dev** — `GetAdvisory`로 GHSA 어드바이저리, CVE 별칭, CVSS 점수, 제목 조회
+* **OSV** (Open Source Vulnerabilities) — `POST https://api.osv.dev/v1/querybatch`로 요약 및 수정 버전 조회
 
-보강은 각 스캔 후 자동으로 실행되며 설정 가능한 일정으로 갱신됩니다.
+보강은 각 스캔 후 자동으로 실행되며, 설정 → 캐시의 캐시 정책에 따라 갱신됩니다.
