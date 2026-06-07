@@ -741,7 +741,7 @@
                     <button type="button" @click="actionDropdownOpen=!actionDropdownOpen"
                             class="flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] w-[180px] cursor-pointer transition-colors"
                             :class="actionDropdownOpen ? 'border-[var(--primary-120)]' : ''">
-                        <span class="truncate font-mono text-[12px]"
+                        <span class="truncate text-[12px]"
                               :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
                               x-text="auditFilter.action || _adminI18n.allActions"></span>
                         <img src="/icon/icon-triangle-down.svg" :class="actionDropdownOpen ? 'rotate-180' : ''"
