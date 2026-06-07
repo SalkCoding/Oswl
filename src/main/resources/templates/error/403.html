@@ -4,9 +4,12 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
+    <link rel="stylesheet" th:href="@{/css/tailwind.css}">
+    <link rel="stylesheet" th:href="@{/css/globals.css}">
     <title th:text="#{error.403.title}">403 - Forbidden</title>
 </head>
-<body>
+<body class="min-h-screen flex flex-col m-0">
 <div th:replace="~{error/_owl-error :: page(code='403', title=#{error.403.title}, descHtml=#{error.403.description}, buttonText=#{error.403.btn}, buttonHref=@{/})}">placeholder</div>
+<footer th:replace="~{fragments/footer :: site-footer}"></footer>
 </body>
 </html>
