@@ -24,14 +24,3 @@ CREATE TABLE IF NOT EXISTS ai_daily_usage (
     call_count INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT uq_ai_daily_usage UNIQUE (usage_date, provider)
 );
-
-CREATE TABLE IF NOT EXISTS ai_feedback (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT,
-    target_type VARCHAR(32) NOT NULL,
-    target_key VARCHAR(120) NOT NULL,
-    helpful BOOLEAN NOT NULL,
-    comment VARCHAR(500),
-    created_at TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_ai_feedback_target ON ai_feedback (target_type, target_key);

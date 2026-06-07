@@ -66,7 +66,7 @@ OsWL/
 - **Vulnerability (CVE/OSV/OSV-like)** — 취약점 엔티티(심각도, 설명, 출처, 패치 정보) 및 연관 라이브러리 매핑.
 - **License / LicensePolicy / PolicyViolation** — 라이선스 정보와 정책, 정책 위반 기록 및 정책 기반 알림/차단 로직.
 - **Finding / Evidence / Enrichment** — 스캔·분석에서 도출된 소결과(발견사항), 증거자료, 외부 데이터 보강(Enrichment).
-- **AiSetting / ApiKey / ExternalApiSetting / Webhook** — 외부 API 키·설정, AI 관련 설정, 웹훅 등록·관리.
+- **AiSetting / ApiKey / CacheSetting / Webhook** — AI 설정, 프로젝트 CLI 키, 라이브러리 보강 캐시(`cache_settings`), 웹훅 등록·관리.
 - **Auth entities:** User / Role / RoleTemplate / AuditLog / SecuritySetting / VcsConnection / TrustedDevice / OtpChallenge
 
 설계 원칙: 도메인은 공유 가능한 `Library` 중심, 스캔 결과는 불변(이력)으로 저장, 정책·알림은 별도 엔티티로 분리하여 재사용성을 높입니다.
@@ -87,7 +87,7 @@ OsWL/
 - **Risk Trend / Analytics**: `GET /projects/{id}/risk-trend` (최대 `oswl.risk-trend.limit` 스캔), `GET /api/analytics/risk`, `GET /api/metrics` (애플리케이션 지표)
 - **Version Diff / History**: `GET /projects/{id}/version-diff`, `GET /projects/{id}/history` 
 - **Glossary / Docs**: `GET /glossary`, `GET /docs/**`
-- **Settings / Admin**: `GET /settings` (탭: admin/security/ai/vcs/cli/cache), `GET/PUT /api/settings/security`, `POST /api/settings/security/mail/test`, `GET/PUT /api/settings/ai`, `PUT /api/settings/ai/deactivate`, `PUT /api/settings/ai/activate/{provider}`, `GET/POST /api/settings/vcs`, `DELETE /api/settings/vcs/{id}`, `GET/PUT /api/settings/cache`, `POST /api/settings/cache/clear`, `GET/PUT /api/settings/external`
+- **Settings / Admin**: `GET /settings` (탭: admin/security/ai/vcs/cli/cache), `GET/PUT /api/settings/security`, `POST /api/settings/security/mail/test`, `GET/PUT /api/settings/ai`, `PUT /api/settings/ai/deactivate`, `PUT /api/settings/ai/activate/{provider}`, `GET/POST /api/settings/vcs`, `DELETE /api/settings/vcs/{id}`, `GET/PUT /api/settings/cache`, `POST /api/settings/cache/clear`
 - **Admin Users / Role Templates / Audit**: `GET/POST /api/admin/users`, `PUT /api/admin/users/{id}/{roles|display-name|activate|deactivate}`, `DELETE /api/admin/users/{id}`, `GET/POST /api/admin/role-templates`, `GET /api/admin/role-templates/permissions`, `PUT/DELETE /api/admin/role-templates/{id}`, `GET /api/admin/audit-logs`, `GET /api/admin/audit-logs/export.csv`
 - **AI / Enrichment / External Data**: `POST /api/ai/assist`, `GET/PUT /api/settings/ai`, `POST /api/external/enrich/{libraryId}`
 - **Webhooks & Integrations**: `POST/GET/DELETE /api/webhooks`, `POST /api/webhooks/test`, `POST /api/external/push` (integration callbacks)
@@ -119,7 +119,8 @@ OsWL/
 
 ## DB / 환경
 
-- **로컬 DB:** H2 file (`./oswl-db.mv.db`). 콘솔: `http://localhost:8080/h2-console` (JDBC URL `jdbc:h2:file:./oswl-db`, user `sa`).
+- **로컬 DB:** H2 file (`./oswl-db.mv.db`). 콘솔: `http://localhost:8080/h2-console` (JDBC URL `jdbc:h2:file:./oswl-db`, user `sa`). `local`은 `ddl-auto: update`.
+- **운영 DB:** PostgreSQL, `ddl-auto: validate`. 업그레이드 시 `src/main/resources/db/*.sql` 수동 실행 (`schema_cleanup.sql` 등). 문서: `docs/Database-Schema.md`.
 - **DB 초기화:** 서버 정지 후 `oswl-db.*` 파일 삭제 → 재기동 시 빈 상태에서 시작 (Setup 화면으로 진입).
 - **테스트 데이터 시드:** 로컬에서 `GET /data/test` 호출 (인증 필요). 모든 기존 데이터를 지우고 풍부한 케이스로 재시드.
 - **암호화 키 (`OSWL_ENCRYPTION_KEY`):** 로컬은 더미 키가 박혀 있고, 운영은 `openssl rand -base64 32` 로 생성한 32바이트 키 필수.

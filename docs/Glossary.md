@@ -39,6 +39,9 @@ The industry-standard framework for rating the severity of security vulnerabilit
 | 0.1 – 3.9 | LOW |
 | 0.0 | NONE |
 
+**CWE (Common Weakness Enumeration)**  
+A category identifier for vulnerability *types* (e.g. `CWE-79` Cross-site Scripting). OsWL stores the first CWE from OSV `database_specific.cwe_ids` on each `library_cves` row and displays it in Component Detail.
+
 ---
 
 ## D
@@ -60,7 +63,7 @@ A library explicitly declared in the project's manifest (e.g. `pom.xml`, `packag
 The package management system a library belongs to. OsWL supports: `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS`.
 
 **Enrichment**  
-The asynchronous post-processing phase after a scan is ingested. OsWL queries OSV and deps.dev to populate CVE data, CVSS scores, fix versions, license names, and version status for every detected library.
+The asynchronous post-processing phase after a scan is ingested. OsWL queries OSV and deps.dev to populate CVE data, CVSS scores, CWE IDs (from OSV), fix versions, license names, and version status for every detected library. Refetch behaviour is controlled by **Settings → Cache** (`cache_settings` table).
 
 ---
 

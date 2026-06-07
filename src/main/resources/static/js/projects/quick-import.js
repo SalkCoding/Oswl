@@ -4,12 +4,14 @@
      GET  /api/quick-import/connections  → VcsConnectionDto[]
      GET  /api/quick-import/repos?provider=  → QuickImportRepoDto[]
      POST /api/quick-import/start        → { jobId: string }
-     GET  /api/quick-import/jobs         → QuickImportJobStatus[]
+     GET  /api/quick-import/jobs         → QuickImportJobsResponse
      GET  /api/quick-import/job/:jobId   → QuickImportJobStatus (poll fallback)
      GET  /api/quick-import/job/:jobId/stream  → SSE job-update events
    ============================================================ */
 
 const REPO_PAGE_SIZE = 10;
+const PROGRESS_DISMISS_MS = 2 * 60 * 1000;
+const COMPLETE_DISMISS_MS = 60 * 1000;
 
 function _qi() {
     return typeof _qiI18n !== 'undefined' ? _qiI18n : {};
@@ -21,6 +23,16 @@ function _qiFmt(template) {
         s = s.split('{' + (i - 1) + '}').join(arguments[i]);
     }
     return s;
+}
+
+/** Resolve API error bodies using page locale (_qiI18n), never server-localized strings. */
+function _qiResolveError(body) {
+    const q = _qi();
+    const errors = q.errors || {};
+    if (body && body.errorKey && errors[body.errorKey]) {
+        return _qiFmt(errors[body.errorKey], ...(body.errorArgs || []));
+    }
+    return q.unexpectedError || 'An unexpected error occurred.';
 }
 
 function quickImportPage() {
@@ -47,11 +59,12 @@ function quickImportPage() {
 
         /* ── Multi-job tracking ─────────────────── */
         activeJobs: [],
-        maxConcurrentSlots: 2,
-        jobResult: {},
-
-        /* ── Copy feedback ───────────────────────── */
-        keyCopied: false,
+        maxConcurrentSlots: 3,
+        maxQueuedSlots: 3,
+        activeSlotsUsed: 0,
+        userQueuedCount: 0,
+        userRunningCount: 0,
+        completedResults: [],
 
         /* ── Background scan watcher ─────────────── */
         _scanWatcher: null,
@@ -78,16 +91,19 @@ function quickImportPage() {
          */
         onPanelClose() {
             this.activeJobs.forEach(j => {
-                if (j.phase === 'DONE' || j.phase === 'FAILED') {
+                this._clearProgressDismiss(j);
+                const phase = this._normalizePhase(j.phase);
+                if (this._isTerminalPhase(phase)) {
                     this._stopJobWatch(j);
                 }
             });
-            this.activeJobs = this.activeJobs.filter(j =>
-                j.phase && j.phase !== 'DONE' && j.phase !== 'FAILED'
-            );
-            if (this.importDone || this.importFailed) {
-                this.jobResult = {};
-            }
+            this.activeJobs = this.activeJobs.filter(j => {
+                const phase = this._normalizePhase(j.phase);
+                return phase && !this._isTerminalPhase(phase);
+            });
+            this._recomputeUserQueueCounts();
+            this._clearAllCompleteDismiss();
+            this.completedResults = [];
             this.repoUrl = '';
             this.branch = '';
             this.urlError = '';
@@ -138,25 +154,79 @@ function quickImportPage() {
         get canImport() {
             if (!this.repoUrl.trim())   return false;
             if (!this.detectedProvider) return false;
-            if (this.providerNotConnected) return false;
             if (this.urlError)          return false;
+            if (this.userQueuedCount >= this.maxQueuedSlots) return false;
             return true;
         },
 
-        get runningJobCount() {
-            return this.activeJobs.filter(j => j.phase && j.phase !== 'DONE' && j.phase !== 'FAILED').length;
+        _isTerminalPhase(phase) {
+            return phase === 'DONE' || phase === 'FAILED';
+        },
+
+        _isQueuedPhase(phase) {
+            return phase === 'QUEUED';
+        },
+
+        _isRunningPhase(phase) {
+            return phase && !this._isQueuedPhase(phase) && !this._isTerminalPhase(phase);
+        },
+
+        _recomputeUserQueueCounts() {
+            let queued = 0;
+            let running = 0;
+            for (const job of this.activeJobs) {
+                const phase = this._normalizePhase(job.phase);
+                if (this._isQueuedPhase(phase)) queued++;
+                else if (this._isRunningPhase(phase)) running++;
+            }
+            this.userQueuedCount = queued;
+            this.userRunningCount = running;
         },
 
         get showProgress() {
             return this.activeJobs.length > 0;
         },
 
-        get importDone() {
-            return this.jobResult && this.jobResult.phase === 'DONE';
+        importSlotsLabel() {
+            const i18n = _qi();
+            const parts = [];
+            const runningSlots = Math.min(this.activeSlotsUsed, this.maxConcurrentSlots);
+            if (runningSlots > 0) {
+                parts.push(_qiFmt(i18n.slotsRunning, runningSlots, this.maxConcurrentSlots));
+            }
+            if (this.userQueuedCount > 0) {
+                parts.push(_qiFmt(i18n.slotsQueued, this.userQueuedCount, this.maxQueuedSlots));
+            }
+            return parts.join(' · ');
         },
 
-        get importFailed() {
-            return this.jobResult && this.jobResult.phase === 'FAILED';
+        _syncSlotMetrics(job) {
+            if (!job) return;
+            if (job.maxConcurrentSlots != null) this.maxConcurrentSlots = job.maxConcurrentSlots;
+            if (job.maxQueuedSlots != null) this.maxQueuedSlots = job.maxQueuedSlots;
+            if (job.activeSlotsUsed != null) {
+                this.activeSlotsUsed = Math.max(0, job.activeSlotsUsed);
+            }
+        },
+
+        _syncQueueSnapshot(snapshot) {
+            if (!snapshot) return;
+            this._syncSlotMetrics(snapshot);
+            if (snapshot.activeSlotsUsed != null) {
+                this.activeSlotsUsed = Math.max(0, snapshot.activeSlotsUsed);
+            }
+            if (snapshot.maxConcurrentSlots != null) {
+                this.maxConcurrentSlots = snapshot.maxConcurrentSlots;
+            }
+            if (snapshot.maxQueuedSlots != null) {
+                this.maxQueuedSlots = snapshot.maxQueuedSlots;
+            }
+            if (snapshot.userQueuedCount != null) {
+                this.userQueuedCount = snapshot.userQueuedCount;
+            }
+            if (snapshot.userRunningCount != null) {
+                this.userRunningCount = snapshot.userRunningCount;
+            }
         },
 
         /* ── Actions ──────────────────────────────── */
@@ -198,9 +268,6 @@ function quickImportPage() {
             if (!repoUrl) return;
             const branch = this.branch.trim() || null;
 
-            // Clear previous success/failure card when starting a new import
-            this.jobResult = {};
-
             try {
                 const res = await fetch('/api/quick-import/start', {
                     method: 'POST',
@@ -209,8 +276,11 @@ function quickImportPage() {
                 });
 
                 if (!res.ok) {
-                    const body = await res.text();
-                    throw new Error(body || 'HTTP ' + res.status);
+                    let errMsg = _qi().unexpectedError || 'An unexpected error occurred.';
+                    try {
+                        errMsg = _qiResolveError(await res.json());
+                    } catch (_) { /* keep fallback */ }
+                    throw new Error(errMsg);
                 }
 
                 const data = await res.json();
@@ -224,8 +294,7 @@ function quickImportPage() {
                 this.branch = '';
             } catch (err) {
                 console.error('[QuickImport] Start failed:', err);
-                this._appendLogToJob(null, 'error',
-                    _qiFmt(_qi().startFailed || 'Failed to start import: {0}', err.message));
+                this._appendLogToJob(null, 'error', err.message);
             }
         },
 
@@ -233,17 +302,32 @@ function quickImportPage() {
             try {
                 const res = await fetch('/api/quick-import/jobs');
                 if (!res.ok) return;
-                const jobs = await res.json();
-                if (jobs.length > 0 && jobs[0].maxConcurrentSlots) {
-                    this.maxConcurrentSlots = jobs[0].maxConcurrentSlots;
-                }
-                // Only resume in-flight jobs — completed jobs should not block the next import.
+                const payload = await res.json();
+                const jobs = payload.jobs || [];
+                this._syncQueueSnapshot(payload);
+
+                const inflightIds = new Set();
                 jobs.forEach(j => {
                     const phase = this._normalizePhase(j.phase);
-                    if (phase !== 'DONE' && phase !== 'FAILED') {
+                    if (!this._isTerminalPhase(phase)) {
+                        inflightIds.add(j.jobId);
+                    }
+                });
+
+                // Drop stale trackers that no longer exist on the server (unless showing terminal UI).
+                this.activeJobs = this.activeJobs.filter(t => {
+                    const phase = this._normalizePhase(t.phase);
+                    if (this._isTerminalPhase(phase)) return true;
+                    return inflightIds.has(t.jobId);
+                });
+
+                jobs.forEach(j => {
+                    const phase = this._normalizePhase(j.phase);
+                    if (!this._isTerminalPhase(phase)) {
                         this._attachJob(j);
                     }
                 });
+                this._recomputeUserQueueCounts();
             } catch (err) {
                 console.error('[QuickImport] Failed to load jobs:', err);
             }
@@ -264,8 +348,8 @@ function quickImportPage() {
 
         _normalizePhase(phase) {
             if (!phase) return phase;
-            if (typeof phase === 'string') return phase;
-            return phase.name || String(phase);
+            const raw = typeof phase === 'string' ? phase : (phase.name || String(phase));
+            return raw.toUpperCase();
         },
 
         _normalizeJob(job) {
@@ -314,12 +398,12 @@ function quickImportPage() {
                     repoLabel: serverJob.repoLabel || serverJob.jobId,
                     phase: null,
                     message: '',
+                    messageKey: null,
+                    messageArgs: [],
                     percent: 0,
                     queuePosition: null,
                     progressLog: [],
                     lastPhase: null,
-                    lastAiPreviewCount: 0,
-                    lastDetailCount: 0,
                     _eventSource: null,
                     _pollTimer: null,
                     _pollInFlight: false,
@@ -394,36 +478,25 @@ function quickImportPage() {
             if (!tracker || !job) return;
             job = this._normalizeJob(job);
 
-            if (job.maxConcurrentSlots) {
-                this.maxConcurrentSlots = job.maxConcurrentSlots;
-            }
+            this._syncSlotMetrics(job);
             tracker.repoLabel = job.repoLabel || tracker.repoLabel;
             tracker.phase = job.phase;
             tracker.message = job.message || '';
+            tracker.messageKey = job.messageKey || null;
+            tracker.messageArgs = job.messageArgs || [];
             tracker.percent = job.percent != null ? job.percent : tracker.percent;
             tracker.queuePosition = job.queuePosition;
 
-            if (job.detailLines && job.detailLines.length > tracker.lastDetailCount) {
-                const newLines = job.detailLines.slice(tracker.lastDetailCount);
-                newLines.forEach(line => this._appendLogToJob(tracker, 'running', line));
-                tracker.lastDetailCount = job.detailLines.length;
-            }
-
-            if (job.aiPreviews && job.aiPreviews.length > tracker.lastAiPreviewCount) {
-                const prefix = _qi().aiPreviewPrefix || 'AI preview: ';
-                job.aiPreviews.slice(tracker.lastAiPreviewCount).forEach(line => {
-                    this._appendLogToJob(tracker, 'done', prefix + line);
-                });
-                tracker.lastAiPreviewCount = job.aiPreviews.length;
-            }
-
             if (job.phase === tracker.lastPhase) {
-                if (tracker.progressLog.length > 0 && job.message) {
+                if (tracker.progressLog.length > 0) {
                     const log = [...tracker.progressLog];
                     const lastIdx = log.length - 1;
                     if (log[lastIdx].status === 'running') {
-                        log[lastIdx] = { ...log[lastIdx], text: this._phaseLine(job) };
-                        tracker.progressLog = log;
+                        const nextText = this._phaseLine(job);
+                        if (log[lastIdx].text !== nextText) {
+                            log[lastIdx] = { ...log[lastIdx], text: nextText };
+                            tracker.progressLog = log;
+                        }
                     }
                 }
             } else {
@@ -445,20 +518,60 @@ function quickImportPage() {
 
             this._captureRevealedApiToken(tracker, job);
 
-            if (job.phase === 'DONE' || job.phase === 'FAILED') {
+            if ((job.phase === 'DONE' || job.phase === 'FAILED') && !tracker._terminalHandled) {
+                tracker._terminalHandled = true;
                 this._stopJobWatch(tracker);
-                this.jobResult = this._withPreservedApiToken(tracker, job);
                 if (job.phase === 'DONE') {
+                    const result = {
+                        ...this._withPreservedApiToken(tracker, job),
+                        keyCopied: false,
+                    };
+                    this.completedResults.push(result);
+                    this._scheduleCompleteDismiss(result);
                     try { localStorage.setItem('oswl-qi-done', '1'); } catch (_) {}
                     this._refreshBackground(job.projectId);
                 }
+                this._scheduleProgressDismiss(tracker);
             }
 
+            this._recomputeUserQueueCounts();
             this._syncTracker(tracker);
+        },
+
+        _localizedMessage(job) {
+            return _qiResolveError({
+                errorKey: job.messageKey,
+                errorArgs: job.messageArgs,
+            });
+        },
+
+        _queueStatusLine(queuePosition) {
+            const q = _qi();
+            if (queuePosition == null) {
+                return q.phaseQueued || 'Queued';
+            }
+            const max = this.maxConcurrentSlots || 3;
+            if (queuePosition <= max) {
+                return _qiFmt(q.queueNext || 'Starting soon (slot {0})\u2026', queuePosition);
+            }
+            return _qiFmt(q.queueWaiting || 'Waiting in queue (#{0})\u2026', queuePosition - max);
         },
 
         _phaseLine(job) {
             const q = _qi();
+            const phase = this._normalizePhase(job.phase);
+            if (phase === 'QUEUED') {
+                return this._queueStatusLine(job.queuePosition);
+            }
+            if (phase === 'FAILED') {
+                return this._localizedMessage(job);
+            }
+            if (phase === 'DONE') {
+                if (job.messageKey === 'importComplete') {
+                    return this._localizedMessage(job);
+                }
+                return q.phaseDone || 'Done';
+            }
             const phaseLabels = {
                 QUEUED:    q.phaseQueued    || 'Queued',
                 CLONING:   q.phaseCloning   || 'Cloning repository…',
@@ -469,20 +582,16 @@ function quickImportPage() {
                 FAILED:    q.phaseFailed    || 'Failed',
             };
             const subLabels = {
-                CVE: q.subPhaseCve || 'CVE enrichment',
-                LICENSE: q.subPhaseLicense || 'License policy',
-                POSTURE: q.subPhasePosture || 'Security posture',
-                TREND: q.subPhaseTrend || 'Risk trend',
-                DIFF: q.subPhaseDiff || 'Version diff',
+                CVE: q.subPhaseCve || 'CVE analysis',
+                LICENSE: q.subPhaseLicense || 'License review',
+                POSTURE: q.subPhasePosture || 'Security overview',
+                TREND: q.subPhaseTrend || 'Risk trends',
+                DIFF: q.subPhaseDiff || 'Version changes',
             };
-            let label = phaseLabels[job.phase] || job.phase;
-            if (job.subPhase && subLabels[job.subPhase]) {
-                label = label + ' · ' + subLabels[job.subPhase];
+            if (phase === 'ENRICHING' && job.subPhase && subLabels[job.subPhase]) {
+                return phaseLabels.ENRICHING + ' · ' + subLabels[job.subPhase];
             }
-            if (job.message) {
-                return label + ' — ' + job.message;
-            }
-            return label;
+            return phaseLabels[phase] || phase;
         },
 
         _appendLogToJob(tracker, status, text) {
@@ -504,6 +613,44 @@ function quickImportPage() {
             }
         },
 
+        _clearProgressDismiss(tracker) {
+            if (!tracker?._progressDismissTimer) return;
+            clearTimeout(tracker._progressDismissTimer);
+            tracker._progressDismissTimer = null;
+        },
+
+        _scheduleProgressDismiss(tracker) {
+            if (!tracker) return;
+            this._clearProgressDismiss(tracker);
+            tracker._progressDismissTimer = setTimeout(() => {
+                tracker._progressDismissTimer = null;
+                const idx = this.activeJobs.findIndex(j => j.jobId === tracker.jobId);
+                if (idx < 0) return;
+                this._stopJobWatch(tracker);
+                this.activeJobs.splice(idx, 1);
+            }, PROGRESS_DISMISS_MS);
+        },
+
+        _clearCompleteDismiss(result) {
+            if (!result?._dismissTimer) return;
+            clearTimeout(result._dismissTimer);
+            result._dismissTimer = null;
+        },
+
+        _clearAllCompleteDismiss() {
+            this.completedResults.forEach(r => this._clearCompleteDismiss(r));
+        },
+
+        _scheduleCompleteDismiss(result) {
+            if (!result) return;
+            this._clearCompleteDismiss(result);
+            result._dismissTimer = setTimeout(() => {
+                result._dismissTimer = null;
+                const idx = this.completedResults.findIndex(r => r.jobId === result.jobId);
+                if (idx >= 0) this.completedResults.splice(idx, 1);
+            }, COMPLETE_DISMISS_MS);
+        },
+
         /* ── Repo browser ───────────────────────── */
 
         async loadRepoBrowser(provider) {
@@ -514,8 +661,8 @@ function quickImportPage() {
             try {
                 const res = await fetch('/api/quick-import/repos?provider=' + provider);
                 if (!res.ok) {
-                    let msg = _qi().loadReposFailed || 'Failed to load repositories.';
-                    try { const body = await res.json(); if (body.error) msg = body.error; } catch (_) {}
+                    let msg = _qi().unexpectedError || 'An unexpected error occurred.';
+                    try { msg = _qiResolveError(await res.json()); } catch (_) {}
                     throw new Error(msg);
                 }
                 b.repos = await res.json();
@@ -635,31 +782,31 @@ function quickImportPage() {
             } catch (_) {}
         },
 
-        async copyApiKey() {
-            const tracker = this.jobResult?.jobId
-                ? this._findTracker(this.jobResult.jobId)
-                : null;
-            const key = tracker?.revealedApiToken
-                || (this.jobResult && this.jobResult.apiToken);
+        async copyApiKey(result) {
+            const tracker = result?.jobId ? this._findTracker(result.jobId) : null;
+            const key = tracker?.revealedApiToken || result?.apiToken;
             if (!key || this._looksMaskedApiToken(key)) return;
             try {
                 await navigator.clipboard.writeText(key);
-                this.keyCopied = true;
-                setTimeout(() => { this.keyCopied = false; }, 2000);
+                const idx = this.completedResults.findIndex(r => r.jobId === result.jobId);
+                if (idx >= 0) {
+                    this.completedResults.splice(idx, 1, { ...result, keyCopied: true });
+                }
+                setTimeout(() => {
+                    const i = this.completedResults.findIndex(r => r.jobId === result.jobId);
+                    if (i >= 0) {
+                        this.completedResults.splice(i, 1, { ...this.completedResults[i], keyCopied: false });
+                    }
+                }, 2000);
             } catch (err) {
                 console.error('[QuickImport] Clipboard write failed:', err);
             }
         },
 
         resetForm() {
-            this.activeJobs.forEach(j => this._stopJobWatch(j));
-            if (this._scanWatcher) { this._scanWatcher.close(); this._scanWatcher = null; }
-            this.repoUrl       = '';
-            this.branch        = '';
-            this.urlError      = '';
-            this.activeJobs    = [];
-            this.jobResult     = {};
-            this.keyCopied     = false;
+            this.repoUrl  = '';
+            this.branch   = '';
+            this.urlError = '';
         },
     };
 }

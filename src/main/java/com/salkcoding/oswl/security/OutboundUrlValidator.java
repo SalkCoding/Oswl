@@ -31,13 +31,32 @@ public class OutboundUrlValidator {
     private final MessageSource messageSource;
 
     /**
-     * Validates a user-supplied base URL (VCS server, AI endpoint, etc.).
+     * Validates a user-supplied base URL (VCS server, custom cloud AI endpoint, etc.).
+     * Blocks loopback and private-network targets (SSRF mitigation).
      * No-op when {@code rawUrl} is null or blank.
      */
     public void validateHttpUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isBlank()) {
             return;
         }
+        URI uri = parseRequiredHttpUri(rawUrl);
+        validateHost(uri.getHost());
+    }
+
+    /**
+     * Validates a LOCAL AI provider base URL (Ollama, vLLM, LM Studio, etc.).
+     * Loopback and private-network hosts are allowed — that is the intended deployment model.
+     * Cloud metadata and link-local metadata addresses remain blocked.
+     */
+    public void validateLocalAiBaseUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return;
+        }
+        URI uri = parseRequiredHttpUri(rawUrl);
+        validateLocalAiHost(uri.getHost());
+    }
+
+    private URI parseRequiredHttpUri(String rawUrl) {
         URI uri = parseUri(rawUrl.trim());
         String scheme = uri.getScheme();
         if (scheme == null || (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme))) {
@@ -47,7 +66,7 @@ public class OutboundUrlValidator {
         if (host == null || host.isBlank()) {
             throw blocked("security.outboundUrl.error.invalid");
         }
-        validateHost(host);
+        return uri;
     }
 
     private URI parseUri(String raw) {
@@ -90,6 +109,34 @@ public class OutboundUrlValidator {
         } catch (UnknownHostException e) {
             throw blocked("security.outboundUrl.error.unresolvable");
         }
+    }
+
+    private void validateLocalAiHost(String host) {
+        String normalized = host.toLowerCase(Locale.ROOT);
+        if (isMetadataHostname(normalized)) {
+            throw blocked("security.outboundUrl.error.metadata");
+        }
+        if (isLiteralMetadataIp(normalized)) {
+            throw blocked("security.outboundUrl.error.metadata");
+        }
+        try {
+            for (InetAddress address : InetAddress.getAllByName(host)) {
+                if (isMetadataAddress(address)) {
+                    throw blocked("security.outboundUrl.error.metadata");
+                }
+            }
+        } catch (UnknownHostException e) {
+            throw blocked("security.outboundUrl.error.unresolvable");
+        }
+    }
+
+    private static boolean isLiteralMetadataIp(String host) {
+        return host.equals("169.254.169.254");
+    }
+
+    private static boolean isMetadataAddress(InetAddress address) {
+        byte[] octets = address.getAddress();
+        return octets.length == 4 && (octets[0] & 0xff) == 169 && (octets[1] & 0xff) == 254;
     }
 
     private static boolean isMetadataHostname(String host) {

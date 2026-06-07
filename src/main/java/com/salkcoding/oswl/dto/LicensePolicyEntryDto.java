@@ -9,6 +9,8 @@ import lombok.Value;
 public class LicensePolicyEntryDto {
     Long id;
     String spdxId;
+    String displayName;
+    String spdxUrl;
     LicenseStatus status;
     String reason;
     boolean builtIn;

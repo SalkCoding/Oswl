@@ -492,7 +492,7 @@
          x-transition:leave="transition ease-in duration-300"
          x-transition:leave-start="translate-x-0"
          x-transition:leave-end="translate-x-full"
-         class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
+         class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col min-w-0 overflow-hidden"
          style="display: none;">
         <div th:replace="~{projects/quick-import :: slideout}"></div>
     </div>

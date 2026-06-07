@@ -6,7 +6,9 @@ import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.VcsConnectionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportRequest;
+import com.salkcoding.oswl.dto.QuickImportMessageKeys;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.service.QuickImportService;
 import org.junit.jupiter.api.DisplayName;
@@ -15,12 +17,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,7 +34,6 @@ class QuickImportControllerTest {
 
     @Mock QuickImportService    quickImportService;
     @Mock VcsConnectionService  vcsConnectionService;
-    @Mock MessageSource         messageSource;
 
     @InjectMocks QuickImportController controller;
 
@@ -73,26 +72,22 @@ class QuickImportControllerTest {
     }
 
     @Test
-    @DisplayName("listRepos: exception returns 502 with generic error (no internal details)")
+    @DisplayName("listRepos: exception returns 502 with errorKey (no internal details)")
     void listRepos_exception_returns502WithoutInternalMessage() {
         OswlUserPrincipal p = principal(1L);
         when(quickImportService.listRepos(VcsProvider.GITLAB, 1L))
                 .thenThrow(new RuntimeException("Connection refused: db.internal:5432"));
-        when(messageSource.getMessage(eq("quickImport.error.loadRepos"), isNull(), any(Locale.class)))
-                .thenReturn("Could not load repositories from the VCS provider.");
 
         ResponseEntity<?> result = controller.listRepos(VcsProvider.GITLAB, p);
 
         assertThat(result.getStatusCode().value()).isEqualTo(502);
         @SuppressWarnings("unchecked")
-        Map<String, String> body = (Map<String, String>) result.getBody();
-        assertThat(body.get("error")).isEqualTo("Could not load repositories from the VCS provider.");
-        assertThat(body.get("error")).doesNotContain("db.internal");
-        assertThat(body.get("error")).doesNotContain("Connection refused");
+        Map<String, Object> body = (Map<String, Object>) result.getBody();
+        assertThat(body.get("errorKey")).isEqualTo(QuickImportMessageKeys.LOAD_REPOS);
     }
 
     @Test
-    @DisplayName("listRepos: blocked VCS URL returns 400 with clear message")
+    @DisplayName("listRepos: blocked VCS URL returns 400 with loadRepos errorKey")
     void listRepos_blockedUrl_returns400() {
         OswlUserPrincipal p = principal(1L);
         when(quickImportService.listRepos(VcsProvider.GITHUB, 1L))
@@ -102,8 +97,8 @@ class QuickImportControllerTest {
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         @SuppressWarnings("unchecked")
-        Map<String, String> body = (Map<String, String>) result.getBody();
-        assertThat(body.get("error")).contains("Private");
+        Map<String, Object> body = (Map<String, Object>) result.getBody();
+        assertThat(body.get("errorKey")).isEqualTo(QuickImportMessageKeys.LOAD_REPOS);
     }
 
     @Test
@@ -116,10 +111,31 @@ class QuickImportControllerTest {
         when(quickImportService.startImport("https://github.com/org/repo", "main", 2L))
                 .thenReturn("job-123");
 
-        ResponseEntity<Map<String, String>> result = controller.start(req, p);
+        ResponseEntity<?> result = controller.start(req, p);
 
         assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(result.getBody()).containsEntry("jobId", "job-123");
+        @SuppressWarnings("unchecked")
+        Map<String, String> body = (Map<String, String>) result.getBody();
+        assertThat(body).containsEntry("jobId", "job-123");
+    }
+
+    @Test
+    @DisplayName("start: queue full returns 429 with errorKey")
+    void start_queueFull_returns429() {
+        OswlUserPrincipal p = principal(2L);
+        QuickImportRequest req = mock(QuickImportRequest.class);
+        when(req.getRepoUrl()).thenReturn("https://github.com/org/repo");
+        when(req.getBranch()).thenReturn("main");
+        when(quickImportService.startImport(anyString(), anyString(), eq(2L)))
+                .thenThrow(new QuickImportQueueFullException(3));
+
+        ResponseEntity<?> result = controller.start(req, p);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) result.getBody();
+        assertThat(body.get("errorKey")).isEqualTo(QuickImportMessageKeys.QUEUE_FULL);
+        assertThat(body.get("errorArgs")).isEqualTo(List.of("3"));
     }
 
     @Test

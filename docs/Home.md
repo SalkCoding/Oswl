@@ -22,6 +22,7 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 | [Authorization layers](Authorization-Layers.md) | Role templates vs project membership (who can access what) |
 | [Project access control](Project-Access-Control.md) | Technical ACL reference for developers |
 | [Production deployment](Production-Deployment-Checklist.md) | Pre-launch checklist for `prod` profile |
+| [Database schema](Database-Schema.md) | `ddl-auto` strategy and `src/main/resources/db/` migrations |
 | [Scan API security](Scan-Api-Security.md) | How CLI scan submission is protected |
 | [API Reference](API-Reference.md) | Full REST endpoint catalogue |
 | [Glossary](Glossary.md) | Definitions of all OsWL terms |
@@ -42,7 +43,7 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 * A **Project** is the top-level unit — usually one repository.
 * A **Scan** captures the full dependency tree at a point in time.
 * A **Library** is a globally-shared record (name + version + ecosystem) so CVE data is enriched once and reused across all projects.
-* **CVEs** are pulled from deps.dev and OSV; license data from deps.dev.
+* **CVEs** are pulled from deps.dev and OSV (including CWE IDs when OSV provides them); license data from deps.dev.
 
 ---
 

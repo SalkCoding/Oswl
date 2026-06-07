@@ -120,6 +120,8 @@ OsWL derives patchability from the `fixVersion` field across all CVEs for a libr
 CVE data is pulled from two sources and merged:
 
 * **deps.dev** — GHSA advisories, CVE aliases, CVSS scores, and titles via `GetAdvisory`
-* **OSV** (Open Source Vulnerabilities) — summaries and fix versions via `POST https://api.osv.dev/v1/querybatch`
+* **OSV** (Open Source Vulnerabilities) — summaries, fix versions, and **CWE IDs** (`database_specific.cwe_ids`) via `POST https://api.osv.dev/v1/querybatch`
 
-Enrichment runs automatically after each scan and is refreshed according to the cache policy in Settings → Cache.
+CWE identifiers (e.g. `CWE-79`) appear on the Component Detail panel when OSV provides them.
+
+Enrichment runs automatically after each scan and is refreshed according to the cache policy in **Settings → Cache** (`/api/settings/cache`).

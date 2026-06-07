@@ -100,7 +100,7 @@ public class AiSettingController implements AiSettingControllerSpec {
                 ? encryptionService.encrypt(request.getApiKey())
                 : request.getApiKey();
         if (request.getBaseUrl() != null && !request.getBaseUrl().isBlank()) {
-            outboundUrlValidator.validateHttpUrl(request.getBaseUrl());
+            validateAiBaseUrl(request.getProvider(), request.getBaseUrl());
         }
         setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
 
@@ -176,7 +176,7 @@ public class AiSettingController implements AiSettingControllerSpec {
 
         try {
             if (request.getBaseUrl() != null && !request.getBaseUrl().isBlank()) {
-                outboundUrlValidator.validateHttpUrl(request.getBaseUrl());
+                validateAiBaseUrl(request.getProvider(), request.getBaseUrl());
             }
         } catch (OutboundUrlBlockedException e) {
             auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
@@ -225,6 +225,14 @@ public class AiSettingController implements AiSettingControllerSpec {
                 : current.getDefaultDeploymentProfile();
         return aiPreferencesService.save(locale, cveLimit, licenseLimit, cveSeverities,
                 temperature, maxTokens, dailyCap, overrides, profile);
+    }
+
+    private void validateAiBaseUrl(AiProvider provider, String baseUrl) {
+        if (provider == AiProvider.LOCAL) {
+            outboundUrlValidator.validateLocalAiBaseUrl(baseUrl);
+        } else {
+            outboundUrlValidator.validateHttpUrl(baseUrl);
+        }
     }
 
     private static boolean hasPreferenceFields(AiSettingUpdateRequest request) {
