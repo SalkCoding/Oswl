@@ -29,7 +29,7 @@ public class CveDto {
     @Schema(description = "CVSS 3.x vector string", example = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H")
     private final String cvss3Vector;
 
-    @Schema(description = "CWE identifier (populated from NVD when API key is configured)", example = "CWE-20")
+    @Schema(description = "CWE identifier when available", example = "CWE-20")
     private final String cweId;
 
     @Schema(description = "Vulnerability summary from OSV", example = "Improper input validation allows remote code execution.")

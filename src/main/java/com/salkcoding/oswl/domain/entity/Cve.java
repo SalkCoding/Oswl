@@ -6,7 +6,7 @@ import lombok.*;
 
 /**
  * CVE (or GHSA advisory) attached to a shared Library.
- * Data is fetched from deps.dev GetAdvisory + OSV querybatch + NVD (optional).
+ * Data is fetched from deps.dev GetAdvisory + OSV querybatch.
  */
 @Entity
 @Table(name = "library_cves",
@@ -40,7 +40,7 @@ public class Cve {
     @Column(length = 10)
     private RiskLevel severity;
 
-    /** CVSS 3.x base score (0.0 – 10.0) from deps.dev GetAdvisory or NVD */
+    /** CVSS 3.x base score (0.0 – 10.0) from deps.dev GetAdvisory */
     @Column(name = "cvss_score")
     private Double cvssScore;
 
@@ -60,7 +60,7 @@ public class Cve {
     @Column(name = "fix_version", length = 100)
     private String fixVersion;
 
-    /** CWE identifier (e.g. "CWE-20"), populated only when NVD API key is configured */
+    /** CWE identifier (e.g. "CWE-20"), optional legacy field */
     @Column(name = "cwe_id", length = 30)
     private String cweId;
 
@@ -83,16 +83,6 @@ public class Cve {
     private Boolean kevListed;
 
     // ── Mutation helpers ─────────────────────────────────────────────────
-
-    public void enrichFromNvd(double cvssScore, RiskLevel severity, String cweId, String cvss3Vector) {
-        this.cvssScore = cvssScore;
-        this.severity  = severity;
-        this.cweId     = cweId;
-        // Only backfill from NVD if deps.dev didn't provide a vector
-        if (this.cvss3Vector == null && cvss3Vector != null) {
-            this.cvss3Vector = cvss3Vector;
-        }
-    }
 
     public void enrichFromAdvisory(String cveId, String title, Double cvssScore, String cvss3Vector, RiskLevel severity) {
         if (cveId != null) this.cveId = cveId;

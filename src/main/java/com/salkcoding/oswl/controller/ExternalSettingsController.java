@@ -14,10 +14,9 @@ import java.util.Map;
 
 /**
  * REST API for reading and updating the external API settings
- * (NVD API key and library cache policy).
+ * (library cache policy and GitHub OAuth).
  *
- * GET  /api/settings/external          — read current config (key is never returned)
- * PUT  /api/settings/external/nvd      — update NVD API key
+ * GET  /api/settings/external          — read current cache policy
  * PUT  /api/settings/external/cache    — update cache policy
  */
 @RestController
@@ -35,27 +34,9 @@ public class ExternalSettingsController implements ExternalSettingsControllerSpe
     public ResponseEntity<Map<String, Object>> getSettings() {
         ExternalApiSetting s = getOrCreateSettings();
         return ResponseEntity.ok(Map.of(
-                "nvdConfigured",   s.isNvdEnabled(),
                 "permanentCache",  s.isPermanentCache(),
                 "cacheTtlDays",    s.getCacheTtlDays() != null ? s.getCacheTtlDays() : 0
         ));
-    }
-
-    // ── PUT /nvd ──────────────────────────────────────────────────────────
-
-    @PutMapping("/nvd")
-    @Auditable(action = "EXTERNAL_SETTING.NVD_UPDATE", targetType = "EXTERNAL_SETTING",
-               targetIdExpr = "'nvd'", targetNameExpr = "'NVD API Key'",
-               detailExpr = "#body['nvdApiKey'] != null && !#body['nvdApiKey'].toString().isBlank() ? 'Key updated' : 'Key cleared'")
-    public ResponseEntity<Map<String, Object>> updateNvd(
-            @RequestBody Map<String, String> body) {
-
-        ExternalApiSetting s = getOrCreateSettings();
-        String key = body.getOrDefault("nvdApiKey", "").strip();
-        s.updateNvdApiKey(key.isEmpty() ? null : externalApiSettingSecretsService.encryptSecret(key));
-        externalApiSettingRepository.save(s);
-
-        return ResponseEntity.ok(Map.of("nvdConfigured", s.isNvdEnabled()));
     }
 
     // ── PUT /cache ────────────────────────────────────────────────────────

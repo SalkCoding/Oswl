@@ -8,7 +8,7 @@ import lombok.Data;
 @Schema(description = "Update the TTL for a cache entry")
 @Data
 public class UpdateCacheTtlRequest {
-    @Schema(description = "Cache key to update", example = "nvd-cve")
+    @Schema(description = "Cache key to update", example = "osv-vuln")
     @NotBlank
     private String cacheKey;
 

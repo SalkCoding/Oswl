@@ -254,15 +254,14 @@ Providers: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`.
 | `PUT` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | Update settings |
 | `POST` | `/api/settings/cache/clear` | `SETTINGS_CACHE_MANAGE` | Flush all caches |
 
-### External APIs (NVD, GitHub)
+### External APIs (cache policy, GitHub OAuth)
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/settings/external` | Get all external API settings |
-| `PUT` | `/api/settings/external/nvd` | Set NVD API key / rate limit |
-| `PUT` | `/api/settings/external/cache` | Configure enrichment cache TTL |
-| `GET` | `/api/settings/external/github` | Get GitHub API settings |
-| `PUT` | `/api/settings/external/github` | Set GitHub PAT for API calls |
+| `GET` | `/api/settings/external` | Get library cache policy (`permanentCache`, `cacheTtlDays`) |
+| `PUT` | `/api/settings/external/cache` | Update library cache policy |
+| `GET` | `/api/settings/external/github` | Get GitHub OAuth settings (client ID, redirect URI; secret never returned) |
+| `PUT` | `/api/settings/external/github` | Set GitHub OAuth client ID, secret, and redirect URI |
 
 ---
 

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 public class CacheSettingDto {
-    @Schema(description = "Cache key identifier", example = "nvd-cve")
+    @Schema(description = "Cache key identifier", example = "osv-vuln")
     private String cacheKey;
     @Schema(description = "Time-to-live in seconds", example = "86400")
     private long ttlSeconds;
