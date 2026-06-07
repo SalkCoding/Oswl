@@ -4,9 +4,12 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
+    <link rel="stylesheet" th:href="@{/css/tailwind.css}">
+    <link rel="stylesheet" th:href="@{/css/globals.css}">
     <title th:text="#{error.503.title}">503 - Service Unavailable</title>
 </head>
-<body>
+<body class="min-h-screen flex flex-col m-0">
 <div th:replace="~{error/_owl-error :: page(code='503', title=#{error.503.title}, descHtml=#{error.503.description}, buttonText=#{error.503.btn}, buttonHref=@{/})}">placeholder</div>
+<footer th:replace="~{fragments/footer :: site-footer}"></footer>
 </body>
 </html>
