@@ -67,7 +67,27 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 |----------|---------|
 | `OSWL_TRUSTED_DEVICE_HMAC_KEY` | Dedicated HMAC key for `OSWL_TD` cookie (recommended; separate from `OSWL_ENCRYPTION_KEY`) |
 
-## 8. Post-deploy smoke test
+## 8. Database schema (upgrades)
+
+OsWL uses **Hibernate `ddl-auto=validate`** in `prod` — the app does not auto-alter PostgreSQL on startup.
+
+| Profile | Schema management |
+|---------|-------------------|
+| `local` | `ddl-auto: update` — H2 schema follows JPA entities automatically |
+| `prod` | `ddl-auto: validate` — run SQL scripts manually when upgrading |
+
+Manual scripts live in `src/main/resources/db/`:
+
+| File | When to run |
+|------|-------------|
+| `project_members.sql` | First deploy of project ACL (if table missing) |
+| `instance_setup_lock.sql` | First deploy after setup-lock feature |
+| `ai_enhancement.sql` | Legacy installs predating AI preference columns / `ai_daily_usage` |
+| `schema_cleanup.sql` | **Once** when upgrading to the release that removes unused tables/columns (`ai_feedback`, `external_api_settings`, denormalized `projects.version`, etc.) |
+
+After running migrations, restart the app and confirm `validate` passes.
+
+## 9. Post-deploy smoke test
 
 1. Open UI via HTTPS reverse proxy only.
 2. Complete setup / login and 2FA if enabled.
@@ -76,7 +96,7 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 5. Open a project you are a member of — confirm another user’s project ID returns forbidden (project membership).
 6. Review audit log for failed auth attempts.
 
-## 9. Operations
+## 10. Operations
 
 - Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens).
 - Rotate API keys and SMTP credentials on compromise.

@@ -116,4 +116,17 @@ public class Cve {
     public void updateFixVersion(String fixVersion) {
         this.fixVersion = fixVersion;
     }
+
+    /** Backfills summary, fix version, and CWE from OSV when available. */
+    public void enrichFromOsv(String summary, String fixVersion, String cweId) {
+        if (summary != null && !summary.isBlank()) {
+            this.summary = summary;
+        }
+        if (fixVersion != null && !fixVersion.isBlank()) {
+            this.fixVersion = fixVersion;
+        }
+        if (cweId != null && !cweId.isBlank()) {
+            this.cweId = cweId;
+        }
+    }
 }

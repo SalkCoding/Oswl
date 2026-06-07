@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,12 +41,13 @@ class OsvClientTest {
     @Test
     @DisplayName("OsvVuln: 레코드 필드를 올바르게 저장한다")
     void osvVuln_storesFields() {
-        OsvClient.OsvVuln vuln = new OsvClient.OsvVuln("GHSA-1234", "CVE-2023-1234", "RCE flaw", "5.3.1");
+        OsvClient.OsvVuln vuln = new OsvClient.OsvVuln("GHSA-1234", "CVE-2023-1234", "RCE flaw", "5.3.1", "CWE-79");
 
         assertThat(vuln.osvId()).isEqualTo("GHSA-1234");
         assertThat(vuln.cveId()).isEqualTo("CVE-2023-1234");
         assertThat(vuln.summary()).isEqualTo("RCE flaw");
         assertThat(vuln.fixVersion()).isEqualTo("5.3.1");
+        assertThat(vuln.cweId()).isEqualTo("CWE-79");
     }
 
     // ── OsvResult record ──────────────────────────────────────────────────
@@ -59,9 +61,24 @@ class OsvClientTest {
     }
 
     @Test
+    @DisplayName("extractCweId: database_specific.cwe_ids 첫 항목을 CWE- 형식으로 반환한다")
+    void extractCweId_parsesDatabaseSpecific() {
+        Map<String, Object> vuln = Map.of(
+                "database_specific", Map.of("cwe_ids", List.of("79", "CWE-89")));
+
+        assertThat(OsvClient.extractCweId(vuln)).isEqualTo("CWE-79");
+    }
+
+    @Test
+    @DisplayName("extractCweId: cwe_ids가 없으면 null")
+    void extractCweId_missing_returnsNull() {
+        assertThat(OsvClient.extractCweId(Map.of("id", "GHSA-1"))).isNull();
+    }
+
+    @Test
     @DisplayName("OsvResult: vuln 리스트를 그대로 보관한다")
     void osvResult_storesVulns() {
-        OsvClient.OsvVuln vuln = new OsvClient.OsvVuln("G1", "CVE-X", "desc", null);
+        OsvClient.OsvVuln vuln = new OsvClient.OsvVuln("G1", "CVE-X", "desc", null, null);
         OsvClient.OsvResult result = new OsvClient.OsvResult(List.of(vuln));
 
         assertThat(result.vulns()).containsExactly(vuln);

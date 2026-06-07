@@ -2,14 +2,13 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.LicensePolicyControllerSpec;
 import com.salkcoding.oswl.dto.LicensePolicyEntryDto;
+import com.salkcoding.oswl.dto.LicensePolicyPageResponse;
 import com.salkcoding.oswl.service.LicensePolicyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/settings/license-policy")
@@ -20,8 +19,11 @@ public class LicensePolicyController implements LicensePolicyControllerSpec {
     private final LicensePolicyService licensePolicyService;
 
     @GetMapping
-    public List<LicensePolicyEntryDto> list() {
-        return licensePolicyService.findAllEntries();
+    public LicensePolicyPageResponse list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String q) {
+        return licensePolicyService.findEntries(q, page, size);
     }
 
     @PutMapping("/{spdxId}")

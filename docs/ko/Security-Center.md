@@ -120,6 +120,8 @@ OsWL은 라이브러리의 모든 CVE에서 `fixVersion` 필드를 기반으로 
 CVE 데이터는 두 출처에서 가져와 병합됩니다:
 
 * **deps.dev** — `GetAdvisory`로 GHSA 어드바이저리, CVE 별칭, CVSS 점수, 제목 조회
-* **OSV** (Open Source Vulnerabilities) — `POST https://api.osv.dev/v1/querybatch`로 요약 및 수정 버전 조회
+* **OSV** (Open Source Vulnerabilities) — `POST https://api.osv.dev/v1/querybatch`로 요약, 수정 버전, **CWE ID**(`database_specific.cwe_ids`) 조회
 
-보강은 각 스캔 후 자동으로 실행되며, 설정 → 캐시의 캐시 정책에 따라 갱신됩니다.
+CWE 식별자(예: `CWE-79`)는 OSV가 제공할 때 컴포넌트 상세 패널에 표시됩니다.
+
+보강은 각 스캔 후 자동으로 실행되며, **설정 → 캐시**(`/api/settings/cache`) 정책에 따라 갱신됩니다.

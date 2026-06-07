@@ -82,7 +82,6 @@ class ScanIngestServiceTest {
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("2.0.0");
-        when(payload.getRawJson()).thenReturn("{}");
         when(payload.getComponents()).thenReturn(List.of());
 
         ScanResult result = scanIngestService.ingest(1L, payload);
@@ -115,7 +114,6 @@ class ScanIngestServiceTest {
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("1.0");
-        when(payload.getRawJson()).thenReturn("{}");
         when(payload.getComponents()).thenReturn(List.of(compPayload));
 
         scanIngestService.ingest(1L, payload);
@@ -151,7 +149,6 @@ class ScanIngestServiceTest {
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("1.0");
-        when(payload.getRawJson()).thenReturn("{}");
         when(payload.getComponents()).thenReturn(List.of(compPayload));
 
         scanIngestService.ingest(1L, payload);
@@ -188,7 +185,6 @@ class ScanIngestServiceTest {
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("1.0");
-        when(payload.getRawJson()).thenReturn("{}");
         when(payload.getComponents()).thenReturn(List.of(comp1, comp2));
 
         scanIngestService.ingest(1L, payload);
@@ -209,7 +205,6 @@ class ScanIngestServiceTest {
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("1.0");
-        when(payload.getRawJson()).thenReturn("{}");
         when(payload.getComponents()).thenReturn(List.of());
 
         ScanResult result = scanIngestService.ingest(1L, payload);
@@ -246,7 +241,6 @@ class ScanIngestServiceTest {
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("1.0");
-        when(payload.getRawJson()).thenReturn("{}");
         when(payload.getComponents()).thenReturn(List.of(comp));
 
         scanIngestService.ingest(1L, payload);

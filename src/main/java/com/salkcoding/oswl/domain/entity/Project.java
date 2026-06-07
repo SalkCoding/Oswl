@@ -5,7 +5,6 @@ import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -46,13 +45,6 @@ public class Project {
 
     @Column(nullable = false, length = 200)
     private String name;
-
-    /** Version as of the current scan */
-    @Column(length = 50)
-    private String version;
-
-    @Column(name = "last_scanned_at")
-    private LocalDateTime lastScannedAt;
 
     /**
      * Git source in "owner/repo" format — null for CLI-imported projects.
@@ -97,10 +89,6 @@ public class Project {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
     /** Soft-delete timestamp. Non-null means the project is in the trash. */
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
@@ -122,11 +110,6 @@ public class Project {
         if (this.projectUuid == null) {
             this.projectUuid = UUID.randomUUID().toString();
         }
-    }
-
-    public void updateLastScanned(String version, LocalDateTime scannedAt) {
-        this.version = version;
-        this.lastScannedAt = scannedAt;
     }
 
     /**

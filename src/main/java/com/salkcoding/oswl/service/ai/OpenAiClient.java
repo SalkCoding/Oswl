@@ -151,7 +151,11 @@ public class OpenAiClient implements AiAnalysisClient {
     private String resolveUrl(AiSetting setting) {
         if (setting != null && setting.getBaseUrl() != null && !setting.getBaseUrl().isBlank()) {
             String base = setting.getBaseUrl();
-            outboundUrlValidator.validateHttpUrl(base);
+            if (setting.getProvider() == AiProvider.LOCAL) {
+                outboundUrlValidator.validateLocalAiBaseUrl(base);
+            } else {
+                outboundUrlValidator.validateHttpUrl(base);
+            }
             return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
         }
         if (setting != null && setting.getProvider() == AiProvider.GEMINI) {

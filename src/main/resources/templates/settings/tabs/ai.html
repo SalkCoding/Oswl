@@ -247,7 +247,7 @@
             </div>
         </div>
 
-        <!-- ── Action Buttons ── -->
+        <!-- ── Provider actions ── -->
         <div class="flex gap-[12px] items-center justify-end mt-[10px]">
             <button type="button"
                     @click="testConnection()"
@@ -257,16 +257,16 @@
                       x-text="testing ? _aiI18n.testing : _aiI18n.testConnection"></span>
             </button>
             <button type="button"
-                    @click="save()"
-                    :disabled="saving"
+                    @click="saveProvider()"
+                    :disabled="savingProvider"
                     class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/>
                     <polyline points="7 3 7 8 15 8"/>
                 </svg>
                 <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
-                      x-text="saving ? _aiI18n.saving : _aiI18n.save"></span>
+                      x-text="savingProvider ? _aiI18n.saving : _aiI18n.save"></span>
             </button>
         </div>
 
@@ -463,6 +463,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- ── Enrichment actions ── -->
+        <div class="flex gap-[12px] items-center justify-end mt-[10px]">
+            <button type="button"
+                    @click="saveEnrichment()"
+                    :disabled="savingEnrichment"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
+            </button>
+        </div>
     </div>
 
     <!-- ── Toast ── -->
@@ -491,6 +507,7 @@
         save:           /*[[#{common.save}]]*/ 'Save',
         saving:         /*[[#{settings.ai.btn.saving}]]*/ 'Saving\u2026',
         saved:          /*[[#{settings.ai.msg.saved}]]*/ 'AI settings saved successfully.',
+        enrichmentSaved:/*[[#{settings.ai.msg.enrichmentSaved}]]*/ 'Scan enrichment settings saved.',
         disabled:       /*[[#{settings.ai.msg.disabled}]]*/ 'AI analysis disabled.',
         testOk:         /*[[#{settings.ai.msg.testOk}]]*/ 'Connection successful!',
         loadFailed:     /*[[#{settings.ai.error.loadFailed}]]*/ 'Failed to load AI settings.',
@@ -522,7 +539,7 @@
                 temperature: null, maxTokens: null, dailyCallCap: 0,
                 defaultDeploymentProfile: 'COMMERCIAL_PRODUCT'
             },
-            promptKeys: [], promptOverrides: {}, promptEditKey: 'batch.cve.header', promptEditText: '',
+            promptKeys: [], promptOverrides: {}, promptEditKey: 'system.default', promptEditText: '',
             localeDropdownOpen: false,
             deploymentDropdownOpen: false,
             promptKeyDropdownOpen: false,
@@ -532,7 +549,8 @@
                 { value: 'INTERNAL_TOOL',           label: _aiI18n.deployInternal },
                 { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
             ],
-            saving: false, testing: false, apiError: null, toastVisible: false, toastMsg: '',
+            savingProvider: false, savingEnrichment: false, testing: false,
+            apiError: null, toastVisible: false, toastMsg: '',
 
             localeLabel() {
                 return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
@@ -586,19 +604,18 @@
                     if (this.promptKeys.length && !this.promptKeys.includes(this.promptEditKey)) {
                         this.promptEditKey = this.promptKeys[0];
                     }
-                    this.loadPromptEditor();
+                    await this.loadPromptEditor(data);
                 } catch (_) { /* optional */ }
             },
 
-            loadPromptEditor() {
+            async loadPromptEditor(cachedPrompts) {
                 const key = this.promptEditKey;
                 if (this.promptOverrides[key]) {
                     this.promptEditText = this.promptOverrides[key];
-                } else {
-                    fetch('/api/settings/ai/prompts').then(r => r.json()).then(data => {
-                        this.promptEditText = (data.resolvedTemplates && data.resolvedTemplates[key]) || '';
-                    });
+                    return;
                 }
+                const data = cachedPrompts || await fetch('/api/settings/ai/prompts').then(r => r.json());
+                this.promptEditText = (data.resolvedTemplates && data.resolvedTemplates[key]) || '';
             },
 
             toggleCveSeverity(level, checked) {
@@ -634,14 +651,13 @@
                 };
             },
 
-            async save() {
-                this.saving = true; this.apiError = null;
+            async saveProvider() {
+                this.savingProvider = true; this.apiError = null;
                 try {
                     if (this.mode === 'off') {
                         const r = await fetch('/api/settings/ai/deactivate', {
                             method: 'PUT',
-                            headers: this.headers(),
-                            body: JSON.stringify(this.preferencePayload())
+                            headers: this.headers()
                         });
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
@@ -654,15 +670,46 @@
                         apiKey:    f.apiKey    || null,
                         modelName: f.modelName || null,
                         baseUrl:   f.baseUrl   || null,
-                        activate:  true,
-                        ...this.preferencePayload()
+                        activate:  true
                     };
-                    const r = await fetch('/api/settings/ai', { method: 'PUT', headers: this.headers(), body: JSON.stringify(body) });
+                    const r = await fetch('/api/settings/ai', {
+                        method: 'PUT',
+                        headers: this.headers(),
+                        body: JSON.stringify(body)
+                    });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
                     this.showToast(_aiI18n.saved);
                 } catch (e) { this.apiError = String(e); }
-                finally { this.saving = false; }
+                finally { this.savingProvider = false; }
+            },
+
+            async saveEnrichment() {
+                this.savingEnrichment = true; this.apiError = null;
+                try {
+                    const prefs = this.preferencePayload();
+                    if (this.mode === 'off') {
+                        const r = await fetch('/api/settings/ai/deactivate', {
+                            method: 'PUT',
+                            headers: this.headers(),
+                            body: JSON.stringify(prefs)
+                        });
+                        if (r.status === 401) { location.href = '/login'; return; }
+                        if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
+                        this.showToast(_aiI18n.enrichmentSaved);
+                        return;
+                    }
+                    const body = { provider: this.mode, activate: true, ...prefs };
+                    const r = await fetch('/api/settings/ai', {
+                        method: 'PUT',
+                        headers: this.headers(),
+                        body: JSON.stringify(body)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
+                    this.showToast(_aiI18n.enrichmentSaved);
+                } catch (e) { this.apiError = String(e); }
+                finally { this.savingEnrichment = false; }
             },
 
             async testConnection() {

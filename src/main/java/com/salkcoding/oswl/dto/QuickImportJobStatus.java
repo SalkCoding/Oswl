@@ -22,8 +22,14 @@ public class QuickImportJobStatus {
     @Schema(description = "Current phase", implementation = Phase.class)
     private final Phase phase;
 
-    @Schema(description = "Human-readable status line")
+    @Schema(description = "Deprecated — use messageKey; kept for API compatibility")
     private final String message;
+
+    @Schema(description = "Client i18n lookup key for FAILED/DONE detail (see QuickImportMessageKeys)")
+    private final String messageKey;
+
+    @Schema(description = "Optional placeholders for messageKey ({0}, {1}, …)")
+    private final List<String> messageArgs;
 
     @Schema(description = "Short repo label (e.g. owner/repo)")
     private final String repoLabel;
@@ -60,6 +66,9 @@ public class QuickImportJobStatus {
     @Schema(description = "Number of imports currently executing")
     private final Integer activeSlotsUsed;
 
-    @Schema(description = "Maximum concurrent import slots", example = "2")
+    @Schema(description = "Maximum concurrent import slots", example = "3")
     private final Integer maxConcurrentSlots;
+
+    @Schema(description = "Maximum queued imports per user", example = "3")
+    private final Integer maxQueuedSlots;
 }

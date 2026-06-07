@@ -215,7 +215,9 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 | [스캔 히스토리](docs/ko/Scan-History.md) | 스캔 기록 관리 |
 | [관리](docs/ko/Administration.md) | 사용자, 역할, 감사 로그, 보안 설정 |
 | [권한 레이어](docs/ko/Authorization-Layers.md) | 역할 템플릿 vs 프로젝트 멤버십 |
-| [운영 배포](docs/Production-Deployment-Checklist.md) | 운영 체크리스트 |
+| [운영 배포](docs/ko/Production-Deployment-Checklist.md) | 운영 체크리스트 |
+| [데이터베이스 스키마](docs/ko/Database-Schema.md) | `ddl-auto` 전략 및 SQL 마이그레이션 |
+| [스캔 API 보안](docs/ko/Scan-Api-Security.md) | CLI 스캔 인증 및 감사 로그 |
 | [API 레퍼런스](docs/ko/API-Reference.md) | REST API 엔드포인트 요약 |
 | [용어사전](docs/ko/Glossary.md) | 용어 및 정의 |
 

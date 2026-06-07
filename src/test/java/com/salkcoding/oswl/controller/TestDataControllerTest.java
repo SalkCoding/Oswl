@@ -119,14 +119,6 @@ class TestDataControllerTest {
         }
 
         @Test
-        @DisplayName("Quick Import 제출자(submittedByUserId) 스캔 존재")
-        void scans_withSubmittedByUserId() {
-            seed();
-
-            assertThat(scanResultRepository.findAll()).anyMatch(s -> s.getSubmittedByUserId() != null);
-        }
-
-        @Test
         @DisplayName("GitHub·GitLab·CLI-only VCS 변형")
         void vcsProviderVariants() {
             seed();

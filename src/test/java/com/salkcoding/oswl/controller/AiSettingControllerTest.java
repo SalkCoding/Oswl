@@ -345,12 +345,31 @@ class AiSettingControllerTest {
     }
 
     @Test
-    @DisplayName("testConnection: 내부 baseUrl 차단 시 success=false와 안내 메시지")
-    void testConnection_blockedBaseUrl_returnsFailureMessage() {
+    @DisplayName("testConnection: LOCAL provider는 localhost baseUrl 허용")
+    void testConnection_localProvider_allowsLocalhost() {
         AiTestConnectionRequest req = new AiTestConnectionRequest();
         req.setProvider(AiProvider.LOCAL);
         req.setApiKey("");
-        req.setModelName("llama3");
+        req.setModelName("gemma4:e4b");
+        req.setBaseUrl("http://localhost:11434/v1");
+
+        when(aiAnalysisService.testConnection(any())).thenReturn(true);
+
+        ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody().get("success")).isEqualTo(true);
+        verify(outboundUrlValidator).validateLocalAiBaseUrl("http://localhost:11434/v1");
+        verify(outboundUrlValidator, never()).validateHttpUrl(anyString());
+    }
+
+    @Test
+    @DisplayName("testConnection: 비-LOCAL provider의 사설 baseUrl 차단")
+    void testConnection_nonLocalPrivateBaseUrl_returnsFailureMessage() {
+        AiTestConnectionRequest req = new AiTestConnectionRequest();
+        req.setProvider(AiProvider.OPENAI);
+        req.setApiKey("sk-test");
+        req.setModelName("gpt-4o-mini");
         req.setBaseUrl("http://127.0.0.1:11434/v1");
 
         doThrow(new OutboundUrlBlockedException("Loopback addresses are not allowed."))
