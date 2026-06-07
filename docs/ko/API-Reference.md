@@ -256,15 +256,14 @@ Authorization: Bearer oswl_<your_api_key>
 | `PUT` | `/api/settings/cache` | `SETTINGS_CACHE_MANAGE` | 설정 업데이트 |
 | `POST` | `/api/settings/cache/clear` | `SETTINGS_CACHE_MANAGE` | 모든 캐시 초기화 |
 
-### 외부 API (NVD, GitHub)
+### 외부 API (캐시 정책, GitHub OAuth)
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| `GET` | `/api/settings/external` | 모든 외부 API 설정 조회 |
-| `PUT` | `/api/settings/external/nvd` | NVD API 키/속도 제한 설정 |
-| `PUT` | `/api/settings/external/cache` | 보강 캐시 TTL 구성 |
-| `GET` | `/api/settings/external/github` | GitHub API 설정 조회 |
-| `PUT` | `/api/settings/external/github` | GitHub PAT 설정 |
+| `GET` | `/api/settings/external` | 라이브러리 캐시 정책 조회 (`permanentCache`, `cacheTtlDays`) |
+| `PUT` | `/api/settings/external/cache` | 라이브러리 캐시 정책 업데이트 |
+| `GET` | `/api/settings/external/github` | GitHub OAuth 설정 조회 (클라이언트 ID, 리다이렉트 URI; 시크릿 미반환) |
+| `PUT` | `/api/settings/external/github` | GitHub OAuth 클라이언트 ID, 시크릿, 리다이렉트 URI 설정 |
 
 ---
 

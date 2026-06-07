@@ -52,86 +52,19 @@ class ExternalSettingsControllerTest {
         ResponseEntity<Map<String, Object>> resp = controller.getSettings();
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).containsKey("nvdConfigured");
         assertThat(resp.getBody()).containsKey("permanentCache");
         assertThat(resp.getBody()).containsKey("cacheTtlDays");
-    }
-
-    @Test
-    @DisplayName("getSettings: 기존 설정 있음 → nvdConfigured=false (key 없음)")
-    void getSettings_existingWithoutNvdKey_nvdConfiguredFalse() {
-        ExternalApiSetting setting = defaultSetting();
-        when(externalApiSettingRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(setting));
-
-        ResponseEntity<Map<String, Object>> resp = controller.getSettings();
-
-        assertThat(resp.getBody().get("nvdConfigured")).isEqualTo(false);
-    }
-
-    @Test
-    @DisplayName("getSettings: NVD key 설정된 경우 → nvdConfigured=true")
-    void getSettings_withNvdKey_nvdConfiguredTrue() {
-        ExternalApiSetting setting = defaultSetting();
-        setting.updateNvdApiKey("my-nvd-api-key");
-        when(externalApiSettingRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(setting));
-
-        ResponseEntity<Map<String, Object>> resp = controller.getSettings();
-
-        assertThat(resp.getBody().get("nvdConfigured")).isEqualTo(true);
     }
 
     @Test
     @DisplayName("getSettings: cacheTtlDays null → 0 반환")
     void getSettings_cacheTtlDaysNull_returnsZero() {
         ExternalApiSetting setting = ExternalApiSetting.builder().build();
-        // cacheTtlDays is null by default
         when(externalApiSettingRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(setting));
 
         ResponseEntity<Map<String, Object>> resp = controller.getSettings();
 
         assertThat(resp.getBody().get("cacheTtlDays")).isEqualTo(0);
-    }
-
-    // ── updateNvd ─────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("updateNvd: 유효한 key 전달 → nvdConfigured=true")
-    void updateNvd_validKey_setsNvdEnabled() {
-        ExternalApiSetting setting = defaultSetting();
-        when(externalApiSettingRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(setting));
-        when(externalApiSettingRepository.save(any())).thenReturn(setting);
-
-        ResponseEntity<Map<String, Object>> resp = controller.updateNvd(Map.of("nvdApiKey", "nvd-key-123"));
-
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody().get("nvdConfigured")).isEqualTo(true);
-        verify(externalApiSettingRepository).save(setting);
-    }
-
-    @Test
-    @DisplayName("updateNvd: 빈 key 전달 → nvdConfigured=false (key null 처리)")
-    void updateNvd_emptyKey_clearsNvdKey() {
-        ExternalApiSetting setting = defaultSetting();
-        setting.updateNvdApiKey("old-key");
-        when(externalApiSettingRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(setting));
-        when(externalApiSettingRepository.save(any())).thenReturn(setting);
-
-        ResponseEntity<Map<String, Object>> resp = controller.updateNvd(Map.of("nvdApiKey", ""));
-
-        assertThat(resp.getBody().get("nvdConfigured")).isEqualTo(false);
-    }
-
-    @Test
-    @DisplayName("updateNvd: nvdApiKey 키 없음 → 기본값 빈 문자열 → null 처리")
-    void updateNvd_missingKey_defaultsToEmptyString() {
-        ExternalApiSetting setting = defaultSetting();
-        when(externalApiSettingRepository.findFirstByOrderByIdAsc()).thenReturn(Optional.of(setting));
-        when(externalApiSettingRepository.save(any())).thenReturn(setting);
-
-        ResponseEntity<Map<String, Object>> resp = controller.updateNvd(Map.of());
-
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody().get("nvdConfigured")).isEqualTo(false);
     }
 
     // ── updateCache ───────────────────────────────────────────────────────

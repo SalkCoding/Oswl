@@ -204,15 +204,14 @@ Controls the in-memory and persistence cache for CVE and license enrichment data
 |---|---|
 | **View Settings** | See current TTL and cache size configuration |
 | **Update Settings** | Change TTL values |
-| **Clear Cache** | Flush all cached enrichment data — forces a fresh fetch from NVD / OSV / deps.dev on next scan |
+| **Clear Cache** | Flush all cached enrichment data — forces a fresh fetch from OSV / deps.dev on next scan |
 
 ---
 
 ## External API Settings
 
-**Settings → External APIs**
+**Settings → Cache** (External API section)
 
-Configure rate limits and API keys for external data sources:
+Configure GitHub OAuth credentials used by VCS integration flows:
 
-* **NVD** — National Vulnerability Database API key (increases rate limit from 5 to 50 requests/30s)
-* **GitHub API** — PAT for GitHub API calls (increases rate limit from 60 to 5000 requests/hour)
+* **GitHub OAuth** — Client ID, client secret, and redirect URI for GitHub-based VCS features

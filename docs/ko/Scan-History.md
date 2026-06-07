@@ -25,7 +25,7 @@ URL: `/projects/{id}/scan-history`
 |---|---|
 | `PENDING` | 스캔 수신됨; 처리 대기 중 |
 | `SCANNING` | 의존성 매니페스트 파싱 중 |
-| `ANALYZING` | CVE 및 라이선스 보강 진행 중 (NVD / OSV / deps.dev) |
+| `ANALYZING` | CVE 및 라이선스 보강 진행 중 (OSV / deps.dev) |
 | `COMPLETED` | 모든 보강 완료; 보안 센터 최신 상태 |
 | `FAILED` | 오류 발생; 스캔 행의 오류 메시지 확인 |
 

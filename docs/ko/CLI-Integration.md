@@ -17,7 +17,7 @@ OsWL 서버
   ├── API 키 인증 → 프로젝트 확인
   ├── 제출자 자격증명 인증 → SCAN_SUBMIT 권한 확인
   ├── 의존성 목록 수집
-  └── CVE + 라이선스 데이터 비동기 보강 (NVD / OSV / deps.dev)
+  └── CVE + 라이선스 데이터 비동기 보강 (OSV / deps.dev)
 ```
 
 ---

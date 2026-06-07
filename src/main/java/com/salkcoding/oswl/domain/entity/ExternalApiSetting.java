@@ -7,7 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * Stores external API integration settings (NVD key, library cache TTL, etc.).
+ * Stores external API integration settings (library cache TTL, GitHub OAuth, etc.).
  * Designed as a single-row settings table (id = 1).
  */
 @Entity
@@ -21,13 +21,6 @@ public class ExternalApiSetting {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    /**
-     * NVD API key used to enrich CVE data with CVSS scores and CWE IDs.
-     * If null, NVD enrichment is disabled and deps.dev's cvss3Score is used instead.
-     */
-    @Column(name = "nvd_api_key", length = 200)
-    private String nvdApiKey;
 
     /**
      * Whether to cache Library entries permanently.
@@ -63,17 +56,9 @@ public class ExternalApiSetting {
 
     // ── Mutation helpers ─────────────────────────────────────────────────
 
-    public void updateNvdApiKey(String nvdApiKey) {
-        this.nvdApiKey = nvdApiKey;
-    }
-
     public void updateCachePolicy(boolean permanentCache, Integer cacheTtlDays) {
         this.permanentCache = permanentCache;
         this.cacheTtlDays   = cacheTtlDays;
-    }
-
-    public boolean isNvdEnabled() {
-        return nvdApiKey != null && !nvdApiKey.isBlank();
     }
 
     public boolean isGithubConfigured() {

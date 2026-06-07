@@ -17,7 +17,7 @@ OsWL Server
   ├── Authenticates API key → resolves project
   ├── Authenticates submitter credentials → checks SCAN_SUBMIT permission
   ├── Ingests dependency list
-  └── Asynchronously enriches CVE + license data (NVD / OSV / deps.dev)
+  └── Asynchronously enriches CVE + license data (OSV / deps.dev)
 ```
 
 ---

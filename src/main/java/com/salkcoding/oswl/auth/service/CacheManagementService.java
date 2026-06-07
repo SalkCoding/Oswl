@@ -25,7 +25,6 @@ public class CacheManagementService {
         // Default TTL: 7 days (604800 seconds) for all cache keys.
         // Matches the UI default shown in Cache Settings tab.
         Map<String, Integer> m = new LinkedHashMap<>();
-        m.put("NVD_CVE",  604800);
         m.put("OSV_VULN", 604800);
         m.put("DEPS_DEV", 604800);
         DEFAULT_TTLS = Map.copyOf(m);
