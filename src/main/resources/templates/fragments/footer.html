@@ -7,8 +7,8 @@
         usage: th:replace="~{fragments/footer :: site-footer}"
     -->
     <footer th:fragment="site-footer"
-            class="mt-auto shrink-0 w-full border-t border-[var(--grayscale-15)] bg-white">
-        <div class="max-w-[1440px] mx-auto px-[24px] sm:px-[60px] py-[20px] flex flex-wrap items-center justify-between gap-x-[16px] gap-y-[8px] text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
+            class="mt-auto shrink-0 w-full border-t border-[rgba(0_29_53/0.1)] bg-white/60">
+        <div class=" mx-auto px-[24px] sm:px-[60px] py-[20px] flex flex-wrap items-center justify-between gap-x-[16px] gap-y-[8px] text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
             <span th:text="#{footer.copyright}">Copyright (c) 2026 OsWL, Licensed under the MIT License.</span>
             <div class="flex items-center gap-[10px] shrink-0">
                 <a th:href="@{/oss-notices}"
