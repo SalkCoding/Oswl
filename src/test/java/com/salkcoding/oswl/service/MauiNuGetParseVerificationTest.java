@@ -46,7 +46,7 @@ class MauiNuGetParseVerificationTest {
   @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
   @Mock org.springframework.context.MessageSource messageSource;
 
-  @InjectMocks QuickImportService service;
+  @InjectMocks DependencyManifestParserService service;
 
   @Test
   @DisplayName("static NuGet parse finds many more packages than the old depth-3/20-file limit")
@@ -54,7 +54,7 @@ class MauiNuGetParseVerificationTest {
     Assumptions.assumeTrue(Files.isDirectory(MAUI_CLONE),
         "Skip: clone dotnet/maui to " + MAUI_CLONE);
 
-    Method m = QuickImportService.class.getDeclaredMethod("parseNuGetStatic", Path.class, String.class);
+    Method m = DependencyManifestParserService.class.getDeclaredMethod("parseNuGetStatic", Path.class, String.class);
     m.setAccessible(true);
     Object result = m.invoke(service, MAUI_CLONE, "dotnet/maui");
     @SuppressWarnings("unchecked")
