@@ -60,6 +60,10 @@ OsWL이 제공업체 API로 토큰을 즉시 검증합니다. 토큰은 **저장
 
 임시 클론 디렉터리는 수집 후 삭제됩니다.
 
+### CLI와 공유 파서
+
+의존성 감지·매니페스트 파싱은 공식 CLI(`oswl scan`)와 동일한 **`DependencyManifestParserService`** 를 사용합니다. CLI는 `GET /api/scan/manifest-rules`(정적 파일: `/scripts/manifest-rules.json`) 기준으로 manifest zip을 업로드하고, Quick Import는 저장소를 얕게 클론한 뒤 같은 규칙으로 트리를 순회합니다. [CLI 연동](CLI-Integration.md) 참고.
+
 ---
 
 ## 브랜치 재임포트

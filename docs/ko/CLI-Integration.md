@@ -1,144 +1,146 @@
 # CLI 연동
 
-OsWL은 웹 브라우저나 VCS 연결 없이도 모든 빌드 도구, CI 파이프라인, 커스텀 스크립트에서 의존성 스캔을 제출할 수 있는 REST API를 제공합니다.
+OsWL은 공식 CLI(`oswl`)와 REST API를 제공하여, 웹 브라우저나 VCS 연결 없이 로컬·CI에서 의존성 스캔을 제출할 수 있습니다.
 
 ---
 
-## 개요
+## 빠른 시작 (공식 CLI)
+
+### 1. 설치
+
+**Mac / Linux**
+
+```bash
+curl -fsSL https://<your-server>/scripts/install.sh | bash
+```
+
+**Windows (PowerShell)**
+
+```powershell
+iex ((New-Object System.Net.WebClient).DownloadString('https://<your-server>/scripts/install.ps1'))
+```
+
+**사전 요구 도구**
+
+| 플랫폼 | 도구 |
+|---|---|
+| Mac / Linux | `curl`, `jq`, `zip` |
+| Windows | PowerShell 5.1+, `curl.exe` |
+
+### 2. API 키 저장 (선택)
+
+```bash
+oswl auth --key oswl_<your_api_key> --server https://<your-server>
+```
+
+### 3. 프로젝트 스캔
+
+```bash
+cd /your/project
+oswl scan -k oswl_<your_api_key> -u you@company.com --server https://<your-server>
+```
+
+- `-u`(이메일)는 **필수**입니다.
+- `-p`(비밀번호)는 생략 가능 — 생략 시 **대화형으로 입력**을 요청합니다.
+- `project_dir`를 생략하면 **현재 디렉터리**가 대상입니다.
+
+**CI/CD 예시**
+
+```bash
+export OSWL_API_KEY=oswl_xxx
+export OSWL_USERNAME=ci@company.com
+export OSWL_PASSWORD=secret
+export OSWL_SERVER_URL=https://sca.company.com
+cd /your/project && oswl scan
+```
+
+### 사용자에게 보이는 흐름
 
 ```
-빌드 파이프라인
+[OsWL] Scanning dependencies... (version: 1.4.2)
+[OsWL] Parsing manifests on server...
+[OsWL] Found 128 component(s).
+[OsWL] Sending to server: https://...
+[OsWL] Scan submitted! scanId=87
+       Analysis is running on the server. Check the Security Center for results.
+```
+
+**입력하는 명령은 동일**하고, 파싱만 서버에서 **Quick Import와 같은 엔진**으로 수행됩니다.
+
+---
+
+## 아키텍처
+
+```
+로컬 / CI
        │
-       │  POST /api/scan
-       │  Authorization: Bearer oswl_<키>
-       │  Body: { version, components[], submitterEmail, submitterPassword }
+       │  1. manifest 파일 zip (lock, pom, package.json, …)
+       │     규칙: GET /scripts/manifest-rules.json
+       │
+       │  2. POST /api/scan/parse  (multipart archive)
+       │     Authorization: Bearer oswl_<key>
        ▼
-OsWL 서버
-  ├── API 키 인증 → 프로젝트 확인
-  ├── 제출자 자격증명 인증 → SCAN_SUBMIT 권한 확인
-  ├── 의존성 목록 수집
-  └── CVE + 라이선스 데이터 비동기 보강 (OSV / deps.dev)
+OsWL 서버 — DependencyManifestParserService (Quick Import와 공유)
+       │
+       │  3. POST /api/scan  (JSON + 제출자 자격증명)
+       ▼
+ScanIngestService → CVE·라이선스 비동기 보강 (OSV / deps.dev)
 ```
 
 ---
 
 ## 사전 요구사항
 
-1. OsWL에 등록된 **프로젝트** (먼저 대시보드를 통해 생성 — 이름은 무엇이든 가능).
-2. **프로젝트 API 키** (`oswl_...`) — **설정 → CLI** 탭 또는 프로젝트의 API 키 페이지에서 발급.
-3. 스캔 제출자로 사용할 `SCAN_SUBMIT` 권한이 있는 **사용자 계정**.
+1. OsWL에 등록된 **프로젝트**
+2. **프로젝트 API 키** (`oswl_...`) — **설정 → CLI** 또는 프로젝트 API 키 페이지
+3. `SCAN_SUBMIT` 권한과 해당 프로젝트 **멤버십**이 있는 **사용자 계정** ([인증 계층](Authorization-Layers.md))
+
+---
+
+## API 엔드포인트 (CLI)
+
+| Method | Path | 인증 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/scan/ping` | API key | 키 유효성 확인 |
+| `GET` | `/api/scan/manifest-rules` | API key | manifest 수집 규칙 (JSON) |
+| `GET` | `/scripts/manifest-rules.json` | 없음 | 동일 규칙 (CLI 캐시용 정적 파일) |
+| `POST` | `/api/scan/parse` | API key | manifest zip 파싱 → components |
+| `POST` | `/api/scan` | API key + 비밀번호 | 스캔 제출·보강 |
+| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 (UI) |
 
 ---
 
 ## API 키 관리
 
-### 프로젝트 범위 키 생성
+### 프로젝트 범위 키
 
 ```
 POST /api/projects/{projectId}/keys
 ```
 
-UI를 통해: 프로젝트 열기 → **설정(⚙)** → **CLI** 탭 → **키 생성**.
-
-### 키 목록 조회
-
-```
-GET /api/projects/{projectId}/keys
-```
-
-### 키 취소
-
-```
-DELETE /api/projects/{projectId}/keys/{keyId}
-```
+UI: 프로젝트 → **설정(⚙)** → **CLI** → **키 생성**
 
 ### 관리자 전역 키
 
-시스템 관리자는 **설정 → 관리자 → CLI 키**에서 프로젝트 간 키를 관리할 수 있습니다:
-
-```
-GET    /api/admin/cli-keys
-POST   /api/admin/cli-keys
-PATCH  /api/admin/cli-keys/{keyId}/toggle    # 활성화 / 비활성화
-```
+**설정 → 관리자 → CLI 키** — [API 레퍼런스](API-Reference.md) 참고
 
 ---
 
-## API 인증
+## 스캔 제출 (raw API)
 
-모든 CLI 엔드포인트는 다음 헤더가 필요합니다:
+`oswl` 스크립트 없이 API만 직접 호출할 수도 있습니다.
 
-```
-Authorization: Bearer oswl_<your_api_key>
-```
-
-### 키 테스트
+### 1단계 — manifest 파싱 (`components`를 직접 만들 경우 생략 가능)
 
 ```bash
-curl -H "Authorization: Bearer oswl_<key>" \
-     http://localhost:8080/api/scan/ping
+curl -s -X POST https://oswl.example.com/api/scan/parse \
+  -H "Authorization: Bearer oswl_<key>" \
+  -F "archive=@manifests.zip"
 ```
 
-예상 응답:
+### 2단계 — 스캔 제출
 
-```json
-{ "status": "ok", "projectId": 42 }
-```
-
----
-
-## 스캔 제출
-
-```
-POST /api/scan
-Authorization: Bearer oswl_<key>
-Content-Type: application/json
-```
-
-### 요청 본문
-
-```json
-{
-  "version": "1.4.2",
-  "submitterEmail": "dev@company.com",
-  "submitterPassword": "yourpassword",
-  "components": [
-    {
-      "name": "org.springframework:spring-core",
-      "version": "6.1.4",
-      "ecosystem": "MAVEN",
-      "dependencyInfo": "Direct (1)",
-      "dependencyPaths": [
-        [
-          { "name": "com.example:my-app", "version": "1.4.2" },
-          { "name": "org.springframework:spring-core", "version": "6.1.4" }
-        ]
-      ]
-    },
-    {
-      "name": "lodash",
-      "version": "4.17.21",
-      "ecosystem": "NPM",
-      "dependencyInfo": "Transitive (2)",
-      "dependencyPaths": []
-    }
-  ]
-}
-```
-
-### 필드 설명
-
-| 필드 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `version` | string | ✅ | 스캔 시점의 프로젝트 버전 (예: `"1.4.2"`) |
-| `submitterEmail` | string | ✅ | 스캔을 제출하는 OsWL 사용자 이메일 |
-| `submitterPassword` | string | ✅ | 제출자 비밀번호 — 서버 측에서 BCrypt로 검증; 저장되거나 로그에 기록되지 않음 |
-| `components` | array | — | 발견된 OSS 컴포넌트 목록 |
-| `components[].name` | string | ✅ | 패키지 이름 (Maven은 `group:artifact`, npm은 패키지명) |
-| `components[].version` | string | — | 패키지 버전 |
-| `components[].ecosystem` | string | ✅ | 다음 중 하나: `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS` |
-| `components[].dependencyInfo` | string | — | 사람이 읽을 수 있는 경로 요약 (예: `"Direct (1) + Transitive (3)"`) |
-| `components[].dependencyPaths` | array of arrays | — | 루트에서 이 컴포넌트까지의 전체 경로 트리 |
+`POST /api/scan` — 요청 본문 형식은 [영문 CLI 문서](../CLI-Integration.md)와 동일합니다.
 
 ### 성공 응답
 
@@ -152,67 +154,29 @@ Content-Type: application/json
 }
 ```
 
-### 스캔 상태 확인
+### 상태 확인
 
 ```
 GET /api/scan/{scanId}/status
 ```
 
-응답:
-
-```json
-{
-  "scanId": 87,
-  "status": "COMPLETED",
-  "componentCount": 138
-}
-```
-
-상태 값: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (또는 `FAILED`)
+상태: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (또는 `FAILED`)
 
 ---
 
 ## GitHub Actions 예시
 
 ```yaml
-- name: OsWL 스캔 제출
-  run: |
-    curl -s -X POST https://oswl.example.com/api/scan \
-      -H "Authorization: Bearer ${{ secrets.OSWL_API_KEY }}" \
-      -H "Content-Type: application/json" \
-      -d @scan-payload.json
-```
+- name: Install OsWL CLI
+  run: curl -fsSL https://oswl.example.com/scripts/install.sh | bash
 
-각 언어의 의존성 해석기(Maven, npm ls, pip list, go list 등)를 사용하여 `scan-payload.json`을 생성하세요.
-
----
-
-## Maven 예시 (Bash)
-
-```bash
-#!/usr/bin/env bash
-# Maven 의존성 수집 후 OsWL에 제출
-
-VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-
-# JSON 페이로드 생성
-COMPONENTS=$(mvn dependency:list -DincludeScope=runtime -q | \
-  grep ':.*:' | \
-  awk '{print $1}' | \
-  jq -R 'split(":") | {"name": "\(.[0]):\(.[1])", "version": .[3], "ecosystem": "MAVEN"}' | \
-  jq -s '.')
-
-PAYLOAD=$(jq -n \
-  --arg ver "$VERSION" \
-  --arg email "$OSWL_USER_EMAIL" \
-  --arg pass "$OSWL_USER_PASSWORD" \
-  --argjson comps "$COMPONENTS" \
-  '{"version":$ver,"submitterEmail":$email,"submitterPassword":$pass,"components":$comps}')
-
-curl -s -X POST "$OSWL_URL/api/scan" \
-  -H "Authorization: Bearer $OSWL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "$PAYLOAD"
+- name: Submit OsWL Scan
+  env:
+    OSWL_API_KEY: ${{ secrets.OSWL_API_KEY }}
+    OSWL_USERNAME: ${{ secrets.OSWL_USERNAME }}
+    OSWL_PASSWORD: ${{ secrets.OSWL_PASSWORD }}
+    OSWL_SERVER_URL: https://oswl.example.com
+  run: oswl scan
 ```
 
 ---
@@ -228,3 +192,11 @@ curl -s -X POST "$OSWL_URL/api/scan" \
 | `CARGO` | `serde` |
 | `NUGET` | `Newtonsoft.Json` |
 | `RUBYGEMS` | `rails` |
+
+---
+
+## 관련 문서
+
+- [Scan API 보안](Scan-Api-Security.md)
+- [Quick Import](Quick-Import.md) — 동일 파서, 원격 Git URL
+- [API 레퍼런스](API-Reference.md)

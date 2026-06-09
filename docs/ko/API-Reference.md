@@ -100,7 +100,9 @@ Authorization: Bearer oswl_<your_api_key>
 |---|---|---|---|
 | `POST` | `/api/auth` | API 키 | API 키 검증 (레거시) |
 | `GET` | `/api/scan/ping` | API 키 | 연결 및 키 유효성 확인 |
-| `POST` | `/api/scan` | API 키 + 자격증명 | 의존성 스캔 제출 |
+| `GET` | `/api/scan/manifest-rules` | API 키 | manifest 수집 규칙 (`/scripts/manifest-rules.json`과 동일) |
+| `POST` | `/api/scan/parse` | API 키 | manifest zip 파싱 (CLI 1단계) |
+| `POST` | `/api/scan` | API 키 + 자격증명 | 의존성 스캔 제출 (CLI 2단계) |
 | `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 |
 
 ---

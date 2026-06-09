@@ -1,101 +1,160 @@
 # CLI Integration
 
-OsWL provides a REST API that lets any build tool, CI pipeline, or custom script submit dependency scans without requiring a web browser or VCS connection.
+OsWL provides an official CLI (`oswl`) and a REST API for submitting dependency scans from local machines or CI pipelines — without a web browser or VCS connection.
 
 ---
 
-## Overview
+## Quick start (official CLI)
+
+### 1. Install
+
+**Mac / Linux**
+
+```bash
+curl -fsSL https://<your-server>/scripts/install.sh | bash
+```
+
+**Windows (PowerShell)**
+
+```powershell
+iex ((New-Object System.Net.WebClient).DownloadString('https://<your-server>/scripts/install.ps1'))
+```
+
+**Prerequisites**
+
+| Platform | Tools |
+|---|---|
+| Mac / Linux | `curl`, `jq`, `zip` |
+| Windows | PowerShell 5.1+, `curl.exe` |
+
+### 2. Save your API key (optional)
+
+```bash
+oswl auth --key oswl_<your_api_key> --server https://<your-server>
+```
+
+### 3. Scan your project
+
+```bash
+cd /your/project
+oswl scan -k oswl_<your_api_key> -u you@company.com --server https://<your-server>
+```
+
+- `-u` (email) is **required**.
+- `-p` (password) is optional — you are **prompted interactively** if omitted.
+- `project_dir` defaults to the current directory when omitted.
+
+**CI/CD example**
+
+```bash
+export OSWL_API_KEY=oswl_xxx
+export OSWL_USERNAME=ci@company.com
+export OSWL_PASSWORD=secret
+export OSWL_SERVER_URL=https://sca.company.com
+cd /your/project && oswl scan
+```
+
+### What the CLI does (user-visible)
 
 ```
-Your build pipeline
+[OsWL] Scanning dependencies... (version: 1.4.2)
+[OsWL] Parsing manifests on server...
+[OsWL] Found 128 component(s).
+[OsWL] Sending to server: https://...
+[OsWL] Scan submitted! scanId=87
+       Analysis is running on the server. Check the Security Center for results.
+```
+
+The command you type does **not** change — parsing runs on the server using the **same engine as Quick Import**.
+
+---
+
+## Architecture
+
+```
+Your machine / CI
        │
-       │  POST /api/scan
-       │  Authorization: Bearer oswl_<key>
-       │  Body: { version, components[], submitterEmail, submitterPassword }
+       │  1. Zip manifest files (lock, pom, package.json, …)
+       │     Rules: GET /scripts/manifest-rules.json
+       │
+       │  2. POST /api/scan/parse  (multipart archive)
+       │     Authorization: Bearer oswl_<key>
        ▼
-OsWL Server
-  ├── Authenticates API key → resolves project
-  ├── Authenticates submitter credentials → checks SCAN_SUBMIT permission
-  ├── Ingests dependency list
-  └── Asynchronously enriches CVE + license data (OSV / deps.dev)
+OsWL Server — DependencyManifestParserService (shared with Quick Import)
+       │
+       │  3. POST /api/scan  (JSON payload + submitter credentials)
+       ▼
+ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 ```
 
 ---
 
 ## Prerequisites
 
-1. A **project** registered in OsWL (or create one via the dashboard first — any name).
-2. A **project API key** (`oswl_...`) issued from **Settings → CLI** tab, or from the project's API keys page.
-3. A **user account** with the `SCAN_SUBMIT` permission **and** membership in that project (see [Authorization layers](Authorization-Layers.md)).
+1. A **project** registered in OsWL.
+2. A **project API key** (`oswl_...`) from **Settings → CLI** or the project API keys page.
+3. A **user account** with `SCAN_SUBMIT` permission and membership in that project ([Authorization layers](Authorization-Layers.md)).
 
 ---
 
-## API Key Management
+## API endpoints (CLI)
 
-### Create a project-scoped key
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/scan/ping` | API key | Key validity check |
+| `GET` | `/api/scan/manifest-rules` | API key | Manifest collection rules (JSON) |
+| `GET` | `/scripts/manifest-rules.json` | None | Same rules (static file for CLI cache) |
+| `POST` | `/api/scan/parse` | API key | Parse manifest zip → components |
+| `POST` | `/api/scan` | API key + user password | Submit scan for enrichment |
+| `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status (UI) |
+
+---
+
+## API key management
+
+### Project-scoped key
 
 ```
 POST /api/projects/{projectId}/keys
 ```
 
-Via the UI: open the project → **Settings (⚙)** → **CLI** tab → **Generate Key**.
-
-### List keys
-
-```
-GET /api/projects/{projectId}/keys
-```
-
-### Revoke a key
-
-```
-DELETE /api/projects/{projectId}/keys/{keyId}
-```
+UI: project → **Settings (⚙)** → **CLI** → **Generate Key**.
 
 ### Admin global keys
 
-System Admins can manage cross-project keys at **Settings → Admin → CLI Keys**:
-
-```
-GET    /api/admin/cli-keys
-POST   /api/admin/cli-keys
-PATCH  /api/admin/cli-keys/{keyId}/toggle    # enable / disable
-```
+**Settings → Admin → CLI Keys** — see [API Reference](API-Reference.md).
 
 ---
 
-## Authenticating with the API
+## Submitting a scan (raw API)
 
-All CLI endpoints require the header:
+Advanced integrations can call the API directly without the `oswl` script.
 
-```
-Authorization: Bearer oswl_<your_api_key>
-```
-
-### Test Your Key
+### Step 1 — Parse manifests (optional if you build `components` yourself)
 
 ```bash
-curl -H "Authorization: Bearer oswl_<key>" \
-     http://localhost:8080/api/scan/ping
+curl -s -X POST https://oswl.example.com/api/scan/parse \
+  -H "Authorization: Bearer oswl_<key>" \
+  -F "archive=@manifests.zip"
 ```
 
-Expected response:
+Response:
 
 ```json
-{ "status": "ok", "projectId": 42 }
+{
+  "ecosystem": "MAVEN",
+  "componentCount": 128,
+  "components": [ … ]
+}
 ```
 
----
-
-## Submitting a Scan
+### Step 2 — Submit scan
 
 ```
 POST /api/scan
 Authorization: Bearer oswl_<key>
 Content-Type: application/json
 ```
-
-### Request Body
 
 ```json
 {
@@ -107,19 +166,7 @@ Content-Type: application/json
       "name": "org.springframework:spring-core",
       "version": "6.1.4",
       "ecosystem": "MAVEN",
-      "dependencyInfo": "Direct (1)",
-      "dependencyPaths": [
-        [
-          { "name": "com.example:my-app", "version": "1.4.2" },
-          { "name": "org.springframework:spring-core", "version": "6.1.4" }
-        ]
-      ]
-    },
-    {
-      "name": "lodash",
-      "version": "4.17.21",
-      "ecosystem": "NPM",
-      "dependencyInfo": "Transitive (2)",
+      "dependencyInfo": "Direct",
       "dependencyPaths": []
     }
   ]
@@ -130,17 +177,17 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `version` | string | ✅ | Project version at the time of the scan (e.g. `"1.4.2"`) |
-| `submitterEmail` | string | ✅ | Email of the OsWL user submitting this scan |
-| `submitterPassword` | string | ✅ | Password of the submitter — validated via BCrypt server-side; never stored or logged |
-| `components` | array | — | List of discovered OSS components |
-| `components[].name` | string | ✅ | Package name (`group:artifact` for Maven, package name for npm) |
+| `version` | string | ✅ | Project version at scan time |
+| `submitterEmail` | string | ✅ | OsWL user email |
+| `submitterPassword` | string | ✅ | Validated via BCrypt; never stored or logged |
+| `components` | array | — | Discovered OSS components |
+| `components[].name` | string | ✅ | Package name |
 | `components[].version` | string | — | Package version |
-| `components[].ecosystem` | string | ✅ | One of: `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS` |
-| `components[].dependencyInfo` | string | — | Human-readable path summary (e.g. `"Direct (1) + Transitive (3)"`) |
-| `components[].dependencyPaths` | array of arrays | — | Full path trees from root to this component |
+| `components[].ecosystem` | string | ✅ | `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS` |
+| `components[].dependencyInfo` | string | — | Human-readable path summary |
+| `components[].dependencyPaths` | array | — | Optional path trees |
 
-### Success Response
+### Success response
 
 ```json
 {
@@ -152,72 +199,38 @@ Content-Type: application/json
 }
 ```
 
-### Checking Scan Status
+### Poll status
 
 ```
 GET /api/scan/{scanId}/status
 ```
 
-Returns:
-
 ```json
-{
-  "scanId": 87,
-  "status": "COMPLETED",
-  "componentCount": 138
-}
+{ "scanId": 87, "status": "COMPLETED", "componentCount": 128 }
 ```
 
-Status values: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (or `FAILED`)
+Status flow: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (or `FAILED`)
 
 ---
 
-## GitHub Actions Example
+## GitHub Actions example
 
 ```yaml
+- name: Install OsWL CLI
+  run: curl -fsSL https://oswl.example.com/scripts/install.sh | bash
+
 - name: Submit OsWL Scan
-  run: |
-    curl -s -X POST https://oswl.example.com/api/scan \
-      -H "Authorization: Bearer ${{ secrets.OSWL_API_KEY }}" \
-      -H "Content-Type: application/json" \
-      -d @scan-payload.json
-```
-
-Generate `scan-payload.json` using your language's dependency resolver (Maven, npm ls, pip list, go list, etc.).
-
----
-
-## Maven Example (Bash)
-
-```bash
-#!/usr/bin/env bash
-# Collect Maven dependencies and submit to OsWL
-
-VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-
-# Build JSON payload
-COMPONENTS=$(mvn dependency:list -DincludeScope=runtime -q | \
-  grep ':.*:' | \
-  awk '{print $1}' | \
-  jq -R 'split(":") | {"name": "\(.[0]):\(.[1])", "version": .[3], "ecosystem": "MAVEN"}' | \
-  jq -s '.')
-
-PAYLOAD=$(jq -n \
-  --arg ver "$VERSION" \
-  --arg email "$OSWL_USER_EMAIL" \
-  --arg pass "$OSWL_USER_PASSWORD" \
-  --argjson comps "$COMPONENTS" \
-  '{"version":$ver,"submitterEmail":$email,"submitterPassword":$pass,"components":$comps}')
-
-curl -s -X POST "$OSWL_URL/api/scan" \
-  -H "Authorization: Bearer $OSWL_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "$PAYLOAD"
+  env:
+    OSWL_API_KEY: ${{ secrets.OSWL_API_KEY }}
+    OSWL_USERNAME: ${{ secrets.OSWL_USERNAME }}
+    OSWL_PASSWORD: ${{ secrets.OSWL_PASSWORD }}
+    OSWL_SERVER_URL: https://oswl.example.com
+  run: oswl scan
 ```
 
 ---
 
-## Ecosystem Values
+## Ecosystem values
 
 | Ecosystem | Example name format |
 |---|---|
@@ -228,3 +241,11 @@ curl -s -X POST "$OSWL_URL/api/scan" \
 | `CARGO` | `serde` |
 | `NUGET` | `Newtonsoft.Json` |
 | `RUBYGEMS` | `rails` |
+
+---
+
+## Related
+
+- [Scan API Security](Scan-Api-Security.md)
+- [Quick Import](Quick-Import.md) — same parser, remote Git URL
+- [API Reference](API-Reference.md)

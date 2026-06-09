@@ -3,12 +3,12 @@
 # Usage (PowerShell as Administrator or scoped to user):
 #   iex ((New-Object System.Net.WebClient).DownloadString('https://<your-server>/scripts/install.ps1'))
 #
-# After install, scan your project:
-#   cd C:\your\project
-#   oswl scan --key <api_key> --server https://your-server
+# After install, save your API key once:
+#   oswl auth --key <your_api_key> --server https://your-server
 #
-# Optional user attribution:
-#   oswl scan --key <api_key> -u user@example.com -p secret
+# Then scan your project (user credentials required):
+#   cd C:\your\project
+#   oswl scan -k YOUR_API_KEY -u YOUR_EMAIL --server https://your-server
 # ─────────────────────────────────────────────────────────────────────────────
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
@@ -35,6 +35,62 @@ $script:DebugMode = $false
 
 function Write-Dbg { param($msg) if ($script:DebugMode) { Write-Host "[OsWL][DEBUG] $msg" -ForegroundColor Cyan } }
 
+$script:ConfigFile = Join-Path $env:USERPROFILE '.oswl\config'
+
+function Load-OswlConfig {
+    $script:SavedApiKey = ""
+    $script:SavedServerUrl = ""
+    if (-not (Test-Path $script:ConfigFile)) { return }
+    foreach ($line in Get-Content $script:ConfigFile) {
+        if ($line -match '^OSWL_API_KEY="(.*)"\s*$') { $script:SavedApiKey = $matches[1] }
+        elseif ($line -match '^OSWL_SERVER_URL="(.*)"\s*$') { $script:SavedServerUrl = $matches[1] }
+    }
+}
+
+function Save-OswlConfig {
+    param([string]$ApiKey, [string]$Server)
+    $dir = Split-Path $script:ConfigFile -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    @(
+        "OSWL_API_KEY=`"$ApiKey`""
+        "OSWL_SERVER_URL=`"$Server`""
+    ) | Set-Content -Path $script:ConfigFile -Encoding UTF8
+}
+
+function Invoke-Auth {
+    param(
+        [string]$ApiKey = "",
+        [string]$Server = ""
+    )
+    if (-not $ApiKey) {
+        Write-Host "[OsWL] Error: --key <api_key> is required." -ForegroundColor Red; exit 1
+    }
+    Load-OswlConfig
+    if (-not $Server) {
+        $Server = if ($script:SavedServerUrl) { $script:SavedServerUrl }
+                  elseif ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL }
+                  else { "http://localhost:8080" }
+    }
+    $code = "000"
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+        $code = & curl.exe -s -o NUL -w "%{http_code}" `
+            -H "Authorization: Bearer $ApiKey" `
+            "$Server/api/scan/ping" 2>$null
+        if (-not $code) { $code = "000" }
+    }
+    if ($code -eq "200") {
+        Save-OswlConfig -ApiKey $ApiKey -Server $Server
+        Write-Host "[OsWL] Authentication successful! Config saved." -ForegroundColor Green
+        Write-Host "       Server: $Server"
+    } elseif ($code -eq "401") {
+        Write-Host "[OsWL] Error: Invalid API key." -ForegroundColor Red; exit 1
+    } else {
+        Save-OswlConfig -ApiKey $ApiKey -Server $Server
+        Write-Host "[OsWL] Warning: Could not reach server (HTTP $code)."
+        Write-Host "       Key saved, but verify server before scanning."
+    }
+}
+
 # ── Manifest packaging (rules from manifest-rules.json) ───────────────────────
 $script:ManifestRulesFile = Join-Path $env:USERPROFILE '.oswl\manifest-rules.json'
 
@@ -58,7 +114,7 @@ function Ensure-ManifestRules {
 function Test-ManifestSkipPath {
     param([string]$RelPath)
     foreach ($d in $script:ManifestRules.skipDirs) {
-        if ($RelPath -match "(\\|/)$([regex]::Escape($d))(\\|/|`$)") { return $true }
+        if ($RelPath -match "(^|[\\/])$([regex]::Escape($d))([\\/]|`$)") { return $true }
     }
     return $false
 }
@@ -163,14 +219,22 @@ function Invoke-Scan {
         [string]$Server     = ""
     )
 
-    # Fall back to environment variables
-    if (-not $ApiKey)   { $ApiKey   = if ($env:OSWL_API_KEY)    { $env:OSWL_API_KEY }    else { "" } }
-    if (-not $Username) { $Username = if ($env:OSWL_USERNAME)   { $env:OSWL_USERNAME }   else { "" } }
-    if (-not $Password) { $Password = if ($env:OSWL_PASSWORD)   { $env:OSWL_PASSWORD }   else { "" } }
-    if (-not $Server)   { $Server   = if ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL } else { "http://localhost:8080" } }
+    Load-OswlConfig
+    if (-not $ApiKey) {
+        $ApiKey = if ($env:OSWL_API_KEY) { $env:OSWL_API_KEY }
+                  elseif ($script:SavedApiKey) { $script:SavedApiKey }
+                  else { "" }
+    }
+    if (-not $Username) { $Username = if ($env:OSWL_USERNAME) { $env:OSWL_USERNAME } else { "" } }
+    if (-not $Password) { $Password = if ($env:OSWL_PASSWORD) { $env:OSWL_PASSWORD } else { "" } }
+    if (-not $Server) {
+        $Server = if ($env:OSWL_SERVER_URL) { $env:OSWL_SERVER_URL }
+                  elseif ($script:SavedServerUrl) { $script:SavedServerUrl }
+                  else { "http://localhost:8080" }
+    }
 
     if (-not $ApiKey) {
-        Write-Host "[OsWL] Error: --key <api_key> is required (or set OSWL_API_KEY)." -ForegroundColor Red; exit 1
+        Write-Host "[OsWL] Error: --key <api_key> is required (or set OSWL_API_KEY / run 'oswl auth')." -ForegroundColor Red; exit 1
     }
     if (-not $Username) {
         Write-Host "[OsWL] Error: -u <email> is required (or set OSWL_USERNAME)." -ForegroundColor Red; exit 1
@@ -185,6 +249,7 @@ function Invoke-Scan {
     }
 
     $version = Get-ProjectVersion -ProjectDir $ProjectDir
+    Write-Host "[OsWL] Scanning dependencies... (version: $version)"
     $zipPath = Pack-ManifestArchive -ProjectDir $ProjectDir -Server $Server
     try {
         Write-Host "[OsWL] Parsing manifests on server..."
@@ -193,7 +258,7 @@ function Invoke-Scan {
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
     }
 
-    Write-Host "[OsWL] Found $($parsed.componentCount) component(s). (version: $version)"
+    Write-Host "[OsWL] Found $($parsed.componentCount) component(s)."
     Write-Host "[OsWL] Sending to server: $Server"
 
     $payloadMap = [ordered]@{ version = $version; components = $parsed.components }
@@ -206,12 +271,12 @@ function Invoke-Scan {
         $response = Invoke-RestMethod -Uri "$Server/api/scan" -Method POST `
             -Headers $headers -Body $payload -ContentType "application/json"
         Write-Host "[OsWL] Scan submitted! scanId=$($response.scanId)" -ForegroundColor Green
-        Write-Host "       View results at: $Server"
+        Write-Host "       Analysis is running on the server. Check the Security Center for results."
     } catch {
         $resp       = $null; try { $resp = $_.Exception.Response } catch {}
         $statusCode = if ($resp) { [int]$resp.StatusCode.Value__ } else { 0 }
         switch ($statusCode) {
-            401     { Write-Host "[OsWL] Error: API key rejected or invalid credentials." -ForegroundColor Red }
+            401     { Write-Host "[OsWL] Error: Authentication failed. Check your API key and credentials." -ForegroundColor Red }
             403     { Write-Host "[OsWL] Error: User does not have SCAN_SUBMIT permission." -ForegroundColor Red }
             default { Write-Host "[OsWL] Error: Server responded HTTP $statusCode" -ForegroundColor Red }
         }
@@ -223,9 +288,14 @@ function Invoke-Scan {
 # ── help ─────────────────────────────────────────────────────────────────────
 function Show-Help {
     Write-Host @"
-OsWL CLI - Software Composition Analysis
+OsWL CLI - Open-source Software Composition Analysis tool
 
 Usage:
+  oswl auth --key <api_key> [--server <url>]            Save API key and verify server connection
+  oswl scan [<project_dir>] -k <key> -u <email>         Scan dependencies and upload to server
+  oswl help                                             Show this help message
+
+Scan flags:
   oswl scan [<project_dir>]
               --key|-k    <api_key>       API key linked to the target project
                                            (or env OSWL_API_KEY)
@@ -235,9 +305,6 @@ Usage:
                                            (or env OSWL_PASSWORD)
               --server|-s <url>           OsWL server URL
                                            (or env OSWL_SERVER_URL, default: http://localhost:8080)
-
-  oswl help
-      Show this help.
 
 Examples:
   # minimal
@@ -254,9 +321,10 @@ Examples:
   oswl scan
 
 Notes:
-  - Credentials are authenticated server-side before scan data is accepted.
-  - The password is NEVER stored on disk and NEVER included in audit logs.
-  - For CI/CD, use env vars so credentials do not appear in shell history.
+  - Dependencies are parsed on the server (same engine as Quick Import).
+  - Password is prompted if -p is omitted; never stored on disk or in audit logs.
+  - Requires curl.exe. Server must serve /scripts/manifest-rules.json.
+  - For CI/CD, set OSWL_API_KEY, OSWL_USERNAME, OSWL_PASSWORD, OSWL_SERVER_URL.
 
 Global flags:
   --debug    Verbose debug output.
@@ -271,6 +339,16 @@ foreach ($a in $args) {
 $cmd = if ($cmdArgs.Count -gt 0) { $cmdArgs[0] } else { "help" }
 
 switch ($cmd) {
+    "auth" {
+        $key = ""; $server = ""
+        for ($i = 1; $i -lt $cmdArgs.Count; $i++) {
+            switch ($cmdArgs[$i]) {
+                { $_ -in "--key","-k" }    { $key = $cmdArgs[++$i] }
+                { $_ -in "--server","-s" } { $server = $cmdArgs[++$i] }
+            }
+        }
+        Invoke-Auth -ApiKey $key -Server $server
+    }
     "scan" {
         $key = ""; $user = ""; $pass = ""; $server = ""; $dir = $PWD
         for ($i = 1; $i -lt $cmdArgs.Count; $i++) {
@@ -306,5 +384,5 @@ if ($userPath -notlike "*$InstallDir*") {
     Write-Warn "Added $InstallDir to PATH. Please restart your terminal."
 }
 
-Write-Info "Installation complete! Scan a project with:"
-Write-Info "  oswl scan --key <your_api_key> --server $ServerUrl"
+Write-Info "Installation complete! Set your API key with:"
+Write-Info "  oswl auth --key <your_api_key> --server $ServerUrl"
