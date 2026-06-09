@@ -191,7 +191,7 @@ tasks.register('downloadTailwindCli') {
 			tailwindToolDir.mkdirs()
 			def url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v${tailwindVersion}/${binName}"
 			logger.lifecycle("[tailwind] downloading ${url}")
-			Url.toUrl(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+			new URL(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
 			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
 				target.setExecutable(true, false)
 			}
@@ -255,7 +255,7 @@ tasks.register('downloadVendorJs') {
 			def target = new File(vendorDir, f.name)
 			if (!target.exists()) {
 				logger.lifecycle("[vendor-js] downloading ${f.url}")
-				f.url.toURL().withInputStream { i -> target.withOutputStream { o -> o << i } }
+				new URL(f.url).withInputStream { i -> target.withOutputStream { o -> o << i } }
 			}
 		}
 	}
