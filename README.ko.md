@@ -223,6 +223,19 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ---
 
+## Authors
+
+OsWL은 **[SalkCoding](https://github.com/SalkCoding)**에 의해 개발·유지보수됩니다.
+
+| 작성자 | 역할 | GitHub |
+|---|---|---|
+| SalkCoding | 프로젝트 리드 및 주요 메인테이너 | [@SalkCoding](https://github.com/SalkCoding) |
+| Tengball | 디자인 및 UI/UX | [@Tengball](https://github.com/Tengball) |
+
+문의·피드백·협업 제안은 [GitHub Issues](https://github.com/SalkCoding/Oswl/issues)로 보내 주세요.
+
+---
+
 ## 라이선스
 
 이 프로젝트는 [MIT 라이선스](LICENSE) 하에 배포됩니다.
