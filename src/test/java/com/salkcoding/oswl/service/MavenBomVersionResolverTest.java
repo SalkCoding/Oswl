@@ -105,6 +105,76 @@ class MavenBomVersionResolverTest {
   }
 
   @Test
+  @DisplayName("Kotlin DSL mavenBom($var) 및 buildSrc const val로 BOM 버전을 해석한다")
+  void parseGradleDeclaredWithBom_kotlinDslVariables_resolvesVersions(@TempDir Path dir) throws Exception {
+    Path buildSrc = dir.resolve("buildSrc/src/main/kotlin");
+    Files.createDirectories(buildSrc);
+    Files.writeString(buildSrc.resolve("Versions.kt"), """
+        object Versions {
+            const val KOTLIN_VERSION = "2.2.20"
+        }
+        """);
+    Files.writeString(dir.resolve("build.gradle.kts"), """
+        extra["sb.version"] = "4.0.0"
+        val springBootVersion = extra["sb.version"] as String
+        dependencyManagement {
+            imports {
+                mavenBom("org.jetbrains.kotlin:kotlin-bom:${Versions.KOTLIN_VERSION}")
+                mavenBom("org.springframework.boot:spring-boot-dependencies:$springBootVersion")
+            }
+        }
+        """);
+  Files.createDirectories(dir.resolve("graphql-dgs"));
+  Files.writeString(dir.resolve("graphql-dgs/build.gradle.kts"), """
+        dependencies {
+            implementation("org.springframework:spring-web")
+            implementation("org.springframework.boot:spring-boot-autoconfigure")
+        }
+        """);
+
+    String springBomPom = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <project>
+          <dependencyManagement>
+            <dependencies>
+              <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-web</artifactId>
+                <version>6.2.0</version>
+              </dependency>
+              <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-autoconfigure</artifactId>
+                <version>4.0.0</version>
+              </dependency>
+            </dependencies>
+          </dependencyManagement>
+        </project>
+        """;
+
+    MavenBomVersionResolver resolver = new MavenBomVersionResolver(
+        (g, a, v) -> {
+          if ("org.springframework.boot".equals(g)
+              && "spring-boot-dependencies".equals(a)
+              && "4.0.0".equals(v)) {
+            return Optional.of(springBomPom.getBytes(StandardCharsets.UTF_8));
+          }
+          return Optional.empty();
+        });
+
+    List<ScanPayload.ComponentPayload> comps = resolver.parseGradleDeclaredWithBom(dir);
+
+    assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+        .contains("org.springframework:spring-web", "org.springframework.boot:spring-boot-autoconfigure");
+    assertThat(comps).filteredOn(c -> "org.springframework:spring-web".equals(c.getName()))
+        .extracting(ScanPayload.ComponentPayload::getVersion)
+        .containsExactly("6.2.0");
+    assertThat(comps).filteredOn(c -> "org.springframework.boot:spring-boot-autoconfigure".equals(c.getName()))
+        .extracting(ScanPayload.ComponentPayload::getVersion)
+        .containsExactly("4.0.0");
+  }
+
+  @Test
   @DisplayName("buildVersionIndex: mavenBom import 좌표를 인덱스에 병합한다")
   void buildVersionIndex_mavenBomImport_includesManagedVersions(@TempDir Path dir) throws Exception {
     Files.writeString(dir.resolve("build.gradle"), """

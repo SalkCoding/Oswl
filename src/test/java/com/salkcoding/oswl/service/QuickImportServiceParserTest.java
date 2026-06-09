@@ -276,6 +276,48 @@ class QuickImportServiceParserTest {
     }
 
     @Test
+    @DisplayName("parsePyprojectToml: [project].dependencies를 파싱한다")
+    void parsePyprojectToml_projectDeps_returnsComponents(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("pyproject.toml"), """
+            [build-system]
+            requires = ["setuptools"]
+
+            [project]
+            name = "demo"
+            version = "0.1.0"
+            dependencies = [
+              "requests>=2.31.0",
+              "flask==3.0.0",
+            ]
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parsePyprojectToml",
+                dir.resolve("pyproject.toml"));
+
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .containsExactlyInAnyOrder("requests", "flask");
+        assertThat(comps).filteredOn(c -> "flask".equals(c.getName()))
+                .extracting(ScanPayload.ComponentPayload::getVersion)
+                .containsExactly("3.0.0");
+    }
+
+    @Test
+    @DisplayName("parseRequirementsFile: 여러 requirements.txt를 각각 파싱한다")
+    void parseRequirementsFile_multipleFiles_mergeDistinct(@TempDir Path dir) throws Exception {
+        Files.createDirectories(dir.resolve("api"));
+        Files.writeString(dir.resolve("requirements.txt"), "requests==2.31.0\n");
+        Files.writeString(dir.resolve("api/requirements.txt"), "flask>=3.0.0\n");
+
+        List<ScanPayload.ComponentPayload> root = invokeList("parseRequirementsFile",
+                dir.resolve("requirements.txt"));
+        List<ScanPayload.ComponentPayload> api = invokeList("parseRequirementsFile",
+                dir.resolve("api/requirements.txt"));
+
+        assertThat(root).extracting(ScanPayload.ComponentPayload::getName).containsExactly("requests");
+        assertThat(api).extracting(ScanPayload.ComponentPayload::getName).containsExactly("flask");
+    }
+
+    @Test
     @DisplayName("parsePython: requirements.txt가 없으면 빈 목록을 반환한다")
     void parsePython_noFile_returnsEmpty(@TempDir Path dir) throws Exception {
         List<ScanPayload.ComponentPayload> comps = invokeList("parsePython", dir);
@@ -356,6 +398,26 @@ class QuickImportServiceParserTest {
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
                 .contains("jekyll", "mercenary");
         assertThat(comps.get(0).getEcosystem()).isEqualTo("RUBYGEMS");
+    }
+
+    @Test
+    @DisplayName("parseGemfileLock: pre-release 버전(8.2.0.alpha)을 파싱한다")
+    void parseGemfileLock_prereleaseVersion_parsed(@TempDir Path dir) throws Exception {
+        Files.writeString(dir.resolve("Gemfile.lock"), """
+            PATH
+              remote: .
+              specs:
+                actioncable (8.2.0.alpha)
+                action_text-trix (2.1.16)
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseGemfileLock", dir);
+
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .contains("actioncable", "action_text-trix");
+        assertThat(comps).filteredOn(c -> "actioncable".equals(c.getName()))
+                .extracting(ScanPayload.ComponentPayload::getVersion)
+                .containsExactly("8.2.0.alpha");
     }
 
     // ── parseGoMod ────────────────────────────────────────────────────────
@@ -442,6 +504,78 @@ class QuickImportServiceParserTest {
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
                 .containsExactlyInAnyOrder("Newtonsoft.Json", "Microsoft.Extensions.Logging");
         assertThat(comps.get(0).getEcosystem()).isEqualTo("NUGET");
+    }
+
+    @Test
+    @DisplayName("parseNuGetStatic: 중첩 .csproj와 자식 Version 요소를 파싱한다")
+    void parseNuGetStatic_nestedCsprojChildVersion_parsesAll(@TempDir Path dir) throws Exception {
+        Path nested = dir.resolve("src/App");
+        Files.createDirectories(nested);
+        Files.createDirectories(dir.resolve("eng"));
+        Files.writeString(nested.resolve("App.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+                <PackageReference Include="Contoso.Api">
+                  <Version>2.1.0</Version>
+                </PackageReference>
+              </ItemGroup>
+            </Project>
+            """);
+        Files.writeString(dir.resolve("eng/Versions.props"), """
+            <Project>
+              <PropertyGroup>
+                <SharedLibVersion>1.0.5</SharedLibVersion>
+              </PropertyGroup>
+            </Project>
+            """);
+        Files.writeString(dir.resolve("Lib.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <ItemGroup>
+                <PackageReference Include="Shared.Lib" Version="$(SharedLibVersion)" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        List<ScanPayload.ComponentPayload> comps = invokeList("parseNuGetStatic", dir);
+
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .contains("Contoso.Api", "Shared.Lib");
+        assertThat(comps).filteredOn(c -> "Shared.Lib".equals(c.getName()))
+                .extracting(ScanPayload.ComponentPayload::getVersion)
+                .containsExactly("1.0.5");
+    }
+
+    @Test
+    @DisplayName("parseDotNetListJson: dotnet list JSON을 파싱한다")
+    void parseDotNetListJson_basic_returnsComponents(@TempDir Path dir) throws Exception {
+        String json = """
+            {
+              "projects": [
+                {
+                  "frameworks": [
+                    {
+                      "topLevelPackages": [
+                        { "id": "Newtonsoft.Json", "resolvedVersion": "13.0.3" }
+                      ],
+                      "transitivePackages": [
+                        { "id": "System.Text.Json", "resolvedVersion": "8.0.0" }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+        Method m = QuickImportService.class.getDeclaredMethod(
+                "parseDotNetListJson", String.class, String.class);
+        m.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<ScanPayload.ComponentPayload> comps =
+                (List<ScanPayload.ComponentPayload>) m.invoke(service, json, REPO);
+
+        assertThat(comps).hasSize(2);
+        assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
+                .containsExactlyInAnyOrder("Newtonsoft.Json", "System.Text.Json");
     }
 
     // ── parseGradleStatic ─────────────────────────────────────────────────

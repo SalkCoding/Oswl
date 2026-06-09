@@ -33,9 +33,22 @@ public class MavenBomVersionResolver {
     private static final Pattern SPRING_BOOT_PLUGIN = Pattern.compile(
             "org\\.springframework\\.boot[\"']?\\)?\\s+version\\s+['\"]([^'\"]+)['\"]",
             Pattern.CASE_INSENSITIVE);
+    /** Groovy-style {@code mavenBom 'g:a:1.0'} with a literal version. */
     private static final Pattern MAVEN_BOM_IMPORT = Pattern.compile(
             "mavenBom\\s*[\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.+\\-]+)[\"']",
             Pattern.CASE_INSENSITIVE);
+    /** Kotlin DSL {@code mavenBom("g:a:$var")} — version may contain Gradle variables. */
+    private static final Pattern MAVEN_BOM_KOTLIN = Pattern.compile(
+            "mavenBom\\s*\\(\\s*\"([^\"]+)\"\\s*\\)",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern GRADLE_EXTRA_STRING = Pattern.compile(
+            "extra\\[\"([^\"]+)\"\\]\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern GRADLE_VAL_LITERAL = Pattern.compile(
+            "val\\s+(\\w+)\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern GRADLE_VAL_EXTRA = Pattern.compile(
+            "val\\s+(\\w+)\\s*=\\s*extra\\[\"([^\"]+)\"\\](?:\\s+as\\s+\\w+)?");
+    private static final Pattern KOTLIN_CONST_VAL = Pattern.compile(
+            "const\\s+val\\s+(\\w+)\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern GRADLE_DEP = Pattern.compile(
             "(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor|" +
             "testImplementation|testRuntimeOnly|testCompileOnly|" +
@@ -225,6 +238,7 @@ public class MavenBomVersionResolver {
     }
 
     private void mergeGradleBomHints(Path projectDir, Map<String, String> index) {
+        Map<String, String> gradleVars = buildGradleVariableContext(projectDir);
         List<Path> gradleFiles = findGradleBuildFiles(projectDir);
         Set<String> bomCoords = new LinkedHashSet<>();
         for (Path file : gradleFiles) {
@@ -240,6 +254,11 @@ public class MavenBomVersionResolver {
                 while (bom.find()) {
                     bomCoords.add(bom.group(1) + ":" + bom.group(2));
                 }
+                Matcher kotlinBom = MAVEN_BOM_KOTLIN.matcher(content);
+                while (kotlinBom.find()) {
+                    resolveMavenBomCoordinate(kotlinBom.group(1), gradleVars)
+                            .ifPresent(bomCoords::add);
+                }
             } catch (Exception e) {
                 log.debug("[BOM] Failed to read {}: {}", file, e.getMessage());
             }
@@ -250,6 +269,112 @@ public class MavenBomVersionResolver {
                 mergeManagedVersionsFromPom(parts[0], parts[1], parts[2], index, new HashSet<>(), 0);
             }
         }
+    }
+
+    /**
+     * Collects Gradle/Kotlin DSL variables used in {@code mavenBom("…:$var")} expressions:
+     * {@code extra["key"]}, {@code val x = …}, and {@code buildSrc} {@code const val} entries.
+     */
+    Map<String, String> buildGradleVariableContext(Path projectDir) {
+        Map<String, String> ctx = new LinkedHashMap<>();
+        List<Path> sources = new ArrayList<>(findGradleBuildFiles(projectDir));
+        Path buildSrc = projectDir.resolve("buildSrc");
+        if (Files.isDirectory(buildSrc)) {
+            try (Stream<Path> walk = Files.walk(buildSrc, 6)) {
+                walk.filter(p -> !Files.isDirectory(p))
+                        .filter(p -> {
+                            String n = p.getFileName().toString();
+                            return n.endsWith(".kt") || n.endsWith(".java");
+                        })
+                        .forEach(sources::add);
+            } catch (Exception e) {
+                log.debug("[BOM] buildSrc walk failed: {}", e.getMessage());
+            }
+        }
+        // Pass 1 — literal assignments
+        for (Path file : sources) {
+            try {
+                String content = Files.readString(file, StandardCharsets.UTF_8);
+                Matcher extra = GRADLE_EXTRA_STRING.matcher(content);
+                while (extra.find()) {
+                    ctx.put(extra.group(1), extra.group(2));
+                }
+                Matcher konst = KOTLIN_CONST_VAL.matcher(content);
+                while (konst.find()) {
+                    String name = konst.group(1);
+                    String value = konst.group(2);
+                    ctx.putIfAbsent(name, value);
+                    ctx.putIfAbsent("Versions." + name, value);
+                }
+                Matcher valLit = GRADLE_VAL_LITERAL.matcher(content);
+                while (valLit.find()) {
+                    ctx.putIfAbsent(valLit.group(1), valLit.group(2));
+                }
+            } catch (Exception e) {
+                log.debug("[BOM] Gradle variable scan failed for {}: {}", file, e.getMessage());
+            }
+        }
+        // Pass 2 — val aliases → extra[...]
+        for (Path file : sources) {
+            try {
+                String content = Files.readString(file, StandardCharsets.UTF_8);
+                Matcher valExtra = GRADLE_VAL_EXTRA.matcher(content);
+                while (valExtra.find()) {
+                    String alias = valExtra.group(1);
+                    String extraKey = valExtra.group(2);
+                    String resolved = ctx.get(extraKey);
+                    if (resolved != null) {
+                        ctx.put(alias, resolved);
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("[BOM] Gradle alias scan failed for {}: {}", file, e.getMessage());
+            }
+        }
+        return ctx;
+    }
+
+    private Optional<String> resolveMavenBomCoordinate(String rawCoord, Map<String, String> gradleVars) {
+        if (rawCoord == null || rawCoord.isBlank()) {
+            return Optional.empty();
+        }
+        int lastColon = rawCoord.lastIndexOf(':');
+        if (lastColon <= 0 || lastColon == rawCoord.length() - 1) {
+            return Optional.empty();
+        }
+        String groupArtifact = rawCoord.substring(0, lastColon);
+        String versionExpr = rawCoord.substring(lastColon + 1);
+        String version = resolveGradleExpression(versionExpr, gradleVars);
+        if (version == null || version.isBlank() || !version.matches("[\\w.+\\-]+")) {
+            log.debug("[BOM] Unresolved mavenBom version '{}' in coord '{}'", versionExpr, rawCoord);
+            return Optional.empty();
+        }
+        return Optional.of(groupArtifact + ":" + version);
+    }
+
+    private String resolveGradleExpression(String expr, Map<String, String> gradleVars) {
+        if (expr == null) {
+            return null;
+        }
+        String trimmed = expr.trim();
+        if (trimmed.matches("[\\w.+\\-]+")) {
+            return trimmed;
+        }
+        if (trimmed.startsWith("$") && !trimmed.startsWith("${")) {
+            return gradleVars.get(trimmed.substring(1));
+        }
+        if (trimmed.startsWith("${") && trimmed.endsWith("}")) {
+            String key = trimmed.substring(2, trimmed.length() - 1);
+            String direct = gradleVars.get(key);
+            if (direct != null) {
+                return direct;
+            }
+            int dot = key.lastIndexOf('.');
+            if (dot > 0) {
+                return gradleVars.get(key.substring(dot + 1));
+            }
+        }
+        return null;
     }
 
     private void mergeMavenPomHints(Path projectDir, Map<String, String> index) {
