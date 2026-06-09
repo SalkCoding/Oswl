@@ -27,12 +27,14 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests for QuickImportService private dependency-parsing methods.
- * All private methods are accessed via reflection so production code stays unchanged.
+ * Tests for {@link DependencyManifestParserService} (via reflection) and
+ * {@link QuickImportService#parseRepoUrl} URL parsing.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("QuickImportService — private parser unit tests")
+@DisplayName("DependencyManifestParserService — parser unit tests")
 class QuickImportServiceParserTest {
+
+    @Mock MavenBomVersionResolver bomVersionResolver;
 
     @Mock UserVcsConnectionRepository vcsConnectionRepository;
     @Mock EncryptionService            encryptionService;
@@ -43,14 +45,14 @@ class QuickImportServiceParserTest {
     @Mock GitHubService                gitHubService;
     @Mock BitbucketCloudClient         bitbucketCloudClient;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
-    @Mock MavenBomVersionResolver      bomVersionResolver;
     @Mock GitCloneExecutor              gitCloneExecutor;
     @Mock com.salkcoding.oswl.auth.repository.UserRepository userRepository;
     @Mock AuditLogService               auditLogService;
     @Mock ProjectCliKeyPolicyService    projectCliKeyPolicyService;
     @Mock org.springframework.context.MessageSource messageSource;
 
-    @InjectMocks QuickImportService service;
+    @InjectMocks DependencyManifestParserService parserService;
+    @InjectMocks QuickImportService quickImportService;
 
     private static final String REPO = "test-repo";
 
@@ -62,9 +64,9 @@ class QuickImportServiceParserTest {
 
     @SuppressWarnings("unchecked")
     private List<ScanPayload.ComponentPayload> invokeList(String methodName, Path dir) throws Exception {
-        Method m = QuickImportService.class.getDeclaredMethod(methodName, Path.class, String.class);
+        Method m = DependencyManifestParserService.class.getDeclaredMethod(methodName, Path.class, String.class);
         m.setAccessible(true);
-        Object result = m.invoke(service, dir, REPO);
+        Object result = m.invoke(parserService, dir, REPO);
         if (result == null) {
             return List.of();
         }
@@ -76,19 +78,19 @@ class QuickImportServiceParserTest {
 
     @SuppressWarnings("unchecked")
     private List<ScanPayload.ComponentPayload> invokeMavenPom(Path pomFile, Path projectDir) throws Exception {
-        Method m = QuickImportService.class.getDeclaredMethod(
+        Method m = DependencyManifestParserService.class.getDeclaredMethod(
                 "parseSingleMavenPom", Path.class, Path.class, String.class);
         m.setAccessible(true);
-        Object result = m.invoke(service, pomFile, projectDir, REPO);
+        Object result = m.invoke(parserService, pomFile, projectDir, REPO);
         return result != null ? (List<ScanPayload.ComponentPayload>) result : List.of();
     }
 
     @SuppressWarnings("unchecked")
     private List<ScanPayload.ComponentPayload> invokeTomlLock(Path lockFile, String ecosystem) throws Exception {
-        Method m = QuickImportService.class.getDeclaredMethod(
+        Method m = DependencyManifestParserService.class.getDeclaredMethod(
                 "parseTomlPackageLock", Path.class, String.class, String.class);
         m.setAccessible(true);
-        Object result = m.invoke(service, lockFile, ecosystem, REPO);
+        Object result = m.invoke(parserService, lockFile, ecosystem, REPO);
         return result != null ? (List<ScanPayload.ComponentPayload>) result : List.of();
     }
 
@@ -566,12 +568,12 @@ class QuickImportServiceParserTest {
               ]
             }
             """;
-        Method m = QuickImportService.class.getDeclaredMethod(
+        Method m = DependencyManifestParserService.class.getDeclaredMethod(
                 "parseDotNetListJson", String.class, String.class);
         m.setAccessible(true);
         @SuppressWarnings("unchecked")
         List<ScanPayload.ComponentPayload> comps =
-                (List<ScanPayload.ComponentPayload>) m.invoke(service, json, REPO);
+                (List<ScanPayload.ComponentPayload>) m.invoke(parserService, json, REPO);
 
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
@@ -624,10 +626,10 @@ class QuickImportServiceParserTest {
     @Test
     @DisplayName("resolveProp: ${prop}을 props 맵에서 치환한다")
     void resolveProp_knownProp_replacesValue() throws Exception {
-        Method m = QuickImportService.class.getDeclaredMethod("resolveProp", String.class, java.util.Map.class);
+        Method m = DependencyManifestParserService.class.getDeclaredMethod("resolveProp", String.class, java.util.Map.class);
         m.setAccessible(true);
 
-        String result = (String) m.invoke(service, "${project.version}", java.util.Map.of("project.version", "3.0.0"));
+        String result = (String) m.invoke(parserService, "${project.version}", java.util.Map.of("project.version", "3.0.0"));
 
         assertThat(result).isEqualTo("3.0.0");
     }
@@ -635,10 +637,10 @@ class QuickImportServiceParserTest {
     @Test
     @DisplayName("resolveProp: 알 수 없는 속성은 원래 ${...} 표현식을 그대로 반환한다")
     void resolveProp_unknownProp_returnsOriginalExpression() throws Exception {
-        Method m = QuickImportService.class.getDeclaredMethod("resolveProp", String.class, java.util.Map.class);
+        Method m = DependencyManifestParserService.class.getDeclaredMethod("resolveProp", String.class, java.util.Map.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(service, "${unknown.prop}", java.util.Map.of());
+        Object result = m.invoke(parserService, "${unknown.prop}", java.util.Map.of());
 
         assertThat(result).isEqualTo("${unknown.prop}");
     }
@@ -646,10 +648,10 @@ class QuickImportServiceParserTest {
     @Test
     @DisplayName("resolveProp: 일반 문자열은 그대로 반환한다")
     void resolveProp_literal_returnsAsIs() throws Exception {
-        Method m = QuickImportService.class.getDeclaredMethod("resolveProp", String.class, java.util.Map.class);
+        Method m = DependencyManifestParserService.class.getDeclaredMethod("resolveProp", String.class, java.util.Map.class);
         m.setAccessible(true);
 
-        String result = (String) m.invoke(service, "1.2.3", java.util.Map.of());
+        String result = (String) m.invoke(parserService, "1.2.3", java.util.Map.of());
 
         assertThat(result).isEqualTo("1.2.3");
     }
@@ -662,7 +664,7 @@ class QuickImportServiceParserTest {
         Method m = QuickImportService.class.getDeclaredMethod("parseRepoUrl", String.class, List.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(service, "https://github.com/SalkCoding/Oswl", List.of());
+        Object result = m.invoke(quickImportService, "https://github.com/SalkCoding/Oswl", List.of());
 
         assertThat(result).isNotNull();
         Field owner = result.getClass().getDeclaredField("owner");
@@ -679,7 +681,7 @@ class QuickImportServiceParserTest {
         Method m = QuickImportService.class.getDeclaredMethod("parseRepoUrl", String.class, List.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(service, "https://gitlab.com/owner/repo.git", List.of());
+        Object result = m.invoke(quickImportService, "https://gitlab.com/owner/repo.git", List.of());
 
         assertThat(result).isNotNull();
         Field provider = result.getClass().getDeclaredField("provider");
@@ -693,7 +695,7 @@ class QuickImportServiceParserTest {
         Method m = QuickImportService.class.getDeclaredMethod("parseRepoUrl", String.class, List.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(service, "https://bitbucket.org/workspace/myrepo", List.of());
+        Object result = m.invoke(quickImportService, "https://bitbucket.org/workspace/myrepo", List.of());
 
         assertThat(result).isNotNull();
         Field provider = result.getClass().getDeclaredField("provider");
@@ -707,7 +709,7 @@ class QuickImportServiceParserTest {
         Method m = QuickImportService.class.getDeclaredMethod("parseRepoUrl", String.class, List.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(service, (Object) null, List.of());
+        Object result = m.invoke(quickImportService, (Object) null, List.of());
 
         assertThat(result).isNull();
     }
@@ -718,7 +720,7 @@ class QuickImportServiceParserTest {
         Method m = QuickImportService.class.getDeclaredMethod("parseRepoUrl", String.class, List.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(service, "https://unknownhost.example.com/user/repo", List.of());
+        Object result = m.invoke(quickImportService, "https://unknownhost.example.com/user/repo", List.of());
 
         assertThat(result).isNull();
     }

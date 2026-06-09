@@ -84,15 +84,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequiredArgsConstructor
 public class QuickImportService {
 
-    private final MavenBomVersionResolver bomVersionResolver;
-
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String USER_AGENT = "OsWL-App/1.0";
-    /** Directory name segments to prune when recursively walking for build manifests. */
-    private static final Set<String> MANIFEST_SKIP_DIRS = Set.of(
-            ".git", "node_modules", "vendor", "target", ".gradle", "__pycache__",
-            ".venv", "venv", ".tox", "dist", ".cargo", "build", "out", "bin",
-            "obj", ".idea", ".dart_tool", "bower_components", "generated");
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -122,12 +115,13 @@ public class QuickImportService {
     private final BitbucketCloudClient bitbucketCloudClient;
     private final EnrichmentProgressHolder enrichmentProgressHolder;
     private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
+    private final DependencyManifestParserService dependencyManifestParserService;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
     /** Tracks job creation times for TTL-based eviction. */
     private final ConcurrentHashMap<String, Instant> jobCreatedAt = new ConcurrentHashMap<>();
-    /** Job owner — used to prevent cross-user status polling (IDOR). */
+    /** Job owner ??used to prevent cross-user status polling (IDOR). */
     private final ConcurrentHashMap<String, Long> jobOwners = new ConcurrentHashMap<>();
     /** Tracks whether the full API token was already returned once on DONE. */
     private final ConcurrentHashMap<String, Boolean> apiTokenRevealed = new ConcurrentHashMap<>();
@@ -142,7 +136,7 @@ public class QuickImportService {
     private record PendingImport(String jobId, String repoUrl, String branch, Long userId, String repoLabel,
                                  Locale locale) {}
 
-    // ── Public API ────────────────────────────────────────────────────────
+    // ?? Public API ????????????????????????????????????????????????????????
 
     /**
      * Starts an asynchronous import job and immediately returns the job ID.
@@ -362,10 +356,10 @@ public class QuickImportService {
         if (token == null || token.length() < 12) {
             return null;
         }
-        return token.substring(0, 8) + "…" + token.substring(token.length() - 4);
+        return token.substring(0, 8) + "\u2026" + token.substring(token.length() - 4);
     }
 
-    // ── Repo browser (for Quick Import list UI) ───────────────────────────
+    // ?? Repo browser (for Quick Import list UI) ???????????????????????????
 
     /**
      * Returns all repositories accessible by the authenticated user for the given VCS provider.
@@ -424,7 +418,7 @@ public class QuickImportService {
         String base = serverUrl != null ? serverUrl.replaceAll("/+$", "") : "https://gitlab.com";
 
         // membership=true works for classic PATs (user-level membership context).
-        // Fine-grained project-scoped tokens lack that context — fall back to min_access_level.
+        // Fine-grained project-scoped tokens lack that context ??fall back to min_access_level.
         String url = base + "/api/v4/projects?membership=true&per_page=100&order_by=last_activity_at";
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -494,7 +488,7 @@ public class QuickImportService {
         String base = serverUrl.replaceAll("/+$", "");
         String authHeader = "Bearer " + token;
 
-        // Primary: /rest/api/1.0/projects → repos per project (Data Center standard)
+        // Primary: /rest/api/1.0/projects ??repos per project (Data Center standard)
         List<QuickImportRepoDto> fromProjects = listServerReposViaProjects(base, authHeader);
         if (!fromProjects.isEmpty()) return fromProjects;
 
@@ -579,7 +573,7 @@ public class QuickImportService {
 
 
     private void runImport(String jobId, String repoUrl, String branch, Long userId) throws Exception {
-        // 1. Parse the URL (pass user connections so self-hosted hosts can be identified) ────
+        // 1. Parse the URL (pass user connections so self-hosted hosts can be identified) ????
         List<UserVcsConnection> userConns = vcsConnectionRepository.findByUserIdAndActiveTrue(userId);
         ParsedRepoUrl parsed = parseRepoUrl(repoUrl, userConns);
         if (parsed == null) {
@@ -588,7 +582,7 @@ public class QuickImportService {
             return;
         }
 
-        // 2. Resolve clone credentials (optional — public repos clone anonymously) ──
+        // 2. Resolve clone credentials (optional ??public repos clone anonymously) ??
         Optional<UserVcsConnection> connOpt =
                 vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(userId, parsed.provider);
         GitCloneCredentials credentials = null;
@@ -598,7 +592,7 @@ public class QuickImportService {
             credentials = resolveCloneCredentials(parsed, token, conn.getVcsUsername());
         }
 
-        // 3. Clone ─────────────────────────────────────────────────────────
+        // 3. Clone ?????????????????????????????????????????????????????????
         advanceJob(jobId, Phase.CLONING, null, null, null, null, null, null, null);
 
         Path cloneDir = createTempCloneDir(parsed.owner, parsed.repo, jobId);
@@ -606,12 +600,13 @@ public class QuickImportService {
             String cloneUrl = buildCloneUrl(parsed);
             gitCloneExecutor.clone(cloneUrl, credentials, branch, cloneDir, jobId);
 
-            // 4. Parse dependencies ────────────────────────────────────────
+            // 4. Parse dependencies ????????????????????????????????????????
             advanceJob(jobId, Phase.PARSING, null, null, null, null, null, null, null);
 
-            ParsedDependencies deps = parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo);
+            DependencyManifestParserService.ParseResult deps =
+                    dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo);
 
-            // 5. Create/find project and API key ──────────────────────────
+            // 5. Create/find project and API key ??????????????????????????
             Project project = projectService.upsertFromGitHub(
                     parsed.provider,
                     parsed.owner, parsed.repo,
@@ -621,12 +616,12 @@ public class QuickImportService {
             projectCliKeyPolicyService.assertScanIngestAllowed(project.getId());
             ApiKeyResult keyResult = getOrIssueApiKey(project);
 
-            // 6. Submit scan ───────────────────────────────
+            // 6. Submit scan ???????????????????????????????
             advanceJob(jobId, Phase.SCANNING, project.getId(), project.getName(), null, false,
-                    deps.ecosystem, deps.components.size());
+                    deps.ecosystem(), deps.components().size());
 
             String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
-            ScanPayload payload = buildScanPayload(deps, scanVersion);
+            ScanPayload payload = dependencyManifestParserService.buildScanPayload(deps, scanVersion);
             ScanResult scanResult;
             try {
                 scanResult = scanIngestService.ingest(project.getId(), payload);
@@ -638,7 +633,7 @@ public class QuickImportService {
                 failJob(jobId, QuickImportMessageKeys.SCAN_SUBMIT_FAILED, List.of(),
                         project.getId(), project.getName(),
                         keyResult.token, keyResult.isNew,
-                        deps.ecosystem, deps.components.size());
+                        deps.ecosystem(), deps.components().size());
                 return;
             }
 
@@ -649,17 +644,17 @@ public class QuickImportService {
                     project.getId().toString(), scanVersion,
                     "source=quick-import scanId=" + scanResult.getId());
 
-            // 7. Wait for async enrichment (vulnerability analysis + AI) ──
+            // 7. Wait for async enrichment (vulnerability analysis + AI) ??
             advanceJob(jobId, Phase.ENRICHING, project.getId(), project.getName(),
                     keyResult.token, keyResult.isNew,
-                    deps.ecosystem, deps.components.size(), scanResult.getId());
+                    deps.ecosystem(), deps.components().size(), scanResult.getId());
 
         } finally {
             deleteDirectory(cloneDir);
         }
     }
 
-    // ── URL parsing ────────────────────────────────────────────────────────
+    // ?? URL parsing ????????????????????????????????????????????????????????
 
     /**
      * @param clonePath the path segment used in the authenticated clone URL (e.g. {@code /scm/proj/repo}
@@ -682,32 +677,32 @@ public class QuickImportService {
         ParsedRepoUrl fromConnection = parseFromStoredConnection(host, path, userConnections);
         if (fromConnection != null) return fromConnection;
 
-        // ── Bitbucket Cloud ──────────────────────────────────────────────
+        // ?? Bitbucket Cloud ??????????????????????????????????????????????
         if (host.equals("bitbucket.org") || host.endsWith(".bitbucket.org")) {
             String[] parts = splitTwoPathSegments(path);
             if (parts == null) return null;
             return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
         }
 
-        // ── GitHub (cloud + enterprise) ──────────────────────────────────
+        // ?? GitHub (cloud + enterprise) ??????????????????????????????????
         if (host.equals("github.com") || host.endsWith(".github.com")) {
             String[] parts = splitTwoPathSegments(path);
             if (parts == null) return null;
             return new ParsedRepoUrl(VcsProvider.GITHUB, host, parts[0], parts[1], null);
         }
 
-        // ── GitLab (cloud + self-hosted) ─────────────────────────────────
+        // ?? GitLab (cloud + self-hosted) ?????????????????????????????????
         if (host.equals("gitlab.com") || host.contains("gitlab")) {
             String[] parts = splitTwoPathSegments(path);
             if (parts == null) return null;
             return new ParsedRepoUrl(VcsProvider.GITLAB, host, parts[0], parts[1], null);
         }
 
-        // ── Self-hosted fallback ─────────────────────────────────────────
+        // ?? Self-hosted fallback ?????????????????????????????????????????
         ParsedRepoUrl fallback = parseFromStoredConnection(host, path, userConnections);
         if (fallback != null) return fallback;
 
-        log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
+        log.warn("[QuickImport] Unknown host '{}' ??cannot determine VCS provider.", host);
         return null;
     }
 
@@ -769,1499 +764,6 @@ public class QuickImportService {
             case GITHUB, GITLAB -> new GitCloneCredentials("oauth2", token);
             case BITBUCKET -> bitbucketCloudClient.cloneCredentials(vcsUsername, token);
         };
-    }
-
-    // ── Dependency parsing ─────────────────────────────────────────────────
-
-    private record ParsedDependencies(String ecosystem, List<ScanPayload.ComponentPayload> components) {}
-
-    private record GradleComponent(String name, String version, List<List<ScanPayload.DependencyNodeRef>> paths) {}
-
-    private ParsedDependencies parseDependencies(Path cloneDir, String repoName) {
-        List<ScanPayload.ComponentPayload> allComps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        List<String> ecosystems = new ArrayList<>();
-
-        // ── Maven: walk all pom.xml files ──────────────────────────────────────
-        List<Path> pomFiles = walkManifests(cloneDir, Set.of("pom.xml"), MANIFEST_SKIP_DIRS);
-        if (!pomFiles.isEmpty()) {
-            ecosystems.add("MAVEN");
-            List<ScanPayload.ComponentPayload> mvnComps = runMvnDependencyList(cloneDir, repoName);
-            if (mvnComps != null && !mvnComps.isEmpty()) {
-                mergeComponents(allComps, seen, mvnComps, "MAVEN");
-            } else {
-                for (Path pom : pomFiles) {
-                    mergeComponents(allComps, seen, parseSingleMavenPom(pom, cloneDir, repoName), "MAVEN");
-                }
-            }
-            log.info("[QuickImport][Multi] Maven: {} pom.xml → {} components so far", pomFiles.size(), allComps.size());
-        }
-
-        // ── Gradle: build.gradle / build.gradle.kts ────────────────────────────
-        List<Path> gradleFiles = walkManifests(cloneDir,
-                Set.of("build.gradle", "build.gradle.kts"), MANIFEST_SKIP_DIRS);
-        if (!gradleFiles.isEmpty()) {
-            if (!ecosystems.contains("MAVEN")) ecosystems.add("MAVEN");
-            List<ScanPayload.ComponentPayload> gradleDeps = runGradleDependencies(cloneDir, repoName);
-            if (gradleDeps == null || gradleDeps.isEmpty()) {
-                gradleDeps = parseGradleStatic(cloneDir, repoName).components();
-            }
-            if (gradleDeps != null && !gradleDeps.isEmpty()) {
-                gradleDeps = bomVersionResolver.enrichComponentVersions(cloneDir, gradleDeps);
-            }
-            mergeComponents(allComps, seen, gradleDeps, "MAVEN");
-            // Version catalogs cover libs.xxx references not captured by static regex
-            mergeComponents(allComps, seen, parseVersionCatalogs(cloneDir, repoName), "MAVEN");
-            log.info("[QuickImport][Multi] Gradle: {} build files → {} components so far", gradleFiles.size(), allComps.size());
-        }
-
-        // ── npm: lock files first (full transitive), then package.json ──────────
-        for (Path lock : walkManifests(cloneDir,
-                Set.of("package-lock.json", "yarn.lock", "pnpm-lock.yaml"), MANIFEST_SKIP_DIRS)) {
-            String fn = lock.getFileName().toString();
-            Path d = lock.getParent();
-            List<ScanPayload.ComponentPayload> npmComps = switch (fn) {
-                case "package-lock.json" -> parseNpmLock(d, repoName);
-                case "yarn.lock"         -> parseYarnLock(d, repoName);
-                case "pnpm-lock.yaml"    -> parsePnpmLock(d, repoName);
-                default                  -> null;
-            };
-            if (npmComps != null && !npmComps.isEmpty()) {
-                if (!ecosystems.contains("NPM")) ecosystems.add("NPM");
-                mergeComponents(allComps, seen, npmComps, "NPM");
-            }
-        }
-        if (!ecosystems.contains("NPM")) {
-            walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS).stream()
-                    .min(Comparator.comparingInt(p -> cloneDir.relativize(p).getNameCount()))
-                    .map(p -> p.getParent())
-                    .ifPresent(pkgDir -> {
-                        List<ScanPayload.ComponentPayload> npmComps =
-                                runNpmPackageLockOnly(pkgDir, repoName);
-                        if (npmComps != null && !npmComps.isEmpty()) {
-                            ecosystems.add("NPM");
-                            mergeComponents(allComps, seen, npmComps, "NPM");
-                        }
-                    });
-        }
-        if (!ecosystems.contains("NPM")) {
-            for (Path pkg : walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS)) {
-                List<ScanPayload.ComponentPayload> npmComps = parseNpmPackageJson(pkg.getParent(), repoName).components();
-                if (!npmComps.isEmpty()) {
-                    ecosystems.add("NPM");
-                    mergeComponents(allComps, seen, npmComps, "NPM");
-                }
-            }
-        }
-
-        // ── Python: lock files first, then requirements.txt ────────────────────
-        for (Path lock : walkManifests(cloneDir,
-                Set.of("poetry.lock", "uv.lock", "Pipfile.lock"), MANIFEST_SKIP_DIRS)) {
-            String fn = lock.getFileName().toString();
-            List<ScanPayload.ComponentPayload> pyComps = fn.equals("Pipfile.lock")
-                    ? parsePipfileLock(lock.getParent(), repoName)
-                    : parseTomlPackageLock(lock, "PYPI", repoName);
-            if (pyComps != null && !pyComps.isEmpty()) {
-                if (!ecosystems.contains("PYPI")) ecosystems.add("PYPI");
-                mergeComponents(allComps, seen, pyComps, "PYPI");
-            }
-        }
-        if (!ecosystems.contains("PYPI")) {
-            for (Path req : walkManifests(cloneDir, Set.of("requirements.txt"), MANIFEST_SKIP_DIRS)) {
-                List<ScanPayload.ComponentPayload> pyComps =
-                        parseRequirementsFile(req, repoName);
-                if (pyComps != null && !pyComps.isEmpty()) {
-                    if (!ecosystems.contains("PYPI")) ecosystems.add("PYPI");
-                    mergeComponents(allComps, seen, pyComps, "PYPI");
-                }
-            }
-            if (!ecosystems.contains("PYPI")) {
-                for (Path toml : walkManifests(cloneDir, Set.of("pyproject.toml"), MANIFEST_SKIP_DIRS)) {
-                    List<ScanPayload.ComponentPayload> pyComps =
-                            parsePyprojectToml(toml, repoName);
-                    if (pyComps != null && !pyComps.isEmpty()) {
-                        ecosystems.add("PYPI");
-                        mergeComponents(allComps, seen, pyComps, "PYPI");
-                    }
-                }
-            }
-        }
-
-        // ── Cargo: Cargo.lock, then Cargo.toml fallback ────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
-            List<ScanPayload.ComponentPayload> cargoComps = parseTomlPackageLock(lock, "CARGO", repoName);
-            if (cargoComps != null && !cargoComps.isEmpty()) {
-                if (!ecosystems.contains("CARGO")) ecosystems.add("CARGO");
-                mergeComponents(allComps, seen, cargoComps, "CARGO");
-            }
-        }
-        if (!ecosystems.contains("CARGO")) {
-            for (Path toml : walkManifests(cloneDir, Set.of("Cargo.toml"), MANIFEST_SKIP_DIRS)) {
-                List<ScanPayload.ComponentPayload> cargoComps = parseCargoToml(toml.getParent(), repoName);
-                if (cargoComps != null && !cargoComps.isEmpty()) {
-                    ecosystems.add("CARGO");
-                    mergeComponents(allComps, seen, cargoComps, "CARGO");
-                }
-            }
-        }
-
-        // ── Go: go.sum, then go.mod fallback ───────────────────────────────────
-        for (Path sum : walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
-            List<ScanPayload.ComponentPayload> goComps = parseGoSum(sum.getParent(), repoName);
-            if (goComps != null && !goComps.isEmpty()) {
-                if (!ecosystems.contains("GO")) ecosystems.add("GO");
-                mergeComponents(allComps, seen, goComps, "GO");
-            }
-        }
-        if (!ecosystems.contains("GO")) {
-            for (Path gomod : walkManifests(cloneDir, Set.of("go.mod"), MANIFEST_SKIP_DIRS)) {
-                List<ScanPayload.ComponentPayload> goComps = parseGoModDeclared(gomod.getParent(), repoName);
-                if (goComps != null && !goComps.isEmpty()) {
-                    ecosystems.add("GO");
-                    mergeComponents(allComps, seen, goComps, "GO");
-                }
-            }
-        }
-
-        // ── NuGet: packages.lock.json / .csproj ────────────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("packages.lock.json"), MANIFEST_SKIP_DIRS)) {
-            List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
-            if (nugetComps != null && !nugetComps.isEmpty()) {
-                if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
-                mergeComponents(allComps, seen, nugetComps, "NUGET");
-            }
-        }
-        if (!ecosystems.contains("NUGET") && hasCsprojFiles(cloneDir)) {
-            List<ScanPayload.ComponentPayload> nugetComps = runDotNetListPackages(cloneDir, repoName);
-            if (nugetComps == null || nugetComps.isEmpty()) {
-                nugetComps = parseNuGetStatic(cloneDir, repoName).components();
-            }
-            if (!nugetComps.isEmpty()) {
-                ecosystems.add("NUGET");
-                mergeComponents(allComps, seen, nugetComps, "NUGET");
-            }
-        }
-
-        // ── Ruby: Gemfile.lock ────────────────────────────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("Gemfile.lock"), MANIFEST_SKIP_DIRS)) {
-            List<ScanPayload.ComponentPayload> rubyComps = parseGemfileLock(lock.getParent(), repoName);
-            if (rubyComps != null && !rubyComps.isEmpty()) {
-                if (!ecosystems.contains("RUBYGEMS")) ecosystems.add("RUBYGEMS");
-                mergeComponents(allComps, seen, rubyComps, "RUBYGEMS");
-            }
-        }
-
-        if (allComps.isEmpty()) {
-            log.warn("[QuickImport] No recognized manifests in '{}' — empty component list.", repoName);
-            return new ParsedDependencies("UNKNOWN", List.of());
-        }
-        String primary = ecosystems.get(0);
-        log.info("[QuickImport] Multi-scan '{}': {} components across ecosystems={}", repoName, allComps.size(), ecosystems);
-        return new ParsedDependencies(primary, allComps);
-    }
-
-    /** Returns text content of the first direct child element with the given tag name, or null. */
-    private String getDirectChildText(Element parent, String tag) {
-        Element c = getDirectChild(parent, tag);
-        return c != null ? c.getTextContent().trim() : null;
-    }
-
-    /** Returns the first direct child element with the given tag name, or null. */
-    private Element getDirectChild(Element parent, String tag) {
-        NodeList nl = parent.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i) instanceof Element e && tag.equals(e.getTagName())) return e;
-        }
-        return null;
-    }
-
-    /** Resolves ${prop} placeholders against the given property map. Returns unchanged if unresolved. */
-    private String resolveProp(String raw, Map<String, String> props) {
-        if (raw == null || !raw.contains("${")) return raw;
-        Matcher m = Pattern.compile("\\$\\{([^}]+)}").matcher(raw);
-        StringBuilder sb = new StringBuilder();
-        while (m.find()) {
-            String key = m.group(1);
-            String val = props.get(key);
-            m.appendReplacement(sb, Matcher.quoteReplacement(val != null ? val : m.group(0)));
-        }
-        m.appendTail(sb);
-        return sb.toString();
-    }
-
-    // ── Multi-manifest helpers ─────────────────────────────────────────────
-
-    /** Parses a single {@code pom.xml} file and returns its non-test, non-system direct dependencies. */
-    private List<ScanPayload.ComponentPayload> parseSingleMavenPom(Path pomFile, Path projectDir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            dbf.setNamespaceAware(false);
-            Document doc = dbf.newDocumentBuilder().parse(pomFile.toFile());
-            doc.getDocumentElement().normalize();
-            Element project = doc.getDocumentElement();
-            Map<String, String> props = new HashMap<>();
-            String projectVersion = getDirectChildText(project, "version");
-            Element parent = getDirectChild(project, "parent");
-            if (parent != null) {
-                String parentVersion = getDirectChildText(parent, "version");
-                if (projectVersion == null) projectVersion = parentVersion;
-                String parentGroup = getDirectChildText(parent, "groupId");
-                if (parentGroup != null) props.put("project.parent.groupId", parentGroup);
-                if (parentVersion != null) props.put("project.parent.version", parentVersion);
-            }
-            if (projectVersion != null) {
-                props.put("project.version", projectVersion);
-                props.put("version", projectVersion);
-                props.put("pom.version", projectVersion);
-            }
-            Element properties = getDirectChild(project, "properties");
-            if (properties != null) {
-                NodeList children = properties.getChildNodes();
-                for (int i = 0; i < children.getLength(); i++) {
-                    if (children.item(i) instanceof Element pe) {
-                        props.put(pe.getTagName(), pe.getTextContent().trim());
-                    }
-                }
-            }
-            Element depsRoot = getDirectChild(project, "dependencies");
-            if (depsRoot == null) return comps;
-            NodeList deps = depsRoot.getChildNodes();
-            for (int i = 0; i < deps.getLength(); i++) {
-                if (!(deps.item(i) instanceof Element dep) || !"dependency".equals(dep.getTagName())) continue;
-                String groupId    = resolveProp(getDirectChildText(dep, "groupId"), props);
-                String artifactId = resolveProp(getDirectChildText(dep, "artifactId"), props);
-                String version    = resolveProp(getDirectChildText(dep, "version"), props);
-                String scope      = getDirectChildText(dep, "scope");
-                if (groupId == null || artifactId == null) continue;
-                if ("test".equalsIgnoreCase(scope) || "system".equalsIgnoreCase(scope)
-                        || "provided".equalsIgnoreCase(scope)) continue;
-                comps.add(buildComponent(groupId + ":" + artifactId, version, "MAVEN"));
-            }
-            log.debug("[QuickImport][Maven] Parsed {} deps from {}", comps.size(), pomFile);
-            comps = bomVersionResolver.enrichComponentVersions(projectDir, comps);
-        } catch (Exception e) {
-            log.warn("[QuickImport][Maven] Failed to parse {}: {}", pomFile, e.getMessage());
-        }
-        return comps;
-    }
-
-    /**
-     * Attempts {@code ./mvnw dependency:list} for full transitive Maven resolution.
-     * Returns {@code null} if the wrapper is absent, exits non-zero, or times out.
-     */
-    private List<ScanPayload.ComponentPayload> runMvnDependencyList(Path dir, String repoName) {
-        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-        Path wrapper = dir.resolve(isWindows ? "mvnw.cmd" : "mvnw");
-        if (!Files.exists(wrapper)) {
-            log.debug("[QuickImport][Maven] No mvnw in '{}', using static pom.xml parse", repoName);
-            return null;
-        }
-        try {
-            if (!isWindows) wrapper.toFile().setExecutable(true, false);
-            List<String> cmd = isWindows
-                    ? List.of("cmd", "/c", wrapper.toString(),
-                              "dependency:list", "-DincludeScope=runtime", "-q", "--batch-mode")
-                    : List.of(wrapper.toString(),
-                              "dependency:list", "-DincludeScope=runtime", "-q", "--batch-mode");
-            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
-            String javaHome = System.getProperty("java.home");
-            if (javaHome != null && !javaHome.isBlank()) pb.environment().put("JAVA_HOME", javaHome);
-            log.info("[QuickImport][Maven] Running mvnw dependency:list for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) { proc.destroyForcibly(); log.warn("[QuickImport][Maven] mvnw timed out for '{}'", repoName); return null; }
-            if (proc.exitValue() != 0) {
-                log.warn("[QuickImport][Maven] mvnw exited {} for '{}', falling back to static parse", proc.exitValue(), repoName);
-                return null;
-            }
-            // [INFO]    groupId:artifactId:jar:version:scope
-            Pattern lineP = Pattern.compile("^\\[INFO\\]\\s+([\\w.\\-]+:[\\w.\\-]+):[\\w.\\-]+:([\\w.+\\-]+):(compile|runtime)\\s*$");
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            for (String line : output.split("\r?\n")) {
-                Matcher m = lineP.matcher(line.trim());
-                if (m.matches()) {
-                    String coord = m.group(1); String version = m.group(2);
-                    if (seen.add(coord + ":" + version)) comps.add(buildComponent(coord, version, "MAVEN"));
-                }
-            }
-            log.info("[QuickImport][Maven] mvnw \u2192 {} components for '{}'", comps.size(), repoName);
-            return comps.isEmpty() ? null : comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Maven] mvnw failed for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Recursively finds all files whose name is in {@code fileNames} under {@code root},
-     * skipping any path segment listed in {@code skipDirs}.
-     */
-    private List<Path> walkManifests(Path root, Set<String> fileNames, Set<String> skipDirs) {
-        List<Path> result = new ArrayList<>();
-        final Path rootReal;
-        try {
-            rootReal = new CloneRootPathGuard(root).root();
-        } catch (IOException e) {
-            log.warn("[QuickImport] walkManifests: invalid clone root '{}': {}", root, e.getMessage());
-            return result;
-        }
-        try {
-            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    if (!dir.equals(rootReal)) {
-                        Path rel = rootReal.relativize(dir);
-                        for (int i = 0; i < rel.getNameCount(); i++) {
-                            if (skipDirs.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.SKIP_SUBTREE;
-                            }
-                        }
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    try {
-                        Path fileReal = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
-                        if (!fileReal.startsWith(rootReal)) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        if (!fileNames.contains(fileReal.getFileName().toString())) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        Path rel = rootReal.relativize(fileReal);
-                        for (int i = 0; i < rel.getNameCount() - 1; i++) {
-                            if (skipDirs.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.CONTINUE;
-                            }
-                        }
-                        result.add(fileReal);
-                    } catch (IOException e) {
-                        log.debug("[QuickImport] skip file '{}': {}", file, e.getMessage());
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            log.warn("[QuickImport] walkManifests error under '{}': {}", root, e.getMessage());
-        }
-        return result;
-    }
-
-    /** Merges {@code src} into {@code target}, deduplicating on name+version+ecosystem. */
-    private void mergeComponents(List<ScanPayload.ComponentPayload> target,
-                                  Set<String> seen,
-                                  List<ScanPayload.ComponentPayload> src,
-                                  String fallbackEcosystem) {
-        if (src == null) return;
-        for (ScanPayload.ComponentPayload c : src) {
-            String key = (c.getName() != null ? c.getName() : "?") + ":"
-                    + (c.getVersion() != null ? c.getVersion() : "") + ":"
-                    + (c.getEcosystem() != null ? c.getEcosystem() : fallbackEcosystem);
-            if (seen.add(key)) target.add(c);
-        }
-    }
-
-    /**
-     * Parses Gradle version catalog files ({@code *.versions.toml}) found up to 3 levels deep.
-     * Resolves {@code version.ref} references and returns all {@code [libraries]} entries as
-     * Maven ecosystem components (Gradle uses Maven coordinates).
-     */
-    private List<ScanPayload.ComponentPayload> parseVersionCatalogs(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        List<Path> catalogs = new ArrayList<>();
-        try (Stream<Path> walk = Files.walk(dir, 3)) {
-            walk.filter(p -> !Files.isDirectory(p) && p.getFileName().toString().endsWith(".versions.toml"))
-                .forEach(catalogs::add);
-        } catch (IOException e) {
-            log.warn("[QuickImport][Gradle] Error finding version catalogs: {}", e.getMessage());
-            return comps;
-        }
-        if (catalogs.isEmpty()) { log.debug("[QuickImport][Gradle] No *.versions.toml in '{}'", repoName); return comps; }
-        for (Path catalog : catalogs) {
-            try {
-                List<String> lines = Files.readAllLines(catalog, StandardCharsets.UTF_8);
-                Map<String, String> versions = new LinkedHashMap<>();
-                boolean inVersions = false, inLibraries = false;
-                for (String rawLine : lines) {
-                    String line = rawLine.trim();
-                    if (line.isEmpty() || line.startsWith("#")) continue;
-                    if (line.equals("[versions]"))  { inVersions = true;  inLibraries = false; continue; }
-                    if (line.equals("[libraries]")) { inLibraries = true; inVersions = false;  continue; }
-                    if (line.startsWith("["))       { inVersions = false; inLibraries = false; continue; }
-                    if (inVersions) {
-                        Matcher vm = Pattern.compile("^([\\w.\\-]+)\\s*=\\s*[\"']([^\"']+)[\"']").matcher(line);
-                        if (vm.find()) versions.put(vm.group(1), vm.group(2));
-                    } else if (inLibraries) {
-                        // Short form: alias = "group:artifact:version"
-                        Matcher shortM = Pattern.compile(
-                                "^[\\w.\\-]+\\s*=\\s*[\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.+\\-]+)[\"']").matcher(line);
-                        if (shortM.find()) { comps.add(buildComponent(shortM.group(1), shortM.group(2), "MAVEN")); continue; }
-                        // Table form: alias = { module = "g:a", version.ref = "key" | version = "x" }
-                        Matcher tableM = Pattern.compile("^[\\w.\\-]+\\s*=\\s*\\{(.+)\\}").matcher(line);
-                        if (tableM.find()) {
-                            String body = tableM.group(1);
-                            Matcher modM = Pattern.compile("module\\s*=\\s*[\"']([\\w.\\-]+:[\\w.\\-]+)[\"']").matcher(body);
-                            if (modM.find()) {
-                                String module = modM.group(1); String version = null;
-                                Matcher vRefM = Pattern.compile("version\\.ref\\s*=\\s*[\"']([\\w.\\-]+)[\"']").matcher(body);
-                                Matcher vM    = Pattern.compile("(?<![.\\w])version\\s*=\\s*[\"']([\\w.+\\-]+)[\"']").matcher(body);
-                                if (vRefM.find()) version = versions.get(vRefM.group(1));
-                                else if (vM.find()) version = vM.group(1);
-                                if (version != null && !version.isBlank()) comps.add(buildComponent(module, version, "MAVEN"));
-                            }
-                        }
-                    }
-                }
-                log.info("[QuickImport][Gradle] Version catalog {} \u2192 {} entries", catalog.getFileName(), comps.size());
-            } catch (Exception e) {
-                log.warn("[QuickImport][Gradle] Failed to parse {}: {}", catalog, e.getMessage());
-            }
-        }
-        return comps;
-    }
-
-    /**
-     * Generates {@code package-lock.json} via {@code npm install --package-lock-only} when no lock
-     * file exists and npm is on PATH. Returns parsed components or {@code null} on failure.
-     */
-    private List<ScanPayload.ComponentPayload> runNpmPackageLockOnly(Path dir, String repoName) {
-        if (!Files.isRegularFile(dir.resolve("package.json"))) {
-            return null;
-        }
-        if (Files.exists(dir.resolve("package-lock.json"))
-                || Files.exists(dir.resolve("yarn.lock"))
-                || Files.exists(dir.resolve("pnpm-lock.yaml"))) {
-            return null;
-        }
-        if (!isCommandOnPath("npm")) {
-            log.debug("[QuickImport][npm] npm not on PATH for '{}', skipping lock generation", repoName);
-            return null;
-        }
-        try {
-            boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-            String npmArgs = "npm install --package-lock-only --ignore-scripts --no-audit --no-fund --no-progress";
-            List<String> cmd = isWindows
-                    ? List.of("cmd", "/c", npmArgs)
-                    : List.of("npm", "install", "--package-lock-only",
-                            "--ignore-scripts", "--no-audit", "--no-fund", "--no-progress");
-            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
-            log.info("[QuickImport][npm] Running npm install --package-lock-only for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[QuickImport][npm] npm lock generation timed out for '{}'", repoName);
-                return null;
-            }
-            if (proc.exitValue() != 0) {
-                log.warn("[QuickImport][npm] npm exited {} for '{}' — {}",
-                        proc.exitValue(), repoName, summarizeProcessOutput(output));
-                return null;
-            }
-            if (!Files.exists(dir.resolve("package-lock.json"))) {
-                log.warn("[QuickImport][npm] npm finished but no package-lock.json for '{}'", repoName);
-                return null;
-            }
-            List<ScanPayload.ComponentPayload> comps = parseNpmLock(dir, repoName);
-            log.info("[QuickImport][npm] Generated lock → {} components for '{}'",
-                    comps != null ? comps.size() : 0, repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][npm] npm lock generation failed for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    /** Parse package-lock.json — supports lockfileVersion 1 (npm 5/6), 2 and 3 (npm 7+). */
-    private List<ScanPayload.ComponentPayload> parseNpmLock(Path dir, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("package-lock.json").toFile());
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-
-            if (root.has("packages")) {
-                // lockfileVersion 2/3 (npm 7+): "packages" → { "node_modules/x": { version, ... } }
-                root.path("packages").properties().forEach(e -> {
-                    String pkgPath = e.getKey();
-                    if (pkgPath.isEmpty()) return; // skip root entry
-                    String name = pkgPath.startsWith("node_modules/")
-                            ? pkgPath.substring("node_modules/".length())
-                            : pkgPath;
-                    String version = e.getValue().path("version").asText(null);
-                    if (name.isBlank() || version == null || version.isBlank()) return;
-                    if (seen.add(name + ":" + version)) {
-                        comps.add(buildComponent(name, version, "NPM"));
-                    }
-                });
-            } else if (root.has("dependencies")) {
-                // lockfileVersion 1 (npm 5/6): flat + nested "dependencies" tree
-                Deque<Map.Entry<String, JsonNode>> queue = new ArrayDeque<>();
-                root.path("dependencies").properties().forEach(queue::add);
-                while (!queue.isEmpty()) {
-                    Map.Entry<String, JsonNode> entry = queue.poll();
-                    String name    = entry.getKey();
-                    JsonNode val   = entry.getValue();
-                    String version = val.path("version").asText(null);
-                    if (version != null && !version.isBlank() && seen.add(name + ":" + version)) {
-                        comps.add(buildComponent(name, version, "NPM"));
-                    }
-                    if (val.has("dependencies")) {
-                        val.path("dependencies").properties().forEach(queue::add);
-                    }
-                }
-            }
-            log.info("[QuickImport][npm] Parsed {} components from package-lock.json in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][npm] Failed to parse package-lock.json for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    /** Fallback: parse package.json declared deps only (no transitive). */
-    private ParsedDependencies parseNpmPackageJson(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("package.json").toFile());
-            JsonNode deps    = root.path("dependencies");
-            JsonNode devDeps = root.path("devDependencies");
-
-            addNpmDeps(comps, deps);
-            addNpmDeps(comps, devDeps);
-            log.info("[QuickImport][npm] Parsed {} components from package.json in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[QuickImport][npm] Failed to parse package.json: {}", e.getMessage());
-        }
-        return new ParsedDependencies("NPM", comps);
-    }
-
-    private void addNpmDeps(List<ScanPayload.ComponentPayload> comps, JsonNode depsNode) {
-        if (depsNode == null || depsNode.isMissingNode()) return;
-        depsNode.properties().forEach(entry -> {
-            String name    = entry.getKey();
-            String version = entry.getValue().asText().replaceAll("^[~^>=<]+ *", "");
-            comps.add(buildComponent(name, version, "NPM"));
-        });
-    }
-
-    /**
-     * Parses {@code yarn.lock} (classic / v1 format). Each entry header may list multiple
-     * descriptor strings (e.g. {@code "@scope/pkg@^1.0", "@scope/pkg@~1.1":}) followed by
-     * an indented body containing {@code version "X.Y.Z"}. Same package may appear under
-     * multiple resolved versions — we keep all distinct (name, version) pairs.
-     */
-    private List<ScanPayload.ComponentPayload> parseYarnLock(Path dir, String repoName) {
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("yarn.lock"), StandardCharsets.UTF_8);
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            List<String> pendingNames = new ArrayList<>();
-            for (String raw : lines) {
-                if (raw.isEmpty() || raw.startsWith("#")) continue;
-                // Header: starts at column 0 and ends with ':'
-                if (!Character.isWhitespace(raw.charAt(0)) && raw.endsWith(":")) {
-                    pendingNames.clear();
-                    String header = raw.substring(0, raw.length() - 1);
-                    for (String desc : header.split(",")) {
-                        String d = desc.trim();
-                        if (d.startsWith("\"") && d.endsWith("\"")) d = d.substring(1, d.length() - 1);
-                        // Strip @version: name is everything before the last '@' (but keep leading '@' for scoped)
-                        int at = d.lastIndexOf('@');
-                        if (at <= 0) continue;
-                        pendingNames.add(d.substring(0, at));
-                    }
-                } else if (!pendingNames.isEmpty() && raw.startsWith("  version")) {
-                    Matcher m = Pattern.compile("version[:\\s]+\"?([^\"\\s]+)\"?").matcher(raw);
-                    if (m.find()) {
-                        String version = m.group(1);
-                        for (String name : pendingNames) {
-                            if (seen.add(name + ":" + version)) {
-                                comps.add(buildComponent(name, version, "NPM"));
-                            }
-                        }
-                    }
-                    pendingNames.clear();
-                }
-            }
-            log.info("[QuickImport][npm] Parsed {} components from yarn.lock in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][npm] Failed to parse yarn.lock for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Parses {@code pnpm-lock.yaml}. Supports v6+ (where {@code packages:} keys look like
-     * {@code /name@version} or {@code 'name@version'}) and older v5 ({@code /name/version}).
-     */
-    private List<ScanPayload.ComponentPayload> parsePnpmLock(Path dir, String repoName) {
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("pnpm-lock.yaml"), StandardCharsets.UTF_8);
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            boolean inSection = false;
-            // Modern pnpm v6+: '@scope/pkg@1.2.3':  or  /@scope/pkg@1.2.3:
-            // Older pnpm v5  : /@scope/pkg/1.2.3:   or  /pkg/1.2.3:
-            Pattern modern = Pattern.compile("^\\s{2}'?/?((?:@[^@/'\\s]+/)?[^@/'\\s]+)@([^()'\\s]+?)(?:\\([^)]+\\))?'?:\\s*$");
-            Pattern legacy = Pattern.compile("^\\s{2}/((?:@[^/]+/)?[^/]+)/([0-9][^/_'\\s]+)(?:_[^:'\\s]*)?:\\s*$");
-            for (String line : lines) {
-                if (line.startsWith("packages:") || line.startsWith("snapshots:")) { inSection = true; continue; }
-                if (inSection && !line.isEmpty() && !Character.isWhitespace(line.charAt(0))) { inSection = false; }
-                if (!inSection) continue;
-                Matcher m = modern.matcher(line);
-                if (!m.matches()) m = legacy.matcher(line);
-                if (m.matches()) {
-                    String name = m.group(1);
-                    String version = m.group(2);
-                    if (seen.add(name + ":" + version)) {
-                        comps.add(buildComponent(name, version, "NPM"));
-                    }
-                }
-            }
-            log.info("[QuickImport][npm] Parsed {} components from pnpm-lock.yaml in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][npm] Failed to parse pnpm-lock.yaml for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Runs {@code gradlew dependencies --configuration runtimeClasspath -q --no-daemon} in the
-     * cloned directory to obtain the fully-resolved transitive dependency tree.
-     * Returns {@code null} if the wrapper is absent, times out, or exits non-zero.
-     */
-    private List<ScanPayload.ComponentPayload> runGradleDependencies(Path dir, String repoName) {
-        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-        Path wrapper = dir.resolve(isWindows ? "gradlew.bat" : "gradlew");
-        if (!Files.exists(wrapper)) {
-            log.info("[QuickImport][Gradle] No gradlew found in '{}', falling back to static parse", repoName);
-            return null;
-        }
-        try {
-            if (!isWindows) {
-                wrapper.toFile().setExecutable(true, false);
-            }
-            List<String> baseArgs = isWindows
-                    ? List.of("cmd", "/c", wrapper.toString(), "dependencies", "-q", "--no-daemon")
-                    : List.of(wrapper.toString(), "dependencies", "-q", "--no-daemon");
-            // Try configurations in priority order; fall through on failure or empty result
-            List<String> configurations = List.of("runtimeClasspath", "compileClasspath");
-            String javaHome = System.getProperty("java.home");
-            for (String config : configurations) {
-                List<String> cmd = new ArrayList<>(baseArgs);
-                cmd.add("--configuration"); cmd.add(config);
-                ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
-                if (javaHome != null && !javaHome.isBlank()) {
-                    pb.environment().put("JAVA_HOME", javaHome);
-                    String pathSep = isWindows ? ";" : ":";
-                    pb.environment().merge("PATH", javaHome + File.separator + "bin",
-                            (existing, added) -> added + pathSep + existing);
-                }
-                log.info("[QuickImport][Gradle] Running gradlew dependencies --configuration {} for '{}'", config, repoName);
-                Process proc = pb.start();
-                String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-                if (!finished) { proc.destroyForcibly(); log.warn("[QuickImport][Gradle] gradlew timed out for '{}'", repoName); return null; }
-                if (proc.exitValue() != 0) {
-                    log.warn("[QuickImport][Gradle] gradlew --configuration {} exited {} for '{}' — {}",
-                            config, proc.exitValue(), repoName, summarizeProcessOutput(output));
-                    continue;
-                }
-                List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(output, repoName);
-                if (!comps.isEmpty()) {
-                    log.info("[QuickImport][Gradle] gradlew --configuration {} resolved {} components for '{}'", config, comps.size(), repoName);
-                    return comps;
-                }
-            }
-            log.warn("[QuickImport][Gradle] gradlew produced no components for '{}', falling back to static parse", repoName);
-            return null;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Gradle] Failed to run gradlew for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Parses {@code gradle dependencies} tree output into a flat component list.
-     * Handles version conflict markers ({@code ->}), already-expanded markers ({@code (*)}),
-     * and multi-level transitive paths.
-     */
-    private List<ScanPayload.ComponentPayload> parseGradleTreeOutput(String output, String repoName) {
-        String projectName = repoName.contains("/")
-                ? repoName.substring(repoName.lastIndexOf('/') + 1) : repoName;
-        Map<String, GradleComponent> depComps = new LinkedHashMap<>();
-        Map<Integer, String[]> depStack = new HashMap<>(); // depth → [compName, compVer]
-
-        for (String rawLine : output.split("\r?\n")) {
-            int pos = rawLine.indexOf("+---");
-            if (pos < 0) pos = rawLine.indexOf("\\---");
-            if (pos < 0) continue;
-
-            int depth = pos / 5;
-            String suffix = rawLine.substring(pos + 5).trim();
-            suffix = suffix.replaceAll("\\s*\\(\\*\\)\\s*$", "").trim(); // strip (*)
-            if (suffix.isBlank()) continue;
-
-            // version conflict resolution: "g:a:oldVer -> newVer"
-            String resolvedVer = null;
-            if (suffix.contains(" -> ")) {
-                int arrow = suffix.lastIndexOf(" -> ");
-                resolvedVer = suffix.substring(arrow + 4).trim().replaceAll("[\\s*()]", "");
-                suffix = suffix.substring(0, arrow).trim();
-            }
-
-            String[] parts = suffix.split(":");
-            if (parts.length < 2) continue;
-            String compName = parts[0].trim() + ":" + parts[1].trim();
-            String compVer  = resolvedVer != null ? resolvedVer
-                    : (parts.length >= 3 ? parts[2].replaceAll("[\\s*()]", "").trim() : null);
-
-            depStack.put(depth, new String[]{compName, compVer});
-
-            // Build one representative dependency path
-            List<ScanPayload.DependencyNodeRef> path = new ArrayList<>();
-            path.add(ScanPayload.DependencyNodeRef.create(projectName, "local"));
-            for (int lvl = 0; lvl < depth; lvl++) {
-                String[] anc = depStack.get(lvl);
-                if (anc != null) path.add(ScanPayload.DependencyNodeRef.create(anc[0], anc[1]));
-            }
-            path.add(ScanPayload.DependencyNodeRef.create(compName, compVer));
-
-            String key = compName + ":" + (compVer != null ? compVer : "");
-            depComps.computeIfAbsent(key, k -> new GradleComponent(compName, compVer, new ArrayList<>()))
-                    .paths().add(path);
-        }
-
-        List<ScanPayload.ComponentPayload> result = new ArrayList<>();
-        for (GradleComponent gc : depComps.values()) {
-            boolean hasDirect = gc.paths().stream().anyMatch(p -> p.size() == 2);
-            boolean hasTransitive = gc.paths().stream().anyMatch(p -> p.size() > 2);
-            long directCount = gc.paths().stream().filter(p -> p.size() == 2).count();
-            long transitiveCount = gc.paths().stream().filter(p -> p.size() > 2).count();
-            String info;
-            if (hasDirect && hasTransitive) {
-                info = "Direct (" + directCount + ") + Transitive (" + transitiveCount + ")";
-            } else if (hasDirect) {
-                info = "Direct (" + directCount + ")";
-            } else {
-                info = "Transitive (" + transitiveCount + ")";
-            }
-            result.add(ScanPayload.ComponentPayload.create(
-                    gc.name(), gc.version(), "MAVEN", info, gc.paths()));
-        }
-        return result;
-    }
-
-    /** First line of Gradle/Maven tool output for logs (failure diagnosis). */
-    private static String summarizeProcessOutput(String output) {
-        if (output == null || output.isBlank()) {
-            return "(no output)";
-        }
-        for (String line : output.split("\r?\n")) {
-            String t = line.trim();
-            if (!t.isEmpty() && !t.startsWith("Downloading") && !t.startsWith(">")) {
-                return t.length() > 200 ? t.substring(0, 200) + "…" : t;
-            }
-        }
-        return output.trim().length() > 200 ? output.trim().substring(0, 200) + "…" : output.trim();
-    }
-
-    /** Static fallback: parse build.gradle declarations and resolve versions from BOM POMs. */
-    private ParsedDependencies parseGradleStatic(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps;
-        try {
-            comps = bomVersionResolver.parseGradleDeclaredWithBom(dir);
-            log.info("[QuickImport][Gradle] Static+BOM parsed {} components in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[QuickImport][Gradle] Failed to static-parse build.gradle: {}", e.getMessage());
-            comps = List.of();
-        }
-        return new ParsedDependencies("MAVEN", comps);
-    }
-
-    // Python: requirements.txt fallback (lock files are handled in parseDependencies)
-    private ParsedDependencies parsePython(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = parseRequirementsFile(dir.resolve("requirements.txt"), repoName);
-        return new ParsedDependencies("PYPI", comps != null ? comps : List.of());
-    }
-
-    private List<ScanPayload.ComponentPayload> parseRequirementsFile(Path reqFile, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            if (!Files.isRegularFile(reqFile)) {
-                return List.of();
-            }
-            for (String rawLine : Files.readAllLines(reqFile, StandardCharsets.UTF_8)) {
-                addPythonRequirementLine(rawLine, seen, comps);
-            }
-            log.info("[QuickImport][Python] Parsed {} components from {} in '{}'",
-                    comps.size(), reqFile.getFileName(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Python] Failed to parse {}: {}", reqFile, e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Parses {@code [project].dependencies} from {@code pyproject.toml} when no lock file is present.
-     */
-    private List<ScanPayload.ComponentPayload> parsePyprojectToml(Path tomlFile, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            List<String> lines = Files.readAllLines(tomlFile, StandardCharsets.UTF_8);
-            boolean inProject = false;
-            boolean inDepsArray = false;
-            for (String rawLine : lines) {
-                String line = rawLine.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                if (line.startsWith("[") && line.endsWith("]")) {
-                    inProject = line.equals("[project]");
-                    inDepsArray = false;
-                    continue;
-                }
-                if (!inProject) {
-                    continue;
-                }
-                if (line.startsWith("dependencies") && line.contains("[")) {
-                    inDepsArray = true;
-                    int open = line.indexOf('[');
-                    int close = line.indexOf(']');
-                    if (close > open) {
-                        String inline = line.substring(open + 1, close).trim();
-                        if (!inline.isBlank()) {
-                            for (String part : inline.split(",")) {
-                                addPythonRequirementLine(stripQuotes(part.trim()), seen, comps);
-                            }
-                        }
-                        inDepsArray = !line.endsWith("]");
-                    }
-                    continue;
-                }
-                if (inDepsArray) {
-                    if (line.equals("]")) {
-                        inDepsArray = false;
-                        continue;
-                    }
-                    String dep = line;
-                    if (dep.endsWith(",")) {
-                        dep = dep.substring(0, dep.length() - 1).trim();
-                    }
-                    if (dep.equals("]")) {
-                        inDepsArray = false;
-                        continue;
-                    }
-                    addPythonRequirementLine(stripQuotes(dep), seen, comps);
-                }
-            }
-            log.info("[QuickImport][Python] Parsed {} components from {} in '{}'",
-                    comps.size(), tomlFile.getFileName(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Python] Failed to parse pyproject.toml {}: {}", tomlFile, e.getMessage());
-            return null;
-        }
-    }
-
-    private void addPythonRequirementLine(
-            String rawLine, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
-        String line = rawLine.trim();
-        if (line.isEmpty() || line.startsWith("#") || line.startsWith("-")) {
-            return;
-        }
-        int hash = line.indexOf('#');
-        if (hash >= 0) {
-            line = line.substring(0, hash).trim();
-        }
-        int semi = line.indexOf(';');
-        if (semi >= 0) {
-            line = line.substring(0, semi).trim();
-        }
-        if (line.isEmpty()) {
-            return;
-        }
-        Pattern fullForm = Pattern.compile(
-                "^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*(===|==|>=|<=|~=|!=|<|>)\\s*([0-9][^\\s,;#]*)");
-        Pattern bareName = Pattern.compile("^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*$");
-        String name = null;
-        String version = null;
-        Matcher m = fullForm.matcher(line);
-        if (m.find()) {
-            name = m.group(1);
-            version = m.group(3);
-        } else {
-            Matcher b = bareName.matcher(line);
-            if (b.matches()) {
-                name = b.group(1);
-            }
-        }
-        if (name == null || name.isBlank()) {
-            return;
-        }
-        if (seen.add(name + ":" + (version != null ? version : ""))) {
-            comps.add(buildComponent(name, version, "PYPI"));
-        }
-    }
-
-    private static String stripQuotes(String s) {
-        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
-            return s.substring(1, s.length() - 1);
-        }
-        return s;
-    }
-
-    /** Static Cargo.toml fallback when Cargo.lock is absent. */
-    private List<ScanPayload.ComponentPayload> parseCargoToml(Path dir, String repoName) {
-        // Static Cargo.toml — handles inline string form and table form:
-        //   foo = "1.0"
-        //   foo = { version = "1.0", features = [...] }
-        //   foo = { git = "..." }   (no version → skip)
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("Cargo.toml"), StandardCharsets.UTF_8);
-            boolean inDeps = false;
-            // Inline-string form: foo = "1.2.3-rc1+build"
-            Pattern inlineP = Pattern.compile("^([\\w\\-]+)\\s*=\\s*[\"']([\\w.+\\-]+)[\"']\\s*$");
-            // Table form: foo = { version = "1.2.3", ... }
-            Pattern tableP  = Pattern.compile("^([\\w\\-]+)\\s*=\\s*\\{[^}]*\\bversion\\s*=\\s*[\"']([\\w.+\\-]+)[\"']");
-            // Sub-table header: [dependencies.foo]
-            Pattern subHeaderP = Pattern.compile("^\\[(?:dev-|build-)?dependencies\\.([\\w\\-]+)]");
-            String pendingSubName = null;
-            Pattern verLineP = Pattern.compile("^version\\s*=\\s*[\"']([\\w.+\\-]+)[\"']");
-            for (String rawLine : lines) {
-                String trimmed = rawLine.trim();
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
-                // Section headers
-                if (trimmed.startsWith("[")) {
-                    if (trimmed.equals("[dependencies]") || trimmed.equals("[dev-dependencies]")
-                            || trimmed.equals("[build-dependencies]")) {
-                        inDeps = true;
-                        pendingSubName = null;
-                        continue;
-                    }
-                    Matcher sh = subHeaderP.matcher(trimmed);
-                    if (sh.find()) {
-                        pendingSubName = sh.group(1);
-                        inDeps = false;
-                        continue;
-                    }
-                    inDeps = false;
-                    pendingSubName = null;
-                    continue;
-                }
-                if (inDeps) {
-                    Matcher t = tableP.matcher(trimmed);
-                    if (t.find()) {
-                        if (seen.add(t.group(1))) comps.add(buildComponent(t.group(1), t.group(2), "CARGO"));
-                        continue;
-                    }
-                    Matcher i = inlineP.matcher(trimmed);
-                    if (i.find()) {
-                        if (seen.add(i.group(1))) comps.add(buildComponent(i.group(1), i.group(2), "CARGO"));
-                    }
-                } else if (pendingSubName != null) {
-                    Matcher v = verLineP.matcher(trimmed);
-                    if (v.find()) {
-                        if (seen.add(pendingSubName)) comps.add(buildComponent(pendingSubName, v.group(1), "CARGO"));
-                        pendingSubName = null;
-                    }
-                }
-            }
-            log.info("[QuickImport][Cargo] Parsed {} components from Cargo.toml in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[QuickImport][Cargo] Failed to parse Cargo.toml: {}", e.getMessage());
-        }
-        return comps;
-    }
-
-    /** go.mod fallback when go.sum is absent. */
-    private List<ScanPayload.ComponentPayload> parseGoModDeclared(Path dir, String repoName) {
-        // go.mod fallback — we trim each line first, so both block and single patterns
-        // match against the trimmed text.
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("go.mod"), StandardCharsets.UTF_8);
-            boolean inRequire = false;
-            // "require module v1.2.3" (single) and inside a require( … ) block "module v1.2.3"
-            Pattern single = Pattern.compile("^require\\s+(\\S+)\\s+(v\\S+)");
-            Pattern entry  = Pattern.compile("^(\\S+)\\s+(v\\S+)");
-            for (String rawLine : lines) {
-                // Strip end-of-line comments (e.g. "// indirect") before parsing.
-                String t = rawLine;
-                int idx = t.indexOf("//");
-                if (idx >= 0) t = t.substring(0, idx);
-                t = t.trim();
-                if (t.isEmpty()) continue;
-                if (t.startsWith("require (") || t.equals("require (")) { inRequire = true; continue; }
-                if (inRequire && t.equals(")"))                         { inRequire = false; continue; }
-                Matcher m = inRequire ? entry.matcher(t) : single.matcher(t);
-                if (m.find() && seen.add(m.group(1))) {
-                    comps.add(buildComponent(m.group(1), m.group(2), "GO"));
-                }
-            }
-            log.info("[QuickImport][Go] Parsed {} components from go.mod in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[QuickImport][Go] Failed to parse go.mod: {}", e.getMessage());
-        }
-        return comps;
-    }
-
-    // ── Lock-file & new-ecosystem parsers ──────────────────────────────────
-
-    /**
-     * Generic parser for TOML-formatted lock files using {@code [[package]]} blocks
-     * (poetry.lock, uv.lock, Cargo.lock).
-     */
-    private List<ScanPayload.ComponentPayload> parseTomlPackageLock(Path lockFile, String ecosystem, String repoName) {
-        try {
-            String content = Files.readString(lockFile, StandardCharsets.UTF_8);
-            String[] blocks = content.split("\\[\\[package\\]\\]");
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Pattern nameP = Pattern.compile("\\bname\\s*=\\s*\"([^\"]+)\"");
-            Pattern verP  = Pattern.compile("\\bversion\\s*=\\s*\"([^\"]+)\"");
-            for (int i = 1; i < blocks.length; i++) {
-                Matcher nm = nameP.matcher(blocks[i]);
-                Matcher vm = verP.matcher(blocks[i]);
-                if (nm.find() && vm.find()) {
-                    comps.add(buildComponent(nm.group(1), vm.group(1), ecosystem));
-                }
-            }
-            log.info("[QuickImport][{}] Parsed {} components from {} in '{}'",
-                    ecosystem, comps.size(), lockFile.getFileName(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport] Failed to parse {}: {}", lockFile.getFileName(), e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Parses {@code Pipfile.lock} (JSON) — reads {@code default} and {@code develop} sections,
-     * deduplicating across sections (a package in both lists is kept only once).
-     */
-    private List<ScanPayload.ComponentPayload> parsePipfileLock(Path dir, String repoName) {
-        try {
-            JsonNode root = new ObjectMapper().readTree(dir.resolve("Pipfile.lock").toFile());
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            for (String section : new String[]{"default", "develop"}) {
-                JsonNode deps = root.path(section);
-                if (deps.isMissingNode()) continue;
-                deps.properties().forEach(e -> {
-                    String name = e.getKey();
-                    String ver  = e.getValue().path("version").asText("").replaceAll("^==", "");
-                    if (!name.isBlank() && !ver.isBlank() && seen.add(name + ":" + ver)) {
-                        comps.add(buildComponent(name, ver, "PYPI"));
-                    }
-                });
-            }
-            log.info("[QuickImport][Python] Parsed {} components from Pipfile.lock in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Python] Failed to parse Pipfile.lock: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Parses {@code go.sum} — each line: {@code <module> <version>[/go.mod] <hash>}.
-     * De-duplicates by module path to get one entry per dependency.
-     */
-    private List<ScanPayload.ComponentPayload> parseGoSum(Path dir, String repoName) {
-        try {
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Pattern p = Pattern.compile("^(\\S+)\\s+(v[^\\s/]+)(?:/go\\.mod)?\\s");
-            for (String line : Files.readAllLines(dir.resolve("go.sum"), StandardCharsets.UTF_8)) {
-                Matcher m = p.matcher(line);
-                if (m.find() && seen.add(m.group(1))) {
-                    comps.add(buildComponent(m.group(1), m.group(2), "GO"));
-                }
-            }
-            log.info("[QuickImport][Go] Parsed {} components from go.sum in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Go] Failed to parse go.sum: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    private List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName) {
-        try {
-            JsonNode root = new ObjectMapper().readTree(dir.resolve("packages.lock.json").toFile());
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            JsonNode deps = root.path("dependencies");
-            if (!deps.isMissingNode()) {
-                deps.properties().forEach(fw ->
-                    fw.getValue().properties().forEach(pkg -> {
-                        String name = pkg.getKey();
-                        String ver  = pkg.getValue().path("resolved").asText(null);
-                        if (name != null && ver != null && !ver.isBlank() && seen.add(name)) {
-                            comps.add(buildComponent(name, ver, "NUGET"));
-                        }
-                    })
-                );
-            }
-            log.info("[QuickImport][NuGet] Parsed {} components from packages.lock.json in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][NuGet] Failed to parse packages.lock.json: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Runs {@code dotnet list package --include-transitive --format json} when the SDK is on PATH.
-     * Returns {@code null} when dotnet is unavailable or the command fails.
-     */
-    private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName) {
-        if (!isCommandOnPath("dotnet")) {
-            log.debug("[QuickImport][NuGet] dotnet not on PATH for '{}', skipping CLI resolve", repoName);
-            return null;
-        }
-        Path target = findDotNetListTarget(dir);
-        if (target == null) {
-            log.debug("[QuickImport][NuGet] No .sln/.csproj for dotnet list in '{}'", repoName);
-            return null;
-        }
-        try {
-            boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-            String dotnetArgs = "dotnet list \"" + target + "\" package --include-transitive --format json";
-            List<String> cmd = isWindows
-                    ? List.of("cmd", "/c", dotnetArgs)
-                    : List.of("dotnet", "list", target.toString(),
-                            "package", "--include-transitive", "--format", "json");
-            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
-            log.info("[QuickImport][NuGet] Running dotnet list package for '{}' ({})", repoName, target.getFileName());
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[QuickImport][NuGet] dotnet list timed out for '{}'", repoName);
-                return null;
-            }
-            if (proc.exitValue() != 0) {
-                log.warn("[QuickImport][NuGet] dotnet list exited {} for '{}' — {}",
-                        proc.exitValue(), repoName, summarizeProcessOutput(output));
-                return null;
-            }
-            List<ScanPayload.ComponentPayload> comps = parseDotNetListJson(output, repoName);
-            if (comps.isEmpty()) {
-                log.warn("[QuickImport][NuGet] dotnet list produced no packages for '{}'", repoName);
-                return null;
-            }
-            log.info("[QuickImport][NuGet] dotnet list resolved {} components for '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][NuGet] dotnet list failed for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
-    }
-
-    private Path findDotNetListTarget(Path dir) {
-        List<Path> solutions = walkNuGetManifests(dir, ".sln");
-        if (!solutions.isEmpty()) {
-            return solutions.stream()
-                    .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
-                    .orElse(solutions.get(0));
-        }
-        List<Path> projects = walkNuGetManifests(dir, ".csproj");
-        if (projects.isEmpty()) {
-            return null;
-        }
-        return projects.stream()
-                .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
-                .orElse(projects.get(0));
-    }
-
-    private List<ScanPayload.ComponentPayload> parseDotNetListJson(String json, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(json);
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            for (JsonNode project : root.path("projects")) {
-                for (JsonNode fw : project.path("frameworks")) {
-                    for (String section : new String[]{"topLevelPackages", "transitivePackages"}) {
-                        for (JsonNode pkg : fw.path(section)) {
-                            String id = pkg.path("id").asText(null);
-                            String ver = pkg.path("resolvedVersion").asText(null);
-                            if (id == null || id.isBlank() || ver == null || ver.isBlank()) {
-                                continue;
-                            }
-                            if (seen.add(id + ":" + ver)) {
-                                comps.add(buildComponent(id, ver, "NUGET"));
-                            }
-                        }
-                    }
-                }
-            }
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][NuGet] Failed to parse dotnet list JSON for '{}': {}", repoName, e.getMessage());
-            return List.of();
-        }
-    }
-
-    private ParsedDependencies parseNuGetStatic(Path dir, String repoName) {
-        Set<String> seen = new LinkedHashSet<>();
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Map<String, String> propsVersions = buildNuGetPropsVersionIndex(dir);
-        try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            dbf.setNamespaceAware(false);
-            for (Path props : walkNuGetManifests(dir, "Directory.Packages.props")) {
-                mergeDirectoryPackageVersions(dbf, props, propsVersions);
-            }
-            List<Path> targets = new ArrayList<>();
-            targets.addAll(walkNuGetManifests(dir, ".csproj"));
-            targets.addAll(walkManifests(dir, Set.of("packages.config"), MANIFEST_SKIP_DIRS));
-            for (Path f : targets) {
-                try {
-                    Document doc = dbf.newDocumentBuilder().parse(f.toFile());
-                    if (f.getFileName().toString().equals("packages.config")) {
-                        mergeNuGetPackageConfig(doc, seen, comps);
-                    } else {
-                        mergeNuGetCsproj(doc, seen, comps, propsVersions);
-                    }
-                } catch (Exception ignored) {}
-            }
-            log.info("[QuickImport][NuGet] Parsed {} components from {} manifest file(s) in '{}'",
-                    comps.size(), targets.size(), repoName);
-        } catch (Exception e) {
-            log.error("[QuickImport][NuGet] Failed to parse .csproj/packages.config: {}", e.getMessage());
-        }
-        return new ParsedDependencies("NUGET", comps);
-    }
-
-    private List<Path> walkNuGetManifests(Path root, String suffix) {
-        List<Path> result = new ArrayList<>();
-        final Path rootReal;
-        try {
-            rootReal = new CloneRootPathGuard(root).root();
-        } catch (IOException e) {
-            return result;
-        }
-        try {
-            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    if (!dir.equals(rootReal)) {
-                        Path rel = rootReal.relativize(dir);
-                        for (int i = 0; i < rel.getNameCount(); i++) {
-                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.SKIP_SUBTREE;
-                            }
-                        }
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    String name = file.getFileName().toString();
-                    boolean match = switch (suffix) {
-                        case ".csproj" -> name.endsWith(".csproj");
-                        case ".sln" -> name.endsWith(".sln");
-                        case ".props" -> name.endsWith(".props");
-                        default -> name.equals(suffix);
-                    };
-                    if (match) {
-                        result.add(file);
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            log.warn("[QuickImport][NuGet] walk failed under '{}': {}", root, e.getMessage());
-        }
-        return result;
-    }
-
-    private Map<String, String> buildNuGetPropsVersionIndex(Path dir) {
-        Map<String, String> index = new LinkedHashMap<>();
-        Pattern propVersion = Pattern.compile("<([\\w.]+)>\\s*([\\d][^<]*)\\s*</\\1>");
-        for (Path props : walkNuGetManifests(dir, ".props")) {
-            try {
-                String content = Files.readString(props, StandardCharsets.UTF_8);
-                Matcher m = propVersion.matcher(content);
-                while (m.find()) {
-                    String key = m.group(1);
-                    String val = m.group(2).trim();
-                    if (!val.isBlank() && !val.contains("$(")) {
-                        index.putIfAbsent(key, val);
-                    }
-                }
-            } catch (Exception e) {
-                log.debug("[QuickImport][NuGet] props scan failed for {}: {}", props, e.getMessage());
-            }
-        }
-        return index;
-    }
-
-    private void mergeDirectoryPackageVersions(
-            DocumentBuilderFactory dbf, Path propsFile, Map<String, String> propsVersions) {
-        try {
-            Document doc = dbf.newDocumentBuilder().parse(propsFile.toFile());
-            NodeList versions = doc.getElementsByTagName("PackageVersion");
-            for (int i = 0; i < versions.getLength(); i++) {
-                Element el = (Element) versions.item(i);
-                String id = el.getAttribute("Include");
-                String ver = el.getAttribute("Version");
-                if (!id.isBlank() && !ver.isBlank()) {
-                    propsVersions.put(id, resolveNuGetProperty(ver, propsVersions));
-                }
-            }
-        } catch (Exception e) {
-            log.debug("[QuickImport][NuGet] Directory.Packages.props parse failed: {}", e.getMessage());
-        }
-    }
-
-    private void mergeNuGetCsproj(
-            Document doc, Set<String> seen, List<ScanPayload.ComponentPayload> comps,
-            Map<String, String> propsVersions) {
-        NodeList refs = doc.getElementsByTagName("PackageReference");
-        for (int i = 0; i < refs.getLength(); i++) {
-            Element ref = (Element) refs.item(i);
-            if ("Remove".equalsIgnoreCase(ref.getAttribute("Update"))) {
-                continue;
-            }
-            String name = firstNonBlank(ref.getAttribute("Include"), ref.getAttribute("Update"));
-            if (name.isBlank() || name.contains("@(")) {
-                continue;
-            }
-            String ver = firstNonBlank(
-                    ref.getAttribute("Version"),
-                    getDirectChildText(ref, "Version"));
-            ver = resolveNuGetProperty(ver, propsVersions);
-            if (propsVersions.containsKey(name) && (ver == null || ver.isBlank() || ver.startsWith("$("))) {
-                ver = propsVersions.get(name);
-            }
-            String key = name + ":" + (ver != null ? ver : "");
-            if (seen.add(key)) {
-                comps.add(buildComponent(name, ver == null || ver.isBlank() ? null : ver, "NUGET"));
-            }
-        }
-    }
-
-    private void mergeNuGetPackageConfig(
-            Document doc, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
-        NodeList refs = doc.getElementsByTagName("package");
-        for (int i = 0; i < refs.getLength(); i++) {
-            Element ref = (Element) refs.item(i);
-            String name = firstNonBlank(ref.getAttribute("id"), ref.getAttribute("Include"));
-            String ver = firstNonBlank(ref.getAttribute("version"), ref.getAttribute("Version"));
-            if (!name.isBlank() && seen.add(name + ":" + (ver != null ? ver : ""))) {
-                comps.add(buildComponent(name, ver.isBlank() ? null : ver, "NUGET"));
-            }
-        }
-    }
-
-    private String resolveNuGetProperty(String raw, Map<String, String> propsVersions) {
-        if (raw == null || raw.isBlank()) {
-            return raw;
-        }
-        Matcher m = Pattern.compile("\\$\\(([^)]+)\\)").matcher(raw.trim());
-        if (!m.matches()) {
-            return raw.trim();
-        }
-        String resolved = propsVersions.get(m.group(1));
-        return resolved != null ? resolved : raw.trim();
-    }
-
-    private static String firstNonBlank(String... values) {
-        for (String v : values) {
-            if (v != null && !v.isBlank()) {
-                return v.trim();
-            }
-        }
-        return "";
-    }
-
-    private boolean isCommandOnPath(String command) {
-        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-        try {
-            List<String> cmd = isWindows
-                    ? List.of("cmd", "/c", command + " --version")
-                    : List.of(command, "--version");
-            Process proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
-            return proc.waitFor(15, TimeUnit.SECONDS) && proc.exitValue() == 0;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private boolean hasCsprojFiles(Path dir) {
-        try (Stream<Path> walk = Files.walk(dir, 8)) {
-            return walk.anyMatch(p -> p.getFileName().toString().endsWith(".csproj"));
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    private List<ScanPayload.ComponentPayload> parseGemfileLock(Path dir, String repoName) {
-        try {
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            boolean inSpecs = false;
-            Pattern specLine = Pattern.compile("^    ([A-Za-z0-9_.\\-]+)\\s+\\(([^)]+)\\)");
-            for (String line : Files.readAllLines(dir.resolve("Gemfile.lock"), StandardCharsets.UTF_8)) {
-                if (line.equals("  specs:")) { inSpecs = true; continue; }
-                if (inSpecs && !line.startsWith(" ") && !line.isEmpty()) { inSpecs = false; continue; }
-                if (!inSpecs) {
-                    continue;
-                }
-                Matcher m = specLine.matcher(line);
-                if (!m.find()) {
-                    continue;
-                }
-                String name = m.group(1);
-                String version = m.group(2).trim();
-                if (version.startsWith(">=") || version.startsWith(">")
-                        || version.startsWith("<") || version.startsWith("~>")
-                        || version.startsWith("!=") || version.startsWith("=")) {
-                    continue;
-                }
-                if (!version.matches("[0-9].*")) {
-                    continue;
-                }
-                if (seen.add(name + ":" + version)) {
-                    comps.add(buildComponent(name, version, "RUBYGEMS"));
-                }
-            }
-            log.info("[QuickImport][Ruby] Parsed {} components from Gemfile.lock in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[QuickImport][Ruby] Failed to parse Gemfile.lock: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────
-
-    private ScanPayload.ComponentPayload buildComponent(String name, String version, String ecosystem) {
-        return ScanPayload.ComponentPayload.create(name, version, ecosystem, "Direct", List.of());
-    }
-
-    private ScanPayload buildScanPayload(ParsedDependencies deps, String repoName) {
-        return ScanPayload.create(repoName, deps.components);
     }
 
     private record ApiKeyResult(String token, boolean isNew) {}
@@ -2498,7 +1000,7 @@ public class QuickImportService {
                 return path.startsWith("/") ? path.substring(1) : path;
             }
         } catch (Exception ignored) { }
-        return repoUrl.length() > 48 ? repoUrl.substring(0, 45) + "…" : repoUrl;
+        return repoUrl.length() > 48 ? repoUrl.substring(0, 45) + "\u2026" : repoUrl;
     }
 
     private void notifyJobUpdate(String jobId) {

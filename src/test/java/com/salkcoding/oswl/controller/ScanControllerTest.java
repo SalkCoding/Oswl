@@ -6,6 +6,7 @@ import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.dto.api.ScanParseResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
@@ -13,6 +14,8 @@ import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ManifestArchiveService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import com.salkcoding.oswl.service.ScanIngestService;
@@ -30,7 +33,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
@@ -50,6 +56,8 @@ class ScanControllerTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock ProjectAccessService projectAccessService;
     @Mock ScanApiCredentialThrottleService scanApiCredentialThrottleService;
+    @Mock DependencyManifestParserService dependencyManifestParserService;
+    @Mock ManifestArchiveService manifestArchiveService;
 
     @InjectMocks ScanController scanController;
 
@@ -65,6 +73,26 @@ class ScanControllerTest {
         principalNoPermission = new OswlUserPrincipal(
                 2L, "readonly@company.com", "{noop}pass", "Read User",
                 false, true, List.of(), Set.of(), Set.of(), false);
+    }
+
+    @Test
+    @DisplayName("parseManifests returns parsed components from uploaded archive")
+    void parseManifests_returns200() throws Exception {
+        Path extractDir = Path.of("extract");
+        MultipartFile archive = new MockMultipartFile("archive", "manifests.zip",
+                "application/zip", new byte[]{1, 2, 3});
+        when(manifestArchiveService.extractToTempDir(archive)).thenReturn(extractDir);
+        var component = ScanPayload.ComponentPayload.create("jackson-databind", "2.15.0", "MAVEN", "Direct", List.of());
+        when(dependencyManifestParserService.parseDependencies(eq(extractDir), anyString()))
+                .thenReturn(new DependencyManifestParserService.ParseResult("MAVEN", List.of(component)));
+
+        var response = scanController.parseManifests(archive);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getEcosystem()).isEqualTo("MAVEN");
+        assertThat(response.getBody().getComponentCount()).isEqualTo(1);
+        verify(manifestArchiveService).deleteQuietly(extractDir);
     }
 
     @Test

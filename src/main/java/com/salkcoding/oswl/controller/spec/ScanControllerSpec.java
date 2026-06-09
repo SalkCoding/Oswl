@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.controller.spec;
 
 import com.salkcoding.oswl.dto.api.PingResponse;
+import com.salkcoding.oswl.dto.api.ScanParseResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
@@ -18,6 +19,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "CLI Scan", description = "Endpoints consumed by the OSWL CLI agent. All requests must carry `Authorization: Bearer oswl_<token>`.")
 public interface ScanControllerSpec {
@@ -38,6 +41,39 @@ public interface ScanControllerSpec {
     ResponseEntity<PingResponse> ping(
         @Parameter(hidden = true) HttpServletRequest request
     );
+
+    @Operation(
+        summary = "Parse manifest archive (CLI)",
+        description = """
+            Accepts a zip of project manifest files (relative paths preserved) and returns
+            parsed components using the same server-side parser as Quick Import.
+
+            **Example CLI flow:**
+            ```
+            oswl scan ./my-project   # CLI zips manifests, calls this endpoint, then POST /api/scan
+            ```
+            """,
+        security = @SecurityRequirement(name = "BearerAuth")
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Manifests parsed",
+            content = @Content(schema = @Schema(implementation = ScanParseResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid or empty archive", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid API key", content = @Content)
+    })
+    ResponseEntity<ScanParseResponse> parseManifests(
+        @Parameter(description = "Zip archive of manifest files", required = true)
+        @RequestPart("archive") MultipartFile archive
+    ) throws Exception;
+
+    @Operation(
+        summary = "Manifest collection rules (CLI sync)",
+        description = "Returns skip dirs and file patterns used by the CLI when packaging manifests. "
+                + "Same content as `/scripts/manifest-rules.json`.",
+        security = @SecurityRequirement(name = "BearerAuth")
+    )
+    @ApiResponse(responseCode = "200", description = "Rules JSON")
+    ResponseEntity<com.salkcoding.oswl.service.manifest.ManifestCollectRules.RulesJson> manifestRules();
 
     @Operation(
         summary = "Submit a scan result",

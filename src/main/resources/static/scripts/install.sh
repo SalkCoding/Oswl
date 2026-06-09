@@ -1,6 +1,72 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
-# OsWL CLI Installer – Mac / Linux
+info "  oswl auth --key <your_api_key> --server ${SERVER_URL}"
+# ── Manifest packaging (rules from manifest-rules.json) ───────────────────────
+
+MANIFEST_RULES_FILE="${HOME}/.oswl/manifest-rules.json"
+
+ensure_manifest_rules() {
+    mkdir -p "${HOME}/.oswl"
+    local url="${OSWL_SERVER_URL}/scripts/manifest-rules.json"
+    if curl -fsSL "${url}" -o "${MANIFEST_RULES_FILE}.tmp" 2>/dev/null; then
+        mv "${MANIFEST_RULES_FILE}.tmp" "${MANIFEST_RULES_FILE}"
+        dbg "Updated manifest rules from ${url}"
+    elif [[ ! -f "${MANIFEST_RULES_FILE}" ]]; then
+        error "manifest-rules.json not found. Check server URL or run: curl -fsSL ${url} -o ${MANIFEST_RULES_FILE}"
+    fi
+}
+
+_manifest_should_skip() {
+    local relpath="$1" d
+    while IFS= read -r d; do
+        [[ -z "${d}" ]] && continue
+        [[ "${relpath}" =~ (^|/)${d}(/|$) ]] && return 0
+    done < <(jq -r '.skipDirs[]' "${MANIFEST_RULES_FILE}")
+    return 1
+}
+
+_manifest_is_included() {
+    local relpath="$1"
+    local base
+    base=$(basename "${relpath}")
+    jq -e --arg r "${relpath}" --arg b "${base}" '
+      (.exactFileNames | index($b)) != null
+      or ([.fileSuffixes[] | select($b | endswith(.))] | length > 0)
+      or ([.pathPrefixes[] | select($r | startswith(.))] | length > 0)
+      or (($r | startswith("buildSrc/")) and ([.buildSrcSuffixes[] | select($b | endswith(.))] | length > 0))
+    ' "${MANIFEST_RULES_FILE}" >/dev/null
+}
+
+pack_manifests() {
+    ensure_manifest_rules
+    local dir="$1"
+    local zipfile
+    zipfile=$(mktemp "${TMPDIR:-/tmp}/oswl-manifests-XXXXXX.zip")
+    local -a rels=()
+    local f relpath
+
+    while IFS= read -r -d '' f; do
+        relpath="${f#"${dir}/"}"
+        relpath="${relpath#/}"
+        _manifest_should_skip "${relpath}" && continue
+        _manifest_is_included "${relpath}" || continue
+        rels+=("${relpath}")
+        dbg "manifest: ${relpath}"
+    done < <(find "${dir}" -type f -print0)
+
+    if [[ ${#rels[@]} -eq 0 ]]; then
+        rm -f "${zipfile}"
+        error "No manifest files found under ${dir}"
+    fi
+
+    (cd "${dir}" && zip -q -r "${zipfile}" "${rels[@]}")
+    echo "${zipfile}"
+}
+
+info "Installation complete! Set your API key with:"
+info "  oswl auth --key <your_api_key> --server ${SERVER_URL}"
+#!/usr/bin/env bash
+# ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+# OsWL CLI Installer ??Mac / Linux
 # Usage:
 #   curl -fsSL https://<your-server>/scripts/install.sh | bash
 #
@@ -9,7 +75,7 @@
 #
 # Then scan your project (user credentials required):
 #   cd /your/project && oswl scan -k YOUR_API_KEY -u YOUR_EMAIL
-# ─────────────────────────────────────────────────────────────────────────────
+# ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 set -euo pipefail
 
 INSTALL_DIR="${OSWL_INSTALL_DIR:-/usr/local/bin}"
@@ -18,24 +84,25 @@ CONFIG_FILE="${CONFIG_DIR}/config"
 BINARY_NAME="oswl"
 SERVER_URL="${OSWL_SERVER_URL:-http://localhost:8080}"
 
-# ── Colored output ─────────────────────────────────────────────────────────────
+# ???? Colored output ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[OsWL]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[OsWL]${NC} $*"; }
 error() { echo -e "${RED}[OsWL]${NC} $*" >&2; exit 1; }
 
-# ── Check dependencies ───────────────────────────────────────────────────────
+# ???? Check dependencies ??????????????????????????????????????????????????????????????????????????????????????????????????????????????
 require() { command -v "$1" &>/dev/null || error "$1 is required. Please install it and try again."; }
 require curl
 require jq
+require zip
 
 info "Starting OsWL CLI installation..."
 
-# ── Create config directory ─────────────────────────────────────────────────────
+# ???? Create config directory ??????????????????????????????????????????????????????????????????????????????????????????????????????????
 mkdir -p "${CONFIG_DIR}"
 chmod 700 "${CONFIG_DIR}"
 
-# ── Generate oswl script ────────────────────────────────────────────────────────
+# ???? Generate oswl script ????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 cat > "/tmp/${BINARY_NAME}" << 'SCRIPT_EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -46,7 +113,7 @@ DEBUG_MODE=false
 
 dbg() { if [[ "${DEBUG_MODE}" == "true" ]]; then echo "[OsWL][DEBUG] $*" >&2; fi; }
 
-# ── Load config ──────────────────────────────────────────────────────────────────
+# ???? Load config ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 load_config() {
     if [[ -f "${CONFIG_FILE}" ]]; then
         # shellcheck source=/dev/null
@@ -62,7 +129,7 @@ EOF
     chmod 600 "${CONFIG_FILE}"
 }
 
-# ── auth command ──────────────────────────────────────────────────────────────────
+# ???? auth command ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 cmd_auth() {
     local key="" server=""
     while [[ $# -gt 0 ]]; do
@@ -100,7 +167,7 @@ cmd_auth() {
     fi
 }
 
-# ── scan command ──────────────────────────────────────────────────────────────────
+# ???? scan command ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 cmd_scan() {
     load_config
 
@@ -128,7 +195,7 @@ cmd_scan() {
         exit 1
     fi
 
-    # User credentials are mandatory — authenticate before uploading scan data
+    # User credentials are mandatory ??authenticate before uploading scan data
     if [[ -z "${username}" ]]; then
         echo "[OsWL] Error: -u <email> is required (or set OSWL_USERNAME)." >&2
         exit 1
@@ -159,13 +226,39 @@ cmd_scan() {
 
     echo "[OsWL] Scanning dependencies... (version: ${version})"
 
-    # Build dependency payload and inject mandatory credentials
+    local zipfile
+    zipfile=$(pack_manifests "${project_dir}")
+    trap 'rm -f "${zipfile}"' EXIT
+
+    echo "[OsWL] Parsing manifests on server..."
+    local parse_response
+    parse_response=$(curl -s -w "\n%{http_code}" \
+        -X POST \
+        -H "Authorization: Bearer ${OSWL_API_KEY}" \
+        -F "archive=@${zipfile}" \
+        "${OSWL_SERVER_URL}/api/scan/parse")
+    rm -f "${zipfile}"
+    trap - EXIT
+
+    http_code=$(echo "${parse_response}" | tail -n1)
+    body=$(echo "${parse_response}" | head -n -1)
+
+    if [[ "${http_code}" != "200" ]]; then
+        echo "[OsWL] Error: Parse failed HTTP ${http_code}" >&2
+        echo "${body}" >&2
+        exit 1
+    fi
+
+    local count
+    count=$(echo "${body}" | jq '.componentCount // 0')
+    echo "[OsWL] Found ${count} component(s)."
+
     local payload
-    payload=$(build_payload "${project_dir}" "${version}")
-    payload=$(printf '%s' "${payload}" | jq \
+    payload=$(echo "${body}" | jq \
+        --arg version "${version}" \
         --arg email "${username}" \
         --arg pass  "${password}" \
-        '. + {submitterEmail: $email, submitterPassword: $pass}')
+        '{version: $version, components: .components, submitterEmail: $email, submitterPassword: $pass}')
 
     echo "[OsWL] Sending to server: ${OSWL_SERVER_URL}"
 
@@ -199,500 +292,63 @@ cmd_scan() {
     fi
 }
 
-# ── Dependency collection helpers ────────────────────────────────────────────
+# ?? Manifest packaging (server-side parse) ???????????????????????????????????
 
-_collect_gradle_static_bom() {
-    local dir="$1"
-    if ! command -v python3 &>/dev/null; then
-        dbg "Gradle static+BOM: python3 required"
-        echo "[]"
-        return
-    fi
-    python3 - "${dir}" <<'PY' 2>/dev/null || echo "[]"
-import json, os, re, sys, urllib.request
-import xml.etree.ElementTree as ET
-
-project_dir = sys.argv[1]
-DEP_RE = re.compile(
-    r"(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor|"
-    r"testImplementation|testRuntimeOnly|testCompileOnly|kapt|ksp|developmentOnly|"
-    r"(?:androidTest|debug|release)Implementation|[A-Za-z][A-Za-z0-9_]*Implementation)"
-    r"\s*\(?[\"']([\w.\-]+:[\w.\-]+)(?::([\w.+\-]+))?[\"']",
-    re.I,
-)
-SB_PLUGIN = re.compile(r"org\.springframework\.boot[\"']?\)?\s+version\s+['\"]([^'\"]+)['\"]", re.I)
-MAVEN_BOM = re.compile(r"mavenBom\s*[\"']([\w.\-]+:[\w.\-]+):([\w.+\-]+)[\"']", re.I)
-MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2"
-
-def local(tag):
-    return tag.split("}")[-1] if "}" in tag else tag
-
-def child_text(dep, name):
-    for c in dep:
-        if local(c.tag) == name and c.text:
-            return c.text.strip()
-    return None
-
-def fetch_pom(group, artifact, version):
-    path = f"{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.pom"
-    url = f"{MAVEN_CENTRAL}/{path}"
-    with urllib.request.urlopen(url, timeout=20) as resp:
-        return resp.read()
-
-def merge_pom_bytes(data, index, visited, depth=0):
-    if depth > 10:
-        return
-    root = ET.fromstring(data)
-    for el in root.iter():
-        if local(el.tag) != "dependencyManagement":
-            continue
-        for dep in el.iter():
-            if local(dep.tag) != "dependency":
-                continue
-            g, a, v = child_text(dep, "groupId"), child_text(dep, "artifactId"), child_text(dep, "version")
-            typ, scope = child_text(dep, "type"), child_text(dep, "scope")
-            if not g or not a or not v:
-                continue
-            if typ == "pom" and scope == "import":
-                key = f"{g}:{a}:{v}"
-                if key not in visited:
-                    visited.add(key)
-                    try:
-                        merge_pom_bytes(fetch_pom(g, a, v), index, visited, depth + 1)
-                    except Exception:
-                        pass
-            else:
-                index.setdefault(f"{g}:{a}", v)
-
-index = {}
-visited = set()
-for name in ("build.gradle", "build.gradle.kts"):
-    path = os.path.join(project_dir, name)
-    if not os.path.isfile(path):
-        continue
-    content = open(path, encoding="utf-8").read()
-    m = SB_PLUGIN.search(content)
-    if m:
-        g, a, v = "org.springframework.boot", "spring-boot-dependencies", m.group(1)
-        key = f"{g}:{a}:{v}"
-        if key not in visited:
-            visited.add(key)
-            try:
-                merge_pom_bytes(fetch_pom(g, a, v), index, visited)
-            except Exception:
-                pass
-    for bg, ba, bv in MAVEN_BOM.findall(content):
-        key = f"{bg}:{ba}:{bv}"
-        if key not in visited:
-            visited.add(key)
-            try:
-                merge_pom_bytes(fetch_pom(bg, ba, bv), index, visited)
-            except Exception:
-                pass
-
-seen = set()
-components = []
-for name in ("build.gradle", "build.gradle.kts"):
-    path = os.path.join(project_dir, name)
-    if not os.path.isfile(path):
-        continue
-    content = open(path, encoding="utf-8").read()
-    for ga, declared in DEP_RE.findall(content):
-        ver = declared or index.get(ga)
-        if not ver:
-            continue
-        key = f"{ga}:{ver}"
-        if key in seen:
-            continue
-        seen.add(key)
-        components.append({
-            "name": ga,
-            "version": ver,
-            "ecosystem": "MAVEN",
-            "dependencyInfo": "Gradle (declared + BOM)",
-        })
-
-print(json.dumps(components))
-PY
+_manifest_should_skip() {
+    local relpath="$1"
+    [[ "$relpath" =~ (^|/)(\.git|node_modules|vendor|target|\.gradle|__pycache__|\.venv|venv|\.tox|dist|\.cargo|build|out|bin|obj|\.idea|\.dart_tool|bower_components|generated)(/|$) ]]
 }
 
-_collect_gradle() {
-    local dir="$1"
-    local gradle="${dir}/gradlew"
-    if [[ -x "${gradle}" ]]; then
-        dbg "Gradle: using wrapper at ${gradle}"
-    else
-        gradle="gradle"
-        dbg "Gradle: wrapper not found, using system gradle"
-    fi
-    local result
-    result=$(
-        (cd "${dir}" && "${gradle}" dependencies --configuration runtimeClasspath -q 2>/dev/null) \
-        | awk '
-            # Lines look like: "+--- g:a:declaredVer" or "+--- g:a:declaredVer -> resolvedVer"
-            # or "+--- g:a:ver (*)" (already expanded marker)
-            /[+\\]---/ {
-                # find the +--- or \--- and grab the rest
-                idx = index($0, "+---")
-                if (idx == 0) idx = index($0, "\\---")
-                if (idx == 0) next
-                rest = substr($0, idx + 5)
-                sub(/[[:space:]]*\(\*\)[[:space:]]*$/, "", rest)   # strip (*) marker
-                sub(/^[[:space:]]+/, "", rest); sub(/[[:space:]]+$/, "", rest)
-                if (rest == "") next
-                # version conflict resolution: "g:a:oldVer -> newVer"
-                resolved = ""
-                arrowIdx = index(rest, " -> ")
-                if (arrowIdx > 0) {
-                    resolved = substr(rest, arrowIdx + 4)
-                    rest = substr(rest, 1, arrowIdx - 1)
-                    gsub(/[[:space:]*()]/, "", resolved)
-                }
-                n = split(rest, parts, ":")
-                if (n < 2) next
-                name = parts[1] ":" parts[2]
-                ver  = (resolved != "") ? resolved : (n >= 3 ? parts[3] : "")
-                gsub(/[[:space:]*()]/, "", ver)
-                key = name ":" ver
-                if (!seen[key]++) {
-                    print name "\t" ver
-                }
-            }' \
-        | jq -Rn '[inputs | split("\t") | select(length==2 and .[0] != "" and .[1] != "") |
-                   {name: .[0], version: .[1], ecosystem: "MAVEN", dependencyInfo: "Gradle runtimeClasspath"}]' \
-            2>/dev/null
-    ) || result="[]"
-    local count
-    count=$(echo "${result}" | jq 'length' 2>/dev/null || echo 0)
-    if [[ "${count}" == "0" ]]; then
-        dbg "Gradle: gradlew produced no components, trying static + BOM"
-        result=$(_collect_gradle_static_bom "${dir}")
-    fi
-    dbg "Gradle resolved components: $(echo "${result}" | jq 'length' 2>/dev/null || echo '?')"
-    echo "${result}"
+_manifest_is_included() {
+    local relpath="$1"
+    local base
+    base=$(basename "$relpath")
+    case "$base" in
+        pom.xml|build.gradle|build.gradle.kts|settings.gradle|settings.gradle.kts|gradle.properties|\
+        package-lock.json|yarn.lock|pnpm-lock.yaml|package.json|\
+        poetry.lock|uv.lock|Pipfile.lock|requirements.txt|pyproject.toml|\
+        Cargo.lock|Cargo.toml|go.sum|go.mod|\
+        packages.lock.json|packages.config|Directory.Packages.props|\
+        Gemfile.lock|mvnw|mvnw.cmd|gradlew|gradlew.bat)
+            return 0 ;;
+        *)
+            case "$base" in
+                *.csproj|*.props) return 0 ;;
+            esac
+            case "$relpath" in
+                gradle/libs.versions.toml|.mvn/wrapper/*|gradle/wrapper/*) return 0 ;;
+            esac
+            return 1 ;;
+    esac
 }
 
-_collect_maven() {
+pack_manifests() {
     local dir="$1"
-    # mvn dependency:list output: "[INFO]    g:a:type:version:scope" (5 colon-separated tokens)
-    # or with classifier: "[INFO]    g:a:type:classifier:version:scope" (6 tokens).
-    # We skip test/system/provided to match Quick Import server-side behavior.
-    mvn -f "${dir}/pom.xml" dependency:list -q 2>/dev/null \
-    | awk '
-        /^\[INFO\][[:space:]]+[^[:space:]]+:[^[:space:]]+:/ {
-            line = $0
-            sub(/^\[INFO\][[:space:]]+/, "", line)
-            n = split(line, p, ":")
-            if (n < 5) next
-            # last field is scope (may have trailing whitespace)
-            scope = p[n]; sub(/[[:space:]]+.*$/, "", scope)
-            if (scope == "test" || scope == "system" || scope == "provided") next
-            if (n == 5) {            # g:a:type:version:scope
-                name = p[1] ":" p[2]; ver = p[4]
-            } else {                 # g:a:type:classifier:version:scope (n >= 6)
-                name = p[1] ":" p[2]; ver = p[n-1]
-            }
-            sub(/[[:space:]]+.*$/, "", ver)
-            if (ver != "") print name "\t" ver
-        }' \
-    | sort -u \
-    | jq -Rn '[inputs | split("\t") | select(length==2) |
-               {name: .[0], version: .[1], ecosystem: "MAVEN", dependencyInfo: "Maven"}]' \
-        2>/dev/null || echo "[]"
-}
+    local zipfile
+    zipfile=$(mktemp "${TMPDIR:-/tmp}/oswl-manifests-XXXXXX.zip")
+    local -a rels=()
+    local f relpath
 
-_collect_npm() {
-    local dir="$1"
-    jq '[.packages // {} | to_entries[]
-        | select(.key != "" and (.value.version // "") != "")
-        | {name: (.key | ltrimstr("node_modules/")),
-           version: .value.version,
-           ecosystem: "NPM",
-           dependencyInfo: (if (.value.dev // false) then "npm devDependency" else "npm dependency" end)}]' \
-        "${dir}/package-lock.json" 2>/dev/null || echo "[]"
-}
+    while IFS= read -r -d '' f; do
+        relpath="${f#"${dir}/"}"
+        relpath="${relpath#/}"
+        _manifest_should_skip "$relpath" && continue
+        _manifest_is_included "$relpath" || continue
+        rels+=("$relpath")
+        dbg "manifest: $relpath"
+    done < <(find "${dir}" -type f -print0)
 
-_collect_npm_pkg() {
-    local dir="$1"
-    jq '[
-        ([(.dependencies // {}) | to_entries[]
-          | {name: .key, version: (.value | ltrimstr("^") | ltrimstr("~") | gsub("^[>=<]+"; "")),
-             ecosystem: "NPM", dependencyInfo: "npm dependency"}]),
-        ([(.devDependencies // {}) | to_entries[]
-          | {name: .key, version: (.value | ltrimstr("^") | ltrimstr("~") | gsub("^[>=<]+"; "")),
-             ecosystem: "NPM", dependencyInfo: "npm devDependency"}])
-    ] | add // []' \
-        "${dir}/package.json" 2>/dev/null || echo "[]"
-}
-
-_collect_pip() {
-    local dir="$1"
-    # Handle ==, ===, >=, <=, ~=, !=, <, > and PEP 508 markers ("pkg==1.0; python_version<'3.10'").
-    # Strip extras ("pkg[a,b]==1.0" → "pkg==1.0"). Use awk for portability across BSD/gawk.
-    awk '
-        {
-            sub(/#.*$/, "")        # strip comment
-            sub(/;.*$/, "")        # strip env marker
-            sub(/^[[:space:]]+/, "")
-            sub(/[[:space:]]+$/, "")
-        }
-        $0 == "" || /^-/ { next }
-        {
-            # strip extras [a,b]
-            gsub(/\[[^]]*\]/, "")
-            # try to extract: name<op>version
-            if (match($0, /^[A-Za-z0-9_.-]+[[:space:]]*(===|==|>=|<=|~=|!=|<|>)[[:space:]]*[0-9][^[:space:],]*/)) {
-                token = substr($0, RSTART, RLENGTH)
-                # split into name and version by the operator
-                if (match(token, /(===|==|>=|<=|~=|!=|<|>)/)) {
-                    name = substr(token, 1, RSTART - 1)
-                    ver  = substr(token, RSTART + RLENGTH)
-                    sub(/[[:space:]]+$/, "", name)
-                    sub(/^[[:space:]]+/, "", ver)
-                    if (name != "" && ver != "") print name "\t" ver
-                }
-            }
-        }
-    ' "${dir}/requirements.txt" 2>/dev/null \
-    | sort -u \
-    | jq -Rn '[inputs | split("\t") | select(length==2 and .[0] != "" and .[1] != "") |
-               {name: .[0], version: .[1], ecosystem: "PYPI", dependencyInfo: "pip"}]' \
-        2>/dev/null || echo "[]"
-}
-
-_collect_yarn() {
-    local dir="$1"
-    awk '
-    /^[^ \t#]/ && /:$/ {
-        line = $0; sub(/:$/, "", line)
-        n = split(line, parts, ", ")
-        for (i=1; i<=n; i++) {
-            p = parts[i]; gsub(/^"|"$/, "", p)
-            if (p ~ /^@/) { sub(/@[^@]*$/, "", p) } else { sub(/@.*$/, "", p) }
-            pkgs[i] = p
-        }
-        nparts = n
-    }
-    /^  version/ && nparts > 0 {
-        match($0, /[0-9][0-9a-zA-Z._-]*/)
-        ver = substr($0, RSTART, RLENGTH)
-        for (i=1; i<=nparts; i++) { if (pkgs[i] != "") print pkgs[i] "\t" ver }
-        nparts = 0; delete pkgs
-    }
-    ' "${dir}/yarn.lock" 2>/dev/null | sort -u | \
-    jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NPM", dependencyInfo: "yarn"}]' \
-    2>/dev/null || echo "[]"
-}
-
-_collect_pnpm() {
-    local dir="$1"
-    awk '
-    /^(packages|snapshots):/ { in_sec=1; next }
-    in_sec && /^[^ ]/ { in_sec=0 }
-    in_sec && /^  [^ ]/ {
-        line = substr($0, 3); sub(/:$/, "", line)
-        gsub(/^\//, "", line); gsub(/^'"'"'|'"'"'$/, "", line)
-        name = ""; ver = ""
-        if (match(line, /@[0-9]/)) {
-            name = substr(line, 1, RSTART-1)
-            ver  = substr(line, RSTART+1); sub(/_.*$/, "", ver)
-        } else if (match(line, /\/[0-9]/)) {
-            name = substr(line, 1, RSTART-1)
-            ver  = substr(line, RSTART+1); sub(/_.*$/, "", ver)
-        }
-        if (name != "" && ver != "") print name "\t" ver
-    }
-    ' "${dir}/pnpm-lock.yaml" 2>/dev/null | sort -u | \
-    jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NPM", dependencyInfo: "pnpm"}]' \
-    2>/dev/null || echo "[]"
-}
-
-_collect_poetry() {
-    local dir="$1"
-    awk '
-    /^\[\[package\]\]/ { name=""; ver="" }
-    /^name = "/ { n=$0; sub(/^name = "/, "", n); sub(/"$/, "", n); name=n }
-    /^version = "/ { v=$0; sub(/^version = "/, "", v); sub(/"$/, "", v); ver=v }
-    name != "" && ver != "" { print name "\t" ver; name=""; ver="" }
-    ' "${dir}/poetry.lock" 2>/dev/null | sort -u | \
-    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "PYPI", dependencyInfo: "poetry"}]' \
-    2>/dev/null || echo "[]"
-}
-
-_collect_pipenv() {
-    local dir="$1"
-    jq '[
-        ((.default // {}) | to_entries[] | select(.value.version != null) |
-         {name: .key, version: (.value.version | ltrimstr("==")), ecosystem: "PYPI", dependencyInfo: "pipenv dependency"}),
-        ((.develop // {}) | to_entries[] | select(.value.version != null) |
-         {name: .key, version: (.value.version | ltrimstr("==")), ecosystem: "PYPI", dependencyInfo: "pipenv devDependency"})
-    ]' "${dir}/Pipfile.lock" 2>/dev/null || echo "[]"
-}
-
-_collect_uv() {
-    local dir="$1"
-    awk '
-    /^\[\[package\]\]/ { name=""; ver="" }
-    /^name = "/ { n=$0; sub(/^name = "/, "", n); sub(/"$/, "", n); name=n }
-    /^version = "/ { v=$0; sub(/^version = "/, "", v); sub(/"$/, "", v); ver=v }
-    name != "" && ver != "" { print name "\t" ver; name=""; ver="" }
-    ' "${dir}/uv.lock" 2>/dev/null | sort -u | \
-    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "PYPI", dependencyInfo: "uv"}]' \
-    2>/dev/null || echo "[]"
-}
-
-_collect_go() {
-    local dir="$1"
-    if [[ -f "${dir}/go.sum" ]]; then
-        grep -v '/go\.mod ' "${dir}/go.sum" 2>/dev/null | \
-        awk '{print $1 "\t" $2}' | sort -u | \
-        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "GO", dependencyInfo: "go.sum"}]' \
-        2>/dev/null || echo "[]"
-    else
-        awk '
-        /^require \(/ { in_req=1; next }
-        in_req && /^\)/ { in_req=0 }
-        in_req && NF >= 2 { gsub(/\/\/.*$/, ""); if ($1 != "" && $2 != "") print $1 "\t" $2 }
-        /^require [^(]/ && NF >= 3 { print $2 "\t" $3 }
-        ' "${dir}/go.mod" 2>/dev/null | sort -u | \
-        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "GO", dependencyInfo: "go.mod"}]' \
-        2>/dev/null || echo "[]"
-    fi
-}
-
-_collect_cargo() {
-    local dir="$1"
-    awk '
-    /^\[\[package\]\]/ { name=""; ver="" }
-    /^name = "/ { n=$0; sub(/^name = "/, "", n); sub(/"$/, "", n); name=n }
-    /^version = "/ { v=$0; sub(/^version = "/, "", v); sub(/"$/, "", v); ver=v }
-    name != "" && ver != "" { print name "\t" ver; name=""; ver="" }
-    ' "${dir}/Cargo.lock" 2>/dev/null | sort -u | \
-    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "CARGO", dependencyInfo: "Cargo.lock"}]' \
-    2>/dev/null || echo "[]"
-}
-
-_collect_nuget() {
-    local dir="$1"
-    if [[ -f "${dir}/packages.lock.json" ]]; then
-        jq '[.dependencies // {} | to_entries[] | .value | to_entries[]
-            | select(.value.resolved != null)
-            | {name: .key, version: .value.resolved, ecosystem: "NUGET", dependencyInfo: "NuGet"}]' \
-            "${dir}/packages.lock.json" 2>/dev/null || echo "[]"
-    elif find "${dir}" -maxdepth 3 -name "*.csproj" 2>/dev/null | grep -q .; then
-        find "${dir}" -maxdepth 3 -name "*.csproj" 2>/dev/null | head -20 | \
-        xargs grep -h 'PackageReference' 2>/dev/null | \
-        sed -n 's/.*[Ii]nclude="\([^"]*\)".*[Vv]ersion="\([^"]*\)".*/\1\t\2/p
-                s/.*[Vv]ersion="\([^"]*\)".*[Ii]nclude="\([^"]*\)".*/\2\t\1/p' | \
-        sort -u | \
-        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NUGET", dependencyInfo: ".csproj"}]' \
-        2>/dev/null || echo "[]"
-    elif [[ -f "${dir}/packages.config" ]]; then
-        grep -oE '<package [^>]+>' "${dir}/packages.config" 2>/dev/null | \
-        sed 's/.*id="\([^"]*\)".*version="\([^"]*\)".*/\1\t\2/' | \
-        jq -Rn '[inputs | split("\t") | select(length==2) | {name: .[0], version: .[1], ecosystem: "NUGET", dependencyInfo: "packages.config"}]' \
-        2>/dev/null || echo "[]"
-    else
-        echo "[]"
-    fi
-}
-
-_collect_bundler() {
-    local dir="$1"
-    awk '
-    /^  specs:/ { in_specs=1; next }
-    in_specs && /^[A-Z]/ { in_specs=0 }
-    in_specs && /^    [^ ]/ {
-        line = substr($0, 5)
-        if (index(line, " (") > 0) {
-            name = substr(line, 1, index(line, " (")-1)
-            ver  = substr(line, index(line, " (")+2)
-            sub(/\).*/, "", ver)
-            if (ver !~ /^[=<>~!]/ && name != "") print name "\t" ver
-        }
-    }
-    ' "${dir}/Gemfile.lock" 2>/dev/null | sort -u | \
-    jq -Rn '[inputs | split("\t") | {name: .[0], version: .[1], ecosystem: "RUBYGEMS", dependencyInfo: "Gemfile.lock"}]' \
-    2>/dev/null || echo "[]"
-}
-
-# ── Build payload ─────────────────────────────────────────────────────────────
-build_payload() {
-    local dir="$1" version="$2"
-
-    # ── MAVEN: Gradle (preferred) or Maven pom.xml ───────────────────────────
-    local maven="[]"
-    if   [[ -f "${dir}/build.gradle" || -f "${dir}/build.gradle.kts" ]]; then
-        dbg "MAVEN: Gradle"; maven=$(_collect_gradle "${dir}")
-    elif [[ -f "${dir}/pom.xml" ]]; then
-        dbg "MAVEN: Maven"; maven=$(_collect_maven "${dir}")
+    if [[ ${#rels[@]} -eq 0 ]]; then
+        rm -f "$zipfile"
+        error "No manifest files found under ${dir}"
     fi
 
-    # ── NPM: package-lock.json > yarn.lock > pnpm-lock.yaml > package.json ──
-    local npm="[]"
-    if   [[ -f "${dir}/package-lock.json" ]]; then dbg "NPM: package-lock.json";       npm=$(_collect_npm "${dir}")
-    elif [[ -f "${dir}/yarn.lock"         ]]; then dbg "NPM: yarn.lock";               npm=$(_collect_yarn "${dir}")
-    elif [[ -f "${dir}/pnpm-lock.yaml"    ]]; then dbg "NPM: pnpm-lock.yaml";          npm=$(_collect_pnpm "${dir}")
-    elif [[ -f "${dir}/package.json"      ]]; then dbg "NPM: package.json (fallback)"; npm=$(_collect_npm_pkg "${dir}")
-    fi
-
-    # ── PYPI: poetry.lock > Pipfile.lock > uv.lock > requirements.txt ────────
-    local pypi="[]"
-    if   [[ -f "${dir}/poetry.lock"      ]]; then dbg "PYPI: poetry.lock";      pypi=$(_collect_poetry "${dir}")
-    elif [[ -f "${dir}/Pipfile.lock"     ]]; then dbg "PYPI: Pipfile.lock";     pypi=$(_collect_pipenv "${dir}")
-    elif [[ -f "${dir}/uv.lock"          ]]; then dbg "PYPI: uv.lock";          pypi=$(_collect_uv "${dir}")
-    elif [[ -f "${dir}/requirements.txt" ]]; then dbg "PYPI: requirements.txt"; pypi=$(_collect_pip "${dir}")
-    fi
-
-    # ── GO: go.sum or go.mod (independent) ──────────────────────────────────
-    local go_deps="[]"
-    if [[ -f "${dir}/go.sum" || -f "${dir}/go.mod" ]]; then
-        dbg "GO: go.sum/go.mod"; go_deps=$(_collect_go "${dir}")
-    fi
-
-    # ── CARGO: Cargo.lock (independent) ─────────────────────────────────────
-    local cargo="[]"
-    if [[ -f "${dir}/Cargo.lock" ]]; then
-        dbg "CARGO: Cargo.lock"; cargo=$(_collect_cargo "${dir}")
-    fi
-
-    # ── NUGET: packages.lock.json > *.csproj > packages.config (independent) ─
-    local nuget="[]"
-    if [[ -f "${dir}/packages.lock.json" ]] || \
-       find "${dir}" -maxdepth 3 -name "*.csproj" 2>/dev/null | grep -q . || \
-       [[ -f "${dir}/packages.config" ]]; then
-        dbg "NUGET: detected"; nuget=$(_collect_nuget "${dir}")
-    fi
-
-    # ── RUBYGEMS: Gemfile.lock (independent) ────────────────────────────────
-    local ruby="[]"
-    if [[ -f "${dir}/Gemfile.lock" ]]; then
-        dbg "RUBYGEMS: Gemfile.lock"; ruby=$(_collect_bundler "${dir}")
-    fi
-
-    # ── Merge all ecosystems ─────────────────────────────────────────────────
-    local components
-    components=$(jq -n \
-        --argjson maven  "${maven}" \
-        --argjson npm    "${npm}" \
-        --argjson pypi   "${pypi}" \
-        --argjson go     "${go_deps}" \
-        --argjson cargo  "${cargo}" \
-        --argjson nuget  "${nuget}" \
-        --argjson ruby   "${ruby}" \
-        '$maven + $npm + $pypi + $go + $cargo + $nuget + $ruby' 2>/dev/null) || components="[]"
-
-    local count
-    count=$(echo "${components}" | jq 'length' 2>/dev/null || echo "0")
-    echo "[OsWL] Found ${count} component(s)." >&2
-
-    jq -n \
-        --arg version "${version}" \
-        --argjson components "${components}" \
-        '{version: $version, components: $components}'
+  (cd "${dir}" && zip -q -r "$zipfile" "${rels[@]}")
+    echo "$zipfile"
 }
 
-# ── Help ─────────────────────────────────────────────────────────────────────────
+
+# ???? Help ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 cmd_help() {
     cat << 'HELP'
 OsWL CLI - Open-source Software Composition Analysis tool
@@ -739,7 +395,7 @@ Notes:
 HELP
 }
 
-# ── Entry point ─────────────────────────────────────────────────────────────────
+# ???? Entry point ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 # Pre-process global flags (--debug) before dispatching
 _args=()
 for _a in "$@"; do
@@ -762,15 +418,15 @@ SCRIPT_EOF
 
 chmod +x "/tmp/${BINARY_NAME}"
 
-# ── Determine install location ─────────────────────────────────────────────────────────────────
+# ???? Determine install location ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 if [[ -w "${INSTALL_DIR}" ]]; then
     mv "/tmp/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 else
-    warn "Insufficient permissions – using sudo."
+    warn "Insufficient permissions ??using sudo."
     sudo mv "/tmp/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 
-# ── Check PATH ─────────────────────────────────────────────────────────────────────────────────
+# ???? Check PATH ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
 if ! command -v "${BINARY_NAME}" &>/dev/null; then
     warn "${INSTALL_DIR} is not in your PATH. Add the following to ~/.bashrc or ~/.zshrc:"
     warn "  export PATH=\"\$PATH:${INSTALL_DIR}\""
