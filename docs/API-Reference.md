@@ -98,7 +98,9 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 |---|---|---|---|
 | `POST` | `/api/auth` | API key | Validate API key (legacy) |
 | `GET` | `/api/scan/ping` | API key | Connectivity and key validity check |
-| `POST` | `/api/scan` | API key + credentials | Submit a dependency scan |
+| `GET` | `/api/scan/manifest-rules` | API key | Manifest file collection rules (same as `/scripts/manifest-rules.json`) |
+| `POST` | `/api/scan/parse` | API key | Parse a manifest zip archive (CLI step 1) |
+| `POST` | `/api/scan` | API key + credentials | Submit a dependency scan (CLI step 2) |
 | `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status |
 
 ---

@@ -60,6 +60,10 @@ Each import is an asynchronous **job** with its own progress card:
 
 The temporary clone directory is deleted after ingestion.
 
+### Shared parser with CLI
+
+Dependency detection and manifest parsing use **`DependencyManifestParserService`** — the same engine as the official CLI (`oswl scan`). The CLI uploads a zip of manifest files collected per `GET /api/scan/manifest-rules` (static copy: `/scripts/manifest-rules.json`); Quick Import shallow-clones the repo and walks the tree with the same rules. See [CLI Integration](CLI-Integration.md).
+
 ---
 
 ## Re-importing a Branch
