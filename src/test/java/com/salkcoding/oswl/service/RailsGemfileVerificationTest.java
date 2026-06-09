@@ -46,7 +46,7 @@ class RailsGemfileVerificationTest {
   @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
   @Mock org.springframework.context.MessageSource messageSource;
 
-  @InjectMocks QuickImportService service;
+  @InjectMocks DependencyManifestParserService service;
 
   @Test
   @DisplayName("Gemfile.lock parser captures most gems including pre-release versions")
@@ -54,7 +54,7 @@ class RailsGemfileVerificationTest {
     Assumptions.assumeTrue(Files.isDirectory(RAILS_CLONE),
         "Skip: clone rails/rails to " + RAILS_CLONE);
 
-    Method m = QuickImportService.class.getDeclaredMethod("parseGemfileLock", Path.class, String.class);
+    Method m = DependencyManifestParserService.class.getDeclaredMethod("parseGemfileLock", Path.class, String.class);
     m.setAccessible(true);
 
     int total = 0;

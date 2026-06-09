@@ -46,7 +46,7 @@ class ExpressNpmLockVerificationTest {
   @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
   @Mock org.springframework.context.MessageSource messageSource;
 
-  @InjectMocks QuickImportService service;
+  @InjectMocks DependencyManifestParserService service;
 
   @Test
   @DisplayName("npm --package-lock-only yields transitive deps beyond package.json direct refs")
@@ -57,13 +57,13 @@ class ExpressNpmLockVerificationTest {
     Assumptions.assumeFalse(Files.exists(EXPRESS_CLONE.resolve("package-lock.json")),
         "Skip: remove package-lock.json to test generation");
 
-    Method direct = QuickImportService.class.getDeclaredMethod("parseNpmPackageJson", Path.class, String.class);
+    Method direct = DependencyManifestParserService.class.getDeclaredMethod("parseNpmPackageJson", Path.class, String.class);
     direct.setAccessible(true);
     Object directResult = direct.invoke(service, EXPRESS_CLONE, "expressjs/express");
     @SuppressWarnings("unchecked")
     List<ScanPayload.ComponentPayload> directDeps = extractComponents(directResult);
 
-    Method lockGen = QuickImportService.class.getDeclaredMethod("runNpmPackageLockOnly", Path.class, String.class);
+    Method lockGen = DependencyManifestParserService.class.getDeclaredMethod("runNpmPackageLockOnly", Path.class, String.class);
     lockGen.setAccessible(true);
     @SuppressWarnings("unchecked")
     List<ScanPayload.ComponentPayload> lockDeps =

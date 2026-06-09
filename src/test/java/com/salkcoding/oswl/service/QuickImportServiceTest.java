@@ -39,7 +39,7 @@ class QuickImportServiceTest {
     @Mock ScanResultRepository         scanResultRepository;
     @Mock GitHubService                gitHubService;
     @Mock EnrichmentProgressHolder     enrichmentProgressHolder;
-    @Mock MavenBomVersionResolver      bomVersionResolver;
+    @Mock DependencyManifestParserService dependencyManifestParserService;
     @Mock ProjectCliKeyPolicyService   projectCliKeyPolicyService;
     @Mock BitbucketCloudClient        bitbucketCloudClient;
     @Mock com.salkcoding.oswl.service.git.GitCloneExecutor gitCloneExecutor;

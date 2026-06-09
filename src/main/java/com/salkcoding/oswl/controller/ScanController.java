@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.controller.spec.ScanControllerSpec;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.dto.api.PingResponse;
+import com.salkcoding.oswl.dto.api.ScanParseResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
@@ -13,6 +14,9 @@ import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
+import com.salkcoding.oswl.service.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ManifestArchiveService;
+import com.salkcoding.oswl.service.manifest.ManifestCollectRules;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import com.salkcoding.oswl.service.ScanIngestService;
@@ -25,6 +29,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.file.Path;
 
 /**
  * REST endpoint dedicated to CLI clients.
@@ -54,6 +61,8 @@ public class ScanController implements ScanControllerSpec {
     private final PasswordEncoder passwordEncoder;
     private final ProjectAccessService projectAccessService;
     private final ScanApiCredentialThrottleService scanApiCredentialThrottleService;
+    private final DependencyManifestParserService dependencyManifestParserService;
+    private final ManifestArchiveService manifestArchiveService;
 
     /** Ping endpoint used by the CLI auth command for a connection test */
     @GetMapping("/ping")
@@ -63,6 +72,36 @@ public class ScanController implements ScanControllerSpec {
                 .status("ok")
                 .projectId(projectId)
                 .build());
+    }
+
+    /**
+     * Server-side manifest parse for the CLI.
+     * Accepts a zip of project manifests (relative paths preserved); returns components
+     * using the same parser as Quick Import.
+     */
+  /** Manifest collection rules shared with the CLI (same source as {@link ManifestCollectRules}). */
+    @GetMapping("/manifest-rules")
+    public ResponseEntity<ManifestCollectRules.RulesJson> manifestRules() {
+        return ResponseEntity.ok(ManifestCollectRules.RulesJson.current());
+    }
+
+    @PostMapping(value = "/parse", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ScanParseResponse> parseManifests(
+            @RequestPart("archive") MultipartFile archive) throws Exception {
+
+        Path extractDir = manifestArchiveService.extractToTempDir(archive);
+        try {
+            String label = ManifestArchiveService.randomLabel();
+            DependencyManifestParserService.ParseResult result =
+                    dependencyManifestParserService.parseDependencies(extractDir, label);
+            return ResponseEntity.ok(ScanParseResponse.builder()
+                    .ecosystem(result.ecosystem())
+                    .componentCount(result.components().size())
+                    .components(result.components())
+                    .build());
+        } finally {
+            manifestArchiveService.deleteQuietly(extractDir);
+        }
     }
 
     @PostMapping
