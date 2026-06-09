@@ -805,7 +805,8 @@ public class QuickImportService {
             List<ScanPayload.ComponentPayload> gradleDeps = runGradleDependencies(cloneDir, repoName);
             if (gradleDeps == null || gradleDeps.isEmpty()) {
                 gradleDeps = parseGradleStatic(cloneDir, repoName).components();
-            } else {
+            }
+            if (gradleDeps != null && !gradleDeps.isEmpty()) {
                 gradleDeps = bomVersionResolver.enrichComponentVersions(cloneDir, gradleDeps);
             }
             mergeComponents(allComps, seen, gradleDeps, "MAVEN");
@@ -831,6 +832,19 @@ public class QuickImportService {
             }
         }
         if (!ecosystems.contains("NPM")) {
+            walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS).stream()
+                    .min(Comparator.comparingInt(p -> cloneDir.relativize(p).getNameCount()))
+                    .map(p -> p.getParent())
+                    .ifPresent(pkgDir -> {
+                        List<ScanPayload.ComponentPayload> npmComps =
+                                runNpmPackageLockOnly(pkgDir, repoName);
+                        if (npmComps != null && !npmComps.isEmpty()) {
+                            ecosystems.add("NPM");
+                            mergeComponents(allComps, seen, npmComps, "NPM");
+                        }
+                    });
+        }
+        if (!ecosystems.contains("NPM")) {
             for (Path pkg : walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS)) {
                 List<ScanPayload.ComponentPayload> npmComps = parseNpmPackageJson(pkg.getParent(), repoName).components();
                 if (!npmComps.isEmpty()) {
@@ -854,11 +868,21 @@ public class QuickImportService {
         }
         if (!ecosystems.contains("PYPI")) {
             for (Path req : walkManifests(cloneDir, Set.of("requirements.txt"), MANIFEST_SKIP_DIRS)) {
-                ParsedDependencies pd = parsePython(req.getParent(), repoName);
-                if (!pd.components().isEmpty()) {
-                    ecosystems.add("PYPI");
-                    mergeComponents(allComps, seen, pd.components(), "PYPI");
-                    break;
+                List<ScanPayload.ComponentPayload> pyComps =
+                        parseRequirementsFile(req, repoName);
+                if (pyComps != null && !pyComps.isEmpty()) {
+                    if (!ecosystems.contains("PYPI")) ecosystems.add("PYPI");
+                    mergeComponents(allComps, seen, pyComps, "PYPI");
+                }
+            }
+            if (!ecosystems.contains("PYPI")) {
+                for (Path toml : walkManifests(cloneDir, Set.of("pyproject.toml"), MANIFEST_SKIP_DIRS)) {
+                    List<ScanPayload.ComponentPayload> pyComps =
+                            parsePyprojectToml(toml, repoName);
+                    if (pyComps != null && !pyComps.isEmpty()) {
+                        ecosystems.add("PYPI");
+                        mergeComponents(allComps, seen, pyComps, "PYPI");
+                    }
                 }
             }
         }
@@ -908,10 +932,13 @@ public class QuickImportService {
             }
         }
         if (!ecosystems.contains("NUGET") && hasCsprojFiles(cloneDir)) {
-            ParsedDependencies nd = parseNuGetStatic(cloneDir, repoName);
-            if (!nd.components().isEmpty()) {
+            List<ScanPayload.ComponentPayload> nugetComps = runDotNetListPackages(cloneDir, repoName);
+            if (nugetComps == null || nugetComps.isEmpty()) {
+                nugetComps = parseNuGetStatic(cloneDir, repoName).components();
+            }
+            if (!nugetComps.isEmpty()) {
                 ecosystems.add("NUGET");
-                mergeComponents(allComps, seen, nd.components(), "NUGET");
+                mergeComponents(allComps, seen, nugetComps, "NUGET");
             }
         }
 
@@ -1199,6 +1226,59 @@ public class QuickImportService {
         return comps;
     }
 
+    /**
+     * Generates {@code package-lock.json} via {@code npm install --package-lock-only} when no lock
+     * file exists and npm is on PATH. Returns parsed components or {@code null} on failure.
+     */
+    private List<ScanPayload.ComponentPayload> runNpmPackageLockOnly(Path dir, String repoName) {
+        if (!Files.isRegularFile(dir.resolve("package.json"))) {
+            return null;
+        }
+        if (Files.exists(dir.resolve("package-lock.json"))
+                || Files.exists(dir.resolve("yarn.lock"))
+                || Files.exists(dir.resolve("pnpm-lock.yaml"))) {
+            return null;
+        }
+        if (!isCommandOnPath("npm")) {
+            log.debug("[QuickImport][npm] npm not on PATH for '{}', skipping lock generation", repoName);
+            return null;
+        }
+        try {
+            boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+            String npmArgs = "npm install --package-lock-only --ignore-scripts --no-audit --no-fund --no-progress";
+            List<String> cmd = isWindows
+                    ? List.of("cmd", "/c", npmArgs)
+                    : List.of("npm", "install", "--package-lock-only",
+                            "--ignore-scripts", "--no-audit", "--no-fund", "--no-progress");
+            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
+            log.info("[QuickImport][npm] Running npm install --package-lock-only for '{}'", repoName);
+            Process proc = pb.start();
+            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
+            if (!finished) {
+                proc.destroyForcibly();
+                log.warn("[QuickImport][npm] npm lock generation timed out for '{}'", repoName);
+                return null;
+            }
+            if (proc.exitValue() != 0) {
+                log.warn("[QuickImport][npm] npm exited {} for '{}' — {}",
+                        proc.exitValue(), repoName, summarizeProcessOutput(output));
+                return null;
+            }
+            if (!Files.exists(dir.resolve("package-lock.json"))) {
+                log.warn("[QuickImport][npm] npm finished but no package-lock.json for '{}'", repoName);
+                return null;
+            }
+            List<ScanPayload.ComponentPayload> comps = parseNpmLock(dir, repoName);
+            log.info("[QuickImport][npm] Generated lock → {} components for '{}'",
+                    comps != null ? comps.size() : 0, repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[QuickImport][npm] npm lock generation failed for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
     /** Parse package-lock.json — supports lockfileVersion 1 (npm 5/6), 2 and 3 (npm 7+). */
     private List<ScanPayload.ComponentPayload> parseNpmLock(Path dir, String repoName) {
         try {
@@ -1392,7 +1472,8 @@ public class QuickImportService {
                 boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
                 if (!finished) { proc.destroyForcibly(); log.warn("[QuickImport][Gradle] gradlew timed out for '{}'", repoName); return null; }
                 if (proc.exitValue() != 0) {
-                    log.debug("[QuickImport][Gradle] gradlew --configuration {} exited {} for '{}', trying next", config, proc.exitValue(), repoName);
+                    log.warn("[QuickImport][Gradle] gradlew --configuration {} exited {} for '{}' — {}",
+                            config, proc.exitValue(), repoName, summarizeProcessOutput(output));
                     continue;
                 }
                 List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(output, repoName);
@@ -1480,6 +1561,20 @@ public class QuickImportService {
         return result;
     }
 
+    /** First line of Gradle/Maven tool output for logs (failure diagnosis). */
+    private static String summarizeProcessOutput(String output) {
+        if (output == null || output.isBlank()) {
+            return "(no output)";
+        }
+        for (String line : output.split("\r?\n")) {
+            String t = line.trim();
+            if (!t.isEmpty() && !t.startsWith("Downloading") && !t.startsWith(">")) {
+                return t.length() > 200 ? t.substring(0, 200) + "…" : t;
+            }
+        }
+        return output.trim().length() > 200 ? output.trim().substring(0, 200) + "…" : output.trim();
+    }
+
     /** Static fallback: parse build.gradle declarations and resolve versions from BOM POMs. */
     private ParsedDependencies parseGradleStatic(Path dir, String repoName) {
         List<ScanPayload.ComponentPayload> comps;
@@ -1495,45 +1590,137 @@ public class QuickImportService {
 
     // Python: requirements.txt fallback (lock files are handled in parseDependencies)
     private ParsedDependencies parsePython(Path dir, String repoName) {
-        // requirements.txt fallback
+        List<ScanPayload.ComponentPayload> comps = parseRequirementsFile(dir.resolve("requirements.txt"), repoName);
+        return new ParsedDependencies("PYPI", comps != null ? comps : List.of());
+    }
+
+    private List<ScanPayload.ComponentPayload> parseRequirementsFile(Path reqFile, String repoName) {
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         try {
-            List<String> lines = Files.readAllLines(dir.resolve("requirements.txt"), StandardCharsets.UTF_8);
-            // PEP 440 package name (with optional extras) followed by an optional version specifier.
-            // The version starts with a digit and stops at whitespace/comma/semicolon/'#'.
-            // Lines like "git+https://..." or "./local-pkg" are rejected (name must be just \w/./- chars).
-            Pattern fullForm = Pattern.compile(
-                    "^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*(===|==|>=|<=|~=|!=|<|>)\\s*([0-9][^\\s,;#]*)");
-            Pattern bareName = Pattern.compile("^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*$");
+            if (!Files.isRegularFile(reqFile)) {
+                return List.of();
+            }
+            for (String rawLine : Files.readAllLines(reqFile, StandardCharsets.UTF_8)) {
+                addPythonRequirementLine(rawLine, seen, comps);
+            }
+            log.info("[QuickImport][Python] Parsed {} components from {} in '{}'",
+                    comps.size(), reqFile.getFileName(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[QuickImport][Python] Failed to parse {}: {}", reqFile, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Parses {@code [project].dependencies} from {@code pyproject.toml} when no lock file is present.
+     */
+    private List<ScanPayload.ComponentPayload> parsePyprojectToml(Path tomlFile, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        try {
+            List<String> lines = Files.readAllLines(tomlFile, StandardCharsets.UTF_8);
+            boolean inProject = false;
+            boolean inDepsArray = false;
             for (String rawLine : lines) {
                 String line = rawLine.trim();
-                if (line.isEmpty() || line.startsWith("#") || line.startsWith("-")) continue;
-                // Strip inline comment, then PEP 508 environment marker after ';'
-                int hash = line.indexOf('#');
-                if (hash >= 0) line = line.substring(0, hash).trim();
-                int semi = line.indexOf(';');
-                if (semi >= 0) line = line.substring(0, semi).trim();
-                if (line.isEmpty()) continue;
-                String name = null, version = null;
-                Matcher m = fullForm.matcher(line);
-                if (m.find()) {
-                    name = m.group(1);
-                    version = m.group(3);
-                } else {
-                    Matcher b = bareName.matcher(line);
-                    if (b.matches()) name = b.group(1);
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
                 }
-                if (name == null || name.isBlank()) continue;
-                if (seen.add(name + ":" + (version != null ? version : ""))) {
-                    comps.add(buildComponent(name, version, "PYPI"));
+                if (line.startsWith("[") && line.endsWith("]")) {
+                    inProject = line.equals("[project]");
+                    inDepsArray = false;
+                    continue;
+                }
+                if (!inProject) {
+                    continue;
+                }
+                if (line.startsWith("dependencies") && line.contains("[")) {
+                    inDepsArray = true;
+                    int open = line.indexOf('[');
+                    int close = line.indexOf(']');
+                    if (close > open) {
+                        String inline = line.substring(open + 1, close).trim();
+                        if (!inline.isBlank()) {
+                            for (String part : inline.split(",")) {
+                                addPythonRequirementLine(stripQuotes(part.trim()), seen, comps);
+                            }
+                        }
+                        inDepsArray = !line.endsWith("]");
+                    }
+                    continue;
+                }
+                if (inDepsArray) {
+                    if (line.equals("]")) {
+                        inDepsArray = false;
+                        continue;
+                    }
+                    String dep = line;
+                    if (dep.endsWith(",")) {
+                        dep = dep.substring(0, dep.length() - 1).trim();
+                    }
+                    if (dep.equals("]")) {
+                        inDepsArray = false;
+                        continue;
+                    }
+                    addPythonRequirementLine(stripQuotes(dep), seen, comps);
                 }
             }
-            log.info("[QuickImport][Python] Parsed {} components from requirements.txt in '{}'", comps.size(), repoName);
+            log.info("[QuickImport][Python] Parsed {} components from {} in '{}'",
+                    comps.size(), tomlFile.getFileName(), repoName);
+            return comps;
         } catch (Exception e) {
-            log.error("[QuickImport][Python] Failed to parse requirements.txt: {}", e.getMessage());
+            log.warn("[QuickImport][Python] Failed to parse pyproject.toml {}: {}", tomlFile, e.getMessage());
+            return null;
         }
-        return new ParsedDependencies("PYPI", comps);
+    }
+
+    private void addPythonRequirementLine(
+            String rawLine, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
+        String line = rawLine.trim();
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith("-")) {
+            return;
+        }
+        int hash = line.indexOf('#');
+        if (hash >= 0) {
+            line = line.substring(0, hash).trim();
+        }
+        int semi = line.indexOf(';');
+        if (semi >= 0) {
+            line = line.substring(0, semi).trim();
+        }
+        if (line.isEmpty()) {
+            return;
+        }
+        Pattern fullForm = Pattern.compile(
+                "^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*(===|==|>=|<=|~=|!=|<|>)\\s*([0-9][^\\s,;#]*)");
+        Pattern bareName = Pattern.compile("^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*$");
+        String name = null;
+        String version = null;
+        Matcher m = fullForm.matcher(line);
+        if (m.find()) {
+            name = m.group(1);
+            version = m.group(3);
+        } else {
+            Matcher b = bareName.matcher(line);
+            if (b.matches()) {
+                name = b.group(1);
+            }
+        }
+        if (name == null || name.isBlank()) {
+            return;
+        }
+        if (seen.add(name + ":" + (version != null ? version : ""))) {
+            comps.add(buildComponent(name, version, "PYPI"));
+        }
+    }
+
+    private static String stripQuotes(String s) {
+        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
     }
 
     /** Static Cargo.toml fallback when Cargo.lock is absent. */
@@ -1739,40 +1926,286 @@ public class QuickImportService {
         }
     }
 
+    /**
+     * Runs {@code dotnet list package --include-transitive --format json} when the SDK is on PATH.
+     * Returns {@code null} when dotnet is unavailable or the command fails.
+     */
+    private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName) {
+        if (!isCommandOnPath("dotnet")) {
+            log.debug("[QuickImport][NuGet] dotnet not on PATH for '{}', skipping CLI resolve", repoName);
+            return null;
+        }
+        Path target = findDotNetListTarget(dir);
+        if (target == null) {
+            log.debug("[QuickImport][NuGet] No .sln/.csproj for dotnet list in '{}'", repoName);
+            return null;
+        }
+        try {
+            boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+            String dotnetArgs = "dotnet list \"" + target + "\" package --include-transitive --format json";
+            List<String> cmd = isWindows
+                    ? List.of("cmd", "/c", dotnetArgs)
+                    : List.of("dotnet", "list", target.toString(),
+                            "package", "--include-transitive", "--format", "json");
+            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
+            log.info("[QuickImport][NuGet] Running dotnet list package for '{}' ({})", repoName, target.getFileName());
+            Process proc = pb.start();
+            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
+            if (!finished) {
+                proc.destroyForcibly();
+                log.warn("[QuickImport][NuGet] dotnet list timed out for '{}'", repoName);
+                return null;
+            }
+            if (proc.exitValue() != 0) {
+                log.warn("[QuickImport][NuGet] dotnet list exited {} for '{}' — {}",
+                        proc.exitValue(), repoName, summarizeProcessOutput(output));
+                return null;
+            }
+            List<ScanPayload.ComponentPayload> comps = parseDotNetListJson(output, repoName);
+            if (comps.isEmpty()) {
+                log.warn("[QuickImport][NuGet] dotnet list produced no packages for '{}'", repoName);
+                return null;
+            }
+            log.info("[QuickImport][NuGet] dotnet list resolved {} components for '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[QuickImport][NuGet] dotnet list failed for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private Path findDotNetListTarget(Path dir) {
+        List<Path> solutions = walkNuGetManifests(dir, ".sln");
+        if (!solutions.isEmpty()) {
+            return solutions.stream()
+                    .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
+                    .orElse(solutions.get(0));
+        }
+        List<Path> projects = walkNuGetManifests(dir, ".csproj");
+        if (projects.isEmpty()) {
+            return null;
+        }
+        return projects.stream()
+                .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
+                .orElse(projects.get(0));
+    }
+
+    private List<ScanPayload.ComponentPayload> parseDotNetListJson(String json, String repoName) {
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(json);
+            Set<String> seen = new LinkedHashSet<>();
+            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            for (JsonNode project : root.path("projects")) {
+                for (JsonNode fw : project.path("frameworks")) {
+                    for (String section : new String[]{"topLevelPackages", "transitivePackages"}) {
+                        for (JsonNode pkg : fw.path(section)) {
+                            String id = pkg.path("id").asText(null);
+                            String ver = pkg.path("resolvedVersion").asText(null);
+                            if (id == null || id.isBlank() || ver == null || ver.isBlank()) {
+                                continue;
+                            }
+                            if (seen.add(id + ":" + ver)) {
+                                comps.add(buildComponent(id, ver, "NUGET"));
+                            }
+                        }
+                    }
+                }
+            }
+            return comps;
+        } catch (Exception e) {
+            log.warn("[QuickImport][NuGet] Failed to parse dotnet list JSON for '{}': {}", repoName, e.getMessage());
+            return List.of();
+        }
+    }
+
     private ParsedDependencies parseNuGetStatic(Path dir, String repoName) {
         Set<String> seen = new LinkedHashSet<>();
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Map<String, String> propsVersions = buildNuGetPropsVersionIndex(dir);
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             dbf.setNamespaceAware(false);
-            List<Path> targets = new ArrayList<>();
-            try (Stream<Path> walk = Files.walk(dir, 3)) {
-                walk.filter(p -> p.getFileName().toString().endsWith(".csproj")
-                              || p.getFileName().toString().equals("packages.config"))
-                    .limit(20).forEach(targets::add);
+            for (Path props : walkNuGetManifests(dir, "Directory.Packages.props")) {
+                mergeDirectoryPackageVersions(dbf, props, propsVersions);
             }
+            List<Path> targets = new ArrayList<>();
+            targets.addAll(walkNuGetManifests(dir, ".csproj"));
+            targets.addAll(walkManifests(dir, Set.of("packages.config"), MANIFEST_SKIP_DIRS));
             for (Path f : targets) {
                 try {
                     Document doc = dbf.newDocumentBuilder().parse(f.toFile());
-                    boolean isPkgConfig = f.getFileName().toString().equals("packages.config");
-                    NodeList refs = doc.getElementsByTagName(isPkgConfig ? "package" : "PackageReference");
-                    for (int i = 0; i < refs.getLength(); i++) {
-                        Element ref = (Element) refs.item(i);
-                        String name = ref.hasAttribute("Include") ? ref.getAttribute("Include") : ref.getAttribute("id");
-                        String ver  = ref.hasAttribute("Version") ? ref.getAttribute("Version") : ref.getAttribute("version");
-                        if (!name.isBlank() && seen.add(name)) {
-                            comps.add(buildComponent(name, ver.isBlank() ? null : ver, "NUGET"));
-                        }
+                    if (f.getFileName().toString().equals("packages.config")) {
+                        mergeNuGetPackageConfig(doc, seen, comps);
+                    } else {
+                        mergeNuGetCsproj(doc, seen, comps, propsVersions);
                     }
                 } catch (Exception ignored) {}
             }
-            log.info("[QuickImport][NuGet] Parsed {} components from {} file(s) in '{}'",
+            log.info("[QuickImport][NuGet] Parsed {} components from {} manifest file(s) in '{}'",
                     comps.size(), targets.size(), repoName);
         } catch (Exception e) {
             log.error("[QuickImport][NuGet] Failed to parse .csproj/packages.config: {}", e.getMessage());
         }
         return new ParsedDependencies("NUGET", comps);
+    }
+
+    private List<Path> walkNuGetManifests(Path root, String suffix) {
+        List<Path> result = new ArrayList<>();
+        final Path rootReal;
+        try {
+            rootReal = new CloneRootPathGuard(root).root();
+        } catch (IOException e) {
+            return result;
+        }
+        try {
+            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    if (!dir.equals(rootReal)) {
+                        Path rel = rootReal.relativize(dir);
+                        for (int i = 0; i < rel.getNameCount(); i++) {
+                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
+                                return FileVisitResult.SKIP_SUBTREE;
+                            }
+                        }
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    String name = file.getFileName().toString();
+                    boolean match = switch (suffix) {
+                        case ".csproj" -> name.endsWith(".csproj");
+                        case ".sln" -> name.endsWith(".sln");
+                        case ".props" -> name.endsWith(".props");
+                        default -> name.equals(suffix);
+                    };
+                    if (match) {
+                        result.add(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            log.warn("[QuickImport][NuGet] walk failed under '{}': {}", root, e.getMessage());
+        }
+        return result;
+    }
+
+    private Map<String, String> buildNuGetPropsVersionIndex(Path dir) {
+        Map<String, String> index = new LinkedHashMap<>();
+        Pattern propVersion = Pattern.compile("<([\\w.]+)>\\s*([\\d][^<]*)\\s*</\\1>");
+        for (Path props : walkNuGetManifests(dir, ".props")) {
+            try {
+                String content = Files.readString(props, StandardCharsets.UTF_8);
+                Matcher m = propVersion.matcher(content);
+                while (m.find()) {
+                    String key = m.group(1);
+                    String val = m.group(2).trim();
+                    if (!val.isBlank() && !val.contains("$(")) {
+                        index.putIfAbsent(key, val);
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("[QuickImport][NuGet] props scan failed for {}: {}", props, e.getMessage());
+            }
+        }
+        return index;
+    }
+
+    private void mergeDirectoryPackageVersions(
+            DocumentBuilderFactory dbf, Path propsFile, Map<String, String> propsVersions) {
+        try {
+            Document doc = dbf.newDocumentBuilder().parse(propsFile.toFile());
+            NodeList versions = doc.getElementsByTagName("PackageVersion");
+            for (int i = 0; i < versions.getLength(); i++) {
+                Element el = (Element) versions.item(i);
+                String id = el.getAttribute("Include");
+                String ver = el.getAttribute("Version");
+                if (!id.isBlank() && !ver.isBlank()) {
+                    propsVersions.put(id, resolveNuGetProperty(ver, propsVersions));
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[QuickImport][NuGet] Directory.Packages.props parse failed: {}", e.getMessage());
+        }
+    }
+
+    private void mergeNuGetCsproj(
+            Document doc, Set<String> seen, List<ScanPayload.ComponentPayload> comps,
+            Map<String, String> propsVersions) {
+        NodeList refs = doc.getElementsByTagName("PackageReference");
+        for (int i = 0; i < refs.getLength(); i++) {
+            Element ref = (Element) refs.item(i);
+            if ("Remove".equalsIgnoreCase(ref.getAttribute("Update"))) {
+                continue;
+            }
+            String name = firstNonBlank(ref.getAttribute("Include"), ref.getAttribute("Update"));
+            if (name.isBlank() || name.contains("@(")) {
+                continue;
+            }
+            String ver = firstNonBlank(
+                    ref.getAttribute("Version"),
+                    getDirectChildText(ref, "Version"));
+            ver = resolveNuGetProperty(ver, propsVersions);
+            if (propsVersions.containsKey(name) && (ver == null || ver.isBlank() || ver.startsWith("$("))) {
+                ver = propsVersions.get(name);
+            }
+            String key = name + ":" + (ver != null ? ver : "");
+            if (seen.add(key)) {
+                comps.add(buildComponent(name, ver == null || ver.isBlank() ? null : ver, "NUGET"));
+            }
+        }
+    }
+
+    private void mergeNuGetPackageConfig(
+            Document doc, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
+        NodeList refs = doc.getElementsByTagName("package");
+        for (int i = 0; i < refs.getLength(); i++) {
+            Element ref = (Element) refs.item(i);
+            String name = firstNonBlank(ref.getAttribute("id"), ref.getAttribute("Include"));
+            String ver = firstNonBlank(ref.getAttribute("version"), ref.getAttribute("Version"));
+            if (!name.isBlank() && seen.add(name + ":" + (ver != null ? ver : ""))) {
+                comps.add(buildComponent(name, ver.isBlank() ? null : ver, "NUGET"));
+            }
+        }
+    }
+
+    private String resolveNuGetProperty(String raw, Map<String, String> propsVersions) {
+        if (raw == null || raw.isBlank()) {
+            return raw;
+        }
+        Matcher m = Pattern.compile("\\$\\(([^)]+)\\)").matcher(raw.trim());
+        if (!m.matches()) {
+            return raw.trim();
+        }
+        String resolved = propsVersions.get(m.group(1));
+        return resolved != null ? resolved : raw.trim();
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v.trim();
+            }
+        }
+        return "";
+    }
+
+    private boolean isCommandOnPath(String command) {
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        try {
+            List<String> cmd = isWindows
+                    ? List.of("cmd", "/c", command + " --version")
+                    : List.of(command, "--version");
+            Process proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+            return proc.waitFor(15, TimeUnit.SECONDS) && proc.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean hasCsprojFiles(Path dir) {
@@ -1788,15 +2221,29 @@ public class QuickImportService {
             Set<String> seen = new LinkedHashSet<>();
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
             boolean inSpecs = false;
-            Pattern specLine = Pattern.compile("^    ([A-Za-z0-9_\\-][^\\s(]*)\\s+\\(([0-9][^)]*)\\)");
+            Pattern specLine = Pattern.compile("^    ([A-Za-z0-9_.\\-]+)\\s+\\(([^)]+)\\)");
             for (String line : Files.readAllLines(dir.resolve("Gemfile.lock"), StandardCharsets.UTF_8)) {
                 if (line.equals("  specs:")) { inSpecs = true; continue; }
-                if (inSpecs && !line.startsWith(" ")) { inSpecs = false; continue; }
-                if (inSpecs) {
-                    Matcher m = specLine.matcher(line);
-                    if (m.find() && seen.add(m.group(1))) {
-                        comps.add(buildComponent(m.group(1), m.group(2), "RUBYGEMS"));
-                    }
+                if (inSpecs && !line.startsWith(" ") && !line.isEmpty()) { inSpecs = false; continue; }
+                if (!inSpecs) {
+                    continue;
+                }
+                Matcher m = specLine.matcher(line);
+                if (!m.find()) {
+                    continue;
+                }
+                String name = m.group(1);
+                String version = m.group(2).trim();
+                if (version.startsWith(">=") || version.startsWith(">")
+                        || version.startsWith("<") || version.startsWith("~>")
+                        || version.startsWith("!=") || version.startsWith("=")) {
+                    continue;
+                }
+                if (!version.matches("[0-9].*")) {
+                    continue;
+                }
+                if (seen.add(name + ":" + version)) {
+                    comps.add(buildComponent(name, version, "RUBYGEMS"));
                 }
             }
             log.info("[QuickImport][Ruby] Parsed {} components from Gemfile.lock in '{}'", comps.size(), repoName);
