@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="vcsTab()"
+     x-init="init()"
+     class="flex flex-col gap-[20px] relative">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.vcs.heading}">VCS Account Connections</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.vcs.description}">Connect your VCS accounts so OsWL can fetch repositories and sync scan results.</p>
+    </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <!-- Loading -->
+    <div x-show="loading" class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center" th:text="#{common.loading}">Loading...</div>
+
+    <!-- Provider Cards -->
+    <div x-show="!loading" x-cloak class="flex flex-col gap-[12px]">
+
+        <!-- ── GitHub Card ── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
+            <div class="flex items-center justify-between gap-[16px]">
+                <div class="flex items-center gap-[14px]">
+                    <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" class="text-[var(--grayscale-100)]"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.16-.01-2.11-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.69 1.24 3.34.95.1-.74.4-1.24.72-1.53-2.55-.29-5.23-1.27-5.23-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17.92-.26 1.9-.39 2.88-.39.98 0 1.96.13 2.88.39 2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.69 5.36-5.25 5.65.41.36.78 1.06.78 2.13 0 1.54-.01 2.78-.01 3.16 0 .31.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/></svg>
+                    </div>
+                    <div class="flex flex-col gap-[4px]">
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]" th:text="#{settings.vcs.provider.github}">GitHub</span>
+                            <span x-show="connections.some(c=>c.provider==='GITHUB')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{settings.vcs.status.connected}">Connected</span>
+                            </span>
+                        </div>
+                        <span class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.github.description}">github.com or GitHub Enterprise</span>
+                    </div>
+                </div>
+                <div x-show="connections.some(c=>c.provider==='GITHUB')" class="flex items-center gap-[6px]">
+                    <div x-show="confirmingDisconnect?.provider === 'GITHUB'" class="flex items-center gap-[6px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.confirm.disconnect.github}">Disconnect GitHub?</span>
+                        <button @click="doDisconnect()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[5px] rounded-[6px]" th:text="#{common.yes}">Yes</button>
+                        <button @click="confirmingDisconnect = null" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[5px] rounded-[6px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
+                    </div>
+                    <button x-show="!confirmingDisconnect || confirmingDisconnect.provider !== 'GITHUB'"
+                            @click="confirmingDisconnect = connections.find(c=>c.provider==='GITHUB')"
+                            class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:text-red-500 hover:border-red-200 transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span th:text="#{settings.vcs.btn.disconnect}">Disconnect</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Inline form: shown when not connected -->
+            <div x-show="!connections.some(c=>c.provider==='GITHUB')" class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
+                <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
+                    <button type="button" @click="githubMode = 'cloud'"
+                            :class="githubMode === 'cloud'
+                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+                            th:text="#{settings.vcs.gh.modeCloud}">GitHub.com</button>
+                    <button type="button" @click="githubMode = 'enterprise'"
+                            :class="githubMode === 'enterprise'
+                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+                            th:text="#{settings.vcs.gh.modeEnterprise}">GitHub Enterprise</button>
+                </div>
+                <template x-if="githubMode === 'enterprise'">
+                    <div class="flex flex-col gap-[12px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.vcs.label.serverUrl}">Server URL</span>
+                    <div class="flex-1 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="url" x-model="githubServerUrl" required
+                               th:attr="placeholder=#{settings.vcs.gh.placeholder.serverUrlRequired}"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                    </div>
+                </div>
+                        <p class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed" th:text="#{settings.vcs.gh.enterpriseGuide}">
+                            Enter your GitHub Enterprise Server URL. API calls use /api/v3 on this host.
+                        </p>
+                    </div>
+                </template>
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.token}">Access Token</label>
+                    <input type="password" x-model="githubAccessToken"
+                           th:attr="placeholder=#{settings.vcs.placeholder.githubToken}"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex justify-end">
+                    <button @click="connectGithub()"
+                            :disabled="!githubAccessToken.trim() || creating || (githubMode === 'enterprise' && !githubServerUrl.trim())"
+                            class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span x-text="creating ? _vcsI18n.connecting : _vcsI18n.save"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── GitLab Card ── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
+            <div class="flex items-center justify-between gap-[16px]">
+                <div class="flex items-center gap-[14px]">
+                    <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="#FC6D26"><path d="M12 22.5l4.42-13.6H7.58L12 22.5z"/><path d="M12 22.5l-4.42-13.6H1.4L12 22.5z" opacity=".7"/><path d="M1.4 8.9L0 13.2c-.13.39 0 .82.34 1.06L12 22.5 1.4 8.9z" opacity=".5"/><path d="M1.4 8.9h6.18L4.84.5C4.71.13 4.18.13 4.05.5L1.4 8.9z"/><path d="M12 22.5l4.42-13.6h6.18L12 22.5z" opacity=".7"/><path d="M22.6 8.9L24 13.2c.13.39 0 .82-.34 1.06L12 22.5l10.6-13.6z" opacity=".5"/><path d="M22.6 8.9h-6.18L19.16.5c.13-.37.66-.37.79 0L22.6 8.9z"/></svg>
+                    </div>
+                    <div class="flex flex-col gap-[2px]">
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]" th:text="#{settings.vcs.provider.gitlab}">GitLab</span>
+                            <span x-show="connections.some(c=>c.provider==='GITLAB')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{settings.vcs.status.connected}">Connected</span>
+                            </span>
+                        </div>
+                        <span class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.gitlab.description}">Self-hosted or gitlab.com</span>
+                    </div>
+                </div>
+                <div x-show="connections.some(c=>c.provider==='GITLAB')" class="flex items-center gap-[6px]">
+                    <div x-show="confirmingDisconnect?.provider === 'GITLAB'" class="flex items-center gap-[6px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.confirm.disconnect.gitlab}">Disconnect GitLab?</span>
+                        <button @click="doDisconnect()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[5px] rounded-[6px]" th:text="#{common.yes}">Yes</button>
+                        <button @click="confirmingDisconnect = null" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[5px] rounded-[6px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
+                    </div>
+                    <button x-show="!confirmingDisconnect || confirmingDisconnect.provider !== 'GITLAB'"
+                            @click="confirmingDisconnect = connections.find(c=>c.provider==='GITLAB')"
+                            class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:text-red-500 hover:border-red-200 transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span th:text="#{settings.vcs.btn.disconnect}">Disconnect</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Inline form: shown when not connected -->
+            <div x-show="!connections.some(c=>c.provider==='GITLAB')" class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
+                <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
+                    <button type="button" @click="gitlabMode = 'cloud'"
+                            :class="gitlabMode === 'cloud'
+                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+                            th:text="#{settings.vcs.gl.modeCloud}">GitLab.com</button>
+                    <button type="button" @click="gitlabMode = 'selfhosted'"
+                            :class="gitlabMode === 'selfhosted'
+                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+                            th:text="#{settings.vcs.gl.modeSelfHosted}">Self-hosted</button>
+                </div>
+                <template x-if="gitlabMode === 'selfhosted'">
+                    <div class="flex flex-col gap-[12px]">
+                        <div class="flex items-center gap-[12px]">
+                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.serverUrl}">Server URL</label>
+                            <input type="url" x-model="gitlabServerUrl" required
+                                   th:attr="placeholder=#{settings.vcs.gl.placeholder.serverUrlRequired}"
+                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                        </div>
+                        <p class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed" th:text="#{settings.vcs.gl.selfHostedGuide}">
+                            Enter your self-hosted GitLab instance URL (e.g. https://gitlab.company.internal).
+                        </p>
+                    </div>
+                </template>
+                <div class="flex items-center gap-[12px]">
+                    <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.token}">Access Token</label>
+                    <input type="password" x-model="gitlabAccessToken"
+                           th:attr="placeholder=#{settings.vcs.placeholder.gitlabToken}"
+                           class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                </div>
+                <div class="flex justify-end">
+                    <button @click="connectGitlab()"
+                            :disabled="!gitlabAccessToken.trim() || creating || (gitlabMode === 'selfhosted' && !gitlabServerUrl.trim())"
+                            class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span x-text="creating ? _vcsI18n.connecting : _vcsI18n.save"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Atlassian / Bitbucket Card ── -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
+            <div class="flex items-center justify-between gap-[16px]">
+                <div class="flex items-center gap-[14px]">
+                    <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
+                        <svg width="22" height="22" viewBox="0 0 24 24"><defs><linearGradient id="bb-card" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0052cc"/><stop offset="100%" style="stop-color:#2684ff"/></linearGradient></defs><path fill="url(#bb-card)" d="M2.65 3c-.26 0-.5.22-.47.5l2.83 17.23c.06.34.35.59.7.59h12.56c.26 0 .48-.18.53-.43L21.82 3.5c.04-.28-.2-.5-.47-.5H2.65zM14.1 14.82H9.9l-1.1-6.64h6.38L14.1 14.82z"/></svg>
+                    </div>
+                    <div class="flex flex-col gap-[4px]">
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[14px] text-[var(--grayscale-100)]">Atlassian</span>
+                            <span x-show="connections.some(c=>c.provider==='BITBUCKET')" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{settings.vcs.status.connected}">Connected</span>
+                            </span>
+                        </div>
+                        <span class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.bitbucket.description}">Bitbucket Cloud &amp; Server</span>
+                    </div>
+                </div>
+                <div x-show="connections.some(c=>c.provider==='BITBUCKET')" class="flex items-center gap-[6px]">
+                    <div x-show="confirmingDisconnect?.provider === 'BITBUCKET'" class="flex items-center gap-[6px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.vcs.confirm.disconnect.bitbucket}">Disconnect Atlassian?</span>
+                        <button @click="doDisconnect()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[5px] rounded-[6px]" th:text="#{common.yes}">Yes</button>
+                        <button @click="confirmingDisconnect = null" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[5px] rounded-[6px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
+                    </div>
+                    <button x-show="!confirmingDisconnect || confirmingDisconnect.provider !== 'BITBUCKET'"
+                            @click="confirmingDisconnect = connections.find(c=>c.provider==='BITBUCKET')"
+                            class="inline-flex items-center gap-[6px] px-[12px] py-[7px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] text-[var(--grayscale-60)] hover:text-red-500 hover:border-red-200 transition-colors">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span th:text="#{settings.vcs.btn.disconnect}">Disconnect</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Inline form: shown when not connected -->
+            <div x-show="!connections.some(c=>c.provider==='BITBUCKET')" class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
+                <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
+                    <button type="button" @click="bitbucketMode = 'cloud'"
+                            :class="bitbucketMode === 'cloud'
+                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+                            th:text="#{settings.vcs.bb.modeCloud}">Bitbucket Cloud</button>
+                    <button type="button" @click="bitbucketMode = 'server'"
+                            :class="bitbucketMode === 'server'
+                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+                            th:text="#{settings.vcs.bb.modeServer}">Server / Data Center</button>
+                </div>
+
+                <!-- Server / Data Center -->
+                <template x-if="bitbucketMode === 'server'">
+                    <div class="flex flex-col gap-[12px]">
+                        <div class="flex items-center gap-[12px]">
+                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.serverUrl}">Server URL</label>
+                            <input type="url" x-model="bitbucketServerUrl" required
+                                   th:attr="placeholder=#{settings.vcs.bb.placeholder.serverUrlRequired}"
+                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                        </div>
+                        <div class="flex items-center gap-[12px]">
+                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.token}">Access Token</label>
+                            <input type="password" x-model="bitbucketAccessToken"
+                                   th:attr="placeholder=#{settings.vcs.bb.placeholder.serverPat}"
+                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                        </div>
+                        <p class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed">
+                            <span class="font-semibold text-[var(--grayscale-70)]" th:text="#{settings.vcs.bb.serverGuideTitle}">Bitbucket Server / Data Center</span><br>
+                            <span th:text="#{settings.vcs.bb.serverGuideHint}">Use a Personal Access Token with Repository read/write permissions.</span>
+                        </p>
+                    </div>
+                </template>
+
+                <!-- Bitbucket Cloud (REST API 2.0) -->
+                <template x-if="bitbucketMode === 'cloud'">
+                    <div class="flex flex-col gap-[12px]">
+                        <div class="flex items-center gap-[12px]">
+                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.bb.label.workspaceSlug}">Workspace Slug</label>
+                            <input type="text" x-model="bitbucketUsername"
+                                   th:attr="placeholder=#{settings.vcs.bb.placeholder.workspaceSlug}"
+                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                        </div>
+                        <div class="flex items-center gap-[12px]">
+                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.bb.guide1.username}">Atlassian Email</label>
+                            <input type="email" x-model="bitbucketEmail"
+                                   th:attr="placeholder=#{settings.vcs.bb.placeholder.atlassianEmail}"
+                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                        </div>
+                        <div class="flex items-center gap-[12px]">
+                            <label class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.token}">Access Token</label>
+                            <input type="password" x-model="bitbucketAccessToken"
+                                   th:attr="placeholder=#{settings.vcs.bb.placeholder.cloudTokenAny}"
+                                   class="flex-1 px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                        </div>
+                        <div class="pl-[122px] text-[11px] text-[var(--grayscale-50)] leading-relaxed flex flex-col gap-[4px]">
+                            <p class="m-0" th:text="#{settings.vcs.bb.cloudGuideDual.option1}">Atlassian API Token option</p>
+                            <p class="m-0" th:text="#{settings.vcs.bb.cloudGuideDual.option2}">Workspace HTTP Access Token option</p>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="flex justify-end">
+                    <button @click="connectBitbucket()"
+                            :disabled="!bitbucketAccessToken.trim() || creating || (bitbucketMode === 'server' && !bitbucketServerUrl.trim()) || (bitbucketMode === 'cloud' && !bitbucketUsername.trim())"
+                            class="bg-[var(--primary-120)] hover:opacity-90 text-white text-[13px] font-bold px-[16px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-50">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span x-text="creating ? _vcsI18n.connecting : _vcsI18n.save"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer notice -->
+    <p class="text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
+        <img th:src="@{/icon/icon-info2.svg}" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
+        <span th:text="#{settings.vcs.footer}">Access tokens are encrypted at rest. You can disconnect and reconnect at any time.</span>
+    </p>
+
+    <!-- ===================== Add Connection Slideout ===================== -->
+    <div x-show="slideout" x-cloak class="fixed inset-0 z-50"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="absolute inset-0 bg-black/30" @click="closeCreate()"></div>
+
+        <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] bg-[var(--background-dark,#001d35)] text-white shadow-2xl flex flex-col overflow-hidden"
+             x-transition:enter="transition transform ease-out duration-300"
+             x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition transform ease-in duration-200"
+             x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+            <div class="flex flex-col gap-[20px] p-[24px] overflow-y-auto h-full">
+                <!-- Header -->
+                <div class="flex items-start justify-between">
+                    <div class="flex flex-col gap-[4px]">
+                        <h3 class="font-bold text-[16px] inline-flex items-center gap-[8px]">
+                            <img th:src="@{/icon/icon-Add.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
+                            <span th:text="#{settings.vcs.slideout.title}">Add VCS Connection</span>
+                        </h3>
+                        <p class="text-[12px] text-white/60" th:text="#{settings.vcs.slideout.hint}">Access tokens are encrypted and never exposed after saving.</p>
+                    </div>
+                    <button @click="closeCreate()" class="text-white/60 hover:text-white flex-shrink-0 mt-[2px]">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                <!-- Provider dropdown -->
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-bold" th:text="#{settings.vcs.slideout.label.provider}">Provider</label>
+                    <div class="relative" @click.away="providerDropdownOpen=false">
+                        <button type="button" @click="providerDropdownOpen=!providerDropdownOpen"
+                                class="w-full flex items-center justify-between bg-white/5 border border-white/15 rounded-[8px] px-[12px] py-[10px] text-[13px] transition-colors cursor-pointer"
+                                :class="providerDropdownOpen ? 'border-[#33D1B7]' : ''">
+                            <span :class="form.provider ? 'text-white' : 'text-white/50'"
+                                  x-text="form.provider ? providerLabel(form.provider) : _vcsI18n.selectProvider"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="providerDropdownOpen ? 'rotate-180' : ''"
+                                 class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] opacity-70 ml-[8px]" style="filter: brightness(0) invert(1);" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="providerDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-[#001d35] border border-white/15 rounded-[8px] shadow-lg overflow-hidden">
+                            <button type="button" @click="form.provider=''; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="!form.provider ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white/70 hover:bg-white/5'"
+                                    th:text="#{settings.vcs.slideout.label.selectProvider}">Select a provider</button>
+                            <button type="button" @click="form.provider='GITHUB'; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="form.provider==='GITHUB' ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white hover:bg-white/5'"
+                                    th:text="#{settings.vcs.provider.github}">GitHub</button>
+                            <button type="button" @click="form.provider='GITLAB'; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="form.provider==='GITLAB' ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white hover:bg-white/5'"
+                                    th:text="#{settings.vcs.provider.gitlab}">GitLab</button>
+                            <button type="button" @click="form.provider='BITBUCKET'; providerDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="form.provider==='BITBUCKET' ? 'bg-white/10 text-[#33D1B7] font-medium' : 'text-white hover:bg-white/5'"
+                                    th:text="#{settings.vcs.provider.atlassian}">Atlassian</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GitLab / Bitbucket: Server URL (optional) -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider === 'GITLAB' || form.provider === 'BITBUCKET'" x-cloak>
+                    <label class="text-[12px] font-bold"><span th:text="#{settings.vcs.label.serverUrl}">Server URL</span>
+                        <span class="text-white/50 font-normal" x-show="form.provider === 'GITLAB'" th:text="#{settings.vcs.slideout.label.serverUrlGitlabHint}">(Optional — leave blank for gitlab.com)</span>
+                        <span class="text-white/50 font-normal" x-show="form.provider === 'BITBUCKET'" th:text="#{settings.vcs.slideout.label.serverUrlBitbucketHint}">(Optional — leave blank for Bitbucket Cloud)</span>
+                    </label>
+                    <input type="url" x-model="form.serverUrl"
+                           :placeholder="form.provider === 'GITLAB' ? _vcsI18n.placeholderGitlabUrl : _vcsI18n.placeholderBitbucketUrl"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
+                </div>
+
+                <!-- Bitbucket: Username -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider === 'BITBUCKET'" x-cloak>
+                    <label class="text-[12px] font-bold">
+                        <span x-show="!form.serverUrl.trim()" x-text="_vcsI18n.usernameWorkspaceSlug"></span>
+                        <span x-show="form.serverUrl.trim()"><span x-text="_vcsI18n.usernameOptional"></span></span>
+                    </label>
+                    <input type="text" x-model="form.vcsUsername"
+                           :placeholder="form.serverUrl.trim() ? _vcsI18n.placeholderAccountId : _vcsI18n.placeholderBbUsername"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
+                </div>
+
+                <!-- Access Token / App Password -->
+                <div class="flex flex-col gap-[6px]" x-show="form.provider" x-cloak>
+                    <label class="text-[12px] font-bold">
+                        <span x-show="form.provider !== 'BITBUCKET'" th:text="#{settings.vcs.slideout.label.tokenPersonal}">Personal Access Token</span>
+                        <span x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()" x-text="_vcsI18n.apiTokenAppPassword"></span>
+                        <span x-show="form.provider === 'BITBUCKET' && form.serverUrl.trim()" th:text="#{settings.vcs.slideout.label.tokenPersonal}">Personal Access Token</span>
+                    </label>
+                    <input type="password" x-model="form.accessToken"
+                           :placeholder="form.provider === 'GITHUB' ? _vcsI18n.placeholderGithubToken : form.provider === 'GITLAB' ? _vcsI18n.placeholderGitlabToken : (form.serverUrl.trim() ? _vcsI18n.placeholderBbServerPat : _vcsI18n.placeholderBbCloudToken)"
+                           class="px-[12px] py-[10px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] text-white placeholder-white/30 focus:outline-none focus:border-[#33D1B7]"/>
+                    <!-- Bitbucket Cloud connection guide -->
+                    <div x-show="form.provider === 'BITBUCKET' && !form.serverUrl.trim()" class="flex flex-col gap-[5px] text-[11px] text-white/50 leading-relaxed mt-[2px]">
+                        <p class="font-semibold text-white/70" x-text="_vcsI18n.bbChooseMethod"></p>
+                        <p><span class="text-white/80 font-semibold" x-text="_vcsI18n.bbMethod1Title"></span> <span class="text-emerald-400 font-semibold" x-text="_vcsI18n.bbMethod1Recommended"></span> — <span x-text="_vcsI18n.bbMethod1Body"></span><br><span class="text-white/60" x-text="_vcsI18n.bbMethod1Scopes"></span><br><span class="text-white/40" x-text="_vcsI18n.bbMethod1Creds"></span></p>
+                        <p><span class="text-white/80 font-semibold" x-text="_vcsI18n.bbMethod2Title"></span> — <span x-text="_vcsI18n.bbMethod2Body"></span><br><span class="text-white/40" x-text="_vcsI18n.bbMethod2Creds"></span></p>
+                        <p><span class="text-white/80 font-semibold" x-text="_vcsI18n.bbMethod3Title"></span> <span class="text-amber-400 font-semibold" x-text="_vcsI18n.bbMethod3Deprecated"></span><br><span class="text-white/40" x-text="_vcsI18n.bbMethod3Creds"></span></p>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                    <button @click="addConnection()" :disabled="!form.provider || !form.accessToken.trim() || creating"
+                            class="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                            x-text="creating ? _vcsI18n.connecting : _vcsI18n.connect"></button>
+                    <button @click="closeCreate()"
+                            class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _vcsI18n = {
+        connecting:                /*[[#{settings.vcs.btn.connecting}]]*/ 'Connecting…',
+        connect:                   /*[[#{settings.vcs.btn.connect}]]*/ 'Connect',
+        save:                      /*[[#{common.save}]]*/ 'Save',
+        loadFailed:                /*[[#{settings.vcs.error.loadFailed}]]*/ 'Failed to load VCS connections.',
+        connectFailed:             /*[[#{settings.vcs.error.connectFailed}]]*/ 'Failed to connect.',
+        disconnectFailed:          /*[[#{settings.vcs.error.disconnectFailed}]]*/ 'Failed to disconnect.',
+        networkError:              /*[[#{settings.vcs.error.networkError}]]*/ 'Network error. Please try again.',
+        connectedSuffix:           /*[[#{settings.vcs.toast.connectedSuffix}]]*/ 'connected successfully.',
+        disconnectedSuffix:        /*[[#{settings.vcs.toast.disconnectedSuffix}]]*/ 'disconnected.',
+        bitbucketAtattNeedsEmail:  /*[[#{settings.vcs.error.bitbucketAtattNeedsEmail}]]*/ 'Atlassian API Token (ATATT) requires your Atlassian account email as the Username — not a workspace slug.',
+        bbModeCloud:               /*[[#{settings.vcs.bb.modeCloud}]]*/ 'Bitbucket Cloud',
+        bbModeServer:              /*[[#{settings.vcs.bb.modeServer}]]*/ 'Server / Data Center',
+        bbWorkspaceSlug:           /*[[#{settings.vcs.bb.label.workspaceSlug}]]*/ 'Workspace Slug',
+        bbPlaceholderWorkspace:    /*[[#{settings.vcs.bb.placeholder.workspaceSlug}]]*/ 'mycompany',
+        bbPlaceholderServerUrl:    /*[[#{settings.vcs.bb.placeholder.serverUrlRequired}]]*/ 'https://bitbucket.example.com',
+        bbPlaceholderServerPat:    /*[[#{settings.vcs.bb.placeholder.serverPat}]]*/ 'Personal Access Token (Bearer)',
+        bbPlaceholderCloudToken:   /*[[#{settings.vcs.bb.placeholder.cloudToken}]]*/ 'Workspace HTTP Access Token',
+        bbServerGuide:             /*[[#{settings.vcs.bb.serverGuideHint}]]*/ 'Use PAT with Repository read/write.',
+        bbCloudGuide:              /*[[#{settings.vcs.bb.cloudGuideSimple}]]*/ 'Workspace HTTP Access Token + slug.',
+        personalAccessToken:       /*[[#{settings.vcs.slideout.label.tokenPersonal}]]*/ 'Personal Access Token',
+        placeholderGithubToken:    /*[[#{settings.vcs.placeholder.githubToken}]]*/ 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        placeholderGitlabToken:    /*[[#{settings.vcs.placeholder.gitlabToken}]]*/ 'glpat-xxxxxxxxxxxxxxxxxxxx',
+        providerGithub:            /*[[#{settings.vcs.provider.github}]]*/ 'GitHub',
+        providerGitlab:            /*[[#{settings.vcs.provider.gitlab}]]*/ 'GitLab',
+        providerBitbucket:         /*[[#{settings.vcs.provider.bitbucket}]]*/ 'Bitbucket',
+        providerAtlassian:         /*[[#{settings.vcs.provider.atlassian}]]*/ 'Atlassian',
+        loadConnectionsStatus:     /*[[#{settings.vcs.error.loadConnectionsStatus}]]*/ 'Failed to load connections ({0})',
+        usernameWorkspaceSlug:     /*[[#{settings.vcs.slideout.usernameWorkspaceSlug}]]*/ 'Username / Workspace Slug',
+        usernameOptional:          /*[[#{settings.vcs.slideout.usernameOptional}]]*/ 'Username (Optional)',
+        apiTokenAppPassword:       /*[[#{settings.vcs.slideout.apiTokenAppPassword}]]*/ 'API Token / App Password',
+        placeholderGitlabUrl:      /*[[#{settings.vcs.slideout.placeholder.gitlabUrl}]]*/ 'https://gitlab.example.com',
+        placeholderBitbucketUrl:   /*[[#{settings.vcs.slideout.placeholder.bitbucketUrl}]]*/ 'https://bitbucket.example.com',
+        placeholderAccountId:      /*[[#{settings.vcs.slideout.placeholder.accountId}]]*/ 'Account ID (optional)',
+        placeholderBbUsername:     /*[[#{settings.vcs.slideout.placeholder.bbUsername}]]*/ 'API Token: Atlassian email  /  Workspace Token: workspace-slug  /  App Password: Bitbucket ID',
+        bbChooseMethod:            /*[[#{settings.vcs.slideout.bb.chooseMethod}]]*/ 'Choose one method',
+        bbMethod1Title:            /*[[#{settings.vcs.slideout.bb.method1.title}]]*/ '\u2460 Atlassian API Token',
+        bbMethod1Recommended:      /*[[#{settings.vcs.slideout.bb.method1.recommended}]]*/ '(recommended)',
+        bbMethod1Body:             /*[[#{settings.vcs.slideout.bb.method1.body}]]*/ 'id.atlassian.com \u2192 Security \u2192 API tokens \u2192 select Bitbucket scopes',
+        bbMethod1Scopes:           /*[[#{settings.vcs.slideout.bb.method1.scopes}]]*/ 'Required scopes: read:workspace:bitbucket + read:repository:bitbucket',
+        bbMethod1Creds:            /*[[#{settings.vcs.slideout.bb.method1.creds}]]*/ 'Username: Atlassian email \u00b7 Token: ATATT-\u2026',
+        bbMethod2Title:            /*[[#{settings.vcs.slideout.bb.method2.title}]]*/ '\u2461 Workspace HTTP Access Token',
+        bbMethod2Body:             /*[[#{settings.vcs.slideout.bb.method2.body}]]*/ 'Bitbucket workspace settings \u2192 Access management \u2192 Access tokens',
+        bbMethod2Creds:            /*[[#{settings.vcs.slideout.bb.method2.creds}]]*/ 'Username: workspace-slug (e.g. mycompany) \u00b7 Token: ATATT-\u2026',
+        bbMethod3Title:            /*[[#{settings.vcs.slideout.bb.method3.title}]]*/ '\u2462 App Password',
+        bbMethod3Deprecated:       /*[[#{settings.vcs.slideout.bb.method3.deprecated}]]*/ '\u26a0 Deprecated \u2014 brownout 2026-06-09, removed 2026-07-28.',
+        bbMethod3Creds:            /*[[#{settings.vcs.slideout.bb.method3.creds}]]*/ 'Username: Bitbucket account ID \u00b7 Token: ATBB-\u2026',
+        placeholderBbServerPat:    /*[[#{settings.vcs.slideout.placeholder.bbServerPat}]]*/ 'Personal Access Token',
+        placeholderBbCloudToken:   /*[[#{settings.vcs.slideout.placeholder.bbCloudToken}]]*/ 'API Token (ATATT-\u2026) or App Password (ATBB-\u2026)',
+        selectProvider:            /*[[#{settings.vcs.slideout.label.selectProvider}]]*/ 'Select a provider'
+    };
+    function _vcsFmt(template, arg) {
+        return String(template).replace('{0}', arg);
+    }
+    </script>
+    <script>
+    function vcsTab() {
+        return {
+            connections: [],
+            loading: true,
+            slideout: false,
+            providerDropdownOpen: false,
+            creating: false,
+            confirmingDisconnect: null,
+            apiError: null,
+            toastVisible: false,
+            toastMsg: '',
+            githubMode: 'cloud',
+            githubServerUrl: '',
+            githubAccessToken: '',
+            gitlabMode: 'cloud',
+            gitlabServerUrl: '',
+            gitlabAccessToken: '',
+            bitbucketMode: 'cloud',
+            bitbucketServerUrl: '',
+            bitbucketUsername: '',
+            bitbucketEmail: '',
+            bitbucketAccessToken: '',
+            form: { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' },
+            headers() {
+                return Object.assign(
+                    { 'Accept': 'application/json' },
+                    oswlJsonHeaders()
+                );
+            },
+            formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
+            providerLabel(p) {
+                return p === 'GITHUB' ? _vcsI18n.providerGithub
+                    : p === 'GITLAB' ? _vcsI18n.providerGitlab
+                    : p === 'BITBUCKET' ? _vcsI18n.providerAtlassian
+                    : p;
+            },
+            showToast(msg) {
+                this.toastMsg = msg;
+                this.toastVisible = true;
+                setTimeout(() => { this.toastVisible = false; }, 3000);
+            },
+
+            async init() {
+                await this.loadConnections();
+            },
+            async loadConnections() {
+                this.loading = true;
+                try {
+                    const r = await fetch('/api/settings/vcs');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _vcsFmt(_vcsI18n.loadConnectionsStatus, r.status)); return; }
+                    this.connections = await r.json();
+                } catch (e) {
+                    this.apiError = _vcsI18n.loadFailed;
+                } finally {
+                    this.loading = false;
+                }
+            },
+            openCreate() {
+                this.form = { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' };
+                this.providerDropdownOpen = false;
+                this.slideout = true;
+            },
+            closeCreate() {
+                this.providerDropdownOpen = false;
+                this.slideout = false;
+            },
+            async addConnection() {
+                if (!this.form.provider || !this.form.accessToken.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                const providerName = this.providerLabel(this.form.provider);
+                try {
+                    const body = {
+                        provider: this.form.provider,
+                        serverUrl: this.form.serverUrl.trim() || null,
+                        vcsUsername: this.form.vcsUsername.trim() || null,
+                        accessToken: this.form.accessToken
+                    };
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
+                        return;
+                    }
+                    this.closeCreate();
+                    await this.loadConnections();
+                    this.showToast(providerName + ' ' + _vcsI18n.connectedSuffix);
+                } catch (e) {
+                    this.apiError = _vcsI18n.networkError;
+                } finally {
+                    this.creating = false;
+                }
+            },
+            disconnect(c) {
+                this.confirmingDisconnect = c;
+            },
+            async doDisconnect() {
+                const c = this.confirmingDisconnect;
+                this.confirmingDisconnect = null;
+                this.apiError = null;
+                try {
+                    const r = await fetch('/api/settings/vcs/' + c.id, { method: 'DELETE', headers: this.headers() });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _vcsI18n.disconnectFailed; return; }
+                    await this.loadConnections();
+                    this.showToast(this.providerLabel(c.provider) + ' ' + _vcsI18n.disconnectedSuffix);
+                } catch (e) {
+                    this.apiError = _vcsI18n.networkError;
+                }
+            },
+            async connectGitlab() {
+                if (!this.gitlabAccessToken.trim()) return;
+                if (this.gitlabMode === 'selfhosted' && !this.gitlabServerUrl.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                try {
+                    const body = {
+                        provider: 'GITLAB',
+                        serverUrl: this.gitlabMode === 'selfhosted' ? this.gitlabServerUrl.trim() : null,
+                        vcsUsername: null,
+                        accessToken: this.gitlabAccessToken
+                    };
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
+                        return;
+                    }
+                    this.gitlabMode = 'cloud';
+                    this.gitlabServerUrl = '';
+                    this.gitlabAccessToken = '';
+                    await this.loadConnections();
+                    this.showToast(_vcsI18n.providerGitlab + ' ' + _vcsI18n.connectedSuffix);
+                } catch (e) {
+                    this.apiError = _vcsI18n.networkError;
+                } finally {
+                    this.creating = false;
+                }
+            },
+            async connectGithub() {
+                if (!this.githubAccessToken.trim()) return;
+                if (this.githubMode === 'enterprise' && !this.githubServerUrl.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                try {
+                    const body = {
+                        provider: 'GITHUB',
+                        serverUrl: this.githubMode === 'enterprise' ? this.githubServerUrl.trim() : null,
+                        vcsUsername: null,
+                        accessToken: this.githubAccessToken
+                    };
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
+                        return;
+                    }
+                    this.githubMode = 'cloud';
+                    this.githubServerUrl = '';
+                    this.githubAccessToken = '';
+                    await this.loadConnections();
+                    this.showToast(_vcsI18n.providerGithub + ' ' + _vcsI18n.connectedSuffix);
+                } catch (e) {
+                    this.apiError = _vcsI18n.networkError;
+                } finally {
+                    this.creating = false;
+                }
+            },
+            async connectBitbucket() {
+                if (!this.bitbucketAccessToken.trim()) return;
+                if (this.bitbucketMode === 'server' && !this.bitbucketServerUrl.trim()) return;
+                if (this.bitbucketMode === 'cloud' && !this.bitbucketUsername.trim()) return;
+                this.creating = true;
+                this.apiError = null;
+                try {
+                    const isServer = this.bitbucketMode === 'server';
+                    const email = this.bitbucketEmail.trim();
+                    const slug = this.bitbucketUsername.trim();
+                    const vcsUsername = isServer
+                            ? null
+                            : (email ? email + '|' + slug : slug);
+                    const body = {
+                        provider: 'BITBUCKET',
+                        serverUrl: isServer ? this.bitbucketServerUrl.trim() : null,
+                        vcsUsername,
+                        accessToken: this.bitbucketAccessToken
+                    };
+                    const r = await fetch('/api/settings/vcs', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) {
+                        const errBody = await r.json().catch(() => ({}));
+                        this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
+                        return;
+                    }
+                    this.bitbucketMode = 'cloud';
+                    this.bitbucketServerUrl = '';
+                    this.bitbucketUsername = '';
+                    this.bitbucketEmail = '';
+                    this.bitbucketAccessToken = '';
+                    await this.loadConnections();
+                    this.showToast(_vcsI18n.providerBitbucket + ' ' + _vcsI18n.connectedSuffix);
+                } catch (e) {
+                    this.apiError = _vcsI18n.networkError;
+                } finally {
+                    this.creating = false;
+                }
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

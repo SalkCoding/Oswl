@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(pageTitle)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" th:content="${_csrf.token}" th:if="${_csrf != null}">
+    <title th:text="${pageTitle != null ? 'OsWL - ' + pageTitle : 'OsWL'}">OsWL</title>
+
+    <link rel="icon" th:href="@{/graphic/symbol_w.svg}" type="image/svg+xml" media="(prefers-color-scheme: light)">
+    <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS — precompiled by the buildTailwindCss Gradle task (no CDN runtime). -->
+    <link rel="stylesheet" th:href="@{/css/tailwind.css}">
+    <!-- Alpine collapse plugin must load before Alpine (vendored — no CDN). -->
+    <script defer th:src="@{/js/vendor/alpine-collapse.min.js}"></script>
+    <script defer th:src="@{/js/vendor/alpine.min.js}"></script>
+    <script defer th:src="@{/js/vendor/htmx.min.js}"></script>
+
+    <link rel="stylesheet" th:href="@{/css/globals.css}">
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+    <script th:src="@{/js/oswl-csrf.js}"></script>
+    <script>
+        // Auto-inject CSRF header for same-origin state-changing fetch requests (token from meta, not cookie).
+        (function () {
+            const origFetch = window.fetch;
+            window.fetch = function (input, init) {
+                init = init || {};
+                const method = (init.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
+                if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                    const url = typeof input === 'string' ? input : (input && input.url) || '';
+                    const sameOrigin = !/^https?:\/\//i.test(url) || url.startsWith(location.origin);
+                    if (sameOrigin && window.OswlCsrf) {
+                        const token = window.OswlCsrf.token();
+                        if (token) {
+                            const headers = new Headers(init.headers || (typeof input === 'object' ? input.headers : undefined) || {});
+                            if (!headers.has('X-XSRF-TOKEN')) headers.set('X-XSRF-TOKEN', token);
+                            init.headers = headers;
+                        }
+                    }
+                }
+                return origFetch.call(this, input, init);
+            };
+        })();
+    </script>
+</head>
+</html>

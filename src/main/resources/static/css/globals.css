@@ -1,0 +1,247 @@
+:root {
+    --background-dark:  #001d35;
+    --background-light: #ffffff;
+
+    --grayscale-100: #141616;
+    --grayscale-90:  #272d30;
+    --grayscale-80:  #333e42;
+    --grayscale-70:  #425055;
+    --grayscale-60:  #5e6b70;
+    --grayscale-50:  #849197;
+    --grayscale-40:  #abb8be;
+    --grayscale-30:  #c5cfd3;
+    --grayscale-20:  #dbe4e7;
+    --grayscale-15:  #e8eef0;
+    --grayscale-10:  #f3f5f6;
+    --grayscale-5:   #fafbfb;
+
+    --primary-140:   #009086;
+    --primary-120:   #00a093;
+    --primary-100:   #00b0a0;
+    --primary-80:    #33d1b7;
+    --primary-40:    #99ebd9;
+    --primary-20:    #d3fcf3;
+
+    --secondary-100: #22efc3;
+    --secondary-80:  #33d1b7;
+    --secondary-60:  #00a093;
+    --secondary-20:  #d3fcf3;
+
+    --risk-critical:  #e62727;
+    --risk-high:      #f47a29;
+    --risk-medium:    #f5bd26;
+    --risk-low:       #c2cdd1;
+    --risk-unknown:   #e8eef0;
+    --risk-permitted: #84dca5;
+    --risk-caution:   #f59126;
+
+    --semantic-warning: #e62727;
+    --semantic-caution: #f59126;
+    --semantic-patchable: #00d761;
+
+    --surface:        #ffffff;
+    --surface-soft:   #f3f5f6;
+    --border-default: #dbe4e7;
+
+    --copy-info:      #00659c;
+}
+
+html {
+    overflow-x: auto;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    color: var(--grayscale-100);
+    background-color: var(--grayscale-5);
+    letter-spacing: -0.01em;
+    min-width: 1024px;
+}
+
+* { box-sizing: border-box; }
+
+a { color: inherit; text-decoration: none; }
+
+.custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #c5cfd3; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #849197; }
+
+.thin-scrollbar { scrollbar-width: thin; scrollbar-color: #c5cfd3 #f0f3f4; }
+.thin-scrollbar::-webkit-scrollbar { width: 4px; }
+.thin-scrollbar::-webkit-scrollbar-track { background: #f0f3f4; border-radius: 4px; }
+.thin-scrollbar::-webkit-scrollbar-thumb { background: #c5cfd3; border-radius: 4px; }
+.thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #849197; }
+
+.risk-graph-bar {
+    display: flex;
+    width: 100%;
+    height: 20px;
+    border-radius: 2px;
+    overflow: hidden;
+    background-color: var(--risk-unknown);
+}
+
+.risk-graph-segment { height: 100%; }
+
+.slide-over-enter { transform: translateX(100%); }
+.slide-over-enter-active { transition: transform 0.3s ease-out; transform: translateX(0); }
+.slide-over-leave { transform: translateX(0); }
+.slide-over-leave-active { transition: transform 0.3s ease-in; transform: translateX(100%); }
+
+/* =====================================================
+   TAG SYSTEM  (Figma 636-83090 기준)
+   ===================================================== */
+
+/* Base — 모든 태그 공통 */
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 40px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--grayscale-80);
+    letter-spacing: -0.11px;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+/* 태그 내 dot */
+.tag-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── Risk / Severity 태그 ── */
+.tag-critical {
+    background: rgba(230, 39, 39, 0.05);
+    border-color: rgba(230, 39, 39, 0.2);
+}
+.tag-critical .tag-dot { background: var(--risk-critical); }
+
+.tag-high {
+    background: rgba(244, 122, 41, 0.05);
+    border-color: rgba(244, 122, 41, 0.2);
+}
+.tag-high .tag-dot { background: var(--risk-high); }
+
+.tag-medium {
+    background: rgba(245, 189, 38, 0.05);
+    border-color: rgba(245, 189, 38, 0.2);
+}
+.tag-medium .tag-dot { background: var(--risk-medium); }
+
+.tag-low {
+    background: var(--grayscale-5);
+    border-color: var(--grayscale-20);
+}
+.tag-low .tag-dot { background: var(--grayscale-30); }
+
+/* Unscore: text 색상 다름 */
+.tag-unscore {
+    background: rgba(250, 251, 251, 0.2);
+    border-color: var(--grayscale-10);
+    color: var(--grayscale-60);
+}
+.tag-unscore .tag-dot { background: var(--grayscale-20); }
+
+/* ── Patchable 태그 ── */
+.tag-patchable {
+    background: rgba(0, 215, 97, 0.05);
+    border-color: rgba(0, 215, 97, 0.2);
+}
+.tag-patchable .tag-dot { background: var(--semantic-patchable); }
+
+.tag-non-patchable {
+    background: rgba(230, 39, 39, 0.05);
+    border-color: rgba(230, 39, 39, 0.2);
+}
+.tag-non-patchable .tag-dot { background: var(--risk-critical); }
+
+/* ── License 태그 (Patchable green과 다른 mint green) ── */
+.tag-license-restricted {
+    background: rgba(230, 39, 39, 0.05);
+    border-color: rgba(230, 39, 39, 0.2);
+}
+.tag-license-restricted .tag-dot { background: var(--risk-critical); }
+
+.tag-license-caution {
+    background: rgba(244, 122, 41, 0.05);
+    border-color: rgba(244, 122, 41, 0.2);
+}
+.tag-license-caution .tag-dot { background: var(--risk-high); }
+
+.tag-license-permitted {
+    background: rgba(132, 220, 165, 0.08);
+    border-color: rgba(132, 220, 165, 0.32);
+}
+.tag-license-permitted .tag-dot { background: rgba(132, 220, 165, 1); }
+
+.tag-license-unknown {
+    background: var(--grayscale-5);
+    border-color: var(--grayscale-20);
+}
+.tag-license-unknown .tag-dot { background: var(--grayscale-30); }
+
+/* ── 버전 상태 태그 ── */
+.tag-uptodate {
+    background: rgba(0, 215, 97, 0.05);
+    border-color: rgba(0, 215, 97, 0.2);
+}
+.tag-uptodate .tag-dot { background: var(--semantic-patchable); }
+
+.tag-outdated {
+    background: rgba(245, 189, 38, 0.05);
+    border-color: rgba(245, 189, 38, 0.2);
+}
+.tag-outdated .tag-dot { background: var(--semantic-caution); }
+
+.tag-deprecated {
+    background: rgba(230, 39, 39, 0.05);
+    border-color: rgba(230, 39, 39, 0.2);
+}
+.tag-deprecated .tag-dot { background: var(--risk-critical); }
+
+/* ── 카운트 태그 (N Projects, N Libraries 등) ── */
+.tag-count {
+    background: var(--grayscale-10);
+    border: none;
+    color: var(--grayscale-60);
+    gap: 0;
+}
+
+/* ── Scan History Status 태그 (Figma 639-84576 기준) ── */
+.tag-status-completed {
+    background: rgba(0, 215, 97, 0.05);
+    border-color: rgba(0, 215, 97, 0.2);
+}
+.tag-status-completed .tag-dot { background: var(--semantic-patchable); }
+
+.tag-status-failed {
+    background: rgba(230, 39, 39, 0.05);
+    border-color: rgba(230, 39, 39, 0.2);
+}
+.tag-status-failed .tag-dot { background: var(--risk-critical); }
+
+/* Pending: orange */
+.tag-status-pending {
+    background: rgba(244, 122, 41, 0.05);
+    border-color: rgba(244, 122, 41, 0.2);
+}
+.tag-status-pending .tag-dot { background: var(--risk-high); }
+
+/* Scanning / Analyzing: yellow */
+.tag-status-scanning,
+.tag-status-analyzing {
+    background: rgba(245, 189, 38, 0.05);
+    border-color: rgba(245, 189, 38, 0.2);
+}
+.tag-status-scanning .tag-dot,
+.tag-status-analyzing .tag-dot { background: var(--risk-medium); }

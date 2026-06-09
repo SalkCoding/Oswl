@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!-- Risk Tags Fragment -->
+    <div th:fragment="risk-tag(level)"
+         th:classappend="${
+            level == 'LOW' ? 'bg-[var(--grayscale-5)] border-[var(--grayscale-15)]' :
+            level == 'MEDIUM' ? 'bg-[rgba(245,189,38,0.05)] border-[rgba(245,189,38,0.2)]' :
+            level == 'HIGH' ? 'bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]' :
+            'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
+         }"
+         class="border border-solid flex gap-2 items-center px-3 py-1 rounded-[40px] shrink-0">
+
+        <div th:classappend="${
+                level == 'LOW' ? 'bg-[var(--grayscale-80)]' :
+                level == 'MEDIUM' ? 'bg-[var(--risk-medium)]' :
+                level == 'HIGH' ? 'bg-[var(--risk-high)]' :
+                'bg-[var(--risk-critical)]'
+             }"
+             class="w-1.5 h-1.5 rounded-full shrink-0"></div>
+
+        <span class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-tight whitespace-nowrap"
+              th:text="${
+                  level == 'LOW' ? #messages.msg('tag.risk.low') :
+                  level == 'MEDIUM' ? #messages.msg('tag.risk.medium') :
+                  level == 'HIGH' ? #messages.msg('tag.risk.high') :
+                  #messages.msg('tag.risk.critical')
+              }">Low Risk</span>
+    </div>
+
+    <!-- License Risk Tag Fragment (Restricted / Caution / Permitted / Unknown) -->
+    <div th:fragment="license-risk-tag(level)"
+         th:classappend="${
+            level == 'RESTRICTED' ? 'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]' :
+            level == 'CAUTION'    ? 'bg-[rgba(245,145,38,0.05)] border-[rgba(245,145,38,0.2)]' :
+            level == 'PERMITTED'  ? 'bg-[rgba(132,220,165,0.05)] border-[rgba(132,220,165,0.2)]' :
+            'bg-[var(--grayscale-5)] border-[var(--grayscale-15)]'
+         }"
+         class="border border-solid flex gap-2 items-center px-3 py-1 rounded-[40px] shrink-0">
+
+        <div th:classappend="${
+                level == 'RESTRICTED' ? 'bg-[#e62727]' :
+                level == 'CAUTION'    ? 'bg-[#f59126]' :
+                level == 'PERMITTED'  ? 'bg-[#84dca5]' :
+                'bg-[#abb8be]'
+             }"
+             class="w-1.5 h-1.5 rounded-full shrink-0"></div>
+
+        <span class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-tight whitespace-nowrap"
+              th:text="${
+                  level == 'RESTRICTED' ? #messages.msg('license.status.restricted') :
+                  level == 'CAUTION'    ? #messages.msg('license.status.caution') :
+                  level == 'PERMITTED'  ? #messages.msg('license.status.permitted') :
+                  #messages.msg('license.status.unknown')
+              }">Unknown</span>
+    </div>
+
+    <!-- Number of Libraries Tag -->
+    <div th:fragment="library-count(count)"
+         class="bg-[var(--grayscale-10)] flex items-center px-3 py-1 rounded-[40px] shrink-0">
+        <span class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap text-right"
+              th:text="${count} + (${count} == 1 ? ' library' : ' libraries')">3 libraries</span>
+    </div>
+
+</body>
+</html>

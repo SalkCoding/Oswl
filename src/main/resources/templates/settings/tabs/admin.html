@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="adminTab()"
+     x-init="init()"
+     th:data-msg-assign-role="#{settings.admin.toast.assignRoleFirst}"
+     class="flex flex-col gap-[20px] relative">
+
+    <script th:inline="javascript">
+    const _adminI18n = {
+        templateSave:           /*[[#{settings.admin.template.panel.save}]]*/ 'Save Changes',
+        templateCreate:         /*[[#{settings.admin.template.panel.create}]]*/ 'Create Template',
+        deactivate:             /*[[#{settings.admin.users.action.deactivate}]]*/ 'Deactivate',
+        activate:               /*[[#{settings.admin.icons.activate}]]*/ 'Activate',
+        assignRoleToActivate:   /*[[#{settings.admin.users.activateRoleRequired}]]*/ 'Assign a role to activate this user',
+        clearAll:               /*[[#{common.clearAll}]]*/ 'Clear All',
+        selectAll:              /*[[#{common.selectAll}]]*/ 'Select All',
+        clear:                  /*[[#{common.clear}]]*/ 'Clear',
+        select:                 /*[[#{common.select}]]*/ 'Select',
+        allUsers:               /*[[#{settings.admin.auditLog.filter.allUsers}]]*/ 'All Users',
+        noUsersFound:           /*[[#{settings.admin.auditLog.filter.noUsersFound}]]*/ 'No users found',
+        allActions:             /*[[#{settings.admin.auditLog.filter.allActions}]]*/ 'All Actions',
+        expand:                 /*[[#{common.expand}]]*/ 'Expand',
+        collapse:               /*[[#{common.collapse}]]*/ 'Collapse',
+        total:                  /*[[#{settings.admin.pagination.total}]]*/ 'total',
+        validateNameRequired:   /*[[#{settings.admin.invite.validate.nameRequired}]]*/ 'Name is required.',
+        validateEmailRequired:  /*[[#{settings.admin.invite.validate.emailRequired}]]*/ 'Email is required.',
+        validateEmailInvalid:   /*[[#{settings.admin.invite.validate.emailInvalid}]]*/ 'Please enter a valid email address.',
+        validatePasswordRequired: /*[[#{settings.admin.invite.validate.passwordRequired}]]*/ 'Temporary password is required.',
+        validatePasswordTooShort: /*[[#{settings.admin.invite.validate.passwordTooShort}]]*/ 'Temporary password must be at least {0} characters.',
+        allTime:                /*[[#{settings.admin.auditLog.filter.allTime}]]*/ 'All time',
+        last7Days:              /*[[#{settings.admin.auditLog.filter.last7Days}]]*/ 'Last 7 days',
+        last30Days:             /*[[#{settings.admin.auditLog.filter.last30Days}]]*/ 'Last 30 days',
+        last90Days:             /*[[#{settings.admin.auditLog.filter.last90Days}]]*/ 'Last 90 days',
+        customRange:            /*[[#{settings.admin.auditLog.filter.customRange}]]*/ 'Custom range',
+        inviteFailed:           /*[[#{settings.admin.invite.error.failed}]]*/ 'Failed to send invitation.',
+        nameTooShort:           /*[[#{settings.admin.users.validate.nameTooShort}]]*/ 'Name must be at least 1 character.',
+        nameTooLong:            /*[[#{settings.admin.users.validate.nameTooLong}]]*/ 'Name must be 20 characters or fewer.',
+        updateNameFailed:       /*[[#{settings.admin.users.error.updateNameFailed}]]*/ 'Failed to update display name.',
+        actionFailed:           /*[[#{settings.admin.users.error.actionFailed}]]*/ 'Operation failed.',
+        auditLoadFailed:        /*[[#{settings.admin.auditLog.error.loadFailed}]]*/ 'Failed to load audit logs.',
+        loadDataFailed:         /*[[#{settings.admin.error.loadDataFailed}]]*/ 'Failed to load data. Please verify your session.',
+        noRole:                 /*[[#{settings.admin.users.noRole}]]*/ '\u2014 No role \u2014',
+        active:                 /*[[#{settings.admin.users.status.active}]]*/ 'Active',
+        inactive:               /*[[#{settings.admin.users.status.inactive}]]*/ 'Inactive',
+        signInAgain:            /*[[#{settings.admin.signInAgain}]]*/ 'Sign in again',
+        builtIn:                /*[[#{settings.admin.roleTemplate.builtIn}]]*/ 'Built-in',
+        showCount:              /*[[#{settings.admin.pagination.showCount}]]*/ 'Show {0}',
+        systemAdmin:            /*[[#{settings.admin.users.badge.systemAdmin}]]*/ 'System Admin',
+        templateAddHeader:      /*[[#{settings.admin.template.panel.addHeader}]]*/ 'Add a New Template',
+        templateEditHeader:     /*[[#{settings.admin.template.panel.editHeader}]]*/ 'Edit Template :',
+        templateDescription:    /*[[#{settings.admin.template.panel.description}]]*/ 'Group permissions to assign to users.',
+        invitePlaceholderName:  /*[[#{settings.admin.invite.placeholder.name}]]*/ 'Enter user\'s name',
+        invitePlaceholderEmail: /*[[#{settings.admin.invite.placeholder.email}]]*/ 'Enter email address',
+        invitePlaceholderPwdSuffix: /*[[#{settings.admin.invite.placeholder.passwordSuffix}]]*/ '+ characters',
+        invitePlaceholderMessage: /*[[#{settings.admin.invite.placeholder.message}]]*/ 'Enter an invitation message (max 200 characters)',
+        actorSearchPlaceholder: /*[[#{settings.admin.auditLog.placeholder.actorSearch}]]*/ 'Search...',
+        selectRole:             /*[[#{settings.admin.invite.placeholder.selectRole}]]*/ 'Select a role'
+    };
+    const _permGroupLabels = {
+        'Project':         /*[[#{permission.group.project}]]*/ 'Project',
+        'Scan':            /*[[#{permission.group.scan}]]*/ 'Scan',
+        'Security Center': /*[[#{permission.group.securityCenter}]]*/ 'Security Center',
+        'License':         /*[[#{permission.group.license}]]*/ 'License',
+        'Analysis':        /*[[#{permission.group.analysis}]]*/ 'Analysis',
+        'Settings':        /*[[#{permission.group.settings}]]*/ 'Settings'
+    };
+    const _auditGroupLabels = {
+        'Auth':             /*[[#{permission.auditGroup.auth}]]*/ 'Auth',
+        'User':             /*[[#{permission.auditGroup.user}]]*/ 'User',
+        'Role Template':    /*[[#{permission.auditGroup.roleTemplate}]]*/ 'Role Template',
+        'Project':          /*[[#{permission.auditGroup.project}]]*/ 'Project',
+        'VCS':              /*[[#{permission.auditGroup.vcs}]]*/ 'VCS',
+        'CLI Key':          /*[[#{permission.auditGroup.cliKey}]]*/ 'CLI Key',
+        'Security':         /*[[#{permission.auditGroup.security}]]*/ 'Security',
+        'AI Setting':       /*[[#{permission.auditGroup.aiSetting}]]*/ 'AI Setting',
+        'Cache':            /*[[#{permission.auditGroup.cache}]]*/ 'Cache',
+        'External Setting': /*[[#{permission.auditGroup.externalSetting}]]*/ 'External Setting',
+        'Scan':             /*[[#{permission.auditGroup.scan}]]*/ 'Scan',
+        'License':          /*[[#{permission.auditGroup.license}]]*/ 'License',
+        'Component':        /*[[#{permission.auditGroup.component}]]*/ 'Component',
+        'Security Center':  /*[[#{permission.auditGroup.securityCenter}]]*/ 'Security Center'
+    };
+    </script>
+
+    <!-- Toast notification -->
+    <div x-show="toast" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
+    </div>
+
+    <!-- API Error Banner -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+        <span class="text-red-600 text-[13px]" x-text="apiError"></span>
+        <a href="/login" class="ml-auto text-[12px] text-red-700 underline" th:text="#{settings.admin.signInAgain}">Sign in again</a>
+    </div>
+
+    <!-- Sub-tabs -->
+    <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+        <button @click="subTab='users'; closeSidebar()"
+                :class="subTab==='users' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.heading}">User Management</button>
+        <button @click="subTab='templates'; closeSidebar(); loadTemplates()"
+                :class="subTab==='templates' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.roleTemplate.heading}">Permission Template</button>
+        <button @click="subTab='audit'; closeSidebar(); loadAudit(0)"
+                :class="subTab==='audit' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.auditLog.heading}">Audit Log</button>
+    </div>
+
+    <!-- ===================== USERS ===================== -->
+    <div x-show="subTab==='users'" x-cloak class="flex flex-col gap-[12px]">
+        <!-- Info box + Invite button row (Figma 524:75374) -->
+        <div class="flex items-center gap-[12px]">
+            <div class="flex-1 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+                <img th:src="@{/icon/icon-info2.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
+                <span class="text-[13px] text-[var(--grayscale-70)]" th:text="#{settings.admin.infoBox.text}">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
+            </div>
+            <button @click="openInvite()"
+                    class="flex-shrink-0 bg-[var(--background-dark,#001d35)] hover:bg-[#00334d] text-white text-[13px] font-bold px-[20px] py-[11px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
+                <img th:src="@{/icon/icon-person-add.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
+                <span th:text="#{settings.admin.inviteUser.btn}">Invited user</span>
+            </button>
+        </div>
+        <!-- Table + footer wrapper (no gap between them) -->
+        <div class="flex flex-col relative">
+        <!-- User Management list box -->
+        <div class="rounded-t-[8px] border border-[var(--grayscale-20)] overflow-hidden bg-white min-h-[300px]">
+            <!-- Table area -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-[13px]">
+                    <thead>
+                    <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                        <th class="pl-[16px] pr-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.name}">Name</th>
+                        <th class="pl-[16px] pr-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.email}">Email</th>
+                        <th class="pl-[16px] pr-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.role}">Role</th>
+                        <th class="pl-[16px] pr-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.status}">Status</th>
+                        <th class="pl-[16px] pr-[16px] py-[12px] font-bold" th:text="#{settings.admin.users.col.lastLogin}">Last Login</th>
+                        <th class="pl-[16px] pr-[16px] py-[12px] font-bold w-[140px]" th:text="#{settings.admin.users.col.actions}">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="u in pagedUsers" :key="u.id">
+                        <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 transition-colors"
+                            :class="(sidebarMode==='editUser' && editingUser?.id===u.id) ? 'bg-[var(--secondary-20,#e0f0ff)]' : 'hover:bg-[var(--grayscale-5)]'">
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-100)]">
+                                <div class="flex items-center gap-[10px]">
+                                    <div class="w-[32px] h-[32px] rounded-full inline-flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+                                         :style="`background-color: ${avatarColor(u.displayName||u.email)}`"
+                                         x-text="(u.displayName||u.email||'?').trim().charAt(0).toUpperCase()"></div>
+                                    <span x-text="u.displayName"></span>
+                                </div>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="u.email"></td>
+                            <td class="px-[16px] py-[12px]">
+                                <template x-if="u.systemAdmin">
+                                    <span class="inline-flex items-center px-[12px] py-[4px] rounded-[40px] bg-[rgba(94,107,112,0.07)] text-[var(--grayscale-80)] text-[11px] font-normal" th:text="#{settings.admin.users.badge.systemAdmin}">System Admin</span>
+                                </template>
+                                <template x-if="!u.systemAdmin">
+                                    <span class="inline-flex flex-wrap gap-[4px]">
+                                        <template x-for="r in (u.roleTemplates||[])" :key="r.id">
+                                            <span class="inline-flex items-center px-[12px] py-[4px] rounded-[40px] bg-[rgba(94,107,112,0.07)] text-[var(--grayscale-80)] text-[11px] font-normal" x-text="r.name"></span>
+                                        </template>
+                                        <span x-show="!(u.roleTemplates||[]).length" class="text-[var(--grayscale-50)] text-[12px]">—</span>
+                                    </span>
+                                </template>
+                            </td>
+                            <td class="px-[16px] py-[12px]">
+                                <div style="width:90px">
+                                <span x-show="u.enabled" class="inline-flex items-center gap-[6px] px-[10px] pr-[12px] py-[4px] rounded-[40px] bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#00d761"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                    <span th:text="#{settings.admin.users.status.active}">Active</span>
+                                </span>
+                                <span x-show="!u.enabled" class="inline-flex items-center gap-[6px] px-[10px] pr-[12px] py-[4px] rounded-[40px] bg-[rgba(94,107,112,0.07)] border border-[rgba(94,107,112,0.15)] text-[var(--grayscale-60)] text-[11px] font-normal">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                    <span th:text="#{settings.admin.users.status.inactive}">Inactive</span>
+                                </span>
+                                </div>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]">
+                                <span x-text="u.lastLoginAt ? u.lastLoginAt.replace('T',' ').slice(0,16) : '—'"></span>
+                            </td>
+                            <td class="px-[16px] py-[12px]">
+                                <div class="flex items-center gap-[10px]" :class="u.systemAdmin ? 'opacity-30 pointer-events-none' : ''">
+                                    <button @click="!u.systemAdmin && (!u.enabled && !(u.roleTemplates||[]).length ? showToast($el.closest('[data-msg-assign-role]').dataset.msgAssignRole) : toggleEnabled(u, !u.enabled))"
+                                            class="text-[var(--grayscale-60)]"
+                                            :class="(!u.enabled && !(u.roleTemplates||[]).length) ? 'opacity-30 cursor-not-allowed' : 'hover:text-[var(--grayscale-100)]'"
+                                            :title="u.enabled ? _adminI18n.deactivate : (!(u.roleTemplates||[]).length ? _adminI18n.assignRoleToActivate : _adminI18n.activate)">
+                                        <svg x-show="u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                        <svg x-show="!u.enabled" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                                    </button>
+                                    <button @click="!u.systemAdmin && openEditUser(u)" class="text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" th:title="#{settings.admin.users.action.edit}">
+                                        <img th:src="@{/icon/icon-edit.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
+                                    </button>
+                                    <button x-show="deletingUser?.id !== u.id"
+                                            @click="!u.systemAdmin && (deletingUser = u)" class="text-[var(--grayscale-60)] hover:text-red-500" th:title="#{settings.admin.icons.delete}">
+                                        <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
+                                    </button>
+                                    <div x-show="deletingUser?.id === u.id" class="flex items-center gap-[6px]">
+                                        <span class="text-[11px] text-red-600 font-semibold" th:text="#{settings.admin.confirm.delete}">Delete?</span>
+                                        <button @click="deleteUser(deletingUser)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]" th:text="#{common.yes}">Yes</button>
+                                        <button @click="deletingUser = null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="users.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.users.noUsers}">No users.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+            <!-- Side panel: absolute positioned outside list box -->
+            <div x-show="sidebarMode==='invite' || sidebarMode==='editUser'"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-x-2"
+                 x-transition:enter-end="opacity-100 translate-x-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-x-0"
+                 x-transition:leave-end="opacity-0 translate-x-2"
+                 class="absolute top-0 right-0 w-[440px] rounded-[10px] overflow-hidden border border-[var(--grayscale-20)] shadow-[0px_8px_40px_rgba(0,29,53,0.18)] z-10 flex flex-col bg-white">
+                <!-- Invite User -->
+                <template x-if="sidebarMode==='invite'">
+                    <div class="flex flex-col h-full">
+                        <!-- Header -->
+                        <div class="bg-[var(--background-dark,#001d35)] text-white px-[20px] py-[20px] flex flex-col gap-[4px] flex-shrink-0">
+                            <div class="flex items-center gap-[6px]">
+                                <img th:src="@{/icon/icon-person-add.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
+                                <span class="flex-1 font-bold text-[13px]" th:text="#{settings.admin.invite.header}">Invite User</span>
+                                <button @click="closeSidebar()" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex items-center justify-center flex-shrink-0 transition-colors">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                            <span class="text-[12px] text-[rgba(255,255,255,0.8)]" th:text="#{settings.admin.invite.subtitle}">Invite a new user to OsWL.</span>
+                        </div>
+                        <!-- Body -->
+                        <div class="flex flex-col gap-[28px] p-[20px] overflow-y-auto flex-1 bg-[var(--grayscale-5)]">
+                            <div class="flex flex-col gap-[8px]">
+                                <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.name}">Name</span>
+                                <input type="text" x-model="invite.displayName" th:placeholder="#{settings.admin.invite.placeholder.name}"
+                                       class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
+                                       :class="inviteErrorField === 'name' ? 'border-red-400' : ''"/>
+                            </div>
+                            <div class="flex flex-col gap-[8px]">
+                                <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.email}">Email</span>
+                                <input type="email" x-model="invite.email" th:placeholder="#{settings.admin.invite.placeholder.email}"
+                                       class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
+                                       :class="inviteErrorField === 'email' ? 'border-red-400' : ''"/>
+                            </div>
+                            <div class="flex flex-col gap-[8px]">
+                                <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.role}">Role</span>
+                                <div class="relative" x-data="{ open: false }">
+                                    <button type="button" @click="open = !open" @click.away="open = false"
+                                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
+                                            :class="open ? 'border-[var(--primary-120)]' : ''">
+                                        <span :class="invite.templateId ? 'text-[var(--grayscale-100)]' : 'text-[#abb8be] font-normal'"
+                                              x-text="invite.templateId ? (templates.find(t=>t.id===invite.templateId)||{name:_adminI18n.selectRole}).name : _adminI18n.selectRole"></span>
+                                        <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div x-show="open" x-cloak
+                                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                                        <button type="button" @click="invite.templateId = null; open = false"
+                                                class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                :class="!invite.templateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'" x-text="_adminI18n.selectRole"></button>
+                                        <template x-for="t in templates" :key="t.id">
+                                            <button type="button" @click="invite.templateId = t.id; open = false"
+                                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                    :class="invite.templateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                    x-text="t.name"></button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-[8px]">
+                                <span class="font-bold text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.invite.label.password}">Temporary Password</span>
+                                <div class="flex gap-[6px]">
+                                    <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + _adminI18n.invitePlaceholderPwdSuffix"
+                                           class="flex-1 px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] placeholder:text-[#abb8be]"
+                                           :class="inviteErrorField === 'password' ? 'border-red-400' : ''"/>
+                                    <button type="button" @click="invite.temporaryPassword=randomPwd()"
+                                            class="text-[12px] font-semibold px-[10px] bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] rounded-[8px] text-[var(--grayscale-70)] transition-colors whitespace-nowrap" th:text="#{settings.admin.invite.btn.generate}">Generate</button>
+                                </div>
+                                <span x-show="inviteErrorField === 'password' && invite.temporaryPassword.trim().length > 0 && invite.temporaryPassword.trim().length < minPasswordLength" class="text-[11px] text-red-500" x-text="_adminI18n.validatePasswordTooShort.replace('{0}', minPasswordLength)"></span>
+                            </div>
+                            <div class="flex flex-col gap-[8px]">
+                                <span class="font-bold text-[13px] text-[var(--grayscale-100)]"><span th:text="#{settings.admin.invite.label.message}">Message</span> <span class="text-[var(--grayscale-60)] font-normal" th:text="#{settings.admin.invite.label.optional}">(Optional)</span></span>
+                                <textarea x-model="invite.message" rows="3" maxlength="200" th:placeholder="#{settings.admin.invite.placeholder.message}"
+                                          class="w-full px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7] resize-none placeholder:text-[#abb8be]"></textarea>
+                            </div>
+                        </div>
+                        <!-- Footer -->
+                        <div class="flex flex-col gap-[10px] px-[20px] py-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0 bg-[var(--grayscale-5)]">
+                            <div x-show="inviteError" x-cloak class="bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[6px] px-[10px] py-[7px]" x-text="inviteError"></div>
+                            <div class="flex items-center gap-[10px]">
+                                <button @click="submitInvite()"
+                                        class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[14px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.invite.btn.send}">Send Invite</button>
+                                <button @click="closeSidebar()"
+                                        class="flex-1 bg-white border border-[#c5cfd3] hover:bg-[var(--grayscale-5)] text-[var(--primary-120)] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors" th:text="#{common.cancel}">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <!-- Edit User -->
+                <template x-if="sidebarMode==='editUser'">
+                    <div class="flex flex-col h-full">
+                        <div class="bg-[var(--background-dark,#001d35)] text-white px-[20px] py-[14px] flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center gap-[10px]">
+                                <div class="w-[34px] h-[34px] rounded-full inline-flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0"
+                                     :style="`background-color: ${avatarColor(editingUser?.displayName||editingUser?.email||'')}`"
+                                     x-text="(editingUser?.displayName||editingUser?.email||'?').trim().charAt(0).toUpperCase()"></div>
+                                <div>
+                                    <div class="font-bold text-[14px]"><span th:text="#{settings.admin.editUser.header}">Edit user :</span> <span x-text="editingUser?.displayName"></span></div>
+                                    <div class="text-[11px] text-white/60" x-text="editingUser?.email"></div>
+                                </div>
+                            </div>
+                            <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1">
+                            <div class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.invite.label.name}">Name</span>
+                                <input type="text" x-model="editingDisplayName" maxlength="20"
+                                       @input="editingNameError = editingDisplayName.trim().length < 1 ? _adminI18n.nameTooShort : editingDisplayName.trim().length > 20 ? _adminI18n.nameTooLong : ''"
+                                       class="px-[12px] py-[8px] border rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"
+                                       :class="editingNameError ? 'border-red-400' : 'border-[var(--grayscale-20)]'"/>
+                                <span x-show="editingNameError" x-text="editingNameError" class="text-[11px] text-red-500 font-normal"></span>
+                            </div>
+                            <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
+                                <span th:text="#{settings.admin.invite.label.email}">Email</span> <span class="text-[var(--grayscale-50)] font-normal" th:text="#{settings.admin.editUser.label.emailNotEditable}">(Not editable)</span>
+                                <input type="email" :value="editingUser?.email" disabled
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-50)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
+                            </label>
+                            <div class="flex flex-col gap-[5px] text-[12px] font-normal text-[var(--grayscale-80)]"><span th:text="#{settings.admin.invite.label.role}">Role</span>
+                                <div class="relative" x-data="{ open: false }">
+                                    <button type="button" @click="open = !open" @click.away="open = false"
+                                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
+                                            :class="open ? 'border-[var(--primary-120)]' : ''">
+                                        <span :class="editingTemplateId ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] font-normal'"
+                                              x-text="editingTemplateId ? (templates.find(t=>t.id===editingTemplateId)||{name:_adminI18n.noRole}).name : _adminI18n.noRole"></span>
+                                        <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div x-show="open" x-cloak
+                                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                                        <button type="button" @click="editingTemplateId = null; open = false"
+                                                class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                :class="!editingTemplateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'"
+                                                x-text="_adminI18n.noRole"></button>
+                                        <template x-for="t in templates" :key="t.id">
+                                            <button type="button" @click="editingTemplateId = t.id; open = false"
+                                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                                    :class="editingTemplateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                    x-text="t.name"></button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                        <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
+                            <button @click="saveRoles()"
+                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] transition-colors text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.save}">Save</button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+        <!-- Footer: total + page-size + pagination (Figma 529:78215) -->
+        <div class="flex items-center gap-[36px] px-[32px] py-[13px] border-l border-r border-b border-[var(--grayscale-20)] rounded-b-[8px] bg-white">
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="users.length"></span> <span th:text="#{settings.admin.pagination.total}">total</span></span>
+            <div class="w-[160px] shrink-0 relative" x-data="{ psOpen: false }">
+                <button type="button" @click="psOpen = !psOpen" @click.away="psOpen = false"
+                        class="w-full flex items-center justify-between bg-[var(--grayscale-5)] border border-[#C5CFD3] rounded-[8px] px-[8px] py-[5px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none transition-colors"
+                        :class="psOpen ? 'border-[var(--primary-120)]' : ''">
+                    <span x-text="_adminI18n.showCount.replace('{0}', pageSize)"></span>
+                    <img th:src="@{/icon/icon-triangle-down.svg}" :class="psOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[10px] h-[10px]" alt="" aria-hidden="true">
+                </button>
+                <div x-show="psOpen" x-cloak
+                     class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                    <template x-for="opt in [10, 20, 50]" :key="opt">
+                        <button type="button" @click="pageSize = opt; page = 1; psOpen = false"
+                                class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
+                                :class="pageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
+                    </template>
+                </div>
+            </div>
+            <div class="flex items-center gap-[20px] shrink-0">
+                <div class="flex items-center gap-[12px]">
+                    <button @click="page=1" :disabled="page===1"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+                    </button>
+                    <button @click="page=Math.max(1,page-1)" :disabled="page===1"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                </div>
+                <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
+                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="page"></span>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <button @click="page=Math.min(totalPages,page+1)" :disabled="page===totalPages"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <button @click="page=totalPages" :disabled="page===totalPages"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        </div><!-- end table + footer wrapper -->
+
+        <!-- Action icons guide -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[10px] flex items-center gap-[20px] text-[12px] text-[var(--grayscale-60)] mt-[20px] mb-[4px]">
+            <span class="font-semibold text-[var(--grayscale-70)]" th:text="#{settings.admin.icons.guide}">Action Icons Guide</span>
+            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span th:text="#{settings.admin.icons.inactivate}">Inactivate</span></span>
+            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg><span th:text="#{settings.admin.icons.activate}">Activate</span></span>
+            <span class="inline-flex items-center gap-[6px]"><img th:src="@{/icon/icon-edit.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true"><span th:text="#{settings.admin.icons.edit}">Edit</span></span>
+            <span class="inline-flex items-center gap-[6px]"><svg width="14" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg><span th:text="#{settings.admin.icons.delete}">Delete</span></span>
+        </div>
+    </div>
+
+    <!-- ===================== TEMPLATES ===================== -->
+    <div x-show="subTab==='templates'" x-cloak class="flex flex-col gap-[12px]">
+        <div class="flex items-center gap-[12px]">
+            <div class="flex-1 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+                <img th:src="@{/icon/icon-info2.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
+                <span class="text-[13px] text-[var(--grayscale-70)]" th:text="#{settings.admin.infoBox.text}">These settings apply to the entire OsWL instance. Changes take effect immediately after saving.</span>
+            </div>
+            <button @click="openNewTemplate()"
+                    class="flex-shrink-0 bg-[var(--background-dark,#001d35)] hover:bg-[#00334d] text-white text-[13px] font-bold px-[20px] py-[11px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
+                <img th:src="@{/icon/icon-Add.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                <span th:text="#{settings.admin.roleTemplate.btn.addNew}">Add a New Template</span>
+            </button>
+        </div>
+        <!-- Template list box + absolute panel -->
+        <div class="relative">
+        <div class="rounded-t-[10px] border border-[var(--grayscale-20)] overflow-hidden bg-white min-h-[300px]">
+            <!-- Table area -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-[13px]">
+                    <thead>
+                    <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.roleTemplate.col.name}">Template Name</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.roleTemplate.col.description}">Description</th>
+                        <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.roleTemplate.col.users}">Users</th>
+                        <th class="px-[16px] py-[12px] font-bold w-[140px]" th:text="#{settings.admin.roleTemplate.col.actions}">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="t in pagedTemplates" :key="t.id">
+                        <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 transition-colors"
+                            :class="(sidebarMode==='editTemplate' && editingTpl?.id===t.id) ? 'bg-[#e5faf5]' : (deletingTemplate?.id===t.id ? 'bg-red-50' : 'hover:bg-[var(--grayscale-5)]')">
+                            <td class="px-[16px] py-[12px]">
+                                <span x-show="t.builtIn" class="mr-[6px]" th:title="#{settings.admin.roleTemplate.builtIn}">
+                                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="inline align-middle" aria-hidden="true"><path d="M10.75 13.05C11.036 12.8849 11.2595 12.6301 11.3858 12.325C11.5122 12.0199 11.5344 11.6817 11.4489 11.3627C11.3634 11.0438 11.1751 10.762 10.9131 10.5609C10.6512 10.3599 10.3302 10.251 10 10.251C9.6698 10.251 9.34882 10.3599 9.08686 10.5609C8.82489 10.762 8.63657 11.0438 8.55111 11.3627C8.46565 11.6817 8.48782 12.0199 8.61418 12.325C8.74054 12.6301 8.96404 12.8849 9.25 13.05V13.5C9.25 13.6989 9.32902 13.8897 9.46967 14.0303C9.61032 14.171 9.80109 14.25 10 14.25C10.1989 14.25 10.3897 14.171 10.5303 14.0303C10.671 13.8897 10.75 13.6989 10.75 13.5V13.05Z" fill="#5E6B70"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.25 7.095V6.75C6.25 5.75544 6.64509 4.80161 7.34835 4.09835C8.05161 3.39509 9.00544 3 10 3C10.9946 3 11.9484 3.39509 12.6517 4.09835C13.3549 4.80161 13.75 5.75544 13.75 6.75V7.095C14.394 7.26128 14.9645 7.63687 15.3718 8.16272C15.7791 8.68858 16.0001 9.33487 16 10V14C16 14.7956 15.6839 15.5587 15.1213 16.1213C14.5587 16.6839 13.7956 17 13 17H7C6.20435 17 5.44129 16.6839 4.87868 16.1213C4.31607 15.5587 4 14.7956 4 14V10C3.99994 9.33487 4.22093 8.68858 4.62821 8.16272C5.0355 7.63687 5.60599 7.26128 6.25 7.095ZM7.75 6.75C7.75 6.15326 7.98705 5.58097 8.40901 5.15901C8.83097 4.73705 9.40326 4.5 10 4.5C10.5967 4.5 11.169 4.73705 11.591 5.15901C12.0129 5.58097 12.25 6.15326 12.25 6.75V7H7.75V6.75ZM5.5 10C5.5 9.60218 5.65804 9.22064 5.93934 8.93934C6.22064 8.65804 6.60218 8.5 7 8.5H13C13.3978 8.5 13.7794 8.65804 14.0607 8.93934C14.342 9.22064 14.5 9.60218 14.5 10V14C14.5 14.3978 14.342 14.7794 14.0607 15.0607C13.7794 15.342 13.3978 15.5 13 15.5H7C6.60218 15.5 6.22064 15.342 5.93934 15.0607C5.65804 14.7794 5.5 14.3978 5.5 14V10Z" fill="#5E6B70"/></svg>
+                                </span>
+                                <span x-text="t.name" class="text-[var(--grayscale-100)]"></span>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="t.description"></td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]"><span x-text="t.userCount"></span> <span th:text="#{settings.admin.roleTemplate.suffix.users}">users</span></td>
+                            <td class="px-[16px] py-[12px]">
+                                <div class="flex items-center gap-[10px]">
+                                    <button @click="openEditTemplate(t)" class="flex items-center text-[var(--grayscale-60)] hover:text-[var(--secondary-100)]" th:title="#{settings.admin.icons.edit}">
+                                        <img th:src="@{/icon/icon-edit.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
+                                    </button>
+                                    <template x-if="!t.builtIn">
+                                        <div>
+                                            <button x-show="deletingTemplate?.id !== t.id" @click="deletingTemplate=t" class="flex items-center text-[var(--grayscale-60)] hover:text-red-500" th:title="#{settings.admin.icons.delete}">
+                                                <svg width="16" height="16" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.3498 7.4248C10.5288 7.4248 10.7005 7.49592 10.8271 7.62251C10.9537 7.74909 11.0248 7.92078 11.0248 8.0998V11.9248C11.0248 12.1038 10.9537 12.2755 10.8271 12.4021C10.7005 12.5287 10.5288 12.5998 10.3498 12.5998C10.1708 12.5998 9.9991 12.5287 9.87251 12.4021C9.74592 12.2755 9.6748 12.1038 9.6748 11.9248V8.0998C9.6748 7.92078 9.74592 7.74909 9.87251 7.62251C9.9991 7.49592 10.1708 7.4248 10.3498 7.4248Z" fill="currentColor"/><path d="M8.32461 8.0998C8.32461 7.92078 8.25349 7.74909 8.12691 7.62251C8.00032 7.49592 7.82863 7.4248 7.64961 7.4248C7.47059 7.4248 7.2989 7.49592 7.17231 7.62251C7.04573 7.74909 6.97461 7.92078 6.97461 8.0998V11.9248C6.97461 12.1038 7.04573 12.2755 7.17231 12.4021C7.2989 12.5287 7.47059 12.5998 7.64961 12.5998C7.82863 12.5998 8.00032 12.5287 8.12691 12.4021C8.25349 12.2755 8.32461 12.1038 8.32461 11.9248V8.0998Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M6.52539 4.725C6.52539 4.06859 6.78615 3.43906 7.2503 2.97491C7.71445 2.51076 8.34398 2.25 9.00039 2.25C9.6568 2.25 10.2863 2.51076 10.7505 2.97491C11.2146 3.43906 11.4754 4.06859 11.4754 4.725H14.1754C14.3544 4.725 14.5261 4.79612 14.6527 4.9227C14.7793 5.04929 14.8504 5.22098 14.8504 5.4C14.8504 5.57902 14.7793 5.75071 14.6527 5.8773C14.5261 6.00388 14.3544 6.075 14.1754 6.075H13.5004V10.98C13.5004 12.492 13.5004 13.248 13.2061 13.8258C12.9472 14.3338 12.5342 14.7468 12.0262 15.0057C11.4484 15.3 10.6924 15.3 9.18039 15.3H8.82039C7.30839 15.3 6.55239 15.3 5.97459 15.0057C5.46658 14.7468 5.05354 14.3338 4.79469 13.8258C4.50039 13.248 4.50039 12.492 4.50039 10.98V6.075H3.82539C3.64637 6.075 3.47468 6.00388 3.34809 5.8773C3.22151 5.75071 3.15039 5.57902 3.15039 5.4C3.15039 5.22098 3.22151 5.04929 3.34809 4.9227C3.47468 4.79612 3.64637 4.725 3.82539 4.725H6.52539ZM7.87539 4.725C7.87539 4.42663 7.99392 4.14048 8.2049 3.9295C8.41587 3.71853 8.70202 3.6 9.00039 3.6C9.29876 3.6 9.58491 3.71853 9.79589 3.9295C10.0069 4.14048 10.1254 4.42663 10.1254 4.725H7.87539ZM5.85039 6.075H12.1504V10.98C12.1504 11.7585 12.1495 12.2607 12.118 12.6432C12.0883 13.0104 12.037 13.1463 12.0028 13.2129C11.8734 13.4667 11.6671 13.673 11.4133 13.8024C11.3467 13.8366 11.2108 13.8879 10.8436 13.9176C10.4611 13.9491 9.95889 13.95 9.18039 13.95H8.82039C8.04189 13.95 7.53969 13.9491 7.15719 13.9176C6.78999 13.8879 6.65409 13.8366 6.58749 13.8024C6.33338 13.6732 6.12671 13.4668 5.99709 13.2129C5.96379 13.1463 5.91249 13.0104 5.88279 12.6432C5.85129 12.2607 5.85039 11.7585 5.85039 10.98V6.075Z" fill="currentColor"/></svg>
+                                            </button>
+                                            <div x-show="deletingTemplate?.id === t.id" class="flex items-center gap-[6px]">
+                                                <span class="text-[11px] text-red-600 font-semibold" th:text="#{settings.admin.confirm.delete}">Delete?</span>
+                                                <button @click="deleteTemplate(deletingTemplate)" class="text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-[10px] py-[4px] rounded-[4px]" th:text="#{common.yes}">Yes</button>
+                                                <button @click="deletingTemplate=null" class="text-[11px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[8px] py-[4px] rounded-[4px] border border-[var(--grayscale-20)]" th:text="#{common.no}">No</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="templates.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.roleTemplate.noTemplates}">No templates.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- Template Pagination Footer -->
+        <div class="flex items-center gap-[36px] px-[32px] py-[13px] border border-[var(--grayscale-20)] rounded-b-[8px] bg-white -mt-[1px]">
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="templates.length"></span> <span th:text="#{settings.admin.pagination.total}">total</span></span>
+            <div class="w-[160px] shrink-0 relative" x-data="{ tplPsOpen: false }">
+                <button type="button" @click="tplPsOpen = !tplPsOpen" @click.away="tplPsOpen = false"
+                        class="w-full flex items-center justify-between bg-[var(--grayscale-5)] border border-[#C5CFD3] rounded-[8px] px-[8px] py-[5px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none transition-colors"
+                        :class="tplPsOpen ? 'border-[var(--primary-120)]' : ''">
+                    <span x-text="_adminI18n.showCount.replace('{0}', tplPageSize)"></span>
+                    <img th:src="@{/icon/icon-triangle-down.svg}" :class="tplPsOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[10px] h-[10px]" alt="" aria-hidden="true">
+                </button>
+                <div x-show="tplPsOpen" x-cloak
+                     class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                    <template x-for="opt in [10, 20, 50]" :key="opt">
+                        <button type="button" @click="tplPageSize = opt; tplPage = 1; tplPsOpen = false"
+                                class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
+                                :class="tplPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
+                    </template>
+                </div>
+            </div>
+            <div class="flex items-center gap-[20px] shrink-0">
+                <div class="flex items-center gap-[12px]">
+                    <button @click="tplPage=1" :disabled="tplPage===1" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg></button>
+                    <button @click="tplPage=Math.max(1,tplPage-1)" :disabled="tplPage===1" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+                </div>
+                <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
+                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="tplPage"></span>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <button @click="tplPage=Math.min(tplTotalPages,tplPage+1)" :disabled="tplPage===tplTotalPages" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+                    <button @click="tplPage=tplTotalPages" :disabled="tplPage===tplTotalPages" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg></button>
+                </div>
+            </div>
+        </div>
+            <!-- Side panel: absolute positioned outside list box -->
+            <div x-show="sidebarMode==='newTemplate' || sidebarMode==='editTemplate'"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-x-2"
+                 x-transition:enter-end="opacity-100 translate-x-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-x-0"
+                 x-transition:leave-end="opacity-0 translate-x-2"
+                 class="absolute top-0 right-0 w-[440px] rounded-[10px] overflow-hidden border border-[var(--grayscale-20)] shadow-[0px_8px_40px_rgba(0,29,53,0.18)] z-10 flex flex-col bg-white">
+                <template x-if="sidebarMode==='newTemplate' || sidebarMode==='editTemplate'">
+                    <div class="flex flex-col h-full">
+                        <!-- Panel header: dark navy for new, teal gradient for edit -->
+                        <div class="text-white px-[20px] py-[14px] flex items-center justify-between flex-shrink-0"
+                             :style="sidebarMode==='editTemplate' ? 'background: linear-gradient(90deg, rgba(0,160,147,0.5), rgba(0,160,147,0.5)), #001d35;' : 'background: #001D35;'">
+                            <div class="flex items-center gap-[6px] flex-1 min-w-0">
+                                <img th:src="@{/icon/icon-Add.svg}" x-show="sidebarMode==='newTemplate'" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
+                                <svg x-show="sidebarMode==='editTemplate'" width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="flex-shrink-0"><path fill-rule="evenodd" clip-rule="evenodd" d="M15.655 4.3438C15.4048 4.09362 15.1078 3.89517 14.781 3.75977C14.4541 3.62437 14.1038 3.55469 13.75 3.55469C13.3962 3.55469 13.0459 3.62437 12.719 3.75977C12.3922 3.89517 12.0952 4.09362 11.845 4.3438L11.246 4.9428L11.237 4.9338L10.177 5.9938L10.186 6.0038L4.306 11.8838C3.79021 12.3993 3.50029 13.0986 3.5 13.8278V15.7498C3.5 15.9487 3.57902 16.1395 3.71967 16.2801C3.86032 16.4208 4.05109 16.4998 4.25 16.4998H6.172C6.90123 16.4995 7.6005 16.2096 8.116 15.6938L15.656 8.1538C15.9062 7.90363 16.1046 7.60664 16.24 7.27978C16.3754 6.95292 16.4451 6.60259 16.4451 6.2488C16.4451 5.895 16.3754 5.54467 16.24 5.21781C16.1046 4.89095 15.9062 4.59396 15.656 4.3438H15.655ZM11.246 7.0638L5.366 12.9438C5.24993 13.0599 5.15787 13.1977 5.09507 13.3494C5.03228 13.5011 4.99997 13.6636 5 13.8278V14.9998H6.172C6.503 14.9998 6.822 14.8678 7.055 14.6338L12.935 8.7538L11.246 7.0638ZM13.996 7.6928L14.595 7.0938C14.8043 6.86676 14.9176 6.56758 14.9114 6.25887C14.9051 5.95015 14.7796 5.65583 14.5613 5.43749C14.343 5.21915 14.0486 5.09372 13.7399 5.08744C13.4312 5.08116 13.132 5.19452 12.905 5.4038L12.307 6.0038L13.996 7.6928Z" fill="#BDFAED"/></svg>
+                                <span x-show="sidebarMode==='newTemplate'" class="font-bold text-[13px]" th:text="#{settings.admin.template.panel.addHeader}">Add a New Template</span>
+                                <span x-show="sidebarMode==='editTemplate'" class="font-bold text-[13px] flex-shrink-0" th:text="#{settings.admin.template.panel.editHeader}">Edit Template :</span>
+                                <span x-show="sidebarMode==='editTemplate'" class="text-[13px] text-white/80 truncate" x-text="editingTpl?.name || ''"></span>
+                            </div>
+                            <button @click="closeSidebar()" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex-shrink-0 flex items-center justify-center">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <!-- Scrollable body -->
+                        <div class="flex flex-col gap-[14px] p-[20px] overflow-y-auto flex-1 text-[var(--grayscale-100)]">
+                            <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelName}">Name</span>
+                                <input type="text" x-model="tplForm.name" th:placeholder="#{settings.admin.template.panel.placeholder.name}"
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
+                            </label>
+                            <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelDescription}">Description</span>
+                                <input type="text" x-model="tplForm.description" th:placeholder="#{settings.admin.template.panel.placeholder.description}"
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
+                            </label>
+                            <div class="flex flex-col gap-[8px]">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                    <button type="button" @click="toggleAllPermissions()"
+                                            class="text-[11px] font-normal bg-[#e5faf5] text-[var(--primary-120)] px-[7px] py-[2px] rounded-[4px] hover:bg-[#cdf5ec] transition-colors"
+                                           x-text="allSelected() ? _adminI18n.clearAll : _adminI18n.selectAll"></button>
+                                </div>
+                                <div class="grid grid-cols-2 gap-[12px] max-h-[380px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
+                                    <template x-for="(group, gName) in groupedPermissions" :key="gName">
+                                        <div class="flex flex-col gap-[6px]">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
+                                                <button type="button" @click="toggleGroup(group)"
+                                                        class="text-[10px] font-normal bg-[#e5faf5] text-[var(--primary-120)] px-[5px] py-[1px] rounded-[3px] hover:bg-[#cdf5ec] transition-colors"
+                                                       x-text="groupAllSelected(group) ? _adminI18n.clear : _adminI18n.select"></button>
+                                            </div>
+                                            <div class="flex flex-col gap-[2px]">
+                                                <template x-for="p in group" :key="p.code">
+                                                    <label class="inline-flex items-start gap-[8px] text-[12px] py-[3px] hover:bg-[var(--grayscale-5)] rounded px-[4px] cursor-pointer">
+                                                        <input type="checkbox" :value="p.code" x-model="tplForm.permissions" class="sr-only">
+                                                        <div class="mt-[2px] w-[14px] h-[14px] flex-shrink-0 rounded border-[1.5px] flex items-center justify-center transition-colors"
+                                                             :class="tplForm.permissions.includes(p.code) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                                                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                                                                 :class="tplForm.permissions.includes(p.code) ? 'opacity-100' : 'opacity-0'"
+                                                                 class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                        </div>
+                                                        <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
+                                                    </label>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Footer buttons -->
+                        <div class="flex items-center gap-[8px] p-[16px] border-t border-[var(--grayscale-20)] flex-shrink-0">
+                            <button @click="saveTemplate()"
+                                    :disabled="!tplForm.name.trim()"
+                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                                    x-text="sidebarMode==='editTemplate' ? _adminI18n.templateSave : _adminI18n.templateCreate"></button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-white border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+        <p class="text-[11px] text-[var(--grayscale-50)] flex items-center gap-[4px]">
+            <span th:text="#{settings.admin.template.builtIn}">Built-in templates cannot be deleted.</span>
+        </p>
+    </div>
+
+    <!-- ===================== AUDIT ===================== -->
+    <div x-show="subTab==='audit'" x-cloak class="flex flex-col gap-[12px]">
+        <div class="flex items-center justify-between gap-[8px] flex-wrap">
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <!-- Date Range -->
+                <div class="relative" @click.away="dateDropdownOpen=false">
+                    <button type="button" @click="dateDropdownOpen=!dateDropdownOpen"
+                            class="flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] w-[140px] cursor-pointer transition-colors"
+                            :class="dateDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                        <span class="truncate text-[var(--grayscale-80)]" x-text="dateRangeLabel()"></span>
+                        <img src="/icon/icon-triangle-down.svg" :class="dateDropdownOpen ? 'rotate-180' : ''"
+                             class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="dateDropdownOpen" x-cloak
+                         class="absolute z-20 top-full mt-[4px] left-0 bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] p-[16px] flex flex-col gap-[12px]"
+                         style="min-width:300px">
+                        <span class="text-[12px] font-medium text-[var(--grayscale-60)]" th:text="#{settings.admin.auditLog.rangeLabel}">Audit Log Range</span>
+                        <div class="flex flex-col gap-[10px]">
+                            <label class="flex items-center gap-[8px] cursor-pointer"
+                                   @click="auditFilter.dateRange=''; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                                <span class="text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.auditLog.filter.allTime}">All time</span>
+                            </label>
+                            <label class="flex items-center gap-[8px] cursor-pointer"
+                                   @click="auditFilter.dateRange='7'; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='7' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                                <span class="text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.auditLog.filter.last7Days}">Last 7 days</span>
+                            </label>
+                            <label class="flex items-center gap-[8px] cursor-pointer"
+                                   @click="auditFilter.dateRange='30'; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='30' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                                <span class="text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.auditLog.filter.last30Days}">Last 30 days</span>
+                            </label>
+                            <label class="flex items-center gap-[8px] cursor-pointer"
+                                   @click="auditFilter.dateRange='90'; dateDropdownOpen=false; loadAudit(0)">
+                                <img :src="auditFilter.dateRange==='90' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                                <span class="text-[13px] text-[var(--grayscale-100)]" th:text="#{settings.admin.auditLog.filter.last90Days}">Last 90 days</span>
+                            </label>
+                        </div>
+                        <div class="border-t border-[var(--grayscale-10)] pt-[10px] flex flex-col gap-[10px]">
+                            <div class="flex items-start gap-[8px]">
+                                <img :src="auditFilter.dateRange==='custom' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'"
+                                     class="w-[20px] h-[20px] shrink-0 cursor-pointer mt-[6px]" alt="" aria-hidden="true"
+                                     @click="auditFilter.dateRange='custom'">
+                                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                                    <div class="flex items-center gap-[8px] flex-wrap">
+                                        <span class="text-[13px] font-medium text-[var(--grayscale-70)] shrink-0" th:text="#{settings.admin.auditLog.filter.from}">From</span>
+                                        <input type="date" x-model="auditFilter.dateFrom"
+                                               @click="auditFilter.dateRange='custom'"
+                                               @change="auditFilter.dateFrom = sanitizeDate(auditFilter.dateFrom)"
+                                               min="2000-01-01" max="2099-12-31"
+                                               class="flex-1 min-w-[120px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-80)] bg-white focus:outline-none focus:border-[var(--primary-120)]"/>
+                                    </div>
+                                    <div class="flex items-center gap-[8px] flex-wrap">
+                                        <span class="text-[13px] font-medium text-[var(--grayscale-70)] shrink-0" th:text="#{settings.admin.auditLog.filter.to}">To</span>
+                                        <input type="date" x-model="auditFilter.dateTo"
+                                               @click="auditFilter.dateRange='custom'"
+                                               @change="auditFilter.dateTo = sanitizeDate(auditFilter.dateTo)"
+                                               min="2000-01-01" max="2099-12-31"
+                                               class="flex-1 min-w-[120px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-80)] bg-white focus:outline-none focus:border-[var(--primary-120)]"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <button x-show="auditFilter.dateRange==='custom'" x-cloak
+                                    @click="dateDropdownOpen=false; loadAudit(0)"
+                                    class="w-full py-[8px] bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold rounded-[8px] transition-colors" th:text="#{settings.admin.auditLog.filter.apply}">Apply</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Actor Email -->
+                <div class="relative" @click.away="actorDropdownOpen=false">
+                    <button type="button" @click="actorDropdownOpen=!actorDropdownOpen"
+                            class="flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] w-[160px] cursor-pointer transition-colors"
+                            :class="actorDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                        <span class="truncate"
+                              :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
+                              x-text="auditFilter.actorEmail || _adminI18n.allUsers"></span>
+                        <img src="/icon/icon-triangle-down.svg" :class="actorDropdownOpen ? 'rotate-180' : ''"
+                             class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="actorDropdownOpen" x-cloak
+                         class="absolute z-20 top-full mt-[4px] left-0 w-[220px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                        <div class="px-[8px] py-[6px] border-b border-[var(--grayscale-10)]">
+                            <input type="text" x-model="actorSearchQuery" th:placeholder="#{settings.admin.auditLog.placeholder.actorSearch}"
+                                   @click.stop x-ref="actorSearch"
+                                   class="w-full px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[12px] outline-none focus:border-[var(--primary-120)]"/>
+                        </div>
+                        <div class="max-h-[200px] overflow-y-auto">
+                            <button type="button"
+                                    @click="auditFilter.actorEmail=''; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="!auditFilter.actorEmail ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'" th:text="#{settings.admin.auditLog.filter.allUsers}">All Users</button>
+                            <template x-for="u in filteredAuditUsers" :key="u.id">
+                                <button type="button"
+                                        @click="auditFilter.actorEmail=u.email; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors flex items-center gap-[8px]"
+                                        :class="auditFilter.actorEmail===u.email ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'">
+                                    <div class="w-[22px] h-[22px] rounded-full inline-flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                                         :style="`background-color: ${avatarColor(u.displayName||u.email)}`"
+                                         x-text="(u.displayName||u.email||'?').trim().charAt(0).toUpperCase()"></div>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="truncate" x-text="u.displayName || u.email"></span>
+                                        <span x-show="u.displayName" class="text-[11px] text-[var(--grayscale-50)] truncate" x-text="u.email"></span>
+                                    </div>
+                                </button>
+                            </template>
+                            <div x-show="filteredAuditUsers.length===0" class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.filter.noUsersFound}">No users found</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <div class="relative" @click.away="actionDropdownOpen=false">
+                    <button type="button" @click="actionDropdownOpen=!actionDropdownOpen"
+                            class="flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] w-[180px] cursor-pointer transition-colors"
+                            :class="actionDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                        <span class="truncate text-[12px]"
+                              :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
+                              x-text="auditFilter.action || _adminI18n.allActions"></span>
+                        <img src="/icon/icon-triangle-down.svg" :class="actionDropdownOpen ? 'rotate-180' : ''"
+                             class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="actionDropdownOpen" x-cloak
+                         class="absolute z-20 top-full mt-[4px] left-0 w-[260px] bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                        <div class="max-h-[280px] overflow-y-auto">
+                            <button type="button"
+                                    @click="auditFilter.action=''; actionDropdownOpen=false; loadAudit(0)"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="!auditFilter.action ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'" th:text="#{settings.admin.auditLog.filter.allActions}">All Actions</button>
+                            <template x-for="group in actionGroups" :key="group.label">
+                                <div>
+                                    <div class="px-[12px] py-[4px] text-[10px] font-bold text-[var(--grayscale-50)] uppercase tracking-wider bg-[var(--grayscale-5)] border-t border-[var(--grayscale-10)]"
+                                         x-text="group.label"></div>
+                                    <template x-for="item in group.items" :key="item">
+                                        <button type="button"
+                                                @click="auditFilter.action=item; actionDropdownOpen=false; loadAudit(0)"
+                                                class="w-full text-left px-[12px] py-[8px] pl-[16px] text-[12px] font-mono transition-colors"
+                                                :class="auditFilter.action===item ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                x-text="item"></button>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <a :href="auditExportUrl()"
+               class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span th:text="#{settings.admin.auditLog.btn.export}">Export CSV</span>
+            </a>
+        </div>
+        <div class="flex flex-col relative">
+        <div class="bg-white rounded-t-[10px] border border-[var(--grayscale-20)] overflow-x-auto">
+            <table class="w-full text-[13px] min-w-[860px]">
+                <thead>
+                <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap w-[160px]" th:text="#{settings.admin.auditLog.col.timestamp}">Time</th>
+                    <th class="px-[16px] py-[12px] font-bold w-[180px]" th:text="#{settings.admin.auditLog.col.actor}">Actor</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap w-[120px]" th:text="#{settings.admin.auditLog.col.ip}">IP</th>
+                    <th class="px-[16px] py-[12px] font-bold whitespace-nowrap w-[200px]" th:text="#{settings.admin.auditLog.col.action}">Action</th>
+                    <th class="px-[16px] py-[12px] font-bold w-[200px]" th:text="#{settings.admin.auditLog.col.target}">Target</th>
+                    <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.admin.auditLog.col.detail}">Detail</th>
+                </tr>
+                </thead>
+                <tbody>
+                <template x-for="l in auditLogs" :key="l.id">
+                    <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                        <td class="px-[16px] py-[10px] text-[var(--grayscale-70)] text-[12px] whitespace-nowrap" x-text="(l.createdAt||'').replace('T',' ').slice(0,19)"></td>
+                        <td class="px-[16px] py-[10px]">
+                            <div class="flex flex-col gap-[2px]">
+                                <span class="text-[var(--grayscale-100)] font-medium text-[13px]" x-text="l.actorDisplayName || l.actorEmail"></span>
+                                <span x-show="l.actorDisplayName" class="text-[var(--grayscale-50)] text-[11px]" x-text="l.actorEmail"></span>
+                            </div>
+                        </td>
+                        <td class="px-[16px] py-[10px]">
+                            <span class="text-[var(--grayscale-60)] text-[12px] font-mono" x-text="l.actorIp || '—'"></span>
+                        </td>
+                        <td class="px-[16px] py-[10px] whitespace-nowrap">
+                            <span class="inline-flex items-center px-[8px] py-[2px] rounded-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[11px] font-mono text-[var(--grayscale-80)]" x-text="l.action"></span>
+                        </td>
+                        <td class="px-[16px] py-[10px]">
+                            <div class="flex items-center gap-[6px] flex-wrap">
+                                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] uppercase tracking-wide" x-text="l.targetType"></span>
+                                <span x-show="l.targetName" class="w-[3px] h-[3px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
+                                <span x-show="l.targetName" class="text-[var(--grayscale-80)] text-[13px]" x-text="l.targetName"></span>
+                            </div>
+                        </td>
+                        <td class="px-[16px] py-[10px] text-[var(--grayscale-60)] text-[12px] max-w-[240px]">
+                            <div x-data="{ expanded: false }" class="flex items-start gap-[4px]">
+                                <span x-text="l.detail || '—'" :class="expanded ? 'break-all whitespace-pre-wrap' : 'truncate block'" class="text-[12px] flex-1 min-w-0"></span>
+                                <button x-show="(l.detail||'').length > 50" @click.stop="expanded=!expanded"
+                                        class="shrink-0 pointer-events-auto transition-transform"
+                                        :class="expanded ? 'rotate-180' : ''"
+                                        :title="expanded ? _adminI18n.collapse : _adminI18n.expand">
+                                    <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px]" alt="" aria-hidden="true">
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </template>
+                <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.noRecords}">No audit records.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- Pagination footer (matches User Management style) -->
+        <div x-show="auditTotalElements > 0" x-cloak
+             class="flex items-center gap-[36px] px-[32px] py-[13px] border-l border-r border-b border-[var(--grayscale-20)] rounded-b-[8px] bg-white">
+            <span class="flex-1 text-[13px] text-[#849197] font-medium"><span x-text="auditTotalElements"></span> <span th:text="#{settings.admin.pagination.total}">total</span></span>
+            <div class="w-[160px] shrink-0 relative">
+                <button type="button" @click="auditPsOpen = !auditPsOpen" @click.away="auditPsOpen = false"
+                        class="w-full flex items-center justify-between bg-[var(--grayscale-5)] border border-[#C5CFD3] rounded-[8px] px-[8px] py-[5px] text-[11px] text-[var(--grayscale-70)] cursor-pointer focus:outline-none transition-colors"
+                        :class="auditPsOpen ? 'border-[var(--primary-120)]' : ''">
+                    <span x-text="_adminI18n.showCount.replace('{0}', auditPageSize)"></span>
+                    <img th:src="@{/icon/icon-triangle-down.svg}" :class="auditPsOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[10px] h-[10px]" alt="" aria-hidden="true">
+                </button>
+                <div x-show="auditPsOpen" x-cloak
+                     class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                    <template x-for="opt in [20, 50, 100]" :key="opt">
+                        <button type="button" @click="auditPageSize = opt; auditPsOpen = false; loadAudit(0)"
+                                class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
+                                :class="auditPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
+                    </template>
+                </div>
+            </div>
+            <div class="flex items-center gap-[20px] shrink-0">
+                <div class="flex items-center gap-[12px]">
+                    <button @click="loadAudit(0)" :disabled="auditPage===0"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+                    </button>
+                    <button @click="loadAudit(Math.max(0,auditPage-1))" :disabled="auditPage===0"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                </div>
+                <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
+                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="auditPage + 1"></span>
+                </div>
+                <div class="flex items-center gap-[12px]">
+                    <button @click="loadAudit(Math.min(auditTotalPages-1,auditPage+1))" :disabled="auditPage>=auditTotalPages-1"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <button @click="loadAudit(auditTotalPages-1)" :disabled="auditPage>=auditTotalPages-1"
+                            class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        </div><!-- end table + footer wrapper -->
+    </div>
+
+    <!-- ===================== UNIFIED SLIDEOUT (legacy — hidden, panels are now inline) ===================== -->
+    <div x-show="false" class="fixed inset-0 z-50"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="absolute inset-0 bg-black/30" @click="closeSidebar()"></div>
+
+        <!-- Animated panel -->
+        <div class="absolute right-0 top-0 h-full w-[480px] max-w-[95vw] shadow-2xl flex flex-col overflow-hidden"
+             :class="(sidebarMode==='invite' || sidebarMode==='editUser') ? 'bg-[var(--background-dark,#001d35)] text-white' : ''"
+             x-transition:enter="transition transform ease-out duration-300"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition transform ease-in duration-200"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full">
+
+            <!-- ===== Invite User ===== -->
+            <template x-if="sidebarMode==='invite'">
+                <div class="flex flex-col gap-[18px] p-[24px] overflow-y-auto h-full">
+                    <div class="flex items-start justify-between">
+                        <div class="flex flex-col gap-[4px]">
+                            <h3 class="font-bold text-[16px] inline-flex items-center gap-[6px]">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                                <span th:text="#{settings.admin.invite.header}">Invite User</span>
+                            </h3>
+                            <p class="text-[12px] text-white/60" th:text="#{settings.admin.invite.subtitle}">Invite a new user to OsWL.</p>
+                        </div>
+                        <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.name}">Name</span>
+                        <input type="text" x-model="invite.displayName" th:placeholder="#{settings.admin.invite.placeholder.name}"
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.email}">Email</span>
+                        <input type="email" x-model="invite.email" th:placeholder="#{settings.admin.invite.placeholder.email}"
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
+                    </label>
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.role}">Role</span>
+                        <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
+                            <template x-for="t in templates" :key="t.id">
+                                <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
+                                       :class="invite.templateId === t.id ? 'bg-[var(--primary-100)] text-[var(--background-dark)]' : 'bg-white/10 text-white/70'">
+                                    <input type="radio" :value="t.id" x-model.number="invite.templateId" class="hidden"/>
+                                    <span x-text="t.name"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.password}">Temporary Password</span>
+                        <div class="flex gap-[6px]">
+                            <input type="text" x-model="invite.temporaryPassword" :placeholder="minPasswordLength + _adminI18n.invitePlaceholderPwdSuffix"
+                                   class="flex-1 px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7]"/>
+                            <button type="button" @click="invite.temporaryPassword=randomPwd()"
+                                    class="text-[12px] font-semibold px-[10px] bg-white/10 hover:bg-white/15 border border-white/15 rounded-[8px] text-white" th:text="#{settings.admin.invite.btn.generate}">Generate</button>
+                        </div>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.message}">Message</span> <span class="text-white/40 font-normal" th:text="#{settings.admin.invite.label.optional}">(Optional)</span>
+                        <textarea x-model="invite.message" rows="3" maxlength="200" th:placeholder="#{settings.admin.invite.placeholder.message}"
+                                  class="px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px] text-[13px] font-normal text-white placeholder:text-white/40 focus:outline-none focus:border-[#33D1B7] resize-none"></textarea>
+                    </label>
+                    <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                        <button @click="submitInvite()"
+                                class="flex-1 bg-[var(--secondary-100)] hover:bg-[var(--secondary-120)] text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.invite.btn.send}">Send Invite</button>
+                        <button @click="closeSidebar()"
+                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ===== Edit User (Slideout, dark) ===== -->
+            <template x-if="sidebarMode==='editUser'">
+                <div class="flex flex-col gap-[18px] p-[24px] overflow-y-auto h-full">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-[12px]">
+                            <div class="w-[40px] h-[40px] rounded-full inline-flex items-center justify-center text-[14px] font-bold text-white"
+                                 :style="`background-color: ${avatarColor(editingUser?.displayName||editingUser?.email||'')}`"
+                                 x-text="(editingUser?.displayName||editingUser?.email||'?').trim().charAt(0).toUpperCase()"></div>
+                            <div class="flex flex-col gap-[2px]">
+                                <h3 class="font-bold text-[16px]" th:text="#{settings.admin.editUser.heading}">Edit User</h3>
+                                <p class="text-[12px] text-white/60" x-text="editingUser?.displayName"></p>
+                            </div>
+                        </div>
+                        <button @click="closeSidebar()" class="text-white/60 hover:text-white">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.name}">Name</span>
+                        <input type="text" :value="editingUser?.displayName" disabled
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/10 rounded-[8px] text-[13px] font-normal text-white/60 cursor-not-allowed"/>
+                    </label>
+                    <label class="flex flex-col gap-[6px] text-[12px] font-bold">
+                        <span th:text="#{settings.admin.invite.label.email}">Email</span> <span class="text-white/40 font-normal" th:text="#{settings.admin.editUser.label.emailNotEditable}">(Not editable)</span>
+                        <input type="email" :value="editingUser?.email" disabled
+                               class="px-[12px] py-[8px] bg-white/5 border border-white/10 rounded-[8px] text-[13px] font-normal text-white/60 cursor-not-allowed"/>
+                    </label>
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.invite.label.role}">Role</span>
+                        <div class="flex flex-wrap gap-[6px] p-[8px] bg-white/5 border border-white/15 rounded-[8px] min-h-[40px]">
+                            <template x-for="t in templates" :key="t.id">
+                                <label class="inline-flex items-center gap-[4px] text-[11px] font-normal cursor-pointer px-[8px] py-[3px] rounded-[6px]"
+                                       :class="editingTemplateId === t.id ? 'bg-[var(--primary-100)] text-[var(--background-dark)]' : 'bg-white/10 text-white/70'">
+                                    <input type="radio" :value="t.id" x-model.number="editingTemplateId" class="hidden"/>
+                                    <span x-text="t.name"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-[6px] text-[12px] font-bold"><span th:text="#{settings.admin.editUser.label.status}">Status</span>
+                        <div class="flex items-center gap-[10px] px-[12px] py-[8px] bg-white/5 border border-white/15 rounded-[8px]">
+                            <span class="text-[12px] font-normal text-white/60" x-text="editingUser?.enabled ? _adminI18n.active : _adminI18n.inactive"></span>
+                            <button @click="!editingUser?.enabled && !(editingUser?.roleTemplates||[]).length ? showToast($el.closest('[data-msg-assign-role]').dataset.msgAssignRole) : toggleEnabled(editingUser, !editingUser.enabled).then(()=>{ if(editingUser){ editingUser.enabled = !editingUser.enabled; } })"
+                                    class="ml-auto text-[11px] font-semibold px-[8px] py-[2px] rounded-[6px] bg-white/10 text-white"
+                                    :class="!editingUser?.enabled && !(editingUser?.roleTemplates||[]).length ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white/20'"
+                                    x-text="editingUser?.enabled ? _adminI18n.deactivate : _adminI18n.activate"></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-[8px] mt-auto pt-[12px]">
+                        <button @click="saveRoles()"
+                                class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.template.panel.save}">Save Changes</button>
+                        <button @click="closeSidebar()"
+                                class="flex-1 bg-transparent border border-white/30 hover:bg-white/5 text-white text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ===== Template Add / Edit (Slideout, dark header + light body) ===== -->
+            <template x-if="sidebarMode==='newTemplate' || sidebarMode==='editTemplate'">
+                <div class="flex flex-col h-full bg-white text-[var(--grayscale-100)]">
+                    <!-- Dark header -->
+                    <div class="bg-[var(--background-dark,#001d35)] text-white px-[24px] py-[20px] flex items-start justify-between flex-shrink-0">
+                        <div class="flex flex-col gap-[4px]">
+                            <h3 class="font-bold text-[16px]">
+                                <span x-show="sidebarMode==='newTemplate'" x-text="'+ ' + _adminI18n.templateAddHeader"></span>
+                                <span x-show="sidebarMode==='editTemplate'" x-text="_adminI18n.templateEditHeader + ' ' + (editingTpl?.name || '')"></span>
+                            </h3>
+                            <p class="text-[12px] text-white/60" x-text="_adminI18n.templateDescription">Group permissions to assign to users.</p>
+                        </div>
+                        <button @click="closeSidebar()" class="text-white/60 hover:text-white mt-[2px]">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                    <!-- Scrollable body -->
+                    <div class="flex flex-col gap-[16px] p-[24px] overflow-y-auto flex-1">
+                        <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelName}">Name</span>
+                            <input type="text" x-model="tplForm.name" th:placeholder="#{settings.admin.template.panel.placeholder.name}"
+                                   class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
+                        </label>
+                        <label class="flex flex-col gap-[4px] text-[12px] font-bold"><span th:text="#{settings.admin.template.panel.labelDescription}">Description</span>
+                            <input type="text" x-model="tplForm.description" th:placeholder="#{settings.admin.template.panel.placeholder.description}"
+                                   class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] font-normal focus:outline-none focus:border-[#33D1B7]"/>
+                        </label>
+                        <div class="flex flex-col gap-[8px]">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                <button type="button" @click="toggleAllPermissions()"
+                                        class="text-[12px] font-semibold text-[var(--secondary-100)] hover:underline"
+                                        x-text="allSelected() ? _adminI18n.clearAll : _adminI18n.selectAll"></button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-[12px] max-h-[420px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
+                                <template x-for="(group, gName) in groupedPermissions" :key="gName">
+                                    <div class="flex flex-col gap-[6px]">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
+                                            <button type="button" @click="toggleGroup(group)"
+                                                    class="text-[10px] font-semibold text-[var(--secondary-100)] hover:underline"
+                                                    x-text="groupAllSelected(group) ? _adminI18n.clear : _adminI18n.select"></button>
+                                        </div>
+                                        <div class="flex flex-col gap-[2px]">
+                                            <template x-for="p in group" :key="p.code">
+                                                <label class="inline-flex items-start gap-[8px] text-[12px] py-[3px] hover:bg-[var(--grayscale-5)] rounded px-[4px] cursor-pointer">
+                                                    <input type="checkbox" :value="p.code" x-model="tplForm.permissions" class="mt-[2px] w-[14px] h-[14px]"/>
+                                                    <span class="text-[var(--grayscale-90)]" x-text="p.description"></span>
+                                                </label>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-[8px] mt-auto pt-[12px] border-t border-[var(--grayscale-20)]">
+                            <button @click="saveTemplate()"
+                                    :disabled="!tplForm.name.trim()"
+                                    class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold py-[10px] rounded-[8px]"
+                                    x-text="sidebarMode==='editTemplate' ? _adminI18n.templateSave : _adminI18n.templateCreate"></button>
+                            <button @click="closeSidebar()"
+                                    class="flex-1 bg-transparent border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold py-[10px] rounded-[8px]" th:text="#{common.cancel}">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+    function adminTab() {
+        return {
+            subTab: 'users',
+            users: [], templates: [], allPermissions: [],
+            sidebarMode: null,  // 'invite' | 'editUser' | 'newTemplate' | 'editTemplate' | null
+            apiError: null,
+            inviteError: null,
+            inviteErrorField: null,
+            toast: null,
+            _toastTimer: null,
+            page: 1, pageSize: 10,
+            tplPage: 1, tplPageSize: 10,
+            deletingTemplate: null,
+            deletingUser: null,
+            invite: { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' },
+            editingUser: null, editingDisplayName: '', editingNameError: '', editingTemplateId: null, editingMessage: '',
+            editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
+            auditFilter: { dateRange: '7', actorEmail: '', action: '', dateFrom: '', dateTo: '' },
+            auditLogs: [],
+            auditPage: 0, auditTotalPages: 0, auditTotalElements: 0, auditPageSize: 20,
+            auditPsOpen: false,
+            actorDropdownOpen: false,
+            actorSearchQuery: '',
+            actionDropdownOpen: false,
+            dateDropdownOpen: false,
+            minPasswordLength: 8,
+            actionGroups: [
+                { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT', 'AUTH.OTP_FAILURE', 'AUTH.OTP_RESEND', 'AUTH.TRUSTED_DEVICE', 'AUTH.PASSWORD_CHANGE'] },
+                { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE'] },
+                { label: _auditGroupLabels['Role Template'],    items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
+                { label: _auditGroupLabels['Project'],          items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE', 'QUICK_IMPORT.START'] },
+                { label: _auditGroupLabels['VCS'],              items: ['VCS.CONNECT', 'VCS.DISCONNECT', 'GITHUB.PAT_CONNECT', 'GITHUB.PAT_DISCONNECT'] },
+                { label: _auditGroupLabels['CLI Key'],          items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
+                { label: _auditGroupLabels['Security'],         items: ['SECURITY_SETTING.UPDATE', 'SECURITY_SETTING.MAIL_TEST'] },
+                { label: _auditGroupLabels['AI Setting'],       items: ['AI_SETTING.SAVE', 'AI_SETTING.ACTIVATE', 'AI_SETTING.DEACTIVATE', 'AI_SETTING.TEST'] },
+                { label: _auditGroupLabels['Cache'],            items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
+                { label: _auditGroupLabels['External Setting'], items: ['EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
+                { label: _auditGroupLabels['License'],          items: ['LICENSE_POLICY.UPDATE', 'LICENSE.EXPORT'] },
+                { label: _auditGroupLabels['Scan'],             items: ['SCAN.INGEST', 'SCAN.DELETE', 'SCAN.AUTH_FAILURE', 'SCAN.AUTH_RATE_LIMITED', 'SCAN.API_KEY_FAILURE'] },
+                { label: _auditGroupLabels['Component'],        items: ['COMPONENT.DEFER', 'COMPONENT.DEFER_ALL', 'COMPONENT.CREATE_PR', 'COMPONENT.CVE_AI_REGENERATE', 'COMPONENT.CVE_AI_REGENERATE_FAILED', 'COMPONENT.BULK_STATUS_UPDATE', 'COMPONENT.DEFER_EXPIRE'] },
+                { label: _auditGroupLabels['Security Center'],  items: ['SECURITY_CENTER.EXPORT', 'SECURITY_CENTER.PRINT'] },
+                { label: 'System',                              items: ['SYSTEM.SETUP'] },
+            ],
+            get filteredAuditUsers() {
+                const q = this.actorSearchQuery.toLowerCase();
+                return this.users.filter(u =>
+                    !q ||
+                    (u.email || '').toLowerCase().includes(q) ||
+                    (u.displayName || '').toLowerCase().includes(q)
+                );
+            },
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+
+            // ── Permission grouping ──
+            permissionGroups: {
+                'Project': ['PROJECT_'],
+                'Scan': ['SCAN_'],
+                'Security Center': ['SECURITY_CENTER_'],
+                'License': ['LICENSE_'],
+                'Analysis': ['COMPONENT_', 'VERSION_', 'RISK_'],
+                'Settings': ['SETTINGS_']
+            },
+            get groupedPermissions() {
+                const result = {};
+                for (const [name, prefixes] of Object.entries(this.permissionGroups)) {
+                    const label = _permGroupLabels[name] || name;
+                    result[label] = this.allPermissions.filter(p => prefixes.some(pref => p.code.startsWith(pref)));
+                }
+                return result;
+            },
+            // ── Pagination ──
+            get totalPages() { return Math.max(1, Math.ceil(this.users.length / this.pageSize)); },
+            get pagedUsers() {
+                const start = (this.page - 1) * this.pageSize;
+                return this.users.slice(start, start + this.pageSize);
+            },
+            get tplTotalPages() { return Math.max(1, Math.ceil(this.templates.length / this.tplPageSize)); },
+            get pagedTemplates() {
+                const start = (this.tplPage - 1) * this.tplPageSize;
+                return this.templates.slice(start, start + this.tplPageSize);
+            },
+            // ── Avatar color from name ──
+            avatarColor(s) {
+                const palette = ['#0d9488','#0891b2','#059669','#0284c7','#0f766e','#0369a1','#14b8a6','#0ea5e9'];
+                let h = 0; for (const c of (s||'?')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+                return palette[h % palette.length];
+            },
+
+            async init() {
+                try {
+                    await Promise.all([this.loadUsers(), this.loadTemplates(), this.loadPermissions()]);
+                } catch(e) {
+                    this.apiError = e.message || _adminI18n.loadDataFailed;
+                }
+                try {
+                    const r = await fetch('/api/settings/security');
+                    if (r.ok) {
+                        const s = await r.json();
+                        if (s.minPasswordLength) this.minPasswordLength = s.minPasswordLength;
+                    }
+                } catch(_) {}
+            },
+            headers() { return oswlJsonHeaders(); },
+            async apiGet(url) {
+                const r = await fetch(url);
+                if (r.status === 401) { location.href = '/login'; throw new Error('Unauthorized'); }
+                if (!r.ok) throw new Error(_fetchErr(r, `API error ${r.status}: ${url}`));
+                return r.json();
+            },
+            async loadUsers() { this.users = await this.apiGet('/api/admin/users'); },
+            async loadTemplates() { this.templates = await this.apiGet('/api/admin/role-templates'); },
+            async loadPermissions() { this.allPermissions = await this.apiGet('/api/admin/role-templates/permissions'); },
+            randomPwd() {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let pwd = '';
+                for (let i = 0; i < 12; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+                return pwd;
+            },
+
+            // ── Sidebar control (mutually exclusive) ──
+            closeSidebar() {
+                this.sidebarMode = null;
+                this.editingUser = null;
+                this.editingTpl = null;
+                this.inviteError = null;
+                this.inviteErrorField = null;
+            },
+            showToast(msg, duration = 3500) {
+                this.toast = msg;
+                clearTimeout(this._toastTimer);
+                this._toastTimer = setTimeout(() => { this.toast = null; }, duration);
+            },
+            sanitizeDate(val) {
+                if (!val) return '';
+                const parts = val.split('-');
+                if (parts.length !== 3 || parts[0].length !== 4) return '';
+                return val;
+            },
+            openInvite() {
+                this.invite = { email: '', displayName: '', temporaryPassword: '', templateId: null, message: '' };
+                this.editingUser = null;
+                this.inviteError = null;
+                this.inviteErrorField = null;
+                this.sidebarMode = 'invite';
+            },
+            openEditUser(u) {
+                this.editingUser = u;
+                this.editingDisplayName = u.displayName || '';
+                this.editingNameError = '';
+                this.editingTemplateId = (u.roleTemplates && u.roleTemplates.length > 0) ? u.roleTemplates[0].id : null;
+                this.editingMessage = '';
+                this.sidebarMode = 'editUser';
+            },
+            openNewTemplate() {
+                this.editingTpl = null;
+                this.tplForm = { name: '', description: '', permissions: [] };
+                this.sidebarMode = 'newTemplate';
+            },
+            openEditTemplate(t) {
+                this.editingTpl = t;
+                this.tplForm = { name: t.name, description: t.description||'', permissions: [...(t.permissions||[])] };
+                this.sidebarMode = 'editTemplate';
+            },
+
+            // ── Permission Select All ──
+            allSelected() { return this.allPermissions.length > 0 && this.tplForm.permissions.length === this.allPermissions.length; },
+            toggleAllPermissions() {
+                if (this.allSelected()) this.tplForm.permissions = [];
+                else this.tplForm.permissions = this.allPermissions.map(p => p.code);
+            },
+            groupAllSelected(group) { return group.length > 0 && group.every(p => this.tplForm.permissions.includes(p.code)); },
+            toggleGroup(group) {
+                if (this.groupAllSelected(group)) {
+                    this.tplForm.permissions = this.tplForm.permissions.filter(c => !group.some(p => p.code === c));
+                } else {
+                    const codes = new Set(this.tplForm.permissions);
+                    group.forEach(p => codes.add(p.code));
+                    this.tplForm.permissions = [...codes];
+                }
+            },
+
+            async submitInvite() {
+                this.inviteError = null;
+                this.inviteErrorField = null;
+                const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!this.invite.displayName.trim()) {
+                    this.inviteError = _adminI18n.validateNameRequired; this.inviteErrorField = 'name'; return;
+                }
+                if (!this.invite.email.trim()) {
+                    this.inviteError = _adminI18n.validateEmailRequired; this.inviteErrorField = 'email'; return;
+                }
+                if (!emailRe.test(this.invite.email.trim())) {
+                    this.inviteError = _adminI18n.validateEmailInvalid; this.inviteErrorField = 'email'; return;
+                }
+                if (!this.invite.temporaryPassword.trim()) {
+                    this.inviteError = _adminI18n.validatePasswordRequired; this.inviteErrorField = 'password'; return;
+                }
+                if (this.invite.temporaryPassword.trim().length < this.minPasswordLength) {
+                    this.inviteError = _adminI18n.validatePasswordTooShort.replace('{0}', this.minPasswordLength); this.inviteErrorField = 'password'; return;
+                }
+                const { templateId, ...rest } = this.invite;
+                const payload = { ...rest, templateIds: templateId ? [templateId] : [] };
+                const r = await fetch('/api/admin/users', { method: 'POST', headers: this.headers(), body: JSON.stringify(payload) });
+                if (r.status === 401) { location.href = '/login'; return; }
+                if (!r.ok) { this.inviteError = _fetchErr(r, _adminI18n.inviteFailed); return; }
+                if (!templateId) {
+                    const created = await r.json();
+                    await fetch(`/api/admin/users/${created.id}/deactivate`, { method: 'PUT', headers: this.headers() });
+                }
+                this.closeSidebar();
+                await this.loadUsers();
+            },
+            async saveRoles() {
+                const name = this.editingDisplayName.trim();
+                if (name.length < 1) { this.editingNameError = _adminI18n.nameTooShort; return; }
+                if (name.length > 20) { this.editingNameError = _adminI18n.nameTooLong; return; }
+                if (name !== (this.editingUser.displayName || '').trim()) {
+                    const nr = await fetch(`/api/admin/users/${this.editingUser.id}/display-name`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ displayName: name }) });
+                    if (nr.status === 401) { location.href = '/login'; return; }
+                    if (!nr.ok) { alert(_fetchErr(nr, _adminI18n.updateNameFailed)); return; }
+                }
+                const r = await fetch(`/api/admin/users/${this.editingUser.id}/roles`, { method: 'PUT', headers: this.headers(), body: JSON.stringify({ templateIds: this.editingTemplateId ? [this.editingTemplateId] : [] }) });
+                if (r.status === 401) { location.href = '/login'; return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
+                // Auto-deactivate if no role assigned and user is currently active
+                if (!this.editingTemplateId && this.editingUser.enabled) {
+                    const dr = await fetch(`/api/admin/users/${this.editingUser.id}/deactivate`, { method: 'PUT', headers: this.headers() });
+                    if (dr.status === 401) { location.href = '/login'; return; }
+                }
+                this.closeSidebar();
+                await Promise.all([this.loadUsers(), this.loadTemplates()]);
+            },
+            async toggleEnabled(u, enabled) {
+                const url = `/api/admin/users/${u.id}/${enabled ? 'activate' : 'deactivate'}`;
+                const r = await fetch(url, { method: 'PUT', headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
+                await this.loadUsers();
+            },
+            async deleteUser(u) {
+                this.deletingUser = null;
+                const r = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE', headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
+                await this.loadUsers();
+            },
+            async saveTemplate() {
+                const url = this.editingTpl?.id ? `/api/admin/role-templates/${this.editingTpl.id}` : '/api/admin/role-templates';
+                const method = this.editingTpl?.id ? 'PUT' : 'POST';
+                const r = await fetch(url, { method, headers: this.headers(), body: JSON.stringify(this.tplForm) });
+                if (r.status === 401) { location.href = '/login'; return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
+                this.closeSidebar(); await this.loadTemplates();
+            },
+            async deleteTemplate(t) {
+                const r = await fetch(`/api/admin/role-templates/${t.id}`, { method: 'DELETE', headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
+                if (!r.ok) { alert(_fetchErr(r, _adminI18n.actionFailed)); return; }
+                this.deletingTemplate = null;
+                await this.loadTemplates();
+            },
+            async loadAudit(page) {
+                if (page !== undefined) this.auditPage = page;
+                const params = new URLSearchParams();
+                if (this.auditFilter.dateRange === 'custom') {
+                    if (this.auditFilter.dateFrom) params.set('startDate', this.auditFilter.dateFrom + 'T00:00:00');
+                    if (this.auditFilter.dateTo)   params.set('endDate',   this.auditFilter.dateTo   + 'T23:59:59');
+                } else if (this.auditFilter.dateRange) {
+                    const days = parseInt(this.auditFilter.dateRange, 10);
+                    const start = new Date();
+                    start.setDate(start.getDate() - days);
+                    params.set('startDate', start.toISOString().slice(0, 19));
+                }
+                if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
+                if (this.auditFilter.action) params.set('action', this.auditFilter.action);
+                params.set('page', this.auditPage);
+                params.set('size', this.auditPageSize);
+                try {
+                    const r = await fetch('/api/admin/audit-logs?' + params.toString());
+                    if (r.status === 401) { location.href = '/login'; return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _adminI18n.auditLoadFailed); return; }
+                    const data = await r.json();
+                    this.auditLogs = data.content || [];
+                    this.auditTotalPages = data.page?.totalPages || data.totalPages || 0;
+                    this.auditTotalElements = data.page?.totalElements || data.totalElements || 0;
+                } catch(e) { this.apiError = e.message || _adminI18n.auditLoadFailed; }
+            },
+            pageRange() {
+                const total = this.auditTotalPages;
+                const cur = this.auditPage + 1;
+                if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                const range = [1];
+                if (cur > 3) range.push('...');
+                for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) range.push(i);
+                if (cur < total - 2) range.push('...');
+                range.push(total);
+                return range;
+            },
+            auditExportUrl() {
+                const params = new URLSearchParams();
+                if (this.auditFilter.dateRange === 'custom') {
+                    if (this.auditFilter.dateFrom) params.set('startDate', this.auditFilter.dateFrom + 'T00:00:00');
+                    if (this.auditFilter.dateTo)   params.set('endDate',   this.auditFilter.dateTo   + 'T23:59:59');
+                } else if (this.auditFilter.dateRange) {
+                    const days = parseInt(this.auditFilter.dateRange, 10);
+                    const start = new Date();
+                    start.setDate(start.getDate() - days);
+                    params.set('startDate', start.toISOString().slice(0, 19));
+                }
+                if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
+                if (this.auditFilter.action) params.set('action', this.auditFilter.action);
+                const qs = params.toString();
+                return '/api/admin/audit-logs/export.csv' + (qs ? '?' + qs : '');
+            },
+            dateRangeLabel() {
+                if (this.auditFilter.dateRange === 'custom') {
+                    if (this.auditFilter.dateFrom || this.auditFilter.dateTo) {
+                        const from = this.auditFilter.dateFrom || '...';
+                        const to   = this.auditFilter.dateTo   || '...';
+                        return from + ' – ' + to;
+                    }
+                    return _adminI18n.customRange;
+                }
+                const map = {
+                    '':   _adminI18n.allTime,
+                    '7':  _adminI18n.last7Days,
+                    '30': _adminI18n.last30Days,
+                    '90': _adminI18n.last90Days
+                };
+                return map[this.auditFilter.dateRange] ?? _adminI18n.last7Days;
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

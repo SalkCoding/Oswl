@@ -1,0 +1,174 @@
+> Task :compileJava UP-TO-DATE
+> Task :downloadTailwindCli UP-TO-DATE
+> Task :buildTailwindCss UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :resolveMainClassName
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.5)
+
+2026-05-20T00:02:01.272+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : Starting OswlApplication using Java 25.0.3 with PID 18072 (E:\Programming\Visual Studio Code\Oswl\build\classes\java\main started by josan in E:\Programming\Visual Studio Code\Oswl)
+2026-05-20T00:02:01.275+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : The following 1 profile is active: "local"
+2026-05-20T00:02:01.323+09:00  INFO 18072 --- [oswl] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-05-20T00:02:01.324+09:00  INFO 18072 --- [oswl] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-05-20T00:02:02.369+09:00  INFO 18072 --- [oswl] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-20T00:02:02.478+09:00  INFO 18072 --- [oswl] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 98 ms. Found 17 JPA repository interfaces.
+2026-05-20T00:02:03.406+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-05-20T00:02:03.450+09:00  INFO 18072 --- [oswl] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-20T00:02:03.451+09:00  INFO 18072 --- [oswl] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-05-20T00:02:03.608+09:00  INFO 18072 --- [oswl] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2284 ms
+2026-05-20T00:02:04.325+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-05-20T00:02:04.378+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-05-20T00:02:04.863+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-05-20T00:02:05.076+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection conn0: url=jdbc:h2:file:./oswl-db user=SA
+2026-05-20T00:02:05.078+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-05-20T00:02:05.129+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:h2:file:./oswl-db]
+	Database driver: H2 JDBC Driver
+	Database dialect: H2Dialect
+	Database version: 2.4.240
+	Default catalog/schema: OSWL-DB/PUBLIC
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: 100
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-05-20T00:02:06.323+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-20T00:02:06.520+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-05-20T00:02:08.265+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.service.SessionCipherService    : [SessionCipher] PAT encryption enabled (AES-256-GCM).
+2026-05-20T00:02:08.785+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.service.LicensePolicyService    : [LicensePolicyService] Cache loaded with 31 entries
+2026-05-20T00:02:08.889+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ╔══════════════════════════════════════════════════════╗
+2026-05-20T00:02:08.889+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ║  [LocalSMTP] GreenMail started on localhost:3025      ║
+2026-05-20T00:02:08.889+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ║  All outgoing mail is captured here — no real SMTP. ║
+2026-05-20T00:02:08.889+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ╚══════════════════════════════════════════════════════╝
+2026-05-20T00:02:10.158+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-05-20T00:02:10.176+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : Started OswlApplication in 9.287 seconds (process running for 9.783)
+2026-05-20T00:02:10.202+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : [LocalSMTP] security_settings patched → SMTP localhost:3025 (no auth)
+2026-05-20T00:02:10.203+09:00  WARN 18072 --- [oswl] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-05-20T00:02:10.204+09:00  WARN 18072 --- [oswl] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-05-20T00:02:47.419+09:00  INFO 18072 --- [oswl] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-20T00:06:17.183+09:00  INFO 18072 --- [oswl] [   File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 8 class path changes (0 additions, 8 deletions, 0 modifications)
+2026-05-20T00:06:17.187+09:00  INFO 18072 --- [oswl] [       Thread-1] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-05-20T00:06:17.192+09:00  INFO 18072 --- [oswl] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-05-20T00:06:17.196+09:00  INFO 18072 --- [oswl] [       Thread-1] c.s.oswl.auth.config.LocalSmtpConfig     : [LocalSMTP] GreenMail stopped.
+2026-05-20T00:06:17.202+09:00  INFO 18072 --- [oswl] [       Thread-1] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-05-20T00:06:17.203+09:00  INFO 18072 --- [oswl] [       Thread-1] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.5)
+
+2026-05-20T00:06:17.319+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : Starting OswlApplication using Java 25.0.3 with PID 18072 (E:\Programming\Visual Studio Code\Oswl\build\classes\java\main started by josan in E:\Programming\Visual Studio Code\Oswl)
+2026-05-20T00:06:17.319+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : The following 1 profile is active: "local"
+2026-05-20T00:06:17.788+09:00  INFO 18072 --- [oswl] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-20T00:06:17.866+09:00  INFO 18072 --- [oswl] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 76 ms. Found 17 JPA repository interfaces.
+2026-05-20T00:06:18.080+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-05-20T00:06:18.081+09:00  INFO 18072 --- [oswl] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-20T00:06:18.081+09:00  INFO 18072 --- [oswl] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-05-20T00:06:18.124+09:00  INFO 18072 --- [oswl] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 803 ms
+2026-05-20T00:06:18.241+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-05-20T00:06:18.306+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Starting...
+2026-05-20T00:06:18.308+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-2 - Added connection conn10: url=jdbc:h2:file:./oswl-db user=SA
+2026-05-20T00:06:18.308+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Start completed.
+2026-05-20T00:06:18.309+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:h2:file:./oswl-db]
+	Database driver: H2 JDBC Driver
+	Database dialect: H2Dialect
+	Database version: 2.4.240
+	Default catalog/schema: OSWL-DB/PUBLIC
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: 100
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-05-20T00:06:18.688+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-20T00:06:19.283+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.service.SessionCipherService    : [SessionCipher] PAT encryption enabled (AES-256-GCM).
+2026-05-20T00:06:19.526+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.service.LicensePolicyService    : [LicensePolicyService] Cache loaded with 31 entries
+2026-05-20T00:06:19.585+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ╔══════════════════════════════════════════════════════╗
+2026-05-20T00:06:19.585+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ║  [LocalSMTP] GreenMail started on localhost:3025      ║
+2026-05-20T00:06:19.585+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ║  All outgoing mail is captured here — no real SMTP. ║
+2026-05-20T00:06:19.585+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ╚══════════════════════════════════════════════════════╝
+2026-05-20T00:06:20.285+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-05-20T00:06:20.289+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : Started OswlApplication in 3.003 seconds (process running for 259.896)
+2026-05-20T00:06:20.294+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : [LocalSMTP] security_settings patched → SMTP localhost:3025 (no auth)
+2026-05-20T00:06:20.295+09:00  WARN 18072 --- [oswl] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-05-20T00:06:20.295+09:00  WARN 18072 --- [oswl] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-05-20T00:06:20.296+09:00  INFO 18072 --- [oswl] [  restartedMain] .ConditionEvaluationDeltaLoggingListener : Condition evaluation unchanged
+2026-05-20T00:06:21.792+09:00  INFO 18072 --- [oswl] [   File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 8 class path changes (8 additions, 0 deletions, 0 modifications)
+2026-05-20T00:06:21.793+09:00  INFO 18072 --- [oswl] [       Thread-8] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-05-20T00:06:21.796+09:00  INFO 18072 --- [oswl] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-05-20T00:06:21.798+09:00  INFO 18072 --- [oswl] [       Thread-8] c.s.oswl.auth.config.LocalSmtpConfig     : [LocalSMTP] GreenMail stopped.
+2026-05-20T00:06:21.801+09:00  INFO 18072 --- [oswl] [       Thread-8] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-05-20T00:06:21.801+09:00  INFO 18072 --- [oswl] [       Thread-8] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.5)
+
+2026-05-20T00:06:21.893+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : Starting OswlApplication using Java 25.0.3 with PID 18072 (E:\Programming\Visual Studio Code\Oswl\build\classes\java\main started by josan in E:\Programming\Visual Studio Code\Oswl)
+2026-05-20T00:06:21.893+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : The following 1 profile is active: "local"
+2026-05-20T00:06:22.245+09:00  INFO 18072 --- [oswl] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-05-20T00:06:22.296+09:00  INFO 18072 --- [oswl] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 50 ms. Found 17 JPA repository interfaces.
+2026-05-20T00:06:22.460+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-05-20T00:06:22.461+09:00  INFO 18072 --- [oswl] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-05-20T00:06:22.461+09:00  INFO 18072 --- [oswl] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.20]
+2026-05-20T00:06:22.491+09:00  INFO 18072 --- [oswl] [  restartedMain] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 596 ms
+2026-05-20T00:06:22.582+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-05-20T00:06:22.623+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Starting...
+2026-05-20T00:06:22.625+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-3 - Added connection conn20: url=jdbc:h2:file:./oswl-db user=SA
+2026-05-20T00:06:22.625+09:00  INFO 18072 --- [oswl] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Start completed.
+2026-05-20T00:06:22.625+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:h2:file:./oswl-db]
+	Database driver: H2 JDBC Driver
+	Database dialect: H2Dialect
+	Database version: 2.4.240
+	Default catalog/schema: OSWL-DB/PUBLIC
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: 100
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-05-20T00:06:22.843+09:00  INFO 18072 --- [oswl] [  restartedMain] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-05-20T00:06:23.409+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.service.SessionCipherService    : [SessionCipher] PAT encryption enabled (AES-256-GCM).
+2026-05-20T00:06:23.636+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.service.LicensePolicyService    : [LicensePolicyService] Cache loaded with 31 entries
+2026-05-20T00:06:23.710+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ╔══════════════════════════════════════════════════════╗
+2026-05-20T00:06:23.710+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ║  [LocalSMTP] GreenMail started on localhost:3025      ║
+2026-05-20T00:06:23.710+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ║  All outgoing mail is captured here — no real SMTP. ║
+2026-05-20T00:06:23.710+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : ╚══════════════════════════════════════════════════════╝
+2026-05-20T00:06:24.379+09:00  INFO 18072 --- [oswl] [  restartedMain] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-05-20T00:06:24.382+09:00  INFO 18072 --- [oswl] [  restartedMain] com.salkcoding.oswl.OswlApplication      : Started OswlApplication in 2.513 seconds (process running for 263.988)
+2026-05-20T00:06:24.385+09:00  INFO 18072 --- [oswl] [  restartedMain] c.s.oswl.auth.config.LocalSmtpConfig     : [LocalSMTP] security_settings patched → SMTP localhost:3025 (no auth)
+2026-05-20T00:06:24.385+09:00  WARN 18072 --- [oswl] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-05-20T00:06:24.385+09:00  WARN 18072 --- [oswl] [  restartedMain] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+2026-05-20T00:06:24.385+09:00  INFO 18072 --- [oswl] [  restartedMain] .ConditionEvaluationDeltaLoggingListener : Condition evaluation unchanged
+2026-05-20T00:09:00.396+09:00  INFO 18072 --- [oswl] [nio-8080-exec-6] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-05-20T00:09:13.520+09:00  INFO 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket https://api.bitbucket.org/2.0/repositories/salkcoding?pagelen=100&sort=-updated_on → HTTP 401 body-snippet: {"type": "error", "error": {"message": "Token is invalid, expired, or not supported for this endpoint."}}
+2026-05-20T00:09:13.520+09:00  WARN 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket Cloud returned HTTP 401 for https://api.bitbucket.org/2.0/repositories/salkcoding?pagelen=100&sort=-updated_on
+2026-05-20T00:09:13.750+09:00  INFO 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket https://api.bitbucket.org/2.0/repositories?role=member&pagelen=100&sort=-updated_on → HTTP 401 body-snippet: {"type": "error", "error": {"message": "Token is invalid, expired, or not supported for this endpoint."}}
+2026-05-20T00:09:13.750+09:00  WARN 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket Cloud returned HTTP 401 for https://api.bitbucket.org/2.0/repositories?role=member&pagelen=100&sort=-updated_on
+2026-05-20T00:09:13.966+09:00  INFO 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket https://api.bitbucket.org/2.0/repositories?role=owner&pagelen=100&sort=-updated_on → HTTP 401 body-snippet: {"type": "error", "error": {"message": "Token is invalid, expired, or not supported for this endpoint."}}
+2026-05-20T00:09:13.967+09:00  WARN 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket Cloud returned HTTP 401 for https://api.bitbucket.org/2.0/repositories?role=owner&pagelen=100&sort=-updated_on
+2026-05-20T00:09:14.190+09:00  WARN 18072 --- [oswl] [nio-8080-exec-8] c.s.oswl.service.QuickImportService      : [RepoBrowser] Bitbucket /workspaces returned HTTP 401
+2026-05-20T00:09:14.190+09:00  INFO 18072 --- [oswl] [nio-8080-exec-8] com.salkcoding.oswl.aop.LoggingAspect    : [AOP] QuickImportService.listRepos() 1373ms — slow call
