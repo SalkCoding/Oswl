@@ -222,6 +222,19 @@ Full documentation is available in the [`docs/`](docs/) folder:
 
 ---
 
+## Authors
+
+OsWL is developed and maintained by **[SalkCoding](https://github.com/SalkCoding)**.
+
+| Author | Role | GitHub |
+|---|---|---|
+| SalkCoding | Project lead & primary maintainer | [@SalkCoding](https://github.com/SalkCoding) |
+| Tengball | Design & UI/UX | [@Tengball](https://github.com/Tengball) |
+
+Questions, feedback, or collaboration inquiries are welcome via [GitHub Issues](https://github.com/SalkCoding/Oswl/issues).
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
