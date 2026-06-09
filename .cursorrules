@@ -1,43 +1,92 @@
-# Project Guidelines
+# OsWL — Project Guidelines
 
-## Tech Stack Overview
-- **Backend:** Spring Boot (Java 25, Spring WebMVC, Data JPA), Gradle, Lombok
-- **Frontend:** HTML, CSS, JS, Thymeleaf (Optional: Tailwind CSS, HTMX, Alpine.js, Graphing libraries)
-- **Database:** PostgreSQL
+OsWL is an in-house SCA (Software Composition Analysis) platform for tracking and managing CVE security vulnerabilities and license risks in OSS components.
 
-## Project Structure
-```text
-OsWL/
-├── src/
-│   ├── main/
-│   │   ├── java/com/salkcoding/oswl/   # Backend Java source files
-│   │   └── resources/
-│   │       ├── application.yaml        # Spring Boot configuration
-│   │       ├── static/                 # Static assets (JS, CSS, images)
-│   │       └── templates/              # Thymeleaf HTML templates
-│   └── test/
-│       └── java/com/salkcoding/oswl/   # Backend test files
-├── build.gradle                        # Gradle build configuration
-└── settings.gradle                     # Gradle project settings
-```
+---
 
-## Code Style & Architecture
-- **Backend (Spring Boot):**
-  - Follow standard layered architecture: `Controller` -> `Service` -> `Repository`.
-  - Use constructor injection via Lombok (`@RequiredArgsConstructor`) instead of `@Autowired`.
-  - Maintain entities representing PostgreSQL tables, leveraging Spring Data JPA for persistence.
-  - Feel free to introduce additional Java libraries if they solve the problem cleanly (specify dependencies via `build.gradle`).
-- **Frontend (HTML/CSS/JS/Thymeleaf):**
-  - Keep Thymeleaf templates (`.html`) inside `src/main/resources/templates/`.
-  - Actively use Thymeleaf standard dialects (e.g., `th:text`, `th:each`, `th:if`) for server-side rendering and dynamic data binding.
-  - Place static assets (JS, CSS, Images) in `src/main/resources/static/`.
-  - Use Vanilla JS, HTML, and CSS as the baseline. 
-  - Mix in HTMX and Alpine.js alongside Tailwind CSS where it naturally fits with Thymeleaf for dynamic behavior, but do not force their use if a simple vanilla approach is sufficient.
-  - Visualization/graphing libraries (e.g., Chart.js, D3.js) are permitted and encouraged when managing complex UI or data presentation.
+## Test Account
+- Email: test@test.com  |  Password: 1q2w3e4r  |  Name: test
+- OTP: `000000` (bypass in dev)  |  Test issuance OTP: `123456`
 
-## Build and Test
-- **Gradle:** Use `gradlew` for execution (e.g., `./gradlew build`, `./gradlew bootRun`, `./gradlew test`).
+---
+
+## Tech Stack
+- **Backend:** Spring Boot 4.0.5 (Java 25) — WebMVC, Data JPA, Security, Mail, Validation, AspectJ
+- **View:** Thymeleaf + thymeleaf-extras-springsecurity6
+- **Frontend:** Vanilla HTML/CSS/JS · Tailwind CSS 3.4 (precompiled standalone CLI, **NO CDN**) · Chart.js · HTMX · Alpine.js
+- **DB:** PostgreSQL (prod) / H2 file-mode (local profile, PostgreSQL-compatible)
+- **Auth:** Spring Security + Email OTP (2FA) + Trusted Device + Single-Session Enforcement
+- **API Docs:** springdoc-openapi — OpenAPI annotations live in `controller/spec/*Spec.java` interfaces only
+- **Local SMTP:** GreenMail embedded (port 3025) — OTP code printed as `*** OTP CODE: NNNNNN ***` in server logs
+- **Build:** Gradle Wrapper (`./gradlew`)
+
+---
+
+## Project Structure (Key Packages)
+
+    src/main/java/com/salkcoding/oswl/
+    ├── aop/             # Cross-cutting concerns (audit logging)
+    ├── auth/            # Auth module — config, controller, dto, entity, enums, repo, security, service, web
+    ├── client/          # External API clients (OSV, deps.dev, GitHub…)
+    ├── controller/      # Business controllers
+    │   └── spec/        # Controller spec interfaces (all springdoc annotations here)
+    ├── domain/entity/   # JPA entities
+    ├── domain/enums/
+    ├── dto/  exception/  repository/  scheduler/  service/  web/
+    resources/
+    ├── application.yaml / application-local.yaml / application-prod.yaml
+    ├── static/{css,js,img,icon,graphic,scripts}/
+    └── templates/{auth, projects, security-center, component-detail, license,
+                   risk-trend, scan-history, settings, error, fragments}/
+
+---
+
+## Architecture & Code Style
+
+**Backend**
+- **Layered:** Controller → Service → Repository. Keep controllers thin.
+- **Controller Spec:** All OpenAPI annotations go in `controller/spec/*ControllerSpec.java` interfaces. Implementations contain business logic only.
+- **DI:** Lombok `@RequiredArgsConstructor` constructor injection only. `@Autowired` is forbidden.
+- **Authorization:** Method-level `@PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SYSTEM_ADMIN')")`.
+- **Audit Logging:** Use `AuditLogService.log…()` for user actions and system events.
+- **Profile Gating:** Local-only beans use `@Profile("local")` (e.g. `TestDataController`, `LocalSmtpConfig`).
+- **JPA Cascade:** Project → ProjectVersion / ScanResult / ScanComponent / DependencyPath; Library → Cve (cascade ALL).
+
+**Frontend**
+- **Vanilla first.** Add HTMX (partial updates) or Alpine.js (local state) only when needed.
+- **Tailwind CSS:** `/css/tailwind.css` (Gradle build output) only — CDN is forbidden.
+- **HTMX pattern:** Return fragment-only response when `HX-Request: true` header is present.
+- **Assets:** JS in `static/js/`, organized by page subdirectory.
+
+---
+
+## DB & Environments
+- **Local DB:** H2 file (`./oswl-db.mv.db`). Console: `http://localhost:8080/h2-console` (JDBC `jdbc:h2:file:./oswl-db`, user `sa`).
+- **DB Reset:** Stop server → delete `oswl-db.*` files → restart → lands on Setup screen.
+- **Test Data Seed:** `GET /data/test` (auth required, local only) — wipes and re-seeds all data.
+- **Encryption Key (`OSWL_ENCRYPTION_KEY`):** Dummy key hardcoded for local; production requires 32-byte key via `openssl rand -base64 32`.
+
+---
+
+## Build & Run
+
+    ./gradlew bootRun          # Local run (profile=local, port 8080)
+    ./gradlew build            # Full build (includes Tailwind)
+    ./gradlew test             # JUnit tests
+    ./gradlew buildTailwindCss # Tailwind rebuild only
+
+---
 
 ## Conventions
-- **Database:** Use standard PostgreSQL dialects and conventions. Configure connections securely via `application.yaml`.
-- **Dependencies:** If adding a frontend library, default to using CDN links or webjars in the templates unless requested to bundle them otherwise.
+- **DB naming:** snake_case tables/columns; entity PK is `Long id`.
+- **DTOs:** `record` or Lombok `@Value` in `dto/` package.
+- **Dependencies:** Add to `build.gradle` (backend) or use CDN/webjars (frontend).
+- **Error pages:** `error/{401,403,404,500,503}.html` — use `_owl-error.html` fragment (shared owl illustration).
+- **Log tone:** Business events → INFO/WARN/ERROR; details → `log.debug`.
+
+## Test Code Policy
+
+- Do NOT modify, create, or delete any test files (e.g., *Test.java, *.test.ts, *.spec.ts) unless I explicitly ask you to.
+- When fixing bugs or refactoring production code, leave all existing test files exactly as they are.
+- If a test needs to be updated as a direct result of your change, ask me first before touching it.
+- Never auto-generate test stubs or test scaffolding without being explicitly instructed to do so.

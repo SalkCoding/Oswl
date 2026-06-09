@@ -1,0 +1,67 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:h2:file:./oswl-db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
+  thymeleaf:
+    cache: false
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+# Local dev: DEBUG only on packages that help day-to-day work (not the whole tree).
+logging:
+  level:
+    root: INFO
+    com.salkcoding.oswl: INFO
+    com.salkcoding.oswl.service.QuickImportService: DEBUG
+    com.salkcoding.oswl.service.ScanIngestService: INFO
+    com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
+    com.salkcoding.oswl.service.ai: DEBUG
+    com.salkcoding.oswl.client: DEBUG
+    com.salkcoding.oswl.auth.security: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.springframework.orm: WARN
+    org.springframework.transaction: WARN
+
+oswl:
+  encryption:
+    # Stable local default so VCS tokens survive restarts. Override with OSWL_ENCRYPTION_KEY in .env.
+    # (32-byte key, Base64) — dev-only; never use in production.
+    key: ${OSWL_ENCRYPTION_KEY:b3N3bC1sb2NhbC1kZXYtZW5jcnlwdGlvbi1rZXkhITA=}
+  ai:
+    debug:
+      heartbeat-seconds: 10
+      log-prompt-excerpt: true
+      log-response-excerpt: true
+  # encryption.key: set OSWL_ENCRYPTION_KEY in .env (see .env.example). No repo default.
+  clone:
+    temp-dir: ""

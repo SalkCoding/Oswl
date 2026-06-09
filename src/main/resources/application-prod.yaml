@@ -1,0 +1,63 @@
+# Production profile — see docs/Production-Deployment-Checklist.md
+# Required env: DB_URL, DB_USERNAME, DB_PASSWORD, OSWL_ENCRYPTION_KEY
+# Bind: SERVER_ADDRESS (default 127.0.0.1). Expose via reverse proxy only unless you accept 0.0.0.0 risk.
+
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      enabled: true
+      show-details: never
+
+oswl:
+  security:
+    trusted-device-cookie-secure: true
+    headers:
+      hsts-enabled: true
+      frame-options: DENY
+  encryption:
+    key: ${OSWL_ENCRYPTION_KEY:}
+  ai:
+    debug:
+      heartbeat-seconds: 0
+      log-prompt-excerpt: false
+      log-response-excerpt: false
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+
+  thymeleaf:
+    cache: true
+
+# Production: concise operational logs only (INFO/WARN/ERROR).
+logging:
+  level:
+    root: INFO
+    com.salkcoding.oswl: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+    org.apache: WARN

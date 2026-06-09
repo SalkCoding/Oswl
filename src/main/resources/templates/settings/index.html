@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head(#{settings.pageTitle})}"></head>
+<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
+<script>
+    // 설정 페이지 최초 진입 시 이전 URL 저장 (탭 이동해도 덮어쓰지 않음)
+    (function () {
+        const ref = document.referrer;
+        if (!ref.includes('/settings')) {
+            sessionStorage.setItem('oswl_settings_back', ref || '/projects');
+        }
+    })();
+    // 403 권한 부족 vs 서버 오류를 구분하는 공용 헬퍼
+    const _accessDeniedMsg = /*[[#{common.error.accessDenied}]]*/ 'Access denied. You do not have permission to perform this action.';
+    function _fetchErr(r, fallback) { return r.status === 403 ? _accessDeniedMsg : fallback; }
+</script>
+
+<header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
+
+<!-- Tab bar — full width, Figma #f3f5f6 bg, directly below header -->
+<div th:if="${not #lists.isEmpty(accessibleTabs)}"
+     class="bg-[#f3f5f6] w-full shrink-0">
+    <div class="max-w-[1440px] mx-auto px-[60px] flex items-center gap-[32px] pt-[17px] pb-[16px]">
+        <th:block th:each="t, tStat : ${accessibleTabs}">
+            <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
+            <a th:href="@{/settings(tab=${t.key})}"
+               th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
+               class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
+               th:text="${t.label}">Tab</a>
+            <!-- 점 구분자 (4px 원) -->
+            <span th:unless="${tStat.last}"
+                  class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-40)] shrink-0 -mx-[16px]"></span>
+        </th:block>
+    </div>
+</div>
+
+<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[60px] max-w-[1440px] mx-auto">
+
+    <div th:if="${#lists.isEmpty(accessibleTabs)}"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]"
+         th:text="#{settings.noAccess}">
+        No accessible settings. Please contact your administrator.
+    </div>
+
+    <!-- Tab content -->
+    <div class="w-full">
+        <th:block th:if="${activeTab == 'admin'}"><div th:replace="~{settings/tabs/admin :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'security'}"><div th:replace="~{settings/tabs/security :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'ai'}"><div th:replace="~{settings/tabs/ai :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'vcs'}"><div th:replace="~{settings/tabs/vcs :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'cli'}"><div th:replace="~{settings/tabs/cli :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'cache'}"><div th:replace="~{settings/tabs/cache :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'license-policy'}"><div th:replace="~{settings/tabs/license-policy :: tab}"></div></th:block>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>

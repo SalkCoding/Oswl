@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
+    <link rel="stylesheet" th:href="@{/css/tailwind.css}">
+    <link rel="stylesheet" th:href="@{/css/globals.css}">
+    <title th:text="#{error.401.title}">401 - Unauthorized</title>
+</head>
+<body class="min-h-screen flex flex-col m-0">
+<div th:replace="~{error/_owl-error :: page(code='401', title=#{error.401.title}, descHtml=#{error.401.description}, buttonText=#{error.401.btn}, buttonHref=@{/login})}">placeholder</div>
+<footer th:replace="~{fragments/footer :: site-footer}"></footer>
+</body>
+</html>

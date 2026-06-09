@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{securityCenter.pageTitle})}"></head>
+<style>
+@media print {
+    /* ── 숨길 UI 요소 ─────────────────────────────── */
+    header,
+    aside,
+    [data-no-print],
+    [x-show="componentPanelOpen"],
+    [x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"],
+    [x-show="bulkActionsOpen"],
+    [x-show="exportOpen"] { display: none !important; }
+
+    /* ── 레이아웃 플렉스 → 블록으로 변환 (스크롤 컨테이너 제약 해제) ── */
+    body {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+    }
+    main {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    main > section {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    main > section > div {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* ── 스크롤 컨테이너 완전 해제 ─────────────────── */
+    .overflow-x-auto,
+    .overflow-y-auto,
+    .custom-scrollbar {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    /* ── sticky 헤더 정적 배치로 변경 ──────────────── */
+    .sticky { position: static !important; }
+
+    /* ── 테이블 행은 flex 유지 (열 정렬) ──────────── */
+    a[data-comp-id] {
+        display: flex !important;
+        page-break-inside: avoid;
+    }
+
+    /* ── 그림자 제거 ────────────────────────────────── */
+    * { box-shadow: none !important; }
+}
+
+/* ── 체크박스 선택 행 하이라이트 ──────────────────────── */
+.component-row:has(input[name="selectedComponent"]:checked) {
+    background-color: #d3fcf3;
+}
+</style>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col relative"
+      th:data-project-id="${projectId}"
+      x-data="{
+          componentPanelOpen: false,
+          activeCompId: null,
+          searchQuery: '',
+          bulkActionsOpen: false,
+          exportOpen: false,
+          selectedComponents: [],
+          selectAll: false,
+          filters: {
+              reviewed: false,
+              nonReviewed: false,
+              ignored: false,
+              nonIgnored: true,
+              deferred: false,
+              secCritical: false,
+              secHigh: false,
+              secMedium: false,
+              secLow: false,
+              secUnknown: false,
+              licRestricted: false,
+              licCaution: false,
+              licUnknown: false,
+              licPermitted: false,
+              patchable: false,
+              nonPatchable: false,
+              patchDeprecated: false,
+              patchOutdated: false,
+              patchUpToDate: false
+          },
+          filterVersion: 0,
+          scanStatus: /*[[${latestScanStatus}]]*/ 'NONE',
+          latestScanId: /*[[${latestScanId}]]*/ null,
+          scanPollTimer: null,
+          rowVisible(el) {
+              // Track filterVersion so that manual DOM attribute updates (ignored, deferred)
+              // trigger re-evaluation of this function via filterVersion++.
+              void this.filterVersion;
+              const f = this.filters;
+              const q = this.searchQuery.trim().toLowerCase();
+              const anyFilter = Object.values(f).some(v => v);
+              if (!anyFilter && !q) return true;
+
+              if (q) {
+                  const name = (el.dataset.compName || '').toLowerCase();
+                  if (!name.includes(q)) return false;
+              }
+
+              // Reviewed / non-reviewed (both can't be true simultaneously — treat as OR group)
+              if (f.reviewed || f.nonReviewed) {
+                  const rev = el.dataset.reviewed === 'true';
+                  if (f.reviewed && !f.nonReviewed && !rev) return false;
+                  if (!f.reviewed && f.nonReviewed && rev) return false;
+              }
+
+              // Ignore Status group: Ignored / Non-Ignored / Deferred are OR'd together.
+              // Deferred items only match the Deferred filter (not Ignored/NonIgnored).
+              // Non-deferred items only match Ignored/NonIgnored (not Deferred).
+              const isDef = el.dataset.deferred === 'true';
+              const anyIgnoreStatusFilter = f.ignored || f.nonIgnored || f.deferred;
+              if (anyIgnoreStatusFilter) {
+                  const ign = el.dataset.ignored === 'true';
+                  const matchDeferred   = f.deferred   &&  isDef;
+                  const matchIgnored    = f.ignored    &&  ign  && !isDef;
+                  const matchNonIgnored = f.nonIgnored && !ign  && !isDef;
+                  if (!matchDeferred && !matchIgnored && !matchNonIgnored) return false;
+              }
+
+              // Security severity filters — if any active, row must match at least one active
+              const anySec = f.secCritical || f.secHigh || f.secMedium || f.secLow || f.secUnknown;
+              if (anySec) {
+                  const secC = parseInt(el.dataset.secCritical) || 0;
+                  const secH = parseInt(el.dataset.secHigh)     || 0;
+                  const secM = parseInt(el.dataset.secMedium)   || 0;
+                  const secL = parseInt(el.dataset.secLow)      || 0;
+                  const secN = parseInt(el.dataset.secUnscored)   || 0;
+                  const match = (f.secCritical && secC > 0) ||
+                                (f.secHigh     && secH > 0) ||
+                                (f.secMedium   && secM > 0) ||
+                                (f.secLow      && secL > 0) ||
+                                (f.secUnknown  && secN > 0);
+                  if (!match) return false;
+              }
+
+              // License status filters
+              const anyLic = f.licRestricted || f.licCaution || f.licUnknown || f.licPermitted;
+              if (anyLic) {
+                  const ls = el.dataset.licenseStatus || '';
+                  const match = (f.licRestricted && ls === 'RESTRICTED') ||
+                                (f.licCaution    && ls === 'CAUTION')      ||
+                                (f.licUnknown    && ls === 'UNKNOWN')   ||
+                                (f.licPermitted  && ls === 'PERMITTED');
+                  if (!match) return false;
+              }
+
+              // Patchability / version-health filter
+              const anyPatch = f.nonPatchable || f.patchDeprecated || f.patchable || f.patchOutdated || f.patchUpToDate;
+              if (anyPatch) {
+                  const p    = el.dataset.patchability || '';
+                  const dep  = el.dataset.deprecated === 'true';
+                  const lat  = el.dataset.isLatest;
+                  const hasVuln = (parseInt(el.dataset.secCritical) || 0) +
+                                  (parseInt(el.dataset.secHigh)     || 0) +
+                                  (parseInt(el.dataset.secMedium)   || 0) +
+                                  (parseInt(el.dataset.secLow)      || 0) +
+                                  (parseInt(el.dataset.secUnscored)   || 0) > 0;
+                  const isUpToDate  = !hasVuln && !dep && lat === 'true';
+                  const isOutdated  = !hasVuln && !dep && lat === 'false';
+                  const match = (f.nonPatchable   && hasVuln && p === 'non-patchable') ||
+                                (f.patchDeprecated && dep)                              ||
+                                (f.patchable      && hasVuln && p === 'patchable')     ||
+                                (f.patchOutdated  && isOutdated)                       ||
+                                (f.patchUpToDate  && isUpToDate);
+                  if (!match) return false;
+              }
+
+              return true;
+          },
+          startPolling() {
+              if (this.scanPollTimer) return;
+              this.scanPollTimer = setInterval(async () => {
+                  if (!this.latestScanId) return;
+                  const r = await fetch('/api/scan/' + this.latestScanId + '/status');
+                  if (!r.ok) return;
+                  const d = await r.json();
+                  this.scanStatus = d.status;
+                  if (d.status === 'COMPLETED' || d.status === 'FAILED') {
+                      clearInterval(this.scanPollTimer);
+                      this.scanPollTimer = null;
+                      if (d.status === 'COMPLETED') { location.reload(); }
+                  }
+              }, 2500);
+          },
+          applyBulkAction(action) {
+              if (!this.selectedComponents.length) return;
+              const projectId = document.body.dataset.projectId;
+              const ids = this.selectedComponents.map(Number);
+
+              if (action === 'reviewed' || action === 'unreviewed') {
+                  const value = action === 'reviewed';
+                  const idStrings = ids.map(String);
+                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
+                      method: 'PATCH',
+                      headers: oswlJsonHeaders(),
+                      body: JSON.stringify({ids: ids, reviewed: value})
+                  }).then(r => {
+                      if (r.ok) {
+                          window.dispatchEvent(new CustomEvent('bulk-review', {
+                              detail: {ids: idStrings, value: value}
+                          }));
+                      }
+                  });
+              } else if (action === 'ignore' || action === 'unignore') {
+                  const value = action === 'ignore';
+                  const idStrings = ids.map(String);
+                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
+                      method: 'PATCH',
+                      headers: oswlJsonHeaders(),
+                      body: JSON.stringify({ids: ids, ignored: value})
+                  }).then(r => {
+                      if (r.ok) {
+                          window.dispatchEvent(new CustomEvent('bulk-ignore', {
+                              detail: {ids: idStrings, value: value}
+                          }));
+                          // When ignoring, automatically show non-ignored items so
+                          // the user can see the list update in real time.
+                          if (action === 'ignore') {
+                              this.filters.nonIgnored = true;
+                              this.filterVersion++;
+                          }
+                      }
+                  });
+              }
+
+              this.bulkActionsOpen = false;
+              this.selectedComponents = [];
+              this.selectAll = false;
+          },
+          exportAs(format) {
+              this.exportOpen = false;
+              const projectId = document.body.dataset.projectId;
+              if (format === 'pdf') {
+                  let url = '/projects/' + projectId + '/security-center/print';
+                  const scanId = new URLSearchParams(window.location.search).get('scanId');
+                  if (scanId) url += '?scanId=' + scanId;
+                  window.open(url, '_blank');
+                  return;
+              }
+              // CSV download
+              let url = '/projects/' + projectId + '/security-center/export?format=csv';
+              if (this.latestScanId) url += '&scanId=' + this.latestScanId;
+              window.location.href = url;
+          },
+          toggleSelectAll() {
+              if (this.selectAll) {
+                  const values = Array.from(document.querySelectorAll('input[name=selectedComponent]')).map(el => el.value);
+                  this.selectedComponents = values;
+              } else {
+                  this.selectedComponents = [];
+              }
+          },
+          clearSelected() {
+              this.selectedComponents = [];
+              this.selectAll = false;
+          },
+          init() {
+              if (['SCANNING', 'ANALYZING', 'PENDING'].includes(this.scanStatus)) {
+                  this.startPolling();
+              }
+          }
+      }"
+      x-init="init()">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
+
+    <!-- Scan-in-progress banner (auto-dismissed when polling detects COMPLETED/FAILED) -->
+    <div x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"
+         x-cloak
+         class="w-full px-[60px] py-[10px] bg-[var(--primary-10)] border-b border-[var(--primary-40)] flex items-center gap-[10px]">
+        <svg class="w-[16px] h-[16px] text-[var(--primary-120)] animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <p class="text-[13px] text-[var(--primary-120)] font-medium tracking-[-0.13px] m-0" th:text="#{securityCenter.scanning}">
+            Analysis in progress — results will update automatically when complete.
+        </p>
+        <span x-text="'(' + scanStatus.toLowerCase() + ')'"
+              class="text-[11px] text-[var(--primary-80)] font-mono"></span>
+    </div>
+
+    <main class="flex flex-col flex-1 min-h-0">
+
+        <!-- Risk Graph Summary Row: 1행 2열 그리드 -->
+        <section class="w-full px-[60px] py-[24px] flex-shrink-0 bg-white">
+            <!-- Update Detected Banner -->
+            <div th:if="${updateFromVersion != null}" class="mb-[24px]">
+                <a th:href="@{/projects/{id}/security-center(id=${projectId}, scanId=${updateToScanId})}"
+                   class="flex items-center gap-[20px] px-[20px] py-[16px] rounded-[10px] bg-[rgba(245,145,38,0.05)] border border-[rgba(245,145,38,0.25)] no-underline cursor-pointer hover:bg-[rgba(245,145,38,0.08)] transition-colors">
+                    <div class="flex items-center gap-[12px] shrink-0">
+                        <img src="/icon/icon-notification.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateFromVersion}">v1.2.4</span>
+                            <svg class="w-[20px] h-[20px] text-[#141616] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                            </svg>
+                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateToVersion}">v1.2.5</span>
+                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateDetected}">update detected.</span>
+                        </div>
+                    </div>
+                    <span class="text-[14px] text-[#5e6b70] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateChangeMessage}">Library changes found. Please review.</span>
+                </a>
+            </div>
+
+            <!-- AI security posture insight -->
+            <div th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}"
+                 class="mb-[24px] flex flex-col gap-[12px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
+                <div class="flex items-center gap-[6px]">
+                    <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{riskTrend.ai.insight}">AI Insight</p>
+                </div>
+                <p class="text-[14px] text-[#272D30] tracking-[-0.15px] m-0 leading-relaxed"
+                   th:text="${securityPostureInsight}">AI posture insight</p>
+            </div>
+
+            <!-- Risk stick graph -->
+            <div class="grid grid-cols-2 gap-x-[60px] w-full">
+                <div th:replace="~{fragments/risk-graph :: riskGraph(#{riskTrend.chart.security}, ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, #{riskTrend.legend.unscored})}"></div>
+                <div th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
+            </div>
+        </section>
+
+        <!-- Table & Action area -->
+        <section class="flex flex-col flex-1 mt-[12px] bg-white border-t border-[var(--border-default)] min-h-0">
+            <div th:replace="~{security-center/fragments/actions :: actions}"></div>
+
+            <div class="flex flex-1 min-h-0">
+                <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>
+                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none; order: 1;">
+                    <div th:replace="~{security-center/fragments/table :: table}"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Component Detail Panel Overlay -->
+    <div x-show="componentPanelOpen"
+         x-transition:enter="transition-opacity ease-linear duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-linear duration-300"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-black/50 z-[100]"
+         @click="componentPanelOpen = false; activeCompId = null"
+         style="display: none;"></div>
+
+    <!-- Component Detail Panel -->
+    <div x-show="componentPanelOpen"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-screen w-full max-w-[920px] z-[110] bg-white shadow-2xl flex flex-col"
+         @open-component-panel.window="componentPanelOpen = true; activeCompId = String($event.detail.id)"
+         @close-component-panel.window="componentPanelOpen = false; activeCompId = null"
+         style="display: none;">
+         
+         <div id="slideout-content" class="flex-1 overflow-y-auto custom-scrollbar w-full relative">
+              <!-- HTMX will inject the component detail here -->
+         </div>
+    </div>
+
+    <footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>

@@ -1,0 +1,47 @@
+package com.salkcoding.oswl.auth.security;
+
+import com.salkcoding.oswl.auth.enums.Permission;
+import lombok.Getter;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+
+import java.util.Collection;
+import java.util.Set;
+
+/**
+ * Custom UserDetails carrying OsWL-specific identity data
+ * (userId, displayName, isSystemAdmin, permissions).
+ */
+@Getter
+public class OswlUserPrincipal extends User {
+
+    private final Long userId;
+    private final String displayName;
+    private final boolean systemAdmin;
+    private final Set<Long> roleTemplateIds;
+    private final Set<Permission> permissions;
+    private final boolean mustChangePassword;
+
+    public OswlUserPrincipal(Long userId,
+                             String email,
+                             String passwordHash,
+                             String displayName,
+                             boolean systemAdmin,
+                             boolean enabled,
+                             Collection<? extends GrantedAuthority> authorities,
+                             Set<Long> roleTemplateIds,
+                             Set<Permission> permissions,
+                             boolean mustChangePassword) {
+        super(email, passwordHash, enabled, true, true, true, authorities);
+        this.userId = userId;
+        this.displayName = displayName;
+        this.systemAdmin = systemAdmin;
+        this.roleTemplateIds = roleTemplateIds;
+        this.permissions = permissions;
+        this.mustChangePassword = mustChangePassword;
+    }
+
+    public boolean hasPermission(Permission permission) {
+        return systemAdmin || permissions.contains(permission);
+    }
+}

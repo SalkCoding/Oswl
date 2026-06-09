@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="cacheTab()"
+     x-init="load()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.cache.heading}">Cache Settings</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.cache.description}">Configure caching policies for library vulnerability data.</p>
+    </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <!-- Policy card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.cache.policy.heading}">Automatic Cache Policy</h3>
+
+        <div class="flex flex-col gap-[24px]">
+            <!-- Custom TTL -->
+            <div class="flex flex-col gap-[24px]">
+                <div class="flex gap-[8px] items-start cursor-pointer" @click="policy='custom'">
+                    <img :src="policy==='custom' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                    <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.custom}">Custom TTL</span>
+                        <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.policy.custom.description}">Refreshes data after the specified period.</span>
+                    </div>
+                </div>
+                <div x-show="policy==='custom'" class="pl-[28px] flex items-center gap-[8px]">
+                    <input type="number" min="1" x-model.number="customAmount"
+                           class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
+                    <!-- Custom dropdown for time unit -->
+                    <div class="relative" @click.away="unitDropdownOpen=false">
+                        <button type="button" @click="unitDropdownOpen=!unitDropdownOpen"
+                                class="flex items-center gap-[6px] pr-[8px] pl-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer transition-colors"
+                                :class="unitDropdownOpen ? 'border-[#33D1B7]' : ''">
+                            <span x-text="customUnit === 'hour' ? _cacheI18n.hours : _cacheI18n.days"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 w-[12px] h-[12px]" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="unitDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[3px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                            <button type="button" @click="customUnit='hour'; unitDropdownOpen=false"
+                                    class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="customUnit==='hour' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
+                                    th:text="#{settings.cache.ttl.hours}">hour(s)</button>
+                            <button type="button" @click="customUnit='day'; unitDropdownOpen=false"
+                                    class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="customUnit==='day' ? 'font-semibold text-[var(--grayscale-100)]' : 'text-[var(--grayscale-70)]'"
+                                    th:text="#{settings.cache.ttl.days}">day(s)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Always Refresh -->
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="policy='always'">
+                <img :src="policy==='always' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px]">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.always}">Always Refresh</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.policy.always.description}">Fetches the latest data from deps.dev and OSV on every scan.</span>
+                </div>
+            </div>
+
+            <!-- Permanent -->
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="policy='permanent'">
+                <img :src="policy==='permanent' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px]">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.cache.policy.permanent}">Permanent Cache</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.cache.policy.permanent.description}">Once fetched, library data will not be refreshed automatically.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-[8px]">
+                <button x-show="!clearConfirm" @click="clearConfirm=true"
+                        class="text-[var(--grayscale-70)] hover:text-red-600 text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] hover:border-red-300 inline-flex items-center gap-[6px] transition-colors">
+                    <img th:src="@{/icon/icon-delete.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+                    <span th:text="#{settings.cache.btn.clearAll}">Clear All Cache</span>
+                </button>
+                <div x-show="clearConfirm" x-cloak class="flex items-center gap-[8px]">
+                    <span class="text-[13px] font-medium text-[var(--grayscale-70)]" th:text="#{settings.cache.clearConfirm}">Clear all cached data?</span>
+                    <button @click="clearAll()" class="text-[12px] font-bold text-white bg-red-500 hover:bg-red-600 px-[12px] py-[6px] rounded-[6px] transition-colors" th:text="#{settings.cache.confirm.clearYes}">Yes, clear</button>
+                    <button @click="clearConfirm=false" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[10px] py-[6px] rounded-[6px] border border-[var(--grayscale-20)] transition-colors" th:text="#{common.cancel}">Cancel</button>
+                </div>
+            </div>
+            <button @click="save()" :disabled="saving"
+                    class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span x-text="saving ? _cacheI18n.saving : _cacheI18n.save"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _cacheI18n = {
+        hours:           /*[[#{settings.cache.ttl.hours}]]*/ 'hour(s)',
+        days:            /*[[#{settings.cache.ttl.days}]]*/ 'day(s)',
+        saving:          /*[[#{common.saving}]]*/ 'Saving…',
+        save:            /*[[#{common.save}]]*/ 'Save',
+        loadFailed:      /*[[#{settings.cache.error.loadFailed}]]*/ 'Failed to load cache settings.',
+        saveFailed:      /*[[#{settings.cache.error.saveFailed}]]*/ 'Save failed.',
+        policyAlways:    /*[[#{settings.cache.policy.savedAlways}]]*/ 'Cache policy set to Always Refresh.',
+        policyPermanent: /*[[#{settings.cache.policy.savedPermanent}]]*/ 'Cache policy set to Permanent.',
+        cleared:         /*[[#{settings.cache.cleared}]]*/ 'All cache has been cleared.'
+    };
+    </script>
+    <script>
+    function cacheTab() {
+        return {
+            policy: 'custom',           // 'custom' | 'always' | 'permanent'
+            customAmount: 7, customUnit: 'day',
+            unitDropdownOpen: false,
+            items: [],
+            saving: false, apiError: null, toast: null, clearConfirm: false,
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+            headers() { return oswlJsonHeaders(); },
+            showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
+            formatTtl(hours) {
+                if (!hours || hours <= 0) return _cacheI18n.policyAlways;
+                if (hours >= 24*365*10) return 'Permanent';
+                if (hours % 24 === 0) return (hours/24) + ' ' + _cacheI18n.days;
+                return hours + ' ' + _cacheI18n.hours;
+            },
+            async load() {
+                try {
+                    const r = await fetch('/api/settings/cache');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.loadFailed); return; }
+                    this.items = await r.json();
+                    // Infer current policy from first item's ttlHours
+                    if (this.items.length) {
+                        const h = this.items[0].ttlHours;
+                        if (h === null || h === undefined) { this.policy = 'custom'; this.customAmount = 7; this.customUnit = 'day'; }
+                        else if (h <= 0) this.policy = 'always';
+                        else if (h >= 24*365*10) this.policy = 'permanent';
+                        else {
+                            this.policy = 'custom';
+                            if (h % 24 === 0) { this.customAmount = h/24; this.customUnit = 'day'; }
+                            else { this.customAmount = h; this.customUnit = 'hour'; }
+                        }
+                    }
+                } catch(e) { this.apiError = _cacheI18n.loadFailed; }
+            },
+            ttlSecondsForPolicy() {
+                if (this.policy === 'always') return 1;
+                if (this.policy === 'permanent') return 50 * 365 * 24 * 3600; // 50 years, fits in long
+                const hours = (this.customUnit === 'day') ? this.customAmount * 24 : this.customAmount;
+                return Math.max(1, hours) * 3600;
+            },
+            savedPolicyLabel() {
+                if (this.policy === 'always') return _cacheI18n.policyAlways;
+                if (this.policy === 'permanent') return _cacheI18n.policyPermanent;
+                const unit = this.customUnit === 'day' ? _cacheI18n.days : _cacheI18n.hours;
+                return `Cache policy set to ${this.customAmount} ${unit}.`;
+            },
+            async save() {
+                this.saving = true; this.apiError = null;
+                const label = this.savedPolicyLabel(); // capture before any await
+                try {
+                    const ttlSeconds = this.ttlSecondsForPolicy();
+                    // Apply to every existing cache key
+                    for (const c of this.items) {
+                        const r = await fetch('/api/settings/cache', { method: 'PUT', headers: this.headers(), body: JSON.stringify({ cacheKey: c.cacheKey, ttlSeconds }) });
+                        if (r.status === 401) { location.href = '/login'; return; }
+                        if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.saveFailed); return; }
+                    }
+                    // Update items in-place so a re-fetch doesn't overwrite the policy
+                    this.items = this.items.map(c => ({
+                        ...c, ttlSeconds, ttlHours: Math.floor(ttlSeconds / 3600)
+                    }));
+                    this.showToast(label);
+                } finally { this.saving = false; }
+            },
+            async clearAll() {
+                this.clearConfirm = false;
+                const r = await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
+                await this.load();
+                this.showToast(_cacheI18n.cleared);
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

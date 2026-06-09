@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Risk Trend Component.
+    usage: th:replace="~{risk-trend/components/risk-trend :: risk-trend(${securityIssues}, ${securityDelta}, ${licenseIssues}, ${licenseDelta})}"
+-->
+<div th:fragment="risk-trend(securityIssues, securityDelta, licenseIssues, licenseDelta)"
+     class="flex flex-col w-full">
+
+    <!-- Two columns -->
+    <div class="flex gap-[48px] px-[80px] pb-[60px] pt-[40px]">
+
+        <!-- Security Risk -->
+        <div class="flex-1 flex flex-col gap-[48px] min-w-0">
+
+            <!-- Legend - Security -->
+            <div class="flex items-center justify-center gap-[24px]">
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#e62727]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.critical}">Critical</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#f47a29]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.high}">High</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#f5bd26]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.medium}">Medium</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#97a5ab]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.low}">Low</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#d0d9dd]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.unscored}">Unscored</p>
+                </div>
+            </div>
+
+            <!-- Title & Issues -->
+            <div class="flex flex-col gap-[20px] pl-[60px]">
+                <p class="font-bold text-[24px] text-[var(--background-dark)] tracking-[-0.24px] leading-[1.3]" th:text="#{riskTrend.chart.security}">Security Risk</p>
+                <div class="flex flex-wrap items-center gap-[8px]">
+                    <p class="font-bold text-[20px] text-[var(--primary-120)] tracking-[-0.2px] leading-[1.3]"
+                       th:text="${securityIssues} + ' ' + #{riskTrend.label.issues}">155 Issues</p>
+                    <div class="bg-[var(--grayscale-10)] flex items-center gap-[8px] px-[12px] py-[4px] rounded-[40px]">
+                        <p class="font-medium text-[16px] text-[var(--grayscale-60)] tracking-[-0.16px] leading-[1.3]"
+                           th:text="${securityDelta}">12</p>
+                        <img th:if="${securityDelta >= 0}" th:src="@{/icon/icon-triangle-up.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        <img th:if="${securityDelta < 0}" th:src="@{/icon/icon-triangle-down.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        <p class="text-[16px] text-[var(--grayscale-60)] tracking-[-0.16px] leading-[1.3]" th:text="#{riskTrend.label.fromPrevious}">from previous version</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="securityRiskChart"></canvas>
+            </div>
+
+            <!-- AI Insight -->
+            <div class="pl-[60px] pr-[0px] ai-insight-box">
+                <!-- AI configured and insight available -->
+                <div th:if="${securityAiInsight != null and !#strings.isEmpty(securityAiInsight)}"
+                     class="bg-[rgba(51,209,183,0.08)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
+                    <div class="flex items-center gap-[6px]">
+                        <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]" th:text="#{riskTrend.ai.insight}">AI Insight</p>
+                    </div>
+                    <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="${securityAiInsight}"></p>
+                </div>
+                <!-- No insight data for this scan -->
+                <div th:if="${securityAiInsight == null or #strings.isEmpty(securityAiInsight)}"
+                     class="bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
+                    <div class="flex items-center gap-[6px]">
+                        <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px] shrink-0 opacity-30" alt="" aria-hidden="true">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px]" th:text="#{riskTrend.ai.insight}">AI Insight</p>
+                    </div>
+                    <p class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:text="#{riskTrend.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex-1 flex flex-col gap-[48px] min-w-0">
+
+            <!-- Legend - License -->
+            <div class="flex items-center justify-center gap-[24px]">
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#e62727]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.restricted}">Restricted</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#f59126]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.caution}">Caution</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#84dca5]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.permitted}">Permitted</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#abb8be]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.unknown}">Unknown</p>
+                </div>
+            </div>
+
+            <!-- Title & Issues -->
+            <div class="flex flex-col gap-[20px] pl-[60px]">
+                <p class="font-bold text-[24px] text-[var(--background-dark)] tracking-[-0.24px] leading-[1.3]" th:text="#{riskTrend.chart.license}">License Risk</p>
+                <div class="flex flex-wrap items-center gap-[8px]">
+                    <p class="font-bold text-[20px] text-[var(--primary-120)] tracking-[-0.2px] leading-[1.3]"
+                       th:text="${licenseIssues} + ' ' + #{riskTrend.label.issues}">155 Issues</p>
+                    <div class="bg-[var(--grayscale-10)] flex items-center gap-[8px] px-[12px] py-[4px] rounded-[40px]">
+                        <p class="font-medium text-[16px] text-[var(--grayscale-60)] tracking-[-0.16px] leading-[1.3]"
+                           th:text="${licenseDelta}">12</p>
+                        <img th:if="${licenseDelta >= 0}" th:src="@{/icon/icon-triangle-up.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        <img th:if="${licenseDelta < 0}" th:src="@{/icon/icon-triangle-down.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        <p class="text-[16px] text-[var(--grayscale-60)] tracking-[-0.16px] leading-[1.3]" th:text="#{riskTrend.label.fromPrevious}">from previous version</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="licenseRiskChart"></canvas>
+            </div>
+
+            <!-- AI Insight -->
+            <div class="pl-[60px] pr-[0px] ai-insight-box">
+                <!-- AI configured and insight available -->
+                <div th:if="${licenseAiInsight != null and !#strings.isEmpty(licenseAiInsight)}"
+                     class="bg-[rgba(51,209,183,0.08)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
+                    <div class="flex items-center gap-[6px]">
+                        <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]" th:text="#{riskTrend.ai.insight}">AI Insight</p>
+                    </div>
+                    <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px] leading-[1.3]"
+                       th:text="${licenseAiInsight}"></p>
+                </div>
+                <!-- No insight data for this scan -->
+                <div th:if="${licenseAiInsight == null or #strings.isEmpty(licenseAiInsight)}"
+                     class="bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)] rounded-[10px] p-[20px] flex flex-col gap-[12px]">
+                    <div class="flex items-center gap-[6px]">
+                        <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[20px] h-[20px] shrink-0 opacity-30" alt="" aria-hidden="true">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px]" th:text="#{riskTrend.ai.insight}">AI Insight</p>
+                    </div>
+                    <p class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] leading-[1.3]" th:text="#{riskTrend.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>

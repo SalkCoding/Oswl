@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{riskTrend.pageTitle})}"></head>
+<body class="bg-[var(--grayscale-5)] flex flex-col min-h-screen">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'risk-trend')}"></header>
+
+    <main class="flex-1 w-full">
+        <div th:replace="~{risk-trend/components/risk-trend :: risk-trend(${securityIssues}, ${securityDelta}, ${licenseIssues}, ${licenseDelta})}"></div>
+    </main>
+
+    <script th:src="@{/js/vendor/chart.umd.min.js}"></script>
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+    window.riskTrendData = {
+        versions:  /*[[${chartVersions}]]*/ [],
+        security: {
+            critical: /*[[${chartSecCritical}]]*/ [],
+            high:     /*[[${chartSecHigh}]]*/ [],
+            medium:   /*[[${chartSecMedium}]]*/ [],
+            low:      /*[[${chartSecLow}]]*/ [],
+            none:     /*[[${chartSecNone}]]*/ []
+        },
+        license: {
+            restricted: /*[[${chartLicRestricted}]]*/ [],
+            caution:    /*[[${chartLicCaution}]]*/ [],
+            permitted:  /*[[${chartLicPermitted}]]*/ [],
+            unknown:    /*[[${chartLicUnknown}]]*/ []
+        }
+    };
+    window.riskTrendI18n = {
+        xAxis:   /*[[#{riskTrend.chart.xAxis}]]*/ 'Version',
+        yAxis:   /*[[#{riskTrend.chart.yAxis}]]*/ 'Issue Count',
+        noData:  /*[[#{riskTrend.noData}]]*/ 'No scan data yet',
+        noDataHint: /*[[#{riskTrend.noData.hint}]]*/ 'Run a scan to see the risk trend over time.',
+        chartLoadFailed: /*[[#{riskTrend.chart.loadFailed}]]*/ 'Chart could not be loaded.',
+        restricted: /*[[#{riskTrend.legend.restricted}]]*/ 'Restricted',
+        caution:    /*[[#{riskTrend.legend.caution}]]*/ 'Caution',
+        permitted:  /*[[#{riskTrend.legend.permitted}]]*/ 'Permitted',
+        unknown:    /*[[#{riskTrend.legend.unknown}]]*/ 'Unknown',
+        critical:   /*[[#{riskTrend.legend.critical}]]*/ 'Critical',
+        high:       /*[[#{riskTrend.legend.high}]]*/ 'High',
+        medium:     /*[[#{riskTrend.legend.medium}]]*/ 'Medium',
+        low:        /*[[#{riskTrend.legend.low}]]*/ 'Low',
+        unscored:   /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored'
+    };
+    /*]]>*/
+    </script>
+    <script th:src="@{/js/risk-trend/risk-trend.js}"></script>
+
+    <footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>

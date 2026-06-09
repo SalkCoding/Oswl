@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="aiTab()"
+     x-init="init()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.ai.heading}">AI Analysis Settings</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.ai.description}">Configure AI-powered vulnerability analysis.</p>
+    </div>
+
+    <!-- Error Banner -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
+         x-text="apiError"></div>
+
+    <!-- Provider Card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+
+        <!-- Card Title -->
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.provider.label}">AI Provider</h3>
+
+        <!-- ── Option 1: Do not use AI ── -->
+        <label class="flex gap-[8px] items-center cursor-pointer" @click="mode='off'">
+            <input type="radio" name="aiMode" value="off" x-model="mode" class="sr-only"/>
+            <img :src="mode==='off' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+            <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.disabled}">Do not use AI</span>
+        </label>
+
+        <!-- ── Option 2: OpenAI (GPT) ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='OPENAI'">
+                <img :src="mode==='OPENAI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.openai}">OpenAI (GPT)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.openai.description}">Use OpenAI GPT models with an API key. Also compatible with Azure OpenAI and custom endpoints.</span>
+                </div>
+            </div>
+            <!-- OpenAI Fields -->
+            <div x-show="mode==='OPENAI'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.apiKey}">API Key</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="password" x-model="forms.OPENAI.apiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.endpoint}">API Endpoint</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="url" x-model="forms.OPENAI.baseUrl" placeholder="https://api.openai.com/v1 (optional)"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
+                    <div class="relative flex-1 max-w-[400px]"
+                         x-data="{ open: false, modelSearch: '' }"
+                         x-init="$watch('forms.OPENAI.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.OPENAI.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.OPENAI.modelName || ''">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.openaiModelInput.focus())">
+                            <input type="text" x-ref="openaiModelInput"
+                                   x-model="modelSearch"
+                                   @input="forms.OPENAI.modelName = modelSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false; modelSearch = forms.OPENAI.modelName || ''"
+                                   placeholder="e.g. gpt-4o"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.openaiModelInput.focus())}else{modelSearch=forms.OPENAI.modelName||''}"
+                                 class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        </div>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                            <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Option 3: Anthropic (Claude) ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='ANTHROPIC'">
+                <img :src="mode==='ANTHROPIC' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic}">Anthropic (Claude)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic.description}">Use Anthropic's Claude models via API key. Supports claude-opus, claude-sonnet, and claude-haiku families.</span>
+                </div>
+            </div>
+            <!-- Anthropic Fields -->
+            <div x-show="mode==='ANTHROPIC'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.apiKey}">API Key</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="password" x-model="forms.ANTHROPIC.apiKey" placeholder="sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
+                    <div class="relative flex-1 max-w-[400px]"
+                         x-data="{ open: false, modelSearch: '' }"
+                         x-init="$watch('forms.ANTHROPIC.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.ANTHROPIC.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.ANTHROPIC.modelName || ''">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.anthropicModelInput.focus())">
+                            <input type="text" x-ref="anthropicModelInput"
+                                   x-model="modelSearch"
+                                   @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false; modelSearch = forms.ANTHROPIC.modelName || ''"
+                                   placeholder="e.g. claude-sonnet-4-6"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.anthropicModelInput.focus())}else{modelSearch=forms.ANTHROPIC.modelName||''}"
+                                 class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        </div>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                            <div x-show="['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Option 4: Google Gemini ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='GEMINI'">
+                <img :src="mode==='GEMINI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.gemini}">Google (Gemini)</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.gemini.description}">Use Google's Gemini models via API key from Google AI Studio or Vertex AI.</span>
+                </div>
+            </div>
+            <!-- Gemini Fields -->
+            <div x-show="mode==='GEMINI'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.apiKey}">API Key</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="password" x-model="forms.GEMINI.apiKey" placeholder="AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
+                    <div class="relative flex-1 max-w-[400px]"
+                         x-data="{ open: false, modelSearch: '' }"
+                         x-init="$watch('forms.GEMINI.modelName', v => { if (!open) modelSearch = v || '' }); modelSearch = forms.GEMINI.modelName || ''"
+                         @click.away="open=false; modelSearch = forms.GEMINI.modelName || ''">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; modelSearch=''; $nextTick(()=>$refs.geminiModelInput.focus())">
+                            <input type="text" x-ref="geminiModelInput"
+                                   x-model="modelSearch"
+                                   @input="forms.GEMINI.modelName = modelSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false; modelSearch = forms.GEMINI.modelName || ''"
+                                   placeholder="e.g. gemini-2.5-flash"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.geminiModelInput.focus())}else{modelSearch=forms.GEMINI.modelName||''}"
+                                 class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        </div>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.GEMINI.modelName = opt; modelSearch = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.GEMINI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                            <div x-show="['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Option 5: Local / Ollama ── -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
+                <img :src="mode==='LOCAL' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.local}">Local / Ollama</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.local.description}">Use a locally running Ollama instance or any OpenAI-compatible local LLM. No API key required.</span>
+                </div>
+            </div>
+            <!-- Local Fields -->
+            <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.endpoint}">API Endpoint</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="url" x-model="forms.LOCAL.baseUrl" placeholder="http://localhost:11434/v1"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.model}">Model</span>
+                    <div class="relative flex-1 max-w-[400px]" x-data="{ open: false, localSearch: '' }"
+                         x-init="$watch('forms.LOCAL.modelName', v => { if (!open) localSearch = v || '' }); localSearch = forms.LOCAL.modelName || ''" @click.away="open=false; localSearch = forms.LOCAL.modelName || ''">
+                        <div class="flex items-center bg-white border rounded-[8px] px-[12px] py-[8px] transition-colors cursor-text"
+                             :class="open ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'"
+                             @click="open=true; localSearch=''; $nextTick(()=>$refs.localModelInput.focus())">
+                            <input type="text" x-ref="localModelInput"
+                                   x-model="localSearch"
+                                   @input="forms.LOCAL.modelName = localSearch; open = true"
+                                   @focus="open = true"
+                                   @keydown.escape="open=false; localSearch = forms.LOCAL.modelName || ''"
+                                   placeholder="e.g. llama3.3"
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                            <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){localSearch='';$nextTick(()=>$refs.localModelInput.focus())}else{localSearch=forms.LOCAL.modelName||''}"
+                                 class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        </div>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="opt in ['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase()))" :key="opt">
+                                <button type="button" @click="forms.LOCAL.modelName = opt; localSearch = opt; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                        :class="forms.LOCAL.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="opt"></button>
+                            </template>
+                            <div x-show="['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase())).length === 0"
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Provider actions ── -->
+        <div class="flex gap-[12px] items-center justify-end mt-[10px]">
+            <button type="button"
+                    @click="testConnection()"
+                    :disabled="testing || mode==='off'"
+                    class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[14px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[4px] items-center disabled:opacity-40 hover:bg-[var(--grayscale-10)] transition-colors cursor-pointer">
+                <span class="font-medium text-[14px] text-[var(--grayscale-80)] tracking-[-0.14px] whitespace-nowrap"
+                      x-text="testing ? _aiI18n.testing : _aiI18n.testConnection"></span>
+            </button>
+            <button type="button"
+                    @click="saveProvider()"
+                    :disabled="savingProvider"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="savingProvider ? _aiI18n.saving : _aiI18n.save"></span>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Scan Enrichment Card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.heading}">Scan Enrichment</h3>
+
+        <!-- Prompt language -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.promptLocale.title}">Prompt language</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.promptLocale.description}">Language used for AI-generated summaries and trend insights.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.promptsLocale}">Language</span>
+                    <div class="relative flex-1 max-w-[400px]" @click.away="localeDropdownOpen=false">
+                        <button type="button" @click="localeDropdownOpen=!localeDropdownOpen"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                                :class="localeDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                            <span x-text="localeLabel()"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="localeDropdownOpen ? 'rotate-180' : ''"
+                                 class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="localeDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                            <button type="button" @click="preferences.promptsLocale='en'; localeDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.promptsLocale==='en' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    th:text="#{settings.ai.locale.en}">English</button>
+                            <button type="button" @click="preferences.promptsLocale='ko'; localeDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.promptsLocale==='ko' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    th:text="#{settings.ai.locale.ko}">Korean</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CVE summaries -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.title}">CVE AI summaries</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.description}">During each scan, OsWL picks the most severe CVEs and sends them to AI for a plain-language triage note. CVEs outside the selected severities keep the OSV database summary only.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-start gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.cveSeverities}">Severities</span>
+                    <div class="flex flex-wrap gap-[8px] flex-1 max-w-[400px]">
+                        <template x-for="level in ['CRITICAL','HIGH','MEDIUM','LOW']" :key="level">
+                            <button type="button"
+                                    @click="toggleCveSeverity(level, !preferences.cveSeverities.includes(level))"
+                                    class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
+                                    :class="preferences.cveSeverities.includes(level)
+                                        ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
+                                        : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
+                                    x-text="level"></button>
+                        </template>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.cveLimit}">Max per scan</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="1" max="50" x-model.number="preferences.cveLimit"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.cveLimit}">Caps API cost: if a scan has more matching CVEs, only the top N by severity are summarized (1–50).</p>
+            </div>
+        </div>
+
+        <!-- License summaries -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.title}">License AI summaries</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.description}">Components with Restricted, Caution, or Unknown license status can receive a short AI compliance note on the component detail page.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.licenseLimit}">Max per scan</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="1" max="50" x-model.number="preferences.licenseLimit"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
+            </div>
+        </div>
+
+        <!-- Model parameters -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.title}">Model parameters</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.description}">Temperature and token limits for LLM calls. Leave blank to use template defaults.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" x-model.number="preferences.dailyCallCap"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
+            </div>
+        </div>
+
+        <!-- Default deployment context -->
+        <div class="flex flex-col gap-[14px] pl-[28px]">
+            <div class="flex items-center gap-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.deploymentProfile}">Deployment</span>
+                <div class="relative flex-1 max-w-[400px]" @click.away="deploymentDropdownOpen=false">
+                    <button type="button" @click="deploymentDropdownOpen=!deploymentDropdownOpen"
+                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                            :class="deploymentDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                        <span x-text="deploymentLabel()"></span>
+                        <img src="/icon/icon-triangle-down.svg" :class="deploymentDropdownOpen ? 'rotate-180' : ''"
+                             class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="deploymentDropdownOpen" x-cloak
+                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                        <template x-for="opt in deploymentOptions" :key="opt.value">
+                            <button type="button"
+                                    @click="preferences.defaultDeploymentProfile=opt.value; deploymentDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.defaultDeploymentProfile===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    x-text="opt.label"></button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prompt templates -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.title}">Prompt templates</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.description}">Preview and override key prompts (saved with AI settings; no restart required).</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.promptKey}">Template</span>
+                    <div class="relative flex-1 max-w-[400px]" @click.away="promptKeyDropdownOpen=false">
+                        <button type="button" @click="promptKeyDropdownOpen=!promptKeyDropdownOpen"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] font-mono text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                                :class="promptKeyDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                            <span class="truncate text-left" x-text="promptEditKey || '—'"></span>
+                            <img src="/icon/icon-triangle-down.svg" :class="promptKeyDropdownOpen ? 'rotate-180' : ''"
+                                 class="transition-transform duration-150 shrink-0 w-[14px] h-[14px] ml-[8px]" alt="" aria-hidden="true">
+                        </button>
+                        <div x-show="promptKeyDropdownOpen" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <template x-for="key in promptKeys" :key="key">
+                                <button type="button"
+                                        @click="promptEditKey=key; promptKeyDropdownOpen=false; loadPromptEditor()"
+                                        class="w-full text-left px-[12px] py-[9px] text-[12px] font-mono transition-colors"
+                                        :class="promptEditKey===key ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="key"></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-start gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.promptBody}">Text</span>
+                    <textarea x-model="promptEditText" rows="6"
+                              class="flex-1 max-w-[526px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] font-mono text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Enrichment actions ── -->
+        <div class="flex gap-[12px] items-center justify-end mt-[10px]">
+            <button type="button"
+                    @click="saveEnrichment()"
+                    :disabled="savingEnrichment"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Toast ── -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _aiI18n = {
+        testConnection: /*[[#{settings.ai.btn.testConnection}]]*/ 'Test Connection',
+        testing:        /*[[#{settings.ai.btn.testing}]]*/ 'Testing\u2026',
+        save:           /*[[#{common.save}]]*/ 'Save',
+        saving:         /*[[#{settings.ai.btn.saving}]]*/ 'Saving\u2026',
+        saved:          /*[[#{settings.ai.msg.saved}]]*/ 'AI settings saved successfully.',
+        enrichmentSaved:/*[[#{settings.ai.msg.enrichmentSaved}]]*/ 'Scan enrichment settings saved.',
+        disabled:       /*[[#{settings.ai.msg.disabled}]]*/ 'AI analysis disabled.',
+        testOk:         /*[[#{settings.ai.msg.testOk}]]*/ 'Connection successful!',
+        loadFailed:     /*[[#{settings.ai.error.loadFailed}]]*/ 'Failed to load AI settings.',
+        disableFailed:  /*[[#{settings.ai.error.disableFailed}]]*/ 'Failed to disable AI.',
+        testFailed:     /*[[#{settings.ai.error.testFailed}]]*/ 'Connection test failed.',
+        customModel:    /*[[#{settings.ai.customModel}]]*/ 'Custom model will be used',
+        saveFailed:     /*[[#{settings.ai.error.saveFailed}]]*/ 'Save failed.',
+        localeEn:       /*[[#{settings.ai.locale.en}]]*/ 'English',
+        localeKo:       /*[[#{settings.ai.locale.ko}]]*/ 'Korean',
+        deployCommercial: /*[[#{settings.ai.deployment.commercial}]]*/ 'Commercial product',
+        deploySaas:     /*[[#{settings.ai.deployment.saas}]]*/ 'SaaS / network service',
+        deployInternal: /*[[#{settings.ai.deployment.internal}]]*/ 'Internal tool',
+        deployOnPrem:   /*[[#{settings.ai.deployment.onPrem}]]*/ 'On-prem / shipped'
+    };
+    </script>
+
+    <script>
+    function aiTab() {
+        return {
+            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
+            forms: {
+                OPENAI:    { apiKey: '', modelName: 'gpt-5.5',               baseUrl: '' },
+                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-7',       baseUrl: '' },
+                GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
+                LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
+            },
+            preferences: {
+                promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'],
+                temperature: null, maxTokens: null, dailyCallCap: 0,
+                defaultDeploymentProfile: 'COMMERCIAL_PRODUCT'
+            },
+            promptKeys: [], promptOverrides: {}, promptEditKey: 'system.default', promptEditText: '',
+            localeDropdownOpen: false,
+            deploymentDropdownOpen: false,
+            promptKeyDropdownOpen: false,
+            deploymentOptions: [
+                { value: 'COMMERCIAL_PRODUCT',      label: _aiI18n.deployCommercial },
+                { value: 'SAAS',                    label: _aiI18n.deploySaas },
+                { value: 'INTERNAL_TOOL',           label: _aiI18n.deployInternal },
+                { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
+            ],
+            savingProvider: false, savingEnrichment: false, testing: false,
+            apiError: null, toastVisible: false, toastMsg: '',
+
+            localeLabel() {
+                return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
+            },
+            deploymentLabel() {
+                const opt = this.deploymentOptions.find(o => o.value === this.preferences.defaultDeploymentProfile);
+                return opt ? opt.label : this.preferences.defaultDeploymentProfile;
+            },
+
+            csrf() {
+                return window.OswlCsrf ? window.OswlCsrf.token() : '';
+            },
+
+            async init() {
+                try {
+                    const r = await fetch('/api/settings/ai');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.loadFailed); return; }
+                    const data = await r.json();
+                    if (data && data.active && data.provider) {
+                        this.mode = data.provider;
+                        const f = this.forms[data.provider];
+                        if (f) {
+                            if (data.baseUrl)   f.baseUrl   = data.baseUrl;
+                            if (data.modelName) f.modelName = data.modelName;
+                        }
+                    }
+                    if (data.promptsLocale) this.preferences.promptsLocale = data.promptsLocale;
+                    if (data.cveLimit)      this.preferences.cveLimit = data.cveLimit;
+                    if (data.licenseLimit)  this.preferences.licenseLimit = data.licenseLimit;
+                    if (data.cveSeverities) {
+                        this.preferences.cveSeverities = data.cveSeverities.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                    if (data.temperature != null) this.preferences.temperature = data.temperature;
+                    if (data.maxTokens != null) this.preferences.maxTokens = data.maxTokens;
+                    if (data.dailyCallCap != null) this.preferences.dailyCallCap = data.dailyCallCap;
+                    if (data.defaultDeploymentProfile) {
+                        this.preferences.defaultDeploymentProfile = data.defaultDeploymentProfile;
+                    }
+                    await this.loadPrompts();
+                } catch (e) { this.apiError = _aiI18n.loadFailed; }
+            },
+
+            async loadPrompts() {
+                try {
+                    const r = await fetch('/api/settings/ai/prompts');
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    this.promptKeys = data.editableKeys || [];
+                    this.promptOverrides = data.overrides || {};
+                    if (this.promptKeys.length && !this.promptKeys.includes(this.promptEditKey)) {
+                        this.promptEditKey = this.promptKeys[0];
+                    }
+                    await this.loadPromptEditor(data);
+                } catch (_) { /* optional */ }
+            },
+
+            async loadPromptEditor(cachedPrompts) {
+                const key = this.promptEditKey;
+                if (this.promptOverrides[key]) {
+                    this.promptEditText = this.promptOverrides[key];
+                    return;
+                }
+                const data = cachedPrompts || await fetch('/api/settings/ai/prompts').then(r => r.json());
+                this.promptEditText = (data.resolvedTemplates && data.resolvedTemplates[key]) || '';
+            },
+
+            toggleCveSeverity(level, checked) {
+                if (checked && !this.preferences.cveSeverities.includes(level)) {
+                    this.preferences.cveSeverities.push(level);
+                } else if (!checked) {
+                    this.preferences.cveSeverities = this.preferences.cveSeverities.filter(s => s !== level);
+                }
+            },
+
+            headers() { return oswlJsonHeaders(); },
+
+            showToast(msg) { this.toastMsg = msg; this.toastVisible = true; setTimeout(() => { this.toastVisible = false; }, 3000); },
+
+            preferencePayload() {
+                const severities = this.preferences.cveSeverities.length
+                    ? this.preferences.cveSeverities
+                    : ['CRITICAL', 'HIGH'];
+                const overrides = { ...this.promptOverrides };
+                if (this.promptEditKey && this.promptEditText) {
+                    overrides[this.promptEditKey] = this.promptEditText;
+                }
+                return {
+                    promptsLocale: this.preferences.promptsLocale || 'en',
+                    cveLimit:      Number(this.preferences.cveLimit) || 10,
+                    licenseLimit:  Number(this.preferences.licenseLimit) || 8,
+                    cveSeverities: severities.join(','),
+                    temperature:   this.preferences.temperature,
+                    maxTokens:     this.preferences.maxTokens,
+                    dailyCallCap:  Number(this.preferences.dailyCallCap) || 0,
+                    defaultDeploymentProfile: this.preferences.defaultDeploymentProfile || 'COMMERCIAL_PRODUCT',
+                    promptOverrides: Object.keys(overrides).length ? JSON.stringify(overrides) : null
+                };
+            },
+
+            async saveProvider() {
+                this.savingProvider = true; this.apiError = null;
+                try {
+                    if (this.mode === 'off') {
+                        const r = await fetch('/api/settings/ai/deactivate', {
+                            method: 'PUT',
+                            headers: this.headers()
+                        });
+                        if (r.status === 401) { location.href = '/login'; return; }
+                        if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
+                        this.showToast(_aiI18n.disabled);
+                        return;
+                    }
+                    const f = this.forms[this.mode];
+                    const body = {
+                        provider:  this.mode,
+                        apiKey:    f.apiKey    || null,
+                        modelName: f.modelName || null,
+                        baseUrl:   f.baseUrl   || null,
+                        activate:  true
+                    };
+                    const r = await fetch('/api/settings/ai', {
+                        method: 'PUT',
+                        headers: this.headers(),
+                        body: JSON.stringify(body)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
+                    this.showToast(_aiI18n.saved);
+                } catch (e) { this.apiError = String(e); }
+                finally { this.savingProvider = false; }
+            },
+
+            async saveEnrichment() {
+                this.savingEnrichment = true; this.apiError = null;
+                try {
+                    const prefs = this.preferencePayload();
+                    if (this.mode === 'off') {
+                        const r = await fetch('/api/settings/ai/deactivate', {
+                            method: 'PUT',
+                            headers: this.headers(),
+                            body: JSON.stringify(prefs)
+                        });
+                        if (r.status === 401) { location.href = '/login'; return; }
+                        if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
+                        this.showToast(_aiI18n.enrichmentSaved);
+                        return;
+                    }
+                    const body = { provider: this.mode, activate: true, ...prefs };
+                    const r = await fetch('/api/settings/ai', {
+                        method: 'PUT',
+                        headers: this.headers(),
+                        body: JSON.stringify(body)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
+                    this.showToast(_aiI18n.enrichmentSaved);
+                } catch (e) { this.apiError = String(e); }
+                finally { this.savingEnrichment = false; }
+            },
+
+            async testConnection() {
+                if (this.mode === 'off') return;
+                this.testing = true;
+                this.apiError = null;
+                try {
+                    const f = this.forms[this.mode];
+                    const body = {
+                        provider:  this.mode,
+                        apiKey:    f.apiKey    || null,
+                        modelName: f.modelName || null,
+                        baseUrl:   f.baseUrl   || null
+                    };
+                    const r = await fetch('/api/settings/ai/test-connection', {
+                        method: 'POST',
+                        headers: this.headers(),
+                        body: JSON.stringify(body)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    const data = await r.json();
+                    if (r.ok && data.success) {
+                        this.showToast(_aiI18n.testOk);
+                    } else {
+                        this.apiError = data.message || _aiI18n.testFailed;
+                    }
+                } catch (e) {
+                    this.apiError = _aiI18n.testFailed + ': ' + e.message;
+                } finally {
+                    this.testing = false;
+                }
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

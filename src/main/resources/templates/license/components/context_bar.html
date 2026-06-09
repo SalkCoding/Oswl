@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!--
+        Deployment context bar + export actions.
+        Submits as a GET so the URL captures the current scenario and the page is shareable.
+        The form preserves `scanId` when present.
+    -->
+    <div th:fragment="context_bar"
+         class="w-full border-b border-[#DBE4E7] flex flex-wrap items-center gap-x-8 gap-y-3 justify-between">
+
+        <form th:action="@{|/projects/${projectId}/license|}" method="get"
+              class="flex flex-wrap items-center gap-x-6 gap-y-3">
+
+            <!-- preserve current scan when set -->
+            <input type="hidden" name="scanId" th:value="${currentScanId}" th:if="${currentScanId != null}"/>
+
+            <div class="flex flex-col gap-1 mb-[16px]">
+                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]" th:text="#{license.context.deployment}">Deployment</span>
+                <div class="relative"
+                     th:attr="data-init-value=${context.deployment}, data-l-saas=#{license.deployment.saas}, data-l-binary=#{license.deployment.binary}, data-l-library=#{license.deployment.library}, data-l-embedded=#{license.deployment.embedded}"
+                     x-data="{ open: false, value: '', get options() { const d = $el.dataset; return [{value:'SAAS',label:d.lSaas},{value:'BINARY',label:d.lBinary},{value:'LIBRARY',label:d.lLibrary},{value:'EMBEDDED',label:d.lEmbedded}]; }, get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
+                     x-init="value = $el.dataset.initValue"
+                     @click.away="open = false">
+                    <input type="hidden" name="deployment" :value="value"/>
+                    <button type="button" @click="open = !open"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white min-w-[160px] text-left relative cursor-pointer transition-colors"
+                            :class="open ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="label"></span>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
+                             :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="open" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 bg-white rounded-[8px] shadow-lg overflow-hidden" style="min-width:100%">
+                        <template x-for="opt in options" :key="opt.value">
+                            <button type="button"
+                                    @click="value = opt.value; open = false; $nextTick(() => $el.closest('form').submit())"
+                                    class="w-full px-[12px] py-[8px] text-left text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="value === opt.value ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-80)]'"
+                                    x-text="opt.label">
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-1 mb-[16px]">
+                <span class="text-[10px] font-semibold tracking-[0.6px] uppercase text-[var(--grayscale-50)]" th:text="#{license.context.linking}">Linking</span>
+                <div class="relative"
+                     th:attr="data-init-value=${context.linking}, data-l-dynamic=#{license.linking.dynamic}, data-l-static=#{license.linking.static}"
+                     x-data="{ open: false, value: '', get options() { const d = $el.dataset; return [{value:'DYNAMIC',label:d.lDynamic},{value:'STATIC',label:d.lStatic}]; }, get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
+                     x-init="value = $el.dataset.initValue"
+                     @click.away="open = false">
+                    <input type="hidden" name="linking" :value="value"/>
+                    <button type="button" @click="open = !open"
+                            class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white min-w-[140px] text-left relative cursor-pointer transition-colors"
+                            :class="open ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
+                        <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="label"></span>
+                        <img src="/icon/icon-triangle-down.svg" class="absolute right-[10px] top-1/2 -translate-y-1/2 pointer-events-none transition-transform w-[12px] h-[12px]"
+                             :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="open" x-cloak
+                         class="absolute z-50 top-full mt-[4px] left-0 bg-white rounded-[8px] shadow-lg overflow-hidden" style="min-width:100%">
+                        <template x-for="opt in options" :key="opt.value">
+                            <button type="button"
+                                    @click="value = opt.value; open = false; $nextTick(() => $el.closest('form').submit())"
+                                    class="w-full px-[12px] py-[8px] text-left text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"
+                                    :class="value === opt.value ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-80)]'"
+                                    x-text="opt.label">
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <label class="flex items-center gap-2 text-[12px] text-[var(--grayscale-70)] cursor-pointer select-none mt-[4px]"
+                   th:attr="x-data='{ checked: ' + ${context.modified} + ' }'"
+                   @click="checked = !checked">
+                <input type="checkbox" name="modified" value="true"
+                       th:checked="${context.modified}"
+                       onchange="this.form.submit()"
+                       class="sr-only"/>
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="checked ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"
+                         stroke-linecap="round" stroke-linejoin="round"
+                         :class="checked ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+                <span th:text="#{license.context.upstreamModified}">Upstream sources modified</span>
+            </label>
+        </form>
+
+        <!-- Export actions + summary -->
+        <div class="flex items-center gap-2">
+            <a th:href="@{/projects/{pid}/license/export/notice(pid=${projectId},scanId=${currentScanId})}"
+               class="bg-white hover:bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] inline-flex h-[34px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
+                <img src="/icon/icon-download.svg" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">NOTICE.txt</span>
+            </a>
+            <a th:href="@{/projects/{pid}/license/export/spdx(pid=${projectId},scanId=${currentScanId})}"
+               class="bg-white hover:bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] inline-flex h-[34px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
+                <img src="/icon/icon-page.svg" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
+                <span class="font-medium text-[13px] text-[var(--primary-120)] tracking-[-0.13px]">SPDX SBOM</span>
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

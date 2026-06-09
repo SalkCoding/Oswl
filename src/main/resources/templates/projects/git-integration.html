@@ -1,0 +1,822 @@
+<div th:fragment="slideout" class="h-full flex flex-col bg-white overflow-y-auto custom-scrollbar w-full" x-data="gitIntegrationData()" @set-branch.window="onBranchSelect($event.detail)">
+
+    <!-- Alpine component data — PAT-based GitHub integration -->
+    <script th:inline="javascript">
+    const _gitI18n = {
+        checkingConnection: /*[[#{gitIntegration.loading.checkingConnection}]]*/ 'Checking connection\u2026',
+        connecting:         /*[[#{gitIntegration.loading.connecting}]]*/ 'Connecting to GitHub\u2026',
+        loadingRepos:       /*[[#{gitIntegration.loading.loadingRepos}]]*/ 'Loading repositories\u2026',
+        connectionFailed:   /*[[#{gitIntegration.error.connectionFailed}]]*/ 'Connection failed. Check your token.',
+        networkError:       /*[[#{gitIntegration.error.networkError}]]*/ 'Network error. Please try again.',
+        justNow:            /*[[#{common.time.justNow}]]*/ 'just now',
+        minuteAgo:          /*[[#{common.time.minuteAgo}]]*/ '1 minute ago',
+        minutesAgo:         /*[[#{common.time.minutesAgo}]]*/ '{0} minutes ago',
+        hourAgo:            /*[[#{common.time.hourAgo}]]*/ '1 hour ago',
+        hoursAgo:           /*[[#{common.time.hoursAgo}]]*/ '{0} hours ago',
+        dayAgo:             /*[[#{common.time.dayAgo}]]*/ '1 day ago',
+        daysAgo:            /*[[#{common.time.daysAgo}]]*/ '{0} days ago'
+    };
+    </script>
+    <script>
+    (function () {
+        window.gitIntegrationData = function () {
+            return {
+                /* ── connection state ── */
+                connected: false,
+                connectedLogin: '',
+                loadingStatus: true,
+                loadingMessage: _gitI18n.checkingConnection,
+
+                /* ── PAT connect form ── */
+                patInput: '',
+                patConnecting: false,
+                patError: '',
+
+                /* ── repo list state ── */
+                repos:    [],
+                accounts: [],
+                itemBranches: {},
+                allBranches: {},
+                branchUpdatedAt: {},
+                allBranchDates: {},   // { [repoId]: { [branchName]: isoString } }
+
+                accountDropdownOpen: false,
+                selectedAccount:     '',
+
+                searchQuery:    '',
+                selectAll:      false,
+                selectedRepos:  [],
+                importedRepos:  [],
+                importFeedback: false,
+                importing:      false,
+
+                /* ── add account state ── */
+                addingAccount:        false,
+                addAccountPat:        '',
+                addAccountConnecting: false,
+                addAccountError:      '',
+
+                /* ── per-account repo cache ── */
+                // { [login]: { repos, itemBranches, allBranches, allBranchDates } }
+                repoCache: {},
+                loadingAccounts: false,   // true while initial parallel load is running
+
+                /* ── reload state ── */
+                reloading: false,
+                repoStatus: '',        // '' | 'loading' | 'done'
+                _repoStatusTimer: null,
+                lastImportedProjectId: null,
+
+                /* ── computed ── */
+                get filteredRepos() {
+                    const q = this.searchQuery.trim().toLowerCase();
+                    return q ? this.repos.filter(r => r.name.toLowerCase().includes(q))
+                             : this.repos;
+                },
+
+                /* ── lifecycle ── */
+                async init() {
+                    await this.checkStatus();
+                },
+
+                /* ── methods ── */
+                async checkStatus() {
+                    this.loadingStatus = true;
+                    this.loadingMessage = _gitI18n.checkingConnection;
+                    try {
+                        const res = await fetch('/api/github/status');
+                        const data = await res.json();
+                        this.connected = data.connected;
+                        this.connectedLogin = data.login || '';
+                        if (this.connected) {
+                            await this.loadAccounts();
+                        }
+                    } catch (e) {
+                        this.connected = false;
+                    } finally {
+                        this.loadingStatus = false;
+                    }
+                },
+
+                async connectPAT() {
+                    if (!this.patInput.trim() || this.patConnecting) return;
+                    this.patConnecting = true;
+                    this.patError = '';
+                    this.loadingMessage = _gitI18n.connecting;
+                    try {
+                        const res = await fetch('/api/github/connect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: this.patInput.trim() })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            this.patError = data.error || _gitI18n.connectionFailed;
+                            return;
+                        }
+                        this.connectedLogin = data.login || '';
+                        this.patInput = '';
+                        await this.loadAccounts();
+                        this.connected = true;
+                    } catch (e) {
+                        this.patError = _gitI18n.networkError;
+                    } finally {
+                        this.patConnecting = false;
+                    }
+                },
+
+                async disconnect() {
+                    await fetch('/api/github/disconnect', { method: 'POST' });
+                    this.connected = false;
+                    this.connectedLogin = '';
+                    this.repos = [];
+                    this.accounts = [];
+                    this.selectedAccount = '';
+                },
+
+                async loadAccounts() {
+                    try {
+                        const res = await fetch('/api/github/accounts');
+                        if (!res.ok) { this.connected = false; return; }
+                        const data = await res.json();
+                        this.accounts = data.map(a => a.login);
+                        if (this.accounts.length === 0) return;
+
+                        // Select first account immediately (shows cached data or empty)
+                        this.selectedAccount = this.accounts[0];
+
+                        // Load all accounts' repos in parallel (warm the cache)
+                        this.loadingAccounts = true;
+                        this.loadingMessage = _gitI18n.loadingRepos;
+                        await Promise.all(this.accounts.map(login => this._fetchAndCacheRepos(login)));
+                        this.loadingAccounts = false;
+
+                        // Populate view from cache
+                        this._applyCache(this.selectedAccount);
+                    } catch (e) {
+                        console.error('[GitHub] Failed to load accounts', e);
+                        this.loadingAccounts = false;
+                    }
+                },
+
+                /* Switch account instantly from cache — no network call */
+                selectAccount(login) {
+                    if (this.selectedAccount === login) return;
+                    this.selectedAccount = login;
+                    this.accountDropdownOpen = false;
+                    this.selectedRepos = [];
+                    this.selectAll = false;
+                    this._applyCache(login);
+                },
+
+                /* Set repoStatus and auto-clear 'done' after 1.5 s */
+                _setRepoStatus(status) {
+                    if (this._repoStatusTimer) clearTimeout(this._repoStatusTimer);
+                    this.repoStatus = status;
+                    if (status === 'done') {
+                        this._repoStatusTimer = setTimeout(() => { this.repoStatus = ''; }, 1500);
+                    }
+                },
+
+                /* Apply cached data for a login to the visible state */
+                _applyCache(login) {
+                    const cached = this.repoCache[login];
+                    if (!cached) { this.repos = []; this.itemBranches = {}; this.allBranches = {}; this.allBranchDates = {}; return; }
+                    this.repos          = cached.repos;
+                    this.itemBranches   = cached.itemBranches;
+                    this.allBranches    = cached.allBranches;
+                    this.allBranchDates = cached.allBranchDates;
+                },
+
+                /* Fetch repos + branches for one account and store in repoCache */
+                async _fetchAndCacheRepos(login, showStatus = false) {
+                    if (showStatus) this._setRepoStatus('loading');
+                    try {
+                        const res = await fetch('/api/github/repos?account=' + encodeURIComponent(login));
+                        if (!res.ok) return;
+                        const data = await res.json();
+                        const itemBranches = {};
+                        data.forEach(r => { itemBranches[r.id] = r.defaultBranch || 'main'; });
+                        const allBranches = {};
+                        const allBranchDates = {};
+                        // Store skeleton first so the view can render immediately
+                        this.repoCache[login] = { repos: data, itemBranches, allBranches, allBranchDates };
+                        // Load branches in parallel
+                        await this._loadAllBranches(data, allBranches);
+                        // Update cache with branch data
+                        this.repoCache[login].allBranches = allBranches;
+                        // If this is the currently shown account, refresh view
+                        if (this.selectedAccount === login) {
+                            this.allBranches = allBranches;
+                        }
+                        // Kick off date loading in background
+                        this._loadAllBranchDates(data, itemBranches, allBranchDates, login);
+                        if (showStatus) this._setRepoStatus('done');
+                    } catch (e) {
+                        console.error('[GitHub] Failed to fetch repos for', login, e);
+                        if (showStatus) this._setRepoStatus('');
+                    }
+                },
+
+                /* Reload only the current account from server, then update cache + view */
+                async loadRepos() {
+                    if (!this.selectedAccount) return;
+                    await this._fetchAndCacheRepos(this.selectedAccount, true);
+                    this._applyCache(this.selectedAccount);
+                },
+
+                toggleSelectAll() {
+                    this.selectedRepos = this.selectAll
+                        ? this.filteredRepos.map(r => r.id)
+                        : [];
+                },
+
+                async importSelected() {
+                    if (this.selectedRepos.length === 0 || this.importing) return;
+                    this.importing = true;
+                    for (const rawId of this.selectedRepos) {
+                        const id = Number(rawId);
+                        const repo = this.repos.find(r => r.id === id);
+                        if (!repo || this.importedRepos.includes(id)) continue;
+                        await this._importOne(repo);
+                    }
+                    this.selectedRepos = [];
+                    this.selectAll = false;
+                    this.importFeedback = true;
+                    this.importing = false;
+                    window.dispatchEvent(new CustomEvent('project-imported'));
+                    setTimeout(() => { this.importFeedback = false; }, 2000);
+                },
+
+                async importAll() {
+                    if (this.importing) return;
+                    this.importing = true;
+                    for (const repo of this.filteredRepos) {
+                        if (this.importedRepos.includes(repo.id)) continue;
+                        await this._importOne(repo);
+                    }
+                    this.selectedRepos = [];
+                    this.selectAll = false;
+                    this.importFeedback = true;
+                    this.importing = false;
+                    window.dispatchEvent(new CustomEvent('project-imported'));
+                    setTimeout(() => { this.importFeedback = false; }, 2000);
+                },
+
+                async _importOne(repo) {
+                    try {
+                        const [owner] = repo.fullName.split('/');
+                        const res = await fetch('/api/github/repos/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                owner: owner,
+                                repo: repo.name,
+                                branch: this.itemBranches[repo.id] || repo.defaultBranch || 'main'
+                            })
+                        });
+                        if (res.ok) {
+                            this.importedRepos.push(repo.id);
+                            const data = await res.json();
+                            this.lastImportedProjectId = data.projectId;
+                        }
+                    } catch (e) {
+                        console.error('[GitHub] Import failed for', repo.name, e);
+                    }
+                },
+
+                /* ── branches (pre-loaded in parallel) — writes into provided target object ── */
+                async _loadAllBranches(repos, target) {
+                    if (!target) target = this.allBranches;
+                    const promises = repos.map(async repo => {
+                        const [owner] = repo.fullName.split('/');
+                        try {
+                            const res = await fetch('/api/github/branches?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name));
+                            if (res.ok) {
+                                const branches = await res.json();
+                                target[repo.id] = branches.length > 0 ? branches : [repo.defaultBranch || 'main'];
+                            } else {
+                                target[repo.id] = [repo.defaultBranch || 'main'];
+                            }
+                        } catch (e) {
+                            target[repo.id] = [repo.defaultBranch || 'main'];
+                        }
+                        // If this repo belongs to the currently shown account, refresh view live
+                        if (this.allBranches === target) this.allBranches = { ...target };
+                    });
+                    await Promise.all(promises);
+                },
+
+                /* ── branch dates (fire-and-forget) — writes into provided target object ── */
+                _loadAllBranchDates(repos, itemBranches, target, login) {
+                    if (!itemBranches) itemBranches = this.itemBranches;
+                    if (!target) target = this.allBranchDates;
+                    repos.forEach(async repo => {
+                        const [owner] = repo.fullName.split('/');
+                        const branch = itemBranches[repo.id] || repo.defaultBranch || 'main';
+                        try {
+                            const res = await fetch('/api/github/branch-updated-at?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo.name) + '&branch=' + encodeURIComponent(branch));
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (!target[repo.id]) target[repo.id] = {};
+                                target[repo.id][branch] = data.updatedAt;
+                                // Update cache
+                                if (login && this.repoCache[login]) this.repoCache[login].allBranchDates = target;
+                                // If currently shown account, refresh view
+                                if (!login || login === this.selectedAccount) this.allBranchDates = { ...target };
+                            }
+                        } catch (e) { /* silent */ }
+                    });
+                },
+
+                /* ── add account (second PAT) ── */
+                async connectAddAccount() {
+                    if (!this.addAccountPat.trim() || this.addAccountConnecting) return;
+                    this.addAccountConnecting = true;
+                    this.addAccountError = '';
+                    try {
+                        const res = await fetch('/api/github/connect', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ token: this.addAccountPat.trim() })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            this.addAccountError = data.error || _gitI18n.connectionFailed;
+                            return;
+                        }
+                        const newLogin = data.login;
+                        this.addAccountPat = '';
+                        this.addingAccount = false;
+                        // Add to accounts list if not already present
+                        if (!this.accounts.includes(newLogin)) {
+                            this.accounts.push(newLogin);
+                        }
+                        // Fetch repos for the new account in background (with status indicator)
+                        this._fetchAndCacheRepos(newLogin, true);
+                    } catch (e) {
+                        this.addAccountError = _gitI18n.networkError;
+                    } finally {
+                        this.addAccountConnecting = false;
+                    }
+                },
+
+                /* ── disconnect single account ── */
+                async disconnectAccount(login) {
+                    try {
+                        await fetch('/api/github/accounts/' + encodeURIComponent(login), { method: 'DELETE' });
+                        this.accounts = this.accounts.filter(a => a !== login);
+                        delete this.repoCache[login];
+                        this.accountDropdownOpen = false;
+                        if (this.accounts.length === 0) {
+                            this.connected = false;
+                            this.repos = [];
+                            this.selectedAccount = '';
+                        } else if (this.selectedAccount === login) {
+                            this.selectedAccount = this.accounts[0];
+                            this._applyCache(this.selectedAccount); // instant, from cache
+                        }
+                    } catch (e) {
+                        console.error('[GitHub] Failed to disconnect account', login, e);
+                    }
+                },
+
+                /* ── reload repos ── */
+                async reloadRepos() {
+                    if (this.reloading) return;
+                    this.reloading = true;
+                    try {
+                        await this.loadRepos();
+                    } finally {
+                        this.reloading = false;
+                    }
+                },
+
+                /* ── format ISO date → human-readable ── */
+                formatUpdatedAt(iso) {
+                    if (!iso) return '—';
+                    const fmt = (t, n) => String(t).replace('{0}', n);
+                    try {
+                        const d = new Date(iso);
+                        const diffMin = Math.floor((Date.now() - d) / 60000);
+                        const diffH = Math.floor(diffMin / 60);
+                        const diffD = Math.floor(diffH / 24);
+                        if (diffMin < 2)  return _gitI18n.justNow;
+                        if (diffMin < 60) return diffMin === 1 ? _gitI18n.minuteAgo : fmt(_gitI18n.minutesAgo, diffMin);
+                        if (diffH < 24)   return diffH === 1 ? _gitI18n.hourAgo : fmt(_gitI18n.hoursAgo, diffH);
+                        if (diffD < 30)   return diffD === 1 ? _gitI18n.dayAgo : fmt(_gitI18n.daysAgo, diffD);
+                        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                    } catch (e) { return iso; }
+                },
+
+                /* ── handle branch selection: update choice + fetch date ── */
+                onBranchSelect(detail) {
+                    const { id, branch, fullName } = detail;
+                    this.itemBranches[id] = branch;
+                    const [owner, repo] = fullName.split('/');
+                    (async () => {
+                        try {
+                            const res = await fetch('/api/github/branch-updated-at?owner=' + encodeURIComponent(owner) + '&repo=' + encodeURIComponent(repo) + '&branch=' + encodeURIComponent(branch));
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (!this.allBranchDates[id]) this.allBranchDates[id] = {};
+                                this.allBranchDates[id][branch] = data.updatedAt;
+                            }
+                        } catch (e) { /* silent */ }
+                    })();
+                }
+            };
+        };
+    })();
+    </script>
+
+    <!-- Header -->
+    <div class="bg-white flex flex-col gap-[20px] pb-[36px] pt-[40px] px-[40px] w-full shrink-0">
+        <div class="flex gap-[12px] items-start w-full">
+            <!-- Github Icon -->
+            <div class="rounded-[8px] w-[32px] h-[32px] flex items-center justify-center shrink-0">
+                <img th:src="@{/icon/icon-github.svg}" class="w-[28px] h-[28px]" alt="" aria-hidden="true">
+            </div>
+            
+            <div class="flex-1 flex gap-[14px] items-center h-[31px]">
+                <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0" th:text="#{gitIntegration.heading}">Connect to Git</h2>
+            </div>
+            
+            <!-- Close Button -->
+            <button type="button" @click="openPanel = null" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
+                <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+            </button>
+        </div>
+
+        <!-- Connection Details Labels -->
+        <div class="flex flex-wrap gap-[12px] items-center text-[13px] w-full">
+            <div class="bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.2)] rounded-[40px] flex gap-[6px] items-center px-[12px] py-[6px]">
+                <img th:src="@{/icon/icon-github.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                <span class="font-medium text-[var(--primary-120)] tracking-[-0.13px]" th:text="#{gitIntegration.badge.github}">GitHub</span>
+            </div>
+
+            <!-- Loading (initial check or connecting) -->
+            <template x-if="loadingStatus || patConnecting">
+                <div class="flex items-center gap-[8px] text-[13px] text-[var(--grayscale-60)]">
+                    <svg class="animate-spin w-[14px] h-[14px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                    <span x-text="loadingMessage"></span>
+                </div>
+            </template>
+
+            <!-- Not connected: status label -->
+            <template x-if="!loadingStatus && !connected && !patConnecting">
+                <span class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]" th:text="#{gitIntegration.status.notConnected}">Not connected</span>
+            </template>
+
+            <!-- Connected: Account dropdown + Reload -->
+            <template x-if="!loadingStatus && connected">
+                <div class="flex items-center gap-[8px]">
+                    <!-- Account Name Dropdown -->
+                    <div class="relative" @click.outside="accountDropdownOpen = false">
+                        <button
+                            @click="accountDropdownOpen = !accountDropdownOpen"
+                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] w-[280px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
+                            :class="accountDropdownOpen ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
+                            <span class="font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="selectedAccount"></span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 class="text-[var(--grayscale-80)] shrink-0 transition-transform"
+                                 :class="accountDropdownOpen ? 'rotate-180' : ''">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Account Dropdown Menu -->
+                        <div x-show="accountDropdownOpen"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 -translate-y-2"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute top-full left-0 mt-[4px] w-[280px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 flex flex-col max-h-[240px]">
+
+                            <!-- Scrollable accounts list -->
+                            <div class="overflow-y-auto flex-1">
+                                <template x-for="account in accounts" :key="account">
+                                    <div class="flex items-center group transition-colors"
+                                         :class="selectedAccount === account ? 'bg-[var(--primary-20)]' : 'hover:bg-[var(--primary-20)]'">
+                                        <button
+                                            @click="selectAccount(account)"
+                                            class="flex-1 text-left px-[12px] py-[10px] text-[13px] font-medium transition-colors"
+                                            :class="selectedAccount === account ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)] group-hover:text-[var(--primary-120)]'">
+                                            <span x-text="account"></span>
+                                        </button>
+                                        <!-- Per-account Disconnect icon -->
+                                        <button
+                                            @click.stop="disconnectAccount(account)"
+                                            th:title="#{gitIntegration.btn.disconnectAccount}"
+                                            class="pr-[12px] pl-[4px] py-[10px] flex items-center text-[var(--grayscale-30)] hover:text-red-500 transition-colors">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Add Account (pinned at bottom) -->
+                            <div class="border-t border-[var(--grayscale-20)] shrink-0">
+                                <button
+                                    @click="addingAccount = true; addAccountPat = ''; addAccountError = ''; accountDropdownOpen = false"
+                                    class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--primary-120)] flex items-center gap-[8px] hover:bg-[var(--primary-20)] transition-colors rounded-b-[6px]">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                        <line x1="12" y1="14" x2="12" y2="20"></line>
+                                        <line x1="9" y1="17" x2="15" y2="17"></line>
+                                    </svg>
+                                    <span th:text="#{gitIntegration.btn.addAccount}">Add Account</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reload button + status indicator -->
+                    <div class="flex items-center gap-[8px]">
+                        <button
+                            type="button"
+                            @click="reloadRepos()"
+                            th:title="#{gitIntegration.btn.reloadRepos}"
+                            :disabled="reloading || repoStatus === 'loading'"
+                            :class="(reloading || repoStatus === 'loading') ? 'cursor-wait opacity-60' : 'cursor-pointer'"
+                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[7px] rounded-[6px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-90)] transition-colors focus:outline-none shrink-0">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                 :class="(reloading || repoStatus === 'loading') ? 'animate-spin' : ''">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Loading indicator -->
+                        <div x-show="repoStatus === 'loading'"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-x-[-4px]"
+                             x-transition:enter-end="opacity-100 translate-x-0"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-end="opacity-0"
+                             class="flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
+                            <svg class="animate-spin w-[12px] h-[12px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                            <span th:text="#{gitIntegration.status.loading}">Loading…</span>
+                        </div>
+
+                        <!-- Done indicator -->
+                        <div x-show="repoStatus === 'done'"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 translate-x-[-4px]"
+                             x-transition:enter-end="opacity-100 translate-x-0"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-end="opacity-0"
+                             class="flex items-center gap-[5px] text-[12px] text-[var(--primary-120)] tracking-[-0.12px]">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <span th:text="#{gitIntegration.status.updated}">Updated!</span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Add Account PAT form (shown when connected and addingAccount is true) -->
+        <template x-if="!loadingStatus && connected && addingAccount">
+            <div class="flex flex-col gap-[6px] w-full">
+                <p class="text-[12px] font-semibold text-[var(--grayscale-70)] tracking-[-0.12px] m-0" th:text="#{gitIntegration.label.addNewAccount}">Add a new GitHub account</p>
+                <div class="flex gap-[8px]">
+                    <input type="password" x-model="addAccountPat"
+                           @keydown.enter="connectAddAccount()"
+                           th:placeholder="#{gitIntegration.placeholder.pat}"
+                           class="flex-1 h-[36px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors" />
+                    <button type="button"
+                            @click="connectAddAccount()"
+                            :disabled="!addAccountPat.trim() || addAccountConnecting"
+                            :class="(!addAccountPat.trim() || addAccountConnecting) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#3a3f47] cursor-pointer'"
+                            class="bg-[#24292F] rounded-[8px] h-[36px] px-[16px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none shrink-0">
+                        <span x-show="!addAccountConnecting" th:text="#{gitIntegration.btn.add}">Add</span>
+                        <svg x-show="addAccountConnecting" class="animate-spin w-[14px] h-[14px] mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                    </button>
+                    <button type="button"
+                            @click="addingAccount = false; addAccountPat = ''; addAccountError = ''"
+                            class="h-[36px] px-[12px] text-[13px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors focus:outline-none" th:text="#{common.cancel}">
+                    </button>
+                </div>
+                <p x-show="addAccountError" x-text="addAccountError" class="text-[12px] text-red-500 tracking-[-0.12px] m-0"></p>
+            </div>
+        </template>
+
+        <!-- Info Box (connected only) -->
+        <template x-if="connected">
+            <div class="bg-[var(--grayscale-10)] rounded-[10px] px-[18px] py-[12px] flex gap-[8px] items-center w-full shadow-sm shadow-[var(--grayscale-20)]/50">
+                <img th:src="@{/icon/icon-info2.svg}" class="w-[18px] h-[18px] shrink-0" alt="" aria-hidden="true">
+                <span class="text-[13px] font-medium text-[var(--grayscale-90)] tracking-[0] leading-[1.3]" th:text="#{gitIntegration.pat.orgNotice}">If you don't see an organization listed, you may need to grant OsWL access in GitHub's settings.</span>
+            </div>
+        </template>
+    </div>
+
+    <!-- Connecting: full body loading state -->
+    <template x-if="patConnecting">
+        <div class="flex flex-col flex-1 items-center justify-center gap-[16px] px-[40px] py-[48px]">
+            <svg class="animate-spin w-[28px] h-[28px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+            <p class="text-[14px] font-medium text-[var(--grayscale-70)] tracking-[-0.14px] m-0" x-text="loadingMessage"></p>
+        </div>
+    </template>
+
+    <!-- Not connected: PAT input prompt -->
+    <template x-if="!loadingStatus && !connected && !patConnecting">
+        <div class="flex flex-col flex-1 gap-[20px] px-[40px] pt-[32px] pb-[24px]">
+
+            <div class="flex items-center gap-[12px]">
+                <img th:src="@{/icon/icon-github.svg}" class="w-[32px] h-[32px] shrink-0" alt="" aria-hidden="true">
+                <div>
+                    <p class="font-bold text-[15px] text-[var(--grayscale-80)] tracking-[-0.15px] m-0" th:text="#{gitIntegration.pat.title}">GitHub Personal Access Token</p>
+                    <p class="font-normal text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0" th:text="#{gitIntegration.pat.subtitle}">Enter your token to browse and import repositories.</p>
+                </div>
+            </div>
+
+            <!-- Token input + connect button -->
+            <div class="flex flex-col gap-[6px] w-full">
+                <div class="flex gap-[8px]">
+                    <input type="password" x-model="patInput"
+                           @keydown.enter="connectPAT()"
+                           th:placeholder="#{gitIntegration.placeholder.pat}"
+                           class="flex-1 h-[40px] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] text-[13px] text-[var(--grayscale-100)] bg-white placeholder:text-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors" />
+                    <button type="button"
+                            @click="connectPAT()"
+                            :disabled="!patInput.trim() || patConnecting"
+                            :class="(!patInput.trim() || patConnecting) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#3a3f47] cursor-pointer'"
+                            class="bg-[#24292F] rounded-[8px] h-[40px] px-[20px] text-[13px] font-bold text-white tracking-[-0.13px] transition-colors focus:outline-none shrink-0">
+                        <span x-show="!patConnecting" th:text="#{gitIntegration.btn.connect}">Connect</span>
+                        <svg x-show="patConnecting" class="animate-spin w-[14px] h-[14px] mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
+                <p x-show="patError" x-text="patError"
+                   class="text-[12px] text-red-500 tracking-[-0.12px] m-0"></p>
+            </div>
+
+            <!-- How to get a token -->
+            <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[18px] py-[14px] w-full flex flex-col gap-[8px]">
+                <p class="text-[11px] font-semibold text-[var(--grayscale-60)] tracking-[0.4px] uppercase m-0" th:text="#{gitIntegration.pat.howToGetToken}">How to get a token</p>
+                <ol class="list-decimal list-inside flex flex-col gap-[5px] m-0 pl-[2px]">
+                    <li class="text-[12px] text-[var(--grayscale-70)]">
+                        <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer"
+                           class="text-[var(--primary-120)] underline">github.com/settings/tokens</a>
+                    </li>
+                    <li class="text-[12px] text-[var(--grayscale-70)]">
+                        Click <strong>Generate new token (classic)</strong> or <strong>Fine-grained token</strong>
+                    </li>
+                    <li class="text-[12px] text-[var(--grayscale-70)]">
+                        Select the <code class="bg-[var(--grayscale-15)] px-[4px] rounded text-[11px]">repo</code> scope (add <code class="bg-[var(--grayscale-15)] px-[4px] rounded text-[11px]">read:org</code> to include organizations)
+                    </li>
+                    <li class="text-[12px] text-[var(--grayscale-70)]" th:text="#{gitIntegration.pat.step4}">Copy the generated token and paste it above</li>
+                </ol>
+            </div>
+        </div>
+    </template>
+
+    <!-- Main List Container (shown only when connected) -->
+    <div x-show="!loadingStatus && connected" class="border-t border-[var(--grayscale-20)] w-full flex flex-col flex-1 shrink-0 pb-[32px]">
+        
+        <!-- Action Bar -->
+        <div class="flex gap-[16px] items-center justify-between px-[40px] pt-[24px] pb-[16px] w-full">
+            <!-- Search -->
+            <div class="bg-[var(--grayscale-10)] rounded-[75px] h-[36px] flex items-center gap-[8px] px-[16px] flex-1 max-w-[880px] border border-transparent focus-within:border-[var(--primary-120)] transition-colors">
+                <img th:src="@{/icon/icon-search.svg}" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
+                <input type="text" x-model="searchQuery" th:placeholder="#{gitIntegration.placeholder.search}" class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
+            </div>
+            
+            <!-- Buttons -->
+            <div class="flex gap-[12px] items-center w-[250px] shrink-0">
+                <button type="button" @click="importAll()"
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] flex-1 h-[36px] text-[13px] font-medium text-[var(--primary-120)] tracking-[0] hover:bg-[var(--grayscale-10)] hover:border-[var(--grayscale-40)] transition-colors active:scale-[0.98] focus:outline-none" th:text="#{gitIntegration.btn.importAll}">
+                </button>
+                <button type="button"
+                        @click="importSelected()"
+                        :class="importFeedback ? 'cursor-default' : (selectedRepos.length === 0 ? 'opacity-50 cursor-not-allowed' : '')"
+                        class="bg-[var(--primary-120)] rounded-[8px] flex-1 h-[36px] text-[13px] font-bold text-white tracking-[0] hover:bg-opacity-90 transition-colors active:scale-[0.98] focus:outline-none">
+                    <template x-if="!importFeedback">
+                        <span>
+                            <span th:text="#{gitIntegration.btn.import}">Import</span>
+                            <span x-show="selectedRepos.length > 0" x-text="'(' + selectedRepos.length + ')'"></span>
+                        </span>
+                    </template>
+                    <template x-if="importFeedback">
+                        <span th:text="#{gitIntegration.btn.imported}">&#10003; Imported!</span>
+                    </template>
+                </button>
+            </div>
+        </div>
+
+        <!-- Table Header -->
+        <div class="bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] flex items-center w-full h-[40px]">
+            <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
+                <label class="cursor-pointer relative flex items-center justify-center p-2">
+                    <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
+                    <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
+                         :class="selectAll ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                             :class="selectAll ? 'opacity-100' : 'opacity-0'"
+                             class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                </label>
+            </div>
+            <div class="flex-1 min-w-[200px] pl-[12px] pr-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal" th:text="#{gitIntegration.table.col.title}">
+            </div>
+            <div class="w-[160px] px-[16px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal shrink-0">
+                Branch
+            </div>
+            <div class="w-[240px] pl-[16px] pr-[24px] h-full flex items-center text-[12px] text-[var(--background-dark)] font-normal shrink-0">
+                Last Updated
+            </div>
+        </div>
+
+        <!-- Table Rows Container -->
+        <div class="flex flex-col w-full h-full flex-1">
+            
+            <!-- Mock rows via Alpine loop over filteredRepos -->
+            <template x-for="repo in filteredRepos" :key="repo.id">
+                <div class="border-b border-[var(--grayscale-20)] flex items-center w-full min-h-[48px] hover:bg-[var(--primary-20)]/20 transition-colors"
+                     :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-20)]/30' : 'bg-white'"
+                     @set-branch.window="if ($event.detail.id === repo.id) $dispatch('_noop')"><!-- set-branch handled by parent -->
+
+                    <!-- Checkbox -->
+                    <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
+                        <label class="cursor-pointer relative flex items-center justify-center p-2">
+                            <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos">
+                            <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
+                                 :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                                     :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'opacity-100' : 'opacity-0'"
+                                     class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Title -->
+                    <div class="flex-1 min-w-[200px] pl-[12px] pr-[16px] py-[12px] flex items-center">
+                        <span class="font-medium text-[13px] text-[var(--grayscale-100)] tracking-[0]" x-text="repo.name"></span>
+                    </div>
+
+                    <!-- Branch Dropdown (eager: branches pre-loaded in parallel when repos are fetched) -->
+                    <div class="w-[160px] px-[16px] py-[12px] flex items-center shrink-0 relative"
+                         x-data="{ branchOpen: false }"
+                         @click.outside="branchOpen = false">
+                        <button
+                            @click="branchOpen = !branchOpen"
+                            class="w-full bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] flex gap-[8px] items-center px-[10px] py-[6px] justify-between cursor-pointer hover:bg-[var(--grayscale-10)] transition-colors"
+                            :class="branchOpen ? 'border-[var(--primary-120)] bg-[var(--primary-20)]' : ''">
+                            <span class="font-medium text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] truncate" x-text="itemBranches[repo.id] || repo.defaultBranch || 'main'"></span>
+                            <svg x-show="!allBranches[repo.id]" class="animate-spin w-[12px] h-[12px] text-[var(--grayscale-40)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                            <svg x-show="allBranches[repo.id]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                 class="text-[var(--grayscale-80)] shrink-0 transition-transform"
+                                 :class="branchOpen ? 'rotate-180' : ''">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Branch Dropdown Menu -->
+                        <div x-show="branchOpen"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 -translate-y-2"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             class="absolute top-full left-0 mt-[4px] w-[160px] bg-white border border-[var(--grayscale-20)] rounded-[6px] shadow-lg z-50 max-h-[220px] overflow-y-auto">
+                            <template x-if="!allBranches[repo.id]">
+                                <div class="flex items-center justify-center py-[12px]">
+                                    <svg class="animate-spin w-[14px] h-[14px] text-[var(--grayscale-50)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                                </div>
+                            </template>
+                            <template x-if="allBranches[repo.id]">
+                                <div>
+                                    <template x-for="branch in allBranches[repo.id]" :key="branch">
+                                        <button
+                                            @click="$dispatch('set-branch', { id: repo.id, branch, fullName: repo.fullName }); branchOpen = false"
+                                            class="w-full text-left px-[12px] py-[10px] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--primary-20)] hover:text-[var(--primary-120)] transition-colors"
+                                            :class="(itemBranches[repo.id] || repo.defaultBranch) === branch ? 'bg-[var(--primary-20)] text-[var(--primary-120)]' : ''">
+                                            <span x-text="branch"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Last Updated / Imported status -->
+                    <div class="w-[240px] pl-[16px] pr-[24px] py-[12px] flex items-center shrink-0">
+                        <template x-if="!importedRepos.includes(repo.id)">
+                            <span class="text-[13px] text-[var(--grayscale-60)] font-normal tracking-[0]" x-text="formatUpdatedAt(allBranchDates[repo.id]?.[itemBranches[repo.id] || repo.defaultBranch] ?? branchUpdatedAt[repo.id] ?? repo.updatedAt)"></span>
+                        </template>
+                        <template x-if="importedRepos.includes(repo.id)">
+                            <span class="inline-flex items-center gap-[4px] text-[13px] text-[var(--primary-120)] font-medium tracking-[0]">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                Imported
+                            </span>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        
+        </div>
+
+    </div>
+
+</div>
