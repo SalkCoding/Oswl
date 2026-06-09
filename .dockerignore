@@ -1,0 +1,12 @@
+.gradle
+build
+.idea
+.git
+.gitignore
+tmp
+**/node_modules
+**/target
+*.log
+.mvn
+.vscode
+.DS_Store

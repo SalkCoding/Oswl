@@ -1,80 +1,91 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
 
     <!-- Left Column: Licenses Found Fragment -->
-    <div th:fragment="licenses_found" class="flex flex-col items-start min-w-[248px] w-full max-w-[620px] rounded-[10px] overflow-hidden border border-[#DBE4E7]">
+    <div th:fragment="licenses_found" class="flex flex-col items-start w-full rounded-[10px] overflow-hidden border border-[#DBE4E7]">
         
         <!-- Title & Stats -->
         <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col gap-3 px-6 py-4 w-full shrink-0">
-            <h2 class="font-bold text-[18px] text-black tracking-[-0.18px] m-0" 
-                th:text="${totalLicenses} + ' Licenses Found'">27 Licenses Found</h2>
+            <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0" 
+                th:text="${totalLicenses} + ' ' + #{license.label.licensesFound}">27 Licenses Found</h2>
             
             <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
-                <!-- Critical Risk Count -->
+                <!-- Restricted Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
-                    <span th:text="${criticalRiskCount ?: 3} + ' Critical Risk'">3 Critical Risk</span>
+                    <span th:text="${restrictedCount} + ' ' + #{license.status.restricted}">0 Restricted</span>
                 </div>
-                <!-- High Risk Count -->
+                <!-- Caution Count -->
                 <div class="flex gap-2 items-center shrink-0">
-                    <div class="w-1.5 h-1.5 bg-[#f47a29] rounded-full"></div>
-                    <span th:text="${highRiskCount ?: 6} + ' High Risk'">6 High Risk</span>
+                    <div class="w-1.5 h-1.5 bg-[#f59126] rounded-full"></div>
+                    <span th:text="${cautionCount} + ' ' + #{license.status.caution}">0 Caution</span>
                 </div>
-                <!-- Medium Risk Count -->
+                <!-- Permitted Count -->
                 <div class="flex gap-2 items-center shrink-0">
-                    <div class="w-1.5 h-1.5 bg-[#f5bd26] rounded-full"></div>
-                    <span th:text="${mediumRiskCount ?: 7} + ' Medium Risk'">7 Medium Risk</span>
+                    <div class="w-1.5 h-1.5 bg-[#84dca5] rounded-full"></div>
+                    <span th:text="${permittedCount} + ' ' + #{license.status.permitted}">0 Permitted</span>
                 </div>
-                <!-- Low Risk Count -->
+                <!-- Unknown Count -->
                 <div class="flex gap-2 items-center shrink-0">
-                    <div class="w-1.5 h-1.5 bg-[#333e42] rounded-full"></div>
-                    <span th:text="${lowRiskCount ?: 11} + ' Low Risk'">11 Low Risk</span>
+                    <div class="w-1.5 h-1.5 bg-[#abb8be] rounded-full"></div>
+                    <span th:text="${unknownCount} + ' ' + #{license.status.unknown}">0 Unknown</span>
                 </div>
             </div>
         </div>
 
-        <!-- List of Licenses (Mocking dynamic data via Thymeleaf) -->
-        <!-- In backend, map List<LicenseDto> to 'licenses' -->
+        <!-- License rows -->
         <div class="flex flex-col w-full bg-white divide-y divide-[#DBE4E7]">
-            
-            <!-- Fallback Mock Data if 'licenses' isn't provided -->
-            <th:block th:if="${licenses == null}">
-                <th:block th:each="mockLevel, i : ${
-                    {'LOW', 'LOW', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'}
-                }">
-                    <div class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer">
-                        <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
-                            <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0"
-                               th:text="${
-                                   mockLevel == 'LOW' ? 'Apple MIT License' : 
-                                   mockLevel == 'MEDIUM' ? 'Creative Commons Attribution 4.0' :
-                                   mockLevel == 'HIGH' ? 'Creative Commons Attribution Share Alike 1.0' :
-                                   'AGPL v3.0'
-                               }">Apple MIT License</p>
-                            <!-- Reusable Risk Tag Fragment -->
-                            <div th:replace="~{shared/tags :: risk-tag(level=${mockLevel})}"></div>
-                        </div>
-                        
-                        <!-- Library Count Tag -->
-                        <div th:replace="~{shared/tags :: library-count(count=${i.index + 1 * 2})}"></div>
-                    </div>
-                </th:block>
-            </th:block>
 
-            <!-- Dynamic Iterate over Licenses -->
-            <th:block th:if="${licenses != null}">
-                <div th:each="license : ${licenses}" class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full shrink-0 hover:bg-gray-50 transition-colors cursor-pointer" th:data-license-id="${license.id}">
+            <!-- Empty state -->
+            <div th:if="${#lists.isEmpty(licenses)}"
+                 class="flex flex-col items-center justify-center gap-[12px] px-6 py-[48px] text-center">
+                <svg class="w-[32px] h-[32px] text-[var(--grayscale-30)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <p class="font-medium text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0" th:text="#{license.empty}">No license data available.</p>
+                <p class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px] m-0" th:text="#{license.empty.hint}">Run a scan to detect licenses used in this project.</p>
+            </div>
+
+            <!-- Dynamic license rows -->
+            <div th:each="license : ${licenses}"
+                 x-data="{ open: false }"
+                 class="flex flex-col w-full shrink-0">
+                <!-- Row header (clickable) -->
+                <div @click="open = !open"
+                     class="flex flex-wrap gap-y-2 items-start justify-between px-6 py-3 w-full hover:bg-gray-50 transition-colors cursor-pointer select-none">
                     <div class="flex flex-1 flex-wrap gap-4 items-center min-w-[224px]">
-                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">Apple MIT License</p>
-                        <!-- Risk Tag -->
-                        <div th:replace="~{shared/tags :: risk-tag(level=${license.riskLevel})}"></div>
+                        <p class="font-medium text-[14px] text-black tracking-[-0.14px] m-0" th:text="${license.name}">License Name</p>
+                        <div th:replace="~{fragments/tags :: license-risk-tag(level=${license.riskLevel})}"></div>
                     </div>
-                    
-                    <!-- Library Count Tag -->
-                    <div th:replace="~{shared/tags :: library-count(count=${license.libraryCount})}"></div>
+                    <div class="flex items-center gap-[6px]">
+                        <div th:replace="~{fragments/tags :: library-count(count=${license.libraryCount})}"></div>
+                        <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px] shrink-0 pointer-events-none transition-transform" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
+                    </div>
                 </div>
-            </th:block>
+                <!-- Expanded: list of libraries using this license -->
+                <div x-show="open" x-cloak
+                     class="flex flex-col gap-0 px-6 pb-3 bg-[var(--grayscale-5)]">
+
+                    <!-- AI compliance risk summary -->
+                    <div th:if="${license.aiLicenseSummary != null}"
+                         class="flex flex-col gap-[12px] mt-3 mb-1 p-[16px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
+                        <div class="flex items-center gap-[6px]">
+                            <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[18px] h-[18px] shrink-0" alt="" aria-hidden="true">
+                            <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{license.ai.insight}">AI Insight</p>
+                        </div>
+                        <p class="text-[13px] text-[#272D30] tracking-[-0.13px] m-0 leading-relaxed" th:text="${license.aiLicenseSummary}">AI summary</p>
+                    </div>
+
+                    <p class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0" th:text="#{license.label.libraries}">Libraries</p>
+                    <div th:each="libName : ${license.libraryNames}"
+                         class="flex items-center gap-[8px] py-[5px]">
+                        <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
+                        <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] m-0" th:text="${libName}">library-name 1.0.0</p>
+                    </div>
+                </div>
+            </div>
 
         </div>
 

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{auth.otp.pageTitle})}"></head>
+<body class="min-h-screen flex flex-col font-sans antialiased relative" style="background: transparent;">
+
+<!-- Background image -->
+<img th:src="@{/img/login-bg.png}" alt="" aria-hidden="true"
+     class="fixed inset-0 w-full h-full object-cover pointer-events-none select-none -z-10"/>
+
+<!-- Top bar -->
+<header class="bg-[var(--background-dark)] flex items-center h-[64px] gap-[44px] pl-[60px] pr-[40px] py-[16px] w-full shrink-0 relative z-10">
+    <div class="flex gap-[12px] items-center shrink-0">
+        <img th:src="@{/icon/icon-logo.svg}" class="w-[22px] h-[30px]" alt="OsWL" aria-hidden="true">
+        <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
+    </div>
+    <h2 class="font-bold text-[18px] text-white tracking-[-0.18px] leading-[1.3] whitespace-nowrap" th:text="#{auth.otp.pageTitle}">Verification</h2>
+</header>
+
+<!-- Centered card -->
+<main class="flex-1 flex items-center justify-center px-[24px] py-[40px] relative z-10">
+
+    <div class="w-full max-w-[480px] bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[28px]
+                flex flex-col gap-[28px] items-center"
+         style="filter: drop-shadow(0px 0px 20px rgba(0,29,53,0.03));"
+         x-data="otpVerify()">
+
+        <!-- Brand block -->
+        <div class="flex flex-col items-center gap-[4px]">
+            <img th:src="@{/icon/icon-logo-card.svg}" class="w-[60px] h-[83px] mb-[2px]" alt="OsWL" aria-hidden="true">
+            <p class="font-extrabold text-[28px] text-[var(--primary-120)] tracking-[-0.28px] leading-[1.3]" th:text="#{auth.otp.title}">이메일을 확인해 주세요</p>
+        </div>
+
+        <!-- Unified notification (latest-wins, always at most one shown) -->
+        <div x-show="notice" x-cloak
+             class="w-full rounded-[8px] px-[12px] py-[10px] text-[13px] flex items-center justify-center gap-[6px]"
+             :class="notice && notice.type === 'warning'
+                 ? 'bg-amber-50 border border-amber-200 text-amber-700'
+                 : 'bg-red-50 border border-red-200 text-red-700'">
+            <svg x-show="notice && notice.type === 'warning'" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <span x-text="notice && notice.text"></span>
+        </div>
+
+        <!-- Description -->
+        <div class="w-full text-center flex flex-col gap-[6px]">
+            <p class="text-[14px] text-[var(--grayscale-70)] tracking-[-0.14px] leading-[1.5]" th:text="#{auth.otp.description}">6자리 인증 코드를 보냈습니다.</p>
+            <p class="text-[14px] font-bold text-[var(--grayscale-100)] tracking-[-0.14px]"
+               x-text="maskedEmail || 't***@company.com'"></p>
+            <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]">
+                <span th:text="#{auth.otp.expires}">코드 만료까지</span> <span class="font-semibold" x-text="formatExpiry()">5:00</span>
+            </p>
+        </div>
+
+        <!-- OTP Input Boxes -->
+        <form th:action="@{/login/otp-verify}" method="post" class="w-full flex flex-col gap-[24px] items-center"
+              @submit.prevent="submit()">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <!-- Hidden combined value for form submission -->
+            <input type="hidden" name="otpCode" :value="digits.join('')"/>
+
+            <div class="flex gap-[10px] justify-center">
+                <template x-for="(digit, idx) in digits" :key="idx">
+                    <div class="w-[52px] h-[62px] border-2 rounded-[10px] flex items-center justify-center transition-colors"
+                         :class="activeIdx === idx ? 'border-[var(--primary-120)]' : (digit ? 'border-[var(--grayscale-40)]' : 'border-[var(--grayscale-20)]')">
+                        <input :id="'otp-' + idx"
+                               type="text" inputmode="numeric" autocomplete="one-time-code"
+                               maxlength="1"
+                               :value="digit"
+                               @focus="activeIdx = idx"
+                               @blur="activeIdx = -1"
+                               @input="handleInput($event, idx)"
+                               @keydown="handleKeydown($event, idx)"
+                               @paste.prevent="handlePaste($event)"
+                               class="w-full h-full text-center text-[24px] font-bold text-[var(--grayscale-100)] bg-transparent outline-none border-none caret-transparent"
+                               :class="verifying ? 'opacity-40' : ''"/>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit"
+                    :disabled="digits.join('').length < 6 || verifying || expirySeconds <= 0"
+                    class="w-full flex items-center justify-center gap-[8px] bg-[var(--primary-120)] hover:bg-[var(--primary-140)] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[15px] font-bold tracking-[-0.15px] py-[13px] rounded-[8px] transition-colors"
+                    th:data-text-verify="#{auth.otp.btn.verify}"
+                    th:data-text-verifying="#{auth.otp.btn.verifying}">
+                <svg x-show="verifying" x-cloak class="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <span x-text="verifying ? $el.closest('button').dataset.textVerifying : $el.closest('button').dataset.textVerify"></span>
+            </button>
+        </form>
+
+        <!-- Resend + Trust device -->
+        <div class="w-full flex flex-col gap-[14px] items-center">
+
+            <!-- Trust this device -->
+            <label class="flex items-center gap-[8px] cursor-pointer select-none">
+                <div class="relative w-[16px] h-[16px] shrink-0">
+                    <input type="checkbox" x-model="trustDevice" class="sr-only peer"/>
+                    <div class="w-[16px] h-[16px] rounded-[4px] border-2 flex items-center justify-center transition-colors"
+                         :class="trustDevice ? 'border-[var(--primary-120)] bg-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                        <svg x-show="trustDevice" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                </div>
+                <span class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]">
+                    <span th:text="#{auth.otp.trust.label}">이 기기를 신뢰합니다</span> <strong class="text-[var(--grayscale-90)]" th:text="#{auth.otp.trust.days}">30일</strong>
+                </span>
+            </label>
+
+            <!-- Resend -->
+            <div class="flex items-center gap-[6px] text-[13px]">
+                <span class="text-[var(--grayscale-50)]" th:text="#{auth.otp.resend.prompt}">코드를 받지 못하셨나요?</span>
+                <button type="button"
+                        :disabled="resendCooldown > 0 || resending"
+                        @click="resend()"
+                        th:data-text-countdown="#{auth.otp.resend.countdown}"
+                        class="font-semibold transition-colors disabled:cursor-not-allowed"
+                        :class="resendCooldown > 0 ? 'text-[var(--grayscale-40)]' : 'text-[var(--primary-120)] hover:text-[var(--primary-140)]'">
+                        <span x-show="resendCooldown <= 0 && !resending" th:text="#{auth.otp.resend.btn}">코드 재발송</span>
+                    <span x-show="resendCooldown > 0" x-text="$el.closest('button').dataset.textCountdown + ' ' + resendCooldown + 's'"></span>
+                    <span x-show="resending" x-cloak th:text="#{auth.otp.resend.sending}">전송 중…</span>
+                </button>
+            </div>
+
+            <!-- Back to login -->
+            <a th:href="@{/login}"
+               class="text-[12px] text-[var(--grayscale-50)] hover:text-[var(--grayscale-70)] transition-colors no-underline"
+               th:text="#{auth.otp.backToLogin}">← 로그인으로 돌아가기</a>
+        </div>
+
+    </div>
+</main>
+
+<script th:inline="javascript">
+const _otpI18n = {
+    mailFailed:         /*[[#{auth.otp.msg.mailFailed}]]*/ 'Email delivery failed. Please request a new code or check your mail settings.',
+    codeExpired:        /*[[#{auth.otp.msg.codeExpired}]]*/ 'Code expired. Please request a new one.',
+    invalidCode:        /*[[#{auth.otp.msg.invalidCode}]]*/ 'Invalid code. Please try again.',
+    backendNotConnected:/*[[#{settings.security.error.backendNotConnected}]]*/ 'Backend not yet connected.'
+};
+function otpVerify() {
+    return {
+        digits: ['', '', '', '', '', ''],
+        activeIdx: -1,
+        trustDevice: false,
+        verifying: false,
+        resending: false,
+        resendCooldown: 0,
+        notice: null,   // { type: 'error'|'warning', text: String } — at most one shown
+        maskedEmail: /*[[${maskedEmail}]]*/ null,
+        expirySeconds: /*[[${expirySeconds != null ? expirySeconds : 300}]]*/ 300,
+        _expiryTimer: null,
+        _cooldownTimer: null,
+
+        init() {
+            // Restore server-side mail delivery failure flag as initial notice
+            if (/*[[${mailFailed}]]*/ false) {
+                this.setNotice('warning', _otpI18n.mailFailed);
+            }
+            // Focus first box
+            this.$nextTick(() => {
+                document.getElementById('otp-0')?.focus();
+            });
+            // Start expiry countdown
+            this._expiryTimer = setInterval(() => {
+                if (this.expirySeconds > 0) {
+                    this.expirySeconds--;
+                    if (this.expirySeconds <= 0) {
+                        clearInterval(this._expiryTimer);
+                        this.setNotice('error', _otpI18n.codeExpired);
+                    }
+                }
+            }, 1000);
+        },
+
+        // Latest call always wins — replaces any existing notice
+        setNotice(type, text) {
+            this.notice = text ? { type, text } : null;
+        },
+
+        formatExpiry() {
+            const m = Math.floor(this.expirySeconds / 60);
+            const s = this.expirySeconds % 60;
+            return m + ':' + String(s).padStart(2, '0');
+        },
+
+        handleInput(e, idx) {
+            const val = e.target.value.replace(/\D/g, '').slice(0, 1);
+            this.digits[idx] = val;
+            // Trigger Alpine reactivity
+            this.digits = [...this.digits];
+            if (val && idx < 5) {
+                this.$nextTick(() => document.getElementById('otp-' + (idx + 1))?.focus());
+            }
+            // Auto-submit when all 6 filled
+            if (this.digits.join('').length === 6) {
+                this.$nextTick(() => this.submit());
+            }
+        },
+
+        handleKeydown(e, idx) {
+            if (e.key === 'Backspace') {
+                if (!this.digits[idx] && idx > 0) {
+                    this.digits[idx - 1] = '';
+                    this.digits = [...this.digits];
+                    this.$nextTick(() => document.getElementById('otp-' + (idx - 1))?.focus());
+                } else {
+                    this.digits[idx] = '';
+                    this.digits = [...this.digits];
+                }
+            } else if (e.key === 'ArrowLeft' && idx > 0) {
+                document.getElementById('otp-' + (idx - 1))?.focus();
+            } else if (e.key === 'ArrowRight' && idx < 5) {
+                document.getElementById('otp-' + (idx + 1))?.focus();
+            }
+        },
+
+        handlePaste(e) {
+            const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+            text.split('').forEach((ch, i) => { this.digits[i] = ch; });
+            this.digits = [...this.digits];
+            const focusIdx = Math.min(text.length, 5);
+            this.$nextTick(() => document.getElementById('otp-' + focusIdx)?.focus());
+            if (text.length === 6) this.$nextTick(() => this.submit());
+        },
+
+        async submit() {
+            const code = this.digits.join('');
+            if (code.length < 6) return;
+            this.verifying = true;
+            this.setNotice(null, null);
+            try {
+                const r = await fetch('/login/otp-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, trustDevice: this.trustDevice })
+                });
+                if (r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    window.location.href = data.redirectUrl || '/projects';
+                } else if (r.status === 401 || r.status === 400) {
+                    const data = await r.json().catch(() => ({}));
+                    this.setNotice('error', data.message || _otpI18n.invalidCode);
+                    this.digits = ['', '', '', '', '', ''];
+                    this.digits = [...this.digits];
+                    this.$nextTick(() => document.getElementById('otp-0')?.focus());
+                } else {
+                    this.setNotice('error', _otpI18n.backendNotConnected);
+                }
+            } catch (e) {
+                this.setNotice('error', _otpI18n.backendNotConnected);
+            } finally {
+                this.verifying = false;
+            }
+        },
+
+        async resend() {
+            this.resending = true;
+            this.setNotice(null, null);
+            try {
+                const r = await fetch('/login/otp-resend', { method: 'POST' });
+                if (r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    if (data.mailFailed) {
+                        this.setNotice('warning', _otpI18n.mailFailed);
+                    }
+                    this.expirySeconds = 300;
+                    clearInterval(this._expiryTimer);
+                    this._expiryTimer = setInterval(() => {
+                        if (this.expirySeconds > 0) {
+                            this.expirySeconds--;
+                            if (this.expirySeconds <= 0) {
+                                clearInterval(this._expiryTimer);
+                                this.setNotice('error', _otpI18n.codeExpired);
+                            }
+                        }
+                    }, 1000);
+                    this.resendCooldown = 60;
+                    this._cooldownTimer = setInterval(() => {
+                        this.resendCooldown--;
+                        if (this.resendCooldown <= 0) clearInterval(this._cooldownTimer);
+                    }, 1000);
+                } else {
+                    const data = await r.json().catch(() => ({}));
+                    this.setNotice('error', data.message || _otpI18n.backendNotConnected);
+                }
+            } catch (e) {
+                this.setNotice('error', _otpI18n.backendNotConnected);
+            } finally {
+                this.resending = false;
+            }
+        }
+    };
+}
+</script>
+
+<footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>

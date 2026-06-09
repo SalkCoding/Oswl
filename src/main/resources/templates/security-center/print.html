@@ -1,0 +1,426 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="|${projectName}#{securityCenter.print.titleSuffix}|">Security Report</title>
+    <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/globals.css}">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 10pt;
+            color: var(--grayscale-100);
+            background: var(--grayscale-10);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            letter-spacing: -0.01em;
+            min-width: unset;
+        }
+        .page { max-width: 960px; margin: 0 auto; background: white; }
+        .print-toolbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 9999;
+            background: var(--background-dark);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            height: 48px;
+            font-size: 13px;
+            gap: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .toolbar-left { display: flex; align-items: center; gap: 10px; }
+        .toolbar-title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: -0.13px; }
+        .toolbar-badge {
+            font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+            padding: 2px 8px; border-radius: 4px; letter-spacing: -0.11px;
+        }
+        .print-btn {
+            display: flex; align-items: center; gap: 7px;
+            background: var(--primary-120); color: white; border: none;
+            border-radius: 6px; padding: 8px 16px;
+            font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+            cursor: pointer; letter-spacing: -0.13px;
+        }
+        .print-btn:hover { background: #008a7e; }
+        @media screen { .page { margin-top: 48px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); } }
+        /* Header */
+        .report-header { background: var(--background-dark); padding: 24px 32px 20px; }
+        .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .header-logo { display: flex; align-items: center; gap: 8px; }
+        .header-logo-text { font-size: 18px; font-weight: 800; color: white; letter-spacing: -0.4px; }
+        .header-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+        .header-report-type { font-size: 11px; font-weight: 600; color: var(--primary-80); text-transform: uppercase; letter-spacing: 0.8px; }
+        .header-meta {
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0;
+            border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px;
+        }
+        .meta-item { display: flex; flex-direction: column; gap: 4px; padding-right: 20px; }
+        .meta-item + .meta-item { padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.08); }
+        .meta-label { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.6px; }
+        .meta-value { font-size: 13px; font-weight: 600; color: white; letter-spacing: -0.13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Sections */
+        .section { padding: 20px 32px; }
+        .section + .section { border-top: 1px solid var(--grayscale-15); }
+        .section-title { font-size: 11px; font-weight: 700; color: var(--grayscale-50); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+        /* Risk Overview */
+        .risk-overview { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .risk-block { display: flex; flex-direction: column; gap: 10px; }
+        .risk-block-label { font-size: 11px; font-weight: 700; color: var(--grayscale-100); letter-spacing: -0.11px; }
+        .risk-bar { display: flex; width: 100%; height: 8px; border-radius: 2px; overflow: hidden; background: var(--risk-unknown); }
+        .risk-bar-seg { height: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .risk-bar-seg.critical { background: var(--risk-critical); }
+        .risk-bar-seg.high     { background: var(--risk-high); }
+        .risk-bar-seg.medium   { background: var(--risk-medium); }
+        .risk-bar-seg.low      { background: var(--risk-low); }
+        .risk-bar-seg.permitted { background: var(--risk-permitted); }
+        .risk-bar-seg.caution   { background: var(--risk-caution); }
+        .risk-legend { display: flex; gap: 16px; flex-wrap: wrap; }
+        .risk-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--grayscale-70); letter-spacing: -0.11px; }
+        .risk-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .risk-dot.critical   { background: var(--risk-critical); }
+        .risk-dot.high       { background: var(--risk-high); }
+        .risk-dot.medium     { background: var(--risk-medium); }
+        .risk-dot.low        { background: var(--risk-low); }
+        .risk-dot.unknown    { background: var(--grayscale-30); }
+        .risk-dot.restricted { background: var(--risk-critical); }
+        .risk-dot.caution    { background: var(--risk-caution); }
+        .risk-dot.permitted  { background: var(--risk-permitted); }
+        .risk-count { font-weight: 600; color: var(--grayscale-100); }
+        /* Stat strip */
+        .stat-strip { display: flex; gap: 0; border: 1px solid var(--grayscale-15); border-radius: 8px; overflow: hidden; margin-top: 16px; }
+        .stat-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--grayscale-5); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stat-item + .stat-item { border-left: 1px solid var(--grayscale-15); }
+        .stat-item.has-critical { background: rgba(230,39,39,0.04); }
+        .stat-item.has-high     { background: rgba(244,122,41,0.04); }
+        .stat-item.has-medium   { background: rgba(245,189,38,0.04); }
+        .stat-num { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+        .stat-num.critical { color: var(--risk-critical); }
+        .stat-num.high     { color: var(--risk-high); }
+        .stat-num.medium   { color: var(--risk-medium); }
+        .stat-num.low      { color: var(--grayscale-50); }
+        .stat-num.unscored { color: var(--grayscale-30); }
+        .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; }
+        .stat-label.critical { color: var(--risk-critical); }
+        .stat-label.high     { color: var(--risk-high); }
+        .stat-label.medium   { color: var(--risk-medium); }
+        .stat-label.low      { color: var(--grayscale-50); }
+        .stat-label.unscored { color: var(--grayscale-30); }
+        /* AI Insight */
+        .insight-box { display: flex; gap: 10px; align-items: flex-start; background: rgba(0,176,160,0.04); border: 1px solid rgba(0,176,160,0.2); border-radius: 8px; padding: 14px 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .insight-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--primary-120); }
+        .insight-text { font-size: 11px; color: var(--grayscale-90); line-height: 1.65; letter-spacing: -0.11px; }
+        /* Component table */
+        .comp-table { width: 100%; border-collapse: collapse; font-size: 11px; letter-spacing: -0.11px; }
+        .comp-table thead tr { background: var(--grayscale-5); border-bottom: 1px solid var(--grayscale-20); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .comp-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; color: var(--grayscale-100); letter-spacing: -0.1px; white-space: nowrap; }
+        .comp-table th:first-child { width: 28px; text-align: center; padding: 8px 4px 8px 12px; color: var(--grayscale-50); font-weight: 500; }
+        .comp-table td { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--grayscale-15); }
+        .comp-table td:first-child { text-align: center; color: var(--grayscale-40); font-size: 10px; padding: 10px 4px 10px 12px; }
+        .comp-table tr:last-child td { border-bottom: none; }
+        .comp-table tr.has-critical td { background: rgba(230,39,39,0.025); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .comp-table tr.has-high td    { background: rgba(244,122,41,0.02);  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .comp-table tr.row-ignored td { opacity: 0.5; }
+        .comp-name-wrap { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+        .comp-name { font-size: 12px; font-weight: 500; color: var(--grayscale-100); letter-spacing: -0.12px; word-break: break-all; }
+        .comp-version { display: inline-block; flex-shrink: 0; font-size: 10px; color: var(--grayscale-60); background: var(--grayscale-10); padding: 1px 6px; border-radius: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .comp-dep { font-size: 10px; color: var(--grayscale-50); margin-top: 2px; letter-spacing: -0.1px; }
+        /* CVE badges — solid fill, white text, exactly like table.html */
+        .cve-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+        .cve-badge { height: 20px; min-width: 26px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 500; color: white; white-space: nowrap; letter-spacing: -0.11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .cve-badge.c { background: var(--risk-critical); }
+        .cve-badge.h { background: var(--risk-high); }
+        .cve-badge.m { background: var(--risk-medium); color: var(--grayscale-80); }
+        .cve-badge.l { background: var(--risk-low); color: var(--grayscale-60); }
+        .cve-badge.n { background: var(--risk-unknown); color: var(--grayscale-50); }
+        .cve-none { color: var(--grayscale-30); font-size: 11px; }
+        /* Patchability — dot + text like table.html */
+        .patch-cell { display: flex; align-items: flex-start; gap: 6px; }
+        .patch-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .patch-dot.patchable     { background: var(--semantic-patchable); }
+        .patch-dot.non-patchable { background: var(--risk-critical); }
+        .patch-dot.deprecated    { background: var(--grayscale-70); }
+        .patch-dot.outdated      { background: var(--semantic-caution); }
+        .patch-dot.up-to-date    { background: var(--grayscale-15); }
+        .patch-dot.unknown       { background: var(--grayscale-30); }
+        .patch-text { font-size: 11px; color: var(--grayscale-80); letter-spacing: -0.11px; white-space: nowrap; }
+        .patch-latest { display: block; font-size: 10px; color: var(--grayscale-50); letter-spacing: -0.1px; }
+        /* License — dot + text like table.html */
+        .lic-cell { display: flex; align-items: center; gap: 6px; }
+        .lic-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .lic-dot.PERMITTED  { background: var(--risk-permitted); }
+        .lic-dot.CAUTION    { background: var(--semantic-caution); }
+        .lic-dot.RESTRICTED { background: var(--risk-critical); }
+        .lic-dot.UNKNOWN    { background: var(--grayscale-20); }
+        .lic-name { font-size: 11px; color: var(--grayscale-80); letter-spacing: -0.11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+        /* Status — dot + text */
+        .status-cell { display: flex; align-items: flex-start; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .status-dot.reviewed   { background: var(--semantic-patchable); }
+        .status-dot.ignored    { background: var(--grayscale-30); }
+        .status-dot.deferred   { background: var(--semantic-caution); }
+        .status-dot.unreviewed { background: var(--grayscale-15); }
+        .status-text { font-size: 11px; color: var(--grayscale-80); letter-spacing: -0.11px; white-space: nowrap; }
+        .status-by { display: block; font-size: 10px; color: var(--grayscale-40); letter-spacing: -0.1px; }
+        /* Footer */
+        .report-footer { padding: 14px 32px; border-top: 1px solid var(--grayscale-15); display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--grayscale-40); letter-spacing: -0.1px; }
+        /* Print */
+        @media print {
+            @page { size: A4; margin: 8mm 10mm 12mm; }
+            html, body { background: white; min-width: unset; }
+            .print-toolbar { display: none !important; }
+            .page { margin-top: 0; max-width: 100%; box-shadow: none; }
+            .comp-table thead { display: table-header-group; }
+            .comp-table tr { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="print-toolbar">
+    <div class="toolbar-left">
+        <img th:src="@{/icon/icon-logo-card.svg}" width="14" height="19" alt="OsWL" style="display:block;">
+        <span class="toolbar-title" th:text="#{securityCenter.print.toolbarSubtitle(${projectName})}">Project — Security Report</span>
+        <span class="toolbar-badge" th:text="${projectVersion ?: '—'}">develop</span>
+    </div>
+    <button class="print-btn" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        <span th:text="#{securityCenter.print.saveAsPdf}">Save as PDF</span>
+    </button>
+</div>
+
+<div class="page">
+
+    <div class="report-header">
+        <div class="header-top">
+            <div class="header-logo">
+                <img th:src="@{/icon/icon-logo-card.svg}" width="16" height="22" alt="OsWL" style="display:block;">
+                <span class="header-logo-text">OsWL</span>
+            </div>
+            <div class="header-divider"></div>
+            <span class="header-report-type" th:text="#{securityCenter.print.reportType}">Security Report</span>
+        </div>
+        <div class="header-meta">
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{securityCenter.print.meta.project}">Project</span>
+                <span class="meta-value" th:text="${projectName}">My Project</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{securityCenter.print.meta.versionBranch}">Version / Branch</span>
+                <span class="meta-value" th:text="${projectVersion ?: '—'}">develop</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{securityCenter.print.meta.scanDate}">Scan Date</span>
+                <span class="meta-value" th:text="${scannedAt}">2025-01-01</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{securityCenter.print.meta.generated}">Generated</span>
+                <span class="meta-value" th:text="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}">2025-01-01</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title" th:text="#{securityCenter.print.section.riskOverview}">Risk Overview</div>
+        <div class="risk-overview">
+            <div class="risk-block">
+                <div class="risk-block-label" th:text="#{securityCenter.print.section.securityRisk}">Security Risk</div>
+                <div th:with="total=${securityCritical + securityHigh + securityMedium + securityLow + securityUnscored}">
+                    <div class="risk-bar" th:if="${total > 0}">
+                        <div class="risk-bar-seg critical" th:if="${securityCritical > 0}" th:style="'flex:' + ${securityCritical}"></div>
+                        <div class="risk-bar-seg high"     th:if="${securityHigh > 0}"     th:style="'flex:' + ${securityHigh}"></div>
+                        <div class="risk-bar-seg medium"   th:if="${securityMedium > 0}"   th:style="'flex:' + ${securityMedium}"></div>
+                        <div class="risk-bar-seg low"      th:if="${securityLow > 0}"      th:style="'flex:' + ${securityLow}"></div>
+                    </div>
+                    <div class="risk-bar" th:if="${total == 0}" style="background:var(--grayscale-15)"></div>
+                </div>
+                <div class="risk-legend">
+                    <div class="risk-legend-item"><span class="risk-dot critical"></span><span class="risk-count" th:text="${securityCritical}">0</span><span th:text="#{securityCenter.filter.critical}">Critical</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot high"></span><span class="risk-count" th:text="${securityHigh}">0</span><span th:text="#{securityCenter.filter.high}">High</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot medium"></span><span class="risk-count" th:text="${securityMedium}">0</span><span th:text="#{securityCenter.filter.medium}">Medium</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot low"></span><span class="risk-count" th:text="${securityLow}">0</span><span th:text="#{securityCenter.filter.low}">Low</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${securityUnscored}">0</span><span th:text="#{securityCenter.filter.unscored}">Unscored</span></div>
+                </div>
+            </div>
+            <div class="risk-block">
+                <div class="risk-block-label" th:text="#{securityCenter.print.section.licenseRisk}">License Risk</div>
+                <div th:with="total=${licenseCritical + licenseHigh + licenseMedium + licenseLow}">
+                    <div class="risk-bar" th:if="${total > 0}">
+                        <div class="risk-bar-seg critical"  th:if="${licenseCritical > 0}" th:style="'flex:' + ${licenseCritical}"></div>
+                        <div class="risk-bar-seg caution"   th:if="${licenseHigh > 0}"     th:style="'flex:' + ${licenseHigh}"></div>
+                        <div class="risk-bar-seg permitted" th:if="${licenseMedium > 0}"   th:style="'flex:' + ${licenseMedium}"></div>
+                    </div>
+                    <div class="risk-bar" th:if="${total == 0}" style="background:var(--grayscale-15)"></div>
+                </div>
+                <div class="risk-legend">
+                    <div class="risk-legend-item"><span class="risk-dot restricted"></span><span class="risk-count" th:text="${licenseCritical}">0</span><span th:text="#{securityCenter.filter.restricted}">Restricted</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot caution"></span><span class="risk-count" th:text="${licenseHigh}">0</span><span th:text="#{securityCenter.filter.caution}">Caution</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot permitted"></span><span class="risk-count" th:text="${licenseMedium}">0</span><span th:text="#{securityCenter.filter.permitted}">Permitted</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${licenseLow}">0</span><span th:text="#{securityCenter.filter.unknown}">Unknown</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="stat-strip">
+            <div class="stat-item" th:classappend="${securityCritical > 0 ? 'has-critical' : ''}">
+                <span class="stat-num critical" th:text="${securityCritical}">0</span>
+                <span class="stat-label critical" th:text="#{securityCenter.filter.critical}">Critical</span>
+            </div>
+            <div class="stat-item" th:classappend="${securityHigh > 0 ? 'has-high' : ''}">
+                <span class="stat-num high" th:text="${securityHigh}">0</span>
+                <span class="stat-label high" th:text="#{securityCenter.filter.high}">High</span>
+            </div>
+            <div class="stat-item" th:classappend="${securityMedium > 0 ? 'has-medium' : ''}">
+                <span class="stat-num medium" th:text="${securityMedium}">0</span>
+                <span class="stat-label medium" th:text="#{securityCenter.filter.medium}">Medium</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-num low" th:text="${securityLow}">0</span>
+                <span class="stat-label low" th:text="#{securityCenter.filter.low}">Low</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-num unscored" th:text="${securityUnscored}">0</span>
+                <span class="stat-label unscored" th:text="#{securityCenter.filter.unscored}">Unscored</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section" th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}">
+        <div class="section-title" th:text="#{securityCenter.print.section.aiPosture}">AI Security Posture</div>
+        <div class="insight-box">
+            <svg class="insight-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span class="insight-text" th:text="${securityPostureInsight}"></span>
+        </div>
+    </div>
+
+    <div class="section" style="padding-bottom:0">
+        <div class="section-title">
+            <span th:text="#{securityCenter.print.section.componentDetails}">Component Details</span>
+            <span style="font-weight:400;color:var(--grayscale-40);text-transform:none;letter-spacing:0;margin-left:6px;"
+                  th:text="#{securityCenter.print.componentCount(${#lists.size(components)})}"></span>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="comp-table">
+            <thead>
+                <tr>
+                    <th th:text="#{securityCenter.print.col.index}">#</th>
+                    <th th:text="#{securityCenter.table.component}">Component</th>
+                    <th th:text="#{securityCenter.table.securityIssues}">Security Issues</th>
+                    <th th:text="#{securityCenter.table.patchability}">Patchability</th>
+                    <th th:text="#{securityCenter.table.license}">License</th>
+                    <th th:text="#{securityCenter.print.col.status}">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="comp, i : ${components}"
+                    th:classappend="${comp.securityCritical > 0 ? 'has-critical' : (comp.securityHigh > 0 ? 'has-high' : '')} + ' ' + (${comp.ignored} ? 'row-ignored' : '')">
+                    <td th:text="${i.count}">1</td>
+                    <td>
+                        <div class="comp-name-wrap">
+                            <span class="comp-name" th:text="${comp.name}">library-name</span>
+                            <span class="comp-version" th:text="${comp.version}">1.0.0</span>
+                        </div>
+                        <div class="comp-dep" th:if="${comp.dependencyInfo != null}" th:text="${comp.dependencyInfo}">Direct (1)</div>
+                    </td>
+                    <td>
+                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0}" class="cve-none">—</span>
+                        <div class="cve-badges" th:unless="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0}">
+                            <span class="cve-badge c" th:if="${comp.securityCritical > 0}" th:text="${comp.securityCritical}"></span>
+                            <span class="cve-badge h" th:if="${comp.securityHigh > 0}"     th:text="${comp.securityHigh}"></span>
+                            <span class="cve-badge m" th:if="${comp.securityMedium > 0}"   th:text="${comp.securityMedium}"></span>
+                            <span class="cve-badge l" th:if="${comp.securityLow > 0}"      th:text="${comp.securityLow}"></span>
+                            <span class="cve-badge n" th:if="${comp.securityUnscored > 0}" th:text="${comp.securityUnscored}"></span>
+                        </div>
+                    </td>
+                    <td>
+                        <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored > 0}">
+                            <div class="patch-cell">
+                                <span class="patch-dot" th:classappend="${comp.patchability == 'patchable' ? 'patchable' : (comp.patchability == 'non-patchable' ? 'non-patchable' : 'unknown')}"></span>
+                                <span th:if="${comp.patchability == 'patchable'}" class="patch-text" th:text="#{securityCenter.filter.patchable}">Patchable</span>
+                                <span th:if="${comp.patchability == 'non-patchable'}" class="patch-text" th:text="#{common.nonPatchable}">Non-Patchable</span>
+                                <span th:if="${comp.patchability != 'patchable' and comp.patchability != 'non-patchable'}" class="patch-text">—</span>
+                            </div>
+                        </th:block>
+                        <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
+                            <div class="patch-cell" th:if="${comp.deprecated != null}">
+                                <span class="patch-dot deprecated"></span>
+                                <span class="patch-text" th:text="#{securityCenter.filter.deprecated}">Deprecated</span>
+                            </div>
+                            <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion == false}">
+                                <span class="patch-dot outdated"></span>
+                                <div>
+                                    <span class="patch-text" th:text="#{securityCenter.filter.outdated}">Outdated</span>
+                                    <span class="patch-latest" th:if="${comp.latestVersion != null}" th:text="'→ v' + ${comp.latestVersion}"></span>
+                                </div>
+                            </div>
+                            <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion != false}">
+                                <span class="patch-dot up-to-date"></span>
+                                <span class="patch-text" style="color:var(--grayscale-50)" th:text="#{securityCenter.filter.upToDate}">Up to date</span>
+                            </div>
+                        </th:block>
+                    </td>
+                    <td>
+                        <div class="lic-cell">
+                            <span class="lic-dot" th:classappend="${comp.licenseStatus}"></span>
+                            <span class="lic-name" th:text="${comp.licenseName ?: '—'}" th:title="${comp.licenseName ?: ''}">MIT</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div th:if="${comp.ignored}" class="status-cell">
+                            <span class="status-dot ignored"></span>
+                            <div>
+                                <span class="status-text" th:text="#{securityCenter.filter.ignored}">Ignored</span>
+                                <span class="status-by" th:if="${comp.reviewedByName != null}" th:text="#{common.byUser(${comp.reviewedByName})}"></span>
+                            </div>
+                        </div>
+                        <div th:if="${comp.deferred and !comp.ignored}" class="status-cell">
+                            <span class="status-dot deferred"></span>
+                            <div>
+                                <span class="status-text" th:text="#{securityCenter.filter.deferred}">Deferred</span>
+                                <span class="status-by" th:if="${comp.deferredByName != null}" th:text="#{common.byUser(${comp.deferredByName})}"></span>
+                            </div>
+                        </div>
+                        <div th:if="${comp.reviewed and !comp.ignored and !comp.deferred}" class="status-cell">
+                            <span class="status-dot reviewed"></span>
+                            <div>
+                                <span class="status-text" th:text="#{securityCenter.filter.reviewed}">Reviewed</span>
+                                <span class="status-by" th:if="${comp.reviewedByName != null}" th:text="#{common.byUser(${comp.reviewedByName})}"></span>
+                            </div>
+                        </div>
+                        <div th:if="${!comp.reviewed and !comp.ignored and !comp.deferred}" class="status-cell">
+                            <span class="status-dot unreviewed"></span>
+                            <span class="status-text" style="color:var(--grayscale-40)" th:text="#{common.unreviewed}">Unreviewed</span>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="report-footer">
+        <span th:text="#{securityCenter.print.footer.generatedBy}">Generated by OsWL — Software Composition Analysis</span>
+        <span th:text="#{securityCenter.print.footer.generatedOn(${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')})}"></span>
+    </div>
+
+</div>
+
+<script>
+    window.addEventListener('load', function () {
+        setTimeout(function () { window.print(); }, 400);
+    });
+</script>
+</body>
+</html>

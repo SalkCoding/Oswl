@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="cliTab()"
+     x-init="init()"
+     class="flex flex-col gap-[20px] relative">
+
+    <!-- Heading + Create New Key button -->
+    <div class="flex items-start justify-between gap-[12px]">
+        <div class="flex flex-col gap-[8px]">
+            <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.cli.heading}">CLI API Key Management</h2>
+            <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.cli.description}">Manage per-project API keys to allow the CLI tool to securely access the OsWL API.</p>
+        </div>
+        <button @click="openCreate()"
+                class="flex-shrink-0 bg-[#001d35] hover:bg-[#00334d] text-white text-[13px] font-bold px-[14px] py-[8px] rounded-[8px] inline-flex items-center gap-[6px] transition-colors">
+            <img th:src="@{/icon/icon-key.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
+            <span th:text="#{settings.cli.btn.createNew}">Create New Key</span>
+        </button>
+    </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <!-- Keys table + panel wrapper -->
+    <div class="relative">
+
+    <!-- New key confirmation banner (shown after creation) -->
+    <div x-show="newTokenBanner" x-cloak x-transition
+         class="bg-emerald-50 border border-emerald-200 rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[6px] mb-[12px]">
+        <p class="text-[13px] font-bold text-emerald-800" th:text="#{settings.cli.newKey.created}">Key created — copy it now!</p>
+        <p class="text-[12px] text-emerald-700" th:text="#{settings.cli.newKey.hint}">This is the only time the full key is shown.</p>
+        <div class="flex items-center gap-[8px] mt-[4px]">
+            <code class="flex-1 font-mono text-[12px] bg-white border border-emerald-300 rounded-[6px] px-[10px] py-[6px] text-emerald-900 break-all" x-text="newTokenBanner"></code>
+            <button @click="copyToken()" class="text-[12px] font-semibold text-emerald-700 hover:text-emerald-900 px-[10px] py-[6px] border border-emerald-300 rounded-[6px] bg-white flex-shrink-0" th:text="#{common.copy}">Copy</button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
+        <table class="w-full text-[13px]">
+            <thead>
+            <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.apiKey}">API Key</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.project}">Project</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.label}">Label</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.created}">Created</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.lastUsed}">Last Used</th>
+                <th class="px-[16px] py-[12px] font-bold" th:text="#{settings.cli.col.status}">Status</th>
+                <th class="px-[16px] py-[12px] font-bold w-[80px]" th:text="#{settings.cli.col.action}">Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <template x-for="k in keys" :key="k.id">
+                <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                    <td class="px-[16px] py-[12px] font-mono text-[12px] text-[var(--grayscale-70)]" x-text="k.token"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-100)]" x-text="k.projectName"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]" x-text="k.label"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="formatDate(k.createdAt)"></td>
+                    <td class="px-[16px] py-[12px] text-[var(--grayscale-60)] text-[12px]" x-text="k.lastUsedAt ? formatDate(k.lastUsedAt) : '—'"></td>
+                    <td class="px-[16px] py-[12px]">
+                        <span x-show="k.active"
+                              class="inline-flex items-center gap-[6px] px-[10px] pr-[12px] py-[4px] rounded-[40px] bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#00d761"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                            <span th:text="#{settings.cli.status.active}">Active</span>
+                        </span>
+                        <span x-show="!k.active"
+                              class="inline-flex items-center gap-[6px] px-[10px] pr-[12px] py-[4px] rounded-[40px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-normal">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--grayscale-40)"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            <span th:text="#{settings.cli.status.inactive}">Inactive</span>
+                        </span>
+                    </td>
+                    <td class="px-[16px] py-[12px]">
+                        <button @click="toggleKey(k)"
+                                :title="k.active ? _cliI18n.deactivate : _cliI18n.activate"
+                                class="text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]">
+                            <!-- Moon icon = deactivate (active key) -->
+                            <svg x-show="k.active" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            <!-- Sun icon = activate (inactive key) -->
+                            <svg x-show="!k.active" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        </button>
+                    </td>
+                </tr>
+            </template>
+            <tr x-show="keys.length===0 && !loading">
+                <td colspan="7" class="px-[16px] py-[48px] text-center text-[var(--grayscale-50)]"
+                    th:text="#{settings.cli.keys.empty}">No API keys created yet. Click "Create New Key" to get started.</td>
+            </tr>
+            <tr x-show="loading">
+                <td colspan="7" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]" th:text="#{common.loading}">Loading...</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Footer notice -->
+    <p class="mt-[20px] text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
+        <img th:src="@{/icon/icon-info2.svg}" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
+        <span th:text="#{settings.cli.footer}">API keys are only shown once. If you lose a key, generate a new one.</span>
+    </p>
+
+    <!-- ===================== Create New Key Panel (absolute) ===================== -->
+    <div x-show="slideout" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-x-2"
+         x-transition:enter-end="opacity-100 translate-x-0"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-x-0"
+         x-transition:leave-end="opacity-0 translate-x-2"
+         class="absolute top-0 right-0 w-[440px] rounded-[10px] overflow-hidden border border-[var(--grayscale-20)] shadow-[0px_8px_40px_rgba(0,29,53,0.18)] z-10 flex flex-col bg-white">
+            <!-- Panel header: dark navy -->
+            <div class="bg-[#001d35] text-white px-[20px] py-[14px] flex-shrink-0">
+                <div class="flex items-center justify-between gap-[8px]">
+                    <div class="flex items-center gap-[6px] flex-1 min-w-0">
+                        <img th:src="@{/icon/icon-key.svg}" class="w-[18px] h-[18px] flex-shrink-0" alt="" aria-hidden="true">
+                        <span class="font-bold text-[13px]" th:text="#{settings.cli.slideout.title}">Create New Key</span>
+                    </div>
+                    <button @click="closeCreate()" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex-shrink-0 flex items-center justify-center transition-colors">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <p class="text-[12px] text-white/80 mt-[4px]" th:text="#{settings.cli.slideout.header.hint}">API Keys are project-scoped. Create a new one or paste an existing key below.</p>
+            </div>
+
+            <!-- Panel body: light bg -->
+            <div class="bg-[var(--grayscale-5,#fafbfb)] border-l border-[var(--grayscale-20)] flex flex-col gap-[20px] p-[20px] overflow-y-auto flex-1">
+                <!-- Project dropdown -->
+                <div class="flex flex-col gap-[8px]">
+                    <label class="text-[13px] font-bold text-[var(--grayscale-100)]" th:text="#{settings.cli.slideout.label.project}">Project</label>
+                    <div class="relative" x-data="{ open: false }">
+                        <button type="button" @click="open = !open" @click.away="open = false"
+                                class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
+                                :class="open ? 'border-[var(--primary-120)]' : ''">
+                            <span :class="form.projectId ? 'text-[var(--grayscale-100)]' : 'text-[#abb8be] font-normal'"
+                                  x-text="form.projectId ? (projects.find(p=>p.id===form.projectId)||{name:_cliI18n.selectProject}).name : _cliI18n.selectProject"></span>
+                            <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div x-show="open" x-cloak
+                             class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
+                            <button type="button" @click="form.projectId = null; open = false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
+                                    :class="!form.projectId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'"
+                                    x-text="_cliI18n.selectProject"></button>
+                            <template x-for="p in projects" :key="p.id">
+                                <button type="button" @click="form.projectId = p.id; open = false"
+                                        class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
+                                        :class="form.projectId === p.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        x-text="p.name"></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Label -->
+                <div class="flex flex-col gap-[8px]">
+                    <label class="text-[13px] font-bold text-[var(--grayscale-100)]">Label <span class="font-medium text-[var(--grayscale-60)]">(Optional)</span></label>
+                    <input type="text" x-model="form.label" placeholder="CLI Key"
+                           class="px-[12px] py-[8px] bg-white border border-[var(--grayscale-20)] rounded-[8px] text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7]"/>
+                </div>
+
+                <!-- Buttons -->
+                <div class="flex items-center gap-[10px] mt-auto pt-[12px]">
+                    <button @click="createKey()" :disabled="!form.projectId || creating"
+                            class="flex-1 bg-[#00A093] hover:bg-[#008f83] disabled:opacity-50 text-white text-[14px] font-bold py-[9px] rounded-[8px] transition-colors"
+                            x-text="creating ? _cliI18n.creating : _cliI18n.createKey"></button>
+                    <button @click="closeCreate()"
+                            class="flex-1 bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[#00A093] text-[14px] font-bold py-[9px] rounded-[8px] transition-colors" th:text="#{common.cancel}">Cancel</button>
+                </div>
+            </div>
+    </div>
+    </div><!-- end relative wrapper -->
+
+    <script th:inline="javascript">
+    const _cliI18n = {
+        selectProject: /*[[#{settings.cli.slideout.label.selectProject}]]*/ 'Select a project',
+        deactivate:  /*[[#{settings.cli.key.action.deactivate}]]*/ 'Deactivate',
+        activate:    /*[[#{settings.cli.key.action.activate}]]*/ 'Activate',
+        creating:    /*[[#{settings.cli.btn.creating}]]*/ 'Creating…',
+        createKey:   /*[[#{settings.cli.btn.createKey}]]*/ 'Create Key',
+        loadFailed:  /*[[#{settings.cli.error.loadFailed}]]*/ 'Failed to load API keys.',
+        createFailed:/*[[#{settings.cli.error.createFailed}]]*/ 'Failed to create key.',
+        updateFailed:/*[[#{settings.cli.error.updateFailed}]]*/ 'Failed to update key.'
+    };
+    </script>
+    <script>
+    function cliTab() {
+        return {
+            keys: [],
+            projects: [],
+            loading: true,
+            slideout: false,
+            creating: false,
+            apiError: null,
+            newTokenBanner: null,
+            form: { projectId: '', label: '' },
+            csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
+            headers() { return oswlJsonHeaders(); },
+            formatDate(s) { return s ? s.replace('T', ' ').slice(0, 16) : '—'; },
+
+            async init() {
+                await Promise.all([this.loadKeys(), this.loadProjects()]);
+            },
+            async loadKeys() {
+                this.loading = true;
+                try {
+                    const r = await fetch('/api/admin/cli-keys');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.loadFailed); return; }
+                    this.keys = await r.json();
+                } catch(e) {
+                    this.apiError = _cliI18n.loadFailed;
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async loadProjects() {
+                try {
+                    const r = await fetch('/projects/list');
+                    if (r.ok) this.projects = await r.json();
+                } catch(e) { /* non-critical */ }
+            },
+            openCreate() {
+                this.form = { projectId: '', label: '' };
+                this.newTokenBanner = null;
+                this.slideout = true;
+            },
+            closeCreate() {
+                this.slideout = false;
+            },
+            async createKey() {
+                if (!this.form.projectId) return;
+                this.creating = true;
+                try {
+                    const body = {
+                        projectId: this.form.projectId,
+                        label: this.form.label.trim() || 'CLI Key'
+                    };
+                    const r = await fetch('/api/admin/cli-keys', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.createFailed); return; }
+                    const data = await r.json();
+                    this.newTokenBanner = data.token;
+                    this.closeCreate();
+                    await this.loadKeys();
+                } finally {
+                    this.creating = false;
+                }
+            },
+            async toggleKey(k) {
+                try {
+                    const r = await fetch(`/api/admin/cli-keys/${k.id}/toggle`, { method: 'PATCH', headers: this.headers() });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.updateFailed); return; }
+                    await this.loadKeys();
+                } catch(e) { this.apiError = _cliI18n.updateFailed; }
+            },
+            copyToken() {
+                if (this.newTokenBanner) navigator.clipboard.writeText(this.newTokenBanner);
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

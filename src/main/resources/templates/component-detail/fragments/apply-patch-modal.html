@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+    Apply Patch (Create PR) modal — Alpine.js controlled.
+    Show with: x-show="modal === 'patch'"
+    usage: th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"
+-->
+
+<script th:inline="javascript" th:fragment="patch-i18n">
+const _patchI18n = {
+    title:           /*[[#{componentDetail.patch.title}]]*/ 'Apply Patch',
+    subtitle:        /*[[#{componentDetail.patch.subtitle}]]*/ 'Create Pull Request',
+    description:     /*[[#{componentDetail.patch.description}]]*/ 'Enter the base branch for the pull request.',
+    labelUpgrading:  /*[[#{componentDetail.patch.label.upgrading}]]*/ 'Upgrading',
+    labelWillResolve:/*[[#{componentDetail.patch.label.willResolve}]]*/ 'Will resolve',
+    labelBranch:     /*[[#{componentDetail.patch.label.targetBranch}]]*/ 'Target Branch',
+    hintBranch:      /*[[#{componentDetail.patch.hint.targetBranch}]]*/ 'Pre-filled from scan version.',
+    placeholderBranch: /*[[#{componentDetail.patch.placeholder.targetBranch}]]*/ 'e.g. main, master',
+    labelReviewer:   /*[[#{componentDetail.patch.label.reviewer}]]*/ 'Assign Reviewer (optional)',
+    placeholderReviewer: /*[[#{componentDetail.patch.placeholder.reviewer}]]*/ '@username or team',
+    labelPrDesc:     /*[[#{componentDetail.patch.label.prDescription}]]*/ 'PR Description',
+    btnCreating:     /*[[#{componentDetail.patch.btn.creating}]]*/ 'Creating PR\u2026',
+    btnCreate:       /*[[#{componentDetail.patch.btn.create}]]*/ 'Create Pull Request',
+    successCreated:  /*[[#{componentDetail.patch.success.created}]]*/ 'PR/MR created!',
+    successViewLink: /*[[#{componentDetail.patch.success.viewLink}]]*/ 'View PR/MR',
+    errorFailed:     /*[[#{componentDetail.patch.error.failed}]]*/ 'Failed to create PR ({0}).',
+    errorNetwork:    /*[[#{componentDetail.patch.error.network}]]*/ 'Network error. Please try again.',
+    errorBranchRequired: /*[[#{componentDetail.patch.error.branchRequired}]]*/ 'Target branch is required.',
+    cancel:          /*[[#{common.cancel}]]*/ 'Cancel',
+    criticalSuffix:  /*[[#{componentDetail.patch.label.criticalSuffix}]]*/ ' Critical',
+    highSuffix:      /*[[#{componentDetail.patch.label.highSuffix}]]*/ ' High'
+};
+</script>
+
+<div th:fragment="apply-patch"
+     x-show="modal === 'patch'" x-cloak
+     x-transition.opacity
+     class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+     @keydown.escape.window="modal = null"
+     @click.self="modal = null"
+     x-data="{
+        targetBranch: '',
+        reviewer: '',
+        submitting: false,
+        prError: null,
+        prDone: false,
+        prUrl: null,
+
+        initTargetBranch() {
+            const root = document.getElementById('component-detail-content');
+            const scanVersion = (root?.dataset.scanVersion || '').trim();
+            const valid = scanVersion && scanVersion !== '-';
+            this.targetBranch = valid ? scanVersion : '';
+            this.prError = null;
+            this.prDone = false;
+            this.prUrl = null;
+        },
+
+        async createPr() {
+            const branch = (this.targetBranch || '').trim();
+            if (!branch) {
+                this.prError = _patchI18n.errorBranchRequired;
+                return;
+            }
+            this.submitting = true;
+            this.prError = null;
+            const root = document.getElementById('component-detail-content');
+            const projectId   = root ? root.dataset.projectId : null;
+            const componentId = root ? root.dataset.componentId : null;
+            const prDesc = document.getElementById('pr-description-text');
+            const description = prDesc ? prDesc.value : '';
+            try {
+                const reviewerInput = document.getElementById('pr-reviewer-input');
+                const reviewerVal   = reviewerInput ? reviewerInput.value.trim() : '';
+                const reviewers     = reviewerVal ? [reviewerVal.replace(/^@/, '')] : [];
+
+                const r = await fetch('/projects/' + projectId + '/components/' + componentId + '/create-pr', {
+                    method: 'POST',
+                    headers: oswlJsonHeaders(),
+                    body: JSON.stringify({
+                        targetBranch: branch,
+                        reviewers: reviewers,
+                        prDescription: description
+                    })
+                });
+                const data = await r.json();
+                if (r.ok) {
+                    this.prDone = true;
+                    this.prUrl  = data.prUrl;
+                } else {
+                    this.prError = data.error || _patchI18n.errorFailed.replace('{0}', r.status);
+                }
+            } catch (e) {
+                this.prError = _patchI18n.errorNetwork;
+            } finally {
+                this.submitting = false;
+            }
+        }
+     }"
+     @open-patch-modal.window="$nextTick(() => initTargetBranch())">
+
+    <div class="bg-white border border-[rgba(0,29,53,0.14)] rounded-[10px] shadow-[0px_0px_40px_0px_rgba(0,29,53,0.03)] w-full max-w-[640px] max-h-[90vh] overflow-hidden flex flex-col"
+         @click.stop>
+
+        <!-- Title (fixed header) -->
+        <div class="bg-[var(--grayscale-5)] border-b border-[var(--grayscale-20)] flex items-start gap-[10px] px-[36px] pt-[28px] pb-[24px] shrink-0">
+            <svg width="26" height="26" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-[26px] h-[26px] shrink-0" aria-hidden="true">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M17.028 3.73622C17.0174 3.58627 16.9619 3.44298 16.8689 3.32493C16.7758 3.20689 16.6494 3.11954 16.506 3.07422C15.938 2.89522 15.169 2.95622 14.368 3.15122C13.535 3.35322 12.555 3.72822 11.507 4.29322C10.945 4.59622 10.362 4.95422 9.76704 5.37322L7.35504 4.72722C7.21503 4.68963 7.06713 4.69343 6.92923 4.73816C6.79133 4.78288 6.66935 4.86661 6.57804 4.97922L6.54304 5.01222L5.48204 6.07222C5.34121 6.21278 5.26199 6.40353 5.2618 6.60251C5.26162 6.80149 5.34048 6.99239 5.48104 7.13322C5.62161 7.27405 5.81236 7.35327 6.01134 7.35346C6.21031 7.35364 6.40121 7.27478 6.54204 7.13422L7.38804 6.28822L8.28704 6.52922C7.01466 7.63225 5.87499 8.87965 4.89104 10.2462C4.78647 10.3907 4.73678 10.5676 4.75089 10.7454C4.765 10.9232 4.84199 11.0901 4.96804 11.2162L8.85304 15.1012C8.9764 15.2244 9.13881 15.3008 9.31236 15.3172C9.48592 15.3336 9.65977 15.2891 9.80404 15.1912C10.704 14.5832 12.147 13.3212 13.504 11.7362L13.75 12.6502L12.905 13.4962C12.7726 13.6384 12.7004 13.8264 12.7039 14.0207C12.7073 14.215 12.786 14.4004 12.9234 14.5378C13.0608 14.6753 13.2462 14.754 13.4405 14.7574C13.6348 14.7608 13.8229 14.6887 13.965 14.5562L15.026 13.4962L15.059 13.4612C15.172 13.37 15.2561 13.2479 15.301 13.1098C15.3459 12.9716 15.3497 12.8235 15.312 12.6832L14.663 10.2632C16.044 8.33522 17.19 6.00022 17.028 3.73622ZM9.45804 13.5862L6.48804 10.6152C8.09304 8.53022 9.84804 7.05022 11.44 6.06522L11.47 6.09522L13.945 8.57022L13.976 8.60022C13.708 9.02355 13.4177 9.43922 13.105 9.84722C11.868 11.4672 10.435 12.8222 9.45904 13.5852L9.45804 13.5862ZM14.722 4.60822C14.178 4.74122 13.527 4.97022 12.809 5.31322L14.736 7.24122C15.186 6.30422 15.478 5.36622 15.534 4.47422C15.2602 4.49649 14.9886 4.54131 14.722 4.60822Z" fill="#00a093"/>
+                <path d="M5.30496 12.9674C5.16433 12.8269 4.97371 12.748 4.77496 12.748C4.57621 12.748 4.38559 12.8269 4.24496 12.9674L3.36096 13.8514C3.22848 13.9936 3.15636 14.1816 3.15978 14.3759C3.16321 14.5702 3.24193 14.7556 3.37934 14.893C3.51675 15.0304 3.70214 15.1091 3.89644 15.1126C4.09074 15.116 4.27878 15.0439 4.42096 14.9114L5.30496 14.0284C5.44541 13.8878 5.5243 13.6971 5.5243 13.4984C5.5243 13.2996 5.44541 13.109 5.30496 12.9684V12.9674ZM7.07296 14.7354C6.93233 14.5949 6.74171 14.516 6.54296 14.516C6.34421 14.516 6.15359 14.5949 6.01296 14.7354L5.12796 15.6194C5.05636 15.6886 4.99926 15.7714 4.96 15.8629C4.92074 15.9544 4.90009 16.0529 4.89928 16.1524C4.89846 16.252 4.91748 16.3508 4.95524 16.4429C4.99299 16.5351 5.04872 16.6188 5.11917 16.6892C5.18962 16.7596 5.27339 16.8152 5.36558 16.8529C5.45777 16.8906 5.55654 16.9095 5.65612 16.9086C5.7557 16.9077 5.85411 16.8869 5.94559 16.8476C6.03708 16.8082 6.11981 16.7511 6.18896 16.6794L7.07296 15.7964C7.14265 15.7267 7.19794 15.644 7.23566 15.553C7.27338 15.462 7.2928 15.3644 7.2928 15.2659C7.2928 15.1674 7.27338 15.0698 7.23566 14.9788C7.19794 14.8877 7.14265 14.805 7.07296 14.7354Z" fill="#00a093"/>
+            </svg>
+
+            <div class="flex flex-col gap-[10px] items-start flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-[10px]">
+                    <p class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] leading-[1.3]" th:text="#{componentDetail.patch.title}">Apply Patch</p>
+                    <p class="font-medium text-[18px] text-[var(--grayscale-90)] tracking-[-0.18px] leading-[1.3]" th:text="#{componentDetail.patch.subtitle}">Create Pull Request</p>
+                </div>
+                <p class="font-normal text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.3]" th:text="#{componentDetail.patch.description}">
+                    Enter the base branch for the pull request.
+                </p>
+            </div>
+
+            <button type="button" @click="modal = null"
+                    class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center justify-center w-[28px] h-[28px] rounded-[7px] hover:bg-[var(--grayscale-10)]">
+                <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
+            </button>
+        </div>
+
+        <!-- Scrollable body -->
+        <div class="overflow-y-auto flex-1 custom-scrollbar">
+
+        <!-- Summary -->
+        <div class="border-b border-[var(--grayscale-20)] flex flex-col gap-[12px] px-[36px] py-[24px]">
+            <div class="flex flex-wrap gap-[12px] items-center">
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.upgrading}">Upgrading</p>
+                <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px] text-[12px] text-[var(--grayscale-80)] tracking-[-0.12px]">
+                    <span class="font-medium" th:text="${componentName + ' ' + componentVersion}">android-arch-common v2.2.0-beta01</span>
+                </span>
+                <svg class="w-4 h-4 text-[var(--grayscale-50)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+                <span class="bg-[rgba(51,209,183,0.08)] border border-[rgba(51,209,183,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px] text-[12px] text-[var(--primary-120)] font-medium tracking-[-0.12px]"
+                      th:text="${prTargetVersion != null ? 'v' + prTargetVersion : '—'}">v2.2.1-alpha01</span>
+            </div>
+
+            <!-- CVE + documented fix version -->
+            <div th:if="${hasVulnerabilities and securityFixVersion != null}" class="flex flex-wrap gap-[12px] items-center">
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.willResolve}">Will resolve</p>
+                <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="|${securityCritical}${#messages.msg('componentDetail.patch.label.criticalSuffix')}|">8 Critical</span>
+                </span>
+                <span class="bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)]"></span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="|${securityHigh}${#messages.msg('componentDetail.patch.label.highSuffix')}|">20 High</span>
+                </span>
+            </div>
+            <!-- CVE 있으나 fix version 없음 → latest로 업그레이드 -->
+            <div th:if="${hasVulnerabilities and securityFixVersion == null and prTargetVersion != null}" class="flex flex-wrap gap-[12px] items-center">
+                <span class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-caution)]"></span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.patch.latestUpgrade}">Latest release upgrade — may not resolve all CVEs.</span>
+                </span>
+            </div>
+            <!-- outdated (CVE 없음) 안내 -->
+            <div th:if="${!hasVulnerabilities}" class="flex flex-wrap gap-[12px] items-center">
+                <span class="bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-caution)]"></span>
+                    <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.patch.outdatedUpgrade}">Version upgrade only — no CVEs to resolve.</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Form fields -->
+        <div class="flex flex-col gap-[24px] px-[36px] py-[24px]">
+
+            <!-- Target Branch (required text input) -->
+            <div class="flex flex-col gap-[10px] w-full">
+                <label for="pr-target-branch-input" class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]">
+                    <span th:text="#{componentDetail.patch.label.targetBranch}">Target Branch</span> <span class="font-normal text-[var(--primary-80)]">*</span>
+                </label>
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] flex items-center px-[12px] h-[36px] focus-within:border-[#33D1B7]">
+                    <input id="pr-target-branch-input" type="text" required
+                           x-model="targetBranch"
+                           th:placeholder="#{componentDetail.patch.placeholder.targetBranch}"
+                           class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
+                </div>
+                <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.35]" th:text="#{componentDetail.patch.hint.targetBranch}">
+                    Pre-filled from the scan version shown in the header.
+                </p>
+            </div>
+
+            <!-- Reviewers -->
+            <div class="flex flex-col gap-[10px] w-full">
+                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.reviewer}">
+                    Assign Reviewer (optional)
+                </label>
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] flex items-center px-[12px] h-[36px]">
+                    <input id="pr-reviewer-input" type="text" th:placeholder="#{componentDetail.patch.placeholder.reviewer}"
+                           class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
+                </div>
+            </div>
+
+            <!-- PR Description -->
+            <div class="flex flex-col gap-[8px] w-full">
+                <label class="font-bold text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px] leading-[1.3]" th:text="#{componentDetail.patch.label.prDescription}">PR Description</label>
+                <textarea id="pr-description-text" rows="4"
+                          class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] leading-[1.3] tracking-[-0.12px] outline-none resize-none focus:border-[#33D1B7]"
+                          th:text="${hasVulnerabilities and securityFixVersion != null}
+                              ? #{componentDetail.patch.pr.body.vuln(${componentName},${componentVersion},${securityFixVersion},${securityCritical},${securityHigh})}
+                              : #{componentDetail.patch.pr.body.upgrade(${componentName},${componentVersion},${prTargetVersion})}">Bumps library version. Triggered by OsWL.</textarea>
+            </div>
+        </div>
+
+        </div>
+        <!-- end scrollable body -->
+
+        <!-- Actions (fixed footer) -->
+        <div class="flex flex-col gap-[10px] px-[36px] pt-[16px] pb-[28px] shrink-0 border-t border-[var(--grayscale-20)]">
+            <!-- Error feedback -->
+            <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="prError"></div>
+            <!-- Success feedback -->
+            <div x-show="prDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">
+                <span th:text="#{componentDetail.patch.success.created}">PR/MR created!</span> <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold" th:text="#{componentDetail.patch.success.viewLink}">View PR/MR</a>
+            </div>
+
+            <div class="flex gap-[16px] items-center">
+                <button type="button" @click="createPr()"
+                        :disabled="submitting || prDone || !(targetBranch || '').trim()"
+                        class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                    <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                    <span th:attr="data-msg-creating=#{componentDetail.patch.btn.creating},data-msg-create=#{componentDetail.patch.btn.create}"
+                          x-text="submitting ? $el.dataset.msgCreating : $el.dataset.msgCreate">Create Pull Request</span>
+                </button>
+                <button type="button" @click="modal = null"
+                        class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex flex-1 items-center justify-center px-[14px] py-[10px] rounded-[8px] text-[var(--grayscale-60)] font-bold text-[14px] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] transition-colors"
+                        th:text="#{common.cancel}">Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

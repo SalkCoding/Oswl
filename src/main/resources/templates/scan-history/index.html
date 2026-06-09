@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{scanHistory.pageTitle})}"></head>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, null, 'scan-history')}"></header>
+
+    <main class="flex flex-col flex-1 px-[60px] py-[40px] gap-[28px]">
+
+        <!-- Page header -->
+        <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-[4px]">
+                <h2 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3] m-0" th:text="#{scanHistory.heading}">Scan History</h2>
+                <p class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] m-0">
+                    <span th:text="#{scanHistory.summary}">All CLI scans submitted for this project —</span>
+                    <span th:text="#{scanHistory.summary.total(${totalScans})}">0 total</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div th:if="${#lists.isEmpty(scanRows)}"
+             class="bg-white border border-[var(--grayscale-15)] rounded-[12px] flex flex-col items-center justify-center gap-[12px] py-[80px]">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-[var(--grayscale-30)]" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+            <p class="text-[14px] text-[var(--grayscale-50)] tracking-[-0.14px] m-0" th:text="#{scanHistory.empty}">No scans yet. Run the CLI to submit your first scan.</p>
+        </div>
+
+        <!-- Scan history table -->
+        <div th:unless="${#lists.isEmpty(scanRows)}"
+             class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
+
+            <!-- Table header -->
+            <div class="grid grid-cols-[140px_1fr_180px_100px_120px] gap-[0px] px-[24px] py-[12px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]">
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.status}">Status</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.version}">Version</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.scannedAt}">Scanned At</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.source}">Source</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{scanHistory.col.components}">Components</span>
+            </div>
+
+            <!-- Table rows -->
+            <div th:each="row, it : ${scanRows}"
+                 th:classappend="${!it.last} ? 'border-b border-[var(--grayscale-10)]' : ''"
+                 class="grid grid-cols-[140px_1fr_180px_100px_120px] gap-[0px] px-[24px] py-[16px] items-center hover:bg-[var(--grayscale-3)] transition-colors">
+
+                <!-- Status badge -->
+                <div>
+                    <!-- COMPLETED -->
+                    <span th:if="${row.status == 'COMPLETED'}"
+                          class="inline-flex items-center gap-[8px] bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal px-[12px] py-[4px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span> [[#{scanHistory.status.completed}]]</span>
+                    <!-- FAILED -->
+                    <span th:if="${row.status == 'FAILED'}"
+                          class="inline-flex items-center gap-[8px] bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal px-[12px] py-[4px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)] shrink-0"></span> [[#{scanHistory.status.failed}]]</span>
+                    <!-- PENDING -->
+                    <span th:if="${row.status == 'PENDING'}"
+                          class="inline-flex items-center gap-[8px] bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal px-[12px] py-[4px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-high)] shrink-0"></span> [[#{scanHistory.status.pending}]]</span>
+                    <!-- SCANNING -->
+                    <span th:if="${row.status == 'SCANNING'}"
+                          class="inline-flex items-center gap-[8px] bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal px-[12px] py-[4px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)] shrink-0"></span> [[#{scanHistory.status.scanning}]]</span>
+                    <!-- ANALYZING -->
+                    <span th:if="${row.status == 'ANALYZING'}"
+                          class="inline-flex items-center gap-[8px] bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] text-[var(--grayscale-80)] text-[11px] font-normal px-[12px] py-[4px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap">
+                        <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-medium)] shrink-0"></span> [[#{scanHistory.status.analyzing}]]</span>
+                </div>
+
+                <!-- Version -->
+                <div class="flex flex-col gap-[2px]">
+                    <span class="font-medium text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]"
+                          th:text="${row.version}">-</span>
+                    <!-- Error message for FAILED rows -->
+                    <span th:if="${row.errorMessage != null}"
+                          class="text-[11px] text-[var(--risk-critical)] tracking-[-0.11px] leading-[1.4]"
+                          th:text="${#strings.abbreviate(row.errorMessage, 80)}">Error</span>
+                </div>
+
+                <!-- Scanned At -->
+                <span class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]"
+                      th:text="${row.scannedAt}">-</span>
+
+                <!-- Import Source -->
+                <span th:if="${row.importSource != null}"
+                      th:class="${row.importSource == 'GIT'} ? 'inline-flex items-center gap-[6px] bg-[rgba(51,209,183,0.07)] border border-[rgba(51,209,183,0.25)] text-[var(--primary-120)] text-[11px] font-normal px-[10px] py-[3px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap self-center justify-self-start'
+                               : 'inline-flex items-center gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] text-[var(--grayscale-60)] text-[11px] font-normal px-[10px] py-[3px] rounded-[40px] tracking-[-0.11px] whitespace-nowrap self-center justify-self-start'"
+                      th:text="${row.importSource == 'GIT'} ? #{scanHistory.source.git} : #{scanHistory.source.cli}">Git</span>
+                <span th:unless="${row.importSource != null}"
+                      class="text-[12px] text-[var(--grayscale-40)] tracking-[-0.12px]">-</span>
+
+                <!-- Component count -->
+                <span class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]"
+                      th:text="${row.componentCount > 0} ? (${row.componentCount} + ' ' + #{scanHistory.col.components}) : '-'">-</span>
+
+            </div>
+        </div>
+
+    </main>
+
+    <footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>

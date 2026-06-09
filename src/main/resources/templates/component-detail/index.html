@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{componentDetail.pageTitle})}"></head>
+<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
+
+    <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
+
+    <div th:replace="~{component-detail/fragments/detail-content :: content}"></div>
+
+    <footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>
