@@ -368,7 +368,7 @@ chmod +x "/tmp/${BINARY_NAME}"
 if [[ -w "${INSTALL_DIR}" ]]; then
     mv "/tmp/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 else
-    warn "Insufficient permissions — using sudo."
+    warn "Insufficient permissions - using sudo."
     sudo mv "/tmp/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 

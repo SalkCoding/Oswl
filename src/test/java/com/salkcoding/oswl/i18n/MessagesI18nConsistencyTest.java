@@ -27,6 +27,8 @@ class MessagesI18nConsistencyTest {
     private static final Pattern MESSAGE_KEY = Pattern.compile("^\\s*([A-Za-z0-9_.-]+)\\s*=");
     private static final Pattern THYMELEAF_KEY = Pattern.compile("#\\{([A-Za-z0-9._|]+)\\}");
     private static final Pattern INLINE_SCRIPT_KEY = Pattern.compile("/\\*\\[\\[#\\{([A-Za-z0-9._]+)\\}\\]\\]\\*/");
+    /** MessageFormat placeholders like #{0} in fallback strings are not message keys. */
+    private static final Pattern VALID_MESSAGE_KEY = Pattern.compile("^[A-Za-z][A-Za-z0-9._]*$");
 
     @Test
     @DisplayName("messages.properties ↔ messages_ko.properties 키 집합 동일")
@@ -86,7 +88,7 @@ class MessagesI18nConsistencyTest {
                                     if (key.contains("|")) {
                                         key = key.substring(0, key.indexOf('|'));
                                     }
-                                    if (!key.isBlank()) {
+                                    if (VALID_MESSAGE_KEY.matcher(key).matches()) {
                                         keys.add(key);
                                     }
                                 }
