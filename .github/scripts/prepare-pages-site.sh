@@ -21,8 +21,8 @@ mkdir -p _site/img
 cp -r src/main/resources/static/img/screenshots _site/img/
 touch _site/.nojekyll
 
-LICENSE_LINK="${REPO:+https://github.com/${REPO}/blob/main/LICENSE}"
-LICENSE_LINK="${LICENSE_LINK:-https://github.com/SalkCoding/Oswl/blob/main/LICENSE}"
+OSS_NOTICES_LINK="${REPO:+https://github.com/${REPO}/blob/main/THIRD_PARTY_LICENSES.md}"
+OSS_NOTICES_LINK="${OSS_NOTICES_LINK:-https://github.com/SalkCoding/Oswl/blob/main/THIRD_PARTY_LICENSES.md}"
 
 # Root-absolute asset paths break on Project Pages; rewrite to relative paths.
 sed -i \
@@ -32,7 +32,7 @@ sed -i \
   -e 's|src="/graphic/|src="graphic/|g' \
   -e 's|src="/img/|src="img/|g' \
   -e 's|src="/landing-i18n.js"|src="landing-i18n.js"|g' \
-  -e "s|href=\"/oss-notices\"|href=\"${LICENSE_LINK}\"|g" \
+  -e "s|href=\"/oss-notices\"|href=\"${OSS_NOTICES_LINK}\"|g" \
   _site/index.html
 
 test -f _site/index.html
