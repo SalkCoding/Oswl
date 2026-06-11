@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: pages-${{ github.workflow }}-${{ github.ref }}
@@ -14,6 +15,9 @@ permissions:
   contents: read
   pages: write
   id-token: write
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Djava.net.preferIPv4Stack=true
 
 jobs:
   build:
@@ -37,40 +41,14 @@ jobs:
         run: ./gradlew --no-daemon buildTailwindCss
 
       - name: Prepare site
-        run: |
-          mkdir -p _site
-          cp src/main/resources/static/landing/index.html _site/index.html
-          cp -r src/main/resources/static/css _site/
-          cp -r src/main/resources/static/icon _site/
-          cp -r src/main/resources/static/graphic _site/
-          mkdir -p _site/img
-          cp -r src/main/resources/static/img/screenshots _site/img/
-          touch _site/.nojekyll
-
-          # Rewrite root-absolute asset paths to relative paths for GitHub Project Pages.
-          sed -i \
-            -e 's|href="/css/|href="css/|g' \
-            -e 's|href="/icon/|href="icon/|g' \
-            -e 's|src="/icon/|src="icon/|g' \
-            -e 's|src="/graphic/|src="graphic/|g' \
-            -e 's|src="/img/|src="img/|g' \
-            -e 's|href="/oss-notices"|href="https://github.com/${{ github.repository }}/blob/main/LICENSE"|g' \
-            _site/index.html
-
-      - name: Verify site artifacts
-        run: |
-          test -f _site/index.html
-          test -f _site/css/tailwind.css
-          test -f _site/icon/icon-logo.svg
-          test -f _site/graphic/symbol_w.svg
-          test -f _site/img/screenshots/security-center.png
+        run: bash .github/scripts/prepare-pages-site.sh "${{ github.repository }}"
 
       - name: Configure Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
@@ -78,7 +56,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
