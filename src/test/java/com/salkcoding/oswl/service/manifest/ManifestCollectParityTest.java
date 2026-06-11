@@ -6,6 +6,7 @@ import com.salkcoding.oswl.service.MavenBomVersionResolver;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -48,7 +49,19 @@ class ManifestCollectParityTest {
             new DependencyManifestParserService(new MavenBomVersionResolver());
     private final ManifestCollectArchiveService archiveService = new ManifestCollectArchiveService();
 
-  @ParameterizedTest(name = "{0}")
+    static boolean hasVerificationRepos() {
+        if (!Files.isDirectory(VERIFY_ROOT)) {
+            return false;
+        }
+        try (Stream<Path> dirs = Files.list(VERIFY_ROOT)) {
+            return dirs.anyMatch(Files::isDirectory);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @EnabledIf("hasVerificationRepos")
+    @ParameterizedTest(name = "{0}")
     @MethodSource("verificationRepos")
     @DisplayName("manifest zip parse matches full-tree parse")
     void manifestZip_matchesFullParse(Path repoDir, @TempDir Path work) throws Exception {
