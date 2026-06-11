@@ -99,7 +99,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
-                    .requestMatchers("/landing", "/landing/**").permitAll()
                     .requestMatchers("/oss-notices").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/actuator/**").hasRole("SYSTEM_ADMIN")
