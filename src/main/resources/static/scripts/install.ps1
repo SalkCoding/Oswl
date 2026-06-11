@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# OsWL CLI Installer – Windows PowerShell
+# OsWL CLI Installer - Windows PowerShell
 # Usage (PowerShell as Administrator or scoped to user):
 #   iex ((New-Object System.Net.WebClient).DownloadString('https://<your-server>/scripts/install.ps1'))
 #
