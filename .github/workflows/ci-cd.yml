@@ -16,6 +16,7 @@ permissions:
 
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Djava.net.preferIPv4Stack=true
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
