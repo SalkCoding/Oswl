@@ -348,7 +348,7 @@ class ComponentDetailServiceTest {
     @Test
     @DisplayName("createPR: GITHUB provider이지만 githubToken이 없으면 IllegalStateException을 던진다")
     void createPullRequest_github_noToken_throws() {
-        Library lib = Library.builder().id(10L).name("lodash").version("4.17.15").cves(List.of()).build();
+        Library lib = libraryForPrBump();
         ScanComponent sc = mock(ScanComponent.class);
         when(sc.getLibrary()).thenReturn(lib);
         Project project = Project.builder().id(1L).name("P")
@@ -360,13 +360,13 @@ class ComponentDetailServiceTest {
         CreatePrRequest req = buildCreatePrRequest("main", null, null);
         assertThatThrownBy(() -> componentDetailService.createPullRequest(1L, 20L, req, 1L, null))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("GitHub account");
+                .hasMessageContaining("No GitHub account is connected");
     }
 
     @Test
     @DisplayName("createPR: GITHUB 성공 경로 — PR URL과 번호가 반환된다")
     void createPullRequest_github_success() {
-        Library lib = Library.builder().id(10L).name("lodash").version("4.17.15").cves(List.of()).build();
+        Library lib = libraryForPrBump();
         ScanComponent sc = mock(ScanComponent.class);
         when(sc.getLibrary()).thenReturn(lib);
         Project project = Project.builder().id(1L).name("P")
@@ -392,7 +392,7 @@ class ComponentDetailServiceTest {
     @Test
     @DisplayName("createPR: GITLAB 연결이 없으면 IllegalStateException을 던진다")
     void createPullRequest_gitlab_noConnection_throws() {
-        Library lib = Library.builder().id(10L).name("lodash").version("4.17.15").cves(List.of()).build();
+        Library lib = libraryForPrBump();
         ScanComponent sc = mock(ScanComponent.class);
         when(sc.getLibrary()).thenReturn(lib);
         Project project = Project.builder().id(1L).name("P")
@@ -412,7 +412,7 @@ class ComponentDetailServiceTest {
     @Test
     @DisplayName("createPR: GITLAB 성공 경로 — MR URL과 번호가 반환된다")
     void createPullRequest_gitlab_success() {
-        Library lib = Library.builder().id(10L).name("lodash").version("4.17.15").cves(List.of()).build();
+        Library lib = libraryForPrBump();
         ScanComponent sc = mock(ScanComponent.class);
         when(sc.getLibrary()).thenReturn(lib);
         Project project = Project.builder().id(1L).name("P")
@@ -444,7 +444,7 @@ class ComponentDetailServiceTest {
     @Test
     @DisplayName("createPR: BITBUCKET 성공 경로 — PR URL과 번호가 반환된다")
     void createPullRequest_bitbucket_success() {
-        Library lib = Library.builder().id(10L).name("lodash").version("4.17.15").cves(List.of()).build();
+        Library lib = libraryForPrBump();
         ScanComponent sc = mock(ScanComponent.class);
         when(sc.getLibrary()).thenReturn(lib);
         Project project = Project.builder().id(1L).name("P")
@@ -632,6 +632,14 @@ class ComponentDetailServiceTest {
         setField(req, "expiry", expiry);
         setField(req, "scope", scope);
         return req;
+    }
+
+    private Library libraryForPrBump() {
+        return Library.builder()
+                .id(10L).name("lodash").version("4.17.15")
+                .latestVersion("4.17.21").isLatestVersion(false)
+                .cves(List.of())
+                .build();
     }
 
     private CreatePrRequest buildCreatePrRequest(String targetBranch, List<String> reviewers, String description) {
