@@ -1,0 +1,36 @@
+name: Sync Docs to Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '!docs/ko/**'
+      - '.github/workflows/wiki-sync.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: wiki-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    name: Sync docs to GitHub Wiki
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync to GitHub Wiki
+        uses: Andrew-Chen-Wang/github-wiki-action@v5.0.4
+        with:
+          path: docs/
+          strategy: clone
+          preprocess: true
+          disable-empty-commits: true
+          commit-message: "wiki: sync from ${{ github.sha }}"
+          ignore: |
+            ko/**

@@ -199,7 +199,7 @@ Interactive Swagger UI is available in the **`local` profile** at `http://localh
 
 ## Documentation
 
-Full documentation is available in the [`docs/`](docs/) folder:
+Full documentation is available in the [`docs/`](docs/) folder and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (auto-synced from `docs/` on push to `main`). Korean docs live in [`docs/ko/`](docs/ko/).
 
 | Page | Description |
 |---|---|
