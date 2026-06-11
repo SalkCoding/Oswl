@@ -199,7 +199,7 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ## 문서
 
-전체 문서는 [`docs/ko/`](docs/ko/) 폴더에서 확인할 수 있습니다:
+한국어 문서는 [`docs/ko/`](docs/ko/) 폴더에서 확인할 수 있습니다. 영문 문서는 [`docs/`](docs/) 및 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (`main` push 시 `docs/`에서 자동 동기화)에서 제공됩니다.
 
 | 페이지 | 설명 |
 |---|---|
