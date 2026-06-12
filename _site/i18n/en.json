@@ -7,13 +7,14 @@
     "features": "Features",
     "platform": "Platform",
     "howItWorks": "How It Works",
+    "download": "Go to Download",
     "themeToggle": "Toggle light/dark theme"
   },
   "hero": {
     "badge": "Enterprise SCA Platform",
     "title": "Know Every Vulnerability<br>in Your <span class=\"gradient-text\">Open Source Stack</span>",
     "subtitle": "OsWL continuously scans your dependencies for CVEs, license obligations, and transitive risks — giving security and compliance teams complete SBOM visibility from a single self-hosted platform.",
-    "ctaPrimary": "Explore Capabilities",
+    "ctaPrimary": "Install Now",
     "ctaSecondary": "See the Platform"
   },
   "stats": {
@@ -119,8 +120,8 @@
   "cta": {
     "title": "Secure Your<br><span class=\"shimmer-text\">Open Source Stack</span>",
     "sub": "Deploy OsWL on-premise and gain full SBOM visibility across every project, team, and dependency in your organization.",
-    "primary": "See How It Works →",
-    "secondary": "Explore Features"
+    "primary": "Start Now →",
+    "secondary": "See How It Works"
   },
   "footer": {
     "copyright": "Copyright © 2026 OsWL, Licensed under the MIT License.",
