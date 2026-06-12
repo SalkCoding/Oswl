@@ -7,13 +7,14 @@
     "features": "기능",
     "platform": "플랫폼",
     "howItWorks": "사용 방법",
+    "download": "다운로드",
     "themeToggle": "라이트/다크 테마 전환"
   },
   "hero": {
     "badge": "엔터프라이즈 SCA 플랫폼",
     "title": "<span class=\"gradient-text\">오픈소스 스택</span>의<br>모든 취약점을 파악하세요",
     "subtitle": "OsWL은 의존성의 CVE, 라이선스 의무, 전이적 리스크를 지속적으로 스캔하여 보안·컴플라이언스 팀이 단일 자체 호스팅 플랫폼에서 완전한 SBOM 가시성을 확보할 수 있게 합니다.",
-    "ctaPrimary": "기능 살펴보기",
+    "ctaPrimary": "지금 설치하기",
     "ctaSecondary": "플랫폼 보기"
   },
   "stats": {
@@ -119,8 +120,8 @@
   "cta": {
     "title": "<span class=\"shimmer-text\">오픈소스 스택</span>을<br>안전하게 보호하세요",
     "sub": "OsWL을 온프레미스에 배포하고 조직의 모든 프로젝트, 팀, 의존성에 대한 완전한 SBOM 가시성을 확보하세요.",
-    "primary": "사용 방법 보기 →",
-    "secondary": "기능 살펴보기"
+    "primary": "지금 시작하기 →",
+    "secondary": "사용 방법 보기"
   },
   "footer": {
     "copyright": "Copyright © 2026 OsWL, Licensed under the MIT License.",
