@@ -20,7 +20,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/tailwind.css">
-    <link rel="icon" href="/icon/icon-logo.svg">
+    <link rel="icon" id="favicon" href="/icon/icon-logo.svg">
 
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -790,15 +790,28 @@
 </footer>
 
 <script>
-    // Theme toggle
+    // Favicon and Theme toggle
     const html = document.documentElement;
     const themeBtn = document.getElementById('theme-toggle');
+    const favicon = document.getElementById('favicon');
     const saved = localStorage.getItem('oswl-theme') || 'dark';
+    
+    function updateFavicon(theme) {
+        if (theme === 'light') {
+            favicon.href = '/graphic/symbol_w.svg';
+        } else {
+            favicon.href = '/icon/icon-logo.svg';
+        }
+    }
+    
     html.setAttribute('data-theme', saved);
+    updateFavicon(saved);
+    
     themeBtn.addEventListener('click', () => {
         const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
         localStorage.setItem('oswl-theme', next);
+        updateFavicon(next);
     });
 
     // Nav scroll
