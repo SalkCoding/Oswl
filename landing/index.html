@@ -20,15 +20,15 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/tailwind.css">
-    <link rel="icon" id="favicon" href="icon/icon-logo.svg" type="image/svg+xml">
+    <link rel="icon" href="graphic/symbol_w.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+    <link rel="icon" href="icon/icon-logo.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
     <script>
         (function () {
-            var theme = localStorage.getItem('oswl-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', theme);
-            var favicon = document.getElementById('favicon');
-            if (favicon && theme === 'light') {
-                favicon.href = 'graphic/symbol_w.svg';
+            function applyTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
             }
+            window.oswlApplyTheme = applyTheme;
+            applyTheme(localStorage.getItem('oswl-theme'));
         })();
     </script>
 
@@ -800,25 +800,11 @@
 </footer>
 
 <script>
-    // Theme toggle (favicon paths mirror fragments/head.html: dark → icon-logo, light → symbol_w)
-    const html = document.documentElement;
-    const themeBtn = document.getElementById('theme-toggle');
-    const favicon = document.getElementById('favicon');
-    const FAVICON = { dark: 'icon/icon-logo.svg', light: 'graphic/symbol_w.svg' };
-
-    function updateFavicon(theme) {
-        if (!favicon) return;
-        const href = FAVICON[theme === 'light' ? 'light' : 'dark'];
-        if (favicon.getAttribute('href') !== href) {
-            favicon.href = href;
-        }
-    }
-
-    themeBtn.addEventListener('click', () => {
-        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', next);
+    // Theme toggle (page UI only; favicon follows OS prefers-color-scheme via <link media>)
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         localStorage.setItem('oswl-theme', next);
-        updateFavicon(next);
+        window.oswlApplyTheme(next);
     });
 
     // Nav scroll
