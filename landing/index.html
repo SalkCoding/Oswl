@@ -20,7 +20,17 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/tailwind.css">
-    <link rel="icon" id="favicon" href="/icon/icon-logo.svg">
+    <link rel="icon" id="favicon" href="icon/icon-logo.svg" type="image/svg+xml">
+    <script>
+        (function () {
+            var theme = localStorage.getItem('oswl-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            var favicon = document.getElementById('favicon');
+            if (favicon && theme === 'light') {
+                favicon.href = 'graphic/symbol_w.svg';
+            }
+        })();
+    </script>
 
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -790,23 +800,20 @@
 </footer>
 
 <script>
-    // Favicon and Theme toggle
+    // Theme toggle (favicon paths mirror fragments/head.html: dark → icon-logo, light → symbol_w)
     const html = document.documentElement;
     const themeBtn = document.getElementById('theme-toggle');
     const favicon = document.getElementById('favicon');
-    const saved = localStorage.getItem('oswl-theme') || 'dark';
-    
+    const FAVICON = { dark: 'icon/icon-logo.svg', light: 'graphic/symbol_w.svg' };
+
     function updateFavicon(theme) {
-        if (theme === 'light') {
-            favicon.href = '/graphic/symbol_w.svg';
-        } else {
-            favicon.href = '/icon/icon-logo.svg';
+        if (!favicon) return;
+        const href = FAVICON[theme === 'light' ? 'light' : 'dark'];
+        if (favicon.getAttribute('href') !== href) {
+            favicon.href = href;
         }
     }
-    
-    html.setAttribute('data-theme', saved);
-    updateFavicon(saved);
-    
+
     themeBtn.addEventListener('click', () => {
         const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
