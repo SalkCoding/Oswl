@@ -28,8 +28,6 @@ OSS_NOTICES_LINK="${OSS_NOTICES_LINK:-https://github.com/SalkCoding/Oswl/blob/ma
 sed -i \
   -e 's|href="/css/|href="css/|g' \
   -e 's|href="/icon/|href="icon/|g' \
-  -e "s|favicon.href = '/graphic/|favicon.href = 'graphic/|g" \
-  -e "s|favicon.href = '/icon/|favicon.href = 'icon/|g" \
   -e 's|src="/icon/|src="icon/|g' \
   -e 's|src="/graphic/|src="graphic/|g' \
   -e 's|src="/img/|src="img/|g' \
