@@ -9,7 +9,8 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![CI](https://github.com/SalkCoding/Oswl/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/SalkCoding/Oswl/actions/workflows/ci-cd.yml)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 [English](README.md) | **한국어**
 
@@ -32,11 +33,27 @@
 | **리스크 트렌드** | 최대 10개 스캔에 걸친 CVE 수 및 라이선스 현황 변화 히스토리 차트 |
 | **버전 비교** | 두 스캔 결과를 나란히 비교 — 추가·제거·변경된 의존성 확인 |
 | **Quick Import** | VCS 연결을 통해 GitHub / GitLab / Bitbucket에서 원클릭 임포트 |
-| **CLI 연동** | 프로젝트 범위 API 키를 사용한 언어 무관 스캔 제출 REST API |
+| **CLI 연동** | 프로젝트 API 키·CI machine token으로 스캔 제출 REST API |
+| **VCS Webhook** | GitHub / GitLab / Bitbucket push 시 자동 재스캔 |
+| **스캔 알림** | Critical CVE·제한 라이선스 시 Slack/Teams·이메일 다이제스트 |
+| **팀 관리** | 프로젝트별 멤버 UI 및 `POST /api/projects/{id}/members` |
+| **SBOM보내기** | SPDX(tag-value·JSON), CycloneDX |
 | **AI 인사이트** | CVE 현황 및 라이선스 컴플라이언스에 대한 선택적 LLM 생성 요약 |
 | **역할 기반 접근 제어** | 역할 템플릿(Admin/Developer/Viewer) + 프로젝트 멤버십 |
 | **감사 로그** | 모든 사용자·시스템 이벤트에 대한 불변 감사 로그 (CSV 내보내기 지원) |
 | **2FA / 신뢰 기기** | 브라우저별 신뢰 기기 지원을 포함한 이메일 OTP 이중 인증 |
+
+### 스크린샷
+
+| 보안 센터 | 프로젝트 |
+|:---:|:---:|
+| ![Security Center](oswl-app/src/main/resources/static/img/screenshots/security-center.png) | ![Projects](oswl-app/src/main/resources/static/img/screenshots/projects.png) |
+
+| 라이선스 분석 | 리스크 트렌드 |
+|:---:|:---:|
+| ![License Analysis](oswl-app/src/main/resources/static/img/screenshots/license.png) | ![Risk Trend](oswl-app/src/main/resources/static/img/screenshots/risk-trend.png) |
+
+랜딩 페이지: [salkcoding.github.io/Oswl](https://salkcoding.github.io/Oswl/) (`main`의 `landing/`에서 배포).
 
 ---
 
@@ -48,7 +65,7 @@
 |---|---|
 | JDK | 25 이상 |
 | Gradle Wrapper | 포함 (`./gradlew`) |
-| PostgreSQL | 15 이상 (운영 환경) |
+| PostgreSQL | 18 이상 (운영 환경) |
 | (선택) Docker | PostgreSQL 로컬 실행용 |
 
 ### 1. 클론
@@ -87,23 +104,33 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ## 빌드
 
 ```bash
-# 전체 빌드 (Java + Tailwind CSS 컴파일)
+# 전체 빌드 (모든 Gradle 모듈 + Tailwind CSS)
 ./gradlew build
 
-# 운영 JAR 검증 (로컬 전용 테스트 엔드포인트 미포함)
-./gradlew verifyProdJar
+# 운영 JAR → oswl-app/build/libs/oswl-*.jar
+./gradlew bootJar verifyProdJar
 
 # Tailwind CSS만 재빌드
 ./gradlew buildTailwindCss
 
-# 테스트 실행
+# 테스트 (live 태그 제외)
 ./gradlew test
+./gradlew testFast
+./gradlew testParser
 
-# 테스트 커버리지 리포트 → build/reports/jacoco/test/html/index.html
+# 커버리지 → oswl-app/build/reports/jacoco/test/html/index.html
 ./gradlew jacocoTestReport
 ```
 
-> **참고:** 첫 번째 빌드 시 Tailwind CSS 독립 실행형 CLI 바이너리(~7MB)가 `build/tools/`에 다운로드됩니다. 이후 빌드에서는 캐시된 바이너리를 사용합니다.
+> **참고:** 첫 빌드 시 Tailwind CLI(~7MB)가 `oswl-app/build/tools/`에 다운로드됩니다.
+
+### Gradle 모듈
+
+| 모듈 | 역할 |
+|---|---|
+| `oswl-app` | Spring Boot 앱 (`bootJar`) |
+| `oswl-scan-core` | 매니페스트 파서, BOM |
+| `oswl-vuln-client` | OSV, deps.dev, EPSS, KEV 클라이언트 |
 
 ---
 
@@ -164,15 +191,17 @@ GET http://localhost:8080/data/test
 브라우저 / CLI
      │
      ▼
-Spring MVC 컨트롤러  (얇은 레이어 — Service에 위임)
+oswl-app — Spring MVC 컨트롤러  (Service에 위임)
      │
      ▼
 서비스 레이어        (비즈니스 로직, 트랜잭션)
      │
-   ┌─┴──────────────────┐
-   ▼                    ▼
-JPA 리포지토리      외부 클라이언트
-(PostgreSQL / H2)   (OSV · deps.dev · VCS API)
+   ┌─┴──────────────────┬────────────────────┐
+   ▼                    ▼                    ▼
+JPA 리포지토리    oswl-scan-core      oswl-vuln-client
+(PostgreSQL / H2)   (매니페스트 파서)   (OSV · EPSS · KEV · deps.dev)
+                         │
+                    VCS 클라이언트는 oswl-app (GitHub, GitLab, Bitbucket)
 ```
 
 **핵심 도메인 모델:**
@@ -199,7 +228,9 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ## 문서
 
-한국어 문서는 [`docs/ko/`](docs/ko/) 폴더에서 확인할 수 있습니다. 영문 문서는 [`docs/`](docs/) 및 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (`main` push 시 `docs/`에서 자동 동기화)에서 제공됩니다.
+한국어 문서: [`docs/ko/`](docs/ko/) (저장소 전용). 영문 문서: [`docs/`](docs/) 및 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (`main` push 시 `docs/`만 Wiki 동기화).
+
+기여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
 
 | 페이지 | 설명 |
 |---|---|
@@ -216,7 +247,7 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 | [관리](docs/ko/Administration.md) | 사용자, 역할, 감사 로그, 보안 설정 |
 | [권한 레이어](docs/ko/Authorization-Layers.md) | 역할 템플릿 vs 프로젝트 멤버십 |
 | [운영 배포](docs/ko/Production-Deployment-Checklist.md) | 운영 체크리스트 |
-| [데이터베이스 스키마](docs/ko/Database-Schema.md) | `ddl-auto` 전략 및 SQL 마이그레이션 |
+| [데이터베이스 스키마](docs/ko/Database-Schema.md) | Flyway, `ddl-auto`, SQL 마이그레이션 |
 | [스캔 API 보안](docs/ko/Scan-Api-Security.md) | CLI 스캔 인증 및 감사 로그 |
 | [API 레퍼런스](docs/ko/API-Reference.md) | REST API 엔드포인트 요약 |
 | [용어사전](docs/ko/Glossary.md) | 용어 및 정의 |

@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
@@ -157,6 +158,18 @@ public class SecurityCenterService {
                 depInfo = "Projects (" + projCount + ")";
             }
 
+            int kevCount = 0;
+            Double maxEpss = null;
+            for (Cve cve : lib.getCves()) {
+                if (Boolean.TRUE.equals(cve.getKevListed())) {
+                    kevCount++;
+                }
+                if (cve.getEpssScore() != null
+                        && (maxEpss == null || cve.getEpssScore() > maxEpss)) {
+                    maxEpss = cve.getEpssScore();
+                }
+            }
+
             rows.add(ComponentRowDto.builder()
                     .id(componentId)
                     .name(lib.getName())
@@ -179,6 +192,8 @@ public class SecurityCenterService {
                     .deprecated(lib.getDeprecated())
                     .latestVersion(lib.getLatestVersion())
                     .recommendedFixVersion(lib.bestFixVersion())
+                    .kevCount(kevCount)
+                    .maxEpssScore(maxEpss)
                     .build());
         }
 

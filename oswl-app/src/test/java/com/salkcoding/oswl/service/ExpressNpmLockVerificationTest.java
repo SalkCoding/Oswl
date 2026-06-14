@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
@@ -8,6 +10,7 @@ import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
+import com.salkcoding.oswl.service.manifest.NpmPackageJsonParser;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +26,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.PARSER)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("npm lock generation verification — expressjs/express clone")
 class ExpressNpmLockVerificationTest {
@@ -57,11 +61,7 @@ class ExpressNpmLockVerificationTest {
     Assumptions.assumeFalse(Files.exists(EXPRESS_CLONE.resolve("package-lock.json")),
         "Skip: remove package-lock.json to test generation");
 
-    Method direct = DependencyManifestParserService.class.getDeclaredMethod("parseNpmPackageJson", Path.class, String.class);
-    direct.setAccessible(true);
-    Object directResult = direct.invoke(service, EXPRESS_CLONE, "expressjs/express");
-    @SuppressWarnings("unchecked")
-    List<ScanPayload.ComponentPayload> directDeps = extractComponents(directResult);
+    List<ScanPayload.ComponentPayload> directDeps = NpmPackageJsonParser.parse(EXPRESS_CLONE, "expressjs/express");
 
     Method lockGen = DependencyManifestParserService.class.getDeclaredMethod("runNpmPackageLockOnly", Path.class, String.class);
     lockGen.setAccessible(true);
@@ -77,12 +77,5 @@ class ExpressNpmLockVerificationTest {
 
     assertThat(lockDeps.size()).isGreaterThan(directDeps.size());
     Files.deleteIfExists(EXPRESS_CLONE.resolve("package-lock.json"));
-  }
-
-  @SuppressWarnings("unchecked")
-  private static List<ScanPayload.ComponentPayload> extractComponents(Object parsedDeps) throws Exception {
-    var components = parsedDeps.getClass().getDeclaredField("components");
-    components.setAccessible(true);
-    return (List<ScanPayload.ComponentPayload>) components.get(parsedDeps);
   }
 }

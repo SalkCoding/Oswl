@@ -1,0 +1,39 @@
+plugins {
+	id 'java-library'
+	id 'jacoco'
+}
+
+dependencies {
+	api 'org.springframework:spring-context'
+	implementation 'org.springframework:spring-web'
+	implementation 'com.fasterxml.jackson.core:jackson-databind'
+	implementation 'org.slf4j:slf4j-api'
+
+	compileOnly 'jakarta.validation:jakarta.validation-api'
+	compileOnly 'io.swagger.core.v3:swagger-annotations:2.2.30'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testImplementation 'org.assertj:assertj-core'
+	testImplementation 'org.mockito:mockito-junit-jupiter'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+apply from: rootProject.file('gradle/test-tags.gradle')
+configureTaggedTests(project)
+
+jacoco {
+	toolVersion = '0.8.14'
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = false
+		csv.required = false
+	}
+}

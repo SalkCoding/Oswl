@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.security;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.service.UserManagementService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,6 +18,8 @@ import java.io.IOException;
 
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("OswlAuthenticationFailureHandler unit tests")
 class OswlAuthenticationFailureHandlerTest {

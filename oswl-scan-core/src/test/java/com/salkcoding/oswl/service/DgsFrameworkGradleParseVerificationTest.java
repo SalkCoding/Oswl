@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Optional verification against a local shallow clone of Netflix/dgs-framework.
  * Clone path: {@code %TEMP%/oswl-verify/Netflix_dgs-framework}
  */
+@Tag(TestTags.PARSER)
 @DisplayName("Gradle BOM verification — dgs-framework clone")
 class DgsFrameworkGradleParseVerificationTest {
 

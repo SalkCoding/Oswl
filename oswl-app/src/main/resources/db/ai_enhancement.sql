@@ -1,3 +1,4 @@
+-- Superseded by Flyway V12__ai_enhancement.sql. Kept for manual upgrades only.
 -- AI enhancement schema (run once on PostgreSQL when ddl-auto=validate).
 -- Hibernate ddl-auto=update applies these automatically in local dev.
 

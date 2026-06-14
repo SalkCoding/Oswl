@@ -10,7 +10,7 @@
 |---|---|
 | **JDK** | 25 이상 |
 | **빌드 도구** | Gradle Wrapper (포함 — `./gradlew`) |
-| **데이터베이스** | H2 파일 모드 (로컬/개발) 또는 PostgreSQL 15 이상 (운영) |
+| **데이터베이스** | H2 파일 모드 (로컬/개발) 또는 PostgreSQL 18 이상 (운영) |
 | **OS** | Linux, macOS, Windows |
 | **메모리** | 최소 512MB, 1GB 이상 권장 |
 
@@ -122,3 +122,7 @@ GET http://localhost:8080/data/test-api-key
 * [첫 번째 VCS 저장소 연결](Quick-Import.md)
 * [CLI로 스캔 제출](CLI-Integration.md)
 * [보안 센터 탐색](Security-Center.md)
+
+## 저장소 구조
+
+애플리케이션 코드는 Gradle 멀티모듈(`oswl-app`, `oswl-scan-core`, `oswl-vuln-client`)에 있습니다. 모듈 역할·테스트 명령은 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참고하세요.

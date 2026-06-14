@@ -102,6 +102,43 @@ public class MailService {
         }
     }
 
+    /**
+     * Sends a plain-text notification email (scan alerts, digests).
+     * Silently skips when mail is disabled or SMTP is not configured.
+     */
+    public void sendPlainNotification(String toAddress, String displayName, String subject, String body) {
+        SecuritySetting settings = securitySettingService.getOrCreate();
+
+        if (settings.getMailMode() == MailMode.DISABLED
+                || settings.getMailHost() == null || settings.getMailHost().isBlank()) {
+            log.debug("[Mail] Skipping notification to '{}' — mail disabled or not configured", toAddress);
+            return;
+        }
+
+        JavaMailSenderImpl sender = buildSender(settings);
+        try {
+            MimeMessage message = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+
+            String fromAddress = settings.getMailSenderAddress() != null
+                    ? settings.getMailSenderAddress()
+                    : settings.getMailUsername();
+            String fromName = settings.getMailSenderName() != null
+                    ? settings.getMailSenderName()
+                    : "OsWL";
+
+            helper.setFrom(fromAddress, fromName);
+            helper.setTo(toAddress);
+            helper.setSubject(subject);
+            helper.setText(body, false);
+
+            sender.send(message);
+            log.info("[Mail] Notification sent to '{}'", toAddress);
+        } catch (Exception e) {
+            log.warn("[Mail] Failed to send notification to '{}': {}", toAddress, e.getMessage());
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────
 
     private JavaMailSenderImpl buildSender(SecuritySetting s) {

@@ -44,7 +44,7 @@ oswl scan -k oswl_<your_api_key> -u you@company.com --server https://<your-serve
 - `-p`(비밀번호)는 생략 가능 — 생략 시 **대화형으로 입력**을 요청합니다.
 - `project_dir`를 생략하면 **현재 디렉터리**가 대상입니다.
 
-**CI/CD 예시**
+**CI/CD 예시 (일반 키)**
 
 ```bash
 export OSWL_API_KEY=oswl_xxx
@@ -52,6 +52,20 @@ export OSWL_USERNAME=ci@company.com
 export OSWL_PASSWORD=secret
 export OSWL_SERVER_URL=https://sca.company.com
 cd /your/project && oswl scan
+```
+
+**CI/CD 예시 (machine token — 비밀번호 없음)**
+
+`POST /api/projects/{id}/keys`로 발급:
+
+```json
+{ "machineToken": true, "boundUserEmail": "ci@company.com" }
+```
+
+```bash
+export OSWL_API_KEY=oswl_xxx
+export OSWL_SERVER_URL=https://sca.company.com
+cd /your/project && oswl scan -u ci@company.com
 ```
 
 ### 사용자에게 보이는 흐름
@@ -119,6 +133,8 @@ POST /api/projects/{projectId}/keys
 ```
 
 UI: 프로젝트 → **설정(⚙)** → **CLI** → **키 생성**
+
+**Machine token (CI):** 동일 엔드포인트에 `{ "machineToken": true, "boundUserEmail": "ci@company.com" }`. 바인딩 사용자는 `SCAN_SUBMIT`과 프로젝트 멤버십 필요. 이후 `POST /api/scan`에서 비밀번호 생략 가능.
 
 ### 관리자 전역 키
 

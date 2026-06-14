@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.manifest;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Keeps {@code static/scripts/manifest-rules.json} in sync with {@link ManifestCollectRules}.
  */
+@Tag(TestTags.PARSER)
 @DisplayName("manifest-rules.json sync")
 class ManifestRulesJsonSyncTest {
 

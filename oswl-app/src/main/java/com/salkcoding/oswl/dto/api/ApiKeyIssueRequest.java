@@ -18,4 +18,10 @@ public class ApiKeyIssueRequest {
 
     @Schema(description = "Key expiry timestamp (null = never expires)", example = "2027-01-01T00:00:00")
     private LocalDateTime expiresAt;
+
+    @Schema(description = "When true, issues a CI machine token (passwordless scan submit for bound user)")
+    private Boolean machineToken;
+
+    @Schema(description = "User email bound to a machine token (required when machineToken=true)")
+    private String boundUserEmail;
 }

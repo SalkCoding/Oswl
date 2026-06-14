@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.security;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.auth.service.LoginCompletionService;
@@ -23,6 +25,8 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuditEventListener unit tests")
 class AuditEventListenerTest {

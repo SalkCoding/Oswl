@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.aop;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
@@ -15,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuditAspect 단위 테스트")
 class AuditAspectTest {

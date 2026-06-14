@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.controller;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
@@ -19,6 +21,7 @@ import com.salkcoding.oswl.service.ManifestArchiveService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import com.salkcoding.oswl.service.ScanIngestService;
+import com.salkcoding.oswl.service.ScanSubmitAuthService;
 import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,9 +33,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -44,6 +44,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.FAST)
+@Tag(TestTags.WEB)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ScanController (CLI integration) unit tests")
 class ScanControllerTest {
@@ -52,8 +54,7 @@ class ScanControllerTest {
     @Mock ScanResultRepository scanResultRepository;
     @Mock ScanComponentRepository scanComponentRepository;
     @Mock AuditLogService auditLogService;
-    @Mock UserDetailsService userDetailsService;
-    @Mock PasswordEncoder passwordEncoder;
+    @Mock ScanSubmitAuthService scanSubmitAuthService;
     @Mock ProjectAccessService projectAccessService;
     @Mock ScanApiCredentialThrottleService scanApiCredentialThrottleService;
     @Mock DependencyManifestParserService dependencyManifestParserService;
@@ -114,9 +115,8 @@ class ScanControllerTest {
     void receiveScan_valid_returns200() throws Exception {
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID)).thenReturn(1L);
-        when(userDetailsService.loadUserByUsername("dev@company.com")).thenReturn(principalWithScanSubmit);
-        when(passwordEncoder.matches("pass", principalWithScanSubmit.getPassword())).thenReturn(true);
-        doNothing().when(projectAccessService).assertCanSubmitScan(1L, 1L);
+        when(scanSubmitAuthService.authenticate(any(), eq(1L), eq("dev@company.com"), eq("pass")))
+                .thenReturn(new ScanSubmitAuthService.AuthenticatedSubmitter(principalWithScanSubmit, "dev@company.com"));
 
         ScanResult result = mock(ScanResult.class);
         when(result.getId()).thenReturn(99L);
@@ -143,8 +143,8 @@ class ScanControllerTest {
     void receiveScan_unknownEmail_throws() {
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID)).thenReturn(1L);
-        when(userDetailsService.loadUserByUsername("unknown@company.com"))
-                .thenThrow(new UsernameNotFoundException("not found"));
+        when(scanSubmitAuthService.authenticate(any(), eq(1L), eq("unknown@company.com"), eq("pass")))
+                .thenThrow(new UnauthorizedException("Invalid credentials"));
 
         ScanPayload payload = new ScanPayload();
         payload.setSubmitterEmail("unknown@company.com");
@@ -154,7 +154,7 @@ class ScanControllerTest {
         assertThatThrownBy(() -> scanController.receiveScan(payload, req))
                 .isInstanceOf(UnauthorizedException.class);
         verify(auditLogService).logAnonymous(eq("unknown@company.com"), eq("SCAN.AUTH_FAILURE"),
-                eq("PROJECT"), eq("1"), eq("1.0"), contains("UNKNOWN_USER"));
+                eq("PROJECT"), eq("1"), eq("1.0"), contains("INVALID_CREDENTIALS"));
     }
 
     @Test
@@ -162,8 +162,8 @@ class ScanControllerTest {
     void receiveScan_wrongPassword_throws() {
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID)).thenReturn(1L);
-        when(userDetailsService.loadUserByUsername("dev@company.com")).thenReturn(principalWithScanSubmit);
-        when(passwordEncoder.matches("wrongPass", principalWithScanSubmit.getPassword())).thenReturn(false);
+        when(scanSubmitAuthService.authenticate(any(), eq(1L), eq("dev@company.com"), eq("wrongPass")))
+                .thenThrow(new UnauthorizedException("Invalid credentials"));
 
         ScanPayload payload = new ScanPayload();
         payload.setSubmitterEmail("dev@company.com");
@@ -173,7 +173,7 @@ class ScanControllerTest {
         assertThatThrownBy(() -> scanController.receiveScan(payload, req))
                 .isInstanceOf(UnauthorizedException.class);
         verify(auditLogService).logAnonymous(any(), eq("SCAN.AUTH_FAILURE"), any(), any(), any(),
-                contains("INVALID_PASSWORD"));
+                contains("INVALID_CREDENTIALS"));
     }
 
     @Test
@@ -181,8 +181,8 @@ class ScanControllerTest {
     void receiveScan_noPermission_throws() {
         HttpServletRequest req = mock(HttpServletRequest.class);
         when(req.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID)).thenReturn(1L);
-        when(userDetailsService.loadUserByUsername("readonly@company.com")).thenReturn(principalNoPermission);
-        when(passwordEncoder.matches("pass", principalNoPermission.getPassword())).thenReturn(true);
+        when(scanSubmitAuthService.authenticate(any(), eq(1L), eq("readonly@company.com"), eq("pass")))
+                .thenThrow(new ForbiddenException("User does not have SCAN_SUBMIT permission"));
 
         ScanPayload payload = new ScanPayload();
         payload.setSubmitterEmail("readonly@company.com");

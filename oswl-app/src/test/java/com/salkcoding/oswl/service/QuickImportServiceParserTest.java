@@ -1,10 +1,13 @@
 package com.salkcoding.oswl.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
+import com.salkcoding.oswl.service.manifest.NpmPackageJsonParser;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +33,7 @@ import static org.mockito.Mockito.when;
  * Tests for {@link DependencyManifestParserService} (via reflection) and
  * {@link QuickImportService#parseRepoUrl} URL parsing.
  */
+@Tag(TestTags.PARSER)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DependencyManifestParserService — parser unit tests")
 class QuickImportServiceParserTest {
@@ -185,7 +189,7 @@ class QuickImportServiceParserTest {
             }
             """);
 
-        List<ScanPayload.ComponentPayload> comps = invokeList("parseNpmPackageJson", dir);
+        List<ScanPayload.ComponentPayload> comps = NpmPackageJsonParser.parse(dir, REPO);
 
         assertThat(comps).hasSize(3);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)

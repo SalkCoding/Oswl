@@ -67,7 +67,7 @@ Today, **feature access still follows Layer A (permissions)**. Project membershi
 - The user who **creates** a project is added as project **ADMIN**.
 - On startup, a one-time bootstrap adds creators to projects that had no members yet.
 
-**Collaboration note:** To let a second user access an existing project, they must be in `project_members` (today this is automatic for creators; broader team assignment may require operational process or future UI).
+**Collaboration:** Add users via **Projects → Manage team** (or `POST /api/projects/{id}/members`). They need a role template with the right permissions (Layer A) **and** a `project_members` row (Layer B).
 
 ---
 

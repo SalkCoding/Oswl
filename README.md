@@ -9,7 +9,8 @@ Track CVE vulnerabilities and license risks across all your software components.
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![CI](https://github.com/SalkCoding/Oswl/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/SalkCoding/Oswl/actions/workflows/ci-cd.yml)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
 **English** | [한국어](README.ko.md)
 
@@ -32,11 +33,27 @@ It provides a single dashboard for your entire software portfolio — connect yo
 | **Risk Trend** | Historical risk charts across up to 10 scans showing CVE count and license posture changes |
 | **Version Diff** | Side-by-side comparison of two scan results — added, removed, and changed dependencies |
 | **Quick Import** | One-click import from GitHub / GitLab / Bitbucket via VCS connection |
-| **CLI Integration** | Language-agnostic scan submission via REST API with project-scoped API keys |
+| **CLI Integration** | Language-agnostic scan submission via REST API with project-scoped API keys and CI machine tokens |
+| **VCS Webhooks** | Auto re-scan on GitHub / GitLab / Bitbucket push events |
+| **Scan Notifications** | Slack / Teams webhooks and email digest on Critical CVE or restricted licenses |
+| **Team Management** | Per-project members via UI and `POST /api/projects/{id}/members` |
+| **SBOM Export** | SPDX (tag-value + JSON) and CycloneDX from License Analysis |
 | **AI Insights** | Optional LLM-generated risk summaries for CVE posture and license compliance |
 | **Role-Based Access** | Role templates (Admin / Developer / Viewer) plus per-project membership |
 | **Audit Logging** | Immutable audit log for all user and system events, with CSV export |
 | **2FA / Trusted Devices** | Email OTP two-factor authentication with per-browser trusted-device support |
+
+### Screenshots
+
+| Security Center | Projects |
+|:---:|:---:|
+| ![Security Center](oswl-app/src/main/resources/static/img/screenshots/security-center.png) | ![Projects](oswl-app/src/main/resources/static/img/screenshots/projects.png) |
+
+| License Analysis | Risk Trend |
+|:---:|:---:|
+| ![License Analysis](oswl-app/src/main/resources/static/img/screenshots/license.png) | ![Risk Trend](oswl-app/src/main/resources/static/img/screenshots/risk-trend.png) |
+
+Landing site: [salkcoding.github.io/Oswl](https://salkcoding.github.io/Oswl/) (deployed from `landing/` on `main`).
 
 ---
 
@@ -48,7 +65,7 @@ It provides a single dashboard for your entire software portfolio — connect yo
 |---|---|
 | JDK | 25+ |
 | Gradle Wrapper | included (`./gradlew`) |
-| PostgreSQL | 15+ (production) |
+| PostgreSQL | 18+ (production) |
 | (Optional) Docker | for running PostgreSQL locally |
 
 ### 1. Clone
@@ -87,23 +104,33 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 ## Building
 
 ```bash
-# Full build (compiles Java + Tailwind CSS)
+# Full build (all Gradle modules + Tailwind CSS)
 ./gradlew build
 
-# Production JAR check (local-only test endpoints must not be packaged)
-./gradlew verifyProdJar
+# Production JAR → oswl-app/build/libs/oswl-*.jar
+./gradlew bootJar verifyProdJar
 
 # Rebuild Tailwind CSS only
 ./gradlew buildTailwindCss
 
-# Run tests
+# Tests (all modules; excludes @Tag live)
 ./gradlew test
+./gradlew testFast              # fast unit tests (CI PR gate)
+./gradlew testParser            # parser verification
 
-# Test coverage report → build/reports/jacoco/test/html/index.html
+# Coverage report → oswl-app/build/reports/jacoco/test/html/index.html
 ./gradlew jacocoTestReport
 ```
 
-> **Note:** The first build downloads the Tailwind CSS standalone CLI binary (~7 MB) to `build/tools/`. Subsequent builds use the cached binary.
+> **Note:** The first build downloads the Tailwind CSS standalone CLI binary (~7 MB) to `oswl-app/build/tools/`. Subsequent builds use the cached binary.
+
+### Gradle modules
+
+| Module | Role |
+|---|---|
+| `oswl-app` | Spring Boot application (`bootJar`) |
+| `oswl-scan-core` | Manifest parser, BOM resolver |
+| `oswl-vuln-client` | OSV, deps.dev, EPSS, KEV clients |
 
 ---
 
@@ -164,15 +191,17 @@ This resets **all** existing data and populates the database with a rich set of 
 Browser / CLI
      │
      ▼
-Spring MVC Controllers  (thin — delegates to Service)
+oswl-app — Spring MVC Controllers  (thin — delegates to Service)
      │
      ▼
 Service Layer           (business logic, transactions)
      │
-   ┌─┴──────────────────┐
-   ▼                    ▼
-JPA Repositories    External Clients
-(PostgreSQL / H2)   (OSV · deps.dev · VCS APIs)
+   ┌─┴──────────────────┬────────────────────┐
+   ▼                    ▼                    ▼
+JPA Repositories    oswl-scan-core      oswl-vuln-client
+(PostgreSQL / H2)   (manifest parser)   (OSV · EPSS · KEV · deps.dev)
+                         │
+                    VCS clients in oswl-app (GitHub, GitLab, Bitbucket)
 ```
 
 **Core domain model:**
@@ -199,7 +228,9 @@ Interactive Swagger UI is available in the **`local` profile** at `http://localh
 
 ## Documentation
 
-Full documentation is available in the [`docs/`](docs/) folder and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (auto-synced from `docs/` on push to `main`). Korean docs live in [`docs/ko/`](docs/ko/).
+Full documentation is available in the [`docs/`](docs/) folder and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (English `docs/` auto-synced on push to `main`). Korean docs: [`docs/ko/`](docs/ko/) (repository only).
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Page | Description |
 |---|---|
@@ -215,7 +246,7 @@ Full documentation is available in the [`docs/`](docs/) folder and on the [GitHu
 | [Administration](docs/Administration.md) | Users, roles, audit logs, security settings |
 | [Authorization layers](docs/Authorization-Layers.md) | Role templates vs project membership |
 | [Production deployment](docs/Production-Deployment-Checklist.md) | Production checklist |
-| [Database schema](docs/Database-Schema.md) | `ddl-auto` strategy and SQL migrations |
+| [Database schema](docs/Database-Schema.md) | Flyway, `ddl-auto`, and SQL migrations |
 | [Scan API security](docs/Scan-Api-Security.md) | CLI scan auth and audit logging |
 | [API Reference](docs/API-Reference.md) | REST API endpoint summary |
 | [Glossary](docs/Glossary.md) | Terms and definitions |

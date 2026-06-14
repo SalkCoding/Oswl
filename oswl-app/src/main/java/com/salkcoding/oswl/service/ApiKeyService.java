@@ -3,6 +3,9 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.auth.entity.User;
+import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.domain.enums.ApiKeyType;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -28,12 +31,28 @@ public class ApiKeyService {
 
     private final ApiKeyRepository apiKeyRepository;
     private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
     public IssuedApiKey issue(Long projectId, String label, LocalDateTime expiresAt) {
+        return issue(projectId, label, expiresAt, ApiKeyType.STANDARD, null);
+    }
+
+    @Transactional
+    public IssuedApiKey issueMachineToken(Long projectId, String label, LocalDateTime expiresAt, String boundUserEmail) {
+        if (boundUserEmail == null || boundUserEmail.isBlank()) {
+            throw new IllegalArgumentException("boundUserEmail is required for machine tokens");
+        }
+        User user = userRepository.findByEmail(boundUserEmail.strip())
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + boundUserEmail));
+        return issue(projectId, label, expiresAt, ApiKeyType.MACHINE, user);
+    }
+
+    private IssuedApiKey issue(Long projectId, String label, LocalDateTime expiresAt,
+                                 ApiKeyType keyType, User boundUser) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
@@ -60,14 +79,18 @@ public class ApiKeyService {
                 .tokenHash(tokenHash)
                 .label(label)
                 .expiresAt(expiresAt)
+                .keyType(keyType)
+                .boundUser(boundUser)
                 .build();
 
         ApiKey saved = apiKeyRepository.save(apiKey);
-        log.info("[ApiKey] Issued projectId={} label={} keyId={}", projectId, label, saved.getId());
+        log.info("[ApiKey] Issued projectId={} type={} label={} keyId={}",
+                projectId, keyType, label, saved.getId());
         auditLogService.log("CLI_KEY.CREATE", "CLI_KEY",
                 saved.getId().toString(),
                 label != null ? label : "-",
-                "projectId=" + projectId);
+                "projectId=" + projectId + " type=" + keyType
+                        + (boundUser != null ? " boundUser=" + boundUser.getEmail() : ""));
         return new IssuedApiKey(saved, plainToken);
     }
 

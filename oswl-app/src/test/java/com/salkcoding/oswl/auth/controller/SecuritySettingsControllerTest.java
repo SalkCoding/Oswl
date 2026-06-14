@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.controller;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.dto.MailTestRequest;
 import com.salkcoding.oswl.auth.dto.SecuritySettingResponse;
 import com.salkcoding.oswl.auth.dto.SecuritySettingUpdateRequest;
@@ -20,6 +22,9 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
+@Tag(TestTags.WEB)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SecuritySettingsController unit tests")
 class SecuritySettingsControllerTest {

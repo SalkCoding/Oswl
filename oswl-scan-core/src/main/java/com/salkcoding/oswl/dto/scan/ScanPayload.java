@@ -41,8 +41,7 @@ public class ScanPayload {
      * Submitter email — required for all CLI scans.
      * Used for authentication, attribution, and audit logging.
      */
-    @Schema(description = "Submitter email for authentication and audit attribution", example = "dev@company.com")
-    @NotBlank(message = "submitterEmail is required")
+    @Schema(description = "Submitter email (required for standard API keys; optional for CI machine tokens)")
     @Setter
     private String submitterEmail;
 
@@ -52,7 +51,6 @@ public class ScanPayload {
      * Never logged by Lombok toString.
      */
     @Schema(hidden = true)
-    @NotBlank(message = "submitterPassword is required")
     @Setter
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @ToString.Exclude

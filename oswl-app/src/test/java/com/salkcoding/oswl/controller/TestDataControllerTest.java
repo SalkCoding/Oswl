@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.controller;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.entity.RoleTemplate;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.enums.Permission;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.INTEGRATION)
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional

@@ -2,7 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
@@ -19,8 +21,79 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  test-fast:
+    name: Fast tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@v6
+      - name: Run fast-tagged tests
+        run: ./gradlew --no-daemon testFast
+
+  test-parser:
+    name: Parser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@v6
+      - name: Run parser-tagged tests
+        run: ./gradlew --no-daemon testParser
+
+  test-auth:
+    name: Auth tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@v6
+      - run: ./gradlew --no-daemon testAuth
+
+  test-web:
+    name: Web tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@v6
+      - run: ./gradlew --no-daemon testWeb
+
+  test-integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/wrapper-validation@v6
+      - name: Run integration-tagged tests
+        run: ./gradlew --no-daemon testIntegration
+
   build:
-    name: Build & Test
+    name: Full build & coverage
+    needs: [test-fast, test-parser, test-auth, test-web, test-integration]
+    if: always() && (needs.test-fast.result == 'success' && needs.test-parser.result == 'success' && needs.test-auth.result == 'success' && needs.test-web.result == 'success' && (needs.test-integration.result == 'success' || needs.test-integration.result == 'skipped'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,12 +109,36 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
 
-      - name: Build, test, and verify production JAR
-        run: ./gradlew --no-daemon clean test bootJar verifyProdJar
+      - name: Build, full test suite, coverage report, and verify production JAR
+        run: ./gradlew --no-daemon clean test jacocoTestReport jacocoTestCoverageVerification bootJar verifyProdJar
+
+  docker:
+    name: Build & push Docker image
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
 
   release-please:
     name: Version & Release
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -88,10 +185,10 @@ jobs:
         id: jar
         run: |
           VERSION=$(./gradlew -q properties | awk '/^version:/ {print $2}')
-          JAR_PATH="build/libs/oswl-${VERSION}.jar"
+          JAR_PATH="oswl-app/build/libs/oswl-${VERSION}.jar"
           if [ ! -f "$JAR_PATH" ]; then
             echo "::error::JAR not found at ${JAR_PATH}"
-            ls -la build/libs/ || true
+            ls -la oswl-app/build/libs/ || true
             exit 1
           fi
           echo "path=${JAR_PATH}" >> "$GITHUB_OUTPUT"

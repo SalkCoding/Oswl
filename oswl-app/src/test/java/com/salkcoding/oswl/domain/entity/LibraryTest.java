@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.domain.entity;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
@@ -11,6 +13,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.FAST)
 @DisplayName("Library 엔티티 단위 테스트")
 class LibraryTest {
 

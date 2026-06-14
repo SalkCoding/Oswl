@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.exception.UnauthorizedException;
@@ -22,11 +24,13 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 class ApiKeyServiceTest {
 
     @Mock ApiKeyRepository apiKeyRepository;
     @Mock ProjectRepository projectRepository;
+    @Mock com.salkcoding.oswl.auth.repository.UserRepository userRepository;
     @Mock com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(4);
@@ -34,7 +38,7 @@ class ApiKeyServiceTest {
 
     @BeforeEach
     void setUp() {
-        apiKeyService = new ApiKeyService(apiKeyRepository, projectRepository, auditLogService, passwordEncoder);
+        apiKeyService = new ApiKeyService(apiKeyRepository, projectRepository, userRepository, auditLogService, passwordEncoder);
     }
 
     private static Project project(long id) {

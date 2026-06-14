@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.controller;
 
-import com.salkcoding.oswl.auth.enums.Permission;
-import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.service.ScanSubmitAuthService;
 import com.salkcoding.oswl.controller.spec.ScanControllerSpec;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.dto.api.PingResponse;
@@ -10,7 +10,6 @@ import com.salkcoding.oswl.dto.api.ScanParseResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
@@ -25,9 +24,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -57,8 +53,7 @@ public class ScanController implements ScanControllerSpec {
     private final ScanResultRepository scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
     private final AuditLogService auditLogService;
-    private final UserDetailsService userDetailsService;
-    private final PasswordEncoder passwordEncoder;
+    private final ScanSubmitAuthService scanSubmitAuthService;
     private final ProjectAccessService projectAccessService;
     private final ScanApiCredentialThrottleService scanApiCredentialThrottleService;
     private final DependencyManifestParserService dependencyManifestParserService;
@@ -110,32 +105,26 @@ public class ScanController implements ScanControllerSpec {
             HttpServletRequest request) {
 
         Long projectId = (Long) request.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
-        String actorEmail = payload.getSubmitterEmail();
+        ApiKey apiKey = (ApiKey) request.getAttribute(ApiKeyAuthInterceptor.ATTR_API_KEY);
 
-        scanApiCredentialThrottleService.assertCredentialCheckAllowed(projectId, actorEmail);
+        String throttleEmail = apiKey != null && apiKey.isMachineToken() && apiKey.getBoundUser() != null
+                ? apiKey.getBoundUser().getEmail()
+                : payload.getSubmitterEmail();
+        scanApiCredentialThrottleService.assertCredentialCheckAllowed(projectId, throttleEmail);
 
-        OswlUserPrincipal principal;
+        ScanSubmitAuthService.AuthenticatedSubmitter submitter;
         try {
-            principal = (OswlUserPrincipal) userDetailsService.loadUserByUsername(actorEmail);
-        } catch (UsernameNotFoundException e) {
-            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "UNKNOWN_USER");
-            throw new UnauthorizedException("Invalid credentials");
-        }
-        if (!passwordEncoder.matches(payload.getSubmitterPassword(), principal.getPassword())) {
-            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "INVALID_PASSWORD");
-            throw new UnauthorizedException("Invalid credentials");
-        }
-        if (!principal.hasPermission(Permission.SCAN_SUBMIT)) {
-            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "MISSING_SCAN_SUBMIT");
-            throw new ForbiddenException("User does not have SCAN_SUBMIT permission");
-        }
-        try {
-            projectAccessService.assertCanSubmitScan(projectId, principal.getUserId());
-        } catch (ForbiddenException e) {
-            onScanAuthFailure(projectId, actorEmail, payload.getVersion(), "NOT_PROJECT_MEMBER");
+            submitter = scanSubmitAuthService.authenticate(
+                    apiKey, projectId, payload.getSubmitterEmail(), payload.getSubmitterPassword());
+        } catch (UnauthorizedException e) {
+            onScanAuthFailure(projectId, throttleEmail, payload.getVersion(), "INVALID_CREDENTIALS");
+            throw e;
+        } catch (com.salkcoding.oswl.exception.ForbiddenException e) {
+            onScanAuthFailure(projectId, throttleEmail, payload.getVersion(), "FORBIDDEN");
             throw e;
         }
 
+        String actorEmail = submitter.actorEmail();
         scanApiCredentialThrottleService.recordCredentialSuccess(projectId, actorEmail);
 
         ScanResult result = scanIngestService.ingest(projectId, payload);

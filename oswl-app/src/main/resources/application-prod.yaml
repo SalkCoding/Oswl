@@ -50,6 +50,25 @@ spring:
     show-sql: false
     open-in-view: false
 
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 6
+    locations: classpath:db/migration
+
+  security:
+    oauth2:
+      client:
+        registration:
+          oidc:
+            client-id: ${OSWL_OAUTH2_CLIENT_ID:}
+            client-secret: ${OSWL_OAUTH2_CLIENT_SECRET:}
+            scope: openid,profile,email
+            provider: oidc
+        provider:
+          oidc:
+            issuer-uri: ${OSWL_OAUTH2_ISSUER_URI:}
+
   thymeleaf:
     cache: true
 

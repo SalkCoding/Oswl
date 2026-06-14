@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
@@ -30,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("LicenseService 단위 테스트")
 class LicenseServiceTest {

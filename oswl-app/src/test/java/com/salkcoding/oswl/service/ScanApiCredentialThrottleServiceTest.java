@@ -1,11 +1,14 @@
 package com.salkcoding.oswl.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.exception.TooManyRequestsException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;
 
+@Tag(TestTags.FAST)
 @DisplayName("ScanApiCredentialThrottleService unit tests")
 class ScanApiCredentialThrottleServiceTest {
 

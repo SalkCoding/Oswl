@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.client;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
@@ -25,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  *   gradlew test --tests BitbucketCloudLiveIntegrationTest
  * </pre>
  */
+@Tag(TestTags.LIVE)
 @EnabledIfEnvironmentVariable(named = "BITBUCKET_LIVE_TEST", matches = "true")
 @DisplayName("Bitbucket Cloud Live 통합 테스트")
 class BitbucketCloudLiveIntegrationTest {

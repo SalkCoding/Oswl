@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.dto.AddVcsConnectionRequest;
 import com.salkcoding.oswl.auth.dto.VcsConnectionDto;
 import com.salkcoding.oswl.auth.entity.User;
@@ -25,6 +27,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("VcsConnectionService unit tests")
 class VcsConnectionServiceTest {

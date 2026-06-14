@@ -20,7 +20,11 @@ Authorization: Bearer oswl_<api_key>
 
 ### CLI Scan Submitter Credentials
 
-`POST /api/scan` additionally requires `submitterEmail` and `submitterPassword` in the JSON body to authenticate the submitter. Successful ingests are recorded in the **audit log** (`SCAN.INGEST`) with the submitter email — not in a dedicated scan-result column.
+`POST /api/scan` normally requires `submitterEmail` and `submitterPassword` in the JSON body. Successful ingests are recorded in the **audit log** (`SCAN.INGEST`) with the submitter email — not in a dedicated scan-result column.
+
+**CI machine tokens** (`ApiKeyType.MACHINE`): issue a key with `POST /api/projects/{id}/keys` and body `{ "machineToken": true, "boundUserEmail": "ci@company.com" }`. The bound user must have `SCAN_SUBMIT` and project membership. `submitterPassword` may be omitted; `submitterEmail` may be omitted if it matches the bound user.
+
+CLI paths under `/api/scan/**` (except `GET /api/scan/{scanId}/status`) are authenticated via `Authorization: Bearer oswl_<api_key>` by `ApiKeyAuthInterceptor`. CSRF is disabled for `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`, and `POST /api/import/webhook`. See [CLI scan API security](Scan-Api-Security.md).
 
 ---
 
@@ -35,6 +39,18 @@ Authorization: Bearer oswl_<api_key>
 | `POST` | `/login/otp-resend` | Re-send OTP email |
 | `GET` | `/setup` | Setup wizard page (first boot only) |
 | `POST` | `/setup` | Submit setup wizard form |
+| `POST` | `/api/change-password` | Change password (forced or voluntary; session + CSRF) |
+| `POST` | `/api/my/change-password` | Start self-service password change |
+| `POST` | `/api/my/change-password/otp-verify` | Verify OTP for password change |
+| `POST` | `/api/my/change-password/otp-resend` | Resend OTP for password change |
+
+---
+
+## Public Pages
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/oss-notices` | Open-source license notices page |
 
 ---
 
@@ -53,6 +69,8 @@ Authorization: Bearer oswl_<api_key>
 | `GET` | `/projects/cards` | `PROJECT_VIEW` | Project card HTML fragment (dashboard) |
 | `GET` | `/projects/scan-status/stream?ids=` | `PROJECT_VIEW` | **SSE** — `scan-update` when listed projects finish scanning |
 | `POST` | `/projects` | `PROJECT_CREATE` | Create project (JSON) |
+| `GET` | `/projects/cli-integration` | `PROJECT_VIEW` | CLI integration guide page |
+| `GET` | `/projects/git-integration` | `PROJECT_VIEW` | Git integration guide page |
 | `PATCH` | `/api/projects/{id}/deployment-profile` | `PROJECT_UPDATE` | Set AI deployment profile for CVE triage (`{ "deploymentProfile" }`) |
 
 ---
@@ -77,18 +95,57 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 
 ---
 
+## VCS Push Webhook (auto re-scan)
+
+No session auth. Verified per-project secret. CSRF exempt. Set `OSWL_PUBLIC_BASE_URL` (or `oswl.public-base-url`) so webhook URLs are absolute.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/import/webhook` | Per-project secret | Handle GitHub / GitLab / Bitbucket push events and enqueue a re-import |
+
+**Secret verification**
+
+| Provider | Header / mechanism |
+|---|---|
+| GitHub | `X-Hub-Signature-256` (HMAC-SHA256 of body with project secret) |
+| GitLab | `X-Gitlab-Token` matches project secret |
+| Bitbucket / generic | `X-OsWL-Webhook-Secret` matches project secret |
+
+Response: `{ "accepted": true/false, "message": "…", "jobId": "…" }` (optional `jobId` when a scan is queued).
+
+### Project webhook configuration
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/api/projects/{id}/webhook` | `PROJECT_VIEW` + membership | Webhook URL, enabled flag (secret not returned) |
+| `PUT` | `/api/projects/{id}/webhook` | `PROJECT_UPDATE` + membership | `{ "enabled", "rotateSecret" }` — new secret returned once when rotated |
+
+---
+
 ## GitHub OAuth / PAT
 
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/github/connect` | Connect a GitHub PAT |
-| `DELETE` | `/api/github/disconnect` | Remove GitHub connection |
+| `POST` | `/api/github/disconnect` | Remove all GitHub tokens from session |
 | `GET` | `/api/github/status` | Connection status |
 | `GET` | `/api/github/accounts` | List authenticated accounts |
 | `GET` | `/api/github/repos` | List accessible repositories |
 | `GET` | `/api/github/branches` | List branches for a repo |
+| `GET` | `/api/github/branches/by-project` | List branches for a linked project |
 | `GET` | `/api/github/branch-updated-at` | Last commit date for a branch |
+| `POST` | `/api/github/repos/import` | Import a GitHub repo into a project |
 | `DELETE` | `/api/github/accounts/{login}` | Remove a specific account |
+
+---
+
+## VCS Branches
+
+Session auth. GitLab and Bitbucket branches for linked projects (GitHub uses `/api/github/branches`).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/vcs/branches?projectId=` | List branches for a project's VCS repo |
 
 ---
 
@@ -96,12 +153,11 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth` | API key | Validate API key (legacy) |
 | `GET` | `/api/scan/ping` | API key | Connectivity and key validity check |
 | `GET` | `/api/scan/manifest-rules` | API key | Manifest file collection rules (same as `/scripts/manifest-rules.json`) |
 | `POST` | `/api/scan/parse` | API key | Parse a manifest zip archive (CLI step 1) |
-| `POST` | `/api/scan` | API key + credentials | Submit a dependency scan (CLI step 2) |
-| `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status |
+| `POST` | `/api/scan` | API key + submitter credentials | Submit a dependency scan (CLI step 2) |
+| `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status (UI; requires project membership) |
 
 ---
 
@@ -110,6 +166,8 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | Method | Path | Permission | Description |
 |---|---|---|---|
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | Security Center page |
+| `GET` | `/projects/{id}/security-center/print` | `SECURITY_CENTER_EXPORT` | Printable Security Center view |
+| `GET` | `/projects/{id}/security-center/export?format=csv` | `SECURITY_CENTER_EXPORT` | Export findings as CSV |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | Bulk CVE status update |
 
 ---
@@ -130,6 +188,10 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | Method | Path | Permission | Description |
 |---|---|---|---|
 | `GET` | `/projects/{id}/license` | `LICENSE_VIEW` | License Analysis page |
+| `GET` | `/projects/{id}/license/export/notice` | `LICENSE_EXPORT` | Download NOTICE.txt |
+| `GET` | `/projects/{id}/license/export/spdx` | `LICENSE_EXPORT` | Download SPDX SBOM (tag-value) |
+| `GET` | `/projects/{id}/license/export/spdx-json` | `LICENSE_EXPORT` | Download SPDX SBOM (JSON) |
+| `GET` | `/projects/{id}/license/export/cyclonedx` | `LICENSE_EXPORT` | Download CycloneDX SBOM (JSON) |
 
 ---
 
@@ -158,12 +220,22 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 
 ---
 
+## Project Members
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/api/projects/{id}/members` | `PROJECT_VIEW` + membership | List project members |
+| `POST` | `/api/projects/{id}/members` | `PROJECT_MEMBER_MANAGE` + membership | Add member by email (`{ "email", "role": "ADMIN" \| "MEMBER" }`) |
+| `DELETE` | `/api/projects/{id}/members/{userId}` | `PROJECT_MEMBER_MANAGE` + membership | Remove member (last ADMIN cannot be removed) |
+
+---
+
 ## Project API Keys
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
 | `GET` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + project membership | List project keys |
-| `POST` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + project membership | Create a key |
+| `POST` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + project membership | Create a key. Body: optional `{ "machineToken": true, "boundUserEmail": "…" }` for CI machine tokens |
 | `DELETE` | `/api/projects/{id}/keys/{keyId}` | `SETTINGS_CLI_KEY_MANAGE` + project membership | Revoke a key |
 
 ---
@@ -218,6 +290,17 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `GET` | `/api/settings/security` | `SETTINGS_SECURITY_MANAGE` | Get security settings |
 | `PUT` | `/api/settings/security` | `SETTINGS_SECURITY_MANAGE` | Update settings |
 | `POST` | `/api/settings/security/mail/test` | `SETTINGS_SECURITY_MANAGE` | Send test email |
+
+### Notifications
+
+Instance-wide alert channels when scans find **Critical** CVEs or **RESTRICTED** licenses.
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/api/settings/notifications` | `SETTINGS_NOTIFICATION_MANAGE` | Slack/Teams webhook status, email digest and trigger flags |
+| `PUT` | `/api/settings/notifications` | `SETTINGS_NOTIFICATION_MANAGE` | Update channels (`slackWebhookUrl`, `teamsWebhookUrl`, `clearSlackWebhook`, `clearTeamsWebhook`, `emailDigestEnabled`, `notifyCriticalCve`, `notifyLicenseViolation`) |
+
+Webhook URLs are stored encrypted. Email digest requires SMTP configured under Security settings.
 
 ### AI
 

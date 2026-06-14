@@ -13,7 +13,7 @@
   "hero": {
     "badge": "Enterprise SCA Platform",
     "title": "Know Every Vulnerability<br>in Your <span class=\"gradient-text\">Open Source Stack</span>",
-    "subtitle": "OsWL continuously scans your dependencies for CVEs, license obligations, and transitive risks — giving security and compliance teams complete SBOM visibility from a single self-hosted platform.",
+    "subtitle": "OsWL continuously scans your dependencies for CVEs, license obligations, and transitive risks — with SPDX SBOM export, EPSS/KEV prioritization signals, and a self-hosted dashboard for security teams.",
     "ctaPrimary": "Install Now",
     "ctaSecondary": "See the Platform"
   },
@@ -35,13 +35,13 @@
     "cveDesc": "On-demand enrichment from deps.dev and OSV. Every component is cross-referenced against CVSS 3.x scores and patch availability.",
     "cveTag": "deps.dev · OSV · GHSA",
     "licenseTitle": "License Risk Management",
-    "licenseDesc": "Automatic SPDX classification of OSS licenses — copyleft, permissive, proprietary — with obligation rules, conflict detection, and NOTICE / SPDX SBOM export per scan.",
+    "licenseDesc": "Automatic SPDX classification of OSS licenses — copyleft, permissive, proprietary — with policy rules, surfaced license conflicts where detected, and NOTICE / SPDX tag-value export per scan.",
     "licenseTag": "GPL · LGPL · Apache · MIT · AGPL · MPL",
     "riskTitle": "Risk Trend Analysis",
     "riskDesc": "Track your security posture across scans. Visualize critical, high, medium, and low severity trends over time, with optional AI-generated deviation insights when an LLM provider is configured.",
     "riskTag": "Version-over-version delta",
     "transitiveTitle": "Transitive Dependency Traversal",
-    "transitiveDesc": "Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath analysis traces both direct and transitive exposure across every supported manifest.",
+    "transitiveDesc": "Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath records direct and transitive exposure; path lists are available in component detail (graph visualization planned).",
     "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems",
     "gitTitle": "Git-Native Repository Integration",
     "gitDesc": "Connect GitHub, GitLab, or Bitbucket via Personal Access Token. Branch-aware imports, per-version snapshots, and per-project scan history out of the box.",
@@ -66,7 +66,7 @@
   "vuln": {
     "label": "Vulnerability Intelligence",
     "title": "Prioritize What<br>Actually Matters",
-    "desc": "OsWL surfaces exploitable, patchable vulnerabilities first. CVSS scores, exploit maturity, and fix availability are enriched automatically from deps.dev and OSV advisory feeds.",
+    "desc": "OsWL surfaces exploitable, patchable vulnerabilities first. CVSS scores, EPSS exploit probability, CISA KEV flags, and fix availability are enriched from deps.dev, OSV, and FIRST.org feeds.",
     "bullet1": "<strong style=\"color:var(--text-primary)\">Critical &amp; High</strong> vulnerabilities flagged with patch targets",
     "bullet2": "<strong style=\"color:var(--text-primary)\">Fix version surfaced</strong> — know if a patched release exists before triaging",
     "bullet3": "<strong style=\"color:var(--text-primary)\">Transitive exposure</strong> traced to root dependency paths",

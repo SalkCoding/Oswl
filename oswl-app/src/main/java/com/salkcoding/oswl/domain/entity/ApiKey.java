@@ -1,6 +1,8 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.enums.ApiKeyType;
 import com.salkcoding.oswl.service.ApiKeyTokenSupport;
+import com.salkcoding.oswl.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -38,6 +40,16 @@ public class ApiKey {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "key_type", nullable = false, length = 20)
+    @Builder.Default
+    private ApiKeyType keyType = ApiKeyType.STANDARD;
+
+    /** For MACHINE keys — user whose SCAN_SUBMIT permission and project membership are used */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bound_user_id")
+    private User boundUser;
 
     @Column(name = "last_used_at")
     private LocalDateTime lastUsedAt;
@@ -81,5 +93,9 @@ public class ApiKey {
 
     public boolean isValid() {
         return active && !isExpired();
+    }
+
+    public boolean isMachineToken() {
+        return keyType == ApiKeyType.MACHINE;
     }
 }

@@ -10,7 +10,7 @@ This guide walks you through installing OsWL, running the setup wizard, and comp
 |---|---|
 | **JDK** | 25 or later |
 | **Build tool** | Gradle Wrapper (bundled — `./gradlew`) |
-| **Database** | H2 file-mode (local / dev) or PostgreSQL 15+ (production) |
+| **Database** | H2 file-mode (local / dev) or PostgreSQL 18+ (production) |
 | **OS** | Linux, macOS, or Windows |
 | **Memory** | 512 MB minimum, 1 GB+ recommended |
 
@@ -122,3 +122,7 @@ GET http://localhost:8080/data/test-api-key
 * [Connect your first VCS repository](Quick-Import.md)
 * [Submit a scan via the CLI](CLI-Integration.md)
 * [Explore the Security Center](Security-Center.md)
+
+## Repository layout
+
+Application code lives in the Gradle multi-module tree (`oswl-app`, `oswl-scan-core`, `oswl-vuln-client`). See [CONTRIBUTING.md](../CONTRIBUTING.md) for module roles and test commands.

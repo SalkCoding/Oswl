@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.dto.RoleTemplateDto;
 import com.salkcoding.oswl.auth.dto.RoleTemplateRequest;
 import com.salkcoding.oswl.auth.entity.RoleTemplate;
@@ -22,6 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RoleTemplateService 단위 테스트")
 class RoleTemplateServiceTest {

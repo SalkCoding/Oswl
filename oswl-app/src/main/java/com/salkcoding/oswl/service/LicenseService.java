@@ -682,6 +682,104 @@ public class LicenseService {
         return new ExportPayload(safeFile("oswl-sbom-" + project.getName() + ".spdx"), sb.toString());
     }
 
+    @Transactional(readOnly = true)
+    public ExportPayload buildSpdxJsonSbom(Long projectId, Long scanId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        ScanResult scan = resolveScan(projectId, scanId);
+        Map<String, Object> doc = new LinkedHashMap<>();
+        doc.put("spdxVersion", "SPDX-2.3");
+        doc.put("dataLicense", "CC0-1.0");
+        doc.put("SPDXID", "SPDXRef-DOCUMENT");
+        doc.put("name", project.getName());
+        doc.put("documentNamespace", "https://oswl.local/spdx/" + project.getProjectUuid()
+                + "/" + (scan != null ? scan.getId() : "no-scan"));
+        doc.put("creationInfo", Map.of(
+                "created", java.time.Instant.now().toString(),
+                "creators", List.of("Tool: OsWL")));
+        List<Map<String, Object>> packages = new ArrayList<>();
+        if (scan != null) {
+            int idx = 0;
+            for (Library lib : libraryRepository.findByScanResultIdWithCves(scan.getId())) {
+                Map<String, Object> pkg = new LinkedHashMap<>();
+                pkg.put("SPDXID", "SPDXRef-Package-" + (++idx));
+                pkg.put("name", safe(lib.getName()));
+                pkg.put("versionInfo", safe(lib.getVersion()));
+                pkg.put("downloadLocation", "NOASSERTION");
+                String license = lib.getLicenseName();
+                pkg.put("licenseConcluded", license == null || license.isBlank() ? "NOASSERTION" : license);
+                pkg.put("licenseDeclared", license == null || license.isBlank() ? "NOASSERTION" : license);
+                packages.add(pkg);
+            }
+        }
+        doc.put("packages", packages);
+        try {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(doc);
+            return new ExportPayload(safeFile("oswl-sbom-" + project.getName() + ".spdx.json"), json);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("SPDX JSON serialization failed", e);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public ExportPayload buildCycloneDxJson(Long projectId, Long scanId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        ScanResult scan = resolveScan(projectId, scanId);
+        Map<String, Object> bom = new LinkedHashMap<>();
+        bom.put("bomFormat", "CycloneDX");
+        bom.put("specVersion", "1.5");
+        bom.put("version", 1);
+        bom.put("metadata", Map.of(
+                "timestamp", java.time.Instant.now().toString(),
+                "component", Map.of(
+                        "type", "application",
+                        "name", project.getName(),
+                        "version", scan != null && scan.getVersion() != null ? scan.getVersion() : "unknown")));
+        List<Map<String, Object>> components = new ArrayList<>();
+        if (scan != null) {
+            for (Library lib : libraryRepository.findByScanResultIdWithCves(scan.getId())) {
+                Map<String, Object> comp = new LinkedHashMap<>();
+                comp.put("type", "library");
+                comp.put("name", safe(lib.getName()));
+                comp.put("version", safe(lib.getVersion()));
+                comp.put("purl", toPurl(lib));
+                String license = lib.getLicenseName();
+                if (license != null && !license.isBlank()) {
+                    comp.put("licenses", List.of(Map.of("license", Map.of("id", license))));
+                }
+                components.add(comp);
+            }
+        }
+        bom.put("components", components);
+        try {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(bom);
+            return new ExportPayload(safeFile("oswl-sbom-" + project.getName() + ".cdx.json"), json);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("CycloneDX JSON serialization failed", e);
+        }
+    }
+
+    private static String toPurl(Library lib) {
+        String eco = lib.getEcosystem() != null ? lib.getEcosystem().toLowerCase() : "generic";
+        return switch (eco) {
+            case "maven" -> "pkg:maven/" + lib.getName() + "@" + lib.getVersion();
+            case "npm" -> "pkg:npm/" + lib.getName() + "@" + lib.getVersion();
+            case "pypi" -> "pkg:pypi/" + lib.getName() + "@" + lib.getVersion();
+            case "go" -> "pkg:golang/" + lib.getName() + "@" + lib.getVersion();
+            case "cargo" -> "pkg:cargo/" + lib.getName() + "@" + lib.getVersion();
+            case "nuget" -> "pkg:nuget/" + lib.getName() + "@" + lib.getVersion();
+            case "rubygems" -> "pkg:gem/" + lib.getName() + "@" + lib.getVersion();
+            case "composer" -> "pkg:composer/" + lib.getName() + "@" + lib.getVersion();
+            case "pub" -> "pkg:pub/" + lib.getName() + "@" + lib.getVersion();
+            default -> "pkg:generic/" + lib.getName() + "@" + lib.getVersion();
+        };
+    }
+
     private ScanResult resolveScan(Long projectId, Long scanId) {
         List<ScanResult> scans = scanResultRepository.findCompletedByProjectId(projectId);
         if (scans.isEmpty()) return null;

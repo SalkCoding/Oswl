@@ -22,7 +22,11 @@ Authorization: Bearer oswl_<your_api_key>
 
 ### CLI 스캔 제출자 자격증명
 
-`POST /api/scan`에는 JSON 본문에 `submitterEmail`과 `submitterPassword`도 필요하여 스캔을 인증하고 귀속시킵니다. 성공한 수집은 **감사 로그**(`SCAN.INGEST`)에 제출자 이메일로 기록되며, `scan_results` 전용 컬럼에는 저장하지 않습니다.
+`POST /api/scan`에는 일반적으로 JSON 본문에 `submitterEmail`과 `submitterPassword`가 필요합니다. 성공한 수집은 **감사 로그**(`SCAN.INGEST`)에 제출자 이메일로 기록되며, `scan_results` 전용 컬럼에는 저장하지 않습니다.
+
+**CI machine token** (`ApiKeyType.MACHINE`): `POST /api/projects/{id}/keys`에 `{ "machineToken": true, "boundUserEmail": "ci@company.com" }`로 발급. 바인딩된 사용자는 `SCAN_SUBMIT` 권한과 프로젝트 멤버십이 있어야 합니다. `submitterPassword` 생략 가능, `submitterEmail`은 바인딩 사용자와 같으면 생략 가능.
+
+`/api/scan/**` 경로( `GET /api/scan/{scanId}/status` 제외)는 `ApiKeyAuthInterceptor`가 `Authorization: Bearer oswl_<api_key>`로 인증합니다. CSRF 예외: `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`, `POST /api/import/webhook`. [스캔 API 보안](Scan-Api-Security.md) 참고.
 
 ---
 
@@ -37,6 +41,18 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/login/otp-resend` | OTP 이메일 재발송 |
 | `GET` | `/setup` | 설정 마법사 페이지 (최초 실행 시만) |
 | `POST` | `/setup` | 설정 마법사 폼 제출 |
+| `POST` | `/api/change-password` | 비밀번호 변경 (강제/자발적; 세션 + CSRF) |
+| `POST` | `/api/my/change-password` | 본인 비밀번호 변경 시작 |
+| `POST` | `/api/my/change-password/otp-verify` | 비밀번호 변경 OTP 검증 |
+| `POST` | `/api/my/change-password/otp-resend` | 비밀번호 변경 OTP 재발송 |
+
+---
+
+## 공개 페이지
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/oss-notices` | 오픈소스 라이선스 고지 페이지 |
 
 ---
 
@@ -55,6 +71,8 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/projects/cards` | `PROJECT_VIEW` | 프로젝트 카드 HTML 조각 (대시보드) |
 | `GET` | `/projects/scan-status/stream?ids=` | `PROJECT_VIEW` | **SSE** — 나열된 프로젝트 스캔 완료 시 `scan-update` |
 | `POST` | `/projects` | `PROJECT_CREATE` | 프로젝트 생성 (JSON) |
+| `GET` | `/projects/cli-integration` | `PROJECT_VIEW` | CLI 연동 안내 페이지 |
+| `GET` | `/projects/git-integration` | `PROJECT_VIEW` | Git 연동 안내 페이지 |
 | `PATCH` | `/api/projects/{id}/deployment-profile` | `PROJECT_UPDATE` | AI CVE 트리아지용 배포 프로필 설정 |
 
 ---
@@ -79,18 +97,57 @@ Authorization: Bearer oswl_<your_api_key>
 
 ---
 
+## VCS Push Webhook (자동 재스캔)
+
+세션 인증 없음. 프로젝트별 시크릿 검증. CSRF 예외. 절대 URL을 위해 `OSWL_PUBLIC_BASE_URL`(또는 `oswl.public-base-url`) 설정.
+
+| 메서드 | 경로 | 인증 | 설명 |
+|---|---|---|---|
+| `POST` | `/api/import/webhook` | 프로젝트 시크릿 | GitHub / GitLab / Bitbucket push 이벤트 처리 후 재임포트 큐잉 |
+
+**시크릿 검증**
+
+| 제공자 | 헤더 / 방식 |
+|---|---|
+| GitHub | `X-Hub-Signature-256` (본문 HMAC-SHA256, 프로젝트 시크릿) |
+| GitLab | `X-Gitlab-Token` = 프로젝트 시크릿 |
+| Bitbucket / 일반 | `X-OsWL-Webhook-Secret` = 프로젝트 시크릿 |
+
+응답: `{ "accepted": true/false, "message": "…", "jobId": "…" }` (스캔 큐잉 시 `jobId` 포함).
+
+### 프로젝트 webhook 설정
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/projects/{id}/webhook` | `PROJECT_VIEW` + 멤버십 | Webhook URL, 활성화 여부(시크릿 미반환) |
+| `PUT` | `/api/projects/{id}/webhook` | `PROJECT_UPDATE` + 멤버십 | `{ "enabled", "rotateSecret" }` — 재발급 시 시크릿 한 번만 반환 |
+
+---
+
 ## GitHub OAuth / PAT
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | `POST` | `/api/github/connect` | GitHub PAT 연결 |
-| `DELETE` | `/api/github/disconnect` | GitHub 연결 제거 |
+| `POST` | `/api/github/disconnect` | 세션의 모든 GitHub 토큰 제거 |
 | `GET` | `/api/github/status` | 연결 상태 |
 | `GET` | `/api/github/accounts` | 인증된 계정 목록 |
 | `GET` | `/api/github/repos` | 접근 가능한 저장소 목록 |
 | `GET` | `/api/github/branches` | 저장소의 브랜치 목록 |
+| `GET` | `/api/github/branches/by-project` | 연결된 프로젝트의 브랜치 목록 |
 | `GET` | `/api/github/branch-updated-at` | 브랜치의 마지막 커밋 날짜 |
+| `POST` | `/api/github/repos/import` | GitHub 저장소를 프로젝트로 임포트 |
 | `DELETE` | `/api/github/accounts/{login}` | 특정 계정 제거 |
+
+---
+
+## VCS 브랜치
+
+세션 인증. 연결된 프로젝트의 GitLab·Bitbucket 브랜치(GitHub는 `/api/github/branches` 사용).
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/api/vcs/branches?projectId=` | 프로젝트 VCS 저장소의 브랜치 목록 |
 
 ---
 
@@ -98,12 +155,11 @@ Authorization: Bearer oswl_<your_api_key>
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
-| `POST` | `/api/auth` | API 키 | API 키 검증 (레거시) |
 | `GET` | `/api/scan/ping` | API 키 | 연결 및 키 유효성 확인 |
 | `GET` | `/api/scan/manifest-rules` | API 키 | manifest 수집 규칙 (`/scripts/manifest-rules.json`과 동일) |
 | `POST` | `/api/scan/parse` | API 키 | manifest zip 파싱 (CLI 1단계) |
-| `POST` | `/api/scan` | API 키 + 자격증명 | 의존성 스캔 제출 (CLI 2단계) |
-| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 |
+| `POST` | `/api/scan` | API 키 + 제출자 자격증명 | 의존성 스캔 제출 (CLI 2단계) |
+| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 (UI; 프로젝트 멤버십 필요) |
 
 ---
 
@@ -112,6 +168,8 @@ Authorization: Bearer oswl_<your_api_key>
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | 보안 센터 페이지 |
+| `GET` | `/projects/{id}/security-center/print` | `SECURITY_CENTER_EXPORT` | 인쇄용 보안 센터 뷰 |
+| `GET` | `/projects/{id}/security-center/export?format=csv` | `SECURITY_CENTER_EXPORT` | CSV로 findings보내기 |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | CVE 상태 일괄 업데이트 |
 
 ---
@@ -132,6 +190,10 @@ Authorization: Bearer oswl_<your_api_key>
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
 | `GET` | `/projects/{id}/license` | `LICENSE_VIEW` | 라이선스 분석 페이지 |
+| `GET` | `/projects/{id}/license/export/notice` | `LICENSE_EXPORT` | NOTICE.txt 다운로드 |
+| `GET` | `/projects/{id}/license/export/spdx` | `LICENSE_EXPORT` | SPDX SBOM 다운로드 (tag-value) |
+| `GET` | `/projects/{id}/license/export/spdx-json` | `LICENSE_EXPORT` | SPDX SBOM 다운로드 (JSON) |
+| `GET` | `/projects/{id}/license/export/cyclonedx` | `LICENSE_EXPORT` | CycloneDX SBOM 다운로드 (JSON) |
 
 ---
 
@@ -160,12 +222,22 @@ Authorization: Bearer oswl_<your_api_key>
 
 ---
 
+## 프로젝트 멤버
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/projects/{id}/members` | `PROJECT_VIEW` + 멤버십 | 멤버 목록 |
+| `POST` | `/api/projects/{id}/members` | `PROJECT_MEMBER_MANAGE` + 멤버십 | 이메일로 멤버 추가 (`{ "email", "role": "ADMIN" \| "MEMBER" }`) |
+| `DELETE` | `/api/projects/{id}/members/{userId}` | `PROJECT_MEMBER_MANAGE` + 멤버십 | 멤버 제거(마지막 ADMIN은 제거 불가) |
+
+---
+
 ## 프로젝트 API 키
 
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
 | `GET` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 프로젝트 키 목록 |
-| `POST` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 키 생성 |
+| `POST` | `/api/projects/{id}/keys` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 키 생성. 본문: CI용 `{ "machineToken": true, "boundUserEmail": "…" }` 선택 |
 | `DELETE` | `/api/projects/{id}/keys/{keyId}` | `SETTINGS_CLI_KEY_MANAGE` + 프로젝트 멤버십 | 키 취소 |
 
 ---
@@ -220,6 +292,17 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/settings/security` | `SETTINGS_SECURITY_MANAGE` | 보안 설정 조회 |
 | `PUT` | `/api/settings/security` | `SETTINGS_SECURITY_MANAGE` | 설정 업데이트 |
 | `POST` | `/api/settings/security/mail/test` | `SETTINGS_SECURITY_MANAGE` | 테스트 이메일 발송 |
+
+### 알림
+
+스캔에서 **Critical** CVE 또는 **RESTRICTED** 라이선스가 발견되면 인스턴스 전역 채널로 알림.
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/settings/notifications` | `SETTINGS_NOTIFICATION_MANAGE` | Slack/Teams webhook 상태, 이메일 digest·트리거 플래그 |
+| `PUT` | `/api/settings/notifications` | `SETTINGS_NOTIFICATION_MANAGE` | 채널 업데이트 (`slackWebhookUrl`, `teamsWebhookUrl`, `clearSlackWebhook`, `clearTeamsWebhook`, `emailDigestEnabled`, `notifyCriticalCve`, `notifyLicenseViolation`) |
+
+Webhook URL은 암호화 저장. 이메일 digest는 보안 설정의 SMTP 필요.
 
 ### AI
 

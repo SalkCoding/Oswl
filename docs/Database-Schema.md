@@ -12,14 +12,44 @@ OsWL stores all application data in PostgreSQL (`prod`) or H2 file-mode (`local`
 | `prod` | `validate` | Startup fails if PostgreSQL does not match entities — **no auto-migration** |
 | `test` | `create-drop` | In-memory schema per test run |
 
-When upgrading a production database, apply SQL scripts from `src/main/resources/db/` **before** restarting the app on the new version.
+When upgrading a production database, apply **Flyway migrations** from `oswl-app/src/main/resources/db/migration/` before restarting the app on the new version.
+
+Legacy installs that predated Flyway may also need one-time scripts in `oswl-app/src/main/resources/db/` (see table below).
 
 ---
 
-## Manual migration scripts
+## Flyway (production)
+
+| Setting | Value (`application-prod.yaml`) |
+|---------|----------------------------------|
+| Enabled | `true` (prod only) |
+| Locations | `classpath:db/migration` |
+| Baseline | `baseline-on-migrate: true`, `baseline-version: 6` |
+
+| Migration | Purpose |
+|-----------|---------|
+| `V7__api_key_machine.sql` | `api_keys.type`, `bound_user_id` for CI machine tokens |
+| `V8__project_members.sql` | `project_members` table |
+| `V9__import_webhook.sql` | Per-project VCS webhook columns |
+| `V10__notification_settings.sql` | Instance notification settings |
+| `V11__instance_setup_lock.sql` | Setup wizard lock table |
+| `V12__ai_enhancement.sql` | AI preference columns, `ai_daily_usage`, EPSS/KEV on `library_cves` |
+
+`local` profile sets `flyway.enabled: false` and uses `ddl-auto: update` on H2.
+
+---
+
+## Legacy manual migration scripts
+
+Use these **only** when upgrading an existing PostgreSQL database that was created before Flyway or before the corresponding entity landed. New greenfield prod installs should rely on Flyway + entity `validate`.
+
+Scripts live in `oswl-app/src/main/resources/db/`:
 
 | File | Purpose |
 |------|---------|
+| `api_key_machine.sql` | Same as Flyway V7 (if Flyway not yet applied) |
+| `notification_settings.sql` | Instance notification settings table |
+| `import_webhook.sql` | Per-project VCS webhook columns |
 | `project_members.sql` | Creates `project_members` for per-project ACL |
 | `instance_setup_lock.sql` | Setup wizard lock table |
 | `ai_enhancement.sql` | AI preference columns, `ai_daily_usage` table |

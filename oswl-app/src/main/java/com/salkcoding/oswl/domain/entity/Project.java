@@ -93,6 +93,15 @@ public class Project {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    /** When true, VCS push webhooks may trigger an automatic re-import for this repo. */
+    @Column(name = "webhook_enabled", nullable = false)
+    @Builder.Default
+    private boolean webhookEnabled = false;
+
+    /** Shared secret for {@code X-Hub-Signature-256} (GitHub) or {@code X-Gitlab-Token} (GitLab). */
+    @Column(name = "webhook_secret", length = 64)
+    private String webhookSecret;
+
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ScanResult> scanResults = new ArrayList<>();
@@ -138,5 +147,10 @@ public class Project {
 
     public void updateDeploymentProfile(DeploymentProfile profile) {
         this.deploymentProfile = profile;
+    }
+
+    public void configureWebhook(boolean enabled, String secret) {
+        this.webhookEnabled = enabled;
+        this.webhookSecret = secret;
     }
 }

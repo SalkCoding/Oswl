@@ -29,6 +29,8 @@
             const _trashCount  = parseInt(document.body.dataset.trashCount  || '0', 10);
             return {
                 openPanel: null,
+                membersProjectId: null,
+                membersProjectName: '',
                 cliPreSelectProject: '',
                 toast: null,
                 projectTab: 'active',
@@ -59,6 +61,18 @@
                     window.updateProjectCounts = (a, t) => { self.activeCount += a; self.trashCount += t; };
                     window.getTrashSelected    = () => [...self.trashSelected];
                     window.clearTrashSelected  = () => { self.trashSelected = []; };
+                    window.addEventListener('members-panel-close', () => { self.openPanel = null; });
+                    window.addEventListener('open-project-members', (e) => {
+                        self.openMembersPanel(e.detail.projectId, e.detail.projectName);
+                    });
+                },
+                openMembersPanel(projectId, projectName) {
+                    this.membersProjectId = projectId;
+                    this.membersProjectName = projectName;
+                    this.openPanel = 'members';
+                    this.$nextTick(() => window.dispatchEvent(new CustomEvent('open-members-panel', {
+                        detail: { projectId: Number(projectId), projectName }
+                    })));
                 },
                 isTrashSelected(id) { return this.trashSelected.includes(id); },
                 toggleTrash(id) {
@@ -262,7 +276,12 @@
                                         <img th:src="@{/icon/icon-more-vertical.svg}" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                                     </button>
                                     <div x-show="openMenu" @click.stop="openMenu = false" class="fixed inset-0 z-[15]" style="display:none"></div>
-                                    <div x-cloak x-show="openMenu" x-transition class="absolute right-0 top-[42px] z-[20]">
+                                    <div x-cloak x-show="openMenu" x-transition class="absolute right-0 top-[42px] z-[20] flex flex-col gap-[4px]">
+                                        <button type="button" sec:authorize="hasPermission(null, 'PROJECT_MEMBER_MANAGE') or hasRole('SYSTEM_ADMIN')"
+                                                @click.stop="openMenu = false; window.dispatchEvent(new CustomEvent('open-project-members', { detail: { projectId: $root.dataset.projectId, projectName: $root.dataset.projectName } }))"
+                                                class="flex items-center gap-[4px] bg-white border border-[var(--grayscale-20)] rounded-[4px] shadow pl-[8px] pr-[10px] py-[8px] text-[13px] hover:bg-[var(--grayscale-5)] whitespace-nowrap">
+                                            <span th:text="#{projects.card.manageTeam}">Manage team</span>
+                                        </button>
                                         <button type="button"
                                                 @click="openMenu = false; deleteProject($root.dataset.projectId, $root.dataset.projectName, $root)"
                                                 class="flex items-center gap-[4px] bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] pl-[8px] pr-[10px] py-[8px] text-[#333e42] font-medium text-[13px] tracking-[-0.13px] hover:bg-[var(--grayscale-10)] hover:text-[#e62727] transition whitespace-nowrap">
@@ -495,6 +514,19 @@
          class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col min-w-0 overflow-hidden"
          style="display: none;">
         <div th:replace="~{projects/quick-import :: slideout}"></div>
+    </div>
+
+    <!-- Members / Webhook Panel -->
+    <div x-show="openPanel === 'members'"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="translate-x-full"
+         x-transition:enter-end="translate-x-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="translate-x-0"
+         x-transition:leave-end="translate-x-full"
+         class="fixed top-0 right-0 h-screen w-full max-w-[520px] z-[110] bg-white shadow-2xl flex flex-col"
+         style="display: none;">
+        <div th:replace="~{projects/members-panel :: slideout}"></div>
     </div>
 
     <!-- New Project Panel -->

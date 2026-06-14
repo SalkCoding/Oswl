@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<div th:fragment="slideout" x-data="membersPanel()" x-init="init()"
+     @open-members-panel.window="open($event.detail)"
+     class="flex flex-col h-full min-h-0">
+
+    <div class="bg-[var(--background-dark,#001d35)] text-white px-[24px] py-[20px] flex items-center gap-[8px] shrink-0">
+        <span class="flex-1 font-bold text-[14px]" th:text="#{projects.members.title}">Project team</span>
+        <button type="button" @click="window.dispatchEvent(new CustomEvent('members-panel-close'))"
+                class="w-[24px] h-[24px] bg-white/10 hover:bg-white/20 rounded-[4px] flex items-center justify-center">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-[24px] bg-[var(--grayscale-5)] flex flex-col gap-[24px]">
+        <p class="text-[13px] text-[var(--grayscale-60)]" x-show="projectName">
+            <span th:text="#{projects.members.forProject}">Members for</span>
+            <strong x-text="projectName" class="text-[var(--grayscale-90)]"></strong>
+        </p>
+
+        <div x-show="error" x-cloak class="text-[13px] text-red-600" x-text="error"></div>
+
+        <!-- Members list -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[16px] flex flex-col gap-[12px]">
+            <h3 class="font-bold text-[15px]" th:text="#{projects.members.list}">Members</h3>
+            <template x-if="loading"><p class="text-[13px] text-[var(--grayscale-50)]" th:text="#{common.loading}">Loading…</p></template>
+            <template x-for="m in members" :key="m.userId">
+                <div class="flex items-center justify-between gap-[8px] py-[6px] border-b border-[var(--grayscale-10)] last:border-0">
+                    <div class="min-w-0">
+                        <p class="text-[13px] font-medium truncate" x-text="m.displayName || m.email"></p>
+                        <p class="text-[11px] text-[var(--grayscale-50)] truncate" x-text="m.email"></p>
+                    </div>
+                    <div class="flex items-center gap-[8px] shrink-0">
+                        <span class="text-[11px] px-[8px] py-[2px] rounded-[4px] bg-[var(--grayscale-5)]" x-text="m.role"></span>
+                        <button type="button" sec:authorize="hasPermission(null, 'PROJECT_MEMBER_MANAGE') or hasRole('SYSTEM_ADMIN')"
+                                @click="removeMember(m.userId)"
+                                class="text-[11px] text-[var(--semantic-warning)] hover:underline"
+                                th:text="#{projects.members.remove}">Remove</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Add member -->
+        <div sec:authorize="hasPermission(null, 'PROJECT_MEMBER_MANAGE') or hasRole('SYSTEM_ADMIN')"
+             class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[16px] flex flex-col gap-[12px]">
+            <h3 class="font-bold text-[15px]" th:text="#{projects.members.add}">Add member</h3>
+            <input type="email" x-model="inviteEmail" th:placeholder="#{projects.members.emailPlaceholder}"
+                   class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px]"/>
+            <select x-model="inviteRole" class="px-[12px] py-[8px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] w-[160px]">
+                <option value="MEMBER">MEMBER</option>
+                <option value="ADMIN">ADMIN</option>
+            </select>
+            <button type="button" @click="addMember()" :disabled="adding"
+                    class="self-start px-[16px] py-[8px] bg-[var(--primary-120)] text-white rounded-[8px] text-[13px] disabled:opacity-50"
+                    th:text="#{projects.members.addBtn}">Add</button>
+        </div>
+
+        <!-- Webhook -->
+        <div sec:authorize="hasPermission(null, 'PROJECT_UPDATE') or hasRole('SYSTEM_ADMIN')"
+             class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[16px] flex flex-col gap-[12px]">
+            <h3 class="font-bold text-[15px]" th:text="#{projects.webhook.title}">Push webhook (auto re-scan)</h3>
+            <p class="text-[12px] text-[var(--grayscale-60)]" th:text="#{projects.webhook.hint}">Point your Git host webhook to this URL. Use the secret below as X-Gitlab-Token or GitHub webhook secret.</p>
+            <label class="flex items-center gap-[8px] cursor-pointer">
+                <input type="checkbox" x-model="webhookEnabled" @change="saveWebhook()" class="w-[16px] h-[16px]"/>
+                <span class="text-[13px]" th:text="#{projects.webhook.enabled}">Enabled</span>
+            </label>
+            <div class="flex flex-col gap-[4px]" x-show="webhookUrl">
+                <span class="text-[11px] text-[var(--grayscale-50)]" th:text="#{projects.webhook.url}">Webhook URL</span>
+                <code class="text-[11px] break-all bg-[var(--grayscale-5)] p-[8px] rounded-[6px]" x-text="webhookUrl"></code>
+            </div>
+            <div x-show="webhookSecret" class="flex flex-col gap-[4px]">
+                <span class="text-[11px] text-[var(--grayscale-50)]" th:text="#{projects.webhook.secretOnce}">Secret (copy now — shown once)</span>
+                <code class="text-[11px] break-all bg-amber-50 p-[8px] rounded-[6px] border border-amber-200" x-text="webhookSecret"></code>
+            </div>
+            <button type="button" @click="rotateWebhookSecret()"
+                    class="self-start text-[12px] text-[var(--primary-120)] hover:underline"
+                    th:text="#{projects.webhook.rotate}">Rotate secret</button>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+    const _membersI18n = {
+        loadFailed: /*[[#{projects.members.error.load}]]*/ 'Failed to load members.',
+        addFailed: /*[[#{projects.members.error.add}]]*/ 'Failed to add member.',
+        removeFailed: /*[[#{projects.members.error.remove}]]*/ 'Failed to remove member.'
+    };
+    </script>
+    <script>
+    function membersPanel() {
+        return {
+            projectId: null, projectName: '', members: [], loading: false, adding: false, error: '',
+            inviteEmail: '', inviteRole: 'MEMBER',
+            webhookEnabled: false, webhookUrl: '', webhookSecret: '',
+            headers() { return oswlJsonHeaders(); },
+            init() {},
+            async open(detail) {
+                this.projectId = detail.projectId;
+                this.projectName = detail.projectName || '';
+                this.error = '';
+                await this.loadMembers();
+                await this.loadWebhook();
+            },
+            async loadMembers() {
+                if (!this.projectId) return;
+                this.loading = true;
+                try {
+                    const r = await fetch('/api/projects/' + this.projectId + '/members');
+                    if (!r.ok) { this.error = _membersI18n.loadFailed; return; }
+                    this.members = await r.json();
+                } finally { this.loading = false; }
+            },
+            async addMember() {
+                if (!this.inviteEmail.trim()) return;
+                this.adding = true; this.error = '';
+                try {
+                    const r = await fetch('/api/projects/' + this.projectId + '/members', {
+                        method: 'POST', headers: this.headers(),
+                        body: JSON.stringify({ email: this.inviteEmail.trim(), role: this.inviteRole })
+                    });
+                    if (!r.ok) {
+                        const e = await r.json().catch(() => ({}));
+                        this.error = e.message || _membersI18n.addFailed;
+                        return;
+                    }
+                    this.inviteEmail = '';
+                    await this.loadMembers();
+                } finally { this.adding = false; }
+            },
+            async removeMember(userId) {
+                this.error = '';
+                const r = await fetch('/api/projects/' + this.projectId + '/members/' + userId, { method: 'DELETE', headers: this.headers() });
+                if (!r.ok) { this.error = _membersI18n.removeFailed; return; }
+                await this.loadMembers();
+            },
+            async loadWebhook() {
+                const r = await fetch('/api/projects/' + this.projectId + '/webhook');
+                if (!r.ok) return;
+                const d = await r.json();
+                this.webhookEnabled = d.enabled;
+                this.webhookUrl = d.webhookUrl;
+            },
+            async saveWebhook() {
+                const r = await fetch('/api/projects/' + this.projectId + '/webhook', {
+                    method: 'PUT', headers: this.headers(),
+                    body: JSON.stringify({ enabled: this.webhookEnabled })
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    if (d.secret) this.webhookSecret = d.secret;
+                    this.webhookUrl = d.webhookUrl;
+                }
+            },
+            async rotateWebhookSecret() {
+                const r = await fetch('/api/projects/' + this.projectId + '/webhook', {
+                    method: 'PUT', headers: this.headers(),
+                    body: JSON.stringify({ rotateSecret: true, enabled: true })
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    this.webhookSecret = d.secret || '';
+                    this.webhookEnabled = d.enabled;
+                    this.webhookUrl = d.webhookUrl;
+                }
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

@@ -11,6 +11,8 @@ public enum Permission {
     PROJECT_DELETE("Soft Delete Projects"),
     PROJECT_RESTORE("Restore Projects"),
     PROJECT_PERMANENT_DELETE("Permanently Delete Projects"),
+    PROJECT_MEMBER_MANAGE("Manage Project Members"),
+    PROJECT_UPDATE("Update Projects"),
 
     SCAN_SUBMIT("Submit Scans"),
     SCAN_VIEW("View Scan Results"),
@@ -33,7 +35,8 @@ public enum Permission {
     SETTINGS_VCS_MANAGE("Manage VCS Connections"),
     SETTINGS_CLI_KEY_MANAGE("Manage CLI API Keys"),
     SETTINGS_CACHE_MANAGE("Manage Cache Settings"),
-    SETTINGS_SECURITY_MANAGE("Manage Security Settings");
+    SETTINGS_SECURITY_MANAGE("Manage Security Settings"),
+    SETTINGS_NOTIFICATION_MANAGE("Manage Notification Settings");
 
     private final String description;
 }

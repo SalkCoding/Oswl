@@ -27,7 +27,8 @@ public class OpenApiConfig {
 
                                 | Endpoint group | Auth method |
                                 |---|---|
-                                | `POST /api/auth`, `GET /api/scan/ping`, `GET /api/scan/manifest-rules`, `POST /api/scan/parse`, `POST /api/scan`, `GET /api/scan/{id}/status` | **Bearer token** — `Authorization: Bearer oswl_<token>` |
+                                | `GET /api/scan/ping`, `GET /api/scan/manifest-rules`, `POST /api/scan/parse`, `POST /api/scan` | **Bearer token** — `Authorization: Bearer oswl_<token>` (validated by `ApiKeyAuthInterceptor`) |
+                                | `GET /api/scan/{id}/status` | **Session cookie** + project membership |
                                 | All other `/api/**` endpoints | **Session cookie** (JSESSIONID) obtained via `POST /login` + OTP |
 
                                 CLI tokens are issued via `POST /api/projects/{projectId}/keys` or `POST /api/admin/cli-keys`.

@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.controller;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.DeferralRequest;
@@ -29,6 +31,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.FAST)
+@Tag(TestTags.WEB)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ComponentDetailController 단위 테스트")
 class ComponentDetailControllerTest {

@@ -1,0 +1,37 @@
+name: Bug report
+description: Report something that is broken or incorrect
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OsWL version
+      placeholder: e.g. 1.0.0 or develop @ commit
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, JDK, PostgreSQL, browser, profile (local/prod)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Stack traces, audit log entries, or screenshots if helpful.

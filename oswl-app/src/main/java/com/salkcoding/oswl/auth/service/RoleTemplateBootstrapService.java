@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -25,6 +26,8 @@ public class RoleTemplateBootstrapService {
                 EnumSet.of(
                         Permission.PROJECT_VIEW,
                         Permission.PROJECT_CREATE,
+                        Permission.PROJECT_MEMBER_MANAGE,
+                        Permission.PROJECT_UPDATE,
                         Permission.SCAN_SUBMIT,
                         Permission.SCAN_VIEW,
                         Permission.SCAN_HISTORY_VIEW,
@@ -37,7 +40,8 @@ public class RoleTemplateBootstrapService {
                         Permission.VERSION_DIFF_VIEW,
                         Permission.RISK_TREND_VIEW,
                         Permission.SETTINGS_VCS_MANAGE,
-                        Permission.SETTINGS_CLI_KEY_MANAGE
+                        Permission.SETTINGS_CLI_KEY_MANAGE,
+                        Permission.SETTINGS_NOTIFICATION_MANAGE
                 ));
 
         upsert("Viewer", "Read-only",
@@ -55,12 +59,25 @@ public class RoleTemplateBootstrapService {
     }
 
     private void upsert(String name, String description, Set<Permission> permissions) {
-        if (roleTemplateRepository.existsByName(name)) return;
-        roleTemplateRepository.save(RoleTemplate.builder()
-                .name(name)
-                .description(description)
-                .isBuiltIn(true)
-                .permissions(EnumSet.copyOf(permissions))
-                .build());
+        Optional<RoleTemplate> existing = roleTemplateRepository.findByName(name);
+        if (existing.isEmpty()) {
+            roleTemplateRepository.save(RoleTemplate.builder()
+                    .name(name)
+                    .description(description)
+                    .isBuiltIn(true)
+                    .permissions(EnumSet.copyOf(permissions))
+                    .build());
+            return;
+        }
+        RoleTemplate template = existing.get();
+        if (!template.isBuiltIn()) {
+            return;
+        }
+        EnumSet<Permission> merged = EnumSet.copyOf(template.getPermissions());
+        merged.addAll(permissions);
+        if (!merged.equals(template.getPermissions())) {
+            template.setPermissions(merged);
+            roleTemplateRepository.save(template);
+        }
     }
 }

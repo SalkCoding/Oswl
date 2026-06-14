@@ -73,4 +73,10 @@ public class ComponentRowDto {
 
     @Schema(description = "Best fix version from CVE/OSV data; non-null when patchability is patchable", example = "2.17.0")
     private final String recommendedFixVersion;
+
+    @Schema(description = "CVEs listed in CISA KEV catalog for this component")
+    private final int kevCount;
+
+    @Schema(description = "Highest EPSS exploit probability among CVEs (0.0–1.0)")
+    private final Double maxEpssScore;
 }

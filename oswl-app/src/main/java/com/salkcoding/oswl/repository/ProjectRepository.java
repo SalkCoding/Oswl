@@ -13,6 +13,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     /** Find a GitHub-imported project by its "owner/repo" key. Used for deduplication. */
     Optional<Project> findByGithubRepo(String githubRepo);
 
+    Optional<Project> findByGithubRepoAndDeletedAtIsNull(String githubRepo);
+
     /** Active projects (not soft-deleted). */
     List<Project> findAllByDeletedAtIsNullOrderByCreatedAtDesc();
 

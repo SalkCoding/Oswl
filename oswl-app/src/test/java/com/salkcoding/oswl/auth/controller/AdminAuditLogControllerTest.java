@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.controller;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.dto.AuditLogDto;
 import com.salkcoding.oswl.auth.dto.AuditLogFilter;
 import com.salkcoding.oswl.auth.service.AuditLogService;
@@ -23,6 +25,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
+@Tag(TestTags.WEB)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminAuditLogController unit tests")
 class AdminAuditLogControllerTest {

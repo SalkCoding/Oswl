@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.git;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -10,6 +12,7 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Tag(TestTags.PARSER)
 @DisplayName("CloneRootPathGuard")
 class CloneRootPathGuardTest {
 

@@ -1,11 +1,14 @@
 package com.salkcoding.oswl.client;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Tag(TestTags.FAST)
 @DisplayName("BitbucketCloudAuth 단위 테스트")
 class BitbucketCloudAuthTest {
 

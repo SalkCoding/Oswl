@@ -69,6 +69,30 @@ public class LicenseController implements LicenseControllerSpec {
         return downloadResponse(payload, MediaType.TEXT_PLAIN);
     }
 
+    @GetMapping("/export/spdx-json")
+    @org.springframework.security.access.prepost.PreAuthorize(
+            "hasPermission(null, 'LICENSE_EXPORT') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<byte[]> exportSpdxJson(@PathVariable Long projectId,
+                                                 @RequestParam(required = false) Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
+        LicenseService.ExportPayload payload = licenseService.buildSpdxJsonSbom(projectId, scanId);
+        auditLogService.log("LICENSE.EXPORT", "PROJECT", projectId.toString(), payload.fileName(),
+                "format=spdx-json scanId=" + (scanId != null ? scanId : "latest"));
+        return downloadResponse(payload, MediaType.APPLICATION_JSON);
+    }
+
+    @GetMapping("/export/cyclonedx")
+    @org.springframework.security.access.prepost.PreAuthorize(
+            "hasPermission(null, 'LICENSE_EXPORT') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<byte[]> exportCycloneDx(@PathVariable Long projectId,
+                                                @RequestParam(required = false) Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
+        LicenseService.ExportPayload payload = licenseService.buildCycloneDxJson(projectId, scanId);
+        auditLogService.log("LICENSE.EXPORT", "PROJECT", projectId.toString(), payload.fileName(),
+                "format=cyclonedx scanId=" + (scanId != null ? scanId : "latest"));
+        return downloadResponse(payload, MediaType.APPLICATION_JSON);
+    }
+
     private ResponseEntity<byte[]> downloadResponse(LicenseService.ExportPayload payload, MediaType type) {
         byte[] body = payload.body().getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()

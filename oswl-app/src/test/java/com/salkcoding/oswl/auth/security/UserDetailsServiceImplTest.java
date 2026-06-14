@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.security;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.entity.RoleTemplate;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.enums.Permission;
@@ -21,6 +23,8 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserDetailsServiceImpl 단위 테스트")
 class UserDetailsServiceImplTest {

@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.controller;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.RiskTrendService;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,8 @@ import org.springframework.ui.Model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 
+@Tag(TestTags.FAST)
+@Tag(TestTags.WEB)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RiskTrendController 단위 테스트")
 class RiskTrendControllerTest {

@@ -1,8 +1,6 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '4.0.5'
-	id 'io.spring.dependency-management' version '1.1.7'
-	id 'jacoco'
+	id 'org.springframework.boot' version '4.0.5' apply false
+	id 'io.spring.dependency-management' version '1.1.7' apply false
 }
 
 group = 'com.salkcoding'
@@ -10,255 +8,145 @@ group = 'com.salkcoding'
 version = '1.0.0'
 // x-release-please-end
 
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(25)
+allprojects {
+	repositories {
+		mavenCentral()
 	}
 }
 
-// Local-only sources (TestDataController, etc.) — included in bootRun and tests, excluded from bootJar.
-sourceSets {
-	local {
-		java {
-			srcDir 'src/local/java'
+subprojects {
+	apply plugin: 'java'
+
+	if (name != 'oswl-app') {
+		apply plugin: 'io.spring.dependency-management'
+		dependencyManagement {
+			imports {
+				mavenBom "org.springframework.boot:spring-boot-dependencies:4.0.5"
+			}
 		}
-		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
-		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output
 	}
-	test {
-		compileClasspath += sourceSets.local.output
-		runtimeClasspath += sourceSets.local.output
+
+	java {
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(25)
+		}
+	}
+
+	tasks.withType(JavaCompile).configureEach {
+		options.compilerArgs << '-parameters'
+	}
+
+	tasks.named('test') {
+		useJUnitPlatform()
+		maxParallelForks = Math.max(1, Runtime.runtime.availableProcessors().intdiv(2))
 	}
 }
 
-repositories {
-	mavenCentral()
+def subprojectsWithTask(String taskName) {
+	subprojects.findAll { it.tasks.findByName(taskName) != null }
 }
 
-dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
-	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-mail'
-	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
-
-	// Local dev: embedded SMTP server for testing mail delivery without a real relay
-	implementation 'com.icegreen:greenmail:2.1.3'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
-
-    compileOnly 'org.projectlombok:lombok'
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-	// Local-only controllers (TestDataController) — on IDE/bootRun classpath, excluded from bootJar.
-	developmentOnly sourceSets.local.output
-	implementation 'com.h2database:h2'
-	runtimeOnly 'org.postgresql:postgresql'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.security:spring-security-test'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
-	testCompileOnly 'org.projectlombok:lombok'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	testAnnotationProcessor 'org.projectlombok:lombok'
+tasks.register('testFast') {
+	group = 'verification'
+	description = 'Runs fast-tagged tests in all subprojects.'
+	dependsOn subprojectsWithTask('testFast').collect { it.tasks.named('testFast') }
 }
 
-tasks.withType(JavaCompile).configureEach {
-	options.compilerArgs << '-parameters'
+tasks.register('testParser') {
+	group = 'verification'
+	description = 'Runs parser-tagged tests in all subprojects.'
+	dependsOn subprojectsWithTask('testParser').collect { it.tasks.named('testParser') }
 }
 
-tasks.named('test') {
-	useJUnitPlatform()
+tasks.register('testAuth') {
+	group = 'verification'
+	description = 'Runs auth-tagged tests in all subprojects.'
+	dependsOn subprojectsWithTask('testAuth').collect { it.tasks.named('testAuth') }
 }
 
-tasks.named('compileLocalJava') {
-	dependsOn compileJava
-	options.annotationProcessorPath = configurations.annotationProcessor
+tasks.register('testWeb') {
+	group = 'verification'
+	description = 'Runs web-tagged tests in all subprojects.'
+	dependsOn subprojectsWithTask('testWeb').collect { it.tasks.named('testWeb') }
 }
 
-// Ensure local sources compile on every dev build (IDE "Run" as well as Gradle).
-tasks.named('compileJava') {
-	finalizedBy compileLocalJava
+tasks.register('testIntegration') {
+	group = 'verification'
+	description = 'Runs integration-tagged tests in all subprojects.'
+	dependsOn subprojectsWithTask('testIntegration').collect { it.tasks.named('testIntegration') }
 }
 
-tasks.named('bootRun') {
-	dependsOn compileLocalJava
-	jvmArgs = ['-Djava.net.preferIPv4Stack=true']
-	classpath = sourceSets.main.runtimeClasspath + sourceSets.local.runtimeClasspath
+tasks.register('testLive') {
+	group = 'verification'
+	description = 'Runs live-tagged tests in all subprojects (manual).'
+	dependsOn subprojectsWithTask('testLive').collect { it.tasks.named('testLive') }
 }
 
-tasks.named('bootJar') {
-	// Production JAR: main sources only (no src/local/java).
+tasks.register('test') {
+	group = 'verification'
+	description = 'Runs all tests in all subprojects (excludes live).'
+	dependsOn subprojects.collect { it.tasks.named('test') }
+}
+
+tasks.register('jacocoTestReport') {
+	group = 'verification'
+	description = 'Aggregated JaCoCo report across subprojects with coverage.'
+	dependsOn subprojects.findAll { it.plugins.hasPlugin('jacoco') }
+		.collect { it.tasks.named('jacocoTestReport') }
+	doLast {
+		def reports = subprojects.findAll { it.plugins.hasPlugin('jacoco') }
+			.collect { "${it.name}: ${it.layout.buildDirectory.get()}/reports/jacoco/test/html/index.html" }
+		logger.lifecycle('JaCoCo HTML reports:\n  ' + reports.join('\n  '))
+	}
+}
+
+tasks.register('jacocoTestCoverageVerification') {
+	group = 'verification'
+	description = 'JaCoCo coverage gate (oswl-app).'
+	dependsOn ':oswl-app:jacocoTestCoverageVerification'
+}
+
+tasks.register('bootJar') {
+	group = 'build'
+	description = 'Production Spring Boot JAR.'
+	dependsOn ':oswl-app:bootJar'
+}
+
+tasks.register('compileJava') {
+	group = 'build'
+	description = 'Compiles all subprojects.'
+	dependsOn subprojects.collect { it.tasks.named('compileJava') }
+}
+
+tasks.register('buildTailwindCss') {
+	group = 'frontend'
+	description = 'Compiles Tailwind CSS (oswl-app).'
+	dependsOn ':oswl-app:buildTailwindCss'
+}
+
+tasks.register('bootRun') {
+	group = 'application'
+	description = 'Run Spring Boot locally.'
+	dependsOn ':oswl-app:bootRun'
 }
 
 tasks.register('verifyProdJar') {
 	group = 'verification'
-	description = 'Fails if local-only classes (e.g. TestDataController) are packaged in bootJar.'
-	dependsOn bootJar
-	doLast {
-		def jarFile = tasks.named('bootJar').get().archiveFile.get().asFile
-		def forbidden = ['com/salkcoding/oswl/controller/TestDataController.class']
-		jarFile.withInputStream { input ->
-			def zip = new java.util.zip.ZipInputStream(input)
-			def entry
-			while ((entry = zip.nextEntry) != null) {
-				if (forbidden.any { entry.name == it }) {
-					throw new GradleException("Production JAR must not contain ${entry.name}. Use src/local/java and bootRun classpath only.")
-				}
-			}
-		}
-		logger.lifecycle("verifyProdJar: OK — no local-only controllers in ${jarFile.name}")
-	}
+	description = 'Fails if local-only classes are packaged in bootJar.'
+	dependsOn ':oswl-app:verifyProdJar'
 }
 
-tasks.named('compileTestJava') {
-	dependsOn compileLocalJava
+tasks.register('check') {
+	group = 'verification'
+	dependsOn subprojects.collect { it.tasks.named('check') }
 }
 
-tasks.named('test') {
-	dependsOn compileLocalJava
+tasks.register('build') {
+	group = 'build'
+	dependsOn subprojects.collect { it.tasks.named('build') }
 }
 
-jacoco {
-	toolVersion = '0.8.14'
+tasks.register('clean', Delete) {
+	delete rootProject.layout.buildDirectory
+	subprojects.each { delete it.layout.buildDirectory }
 }
-
-jacocoTestReport {
-	dependsOn test
-	reports {
-		xml.required = true
-		html.required = true
-		csv.required = false
-	}
-	// 커버리지에서 제외할 항목: 설정 클래스, DTO, 엔티티, AOP, 생성된 코드 등
-	afterEvaluate {
-		classDirectories.setFrom(files(classDirectories.files.collect {
-			fileTree(dir: it, exclude: [
-				'**/OswlApplication*',
-				'**/config/**',
-				'**/dto/**',
-				'**/entity/**',
-				'**/enums/**',
-				'**/exception/**',
-				'**/web/config/**',
-				'**/web/interceptor/**',
-				'**/aop/**',
-				'**/scheduler/**',
-				'**/domain/**',
-				'**/spec/**',
-			])
-		}))
-	}
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Tailwind CSS production build
-//
-// Replaces the cdn.tailwindcss.com runtime in templates/fragments/head.html
-// with a precompiled, minified stylesheet served from /css/tailwind.css.
-//
-// Uses the Tailwind Standalone CLI (no Node.js required). Binary is downloaded
-// to build/tools/ on first build, cached thereafter.
-// ─────────────────────────────────────────────────────────────────────────────
-ext {
-	tailwindVersion = '3.4.17'
-	tailwindToolDir = file("${buildDir}/tools/tailwindcss-${tailwindVersion}")
-}
-
-static def tailwindBinaryName() {
-	def os = System.getProperty('os.name').toLowerCase()
-	def arch = System.getProperty('os.arch').toLowerCase()
-	def aarch = (arch == 'aarch64' || arch == 'arm64')
-	if (os.contains('win')) {
-		return aarch ? 'tailwindcss-windows-arm64.exe' : 'tailwindcss-windows-x64.exe'
-	} else if (os.contains('mac')) {
-		return aarch ? 'tailwindcss-macos-arm64' : 'tailwindcss-macos-x64'
-	} else {
-		return aarch ? 'tailwindcss-linux-arm64' : 'tailwindcss-linux-x64'
-	}
-}
-
-tasks.register('downloadTailwindCli') {
-	description = 'Downloads the Tailwind CSS standalone CLI binary (cached).'
-	group = 'frontend'
-	def binName = tailwindBinaryName()
-	def target = new File(tailwindToolDir, binName)
-	outputs.file(target)
-	doLast {
-		if (!target.exists()) {
-			tailwindToolDir.mkdirs()
-			def url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v${tailwindVersion}/${binName}"
-			logger.lifecycle("[tailwind] downloading ${url}")
-			new URL(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
-			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
-				target.setExecutable(true, false)
-			}
-			logger.lifecycle("[tailwind] saved to ${target}")
-		}
-	}
-}
-
-tasks.register('buildTailwindCss', Exec) {
-	description = 'Compiles Tailwind CSS to src/main/resources/static/css/tailwind.css.'
-	group = 'frontend'
-	dependsOn 'downloadTailwindCli', 'downloadVendorJs'
-
-	def binFile  = new File(tailwindToolDir, tailwindBinaryName())
-	def inputCss = file('tailwind/input.css')
-	def configJs = file('tailwind/tailwind.config.js')
-	def outCss   = file('src/main/resources/static/css/tailwind.css')
-
-	inputs.file(inputCss)
-	inputs.file(configJs)
-	inputs.dir('src/main/resources/templates')
-	inputs.dir('src/main/resources/static/js')
-	outputs.file(outCss)
-
-	doFirst {
-		outCss.parentFile.mkdirs()
-	}
-
-	commandLine binFile.absolutePath,
-		'-c', configJs.absolutePath,
-		'-i', inputCss.absolutePath,
-		'-o', outCss.absolutePath,
-		'--minify'
-}
-
-processResources.dependsOn 'buildTailwindCss'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Frontend vendor JS (Alpine.js, collapse plugin, HTMX) — served from /js/vendor/
-// ─────────────────────────────────────────────────────────────────────────────
-ext {
-	alpineVersion = '3.14.9'
-	htmxVersion = '1.9.10'
-	chartJsVersion = '4.4.1'
-}
-
-tasks.register('downloadVendorJs') {
-	description = 'Downloads Alpine.js, @alpinejs/collapse, and HTMX into static/js/vendor/.'
-	group = 'frontend'
-	def vendorDir = file('src/main/resources/static/js/vendor')
-	def files = [
-		[name: 'alpine-collapse.min.js', url: "https://cdn.jsdelivr.net/npm/@alpinejs/collapse@${alpineVersion}/dist/cdn.min.js"],
-		[name: 'alpine.min.js',          url: "https://cdn.jsdelivr.net/npm/alpinejs@${alpineVersion}/dist/cdn.min.js"],
-		[name: 'htmx.min.js',            url: "https://unpkg.com/htmx.org@${htmxVersion}/dist/htmx.min.js"],
-		[name: 'chart.umd.min.js',       url: "https://cdn.jsdelivr.net/npm/chart.js@${chartJsVersion}/dist/chart.umd.min.js"],
-	]
-	outputs.dir(vendorDir)
-	doLast {
-		vendorDir.mkdirs()
-		files.each { f ->
-			def target = new File(vendorDir, f.name)
-			if (!target.exists()) {
-				logger.lifecycle("[vendor-js] downloading ${f.url}")
-				new URL(f.url).withInputStream { i -> target.withOutputStream { o -> o << i } }
-			}
-		}
-	}
-}
-
-processResources.dependsOn 'downloadVendorJs'

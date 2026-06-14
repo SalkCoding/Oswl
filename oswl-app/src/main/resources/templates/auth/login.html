@@ -108,6 +108,16 @@
             </div>
 
             <!-- Submit -->
+            <div th:if="${@environment.getProperty('oswl.oauth2.enabled', 'false') == 'true'}"
+                 class="w-full flex flex-col gap-[12px]">
+                <a th:href="@{/oauth2/authorization/oidc}"
+                   class="w-full text-center border border-[var(--grayscale-20)] hover:border-[var(--primary-100)]
+                          text-[var(--grayscale-100)] font-bold text-[14px] tracking-[-0.14px] leading-[1.3]
+                          rounded-[8px] px-[14px] py-[9px] transition-colors"
+                   th:text="#{auth.login.btn.sso}">Sign in with SSO</a>
+                <p class="text-center text-[12px] text-[var(--grayscale-50)]" th:text="#{auth.login.sso.hint}">or use your email and password</p>
+            </div>
+
             <button type="submit"
                     class="w-full bg-[var(--primary-120)] hover:bg-[var(--primary-100)]
                            text-white font-bold text-[14px] tracking-[-0.14px] leading-[1.3]

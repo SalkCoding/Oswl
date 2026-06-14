@@ -1,3 +1,4 @@
+-- Superseded by Flyway V8__project_members.sql. Kept for manual upgrades only.
 -- Project-scoped ACL (Sprint 3). Run once on PostgreSQL before deploy with ddl-auto=validate.
 
 CREATE TABLE IF NOT EXISTS project_members (

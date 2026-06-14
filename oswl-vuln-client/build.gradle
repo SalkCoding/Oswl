@@ -1,0 +1,22 @@
+plugins {
+	id 'java-library'
+}
+
+dependencies {
+	api 'org.springframework:spring-context'
+	implementation 'org.springframework:spring-web'
+	implementation 'org.slf4j:slf4j-api'
+
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testImplementation 'org.assertj:assertj-core'
+	testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+apply from: rootProject.file('gradle/test-tags.gradle')
+configureTaggedTests(project)

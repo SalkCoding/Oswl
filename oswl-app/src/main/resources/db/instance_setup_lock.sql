@@ -1,3 +1,4 @@
+-- Superseded by Flyway V11__instance_setup_lock.sql. Kept for manual upgrades only.
 -- Run once when upgrading production (ddl-auto=validate).
 -- Reserves initial /setup to a single winner under concurrent requests.
 

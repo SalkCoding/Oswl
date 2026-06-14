@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.repository;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
@@ -16,6 +18,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.INTEGRATION)
 @SpringBootTest
 @Transactional
 @DisplayName("ScanResultRepository integration tests")

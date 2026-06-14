@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.scheduler;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("TrashCleanupScheduler 단위 테스트")
 class TrashCleanupSchedulerTest {

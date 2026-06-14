@@ -62,6 +62,8 @@
                     data-sec-medium=${comp.securityMedium},
                     data-sec-low=${comp.securityLow},
                     data-sec-unscored=${comp.securityUnscored},
+                    data-kev-count=${comp.kevCount},
+                    data-max-epss=${comp.maxEpssScore != null ? comp.maxEpssScore : ''},
                     data-patchability=${comp.patchability},
                     data-license-status=${comp.licenseStatus},
                     data-deprecated=${comp.deprecated != null ? 'true' : 'false'},
@@ -137,6 +139,12 @@
                 <span th:if="${comp.securityUnscored > 0}"
                       class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-50)] tracking-[-0.11px]"
                       th:text="${comp.securityUnscored}">3</span>
+                <span th:if="${comp.kevCount > 0}"
+                      class="h-[20px] px-[6px] flex bg-[rgba(230,39,39,0.12)] border border-[rgba(230,39,39,0.3)] rounded-[4px] items-center justify-center text-[10px] font-bold text-[var(--risk-critical)] tracking-[0.04em]"
+                      th:text="'KEV ' + ${comp.kevCount}">KEV 1</span>
+                <span th:if="${comp.maxEpssScore != null}"
+                      class="h-[20px] px-[6px] flex bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] rounded-[4px] items-center justify-center text-[10px] font-semibold text-[var(--grayscale-70)]"
+                      th:text="'EPSS ' + ${#numbers.formatPercent(comp.maxEpssScore, 0, 0)}">EPSS 12%</span>
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[140px] min-w-[140px]">

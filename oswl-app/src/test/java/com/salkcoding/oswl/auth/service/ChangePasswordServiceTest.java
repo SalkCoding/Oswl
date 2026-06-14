@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.service;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +19,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChangePasswordService unit tests")
 class ChangePasswordServiceTest {

@@ -29,4 +29,10 @@ public class ApiKeyResponse {
 
     @Schema(description = "Revocation timestamp (ISO-8601, null if still active)", example = "2026-05-02T14:00:00")
     private final String  revokedAt;
+
+    @Schema(description = "Key type", example = "STANDARD", allowableValues = {"STANDARD", "MACHINE"})
+    private final String  keyType;
+
+    @Schema(description = "Bound user email for MACHINE keys", example = "ci-bot@company.com")
+    private final String  boundUserEmail;
 }

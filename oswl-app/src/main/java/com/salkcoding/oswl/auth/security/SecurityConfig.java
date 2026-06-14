@@ -3,6 +3,8 @@ package com.salkcoding.oswl.auth.security;
 import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.env.Environment;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,6 +44,9 @@ public class SecurityConfig {
     private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
     private final TwoFaAuthenticationSuccessHandler twoFaAuthenticationSuccessHandler;
     private final OswlSessionExpiredStrategy oswlSessionExpiredStrategy;
+    private final ObjectProvider<OswlOidcUserService> oidcUserService;
+    private final ObjectProvider<OswlOAuth2LoginSuccessHandler> oauth2LoginSuccessHandler;
+    private final Environment environment;
 
     @Bean
     public SessionRegistry sessionRegistry() {
@@ -86,6 +91,10 @@ public class SecurityConfig {
                     .ignoringRequestMatchers(
                             req -> "POST".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan".equals(req.getRequestURI()),
+                            req -> "POST".equalsIgnoreCase(req.getMethod())
+                                    && "/api/scan/parse".equals(req.getRequestURI()),
+                            req -> "POST".equalsIgnoreCase(req.getMethod())
+                                    && "/api/import/webhook".equals(req.getRequestURI()),
                             req -> "GET".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan/ping".equals(req.getRequestURI())))
             .headers(headers -> applySecurityHeaders(headers))
@@ -100,6 +109,7 @@ public class SecurityConfig {
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/oss-notices").permitAll()
+                    .requestMatchers("/api/import/webhook").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/actuator/**").hasRole("SYSTEM_ADMIN")
                     .anyRequest().authenticated())
@@ -110,8 +120,14 @@ public class SecurityConfig {
                     .passwordParameter("password")
                     .successHandler(twoFaAuthenticationSuccessHandler)
                     .failureHandler(authenticationFailureHandler)
-                    .permitAll())
-            .logout(logout -> logout
+                    .permitAll());
+        if (Boolean.TRUE.equals(environment.getProperty("oswl.oauth2.enabled", Boolean.class, false))) {
+            http.oauth2Login(oauth2 -> oauth2
+                    .loginPage("/login")
+                    .userInfoEndpoint(ui -> ui.oidcUserService(oidcUserService.getObject()))
+                    .successHandler(oauth2LoginSuccessHandler.getObject()));
+        }
+        http.logout(logout -> logout
                     .logoutUrl("/logout")
                     .logoutSuccessHandler(auditLogoutSuccessHandler)
                     .invalidateHttpSession(true)

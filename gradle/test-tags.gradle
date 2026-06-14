@@ -1,0 +1,71 @@
+// Shared JUnit 5 tag-filtered test tasks for all Java subprojects.
+def configureTaggedTests(Project project) {
+    project.tasks.named('test') {
+        useJUnitPlatform {
+            excludeTags 'live'
+        }
+    }
+
+    project.tasks.register('testFast', Test) {
+        group = 'verification'
+        description = 'Unit tests tagged fast (excludes integration and live).'
+        testClassesDirs = project.sourceSets.test.output.classesDirs
+        classpath = project.sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'fast'
+            excludeTags 'integration', 'live'
+        }
+    }
+
+    project.tasks.register('testParser', Test) {
+        group = 'verification'
+        description = 'Manifest parser and BOM verification tests.'
+        testClassesDirs = project.sourceSets.test.output.classesDirs
+        classpath = project.sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'parser'
+        }
+    }
+
+    project.tasks.register('testAuth', Test) {
+        group = 'verification'
+        description = 'Authentication and authorization tests.'
+        testClassesDirs = project.sourceSets.test.output.classesDirs
+        classpath = project.sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'auth'
+        }
+    }
+
+    project.tasks.register('testWeb', Test) {
+        group = 'verification'
+        description = 'Controller and web-layer tests.'
+        testClassesDirs = project.sourceSets.test.output.classesDirs
+        classpath = project.sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'web'
+        }
+    }
+
+    project.tasks.register('testIntegration', Test) {
+        group = 'verification'
+        description = 'Spring Boot integration and repository tests.'
+        testClassesDirs = project.sourceSets.test.output.classesDirs
+        classpath = project.sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'integration'
+        }
+    }
+
+    project.tasks.register('testLive', Test) {
+        group = 'verification'
+        description = 'Live external API tests (manual / scheduled only).'
+        testClassesDirs = project.sourceSets.test.output.classesDirs
+        classpath = project.sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            includeTags 'live'
+        }
+    }
+}
+
+ext.configureTaggedTests = this.&configureTaggedTests

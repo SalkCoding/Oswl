@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
@@ -13,6 +15,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.FAST)
 class AiEnrichmentContextBuilderTest {
 
     @Test

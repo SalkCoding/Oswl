@@ -1,0 +1,120 @@
+name: 'OsWL Scan'
+description: 'Parse manifests and submit a dependency scan to OsWL'
+inputs:
+  oswl-url:
+    description: 'OsWL base URL (e.g. https://oswl.example.com)'
+    required: true
+  api-key:
+    description: 'Project API key (Bearer token). Use a CI machine token for passwordless submit.'
+    required: true
+  version:
+    description: 'Scan version label'
+    required: true
+  project-dir:
+    description: 'Directory to scan (default: repository root)'
+    required: false
+    default: '.'
+  submitter-email:
+    description: 'Submitter email (required for standard keys; optional for machine tokens)'
+    required: false
+  submitter-password:
+    description: 'Submitter password (standard keys only)'
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -z "${{ inputs.oswl-url }}" ] || [ -z "${{ inputs.api-key }}" ] || [ -z "${{ inputs.version }}" ]; then
+          echo "oswl-url, api-key, and version are required" >&2
+          exit 1
+        fi
+    - name: Ping OsWL
+      shell: bash
+      env:
+        OSWL_URL: ${{ inputs.oswl-url }}
+        OSWL_API_KEY: ${{ inputs.api-key }}
+      run: |
+        set -euo pipefail
+        curl -fsS -H "Authorization: Bearer ${OSWL_API_KEY}" "${OSWL_URL%/}/api/scan/ping"
+        echo ""
+    - name: Collect manifests and submit scan
+      shell: bash
+      env:
+        OSWL_URL: ${{ inputs.oswl-url }}
+        OSWL_API_KEY: ${{ inputs.api-key }}
+        OSWL_VERSION: ${{ inputs.version }}
+        OSWL_PROJECT_DIR: ${{ inputs.project-dir }}
+        OSWL_SUBMITTER_EMAIL: ${{ inputs.submitter-email }}
+        OSWL_SUBMITTER_PASSWORD: ${{ inputs.submitter-password }}
+      run: |
+        set -euo pipefail
+        command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
+        command -v zip >/dev/null || { echo "zip is required" >&2; exit 1; }
+
+        RULES_URL="${OSWL_URL%/}/scripts/manifest-rules.json"
+        RULES_FILE="$(mktemp)"
+        curl -fsSL "${RULES_URL}" -o "${RULES_FILE}"
+
+        PROJECT_DIR="$(cd "${OSWL_PROJECT_DIR}" && pwd)"
+        ZIP_FILE="$(mktemp /tmp/oswl-manifests-XXXXXX.zip)"
+        MANIFEST_LIST="$(mktemp)"
+
+        MANIFEST_LIST="$(mktemp)"
+        while IFS= read -r f; do
+          rel="${f#${PROJECT_DIR}/}"
+          rel="${rel#/}"
+          base="$(basename "${rel}")"
+          skip=false
+          while IFS= read -r d; do
+            [[ -z "${d}" ]] && continue
+            if [[ "${rel}" == "${d}"* ]] || [[ "${rel}" == *"/${d}/"* ]] || [[ "${rel}" == *"/${d}" ]]; then
+              skip=true
+              break
+            fi
+          done < <(jq -r '.skipDirs[]' "${RULES_FILE}")
+          if ${skip}; then continue; fi
+          if jq -e --arg r "${rel}" --arg b "${base}" '
+            (.exactFileNames | index($b)) != null
+            or ([.fileSuffixes[] | select($b | endswith(.))] | length > 0)
+            or ([.pathPrefixes[] | select($r | startswith(.))] | length > 0)
+          ' "${RULES_FILE}" >/dev/null; then
+            echo "${rel}" >> "${MANIFEST_LIST}"
+          fi
+        done < <(find "${PROJECT_DIR}" -type f)
+
+        if [ ! -s "${MANIFEST_LIST}" ]; then
+          echo "No manifest files found under ${PROJECT_DIR}" >&2
+          exit 1
+        fi
+
+        (cd "${PROJECT_DIR}" && zip -q "${ZIP_FILE}" -@ < "${MANIFEST_LIST}")
+
+        PARSE_JSON="$(curl -fsS -X POST \
+          -H "Authorization: Bearer ${OSWL_API_KEY}" \
+          -F "archive=@${ZIP_FILE}" \
+          "${OSWL_URL%/}/api/scan/parse")"
+
+        COMPONENTS="$(echo "${PARSE_JSON}" | jq -c '.components // []')"
+        COUNT="$(echo "${COMPONENTS}" | jq 'length')"
+        echo "[OsWL] Parsed ${COUNT} component(s)"
+
+        PAYLOAD="$(jq -n \
+          --arg version "${OSWL_VERSION}" \
+          --arg email "${OSWL_SUBMITTER_EMAIL:-}" \
+          --arg password "${OSWL_SUBMITTER_PASSWORD:-}" \
+          --argjson components "${COMPONENTS}" \
+          '{version: $version, components: $components}
+           + (if $email != "" then {submitterEmail: $email} else {} end)
+           + (if $password != "" then {submitterPassword: $password} else {} end)')"
+
+        SCAN_JSON="$(curl -fsS -X POST \
+          -H "Authorization: Bearer ${OSWL_API_KEY}" \
+          -H "Content-Type: application/json" \
+          -d "${PAYLOAD}" \
+          "${OSWL_URL%/}/api/scan")"
+
+        SCAN_ID="$(echo "${SCAN_JSON}" | jq -r '.scanId // "?"')"
+        echo "[OsWL] Scan submitted! scanId=${SCAN_ID}"

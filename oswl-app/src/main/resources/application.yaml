@@ -33,6 +33,10 @@ management:
       show-details: never
 
 oswl:
+  public-base-url: ${OSWL_PUBLIC_BASE_URL:}
+  oauth2:
+    enabled: ${OSWL_OAUTH2_ENABLED:false}
+    registration-id: ${OSWL_OAUTH2_REGISTRATION_ID:oidc}
   security:
     # When true, OSWL_TD is always sent with Secure (HTTPS-only). Otherwise Secure follows request.isSecure().
     trusted-device-cookie-secure: ${OSWL_TRUSTED_DEVICE_COOKIE_SECURE:false}

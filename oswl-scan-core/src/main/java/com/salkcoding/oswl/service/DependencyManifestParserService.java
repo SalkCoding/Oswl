@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.service.git.CloneRootPathGuard;
+import com.salkcoding.oswl.service.manifest.ManifestComponents;
 import com.salkcoding.oswl.service.manifest.ManifestCollectRules;
+import com.salkcoding.oswl.service.manifest.ManifestTreeWalker;
+import com.salkcoding.oswl.service.manifest.NpmPackageJsonParser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -60,7 +63,7 @@ public class DependencyManifestParserService {
         List<String> ecosystems = new ArrayList<>();
 
         // ?? Maven: walk all pom.xml files ??????????????????????????????????????
-        List<Path> pomFiles = walkManifests(cloneDir, Set.of("pom.xml"), MANIFEST_SKIP_DIRS);
+        List<Path> pomFiles = ManifestTreeWalker.walkManifests(cloneDir, Set.of("pom.xml"), MANIFEST_SKIP_DIRS);
         if (!pomFiles.isEmpty()) {
             ecosystems.add("MAVEN");
             List<ScanPayload.ComponentPayload> mvnComps = runMvnDependencyList(cloneDir, repoName);
@@ -75,7 +78,7 @@ public class DependencyManifestParserService {
         }
 
         // ?? Gradle: build.gradle / build.gradle.kts ????????????????????????????
-        List<Path> gradleFiles = walkManifests(cloneDir,
+        List<Path> gradleFiles = ManifestTreeWalker.walkManifests(cloneDir,
                 Set.of("build.gradle", "build.gradle.kts"), MANIFEST_SKIP_DIRS);
         if (!gradleFiles.isEmpty()) {
             if (!ecosystems.contains("MAVEN")) ecosystems.add("MAVEN");
@@ -93,7 +96,7 @@ public class DependencyManifestParserService {
         }
 
         // ?? npm: lock files first (full transitive), then package.json ??????????
-        for (Path lock : walkManifests(cloneDir,
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir,
                 Set.of("package-lock.json", "yarn.lock", "pnpm-lock.yaml"), MANIFEST_SKIP_DIRS)) {
             String fn = lock.getFileName().toString();
             Path d = lock.getParent();
@@ -109,7 +112,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("NPM")) {
-            walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS).stream()
+            ManifestTreeWalker.walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS).stream()
                     .min(Comparator.comparingInt(p -> cloneDir.relativize(p).getNameCount()))
                     .map(p -> p.getParent())
                     .ifPresent(pkgDir -> {
@@ -122,8 +125,8 @@ public class DependencyManifestParserService {
                     });
         }
         if (!ecosystems.contains("NPM")) {
-            for (Path pkg : walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS)) {
-                List<ScanPayload.ComponentPayload> npmComps = parseNpmPackageJson(pkg.getParent(), repoName).components();
+            for (Path pkg : ManifestTreeWalker.walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS)) {
+                List<ScanPayload.ComponentPayload> npmComps = NpmPackageJsonParser.parse(pkg.getParent(), repoName);
                 if (!npmComps.isEmpty()) {
                     ecosystems.add("NPM");
                     mergeComponents(allComps, seen, npmComps, "NPM");
@@ -132,7 +135,7 @@ public class DependencyManifestParserService {
         }
 
         // ?? Python: lock files first, then requirements.txt ????????????????????
-        for (Path lock : walkManifests(cloneDir,
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir,
                 Set.of("poetry.lock", "uv.lock", "Pipfile.lock"), MANIFEST_SKIP_DIRS)) {
             String fn = lock.getFileName().toString();
             List<ScanPayload.ComponentPayload> pyComps = fn.equals("Pipfile.lock")
@@ -144,7 +147,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("PYPI")) {
-            for (Path req : walkManifests(cloneDir, Set.of("requirements.txt"), MANIFEST_SKIP_DIRS)) {
+            for (Path req : ManifestTreeWalker.walkManifests(cloneDir, Set.of("requirements.txt"), MANIFEST_SKIP_DIRS)) {
                 List<ScanPayload.ComponentPayload> pyComps =
                         parseRequirementsFile(req, repoName);
                 if (pyComps != null && !pyComps.isEmpty()) {
@@ -153,7 +156,7 @@ public class DependencyManifestParserService {
                 }
             }
             if (!ecosystems.contains("PYPI")) {
-                for (Path toml : walkManifests(cloneDir, Set.of("pyproject.toml"), MANIFEST_SKIP_DIRS)) {
+                for (Path toml : ManifestTreeWalker.walkManifests(cloneDir, Set.of("pyproject.toml"), MANIFEST_SKIP_DIRS)) {
                     List<ScanPayload.ComponentPayload> pyComps =
                             parsePyprojectToml(toml, repoName);
                     if (pyComps != null && !pyComps.isEmpty()) {
@@ -165,7 +168,7 @@ public class DependencyManifestParserService {
         }
 
         // ?? Cargo: Cargo.lock, then Cargo.toml fallback ????????????????????????
-        for (Path lock : walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> cargoComps = parseTomlPackageLock(lock, "CARGO", repoName);
             if (cargoComps != null && !cargoComps.isEmpty()) {
                 if (!ecosystems.contains("CARGO")) ecosystems.add("CARGO");
@@ -173,7 +176,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("CARGO")) {
-            for (Path toml : walkManifests(cloneDir, Set.of("Cargo.toml"), MANIFEST_SKIP_DIRS)) {
+            for (Path toml : ManifestTreeWalker.walkManifests(cloneDir, Set.of("Cargo.toml"), MANIFEST_SKIP_DIRS)) {
                 List<ScanPayload.ComponentPayload> cargoComps = parseCargoToml(toml.getParent(), repoName);
                 if (cargoComps != null && !cargoComps.isEmpty()) {
                     ecosystems.add("CARGO");
@@ -183,7 +186,7 @@ public class DependencyManifestParserService {
         }
 
         // ?? Go: go.sum, then go.mod fallback ???????????????????????????????????
-        for (Path sum : walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
+        for (Path sum : ManifestTreeWalker.walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> goComps = parseGoSum(sum.getParent(), repoName);
             if (goComps != null && !goComps.isEmpty()) {
                 if (!ecosystems.contains("GO")) ecosystems.add("GO");
@@ -191,7 +194,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("GO")) {
-            for (Path gomod : walkManifests(cloneDir, Set.of("go.mod"), MANIFEST_SKIP_DIRS)) {
+            for (Path gomod : ManifestTreeWalker.walkManifests(cloneDir, Set.of("go.mod"), MANIFEST_SKIP_DIRS)) {
                 List<ScanPayload.ComponentPayload> goComps = parseGoModDeclared(gomod.getParent(), repoName);
                 if (goComps != null && !goComps.isEmpty()) {
                     ecosystems.add("GO");
@@ -201,7 +204,7 @@ public class DependencyManifestParserService {
         }
 
         // ?? NuGet: packages.lock.json / .csproj ????????????????????????????????
-        for (Path lock : walkManifests(cloneDir, Set.of("packages.lock.json"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir, Set.of("packages.lock.json"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
             if (nugetComps != null && !nugetComps.isEmpty()) {
                 if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
@@ -220,11 +223,29 @@ public class DependencyManifestParserService {
         }
 
         // ?? Ruby: Gemfile.lock ????????????????????????????????????????????????
-        for (Path lock : walkManifests(cloneDir, Set.of("Gemfile.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir, Set.of("Gemfile.lock"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> rubyComps = parseGemfileLock(lock.getParent(), repoName);
             if (rubyComps != null && !rubyComps.isEmpty()) {
                 if (!ecosystems.contains("RUBYGEMS")) ecosystems.add("RUBYGEMS");
                 mergeComponents(allComps, seen, rubyComps, "RUBYGEMS");
+            }
+        }
+
+        // Composer (PHP): composer.lock
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir, Set.of("composer.lock"), MANIFEST_SKIP_DIRS)) {
+            List<ScanPayload.ComponentPayload> phpComps = parseComposerLock(lock.getParent(), repoName);
+            if (phpComps != null && !phpComps.isEmpty()) {
+                if (!ecosystems.contains("COMPOSER")) ecosystems.add("COMPOSER");
+                mergeComponents(allComps, seen, phpComps, "COMPOSER");
+            }
+        }
+
+        // Dart: pubspec.lock
+        for (Path lock : ManifestTreeWalker.walkManifests(cloneDir, Set.of("pubspec.lock"), MANIFEST_SKIP_DIRS)) {
+            List<ScanPayload.ComponentPayload> dartComps = parsePubspecLock(lock.getParent(), repoName);
+            if (dartComps != null && !dartComps.isEmpty()) {
+                if (!ecosystems.contains("PUB")) ecosystems.add("PUB");
+                mergeComponents(allComps, seen, dartComps, "PUB");
             }
         }
 
@@ -371,63 +392,6 @@ public class DependencyManifestParserService {
             log.warn("[DependencyParser][Maven] mvnw failed for '{}': {}", repoName, e.getMessage());
             return null;
         }
-    }
-
-    /**
-     * Recursively finds all files whose name is in {@code fileNames} under {@code root},
-     * skipping any path segment listed in {@code skipDirs}.
-     */
-    private List<Path> walkManifests(Path root, Set<String> fileNames, Set<String> skipDirs) {
-        List<Path> result = new ArrayList<>();
-        final Path rootReal;
-        try {
-            rootReal = new CloneRootPathGuard(root).root();
-        } catch (IOException e) {
-            log.warn("[DependencyParser] walkManifests: invalid clone root '{}': {}", root, e.getMessage());
-            return result;
-        }
-        try {
-            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    if (!dir.equals(rootReal)) {
-                        Path rel = rootReal.relativize(dir);
-                        for (int i = 0; i < rel.getNameCount(); i++) {
-                            if (skipDirs.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.SKIP_SUBTREE;
-                            }
-                        }
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    try {
-                        Path fileReal = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
-                        if (!fileReal.startsWith(rootReal)) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        if (!fileNames.contains(fileReal.getFileName().toString())) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        Path rel = rootReal.relativize(fileReal);
-                        for (int i = 0; i < rel.getNameCount() - 1; i++) {
-                            if (skipDirs.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.CONTINUE;
-                            }
-                        }
-                        result.add(fileReal);
-                    } catch (IOException e) {
-                        log.debug("[DependencyParser] skip file '{}': {}", file, e.getMessage());
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            log.warn("[DependencyParser] walkManifests error under '{}': {}", root, e.getMessage());
-        }
-        return result;
     }
 
     /** Merges {@code src} into {@code target}, deduplicating on name+version+ecosystem. */
@@ -600,32 +564,6 @@ public class DependencyManifestParserService {
             log.warn("[DependencyParser][npm] Failed to parse package-lock.json for '{}': {}", repoName, e.getMessage());
             return null;
         }
-    }
-
-    /** Fallback: parse package.json declared deps only (no transitive). */
-    private ParseResult parseNpmPackageJson(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("package.json").toFile());
-            JsonNode deps    = root.path("dependencies");
-            JsonNode devDeps = root.path("devDependencies");
-
-            addNpmDeps(comps, deps);
-            addNpmDeps(comps, devDeps);
-            log.info("[DependencyParser][npm] Parsed {} components from package.json in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[DependencyParser][npm] Failed to parse package.json: {}", e.getMessage());
-        }
-        return new ParseResult("NPM", comps);
-    }
-
-    private void addNpmDeps(List<ScanPayload.ComponentPayload> comps, JsonNode depsNode) {
-        if (depsNode == null || depsNode.isMissingNode()) return;
-        depsNode.properties().forEach(entry -> {
-            String name    = entry.getKey();
-            String version = entry.getValue().asText().replaceAll("^[~^>=<]+ *", "");
-            comps.add(buildComponent(name, version, "NPM"));
-        });
     }
 
     /**
@@ -1309,7 +1247,7 @@ public class DependencyManifestParserService {
             }
             List<Path> targets = new ArrayList<>();
             targets.addAll(walkNuGetManifests(dir, ".csproj"));
-            targets.addAll(walkManifests(dir, Set.of("packages.config"), MANIFEST_SKIP_DIRS));
+            targets.addAll(ManifestTreeWalker.walkManifests(dir, Set.of("packages.config"), MANIFEST_SKIP_DIRS));
             for (Path f : targets) {
                 try {
                     Document doc = dbf.newDocumentBuilder().parse(f.toFile());
@@ -1531,10 +1469,69 @@ public class DependencyManifestParserService {
         }
     }
 
+    private List<ScanPayload.ComponentPayload> parseComposerLock(Path dir, String repoName) {
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("composer.lock").toFile());
+            JsonNode packages = root.path("packages");
+            if (!packages.isArray()) {
+                return List.of();
+            }
+            Set<String> seen = new LinkedHashSet<>();
+            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            for (JsonNode pkg : packages) {
+                String name = pkg.path("name").asText(null);
+                String version = pkg.path("version").asText(null);
+                if (name == null || version == null || name.isBlank() || version.isBlank()) {
+                    continue;
+                }
+                if (seen.add(name + ":" + version)) {
+                    comps.add(buildComponent(name, version, "COMPOSER"));
+                }
+            }
+            log.info("[DependencyParser][Composer] Parsed {} components from composer.lock in '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[DependencyParser][Composer] Failed to parse composer.lock: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<ScanPayload.ComponentPayload> parsePubspecLock(Path dir, String repoName) {
+        try {
+            Set<String> seen = new LinkedHashSet<>();
+            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            String pkg = null;
+            String ver = null;
+            for (String line : Files.readAllLines(dir.resolve("pubspec.lock"), StandardCharsets.UTF_8)) {
+                String trimmed = line.strip();
+                if (trimmed.startsWith("packages:")) {
+                    continue;
+                }
+                if (trimmed.endsWith(":") && !trimmed.contains(" ")) {
+                    pkg = trimmed.substring(0, trimmed.length() - 1);
+                    ver = null;
+                    continue;
+                }
+                if (pkg != null && trimmed.startsWith("version:")) {
+                    ver = trimmed.substring("version:".length()).strip().replace("\"", "");
+                    if (!ver.isBlank() && seen.add(pkg + ":" + ver)) {
+                        comps.add(buildComponent(pkg, ver, "PUB"));
+                    }
+                    pkg = null;
+                }
+            }
+            log.info("[DependencyParser][Pub] Parsed {} components from pubspec.lock in '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[DependencyParser][Pub] Failed to parse pubspec.lock: {}", e.getMessage());
+            return null;
+        }
+    }
+
     // ?? Helpers ???????????????????????????????????????????????????????????
 
     private ScanPayload.ComponentPayload buildComponent(String name, String version, String ecosystem) {
-        return ScanPayload.ComponentPayload.create(name, version, ecosystem, "Direct", List.of());
+        return ManifestComponents.direct(name, version, ecosystem);
     }
 
     /** Builds a scan payload from parse results (version label supplied by caller). */

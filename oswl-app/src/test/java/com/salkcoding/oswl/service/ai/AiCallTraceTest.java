@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -15,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.FAST)
 @DisplayName("AiCallTrace 단위 테스트")
 class AiCallTraceTest {
 

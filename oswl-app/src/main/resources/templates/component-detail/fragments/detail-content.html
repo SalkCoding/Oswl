@@ -352,6 +352,12 @@
                         <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                               th:text="'CVSS ' + ${#numbers.formatDecimal(cve.cvssScore, 1, 1)}">CVSS 9.8</span>
                     </span>
+                    <span th:if="${cve.kevListed}"
+                          class="ml-[6px] shrink-0 bg-[rgba(230,39,39,0.08)] border border-[rgba(230,39,39,0.25)] px-[10px] py-[2px] rounded-[40px] text-[10px] font-bold text-[var(--risk-critical)] tracking-[0.04em]"
+                          th:text="#{componentDetail.cve.kevBadge}">KEV</span>
+                    <span th:if="${cve.epssScore != null}"
+                          class="ml-[6px] shrink-0 bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[10px] py-[2px] rounded-[40px] text-[10px] font-semibold text-[var(--grayscale-70)] tracking-[-0.1px]"
+                          th:text="#{componentDetail.cve.epssBadge} + ' ' + ${#numbers.formatPercent(cve.epssScore, 1, 1)}">EPSS 12.3%</span>
                 </button>
 
                 <div x-show="open" x-collapse
@@ -401,6 +407,14 @@
                         <span th:if="${cve.cvss3Vector}">
                             <span class="font-medium" th:text="#{componentDetail.cve.cvssVector} + ':'">CVSS Vector:</span>
                             <span class="font-mono text-[11px]" th:text="${cve.cvss3Vector}">AV:N/AC:L/...</span>
+                        </span>
+                        <span th:if="${cve.epssScore != null}">
+                            <span class="font-medium" th:text="#{componentDetail.cve.epss} + ':'">EPSS:</span>
+                            <span th:text="${#numbers.formatPercent(cve.epssScore, 1, 1)}">12.3%</span>
+                            <span class="text-[var(--grayscale-50)]" th:text="'(' + #{componentDetail.cve.epssHint} + ')'">(exploit probability)</span>
+                        </span>
+                        <span th:if="${cve.kevListed}">
+                            <span class="font-medium text-[var(--risk-critical)]" th:text="#{componentDetail.cve.kevListed}">CISA KEV listed</span>
                         </span>
                     </div>
                 </div>

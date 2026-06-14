@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.i18n;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -21,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Release guard: UI message bundles and AI prompt overlays stay in sync (EN ↔ KO).
  */
+@Tag(TestTags.FAST)
 @DisplayName("i18n 메시지 번들 일관성")
 class MessagesI18nConsistencyTest {
 

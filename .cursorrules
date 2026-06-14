@@ -1,92 +1,405 @@
 # OsWL — Project Guidelines
 
-OsWL is an in-house SCA (Software Composition Analysis) platform for tracking and managing CVE security vulnerabilities and license risks in OSS components.
+
+
+OsWL (Open-source Software Watchlist) is a self-hosted SCA platform for tracking CVE vulnerabilities and license risks in OSS dependencies.
+
+
 
 ---
+
+
 
 ## Test Account
-- Email: test@test.com  |  Password: 1q2w3e4r  |  Name: test
-- OTP: `000000` (bypass in dev)  |  Test issuance OTP: `123456`
+
+- Email: `test@test.com`  |  Password: `1q2w3e4r`  |  Name: `test`
+
+- OTP bypass in dev: `000000`  |  Test issuance OTP: `123456`
+
+
 
 ---
+
+
 
 ## Tech Stack
-- **Backend:** Spring Boot 4.0.5 (Java 25) — WebMVC, Data JPA, Security, Mail, Validation, AspectJ
-- **View:** Thymeleaf + thymeleaf-extras-springsecurity6
+
+- **Backend:** Spring Boot 4.0.5 (Java 25) — WebMVC, Data JPA, Security, Mail, Validation, AspectJ, Actuator
+
+- **View:** Thymeleaf + `thymeleaf-extras-springsecurity6`
+
 - **Frontend:** Vanilla HTML/CSS/JS · Tailwind CSS 3.4 (precompiled standalone CLI, **NO CDN**) · Chart.js · HTMX · Alpine.js
-- **DB:** PostgreSQL (prod) / H2 file-mode (local profile, PostgreSQL-compatible)
-- **Auth:** Spring Security + Email OTP (2FA) + Trusted Device + Single-Session Enforcement
-- **API Docs:** springdoc-openapi — OpenAPI annotations live in `controller/spec/*Spec.java` interfaces only
-- **Local SMTP:** GreenMail embedded (port 3025) — OTP code printed as `*** OTP CODE: NNNNNN ***` in server logs
-- **Build:** Gradle Wrapper (`./gradlew`)
+
+- **DB:** PostgreSQL 18+ (prod) / H2 file-mode (local profile)
+
+- **Auth:** Spring Security + Email OTP (2FA) + Trusted Device + Single-Session Enforcement + optional OIDC SSO (prod)
+
+- **API Docs:** springdoc-openapi (`local` profile only) — OpenAPI annotations in `controller/spec/*Spec.java` interfaces only
+
+- **Local SMTP:** GreenMail embedded (port 3025) — OTP printed as `*** OTP CODE: NNNNNN ***` in server logs
+
+- **Build:** Gradle Wrapper multi-module (`./gradlew`)
+
+
 
 ---
 
-## Project Structure (Key Packages)
 
-    src/main/java/com/salkcoding/oswl/
-    ├── aop/             # Cross-cutting concerns (audit logging)
-    ├── auth/            # Auth module — config, controller, dto, entity, enums, repo, security, service, web
-    ├── client/          # External API clients (OSV, deps.dev, GitHub…)
-    ├── controller/      # Business controllers
-    │   └── spec/        # Controller spec interfaces (all springdoc annotations here)
-    ├── domain/entity/   # JPA entities
-    ├── domain/enums/
-    ├── dto/  exception/  repository/  scheduler/  service/  web/
-    resources/
-    ├── application.yaml / application-local.yaml / application-prod.yaml
-    ├── static/{css,js,img,icon,graphic,scripts}/
-    └── templates/{auth, projects, security-center, component-detail, license,
-                   risk-trend, scan-history, settings, error, fragments}/
+
+## Project Structure (Gradle multi-module)
+
+
+
+```
+
+oswl/                          # root — aggregates subprojects, tagged test tasks
+
+├── oswl-scan-core/            # Manifest parser, BOM resolver, ScanPayload DTO
+
+│   └── src/main/java/com/salkcoding/oswl/
+
+│       ├── dto/scan/
+
+│       └── service/ (+ manifest/, git/CloneRootPathGuard)
+
+├── oswl-domain/               # Shared domain enums (entities remain in oswl-app for now)
+
+│   └── src/main/java/com/salkcoding/oswl/client/
+
+├── oswl-app/                  # Spring Boot application (bootJar)
+
+│   ├── src/main/java/com/salkcoding/oswl/
+
+│   │   ├── aop/               # Audit logging AOP
+
+│   │   ├── auth/              # Auth module (config, controller, security, service, …)
+
+│   │   ├── client/            # VCS clients (Bitbucket, VcsTokenValidator) — app-bound
+
+│   │   ├── controller/      # Business controllers
+
+│   │   │   └── spec/          # OpenAPI spec interfaces (annotations here only)
+
+│   │   ├── domain/entity/   # JPA entities
+
+│   │   ├── domain/enums/
+
+│   │   └── dto/ exception/ repository/ scheduler/ service/ web/
+
+│   ├── src/local/java/        # Local-only (TestDataController) — excluded from bootJar
+
+│   └── src/main/resources/
+
+│       ├── application.yaml / application-local.yaml / application-prod.yaml
+
+│       ├── static/{css,js,img,icon,graphic,scripts}/
+
+│       ├── templates/{auth,projects,security-center,…}/
+
+│       └── db/
+
+│           ├── migration/     # Flyway (prod): V7__api_key_machine.sql, …
+
+│           └── *.sql          # Legacy manual scripts (pre-Flyway installs)
+
+├── gradle/test-tags.gradle    # testFast, testParser, testIntegration, …
+
+├── tailwind/                  # Tailwind input + config (build → oswl-app static/css)
+
+├── docs/                      # English docs (synced to GitHub Wiki on main push)
+
+├── docs/ko/                   # Korean docs (repo only; not Wiki-synced)
+
+└── landing/                   # GitHub Pages landing site
+
+```
+
+
+
+Package names stay `com.salkcoding.oswl.*` across modules. `@SpringBootApplication` scans all jars on the classpath.
+
+
 
 ---
+
+
+
+## Domain Model (implemented)
+
+
+
+```
+
+Project → ProjectVersion / ScanResult → ScanComponent → DependencyPath
+
+Library (shared) → Cve / LicensePolicyEntry
+
+```
+
+
+
+- **Project membership:** `project_members` + **Projects UI “Manage team”** (`members-panel.html`) + `ProjectMemberController`
+
+- **Authorization layers:** (A) role-template permissions, (B) project membership, (C) system admin bypass
+
+- **VCS push webhook:** `POST /api/import/webhook` + per-project webhook settings
+
+- **Scan notifications:** Slack/Teams webhooks + email digest (`settings/tabs/notifications.html`)
+
+- **SBOM export:** SPDX tag-value, SPDX JSON, CycloneDX via `LicenseController`
+
+- **CI machine tokens:** `ApiKeyType.MACHINE` + `boundUser` — passwordless `POST /api/scan` when issuing with `{ "machineToken": true, "boundUserEmail": "…" }`
+
+- **OIDC SSO:** `oswl.oauth2.enabled=true` + `OSWL_OAUTH2_*` env vars (prod); maps to **existing** users by email (no JIT provisioning). No OAuth login button in templates yet.
+
+- **Flyway:** prod only (`ddl-auto: validate`, `db/migration/`); local uses `ddl-auto: update`
+
+- **Not implemented:** Scheduled scans, SARIF, dependency-graph API, BillOfMaterials entity
+
+
+
+---
+
+
+
+## API URL Map (actual endpoints only)
+
+
+
+Full reference: `docs/API-Reference.md` · `docs/ko/API-Reference.md`
+
+
+
+**Auth / Account**
+
+- `GET/POST /login`, `GET/POST /login/otp-verify`, `POST /login/otp-resend`
+
+- `GET/POST /setup`
+
+- `POST /api/change-password`, `POST /api/my/change-password`, `/api/my/change-password/otp-*`
+
+
+
+**Projects**
+
+- `GET /projects`, `/projects/list`, `/projects/cards`, `POST /projects`
+
+- Trash: `DELETE /projects/{id}`, `POST /{id}/restore`, `DELETE /{id}/permanent`, bulk trash endpoints
+
+- `GET /projects/scan-status/stream` (SSE), `/projects/cli-integration`, `/projects/git-integration`
+
+- `PATCH /api/projects/{id}/deployment-profile`
+
+- `GET/POST/DELETE /api/projects/{id}/members` — team management (`PROJECT_MEMBER_MANAGE`)
+
+- `GET/PUT /api/projects/{id}/webhook` — push webhook config (`PROJECT_UPDATE`)
+
+- API keys: `POST /api/projects/{id}/keys` with `{ "machineToken": true, "boundUserEmail": "..." }` for CI tokens
+
+
+
+**Quick Import** (session; `PROJECT_CREATE`)
+
+- `GET /projects/quick-import`, `/api/quick-import/connections`, `/repos`, `/jobs`
+
+- `POST /api/quick-import/start`, `GET /api/quick-import/job/{jobId}`, `/job/{jobId}/stream` (SSE)
+
+- `POST /api/import/webhook` — VCS push → auto re-scan (per-project secret; CSRF exempt; set `OSWL_PUBLIC_BASE_URL`)
+
+
+
+**GitHub API** (session)
+
+- `POST /api/github/connect`, `POST /api/github/disconnect` (not DELETE)
+
+- `GET /api/github/{status,accounts,repos,branches,branches/by-project,branch-updated-at}`
+
+- `POST /api/github/repos/import`, `DELETE /api/github/accounts/{login}`
+
+
+
+**VCS branches** (GitLab/Bitbucket): `GET /api/vcs/branches?projectId=`
+
+
+
+**CLI Scan** (`ApiKeyAuthInterceptor` on `/api/scan/**` except `*/status`)
+
+- `GET /api/scan/ping`, `/manifest-rules`
+
+- `POST /api/scan/parse` (multipart zip), `POST /api/scan` (JSON + submitter email/password, or machine token)
+
+- `GET /api/scan/{scanId}/status` — **session** (UI polling), not API key
+
+- API keys issued via `POST /api/projects/{id}/keys` or `POST /api/admin/cli-keys`
+
+- CSRF exempt: `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`, `POST /api/import/webhook`
+
+
+
+**Security Center / Component Detail**
+
+- `GET /projects/{id}/security-center`, `/print`, `/export?format=csv`
+
+- `PATCH /projects/{id}/security-center/bulk-status`
+
+- `GET /projects/{id}/components/{compId}` (HTMX fragment when `HX-Request: true`)
+
+- `POST .../cves/{cveDbId}/ai-summarize`, `.../defer`, `.../create-pr`
+
+
+
+**License / Exports**
+
+- `GET /projects/{id}/license/export/notice`, `/export/spdx`, `/export/spdx-json`, `/export/cyclonedx`
+
+- `GET/PUT /api/settings/license-policy`, `/api/settings/license-policy/{spdxId}`
+
+
+
+**Analytics pages:** `/risk-trend`, `/version-diff`, `/scan-history`
+
+
+
+**Settings / Admin**
+
+- `GET /settings` (tabs: admin, security, ai, vcs, cli, cache, notifications)
+
+- `/api/settings/{security,vcs,cache,ai,notifications}`, `/api/admin/{users,role-templates,audit-logs,cli-keys}`
+
+
+
+**Observability:** `GET /actuator/health` only (SYSTEM_ADMIN session; prod)
+
+
+
+**Public:** `GET /oss-notices`
+
+
+
+**Local only:** `GET /data/test`, `/data/test-api-key` (`@Profile("local")`)
+
+
+
+---
+
+
 
 ## Architecture & Code Style
 
+
+
 **Backend**
+
 - **Layered:** Controller → Service → Repository. Keep controllers thin.
-- **Controller Spec:** All OpenAPI annotations go in `controller/spec/*ControllerSpec.java` interfaces. Implementations contain business logic only.
-- **DI:** Lombok `@RequiredArgsConstructor` constructor injection only. `@Autowired` is forbidden.
-- **Authorization:** Method-level `@PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SYSTEM_ADMIN')")`.
-- **Audit Logging:** Use `AuditLogService.log…()` for user actions and system events.
-- **Profile Gating:** Local-only beans use `@Profile("local")` (e.g. `TestDataController`, `LocalSmtpConfig`).
-- **JPA Cascade:** Project → ProjectVersion / ScanResult / ScanComponent / DependencyPath; Library → Cve (cascade ALL).
+
+- **Controller Spec:** OpenAPI annotations in `controller/spec/*ControllerSpec.java` only (4 newer controllers still lack specs: webhook, members, notifications).
+
+- **DI:** `@RequiredArgsConstructor` constructor injection. No `@Autowired`.
+
+- **Authorization:** `@PreAuthorize("hasPermission(null, 'PERMISSION') or hasRole('SYSTEM_ADMIN')")` + `ProjectAccessService` for project-scoped routes.
+
+- **Audit:** `AuditLogService.log…()` for user actions and security events.
+
+- **Profile gating:** `@Profile("local")` for dev-only beans (`TestDataController`, `LocalSmtpConfig`).
+
+- **JPA cascade:** Project → ProjectVersion/ScanResult/ScanComponent/DependencyPath; Library → Cve.
+
+
 
 **Frontend**
-- **Vanilla first.** Add HTMX (partial updates) or Alpine.js (local state) only when needed.
-- **Tailwind CSS:** `/css/tailwind.css` (Gradle build output) only — CDN is forbidden.
-- **HTMX pattern:** Return fragment-only response when `HX-Request: true` header is present.
-- **Assets:** JS in `static/js/`, organized by page subdirectory.
+
+- Vanilla first; HTMX/Alpine only when needed.
+
+- Tailwind: `/css/tailwind.css` only — **no CDN**.
+
+- HTMX: return fragments when `HX-Request: true`.
+
+- JS in `static/js/` by page subdirectory.
+
+
 
 ---
+
+
 
 ## DB & Environments
-- **Local DB:** H2 file (`./oswl-db.mv.db`). Console: `http://localhost:8080/h2-console` (JDBC `jdbc:h2:file:./oswl-db`, user `sa`).
-- **DB Reset:** Stop server → delete `oswl-db.*` files → restart → lands on Setup screen.
-- **Test Data Seed:** `GET /data/test` (auth required, local only) — wipes and re-seeds all data.
-- **Encryption Key (`OSWL_ENCRYPTION_KEY`):** Dummy key hardcoded for local; production requires 32-byte key via `openssl rand -base64 32`.
+
+- **Local:** H2 file (`./oswl-db.mv.db`), `ddl-auto: update`. Console: `/h2-console` (user `sa`).
+
+- **Prod:** PostgreSQL, `ddl-auto: validate`. **Flyway** runs `oswl-app/src/main/resources/db/migration/`. Legacy installs may still need `oswl-app/src/main/resources/db/*.sql` once.
+
+- **Reset:** stop server → delete `oswl-db.*` → restart → Setup wizard.
+
+- **Seed:** `GET /data/test` (local, authenticated).
+
+- **Encryption:** `OSWL_ENCRYPTION_KEY` required in prod (`openssl rand -base64 32`).
+
+
 
 ---
+
+
 
 ## Build & Run
 
-    ./gradlew bootRun          # Local run (profile=local, port 8080)
-    ./gradlew build            # Full build (includes Tailwind)
-    ./gradlew test             # JUnit tests
-    ./gradlew buildTailwindCss # Tailwind rebuild only
+
+
+```
+
+./gradlew bootRun              # local profile, port 8080 (delegates to oswl-app)
+
+./gradlew build                # all subprojects
+
+./gradlew test                 # all modules, excludes @Tag(live)
+
+./gradlew testFast             # PR-fast unit tests
+
+./gradlew testParser           # parser / BOM verification
+
+./gradlew testIntegration      # @SpringBootTest, repositories
+
+./gradlew verifyProdJar        # ensure TestDataController excluded from JAR
+
+./gradlew bootJar              # → oswl-app/build/libs/oswl-*.jar
+
+./gradlew buildTailwindCss
+
+./gradlew jacocoTestReport     # → oswl-app/build/reports/jacoco/
+
+```
+
+
+
+CI: `main` + `develop` push/PR — parallel `testFast`/`testParser`, full test + JaCoCo on merge (`.github/workflows/ci-cd.yml`).
+
+
 
 ---
 
+
+
 ## Conventions
-- **DB naming:** snake_case tables/columns; entity PK is `Long id`.
-- **DTOs:** `record` or Lombok `@Value` in `dto/` package.
-- **Dependencies:** Add to `build.gradle` (backend) or use CDN/webjars (frontend).
-- **Error pages:** `error/{401,403,404,500,503}.html` — use `_owl-error.html` fragment (shared owl illustration).
-- **Log tone:** Business events → INFO/WARN/ERROR; details → `log.debug`.
+
+- DB naming: snake_case; entity PK `Long id`.
+
+- DTOs: `record` or Lombok `@Value` in `dto/`.
+
+- Error pages: `error/{401,403,404,500,503}.html` via `_owl-error.html` fragment.
+
+- Log tone: business events INFO/WARN/ERROR; details `log.debug`.
+
+- i18n: `messages.properties` / `messages_ko.properties`; `?lang=ko` cookie locale.
+
+
 
 ## Test Code Policy
 
-- Do NOT modify, create, or delete any test files (e.g., *Test.java, *.test.ts, *.spec.ts) unless I explicitly ask you to.
-- When fixing bugs or refactoring production code, leave all existing test files exactly as they are.
-- If a test needs to be updated as a direct result of your change, ask me first before touching it.
-- Never auto-generate test stubs or test scaffolding without being explicitly instructed to do so.
+- Do NOT modify, create, or delete test files unless explicitly asked.
+
+- If a test must change due to your edit, ask first.
+
+- Never auto-generate test stubs without instruction.
+
+- JUnit `@Tag` values: `fast`, `parser`, `auth`, `web`, `integration`, `live` (see `gradle/test-tags.gradle`).
+
+

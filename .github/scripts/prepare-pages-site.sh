@@ -14,11 +14,11 @@ mkdir -p _site
 cp landing/index.html _site/index.html
 cp landing/landing-i18n.js _site/
 cp -r landing/i18n _site/
-cp -r src/main/resources/static/css _site/
-cp -r src/main/resources/static/icon _site/
-cp -r src/main/resources/static/graphic _site/
+cp -r oswl-app/src/main/resources/static/css _site/
+cp -r oswl-app/src/main/resources/static/icon _site/
+cp -r oswl-app/src/main/resources/static/graphic _site/
 mkdir -p _site/img
-cp -r src/main/resources/static/img/screenshots _site/img/
+cp -r oswl-app/src/main/resources/static/img/screenshots _site/img/
 touch _site/.nojekyll
 
 OSS_NOTICES_LINK="${REPO:+https://github.com/${REPO}/blob/main/THIRD_PARTY_LICENSES.md}"

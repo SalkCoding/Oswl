@@ -1,11 +1,15 @@
 package com.salkcoding.oswl.auth.security;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @DisplayName("ForwardedHttpsRequestMatcher unit tests")
 class ForwardedHttpsRequestMatcherTest {
 

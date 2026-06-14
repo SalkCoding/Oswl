@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.manifest;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.service.DependencyManifestParserService;
 import com.salkcoding.oswl.service.MavenBomVersionResolver;
@@ -25,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies CLI manifest zip (via {@link ManifestCollectRules}) produces the same parse
  * result as a full project tree parse (Quick Import clone equivalent).
  */
+@Tag(TestTags.PARSER)
 @DisplayName("CLI manifest zip vs full-tree parse parity")
 class ManifestCollectParityTest {
 

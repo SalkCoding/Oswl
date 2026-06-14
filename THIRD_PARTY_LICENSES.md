@@ -380,7 +380,7 @@ purpose with or without fee is hereby granted.
 - **Website:** https://tailwindcss.com/
 - **License:** MIT License
 
-> Tailwind CSS is used only at build time to generate `src/main/resources/static/css/tailwind.css`. The CLI binary is not shipped with OsWL. Only the generated CSS file is included.
+> Tailwind CSS is used only at build time to generate `oswl-app/src/main/resources/static/css/tailwind.css`. The CLI binary is not shipped with OsWL. Only the generated CSS file is included.
 
 ```
 Copyright 2023 Tailwind Labs, Inc.

@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.client;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -17,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Tag(TestTags.FAST)
 @DisplayName("BitbucketCloudClient HTTP 통합 테스트 (MockWebServer)")
 class BitbucketCloudClientHttpTest {
 

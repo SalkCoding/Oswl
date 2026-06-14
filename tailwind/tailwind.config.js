@@ -1,8 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     content: [
-        "./src/main/resources/templates/**/*.html",
-        "./src/main/resources/static/js/**/*.js",
+        "./oswl-app/src/main/resources/templates/**/*.html",
+        "./oswl-app/src/main/resources/static/js/**/*.js",
     ],
     theme: {
         extend: {

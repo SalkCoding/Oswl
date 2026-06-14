@@ -1,1 +1,6 @@
 rootProject.name = 'oswl'
+
+include 'oswl-scan-core'
+include 'oswl-vuln-client'
+include 'oswl-domain'
+include 'oswl-app'

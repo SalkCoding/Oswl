@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.auth.web;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +13,8 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.AUTH)
+@Tag(TestTags.FAST)
 @DisplayName("SettingsTabAccess 단위 테스트")
 class SettingsTabAccessTest {
 
@@ -33,12 +37,12 @@ class SettingsTabAccessTest {
     }
 
     @Test
-    @DisplayName("systemAdmin → 모든 탭 포함 (admin, security, ai, vcs, cli, cache)")
+    @DisplayName("systemAdmin → 모든 탭 포함 (admin, security, notifications, ai, vcs, cli, cache)")
     void accessibleTabsFor_systemAdmin_allTabs() {
         List<SettingsTabAccess.TabSpec> tabs = SettingsTabAccess.accessibleTabsFor(adminPrincipal());
 
         assertThat(tabs).extracting(SettingsTabAccess.TabSpec::getKey)
-                .containsExactlyInAnyOrder("admin", "security", "license-policy", "ai", "vcs", "cli", "cache");
+                .containsExactlyInAnyOrder("admin", "security", "notifications", "license-policy", "ai", "vcs", "cli", "cache");
     }
 
     @Test

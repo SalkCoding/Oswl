@@ -44,7 +44,7 @@ oswl scan -k oswl_<your_api_key> -u you@company.com --server https://<your-serve
 - `-p` (password) is optional — you are **prompted interactively** if omitted.
 - `project_dir` defaults to the current directory when omitted.
 
-**CI/CD example**
+**CI/CD example (standard key)**
 
 ```bash
 export OSWL_API_KEY=oswl_xxx
@@ -53,6 +53,23 @@ export OSWL_PASSWORD=secret
 export OSWL_SERVER_URL=https://sca.company.com
 cd /your/project && oswl scan
 ```
+
+**CI/CD example (machine token — no password)**
+
+Issue a machine token from **Settings → CLI** or `POST /api/projects/{id}/keys`:
+
+```json
+{ "machineToken": true, "boundUserEmail": "ci@company.com" }
+```
+
+```bash
+export OSWL_API_KEY=oswl_xxx
+export OSWL_SERVER_URL=https://sca.company.com
+# oswl scan uses bound user; password not required
+cd /your/project && oswl scan -u ci@company.com
+```
+
+Or use the [GitHub Action](https://github.com/SalkCoding/Oswl/tree/main/.github/actions/oswl-scan) (connectivity check today; full scan flow via CLI recommended).
 
 ### What the CLI does (user-visible)
 
@@ -120,6 +137,8 @@ POST /api/projects/{projectId}/keys
 
 UI: project → **Settings (⚙)** → **CLI** → **Generate Key**.
 
+**Machine token (CI):** same endpoint with JSON body `{ "machineToken": true, "boundUserEmail": "ci@company.com" }`. The bound user must have `SCAN_SUBMIT` and project membership. Passwordless `POST /api/scan` is then allowed.
+
 ### Admin global keys
 
 **Settings → Admin → CLI Keys** — see [API Reference](API-Reference.md).
@@ -178,8 +197,8 @@ Content-Type: application/json
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `version` | string | ✅ | Project version at scan time |
-| `submitterEmail` | string | ✅ | OsWL user email |
-| `submitterPassword` | string | ✅ | Validated via BCrypt; never stored or logged |
+| `submitterEmail` | string | ✅* | OsWL user email (*optional for machine tokens if it matches bound user) |
+| `submitterPassword` | string | ✅* | Validated via BCrypt; never stored or logged (*omit for machine tokens) |
 | `components` | array | — | Discovered OSS components |
 | `components[].name` | string | ✅ | Package name |
 | `components[].version` | string | — | Package version |
@@ -248,4 +267,4 @@ Status flow: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (or `FAILE
 
 - [Scan API Security](Scan-Api-Security.md)
 - [Quick Import](Quick-Import.md) — same parser, remote Git URL
-- [API Reference](API-Reference.md)
+- [API Reference](API-Reference.md) — SBOM exports: `/license/export/spdx-json`, `/license/export/cyclonedx`

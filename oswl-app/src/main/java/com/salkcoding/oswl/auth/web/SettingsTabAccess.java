@@ -29,6 +29,10 @@ public class SettingsTabAccess {
             tabs.add(new TabSpec("security", "🛡️", "Security"));
         }
         if (principal.isSystemAdmin()
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_NOTIFICATION_MANAGE)) {
+            tabs.add(new TabSpec("notifications", "🔔", "Notifications"));
+        }
+        if (principal.isSystemAdmin()
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.LICENSE_POLICY_MANAGE)) {
             tabs.add(new TabSpec("license-policy", "📋", "License Policy"));
         }

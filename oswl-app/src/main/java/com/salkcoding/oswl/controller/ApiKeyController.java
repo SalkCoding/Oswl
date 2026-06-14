@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.ApiKeyControllerSpec;
 import com.salkcoding.oswl.domain.entity.ApiKey;
+import com.salkcoding.oswl.domain.enums.ApiKeyType;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.ApiKeyResponse;
@@ -49,8 +50,13 @@ public class ApiKeyController implements ApiKeyControllerSpec {
             @Valid @RequestBody ApiKeyIssueRequest request) {
 
         projectAccessService.assertCanViewProject(projectId);
-        projectCliKeyPolicyService.assertCanIssueNewKey(projectId);
-        IssuedApiKey issued = apiKeyService.issue(projectId, request.getLabel(), request.getExpiresAt());
+        boolean machine = Boolean.TRUE.equals(request.getMachineToken());
+        ApiKeyType type = machine ? ApiKeyType.MACHINE : ApiKeyType.STANDARD;
+        projectCliKeyPolicyService.assertCanIssueNewKey(projectId, type);
+        IssuedApiKey issued = machine
+                ? apiKeyService.issueMachineToken(projectId, request.getLabel(), request.getExpiresAt(),
+                        request.getBoundUserEmail())
+                : apiKeyService.issue(projectId, request.getLabel(), request.getExpiresAt());
         ApiKey key = issued.key();
         return ResponseEntity.ok(ApiKeyIssueResponse.builder()
                 .id(key.getId())
@@ -82,6 +88,8 @@ public class ApiKeyController implements ApiKeyControllerSpec {
                 .lastUsedAt(key.getLastUsedAt() != null ? key.getLastUsedAt().toString() : null)
                 .createdAt(key.getCreatedAt().toString())
                 .revokedAt(key.getRevokedAt() != null ? key.getRevokedAt().toString() : null)
+                .keyType(key.getKeyType().name())
+                .boundUserEmail(key.getBoundUser() != null ? key.getBoundUser().getEmail() : null)
                 .build();
     }
 

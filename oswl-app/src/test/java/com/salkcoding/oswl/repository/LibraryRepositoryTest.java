@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.repository;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +14,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.INTEGRATION)
 @SpringBootTest
 @Transactional
 @DisplayName("LibraryRepository 통합 테스트")

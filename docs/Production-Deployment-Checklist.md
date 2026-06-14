@@ -8,7 +8,7 @@ Use this one-page list before exposing OsWL on the internet. **Do not run `prod`
 |-------|--------|
 | Profile | Set `SPRING_PROFILES_ACTIVE=prod` |
 | JAR | Build with `./gradlew bootJar verifyProdJar` — `TestDataController` must **not** appear in the JAR |
-| Local-only code | `src/local/java` is for `bootRun` / dev only, not packaged in `bootJar` |
+| Local-only code | `oswl-app/src/local/java` is for `bootRun` / dev only, not packaged in `bootJar` |
 
 ## 2. Required environment variables
 
@@ -57,7 +57,7 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 ## 6. Security features enabled in prod
 
 - Springdoc / Swagger UI: **off**
-- H2 console and `/data/**`: **not in prod JAR** (local profile + `src/local/java` only)
+- H2 console and `/data/**`: **not in prod JAR** (local profile + `oswl-app/src/local/java` only)
 - Security headers + HSTS (behind HTTPS): see `application-prod.yaml` `oswl.security.headers`
 - Trusted-device cookie: `Secure` in prod
 
@@ -74,16 +74,19 @@ OsWL uses **Hibernate `ddl-auto=validate`** in `prod` — the app does not auto-
 | Profile | Schema management |
 |---------|-------------------|
 | `local` | `ddl-auto: update` — H2 schema follows JPA entities automatically |
-| `prod` | `ddl-auto: validate` — run SQL scripts manually when upgrading |
+| `prod` | `ddl-auto: validate` + **Flyway** (`oswl-app/src/main/resources/db/migration/`) |
 
-Manual scripts live in `src/main/resources/db/`:
+**Flyway** runs automatically on prod startup. Legacy one-time scripts (if your DB predates Flyway) live in `oswl-app/src/main/resources/db/`:
 
 | File | When to run |
 |------|-------------|
+| `api_key_machine.sql` | Only if Flyway V7 did not run (duplicate of `V7__api_key_machine.sql`) |
+| `notification_settings.sql` | Legacy DB without notification settings table |
+| `import_webhook.sql` | Legacy DB without project webhook columns |
 | `project_members.sql` | First deploy of project ACL (if table missing) |
 | `instance_setup_lock.sql` | First deploy after setup-lock feature |
 | `ai_enhancement.sql` | Legacy installs predating AI preference columns / `ai_daily_usage` |
-| `schema_cleanup.sql` | **Once** when upgrading to the release that removes unused tables/columns (`ai_feedback`, `external_api_settings`, denormalized `projects.version`, etc.) |
+| `schema_cleanup.sql` | **Once** when upgrading to the release that removes unused tables/columns (`ai_feedback`, `external_api_settings`, `projects.version`, etc.) |
 
 After running migrations, restart the app and confirm `validate` passes.
 

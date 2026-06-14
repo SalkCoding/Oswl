@@ -1,10 +1,13 @@
 package com.salkcoding.oswl.license;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag(TestTags.FAST)
 @DisplayName("SpdxLicenseRegistry")
 class SpdxLicenseRegistryTest {
 

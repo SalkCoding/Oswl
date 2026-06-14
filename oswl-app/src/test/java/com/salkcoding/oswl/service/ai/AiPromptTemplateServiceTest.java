@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
+import org.junit.jupiter.api.Tag;
+import com.salkcoding.oswl.testing.TestTags;
 import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+@Tag(TestTags.FAST)
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AiPromptTemplateService")
 class AiPromptTemplateServiceTest {

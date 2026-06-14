@@ -12,14 +12,39 @@ OsWL 애플리케이션 데이터는 PostgreSQL(`prod`) 또는 H2 파일 모드(
 | `prod` | `validate` | PostgreSQL이 엔티티와 다르면 기동 실패 — **자동 마이그레이션 없음** |
 | `test` | `create-drop` | 테스트마다 메모리 스키마 재생성 |
 
-운영 DB를 업그레이드할 때는 새 버전으로 재기동하기 **전에** `src/main/resources/db/` SQL을 적용합니다.
+운영 DB를 업그레이드할 때는 새 버전으로 재기동하기 **전에** `oswl-app/src/main/resources/db/migration/`의 **Flyway 마이그레이션**을 적용합니다.
+
+Flyway 이전에 만들어진 DB는 `oswl-app/src/main/resources/db/`의 레거시 스크립트가 추가로 필요할 수 있습니다(아래 표 참고).
 
 ---
 
-## 수동 마이그레이션 스크립트
+## Flyway (운영)
+
+| 설정 | 값 (`application-prod.yaml`) |
+|------|------------------------------|
+| 활성화 | `true` (prod만) |
+| 위치 | `classpath:db/migration` |
+| 베이스라인 | `baseline-on-migrate: true`, `baseline-version: 6` |
+
+| 마이그레이션 | 용도 |
+|-------------|------|
+| `V7__api_key_machine.sql` | CI machine token용 `api_keys.type`, `bound_user_id` |
+
+`local` 프로파일은 `flyway.enabled: false`, H2에 `ddl-auto: update`.
+
+---
+
+## 레거시 수동 마이그레이션 스크립트
+
+Flyway 도입 전 DB이거나 해당 엔티티가 반영되기 전에 만든 PostgreSQL을 올릴 때만 사용합니다. 신규 운영 설치는 Flyway + `validate`로 충분합니다.
+
+스크립트 위치: `oswl-app/src/main/resources/db/`
 
 | 파일 | 용도 |
 |------|------|
+| `api_key_machine.sql` | Flyway V7과 동일 (Flyway 미적용 시) |
+| `notification_settings.sql` | 인스턴스 알림 설정 테이블 |
+| `import_webhook.sql` | 프로젝트별 VCS webhook 컬럼 |
 | `project_members.sql` | 프로젝트 ACL용 `project_members` 생성 |
 | `instance_setup_lock.sql` | 설정 마법사 잠금 테이블 |
 | `ai_enhancement.sql` | AI 설정 컬럼, `ai_daily_usage` 테이블 |
