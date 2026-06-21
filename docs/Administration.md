@@ -33,6 +33,20 @@ The user receives an email with a temporary password and is forced to change it 
 
 > Deactivated users cannot log in but their data (audit logs, scan attributions) is preserved.
 
+### Self-service account deletion
+
+Any authenticated user (except the **system administrator**) can delete their own account from the user menu (**Delete account**), after confirming their current password.
+
+| Item | Behaviour |
+|---|---|
+| Endpoint | `POST /api/my/delete-account` — user id is taken **only** from the session principal (no path/body user id) |
+| System admin | Cannot self-delete |
+| Removed | `users` row, `project_members` rows, stored VCS tokens |
+| Preserved | All prior **audit log** rows (actor email/name/id snapshots), projects, scans, import history |
+| Audit action | `USER.SELF_DELETE` — logged **before** the user row is deleted so `actor_user_id` and display name are captured |
+
+Admin-initiated deletion remains `USER.DELETE` via `DELETE /api/admin/users/{id}`.
+
 ---
 
 ## Role Templates
@@ -147,7 +161,9 @@ The audit log records every significant user and system action.
 
 ### Filtering
 
-Filter by actor, action (grouped in the UI — includes auth, projects, scans, CLI keys, components, and settings), and date range.
+Filter by actor, action (grouped in the UI — includes auth, users, projects, scans, CLI keys, components, and settings), and date range.
+
+**User action codes** include `USER.SELF_DELETE` (self-service account deletion) and `USER.DELETE` (admin deletion).
 
 ### Export
 

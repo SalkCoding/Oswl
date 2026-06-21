@@ -12,6 +12,7 @@ import com.salkcoding.oswl.dto.api.AiPromptsResponse;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
+import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
@@ -20,6 +21,7 @@ import com.salkcoding.oswl.security.OutboundUrlValidator;
 import com.salkcoding.oswl.service.ai.AiGoldenTestService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
+import com.salkcoding.oswl.service.ai.AiUsageStatsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +48,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final AiPromptTemplateService promptTemplateService;
     private final OutboundUrlValidator outboundUrlValidator;
     private final AiGoldenTestService goldenTestService;
+    private final AiUsageStatsService aiUsageStatsService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -63,6 +66,11 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .orElseGet(() -> ResponseEntity.ok(builder
                         .message("No AI provider configured")
                         .build()));
+    }
+
+    @GetMapping("/usage")
+    public ResponseEntity<AiUsageStatsResponse> getUsageStats() {
+        return ResponseEntity.ok(aiUsageStatsService.getStats());
     }
 
     @GetMapping("/prompts")

@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.enums.AiProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -26,6 +27,7 @@ public class AnthropicClient implements AiAnalysisClient {
 
     private final AiPromptTemplateService promptTemplates;
     private final AiCallTrace callTrace;
+    private final AiUsageRecorderService usageRecorder;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
@@ -94,6 +96,8 @@ public class AnthropicClient implements AiAnalysisClient {
                 log.debug("[AI][{}] ← status={} elapsedMs={} attempt={}", PROVIDER_TAG, response.getStatusCode(), elapsed, attempt);
 
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    AiProvider providerTag = setting != null ? setting.getProvider() : AiProvider.ANTHROPIC;
+                    usageRecorder.recordFromAnthropicUsage(response.getBody(), providerTag, op, model);
                     logAnthropicContentBlocks(op, response.getBody());
                     var content = (List<?>) response.getBody().get("content");
                     if (content != null && !content.isEmpty()) {
