@@ -17,6 +17,58 @@
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
          x-text="apiError"></div>
 
+    <!-- Usage summary -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[28px] py-[24px] flex flex-col gap-[16px]">
+        <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]" th:text="#{settings.ai.usage.heading}">Usage today</h3>
+        <p x-show="!usageStats || !usageStats.provider" x-cloak class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.ai.usage.noProvider}">Enable an AI provider to track usage here.</p>
+        <template x-if="usageStats && usageStats.provider">
+            <div class="flex flex-col gap-[16px]">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-[12px]">
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
+                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.calls}">API calls</p>
+                        <p class="font-bold text-[20px] text-[var(--grayscale-100)]">
+                            <span x-text="usageStats.todayCallCount"></span>
+                            <span class="text-[13px] font-medium text-[var(--grayscale-50)]" x-show="usageStats.dailyCallCap > 0"> / <span x-text="usageStats.dailyCallCap"></span></span>
+                        </p>
+                    </div>
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
+                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.tokens}">Tokens</p>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)]">
+                            <span x-text="usageStats.todayPromptTokens"></span> /
+                            <span x-text="usageStats.todayCompletionTokens"></span> /
+                            <span x-text="usageStats.todayTotalTokens"></span>
+                        </p>
+                    </div>
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
+                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.estimatedCost}">Estimated cost</p>
+                        <p class="font-bold text-[20px] text-[var(--grayscale-100)]">$<span x-text="Number(usageStats.todayEstimatedCostUsd || 0).toFixed(4)"></span></p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-[var(--grayscale-50)]" x-text="usageStats.pricingDisclaimer"></p>
+                <div x-show="usageStats.recentEvents && usageStats.recentEvents.length" class="flex flex-col gap-[8px]">
+                    <p class="font-medium text-[13px] text-[var(--grayscale-80)]" th:text="#{settings.ai.usage.recent}">Recent calls</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[12px]">
+                            <thead><tr class="text-left text-[var(--grayscale-50)] border-b border-[var(--grayscale-15)]">
+                                <th class="py-[6px] pr-[8px]">Time</th><th class="py-[6px] pr-[8px]">Operation</th><th class="py-[6px] pr-[8px]">Tokens</th><th class="py-[6px]">Est. $</th>
+                            </tr></thead>
+                            <tbody>
+                                <template x-for="ev in usageStats.recentEvents" :key="ev.createdAt + ev.operation">
+                                    <tr class="border-b border-[var(--grayscale-10)]">
+                                        <td class="py-[6px] pr-[8px]" x-text="ev.createdAt ? ev.createdAt.replace('T',' ').substring(0,19) : ''"></td>
+                                        <td class="py-[6px] pr-[8px] font-medium" x-text="ev.operation"></td>
+                                        <td class="py-[6px] pr-[8px]" x-text="ev.totalTokens"></td>
+                                        <td class="py-[6px]" x-text="Number(ev.estimatedCostUsd || 0).toFixed(4)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
     <!-- Provider Card -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
@@ -551,6 +603,7 @@
             ],
             savingProvider: false, savingEnrichment: false, testing: false,
             apiError: null, toastVisible: false, toastMsg: '',
+            usageStats: null,
 
             localeLabel() {
                 return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
@@ -591,7 +644,15 @@
                         this.preferences.defaultDeploymentProfile = data.defaultDeploymentProfile;
                     }
                     await this.loadPrompts();
+                    await this.loadUsageStats();
                 } catch (e) { this.apiError = _aiI18n.loadFailed; }
+            },
+
+            async loadUsageStats() {
+                try {
+                    const r = await fetch('/api/settings/ai/usage');
+                    if (r.ok) this.usageStats = await r.json();
+                } catch (e) { /* non-fatal */ }
             },
 
             async loadPrompts() {
