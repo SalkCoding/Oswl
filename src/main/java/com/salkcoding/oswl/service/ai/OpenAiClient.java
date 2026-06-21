@@ -31,6 +31,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
     private final AiPromptTemplateService promptTemplates;
     private final AiCallTrace callTrace;
+    private final AiUsageRecorderService usageRecorder;
     private final OutboundUrlValidator outboundUrlValidator;
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -114,6 +115,8 @@ public class OpenAiClient implements AiAnalysisClient {
                 log.debug("[AI][{}] ← status={} elapsedMs={} attempt={}", PROVIDER_TAG, response.getStatusCode(), elapsed, attempt);
 
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    AiProvider providerTag = setting != null ? setting.getProvider() : AiProvider.OPENAI;
+                    usageRecorder.recordFromOpenAiUsage(response.getBody(), providerTag, op, model);
                     var choices = (List<?>) response.getBody().get("choices");
                     if (choices != null && !choices.isEmpty()) {
                         var message = (Map<?, ?>) ((Map<?, ?>) choices.getFirst()).get("message");

@@ -7,6 +7,12 @@
     Show with: x-show="modal === 'patch'"
     usage: th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"
 -->
+<style>
+@keyframes oswl-rocket-lift { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-4px); } }
+@keyframes oswl-hourglass-spin { 0%{ transform: rotate(0deg); } 100%{ transform: rotate(360deg); } }
+.oswl-anim-rocket { animation: oswl-rocket-lift 0.9s ease-in-out infinite; }
+.oswl-anim-hourglass { animation: oswl-hourglass-spin 1.4s linear infinite; }
+</style>
 
 <script th:inline="javascript" th:fragment="patch-i18n">
 const _patchI18n = {
@@ -229,7 +235,8 @@ const _patchI18n = {
                 <button type="button" @click="createPr()"
                         :disabled="submitting || prDone || !(targetBranch || '').trim()"
                         class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
-                    <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
+                    <img th:src="@{/icon/icon-wrench.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true"
+                         :class="submitting ? 'oswl-anim-rocket' : ''">
                     <span th:attr="data-msg-creating=#{componentDetail.patch.btn.creating},data-msg-create=#{componentDetail.patch.btn.create}"
                           x-text="submitting ? $el.dataset.msgCreating : $el.dataset.msgCreate">Create Pull Request</span>
                 </button>

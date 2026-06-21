@@ -147,9 +147,27 @@ public class QuickImportService {
      * @return job ID (UUID string)
      */
     public String startImport(String repoUrl, String branch, Long userId) {
-        int userQueued = countUserQueuedJobs(userId);
-        if (userQueued >= maxQueuedPerUser) {
-            throw new QuickImportQueueFullException(maxQueuedPerUser);
+        return startImportInternal(repoUrl, branch, userId, false);
+    }
+
+    /**
+     * Queues multiple public-repo imports (local demo seed). Bypasses the per-user queue cap
+     * so all jobs can be scheduled at once; concurrency is still limited by {@code max-concurrent}.
+     */
+    public List<String> startBatchImport(List<String> repoUrls, Long userId) {
+        List<String> jobIds = new ArrayList<>(repoUrls.size());
+        for (String repoUrl : repoUrls) {
+            jobIds.add(startImportInternal(repoUrl, null, userId, true));
+        }
+        return jobIds;
+    }
+
+    private String startImportInternal(String repoUrl, String branch, Long userId, boolean bypassQueueCap) {
+        if (!bypassQueueCap) {
+            int userQueued = countUserQueuedJobs(userId);
+            if (userQueued >= maxQueuedPerUser) {
+                throw new QuickImportQueueFullException(maxQueuedPerUser);
+            }
         }
 
         String jobId = UUID.randomUUID().toString();
@@ -909,6 +927,19 @@ public class QuickImportService {
         }
         if (lower.contains("git clone failed")) {
             return QuickImportMessageKeys.CLONE_FAILED;
+        }
+        if (lower.contains("no manifest files found") || lower.contains("no manifest")) {
+            return QuickImportMessageKeys.NO_MANIFESTS;
+        }
+        if (lower.contains("java_home") || lower.contains("java home")
+                || lower.contains("could not find java") || lower.contains("no java runtime")) {
+            return QuickImportMessageKeys.JAVA_REQUIRED;
+        }
+        if (lower.contains("gradle") && (lower.contains("failed") || lower.contains("error"))) {
+            return QuickImportMessageKeys.GRADLE_FAILED;
+        }
+        if (lower.contains("parse") || lower.contains("parsing") || lower.contains("manifest")) {
+            return QuickImportMessageKeys.PARSE_FAILED;
         }
         return QuickImportMessageKeys.UNEXPECTED;
     }

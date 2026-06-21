@@ -7,6 +7,10 @@
     Show with: x-show="modal === 'defer'"
     usage: th:replace="~{component-detail/fragments/defer-modal :: defer}"
 -->
+<style>
+@keyframes oswl-hourglass-spin { 0%{ transform: rotate(0deg); } 100%{ transform: rotate(360deg); } }
+.oswl-anim-hourglass { animation: oswl-hourglass-spin 1.4s linear infinite; }
+</style>
 
 <script th:inline="javascript" th:fragment="defer-i18n">
 const _deferI18n = {
@@ -274,7 +278,8 @@ const _deferI18n = {
             <div class="flex gap-[16px] items-center">
                 <button type="button" @click="confirmDefer()" :disabled="submitting || deferDone"
                         class="bg-[var(--semantic-caution)] hover:opacity-90 disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-opacity">
-                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
+                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);"
+                         :class="submitting ? 'oswl-anim-hourglass' : ''">
                     <span th:attr="data-msg-submitting=#{componentDetail.defer.btn.submitting},data-msg-confirm=#{componentDetail.defer.btn.confirm}"
                           x-text="submitting ? $el.dataset.msgSubmitting : $el.dataset.msgConfirm">Confirm Deferral</span>
                 </button>
