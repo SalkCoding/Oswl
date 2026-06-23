@@ -85,6 +85,24 @@ tasks.named('compileJava') {
 
 tasks.named('bootRun') {
 	dependsOn compileLocalJava
+	doFirst {
+		def os = org.gradle.internal.os.OperatingSystem.current()
+		if (os.isWindows()) {
+			def script = file('scripts/check-java.ps1')
+			if (script.exists()) {
+				exec {
+					commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath
+				}
+			}
+		} else {
+			def script = file('scripts/check-java.sh')
+			if (script.exists()) {
+				exec {
+					commandLine 'bash', script.absolutePath
+				}
+			}
+		}
+	}
 	jvmArgs = ['-Djava.net.preferIPv4Stack=true']
 	classpath = sourceSets.main.runtimeClasspath + sourceSets.local.runtimeClasspath
 }

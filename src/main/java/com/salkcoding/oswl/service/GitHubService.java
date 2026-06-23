@@ -214,9 +214,9 @@ public class GitHubService {
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
         ensureBranch(token, owner, repo, newBranch, baseSha, apiBase);
 
-        boolean manifestUpdated = updateDependencyFile(
+        ManifestPatchInfo patchInfo = updateDependencyFile(
                 token, owner, repo, newBranch, resolvedBase, baseSha, libName, oldVersion, newVersion, apiBase);
-        if (!manifestUpdated) {
+        if (patchInfo == null) {
             deleteBranchQuietly(token, owner, repo, newBranch, apiBase);
             throw new IllegalStateException(
                     "Could not find " + libName + " at version " + oldVersion
@@ -225,9 +225,11 @@ public class GitHubService {
                             + "including subdirectories. If the dependency is declared elsewhere, bump the version manually.");
         }
 
+        String fullBody = prBody + patchInfo.toPrAppendix();
+
         String prPayload = objectMapper.createObjectNode()
                 .put("title", prTitle)
-                .put("body", prBody)
+                .put("body", fullBody)
                 .put("head", newBranch)
                 .put("base", resolvedBase)
                 .toString();
@@ -248,7 +250,11 @@ public class GitHubService {
         }
 
         log.info("[GitHub] PR #{} created: {}", prNumber, prUrl);
-        return Map.of("prUrl", prUrl, "prNumber", prNumber);
+        return Map.of(
+                "prUrl", prUrl,
+                "prNumber", prNumber,
+                "manifestPath", patchInfo.filePath(),
+                "changePreview", patchInfo.libraryName() + " " + patchInfo.oldVersion() + " → " + patchInfo.newVersion());
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -332,7 +338,7 @@ public class GitHubService {
                 + URLEncoder.encode(ref, StandardCharsets.UTF_8);
     }
 
-    private boolean updateDependencyFile(String token, String owner, String repo,
+    private ManifestPatchInfo updateDependencyFile(String token, String owner, String repo,
                                           String branch, String baseBranch, String baseTreeSha,
                                           String libName, String oldVersion, String newVersion,
                                           String apiBase) {
@@ -367,14 +373,14 @@ public class GitHubService {
                         .toString();
                 putJson(token, apiBase + "/repos/" + owner + "/" + repo + "/contents/" + path, commitPayload);
                 log.info("[GitHub] Updated {} in {}/{} on branch {}", path, owner, repo, branch);
-                return true;
+                return new ManifestPatchInfo(path, libName, oldVersion, newVersion);
             } catch (Exception e) {
                 log.debug("[GitHub] Skipping {} for {}/{}: {}", path, owner, repo, e.getMessage());
             }
         }
         log.warn("[GitHub] No dependency file updated for {}/{} — {} {} not found in manifests",
                 owner, repo, libName, oldVersion);
-        return false;
+        return null;
     }
 
     private List<String> discoverManifestPaths(String token, String owner, String repo, String treeSha, String apiBase) {

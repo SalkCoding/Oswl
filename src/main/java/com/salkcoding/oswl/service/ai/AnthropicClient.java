@@ -119,6 +119,9 @@ public class AnthropicClient implements AiAnalysisClient {
                     try { Thread.sleep(waitSec * 1000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
                 } else {
                     log.error("[AI][{}] Call failed after {}ms attempt={} — {}: {}", PROVIDER_TAG, elapsed, attempt, e.getClass().getSimpleName(), e.getMessage());
+                    if ("test.connection".equals(op)) {
+                        throw e instanceof RuntimeException re ? re : new RuntimeException(e);
+                    }
                     break;
                 }
             }

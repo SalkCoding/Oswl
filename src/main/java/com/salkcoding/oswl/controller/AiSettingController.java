@@ -16,14 +16,18 @@ import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import com.salkcoding.oswl.service.ai.AiGoldenTestService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
 import com.salkcoding.oswl.service.ai.AiUsageStatsService;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -49,6 +53,8 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final OutboundUrlValidator outboundUrlValidator;
     private final AiGoldenTestService goldenTestService;
     private final AiUsageStatsService aiUsageStatsService;
+    private final MessageSource messageSource;
+    private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -122,6 +128,9 @@ public class AiSettingController implements AiSettingControllerSpec {
                 setting.getProvider().name(), setting.getProvider().name(),
                 setting.getModelName());
         auditPreferencesIfChanged(before, prefs);
+        if (Boolean.TRUE.equals(request.getActivate())) {
+            vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+        }
         return ResponseEntity.ok(toResponse(setting, prefs));
     }
 
@@ -153,6 +162,7 @@ public class AiSettingController implements AiSettingControllerSpec {
         setting.activate();
         auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
                 provider.name(), provider.name(), setting.getModelName());
+        vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
         return ResponseEntity.ok(toResponse(setting, aiPreferencesService.getEffective()));
     }
 
@@ -169,16 +179,16 @@ public class AiSettingController implements AiSettingControllerSpec {
             var stored = aiSettingRepository.findByProvider(request.getProvider());
             if (stored.isEmpty() || stored.get().getApiKey() == null
                     || stored.get().getApiKey().isBlank()) {
-                return ResponseEntity.badRequest().body(
-                        Map.of("success", false,
-                               "message", "API key is not configured. Enter a key to test."));
+                return ResponseEntity.badRequest().body(testFailBody(
+                        "settings.ai.test.missingApiKey",
+                        "settings.ai.test.missingApiKey.hint"));
             }
             try {
                 resolvedKey = encryptionService.decrypt(stored.get().getApiKey());
             } catch (Exception e) {
-                return ResponseEntity.badRequest().body(
-                        Map.of("success", false,
-                               "message", "Stored API key could not be decrypted. Re-save the key in AI settings."));
+                return ResponseEntity.badRequest().body(testFailBody(
+                        "settings.ai.test.decryptFailed",
+                        "settings.ai.test.decryptFailed.hint"));
             }
         }
 
@@ -189,7 +199,10 @@ public class AiSettingController implements AiSettingControllerSpec {
         } catch (OutboundUrlBlockedException e) {
             auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
                     request.getProvider().name(), request.getProvider().name(), "blocked-url");
-            return ResponseEntity.ok(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.ok(testFailBody(
+                    "settings.ai.test.blockedUrl",
+                    "settings.ai.test.blockedUrl.hint",
+                    e.getMessage()));
         }
 
         AiSetting tempSetting = AiSetting.builder()
@@ -199,13 +212,29 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .baseUrl(request.getBaseUrl())
                 .build();
 
-        boolean ok = aiAnalysisService.testConnection(tempSetting);
+        AiConnectionTestResult result = aiAnalysisService.testConnectionDetailed(tempSetting);
         auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
                 request.getProvider().name(), request.getProvider().name(),
-                ok ? "success" : "failed");
-        return ResponseEntity.ok(ok
-                ? Map.of("success", true,  "message", "Connection successful!")
-                : Map.of("success", false, "message", "Connection failed. Check your API key and model name."));
+                result.success() ? "success" : "failed");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", result.success());
+        body.put("message", result.message());
+        if (result.hint() != null && !result.hint().isBlank()) {
+            body.put("hint", result.hint());
+        }
+        return ResponseEntity.ok(body);
+    }
+
+    private Map<String, Object> testFailBody(String messageKey, String hintKey, Object... args) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", false);
+        body.put("message", msg(messageKey, args));
+        body.put("hint", msg(hintKey, args));
+        return body;
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
     }
 
     private AiPreferences savePreferencesIfPresent(AiSettingUpdateRequest request, AiPreferences current) {

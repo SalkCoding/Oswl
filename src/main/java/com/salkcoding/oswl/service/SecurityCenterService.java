@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -191,6 +192,12 @@ public class SecurityCenterService {
         model.addAttribute("licenseHigh", licHigh);
         model.addAttribute("licenseMedium", licMedium);
         model.addAttribute("licenseLow", licLow);
+        rows.sort(Comparator
+                .comparingInt((ComponentRowDto r) -> r.getSecurityCritical()).reversed()
+                .thenComparingInt(ComponentRowDto::getSecurityHigh).reversed()
+                .thenComparingInt(ComponentRowDto::getSecurityMedium).reversed()
+                .thenComparingInt(ComponentRowDto::getSecurityLow).reversed()
+                .thenComparing(ComponentRowDto::getName, String.CASE_INSENSITIVE_ORDER));
         model.addAttribute("components", rows);
         model.addAttribute("securityPostureInsight", scan.getSecurityPostureInsight());
     }
