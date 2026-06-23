@@ -7,6 +7,7 @@ import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -27,6 +29,7 @@ public class AiAnalysisService {
     private final EncryptionService encryptionService;
     private final AiPromptTemplateService promptTemplates;
     private final AiUsageLimiterService usageLimiter;
+    private final AiConnectionDiagnostics connectionDiagnostics;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -124,19 +127,33 @@ public class AiAnalysisService {
     }
 
     public boolean testConnection(AiSetting setting) {
+        return testConnectionDetailed(setting).success();
+    }
+
+    /**
+     * Connection probe with localized, actionable failure messages for the settings UI.
+     */
+    public AiConnectionTestResult testConnectionDetailed(AiSetting setting) {
+        Optional<AiConnectionTestResult> preflight = connectionDiagnostics.preflight(setting);
+        if (preflight.isPresent()) {
+            return preflight.get();
+        }
+        if (!usageLimiter.tryConsume(setting.getProvider())) {
+            return connectionDiagnostics.dailyCapReached();
+        }
+
         String prompt = promptTemplates.testConnection();
         try {
-            // Caller (e.g. test-connection endpoint) supplies a plaintext key on the setting DTO.
             String result = delegate(prompt, setting, "test.connection", setting.getApiKey());
-            if (result != null) {
+            if (result != null && !result.isBlank()) {
                 log.info("[AI] {} provider connection test succeeded", setting.getProvider());
-                return true;
+                return connectionDiagnostics.success();
             }
             log.warn("[AI] {} provider connection test returned empty response", setting.getProvider());
-            return false;
+            return connectionDiagnostics.fromEmptyResponse(setting);
         } catch (Exception e) {
             log.warn("[AI] {} provider connection test failed: {}", setting.getProvider(), e.getMessage());
-            return false;
+            return connectionDiagnostics.fromException(setting, e);
         }
     }
 

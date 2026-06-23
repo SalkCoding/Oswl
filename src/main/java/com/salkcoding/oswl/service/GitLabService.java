@@ -80,9 +80,9 @@ public class GitLabService {
         createBranch(token, base, encodedPath, newBranch, baseSha);
 
         // 3. Find and update the dependency file
-        boolean manifestUpdated = updateDependencyFile(
+        ManifestPatchInfo patchInfo = updateDependencyFile(
                 token, base, encodedPath, newBranch, resolvedBase, libName, oldVersion, newVersion);
-        if (!manifestUpdated) {
+        if (patchInfo == null) {
             deleteBranchQuietly(token, base, encodedPath, newBranch);
             throw new IllegalStateException(
                     "Could not find " + libName + " at version " + oldVersion
@@ -90,12 +90,14 @@ public class GitLabService {
                             + "OsWL searches common manifest files including subdirectories.");
         }
 
+        String fullBody = mrBody + patchInfo.toPrAppendix();
+
         // 4. Create merge request
         String mrPayload = objectMapper.createObjectNode()
                 .put("source_branch", newBranch)
                 .put("target_branch", resolvedBase)
                 .put("title", mrTitle)
-                .put("description", mrBody)
+                .put("description", fullBody)
                 .put("remove_source_branch", true)
                 .toString();
 
@@ -113,7 +115,11 @@ public class GitLabService {
         }
 
         log.info("[GitLab] MR !{} created: {}", mrIid, mrUrl);
-        return Map.of("prUrl", mrUrl, "prNumber", mrIid);
+        return Map.of(
+                "prUrl", mrUrl,
+                "prNumber", mrIid,
+                "manifestPath", patchInfo.filePath(),
+                "changePreview", patchInfo.libraryName() + " " + patchInfo.oldVersion() + " → " + patchInfo.newVersion());
     }
 
     /**
@@ -224,7 +230,7 @@ public class GitLabService {
 
     private record BranchEntry(String name, boolean isDefault, String committedDate) {}
 
-    private boolean updateDependencyFile(String token, String base, String encodedPath,
+    private ManifestPatchInfo updateDependencyFile(String token, String base, String encodedPath,
                                           String branch, String baseBranch,
                                           String libName, String oldVersion, String newVersion) {
         List<String> paths = discoverManifestPaths(token, base, encodedPath, baseBranch);
@@ -261,13 +267,13 @@ public class GitLabService {
                 putJson(token, base + "/api/v4/projects/" + encodedPath
                         + "/repository/files/" + encodedFile, commitPayload);
                 log.info("[GitLab] Updated {} on branch {}", path, branch);
-                return true;
+                return new ManifestPatchInfo(path, libName, oldVersion, newVersion);
             } catch (Exception e) {
                 log.debug("[GitLab] Skipping {} for branch {}: {}", path, branch, e.getMessage());
             }
         }
         log.warn("[GitLab] No dependency file updated — {} {} not found in manifests", libName, oldVersion);
-        return false;
+        return null;
     }
 
     private List<String> discoverManifestPaths(String token, String base, String encodedPath, String ref) {
