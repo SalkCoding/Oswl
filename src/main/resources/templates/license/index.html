@@ -5,7 +5,7 @@
 
     <div th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'license')}"></div>
 
-    <main class="flex-1 w-full max-w-[1440px] mx-auto px-[80px] py-[40px]">
+    <main class="flex-1 w-full max-w-[1440px] mx-auto px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] xl:px-[80px] py-[24px] md:py-[40px]">
 
         <!-- Deployment context + exports bar -->
         <div th:replace="~{license/components/context_bar :: context_bar}"></div>
@@ -15,9 +15,11 @@
             <!-- AI configured and insight available -->
             <div th:if="${licenseAiInsight != null and !#strings.isEmpty(licenseAiInsight)}"
                  class="mb-[24px] flex flex-col gap-[12px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
-                <div class="flex items-center gap-[6px]">
-                    <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
-                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{license.ai.insight}">AI Insight</p>
+                <div class="flex items-center justify-between gap-[12px] flex-wrap">
+                    <div class="flex items-center gap-[6px]">
+                        <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{license.ai.insight}">AI Insight</p>
+                    </div>
                 </div>
                 <p class="text-[14px] text-[#272D30] tracking-[-0.15px] m-0 leading-relaxed"
                    th:text="${licenseAiInsight}"></p>
@@ -25,16 +27,22 @@
             <!-- AI not configured or no data -->
             <div th:if="${licenseAiInsight == null or #strings.isEmpty(licenseAiInsight)}"
                  class="mb-[24px] flex flex-col gap-[12px] p-[20px] rounded-[10px] bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)]">
-                <div class="flex items-center gap-[6px]">
-                    <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[24px] h-[24px] shrink-0 opacity-30" alt="" aria-hidden="true">
-                    <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px] m-0" th:text="#{license.ai.insight}">AI Insight</p>
+                <div class="flex items-center justify-between gap-[12px] flex-wrap">
+                    <div class="flex items-center gap-[6px]">
+                        <img th:src="@{/icon/icon-lightbulb.svg}" class="w-[24px] h-[24px] shrink-0 opacity-30" alt="" aria-hidden="true">
+                        <p class="font-bold text-[16px] text-[var(--grayscale-40)] tracking-[-0.16px] m-0" th:text="#{license.ai.insight}">AI Insight</p>
+                    </div>
+                    <button th:if="${aiConfigured and currentScanId != null}" type="button" id="license-refresh-insight-btn"
+                            th:attr="data-project-id=${projectId},data-scan-id=${currentScanId}"
+                            class="text-[12px] font-medium text-[var(--primary-120)] border border-[rgba(51,209,183,0.4)] rounded-[6px] px-[10px] py-[5px] bg-white hover:bg-[rgba(51,209,183,0.06)] cursor-pointer"
+                            th:text="#{license.ai.refresh}">Generate insight</button>
                 </div>
                 <p th:if="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:text="#{license.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
                 <p th:unless="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:text="#{riskTrend.ai.notConfigured}">AI provider is not configured.</p>
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-[48px] items-start w-full mt-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-[24px] lg:gap-[48px] items-start w-full mt-6">
             <div th:replace="~{license/components/licenses_found :: licenses_found}"></div>
 
             <!-- Right column: Obligations / Conflicts / Review -->
@@ -57,6 +65,26 @@
     </main>
 
     <footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+    <script th:inline="javascript">
+    document.getElementById('license-refresh-insight-btn')?.addEventListener('click', async function() {
+        const btn = this;
+        const projectId = btn.dataset.projectId;
+        const scanId = btn.dataset.scanId;
+        if (!projectId || !scanId) return;
+        btn.disabled = true;
+        try {
+            const r = await fetch('/projects/' + projectId + '/license/refresh-insights?scanId=' + scanId, {
+                method: 'POST',
+                headers: oswlJsonHeaders()
+            });
+            if (r.ok) location.reload();
+            else btn.disabled = false;
+        } catch (e) {
+            btn.disabled = false;
+        }
+    });
+    </script>
 
 </body>
 </html>

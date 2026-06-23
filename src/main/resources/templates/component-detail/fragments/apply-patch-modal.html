@@ -31,13 +31,35 @@ const _patchI18n = {
     btnCreate:       /*[[#{componentDetail.patch.btn.create}]]*/ 'Create Pull Request',
     successCreated:  /*[[#{componentDetail.patch.success.created}]]*/ 'PR/MR created!',
     successViewLink: /*[[#{componentDetail.patch.success.viewLink}]]*/ 'View PR/MR',
+    changedFile:     /*[[#{componentDetail.patch.success.changedFile}]]*/ 'Changed file',
     errorFailed:     /*[[#{componentDetail.patch.error.failed}]]*/ 'Failed to create PR ({0}).',
     errorNetwork:    /*[[#{componentDetail.patch.error.network}]]*/ 'Network error. Please try again.',
     errorBranchRequired: /*[[#{componentDetail.patch.error.branchRequired}]]*/ 'Target branch is required.',
+    errorNoPermission: /*[[#{componentDetail.patch.error.noPermission}]]*/ 'No permission.',
+    errorNoPermissionHint: /*[[#{componentDetail.patch.error.noPermission.hint}]]*/ '',
+    errorManifest: /*[[#{componentDetail.patch.error.manifestNotFound}]]*/ 'Manifest not found.',
+    errorManifestHint: /*[[#{componentDetail.patch.error.manifestNotFound.hint}]]*/ '',
+    errorNoToken: /*[[#{componentDetail.patch.error.noToken}]]*/ 'No VCS token.',
+    errorNoTokenHint: /*[[#{componentDetail.patch.error.noToken.hint}]]*/ '',
     cancel:          /*[[#{common.cancel}]]*/ 'Cancel',
     criticalSuffix:  /*[[#{componentDetail.patch.label.criticalSuffix}]]*/ ' Critical',
     highSuffix:      /*[[#{componentDetail.patch.label.highSuffix}]]*/ ' High'
 };
+
+function resolvePatchError(raw) {
+    if (!raw) return { message: _patchI18n.errorFailed.replace('{0}', '?'), hint: null };
+    const lower = String(raw).toLowerCase();
+    if (lower.includes('403') || lower.includes('permission') || lower.includes('forbidden')) {
+        return { message: _patchI18n.errorNoPermission, hint: _patchI18n.errorNoPermissionHint };
+    }
+    if (lower.includes('dependency manifest') || lower.includes('could not find') || lower.includes('bump the version manually')) {
+        return { message: _patchI18n.errorManifest, hint: _patchI18n.errorManifestHint };
+    }
+    if (lower.includes('no github account') || lower.includes('no gitlab connection') || lower.includes('no bitbucket connection') || lower.includes('connect one from')) {
+        return { message: _patchI18n.errorNoToken, hint: _patchI18n.errorNoTokenHint };
+    }
+    return { message: raw, hint: null };
+}
 </script>
 
 <div th:fragment="apply-patch"
@@ -51,8 +73,11 @@ const _patchI18n = {
         reviewer: '',
         submitting: false,
         prError: null,
+        prErrorHint: null,
         prDone: false,
         prUrl: null,
+        manifestPath: null,
+        changePreview: null,
 
         initTargetBranch() {
             const root = document.getElementById('component-detail-content');
@@ -60,8 +85,11 @@ const _patchI18n = {
             const valid = scanVersion && scanVersion !== '-';
             this.targetBranch = valid ? scanVersion : '';
             this.prError = null;
+            this.prErrorHint = null;
             this.prDone = false;
             this.prUrl = null;
+            this.manifestPath = null;
+            this.changePreview = null;
         },
 
         async createPr() {
@@ -72,6 +100,7 @@ const _patchI18n = {
             }
             this.submitting = true;
             this.prError = null;
+            this.prErrorHint = null;
             const root = document.getElementById('component-detail-content');
             const projectId   = root ? root.dataset.projectId : null;
             const componentId = root ? root.dataset.componentId : null;
@@ -95,11 +124,16 @@ const _patchI18n = {
                 if (r.ok) {
                     this.prDone = true;
                     this.prUrl  = data.prUrl;
+                    this.manifestPath = data.manifestPath || null;
+                    this.changePreview = data.changePreview || null;
                 } else {
-                    this.prError = data.error || _patchI18n.errorFailed.replace('{0}', r.status);
+                    const resolved = resolvePatchError(data.error || _patchI18n.errorFailed.replace('{0}', r.status));
+                    this.prError = resolved.message;
+                    this.prErrorHint = resolved.hint;
                 }
             } catch (e) {
                 this.prError = _patchI18n.errorNetwork;
+                this.prErrorHint = null;
             } finally {
                 this.submitting = false;
             }
@@ -225,10 +259,18 @@ const _patchI18n = {
         <!-- Actions (fixed footer) -->
         <div class="flex flex-col gap-[10px] px-[36px] pt-[16px] pb-[28px] shrink-0 border-t border-[var(--grayscale-20)]">
             <!-- Error feedback -->
-            <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center" x-text="prError"></div>
+            <div x-show="prError" x-cloak class="w-full bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">
+                <p class="m-0 font-medium" x-text="prError"></p>
+                <p x-show="prErrorHint" class="m-0 mt-[6px] text-red-600/90 font-normal leading-[1.45]" x-text="prErrorHint"></p>
+            </div>
             <!-- Success feedback -->
-            <div x-show="prDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center">
-                <span th:text="#{componentDetail.patch.success.created}">PR/MR created!</span> <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold" th:text="#{componentDetail.patch.success.viewLink}">View PR/MR</a>
+            <div x-show="prDone" x-cloak class="w-full bg-green-50 border border-green-200 text-green-700 text-[12px] rounded-[8px] px-[10px] py-[8px] text-center leading-[1.45]">
+                <div>
+                    <span th:text="#{componentDetail.patch.success.created}">PR/MR created!</span>
+                    <a :href="prUrl" target="_blank" rel="noopener" class="underline font-semibold" th:text="#{componentDetail.patch.success.viewLink}">View PR/MR</a>
+                </div>
+                <p x-show="manifestPath" x-cloak class="mt-[6px] mb-0 text-[11px] text-green-800"
+                   x-text="manifestPath ? (_patchI18n.changedFile + ': ' + manifestPath + (changePreview ? ' — ' + changePreview : '')) : ''"></p>
             </div>
 
             <div class="flex gap-[16px] items-center">

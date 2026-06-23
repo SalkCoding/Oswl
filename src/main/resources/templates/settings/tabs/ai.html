@@ -14,8 +14,16 @@
 
     <!-- Error Banner -->
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
-         x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-[13px] leading-[1.5]">
+        <p class="text-red-800 font-medium m-0" x-text="apiError"></p>
+        <p x-show="apiErrorHint" x-cloak class="text-red-700 mt-[6px] m-0" x-text="apiErrorHint"></p>
+    </div>
+
+    <!-- Data privacy -->
+    <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] flex flex-col gap-[6px]">
+        <p class="font-semibold text-[13px] text-[var(--grayscale-80)] m-0" th:text="#{settings.ai.privacy.title}">What is sent to AI providers</p>
+        <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.privacy.body}">Only metadata is sent — never full source code.</p>
+    </div>
 
     <!-- Usage summary -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[28px] py-[24px] flex flex-col gap-[16px]">
@@ -259,6 +267,11 @@
             </div>
             <!-- Local Fields -->
             <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <ul class="m-0 pl-[16px] flex flex-col gap-[4px] text-[12px] text-[var(--grayscale-60)] leading-[1.45] list-disc">
+                    <li th:text="#{settings.ai.local.hint.serve}">Start Ollama first: run ollama serve in a terminal, then test the connection.</li>
+                    <li th:text="#{settings.ai.local.hint.endpoint}">Use http://localhost:11434/v1 — the /v1 suffix is required.</li>
+                    <li th:text="#{settings.ai.local.hint.model}">Include the full model tag (e.g. llama3.2:latest). Run ollama pull if the model is missing.</li>
+                </ul>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.endpoint}">API Endpoint</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
@@ -602,7 +615,7 @@
                 { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
             ],
             savingProvider: false, savingEnrichment: false, testing: false,
-            apiError: null, toastVisible: false, toastMsg: '',
+            apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '',
             usageStats: null,
 
             localeLabel() {
@@ -713,7 +726,7 @@
             },
 
             async saveProvider() {
-                this.savingProvider = true; this.apiError = null;
+                this.savingProvider = true; this.apiError = null; this.apiErrorHint = null;
                 try {
                     if (this.mode === 'off') {
                         const r = await fetch('/api/settings/ai/deactivate', {
@@ -746,7 +759,7 @@
             },
 
             async saveEnrichment() {
-                this.savingEnrichment = true; this.apiError = null;
+                this.savingEnrichment = true; this.apiError = null; this.apiErrorHint = null;
                 try {
                     const prefs = this.preferencePayload();
                     if (this.mode === 'off') {
@@ -777,6 +790,7 @@
                 if (this.mode === 'off') return;
                 this.testing = true;
                 this.apiError = null;
+                this.apiErrorHint = null;
                 try {
                     const f = this.forms[this.mode];
                     const body = {
@@ -796,9 +810,11 @@
                         this.showToast(_aiI18n.testOk);
                     } else {
                         this.apiError = data.message || _aiI18n.testFailed;
+                        this.apiErrorHint = data.hint || null;
                     }
                 } catch (e) {
-                    this.apiError = _aiI18n.testFailed + ': ' + e.message;
+                    this.apiError = _aiI18n.testFailed;
+                    this.apiErrorHint = e.message;
                 } finally {
                     this.testing = false;
                 }

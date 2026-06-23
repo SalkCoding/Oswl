@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{projects.pageTitle})}"></head>
+<style>
+@keyframes oswl-owl-bob { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-3px); } }
+.oswl-owl-bob { animation: oswl-owl-bob 1.2s ease-in-out infinite; }
+</style>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
       th:attr="data-active-count=${#lists.size(projects)},data-trash-count=${#lists.size(trashProjects)}"
       x-data="projectsPage()"
       x-init="initToast()"
-      :class="(openPanel || confirmModal) ? 'overflow-hidden h-screen' : ''">
+      :class="(openPanel || confirmModal || showOnboarding) ? 'overflow-hidden h-screen' : ''">
     <script th:inline="javascript">
     const _pi18n = {
         githubConnected:        /*[[#{projects.github.connected}]]*/         'GitHub connected successfully.',
@@ -19,7 +23,8 @@
         deleteAllTitle:         /*[[#{projects.trash.deleteAllPermanently}]]*/ 'Delete All Permanently',
         confirmDeleteAll:       /*[[#{projects.trash.confirmDeleteAllPermanent}]]*/ 'Permanently delete ALL trashed projects? This cannot be undone.',
         deletePermanentTitle:   /*[[#{projects.trash.deletePermanent}]]*/    'Delete Permanently',
-        confirmDeletePermanent: /*[[#{projects.trash.confirmDeletePermanent}]]*/ 'Permanently delete \u201c{0}\u201d? This cannot be undone.'
+        confirmDeletePermanent: /*[[#{projects.trash.confirmDeletePermanent}]]*/ 'Permanently delete \u201c{0}\u201d? This cannot be undone.',
+        onboardingDismiss:      /*[[#{projects.onboarding.dismiss}]]*/ 'Got it'
     };
     </script>
 
@@ -39,6 +44,7 @@
                 newProjectName: '',
                 newProjectSaving: false,
                 newProjectError: '',
+                showOnboarding: false,
                 initToast() {
                     const p = new URLSearchParams(location.search).get('github');
                     if (p === 'connected')         this.toast = { type: 'success', msg: _pi18n.githubConnected };
@@ -55,6 +61,9 @@
                         this.openPanel = 'cli';
                         history.replaceState(null, '', location.pathname);
                     }
+                    if (!localStorage.getItem('oswl-onboarding-v1')) {
+                        this.showOnboarding = true;
+                    }
                     const self = this;
                     window.updateProjectCounts = (a, t) => { self.activeCount += a; self.trashCount += t; };
                     window.getTrashSelected    = () => [...self.trashSelected];
@@ -67,6 +76,10 @@
                 },
                 openConfirm(title, message, onConfirm) {
                     this.confirmModal = { title, message, onConfirm };
+                },
+                dismissOnboarding() {
+                    localStorage.setItem('oswl-onboarding-v1', '1');
+                    this.showOnboarding = false;
                 },
                 async submitNewProject() {
                     this.newProjectError = '';
@@ -112,7 +125,7 @@
 
             <div class="grid grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
                 <button type="button" @click="openPanel = 'cli'"
-                   class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
+                   class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-terminal.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
                         <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]" th:text="#{projects.add.cli.title}">CLI Integration</span>
@@ -124,10 +137,11 @@
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.cli.badge.highSecurity}">High Security</span>
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.cli.badge.noUpload}">No Source Code Upload</span>
                     </div>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
 
                 <button type="button" @click="openPanel = 'quickImport'; $nextTick(() => window.dispatchEvent(new CustomEvent('qi-panel-open')))"
-                   class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
+                   class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
                             <!-- GitHub -->
@@ -158,13 +172,14 @@
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.quickImport.badge.quickSetup}">Quick Setup</span>
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.quickImport.badge.authRequired}">Auth Required</span>
                     </div>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
 
                 <!-- New Project card — admin or PROJECT_CREATE only -->
                 <button type="button"
                         th:if="${#authorization.expression('hasPermission(null, ''PROJECT_CREATE'') or hasRole(''SYSTEM_ADMIN'')')}"
                         @click="newProjectName = ''; newProjectError = ''; newProjectSaving = false; openPanel = 'newProject'; $nextTick(() => $refs.newProjectInput && $refs.newProjectInput.focus())"
-                        class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none">
+                        class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-plus.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
                         <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]" th:text="#{projects.add.new.title}">New Project</span>
@@ -176,6 +191,7 @@
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.new.badge.adminOnly}">Admin Only</span>
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.new.badge.cliReady}">CLI-ready</span>
                     </div>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
             </div>
         </section>
@@ -286,11 +302,13 @@
 
                         <!-- Scan in progress -->
                         <div th:if="${project.scanStatus == 'SCANNING' or project.scanStatus == 'ANALYZING' or project.scanStatus == 'PENDING'}"
-                             class="w-full flex items-center gap-[10px] rounded-[8px] px-[14px] py-[12px]"
+                             class="w-full flex items-center gap-[12px] rounded-[8px] px-[14px] py-[12px]"
                              style="background:rgba(0,160,147,0.06);border:1px solid rgba(0,160,147,0.2);">
-                            <!-- spinner -->
-                            <svg class="shrink-0 animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00a093" stroke-width="2.5" stroke-linecap="round"><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-                            <span class="text-[12px] font-medium text-[#00a093] tracking-[-0.12px]" th:text="#{projects.scanning}">Analyzing vulnerabilities… Page will refresh automatically.</span>
+                            <img th:src="@{/graphic/owl-head.svg}" class="w-[40px] h-[40px] shrink-0 oswl-owl-bob" alt="" aria-hidden="true">
+                            <div class="flex flex-col gap-[2px] min-w-0">
+                                <span class="text-[12px] font-semibold text-[#00a093] tracking-[-0.12px]" th:text="#{projects.scanning}">Analyzing vulnerabilities… Page will refresh automatically.</span>
+                                <span class="text-[11px] font-medium text-[#5e6b70] tracking-[-0.11px]" th:text="#{projects.scanning.tip}">Hang tight — OsWL is checking CVE databases.</span>
+                            </div>
                         </div>
 
                         <!-- Scan failed -->
@@ -675,6 +693,31 @@
                     Delete Permanently
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- First-visit onboarding -->
+    <div x-show="showOnboarding" x-cloak
+         class="fixed inset-0 z-[140] flex items-center justify-center bg-black/50 px-[20px]"
+         @keydown.escape.window="dismissOnboarding()">
+        <div class="bg-white rounded-[12px] shadow-2xl w-full max-w-[520px] p-[28px] flex flex-col gap-[18px]"
+             role="dialog" aria-modal="true" @click.stop>
+            <div class="flex items-start gap-[14px]">
+                <img th:src="@{/graphic/owl-head.svg}" class="w-[52px] h-[52px] shrink-0" alt="" aria-hidden="true">
+                <div>
+                    <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] m-0" th:text="#{projects.onboarding.title}">Welcome to OsWL</h2>
+                    <p class="text-[13px] text-[var(--grayscale-60)] mt-[6px] m-0" th:text="#{projects.onboarding.subtitle}">Three steps to your first security insight</p>
+                </div>
+            </div>
+            <ol class="list-decimal list-inside flex flex-col gap-[10px] text-[13px] text-[var(--grayscale-80)] leading-[1.5] m-0 pl-[4px]">
+                <li th:text="#{projects.onboarding.step1}">Connect a repository</li>
+                <li th:text="#{projects.onboarding.step2}">Open Security Center</li>
+                <li th:text="#{projects.onboarding.step3}">Apply a patch or defer</li>
+            </ol>
+            <p class="text-[12px] text-[var(--grayscale-50)] bg-[var(--grayscale-5)] rounded-[8px] px-[12px] py-[10px] m-0" th:text="#{projects.onboarding.demoHint}">Local dev tip</p>
+            <button type="button" @click="dismissOnboarding()"
+                    class="self-end bg-[var(--primary-120)] hover:opacity-90 text-white font-bold text-[14px] px-[24px] py-[10px] rounded-[8px] transition-opacity"
+                    th:text="#{projects.onboarding.dismiss}">Got it</button>
         </div>
     </div>
 

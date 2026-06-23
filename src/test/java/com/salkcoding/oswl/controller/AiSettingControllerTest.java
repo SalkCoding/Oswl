@@ -9,8 +9,10 @@ import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,9 +22,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,6 +45,8 @@ class AiSettingControllerTest {
     @Mock AiAnalysisService   aiAnalysisService;
     @Mock AiPreferencesService aiPreferencesService;
     @Mock OutboundUrlValidator outboundUrlValidator;
+    @Mock MessageSource messageSource;
+    @Mock VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
 
     @InjectMocks AiSettingController controller;
 
@@ -55,6 +61,14 @@ class AiSettingControllerTest {
     @BeforeEach
     void setUpPreferences() {
         stubPreferences();
+        lenient().when(messageSource.getMessage(anyString(), any(), anyString(), any(Locale.class)))
+                .thenAnswer(inv -> {
+                    Object[] args = inv.getArgument(1);
+                    if (args != null && args.length > 0 && args[0] != null) {
+                        return inv.getArgument(0) + ": " + args[0];
+                    }
+                    return inv.getArgument(0);
+                });
     }
 
     // ── getCurrent ────────────────────────────────────────────────────────
@@ -283,7 +297,8 @@ class AiSettingControllerTest {
         req.setApiKey("sk-direct-key");
         req.setModelName("gpt-4o");
 
-        when(aiAnalysisService.testConnection(any())).thenReturn(true);
+        when(aiAnalysisService.testConnectionDetailed(any()))
+                .thenReturn(AiConnectionTestResult.ok("Connection successful!"));
 
         ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
 
@@ -319,7 +334,8 @@ class AiSettingControllerTest {
                 .build();
         when(aiSettingRepository.findByProvider(AiProvider.ANTHROPIC)).thenReturn(Optional.of(stored));
         when(encryptionService.decrypt("enc-stored-key")).thenReturn("decrypted-key");
-        when(aiAnalysisService.testConnection(any())).thenReturn(false);
+        when(aiAnalysisService.testConnectionDetailed(any()))
+                .thenReturn(AiConnectionTestResult.fail("failed", "hint"));
 
         ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
 
@@ -336,7 +352,8 @@ class AiSettingControllerTest {
         req.setModelName("llama3");
         req.setBaseUrl("https://llm.example.com/v1");
 
-        when(aiAnalysisService.testConnection(any())).thenReturn(true);
+        when(aiAnalysisService.testConnectionDetailed(any()))
+                .thenReturn(AiConnectionTestResult.ok("Connection successful!"));
 
         ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
 
@@ -353,7 +370,8 @@ class AiSettingControllerTest {
         req.setModelName("gemma4:e4b");
         req.setBaseUrl("http://localhost:11434/v1");
 
-        when(aiAnalysisService.testConnection(any())).thenReturn(true);
+        when(aiAnalysisService.testConnectionDetailed(any()))
+                .thenReturn(AiConnectionTestResult.ok("Connection successful!"));
 
         ResponseEntity<Map<String, Object>> resp = controller.testConnection(req);
 
@@ -380,7 +398,7 @@ class AiSettingControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody().get("success")).isEqualTo(false);
         assertThat(resp.getBody().get("message").toString()).contains("Loopback");
-        verify(aiAnalysisService, never()).testConnection(any());
+        verify(aiAnalysisService, never()).testConnectionDetailed(any());
     }
 
     @Test
@@ -401,6 +419,6 @@ class AiSettingControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resp.getBody().get("success")).isEqualTo(false);
-        verify(aiAnalysisService, never()).testConnection(any());
+        verify(aiAnalysisService, never()).testConnectionDetailed(any());
     }
 }

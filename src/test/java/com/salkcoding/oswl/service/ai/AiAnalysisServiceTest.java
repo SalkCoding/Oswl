@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
@@ -32,6 +33,7 @@ class AiAnalysisServiceTest {
     @Mock AnthropicClient anthropicClient;
     @Mock EncryptionService encryptionService;
     @Mock AiUsageLimiterService usageLimiter;
+    @Mock AiConnectionDiagnostics connectionDiagnostics;
 
     @InjectMocks
     AiAnalysisService aiAnalysisService;
@@ -46,6 +48,12 @@ class AiAnalysisServiceTest {
         prompts.reloadWithLocale("en");
         ReflectionTestUtils.setField(aiAnalysisService, "promptTemplates", prompts);
         lenient().when(usageLimiter.tryConsume(any())).thenReturn(true);
+        lenient().when(connectionDiagnostics.preflight(any())).thenReturn(Optional.empty());
+        lenient().when(connectionDiagnostics.success()).thenReturn(AiConnectionTestResult.ok("OK"));
+        lenient().when(connectionDiagnostics.fromEmptyResponse(any()))
+                .thenReturn(AiConnectionTestResult.fail("empty", "hint"));
+        lenient().when(connectionDiagnostics.fromException(any(), any()))
+                .thenReturn(AiConnectionTestResult.fail("err", "hint"));
     }
 
     // ── isAiConfigured ────────────────────────────────────────────────────
