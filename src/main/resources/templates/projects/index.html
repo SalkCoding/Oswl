@@ -1,10 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{projects.pageTitle})}"></head>
-<style>
-@keyframes oswl-owl-bob { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-3px); } }
-.oswl-owl-bob { animation: oswl-owl-bob 1.2s ease-in-out infinite; }
-</style>
 <body class="flex flex-col min-h-screen bg-[var(--grayscale-5)] relative"
       th:attr="data-active-count=${#lists.size(projects)},data-trash-count=${#lists.size(trashProjects)}"
       x-data="projectsPage()"
@@ -304,7 +300,6 @@
                         <div th:if="${project.scanStatus == 'SCANNING' or project.scanStatus == 'ANALYZING' or project.scanStatus == 'PENDING'}"
                              class="w-full flex items-center gap-[12px] rounded-[8px] px-[14px] py-[12px]"
                              style="background:rgba(0,160,147,0.06);border:1px solid rgba(0,160,147,0.2);">
-                            <img th:src="@{/graphic/owl-head.svg}" class="w-[40px] h-[40px] shrink-0 oswl-owl-bob" alt="" aria-hidden="true">
                             <div class="flex flex-col gap-[2px] min-w-0">
                                 <span class="text-[12px] font-semibold text-[#00a093] tracking-[-0.12px]" th:text="#{projects.scanning}">Analyzing vulnerabilities… Page will refresh automatically.</span>
                                 <span class="text-[11px] font-medium text-[#5e6b70] tracking-[-0.11px]" th:text="#{projects.scanning.tip}">Hang tight — OsWL is checking CVE databases.</span>
@@ -703,7 +698,7 @@
         <div class="bg-white rounded-[12px] shadow-2xl w-full max-w-[520px] p-[28px] flex flex-col gap-[18px]"
              role="dialog" aria-modal="true" @click.stop>
             <div class="flex items-start gap-[14px]">
-                <img th:src="@{/graphic/owl-head.svg}" class="w-[52px] h-[52px] shrink-0" alt="" aria-hidden="true">
+                <img th:src="@{/graphic/symbol_w.svg}" class="w-[52px] h-[52px] shrink-0" alt="" aria-hidden="true">
                 <div>
                     <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] m-0" th:text="#{projects.onboarding.title}">Welcome to OsWL</h2>
                     <p class="text-[13px] text-[var(--grayscale-60)] mt-[6px] m-0" th:text="#{projects.onboarding.subtitle}">Three steps to your first security insight</p>
