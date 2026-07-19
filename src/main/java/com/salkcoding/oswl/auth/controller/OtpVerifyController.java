@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.OtpVerifyControllerSpec;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.auth.service.LoginCompletionService;
@@ -41,7 +42,7 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class OtpVerifyController {
+public class OtpVerifyController implements OtpVerifyControllerSpec {
 
     private final OtpService           otpService;
     private final AuditLogService       auditLogService;

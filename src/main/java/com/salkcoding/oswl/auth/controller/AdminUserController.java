@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.AdminUserControllerSpec;
 import com.salkcoding.oswl.auth.dto.CreateUserRequest;
 import com.salkcoding.oswl.auth.dto.UpdateDisplayNameRequest;
 import com.salkcoding.oswl.auth.dto.UpdateUserRolesRequest;
@@ -16,7 +17,7 @@ import java.util.List;
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('SYSTEM_ADMIN')")
-public class AdminUserController {
+public class AdminUserController implements AdminUserControllerSpec {
 
     private final UserManagementService userManagementService;
 

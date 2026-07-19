@@ -192,7 +192,9 @@ Configure the LLM provider and enrichment behaviour for CVE/license summaries.
 | **OpenAI** | API key + model (e.g. `gpt-4o-mini`) |
 | **Anthropic** | API key + model |
 | **Gemini** | API key + OpenAI-compatible base URL when required |
-| **Local** | OpenAI-compatible endpoint (e.g. Ollama) |
+| **Local** | OpenAI-compatible endpoint (e.g. Ollama) — or the built-in Embedded AI sidecar below |
+
+The **Embedded AI (built-in local model)** card on the same tab runs a bundled llama.cpp `llama-server` sidecar (CPU-only, localhost-only, no API key) and registers it as the LOCAL provider. The card offers a **model dropdown** (any `.gguf` in the folder, or Auto preference order), a **folder override** with Save (persisted; changing it while running stops the sidecar), and **automatic fallback** to the next available model when the first choice fails to start. See [Embedded AI](Embedded-AI.md).
 
 Only one provider is **active** at a time. The tab also exposes:
 
@@ -205,6 +207,7 @@ Only one provider is **active** at a time. The tab also exposes:
 | Prompt overrides | Per-key template edits (see `GET /api/settings/ai/prompts`) |
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
+**Embedded AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — see [API Reference — AI](API-Reference.md#ai).  
 **Per project:** `PATCH /api/projects/{id}/deployment-profile`.  
 **Component detail:** `POST .../cves/{cveDbId}/ai-summarize` to refresh a CVE AI summary (logged as `COMPONENT.CVE_AI_REGENERATE`).
 

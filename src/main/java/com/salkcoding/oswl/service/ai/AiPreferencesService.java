@@ -112,6 +112,26 @@ public class AiPreferencesService {
                 current.getPromptOverrides(), current.getDefaultDeploymentProfile());
     }
 
+    /** Persisted override for the embedded sidecar directory (null = use oswl.ai.embedded.dir). */
+    public String getEmbeddedDir() {
+        return getEffective().getEmbeddedDir();
+    }
+
+    /** Persisted preferred embedded model file name (null = built-in preference order). */
+    public String getEmbeddedModel() {
+        return getEffective().getEmbeddedModel();
+    }
+
+    @Transactional
+    public AiPreferences saveEmbeddedConfig(String embeddedDir, String embeddedModel) {
+        AiPreferences prefs = repository.findById(AiPreferences.SINGLETON_ID)
+                .orElseGet(this::defaultPreferences);
+        prefs.updateEmbedded(embeddedDir, embeddedModel);
+        repository.save(prefs);
+        log.info("[AI] Embedded config saved dir={} model={}", prefs.getEmbeddedDir(), prefs.getEmbeddedModel());
+        return prefs;
+    }
+
     private void ensureDefaults() {
         if (repository.findById(AiPreferences.SINGLETON_ID).isEmpty()) {
             repository.save(defaultPreferences());
@@ -141,9 +161,16 @@ public class AiPreferencesService {
     }
 
     private static String normalizeLocale(String locale) {
-        if (locale == null || locale.isBlank()) return "en";
+        if (locale == null || locale.isBlank()) return detectLocale();
         String value = locale.strip().toLowerCase();
+        // "auto" (the default) follows the server's JVM/OS locale so a Korean
+        // machine gets Korean AI prompts out of the box; anything else is en.
+        if ("auto".equals(value)) return detectLocale();
         return "ko".equals(value) ? "ko" : "en";
+    }
+
+    private static String detectLocale() {
+        return "ko".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage()) ? "ko" : "en";
     }
 
     private static int clamp(int value, int min, int max, int fallback) {

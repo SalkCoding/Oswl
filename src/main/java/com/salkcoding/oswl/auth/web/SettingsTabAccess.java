@@ -12,9 +12,10 @@ public class SettingsTabAccess {
     @Data
     @AllArgsConstructor
     public static class TabSpec {
-        private String key;     // admin / ai / vcs / cli / cache
-        private String icon;    // emoji
-        private String label;
+        private String key;      // admin / ai / vcs / cli / cache
+        private String icon;     // emoji
+        /** i18n message key resolved in the template (e.g. settings.tab.admin). */
+        private String labelKey;
     }
 
     public static List<TabSpec> accessibleTabsFor(OswlUserPrincipal principal) {
@@ -22,27 +23,27 @@ public class SettingsTabAccess {
         if (principal == null) return tabs;
 
         if (principal.isSystemAdmin()) {
-            tabs.add(new TabSpec("admin", "🔐", "Administration"));
+            tabs.add(new TabSpec("admin", "🔐", "settings.tab.admin"));
         }
         if (principal.isSystemAdmin()
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_SECURITY_MANAGE)) {
-            tabs.add(new TabSpec("security", "🛡️", "Security"));
+            tabs.add(new TabSpec("security", "🛡️", "settings.tab.security"));
         }
         if (principal.isSystemAdmin()
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.LICENSE_POLICY_MANAGE)) {
-            tabs.add(new TabSpec("license-policy", "📋", "License Policy"));
+            tabs.add(new TabSpec("license-policy", "📋", "settings.tab.licensePolicy"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
-            tabs.add(new TabSpec("ai", "🤖", "AI Settings"));
+            tabs.add(new TabSpec("ai", "🤖", "settings.tab.ai"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_VCS_MANAGE)) {
-            tabs.add(new TabSpec("vcs", "🔗", "VCS Connections"));
+            tabs.add(new TabSpec("vcs", "🔗", "settings.tab.vcs"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CLI_KEY_MANAGE)) {
-            tabs.add(new TabSpec("cli", "🔑", "CLI API Keys"));
+            tabs.add(new TabSpec("cli", "🔑", "settings.tab.cli"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CACHE_MANAGE)) {
-            tabs.add(new TabSpec("cache", "⚡", "Cache Settings"));
+            tabs.add(new TabSpec("cache", "⚡", "settings.tab.cache"));
         }
         return tabs;
     }

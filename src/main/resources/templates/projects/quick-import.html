@@ -230,6 +230,12 @@
                         <div class="h-full bg-[var(--primary-120)] rounded-full transition-all duration-500"
                              :style="'width:' + (job.percent != null ? job.percent : 0) + '%'"></div>
                     </div>
+                    <!-- Elapsed / estimated remaining time -->
+                    <div x-show="elapsedText(job) && !['DONE','FAILED'].includes((job.phase || '').toUpperCase())" x-cloak
+                         class="flex items-center justify-between text-[11px] text-[var(--grayscale-50)] tabular-nums">
+                        <span><span th:text="#{quickImport.progress.elapsed}">Elapsed</span> <span x-text="elapsedText(job)"></span></span>
+                        <span x-show="etaText(job)" x-cloak x-text="etaText(job)"></span>
+                    </div>
                     <template x-for="(entry, idx) in job.progressLog" :key="job.jobId + '-' + idx">
                         <div class="flex items-start gap-[10px] min-w-0 w-full">
                             <span class="shrink-0 mt-[1px]">
@@ -517,6 +523,8 @@
         importAndScan:       /*[[#{quickImport.btn.importAndScan}]]*/ 'Import & Scan',
         cancelImport:        /*[[#{quickImport.btn.cancel}]]*/ 'Cancel',
         canceling:           /*[[#{quickImport.btn.canceling}]]*/ 'Canceling…',
+        etaMinutes:          /*[[#{quickImport.progress.etaMinutes}]]*/ 'about {0} min left',
+        etaSeconds:          /*[[#{quickImport.progress.etaSeconds}]]*/ 'about {0} sec left',
         completeTitleTpl:    /*[[#{quickImport.complete.title}]]*/ 'Import Complete \u2014 {0} created.',
         viewSecurityCenter:  /*[[#{quickImport.btn.viewSecurityCenter}]]*/ 'View Security Center',
         importAnother:       /*[[#{quickImport.btn.importAnother}]]*/ 'Import Another',

@@ -71,4 +71,10 @@ public class QuickImportJobStatus {
 
     @Schema(description = "Maximum queued imports per user", example = "3")
     private final Integer maxQueuedSlots;
+
+    @Schema(description = "Epoch millis when the job was queued — the UI derives elapsed time from this")
+    private final Long startedAtEpochMs;
+
+    @Schema(description = "Epoch millis when the job left QUEUED and began running — the UI derives the ETA from this and percent")
+    private final Long runningSinceEpochMs;
 }

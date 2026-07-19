@@ -22,7 +22,6 @@ public class AiUsageStatsService {
 
     private final AiUsageEventRepository eventRepository;
     private final AiUsageLimiterService usageLimiter;
-    private final AiPreferencesService preferencesService;
     private final AiSettingRepository aiSettingRepository;
 
     @Transactional(readOnly = true)

@@ -172,12 +172,6 @@ public class AiAnalysisService {
         return batchStructuredWithRetry(prompt, setting, items.size(), "CVE", "batch.cve");
     }
 
-    @Transactional(readOnly = true)
-    public AiStructuredSummary.ParsedEntry summarizeCveStructured(CveSummaryRequest item, String deploymentProfile) {
-        CveSummarizeOutcome outcome = summarizeCveWithOutcome(item, deploymentProfile);
-        return outcome.entry();
-    }
-
     /**
      * On-demand CVE triage with an explicit failure reason (used by component-detail refresh).
      */

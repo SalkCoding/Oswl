@@ -67,6 +67,7 @@ Requires `PROJECT_CREATE` (or System Admin). Session auth.
 | `GET` | `/api/quick-import/connections` | List VCS connections for the current user |
 | `GET` | `/api/quick-import/repos?provider=` | List repositories from a provider (`GITHUB`, `GITLAB`, `BITBUCKET`) |
 | `POST` | `/api/quick-import/start` | Enqueue a new import job (`{ "repoUrl", "branch" }` → `{ "jobId" }`) |
+| `POST` | `/api/quick-import/job/{jobId}/cancel` | Cancel a queued or running job (`404` when unknown or already finished) |
 | `GET` | `/api/quick-import/jobs` | List all jobs for the current user (queued, running, recent) |
 | `GET` | `/api/quick-import/job/{jobId}` | Poll one job (`QuickImportJobStatus`) |
 | `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — event `job-update` with JSON status (fallback: poll) |
@@ -87,6 +88,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `GET` | `/api/github/accounts` | List authenticated accounts |
 | `GET` | `/api/github/repos` | List accessible repositories |
 | `GET` | `/api/github/branches` | List branches for a repo |
+| `GET` | `/api/github/branches/by-project` | List branches for a project's linked repo (`?projectId=` — used by the Apply Patch modal) |
 | `GET` | `/api/github/branch-updated-at` | Last commit date for a branch |
 | `DELETE` | `/api/github/accounts/{login}` | Remove a specific account |
 
@@ -111,6 +113,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 |---|---|---|---|
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | Security Center page |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | Bulk CVE status update |
+| `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | Download the CVE list as CSV (`?scanId=`, `?format=csv`) |
 
 ---
 
@@ -130,6 +133,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | Method | Path | Permission | Description |
 |---|---|---|---|
 | `GET` | `/projects/{id}/license` | `LICENSE_VIEW` | License Analysis page |
+| `POST` | `/projects/{id}/license/refresh-insights?scanId=` | `LICENSE_VIEW` | Regenerate AI insights for one scan |
 
 ---
 
@@ -230,8 +234,13 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | Test provider connectivity (no persist) |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | Editable prompt templates + overrides |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | Run built-in prompt regression fixtures |
+| `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI usage stats (today's calls/tokens, estimated cost, daily cap, recent events) |
+| `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | Embedded AI status (`running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`) |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | Start the llama.cpp sidecar (optional model file name; auto-fallback across candidates, 400 with reason on failure) |
+| `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | Stop the sidecar and deactivate the LOCAL provider |
+| `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | Save folder/model overrides `{ "dir", "model" }` (null keeps current, blank clears; 400 if dir missing) |
 
-Providers: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`.
+Providers: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`. The embedded endpoints manage the built-in llama.cpp LOCAL provider — see [Embedded AI](Embedded-AI.md).
 
 ### License Policy
 

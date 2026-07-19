@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.auth.controller;
 
 import com.salkcoding.oswl.aop.Auditable;
+import com.salkcoding.oswl.auth.controller.spec.SecuritySettingsControllerSpec;
 import com.salkcoding.oswl.auth.dto.MailTestRequest;
 import com.salkcoding.oswl.auth.dto.SecuritySettingResponse;
 import com.salkcoding.oswl.auth.dto.SecuritySettingUpdateRequest;
@@ -17,7 +18,7 @@ import java.util.Map;
 @RequestMapping("/api/settings/security")
 @RequiredArgsConstructor
 @PreAuthorize("hasPermission(null, 'SETTINGS_SECURITY_MANAGE') or hasRole('SYSTEM_ADMIN')")
-public class SecuritySettingsController {
+public class SecuritySettingsController implements SecuritySettingsControllerSpec {
 
     private final SecuritySettingService securitySettingService;
 
