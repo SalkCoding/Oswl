@@ -26,7 +26,7 @@ public class SettingsController {
 
         String activeTab = tab;
         if (activeTab == null || tabs.stream().noneMatch(t -> t.getKey().equals(tab))) {
-            activeTab = tabs.isEmpty() ? "" : tabs.get(0).getKey();
+            activeTab = tabs.isEmpty() ? "" : tabs.getFirst().getKey();
         }
         model.addAttribute("activeTab", activeTab);
         model.addAttribute("currentUser", principal);

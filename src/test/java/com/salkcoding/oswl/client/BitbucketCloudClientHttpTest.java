@@ -59,8 +59,8 @@ class BitbucketCloudClientHttpTest {
                 "user@example.com|salkcoding", "ATATT-test-token");
 
         assertThat(repos).hasSize(1);
-        assertThat(repos.get(0).name()).isEqualTo("test");
-        assertThat(repos.get(0).fullName()).isEqualTo("salkcoding/test");
+        assertThat(repos.getFirst().name()).isEqualTo("test");
+        assertThat(repos.getFirst().fullName()).isEqualTo("salkcoding/test");
 
         RecordedRequest request = server.takeRequest();
         assertThat(request.getPath()).contains("/repositories/salkcoding");

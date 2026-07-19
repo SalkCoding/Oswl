@@ -146,7 +146,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     @Transactional
     public ResponseEntity<Void> deactivate(@RequestBody(required = false) AiSettingUpdateRequest request) {
         AiPreferences before = aiPreferencesService.getEffective();
-        AiPreferences after = before;
+        AiPreferences after;
         if (request != null) {
             after = savePreferencesIfPresent(request, before);
             auditPreferencesIfChanged(before, after);

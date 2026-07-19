@@ -94,7 +94,7 @@ public class AiConnectionDiagnostics {
         return switch (code) {
             case 401, 403 -> fail("settings.ai.test.http401", "settings.ai.test.http401.hint",
                     setting.getProvider().name());
-            case 404 -> fail("settings.ai.test.http404", "settings.ai.test.http404.hint",
+            case 404 -> fail("settings.ai.test.http404", "settings.ai.test.http404.hint.regexp",
                     setting.getModelName(), endpointHint(setting));
             case 429 -> fail("settings.ai.test.http429", "settings.ai.test.http429.hint");
             case 400 -> {

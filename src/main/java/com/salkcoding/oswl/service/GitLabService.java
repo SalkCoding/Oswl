@@ -325,7 +325,7 @@ public class GitLabService {
                                 + URLEncoder.encode(username, StandardCharsets.UTF_8);
                         JsonNode users = getJson(token, url);
                         if (users.isArray() && !users.isEmpty()) {
-                            return users.get(0).path("id").asLong();
+                            return users.getFirst().path("id").asLong();
                         }
                     } catch (Exception e) {
                         log.debug("[GitLab] Could not resolve reviewer username {}: {}", username, e.getMessage());
