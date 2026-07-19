@@ -70,6 +70,13 @@
           searchQuery: '',
           bulkActionsOpen: false,
           exportOpen: false,
+          sortOpen: false,
+          sortMode: 'risk',
+          sortLabels: {
+              risk: /*[[#{securityCenter.sort.risk}]]*/ 'Risk (default)',
+              name: /*[[#{securityCenter.sort.name}]]*/ 'Name',
+              license: /*[[#{securityCenter.sort.license}]]*/ 'License risk'
+          },
           selectedComponents: [],
           selectAll: false,
           filters: {
@@ -196,6 +203,31 @@
                   }
               }, 2500);
           },
+          applySort(mode) {
+              this.sortMode = mode;
+              this.sortOpen = false;
+              const container = document.querySelector('.component-row')?.parentElement;
+              if (!container) return;
+              const rows = Array.from(container.querySelectorAll('.component-row'));
+              const licRank = { RESTRICTED: 0, CAUTION: 1, UNKNOWN: 2, PERMITTED: 3 };
+              const num = (el, key) => parseInt(el.dataset[key]) || 0;
+              const name = el => (el.dataset.compName || '').toLowerCase();
+              rows.sort((a, b) => {
+                  if (mode === 'name') return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
+                  if (mode === 'license') {
+                      const d = (licRank[a.dataset.licenseStatus] ?? 4) - (licRank[b.dataset.licenseStatus] ?? 4);
+                      if (d !== 0) return d;
+                      return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
+                  }
+                  // risk (default): critical > high > medium > low, all descending
+                  for (const key of ['secCritical', 'secHigh', 'secMedium', 'secLow']) {
+                      const d = num(b, key) - num(a, key);
+                      if (d !== 0) return d;
+                  }
+                  return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
+              });
+              rows.forEach(r => container.appendChild(r));
+          },
           applyBulkAction(action) {
               if (!this.selectedComponents.length) return;
               const projectId = document.body.dataset.projectId;
@@ -281,7 +313,7 @@
     <!-- Scan-in-progress banner (auto-dismissed when polling detects COMPLETED/FAILED) -->
     <div x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"
          x-cloak
-         class="w-full px-[60px] py-[10px] bg-[var(--primary-10)] border-b border-[var(--primary-40)] flex items-center gap-[10px]">
+         class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[10px] bg-[var(--primary-10)] border-b border-[var(--primary-40)] flex items-center gap-[10px]">
         <svg class="w-[16px] h-[16px] text-[var(--primary-120)] animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
@@ -296,7 +328,7 @@
     <main class="flex flex-col flex-1 min-h-0">
 
         <!-- Risk Graph Summary Row: 1행 2열 그리드 -->
-        <section class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[24px] flex-shrink-0 bg-white">
+        <section class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[24px] flex-shrink-0 bg-white">
             <!-- Update Detected Banner -->
             <div th:if="${updateFromVersion != null}" class="mb-[24px]">
                 <a th:href="@{/projects/{id}/security-center(id=${projectId}, scanId=${updateToScanId})}"
@@ -314,6 +346,20 @@
                     </div>
                     <span class="text-[14px] text-[#5e6b70] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateChangeMessage}">Library changes found. Please review.</span>
                 </a>
+            </div>
+
+            <!-- Expired deferral re-review reminder (owl) -->
+            <div th:if="${expiredDeferralCount != null and expiredDeferralCount > 0}"
+                 x-data="{ dismissed: sessionStorage.getItem('oswl-defer-reminder-dismissed') === '1' }"
+                 x-show="!dismissed"
+                 class="mb-[24px] flex items-center gap-[14px] px-[20px] py-[14px] rounded-[10px] bg-[rgba(245,145,38,0.06)] border border-[rgba(245,145,38,0.3)]">
+                <span class="text-[26px] leading-none shrink-0" aria-hidden="true">🦉</span>
+                <p class="flex-1 text-[14px] text-[#91400D] tracking-[-0.14px] m-0 leading-[1.4]"
+                   th:text="#{securityCenter.deferReminder(${expiredDeferralCount})}">The deferral period for 2 components has ended. Still not fixing them? Take another look below.</p>
+                <button type="button"
+                        @click="dismissed = true; sessionStorage.setItem('oswl-defer-reminder-dismissed', '1')"
+                        class="shrink-0 text-[12px] font-medium text-[#91400D]/70 hover:text-[#91400D] bg-transparent border-none cursor-pointer underline"
+                        th:text="#{common.dismiss}">Dismiss</button>
             </div>
 
             <!-- AI security posture insight -->
@@ -340,7 +386,7 @@
 
             <div class="flex flex-1 min-h-0">
                 <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>
-                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none; order: 1;">
+                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none; order: 1; overscroll-behavior: contain;">
                     <div th:replace="~{security-center/fragments/table :: table}"></div>
                 </div>
             </div>
@@ -373,7 +419,7 @@
          @close-component-panel.window="componentPanelOpen = false; activeCompId = null"
          style="display: none;">
          
-         <div id="slideout-content" class="flex-1 overflow-y-auto custom-scrollbar w-full relative">
+         <div id="slideout-content" class="flex-1 overflow-y-auto custom-scrollbar w-full relative" style="overscroll-behavior: contain;">
               <!-- HTMX will inject the component detail here -->
          </div>
     </div>

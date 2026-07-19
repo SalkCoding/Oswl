@@ -27,6 +27,15 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
 
     long countByScanResultId(Long scanResultId);
 
+    /** Components whose deferral expired recently — drives the Security Center re-review reminder. */
+    @Query("""
+            SELECT COUNT(sc) FROM ScanComponent sc
+            WHERE sc.scanResult.id = :scanResultId
+              AND sc.deferralExpiredAt >= :since
+            """)
+    long countRecentlyExpiredDeferrals(@Param("scanResultId") Long scanResultId,
+                                       @Param("since") LocalDateTime since);
+
     /** Bulk-load components by ID list, restricted to a specific project (prevents IDOR). */
     @Query("""
             SELECT sc FROM ScanComponent sc

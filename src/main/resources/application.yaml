@@ -61,6 +61,11 @@ oswl:
     # Maximum number of recent scans shown in the risk trend chart
     limit: ${OSWL_RISK_TREND_LIMIT:10}
   ai:
+    embedded:
+      # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.
+      dir: ${OSWL_EMBEDDED_AI_DIR:embedded-ai}
+      port: ${OSWL_EMBEDDED_AI_PORT:11435}
+      context-size: ${OSWL_EMBEDDED_AI_CONTEXT:4096}
     prompts:
       locale: ${OSWL_AI_PROMPTS_LOCALE:en}
       # location: file:./config/ai-prompts.properties

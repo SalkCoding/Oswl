@@ -21,6 +21,7 @@ import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.dto.DependencyPathDto;
 import com.salkcoding.oswl.exception.AiSummaryException;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
+import com.salkcoding.oswl.exception.InvalidRequestException;
 import com.salkcoding.oswl.repository.CveRepository;
 import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -371,8 +372,16 @@ public class ComponentDetailService {
             case "3-month" -> today.plusMonths(3).atStartOfDay();
             case "6-month" -> today.plusMonths(6).atStartOfDay();
             case "custom"  -> {
-                try { yield LocalDate.parse(customDate).atStartOfDay(); }
-                catch (Exception e) { yield today.plusMonths(1).atStartOfDay(); }
+                LocalDate parsed;
+                try {
+                    parsed = LocalDate.parse(customDate != null ? customDate.strip() : "");
+                } catch (Exception e) {
+                    throw new InvalidRequestException("Invalid expiry date — use the YYYY-MM-DD format.");
+                }
+                if (!parsed.isAfter(today)) {
+                    throw new InvalidRequestException("Expiry date must be a future date.");
+                }
+                yield parsed.atStartOfDay();
             }
             default -> null;
         };

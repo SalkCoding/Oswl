@@ -10,6 +10,10 @@
     <div class="flex flex-col gap-[8px]">
         <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.vcs.heading}">VCS Account Connections</h2>
         <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.vcs.description}">Connect your VCS accounts so OsWL can fetch repositories and sync scan results.</p>
+        <p class="font-normal text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] leading-[1.4] m-0 flex items-start gap-[6px] bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[8px] px-[12px] py-[8px]">
+            <svg class="w-[14px] h-[14px] shrink-0 mt-[2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span th:text="#{settings.vcs.tokenSecurityNote}">Tokens are encrypted and stored only in this server's local database. They are never sent anywhere except your own VCS provider, and never leave your infrastructure.</span>
+        </p>
     </div>
 
     <!-- API Error -->

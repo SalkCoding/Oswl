@@ -157,6 +157,7 @@
             <!-- URL input -->
             <div class="flex flex-col gap-[6px]">
                 <label class="text-[13px] font-semibold text-[var(--grayscale-80)]" th:text="#{quickImport.url.label}">Repository URL</label>
+                <p class="text-[12px] text-[var(--grayscale-60)] m-0 leading-[1.4]" th:text="#{quickImport.url.hint}">Public repositories import and scan with just a URL — no account connection needed. Private repositories require a VCS account connected in Settings; tokens are stored encrypted and never sent anywhere except your VCS provider.</p>
                 <div class="flex gap-[10px]">
                     <div class="relative flex-1">
                         <!-- Provider icon (auto-detected) -->
@@ -214,9 +215,16 @@
                     <div class="flex items-center justify-between gap-[10px] min-w-0">
                         <p class="text-[13px] font-semibold text-[var(--grayscale-100)] m-0 truncate min-w-0"
                            x-text="job.repoLabel || job.jobId"></p>
-                        <span x-show="job.queuePosition" x-cloak
-                              class="text-[11px] text-[var(--grayscale-50)] shrink-0 font-medium"
-                              x-text="'#' + job.queuePosition"></span>
+                        <div class="flex items-center gap-[8px] shrink-0">
+                            <span x-show="job.queuePosition" x-cloak
+                                  class="text-[11px] text-[var(--grayscale-50)] font-medium"
+                                  x-text="'#' + job.queuePosition"></span>
+                            <button x-show="!['DONE','FAILED'].includes((job.phase || '').toUpperCase())" x-cloak
+                                    @click="cancelJob(job)"
+                                    :disabled="job.cancelRequested"
+                                    class="text-[11px] font-medium text-[var(--grayscale-50)] hover:text-red-600 border border-[var(--grayscale-20)] hover:border-red-300 rounded-[6px] px-[8px] py-[3px] bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    x-text="job.cancelRequested ? _qiI18n.canceling : _qiI18n.cancelImport"></button>
+                        </div>
                     </div>
                     <div class="w-full h-[4px] bg-[var(--grayscale-10)] rounded-full overflow-hidden">
                         <div class="h-full bg-[var(--primary-120)] rounded-full transition-all duration-500"
@@ -507,6 +515,8 @@
         providerNotConnected: /*[[#{quickImport.providerNotConnected}]]*/ 'Your {0} account is not connected.',
         importing:           /*[[#{quickImport.importing}]]*/ 'Importing\u2026',
         importAndScan:       /*[[#{quickImport.btn.importAndScan}]]*/ 'Import & Scan',
+        cancelImport:        /*[[#{quickImport.btn.cancel}]]*/ 'Cancel',
+        canceling:           /*[[#{quickImport.btn.canceling}]]*/ 'Canceling…',
         completeTitleTpl:    /*[[#{quickImport.complete.title}]]*/ 'Import Complete \u2014 {0} created.',
         viewSecurityCenter:  /*[[#{quickImport.btn.viewSecurityCenter}]]*/ 'View Security Center',
         importAnother:       /*[[#{quickImport.btn.importAnother}]]*/ 'Import Another',
@@ -517,6 +527,8 @@
         completeSummary:     /*[[#{quickImport.complete.summary}]]*/ 'Import complete \u2014 {0} components scanned.',
         errors: {
             queueFull:        /*[[#{quickImport.error.queueFull}]]*/ 'You can queue up to {0} imports. Wait for queued jobs to start.',
+            duplicateImport:  /*[[#{quickImport.error.duplicateImport}]]*/ '{0} is already queued or importing. Wait for the current import to finish before starting it again.',
+            canceled:         /*[[#{quickImport.error.canceled}]]*/ 'Import canceled.',
             loadRepos:        /*[[#{quickImport.error.loadRepos}]]*/ 'Could not load repositories from the VCS provider. Check your VCS connection in Settings and try again.',
             tokenDecrypt:     /*[[#{quickImport.error.tokenDecrypt}]]*/ 'Stored VCS token could not be decrypted. Disconnect and reconnect the account in Settings \u2192 VCS.',
             scanSubmitFailed: /*[[#{quickImport.error.scanSubmitFailed}]]*/ 'Import completed but the security scan could not be submitted. Try running a scan from the CLI.',

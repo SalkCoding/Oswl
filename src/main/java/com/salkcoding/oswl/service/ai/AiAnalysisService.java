@@ -66,7 +66,12 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.cveSingle(cveId, severity, cvssScore, component);
-        return delegate(prompt, setting, "cve.single");
+        return delegatePlainText(prompt, setting, "cve.single");
+    }
+
+    /** Plain-text delegate — unwraps JSON/fence noise smaller models add to prose answers. */
+    private String delegatePlainText(String prompt, AiSetting setting, String operation) {
+        return AiResponseSanitizer.sanitizePlainText(delegate(prompt, setting, operation));
     }
 
     @Transactional(readOnly = true)
@@ -75,7 +80,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.securityTrend(projectName, secDelta, recentVersions, changeDetails);
-        return delegate(prompt, setting, "security.trend");
+        return delegatePlainText(prompt, setting, "security.trend");
     }
 
     @Transactional(readOnly = true)
@@ -84,7 +89,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.licenseTrend(projectName, licDelta, recentVersions, changeDetails);
-        return delegate(prompt, setting, "license.trend");
+        return delegatePlainText(prompt, setting, "license.trend");
     }
 
     @Transactional(readOnly = true)
@@ -99,7 +104,7 @@ public class AiAnalysisService {
         if (setting == null) return null;
         String prompt = promptTemplates.licenseSingle(licenseName, licenseStatus, component,
                 ecosystem, dependencyType, latestVersion);
-        return delegate(prompt, setting, "license.single");
+        return delegatePlainText(prompt, setting, "license.single");
     }
 
     @Transactional(readOnly = true)
@@ -107,7 +112,7 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.securityPosture(ctx, projectName);
-        return delegate(prompt, setting, "security.posture");
+        return delegatePlainText(prompt, setting, "security.posture");
     }
 
     @Transactional(readOnly = true)
@@ -118,7 +123,7 @@ public class AiAnalysisService {
         if (setting == null) return null;
         String prompt = promptTemplates.versionDiff(projectName, fromVersion, toVersion,
                 added, removed, updated, newThreats, threatDetails);
-        return delegate(prompt, setting, "version.diff");
+        return delegatePlainText(prompt, setting, "version.diff");
     }
 
     @Transactional(readOnly = true)

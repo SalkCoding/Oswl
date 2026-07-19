@@ -7,7 +7,7 @@ plugins {
 
 group = 'com.salkcoding'
 // x-release-please-start-version
-version = '1.0.0'
+version = '1.0.3'
 // x-release-please-end
 
 java {
@@ -87,19 +87,24 @@ tasks.named('bootRun') {
 	dependsOn compileLocalJava
 	doFirst {
 		def os = org.gradle.internal.os.OperatingSystem.current()
-		if (os.isWindows()) {
-			def script = file('scripts/check-java.ps1')
-			if (script.exists()) {
-				exec {
-					commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath
+		def script = os.isWindows() ? file('scripts/check-java.ps1') : file('scripts/check-java.sh')
+		if (script.exists()) {
+			def cmd = os.isWindows()
+					? ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath]
+					: ['bash', script.absolutePath]
+			try {
+				def result = exec {
+					commandLine cmd
+					ignoreExitValue = true
 				}
-			}
-		} else {
-			def script = file('scripts/check-java.sh')
-			if (script.exists()) {
-				exec {
-					commandLine 'bash', script.absolutePath
+				if (result.exitValue != 0) {
+					throw new GradleException('JDK preflight failed — see the install instructions above.')
 				}
+			} catch (GradleException e) {
+				throw e
+			} catch (Exception e) {
+				// Preflight runner itself unavailable (no bash/powershell) — don't block startup
+				logger.warn("[OsWL] JDK preflight could not run (${e.message}) — continuing.")
 			}
 		}
 	}

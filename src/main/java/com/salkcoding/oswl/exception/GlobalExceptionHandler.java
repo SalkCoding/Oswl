@@ -78,6 +78,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
     }
 
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidRequest(InvalidRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage(), "status", 400));
+    }
+
     @ExceptionHandler(ConflictException.class)
     public Object handleConflict(ConflictException ex, HttpServletRequest request) {
         String accept = request.getHeader("Accept");

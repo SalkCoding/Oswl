@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 
+import com.salkcoding.oswl.util.VersionOrder;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -45,7 +47,8 @@ public class SecurityCenterService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
 
         ScanResult scan;
         if (scanId != null) {
@@ -193,13 +196,17 @@ public class SecurityCenterService {
         model.addAttribute("licenseMedium", licMedium);
         model.addAttribute("licenseLow", licLow);
         rows.sort(Comparator
-                .comparingInt((ComponentRowDto r) -> r.getSecurityCritical()).reversed()
-                .thenComparingInt(ComponentRowDto::getSecurityHigh).reversed()
-                .thenComparingInt(ComponentRowDto::getSecurityMedium).reversed()
-                .thenComparingInt(ComponentRowDto::getSecurityLow).reversed()
+                .comparingInt(ComponentRowDto::getSecurityCritical)
+                .thenComparingInt(ComponentRowDto::getSecurityHigh)
+                .thenComparingInt(ComponentRowDto::getSecurityMedium)
+                .thenComparingInt(ComponentRowDto::getSecurityLow)
+                .reversed()
                 .thenComparing(ComponentRowDto::getName, String.CASE_INSENSITIVE_ORDER));
         model.addAttribute("components", rows);
         model.addAttribute("securityPostureInsight", scan.getSecurityPostureInsight());
+        model.addAttribute("expiredDeferralCount",
+                scanComponentRepository.countRecentlyExpiredDeferrals(
+                        scan.getId(), java.time.LocalDateTime.now().minusDays(7)));
     }
 
     @Transactional
@@ -261,7 +268,8 @@ public class SecurityCenterService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
         if (allScans.isEmpty()) {
             return csvHeader().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }

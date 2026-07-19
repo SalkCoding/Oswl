@@ -11,6 +11,7 @@ import com.salkcoding.oswl.dto.QuickImportMessageKeys;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.QuickImportRequest;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
+import com.salkcoding.oswl.exception.QuickImportDuplicateException;
 import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.controller.spec.QuickImportControllerSpec;
@@ -104,7 +105,24 @@ public class QuickImportController implements QuickImportControllerSpec {
         } catch (QuickImportQueueFullException e) {
             return ResponseEntity.status(429)
                     .body(QuickImportApiError.body(e.getMessageKey(), e.getMessageArgs()));
+        } catch (QuickImportDuplicateException e) {
+            return ResponseEntity.status(409)
+                    .body(QuickImportApiError.body(e.getMessageKey(), e.getMessageArgs()));
         }
+    }
+
+    @PostMapping("/api/quick-import/job/{jobId}/cancel")
+    @ResponseBody
+    @PreAuthorize("hasPermission(null, 'PROJECT_CREATE') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<Map<String, Object>> cancelJob(
+            @PathVariable String jobId,
+            @AuthenticationPrincipal OswlUserPrincipal principal) {
+        boolean ok = quickImportService.cancelJob(jobId, principal.getUserId());
+        if (!ok) {
+            return ResponseEntity.status(404)
+                    .body(QuickImportApiError.body(QuickImportMessageKeys.UNEXPECTED, List.of()));
+        }
+        return ResponseEntity.ok(Map.of("canceled", true));
     }
 
     @GetMapping("/api/quick-import/job/{jobId}")

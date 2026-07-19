@@ -11,8 +11,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
-import java.util.Locale;
-
 @Configuration
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
@@ -22,15 +20,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
     // ── i18n configuration ───────────────────────────────────────────────
 
     /**
-     * Cookie-based Locale store. The default is English.
-     * The language can be changed at runtime with the ?lang=en / ?lang=ko parameter.
-     * Uses a cookie so it is not affected by the browser's Accept-Language header.
+     * Cookie-based Locale store. Until the user picks a language (?lang=ko / ?lang=en)
+     * the browser's Accept-Language decides — Korean browsers start in Korean,
+     * everything else falls back to English (messages.properties).
      */
     @Bean
     public LocaleResolver localeResolver() {
-        CookieLocaleResolver resolver = new CookieLocaleResolver("OSWL_LOCALE");
-        resolver.setDefaultLocale(Locale.ENGLISH);  // en → messages.properties
-        return resolver;
+        // No setDefaultLocale: CookieLocaleResolver then honors Accept-Language
+        return new CookieLocaleResolver("OSWL_LOCALE");
     }
 
     /**
