@@ -46,7 +46,7 @@ public class GitHubService {
     // ── URL resolution ───────────────────────────────────────────────────────
 
     /** REST API base: per-connection serverUrl, else deployment default (OSWL_GITHUB_API_BASE). */
-    public String resolveApiBase(String serverUrl) {
+    private String resolveApiBase(String serverUrl) {
         if (serverUrl != null && !serverUrl.isBlank()) {
             String base = serverUrl.trim().replaceAll("/+$", "");
             if (base.endsWith("/api/v3")) return base;
@@ -180,7 +180,7 @@ public class GitHubService {
         String url = apiBase + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
         JsonNode commits = getJson(accessToken, url);
         if (commits.isArray() && !commits.isEmpty()) {
-            JsonNode commit = commits.getFirst().path("commit");
+            JsonNode commit = commits.get(0).path("commit");
             String date = commit.path("committer").path("date").asText("");
             if (date.isEmpty()) {
                 date = commit.path("author").path("date").asText("");

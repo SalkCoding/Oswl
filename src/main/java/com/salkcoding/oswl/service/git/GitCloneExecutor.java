@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +25,9 @@ public class GitCloneExecutor {
 
     private static final String ENV_USERNAME = "OSWL_GIT_USERNAME";
     private static final String ENV_PASSWORD = "OSWL_GIT_PASSWORD";
+
+    /** git writes human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
+    private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
 
     /**
      * @param credentials {@code null} for anonymous HTTPS clone (public repositories).
@@ -63,7 +67,7 @@ public class GitCloneExecutor {
             final String[] outputHolder = {""};
             Thread outputReader = Thread.ofVirtual().start(() -> {
                 try {
-                    outputHolder[0] = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                    outputHolder[0] = new String(proc.getInputStream().readAllBytes(), CONSOLE_CHARSET);
                 } catch (IOException ignored) {
                 }
             });
@@ -75,6 +79,7 @@ public class GitCloneExecutor {
             try {
                 outputReader.join(2_000);
             } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
             }
             int exitCode = proc.exitValue();
             if (exitCode != 0) {

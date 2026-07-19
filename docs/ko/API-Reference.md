@@ -69,6 +69,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/quick-import/connections` | 현재 사용자 VCS 연결 목록 |
 | `GET` | `/api/quick-import/repos?provider=` | 제공업체별 저장소 목록 (`GITHUB`, `GITLAB`, `BITBUCKET`) |
 | `POST` | `/api/quick-import/start` | 새 임포트 작업 큐 등록 (`{ "repoUrl", "branch" }` → `{ "jobId" }`) |
+| `POST` | `/api/quick-import/job/{jobId}/cancel` | 대기 중이거나 실행 중인 작업 취소 (알 수 없거나 이미 완료된 작업이면 `404`) |
 | `GET` | `/api/quick-import/jobs` | 사용자의 모든 작업 목록 |
 | `GET` | `/api/quick-import/job/{jobId}` | 작업 상태 폴링 (`QuickImportJobStatus`) |
 | `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — `job-update` 이벤트(JSON), 폴링 폴백 가능 |
@@ -89,6 +90,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/github/accounts` | 인증된 계정 목록 |
 | `GET` | `/api/github/repos` | 접근 가능한 저장소 목록 |
 | `GET` | `/api/github/branches` | 저장소의 브랜치 목록 |
+| `GET` | `/api/github/branches/by-project` | 프로젝트에 연결된 저장소의 브랜치 목록 (`?projectId=` — Apply Patch 모달에서 사용) |
 | `GET` | `/api/github/branch-updated-at` | 브랜치의 마지막 커밋 날짜 |
 | `DELETE` | `/api/github/accounts/{login}` | 특정 계정 제거 |
 
@@ -113,6 +115,7 @@ Authorization: Bearer oswl_<your_api_key>
 |---|---|---|---|
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | 보안 센터 페이지 |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | CVE 상태 일괄 업데이트 |
+| `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | CVE 목록 CSV 다운로드 (`?scanId=`, `?format=csv`) |
 
 ---
 
@@ -132,6 +135,7 @@ Authorization: Bearer oswl_<your_api_key>
 | 메서드 | 경로 | 필요 권한 | 설명 |
 |---|---|---|---|
 | `GET` | `/projects/{id}/license` | `LICENSE_VIEW` | 라이선스 분석 페이지 |
+| `POST` | `/projects/{id}/license/refresh-insights?scanId=` | `LICENSE_VIEW` | 스캔 한 건의 AI 인사이트 재생성 |
 
 ---
 
@@ -232,8 +236,13 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함) |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | 편집 가능 프롬프트 + 오버라이드 |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | 골든 프롬프트 회귀 테스트 실행 |
+| `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 (오늘 호출 수/토큰, 예상 비용, 일일 상한, 최근 이벤트) |
+| `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | 내장 AI 상태 (`running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`) |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp 사이드카 시작 (모델 파일명 선택 지정; 후보 자동 폴백, 실패 시 400과 사유) |
+| `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | 사이드카 중지 및 LOCAL 프로바이더 비활성화 |
+| `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | 폴더/모델 오버라이드 저장 `{ "dir", "model" }` (null은 유지, 공백은 해제; dir이 없으면 400) |
 
-제공업체: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`.
+제공업체: `OPENAI`, `ANTHROPIC`, `GEMINI`, `LOCAL`. embedded 엔드포인트는 내장 llama.cpp LOCAL 프로바이더를 관리합니다 — [내장 AI](Embedded-AI.md) 참고.
 
 ### 라이선스 정책
 

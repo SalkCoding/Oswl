@@ -65,7 +65,7 @@ Use the filter bar at the top of the Security Center to narrow the list:
 * **Patchability** — Patchable / Non-Patchable / Unknown
 * **Search** — free-text search across CVE ID and component name
 
-Click any column header to sort ascending/descending.
+Click any column header to sort ascending/descending. A dedicated **Sort** selector controls the base ordering: **Risk (default)** (highest severity first), **Name**, or **License risk**.
 
 ---
 
@@ -89,6 +89,12 @@ Click any component name to open the **Component Detail** side panel, which show
 * AI-generated license risk summary
 * Latest available version and deprecation notice
 * Full dependency path (direct vs. transitive)
+
+The panel also offers remediation actions: **Apply Patch (Create PR)** and **Defer**. A deferral records a reason and an expiry preset (1 week / 1 / 3 / 6 months, a custom date, or indefinite). A custom expiry must be a **future date** — past or malformed dates are rejected with HTTP 400, and the date picker only allows tomorrow onward.
+
+After a PR/MR is created, the success panel shows a prominent **View PR/MR** button plus a collapsible **"What changed?"** summary — the patched manifest file path and the version bump (e.g. `pom.xml`: `log4j-core 2.14.1 → 2.17.0`).
+
+When a component's deferral period expires (nightly scheduler), the deferral is cleared and the Security Center shows a dismissible **🦉 owl reminder banner** for components whose deferral ended within the last 7 days, prompting a re-review.
 
 ---
 

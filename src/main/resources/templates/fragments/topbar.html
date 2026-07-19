@@ -32,7 +32,7 @@
             <div class="px-[8px] py-[4px] border-b border-white/15 mb-[2px]">
                 <div class="text-white text-[14px] font-bold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : #{topbar.fallback.user}}">User</div>
                 <div class="text-white/80 text-[12px] font-medium" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
-                <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')" th:text="#{topbar.userMenu.systemAdmin}">??System Admin</div>
+                <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')" th:text="#{topbar.userMenu.systemAdmin}">★ System Admin</div>
             </div>
             <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">Setting</a>
             <a th:href="@{/my/change-password}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.changePassword}">Change Password</a>
@@ -238,7 +238,7 @@
                 </div>
             </div>
             <div class="flex-1"></div>
-            <!-- User info (inline, matching Figma ??click to log out) -->
+            <!-- User info (inline, matching Figma — click to log out) -->
             <div x-data="{ open: false }" @click.outside="open = false" class="relative" sec:authorize="isAuthenticated()">
                 <button type="button" @click="open = !open"
                         class="flex items-center gap-[10px] text-[#bdfaed] hover:text-white transition-colors bg-transparent border-0 p-0 cursor-pointer">
@@ -329,7 +329,7 @@
             <span class="text-white font-bold text-[18px] tracking-[-0.18px] whitespace-nowrap" th:text="#{topbar.nav.versionDiff}">Version Diff</span>
         </div>
         <div class="flex-1"></div>
-        <!-- User info (inline, matching Figma ??click to log out) -->
+        <!-- User info (inline, matching Figma — click to log out) -->
         <div x-data="{ open: false }" @click.outside="open = false" class="relative" sec:authorize="isAuthenticated()">
             <button type="button" @click="open = !open"
                     class="flex items-center gap-[10px] text-[#bdfaed] hover:text-white transition-colors bg-transparent border-0 p-0 cursor-pointer">

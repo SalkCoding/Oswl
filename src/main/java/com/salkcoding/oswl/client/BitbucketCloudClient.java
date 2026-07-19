@@ -13,7 +13,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -198,16 +197,6 @@ public class BitbucketCloudClient {
     public com.salkcoding.oswl.service.git.GitCloneCredentials cloneCredentials(String vcsUsername, String token) {
         BitbucketCloudAuth auth = BitbucketCloudAuth.parse(vcsUsername, token);
         return new com.salkcoding.oswl.service.git.GitCloneCredentials(auth.cloneUsername(token), token);
-    }
-
-    /** Returns true when Bitbucket accepts the credentials (any 2xx from repo list or user endpoint). */
-    public boolean credentialsAccepted(String vcsUsername, String token) {
-        try {
-            validateToken(vcsUsername, token);
-            return true;
-        } catch (IllegalStateException e) {
-            return false;
-        }
     }
 
     private void validateUserOrThrow(String basicHeader) {

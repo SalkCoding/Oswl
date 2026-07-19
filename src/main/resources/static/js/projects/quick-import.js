@@ -59,6 +59,7 @@ function quickImportPage() {
 
         /* ── Multi-job tracking ─────────────────── */
         activeJobs: [],
+        nowTick: Date.now(),
         maxConcurrentSlots: 3,
         maxQueuedSlots: 3,
         activeSlotsUsed: 0,
@@ -74,6 +75,8 @@ function quickImportPage() {
 
         async init() {
             await this.onPanelOpen();
+            // 1s heartbeat so elapsed/ETA texts on job cards re-render
+            setInterval(() => { this.nowTick = Date.now(); }, 1000);
         },
 
         /** Called when the slide-out panel opens (also on first mount). */
@@ -304,10 +307,14 @@ function quickImportPage() {
             try {
                 const res = await fetch('/api/quick-import/job/' + job.jobId + '/cancel', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: oswlJsonHeaders(),
                 });
-                if (!res.ok) job.cancelRequested = false;
-                // On success the job stream/poll delivers the FAILED(canceled) state.
+                if (!res.ok) { job.cancelRequested = false; return; }
+                // Reflect cancellation immediately; the poll/SSE will also deliver FAILED(canceled).
+                job.phase = 'FAILED';
+                job.messageKey = 'canceled';
+                job.messageArgs = [];
+                this._appendLogToJob(job, 'error', this._localizedMessage(job));
             } catch (err) {
                 console.error('[QuickImport] Cancel failed:', err);
                 job.cancelRequested = false;
@@ -418,6 +425,8 @@ function quickImportPage() {
                     messageArgs: [],
                     percent: 0,
                     queuePosition: null,
+                    startedAtEpochMs: serverJob.startedAtEpochMs || Date.now(),
+                    runningSinceEpochMs: serverJob.runningSinceEpochMs || null,
                     progressLog: [],
                     lastPhase: null,
                     _eventSource: null,
@@ -502,6 +511,8 @@ function quickImportPage() {
             tracker.messageArgs = job.messageArgs || [];
             tracker.percent = job.percent != null ? job.percent : tracker.percent;
             tracker.queuePosition = job.queuePosition;
+            tracker.startedAtEpochMs = job.startedAtEpochMs || tracker.startedAtEpochMs || null;
+            tracker.runningSinceEpochMs = job.runningSinceEpochMs || tracker.runningSinceEpochMs || null;
 
             if (job.phase === tracker.lastPhase) {
                 if (tracker.progressLog.length > 0) {
@@ -552,6 +563,48 @@ function quickImportPage() {
 
             this._recomputeUserQueueCounts();
             this._syncTracker(tracker);
+        },
+
+        /* ── Elapsed / ETA display ────────────────── */
+
+        _fmtDuration(ms) {
+            if (ms == null || ms < 0) return '';
+            const total = Math.floor(ms / 1000);
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            const mm = String(m).padStart(2, '0');
+            const ss = String(s).padStart(2, '0');
+            return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+        },
+
+        /** Elapsed time since the job was queued (ticks via nowTick). */
+        elapsedText(job) {
+            void this.nowTick;
+            if (!job || !job.startedAtEpochMs) return '';
+            return this._fmtDuration(Date.now() - job.startedAtEpochMs);
+        },
+
+        /**
+         * Rough remaining-time estimate extrapolated from running time vs. percent.
+         * Hidden while queued, in the first seconds, or when percent is unreliable.
+         */
+        etaText(job) {
+            void this.nowTick;
+            if (!job) return '';
+            const phase = this._normalizePhase(job.phase);
+            if (!this._isRunningPhase(phase)) return '';
+            const pct = job.percent;
+            if (!job.runningSinceEpochMs || pct == null || pct < 5 || pct >= 100) return '';
+            const running = Date.now() - job.runningSinceEpochMs;
+            if (running < 5000) return '';
+            const remainingSec = Math.round((running * (100 - pct)) / pct / 1000);
+            const q = _qi();
+            if (remainingSec >= 60) {
+                return _qiFmt(q.etaMinutes || 'about {0} min left', Math.ceil(remainingSec / 60));
+            }
+            // Round up to 10s steps so the number doesn't jitter every second
+            return _qiFmt(q.etaSeconds || 'about {0} sec left', Math.max(10, Math.ceil(remainingSec / 10) * 10));
         },
 
         _localizedMessage(job) {

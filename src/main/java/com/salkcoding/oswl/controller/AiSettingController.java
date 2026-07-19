@@ -13,6 +13,7 @@ import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
+import com.salkcoding.oswl.dto.api.EmbeddedAiConfigRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
@@ -35,6 +36,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -200,10 +203,12 @@ public class AiSettingController implements AiSettingControllerSpec {
     }
 
     @PostMapping("/embedded/start")
-    @Transactional
-    public ResponseEntity<Map<String, Object>> startEmbedded() {
+    public ResponseEntity<Map<String, Object>> startEmbedded(
+            @RequestParam(required = false) String model) {
+        // Launch the sidecar OUTSIDE any DB transaction — model load can block up to ~90s and
+        // must not hold a database connection open.
         try {
-            embeddedAiService.start();
+            embeddedAiService.start(model);
         } catch (IllegalStateException e) {
             Map<String, Object> body = embeddedStatusBody();
             body.put("success", false);
@@ -211,22 +216,30 @@ public class AiSettingController implements AiSettingControllerSpec {
             return ResponseEntity.badRequest().body(body);
         }
 
-        // Register the sidecar as the active LOCAL provider
+        registerEmbeddedAsActiveProvider();
+        auditLogService.log("AI_SETTING.EMBEDDED_START", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), embeddedAiService.modelName());
+        vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
+    /** Registers the running sidecar as the active LOCAL provider (own transaction). */
+    @Transactional
+    protected void registerEmbeddedAsActiveProvider() {
         AiSetting setting = aiSettingRepository.findByProvider(AiProvider.LOCAL)
                 .orElseGet(() -> AiSetting.builder().provider(AiProvider.LOCAL).build());
         setting.update(null, embeddedAiService.modelName(), embeddedAiService.baseUrl());
         aiSettingRepository.findByActiveTrue()
                 .filter(s -> s.getProvider() != AiProvider.LOCAL)
-                .ifPresent(AiSetting::deactivate);
+                .ifPresent(other -> {
+                    other.deactivate();
+                    aiSettingRepository.save(other);
+                });
         setting.activate();
         aiSettingRepository.save(setting);
-        auditLogService.log("AI_SETTING.EMBEDDED_START", "AI_SETTING",
-                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), embeddedAiService.modelName());
-        runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
-
-        Map<String, Object> body = embeddedStatusBody();
-        body.put("success", true);
-        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/embedded/stop")
@@ -244,6 +257,61 @@ public class AiSettingController implements AiSettingControllerSpec {
         return ResponseEntity.ok(body);
     }
 
+    /**
+     * Saves the embedded sidecar config overrides (dir / preferred model). A null field keeps
+     * the current value; a blank string clears that override. When the dir actually changes
+     * while the sidecar is running, the sidecar is stopped first (a running llama-server would
+     * keep file locks on the old directory); a changed model takes effect on the next start.
+     */
+    @PutMapping("/embedded/config")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateEmbeddedConfig(
+            @RequestBody(required = false) EmbeddedAiConfigRequest request) {
+        String dir = request != null ? request.getDir() : null;
+        String model = request != null ? request.getModel() : null;
+
+        String normalizedDir = null;
+        if (dir != null && !dir.isBlank()) {
+            Path path = Path.of(dir.strip()).toAbsolutePath().normalize();
+            if (!Files.isDirectory(path)) {
+                Map<String, Object> body = embeddedStatusBody();
+                body.put("success", false);
+                body.put("message", msg("settings.ai.embedded.config.dirNotFound", dir.strip()));
+                return ResponseEntity.badRequest().body(body);
+            }
+            normalizedDir = path.toString();
+        }
+        if (model != null && !model.isBlank()
+                && (model.contains("/") || model.contains("\\") || model.contains(".."))) {
+            Map<String, Object> body = embeddedStatusBody();
+            body.put("success", false);
+            body.put("message", msg("settings.ai.embedded.config.invalidModel"));
+            return ResponseEntity.badRequest().body(body);
+        }
+
+        boolean dirChanged = normalizedDir != null
+                && !normalizedDir.equals(embeddedAiService.effectiveDir().toAbsolutePath().normalize().toString());
+        if (dirChanged && embeddedAiService.isRunning()) {
+            // Release file locks on the old directory before switching
+            embeddedAiService.stop();
+            aiSettingRepository.findByActiveTrue()
+                    .filter(s -> s.getProvider() == AiProvider.LOCAL)
+                    .ifPresent(AiSetting::deactivate);
+        }
+
+        aiPreferencesService.saveEmbeddedConfig(
+                dir == null ? aiPreferencesService.getEmbeddedDir() : normalizedDir,
+                model == null ? aiPreferencesService.getEmbeddedModel()
+                        : model.isBlank() ? null : model.strip());
+        auditLogService.log("AI_SETTING.EMBEDDED_CONFIG", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(),
+                "dir=" + (normalizedDir != null ? normalizedDir : "-") + " model=" + (model != null ? model : "-"));
+
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
     private Map<String, Object> embeddedStatusBody() {
         EmbeddedAiService.EmbeddedAiStatus status = embeddedAiService.status();
         Map<String, Object> body = new LinkedHashMap<>();
@@ -251,6 +319,9 @@ public class AiSettingController implements AiSettingControllerSpec {
         body.put("running", status.isRunning());
         body.put("binaryPath", status.getBinaryPath());
         body.put("modelFile", status.getModelFile());
+        body.put("activeModel", status.getActiveModel());
+        body.put("fallbackUsed", status.isFallbackUsed());
+        body.put("lastError", status.getLastError());
         body.put("availableModels", status.getAvailableModels());
         body.put("baseUrl", status.getBaseUrl());
         body.put("modelsDir", status.getModelsDir());

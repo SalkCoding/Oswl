@@ -51,10 +51,12 @@ OsWL이 제공업체 API로 토큰을 즉시 검증합니다. 토큰은 **저장
 | `SCANNING` | 프로젝트 생성 및 스캔 제출 |
 | `ENRICHING` | CVE/라이선스 보강 및 AI 요약(설정 시) |
 | `DONE` | 완료 — 프로젝트·API 키 사용 가능 |
-| `FAILED` | 오류 — 작업 메시지 확인 |
+| `FAILED` | 오류 또는 취소 — 작업 메시지 확인 |
 
 - 최대 **2건**까지 동시 실행 (`oswl.quick-import.max-concurrent`, 기본 `2`). 초과분은 FIFO 큐에서 대기하며 `queuePosition`으로 순서를 표시합니다.
 - 이전 작업이 끝나기 전에도 **여러 임포트**를 시작할 수 있습니다.
+- 이미 대기 중이거나 실행 중인 작업이 있는 저장소를 다시 시작하면 **409 Conflict**로 거부됩니다 — 기존 작업이 끝나거나 취소한 뒤 다시 시도하세요.
+- 각 작업 카드의 **취소** 버튼(`POST /api/quick-import/job/{jobId}/cancel`)으로 작업을 중단할 수 있습니다. 대기 중인 작업은 즉시 멈추고, 실행 중인 작업은 다음 단계 경계에서 멈춥니다(긴 클론은 먼저 끝납니다). 취소된 작업은 `FAILED` 상태에 "취소됨" 메시지로 표시됩니다.
 - UI는 **`GET /api/quick-import/job/{jobId}/stream`** (SSE `job-update`)을 구독하고, 필요 시 `GET /api/quick-import/job/{jobId}` 폴링으로 대체합니다.
 - `ENRICHING` 중에는 `percent`, `subPhase` (`CVE`, `LICENSE`, `POSTURE`, `TREND`, `DIFF`), `detailLines`, `aiPreviews`가 채워집니다.
 

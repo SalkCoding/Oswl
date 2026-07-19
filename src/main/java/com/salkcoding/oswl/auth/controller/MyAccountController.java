@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.MyAccountControllerSpec;
 import com.salkcoding.oswl.auth.dto.DeleteAccountRequest;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AccountDeletionService;
@@ -18,7 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-public class MyAccountController {
+public class MyAccountController implements MyAccountControllerSpec {
 
     private final AccountDeletionService accountDeletionService;
 

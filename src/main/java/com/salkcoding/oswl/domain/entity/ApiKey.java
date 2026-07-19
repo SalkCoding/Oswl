@@ -1,6 +1,5 @@
 package com.salkcoding.oswl.domain.entity;
 
-import com.salkcoding.oswl.service.ApiKeyTokenSupport;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -55,11 +54,6 @@ public class ApiKey {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
-
-    public void applyTokenHash(String plainToken, String tokenHash) {
-        this.tokenPrefix = ApiKeyTokenSupport.extractPrefix(plainToken);
-        this.tokenHash = tokenHash;
-    }
 
     public void revoke() {
         this.active = false;

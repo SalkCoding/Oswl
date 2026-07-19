@@ -78,6 +78,70 @@
         </template>
     </div>
 
+    <!-- Embedded AI Card (built-in llama.cpp local model — standalone, not a provider radio) -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[24px] flex flex-col gap-[12px]">
+        <div class="flex items-center justify-between gap-[10px] flex-wrap">
+            <div class="flex items-center gap-[10px]">
+                <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3] m-0" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</h3>
+                <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[12px] text-emerald-600 font-semibold">
+                    <span class="w-[6px] h-[6px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
+                </span>
+                <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] font-semibold">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
+                </span>
+            </div>
+            <div class="flex items-center gap-[8px]">
+                <button type="button" x-show="!embedded.running"
+                        @click="startEmbedded()"
+                        :disabled="embeddedBusy || !embedded.binaryFound || !embedded.modelFile"
+                        class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] transition-colors cursor-pointer"
+                        x-text="embeddedBusy ? _aiI18n.embeddedStarting : _aiI18n.embeddedStart"></button>
+                <button type="button" x-show="embedded.running" x-cloak
+                        @click="stopEmbedded()"
+                        :disabled="embeddedBusy"
+                        class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] transition-colors cursor-pointer"
+                        x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
+            </div>
+        </div>
+        <p class="m-0 text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; low-spec fallback: Gemma 3 1B.</p>
+        <div class="text-[12px] text-[var(--grayscale-60)] leading-[1.6] flex flex-col gap-[6px]">
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <span class="font-medium" th:text="#{settings.ai.embedded.model}">Model:</span>
+                <select x-model="embeddedModel" :disabled="embedded.running || embeddedBusy"
+                        class="border border-[var(--grayscale-20)] rounded-[6px] text-[12px] px-[8px] py-[4px] bg-white text-black font-mono disabled:opacity-40">
+                    <option value="" th:text="#{settings.ai.embedded.modelAuto}">Auto (preference order)</option>
+                    <template x-for="m in embedded.availableModels" :key="m">
+                        <option :value="m" x-text="m"></option>
+                    </template>
+                </select>
+                <span x-show="embedded.fallbackUsed" x-cloak
+                      class="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-[5px] px-[6px] py-[2px]"
+                      th:text="#{settings.ai.embedded.fallbackUsed}">Started with fallback model</span>
+            </div>
+            <p class="m-0" x-show="embedded.activeModel" x-cloak>
+                <span class="font-medium" th:text="#{settings.ai.embedded.activeModel}">Active:</span>
+                <span class="font-mono" x-text="embedded.activeModel"></span>
+            </p>
+            <p class="m-0" x-show="!embedded.binaryFound" x-cloak>
+                <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
+            </p>
+            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile" x-cloak>
+                <span class="text-amber-600" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model found. Place qwen3-1.7b-q4_k_m.gguf (or gemma-3-1b-it-Q4_K_M.gguf) in the folder below.</span>
+            </p>
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <span class="font-medium shrink-0" th:text="#{settings.ai.embedded.folder}">Folder:</span>
+                <input type="text" x-model="embeddedDirInput" :disabled="embeddedSaving"
+                       class="flex-1 min-w-[200px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] px-[8px] py-[4px] font-mono disabled:opacity-40"
+                       placeholder="./embedded-ai"/>
+                <button type="button" @click="saveEmbeddedConfig()" :disabled="embeddedSaving"
+                        class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[12px] font-semibold px-[12px] py-[5px] rounded-[6px] transition-colors cursor-pointer disabled:opacity-40"
+                        x-text="embeddedSaving ? _aiI18n.embeddedConfigSaving : _aiI18n.embeddedConfigSave"></button>
+            </div>
+        </div>
+        <p x-show="embedded.lastError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.5] break-all" x-text="embedded.lastError"></p>
+        <p x-show="embeddedError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.5]" x-text="embeddedError"></p>
+    </div>
+
     <!-- Provider Card -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
@@ -268,52 +332,6 @@
             </div>
             <!-- Local Fields -->
             <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
-
-                <!-- Embedded AI (llama.cpp sidecar) -->
-                <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[10px]">
-                    <div class="flex items-center justify-between gap-[10px] flex-wrap">
-                        <div class="flex items-center gap-[8px]">
-                            <span class="font-semibold text-[14px] text-[var(--grayscale-100)]" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</span>
-                            <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
-                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
-                            </span>
-                            <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-50)] font-semibold">
-                                <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
-                            </span>
-                        </div>
-                        <div class="flex items-center gap-[8px]">
-                            <button type="button" x-show="!embedded.running"
-                                    @click="startEmbedded()"
-                                    :disabled="embeddedBusy || !embedded.binaryFound || !embedded.modelFile"
-                                    class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[12px] font-semibold px-[12px] py-[6px] rounded-[7px] transition-colors cursor-pointer"
-                                    x-text="embeddedBusy ? _aiI18n.embeddedStarting : _aiI18n.embeddedStart"></button>
-                            <button type="button" x-show="embedded.running" x-cloak
-                                    @click="stopEmbedded()"
-                                    :disabled="embeddedBusy"
-                                    class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[12px] font-semibold px-[12px] py-[6px] rounded-[7px] transition-colors cursor-pointer"
-                                    x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
-                        </div>
-                    </div>
-                    <p class="m-0 text-[12px] text-[var(--grayscale-60)] leading-[1.45]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; low-spec fallback: Gemma 3 1B.</p>
-                    <div class="text-[12px] text-[var(--grayscale-60)] leading-[1.5]">
-                        <p class="m-0">
-                            <span class="font-medium" th:text="#{settings.ai.embedded.model}">Model:</span>
-                            <span class="font-mono" x-text="embedded.modelFile || '—'"></span>
-                        </p>
-                        <p class="m-0" x-show="!embedded.binaryFound" x-cloak>
-                            <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
-                        </p>
-                        <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile" x-cloak>
-                            <span class="text-amber-600" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model found. Place qwen3-1.7b-q4_k_m.gguf (or gemma-3-1b-it-Q4_K_M.gguf) in the folder below.</span>
-                        </p>
-                        <p class="m-0">
-                            <span class="font-medium" th:text="#{settings.ai.embedded.folder}">Folder:</span>
-                            <span class="font-mono break-all" x-text="embedded.modelsDir || 'embedded-ai/'"></span>
-                        </p>
-                    </div>
-                    <p x-show="embeddedError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.45]" x-text="embeddedError"></p>
-                </div>
-
                 <ul class="m-0 pl-[16px] flex flex-col gap-[4px] text-[12px] text-[var(--grayscale-60)] leading-[1.45] list-disc">
                     <li th:text="#{settings.ai.local.hint.serve}">Start Ollama first: run ollama serve in a terminal, then test the connection.</li>
                     <li th:text="#{settings.ai.local.hint.endpoint}">Use http://localhost:11434/v1 — the /v1 suffix is required.</li>
@@ -639,7 +657,10 @@
         embeddedStopping: /*[[#{settings.ai.embedded.btn.stopping}]]*/ 'Stopping…',
         embeddedStarted: /*[[#{settings.ai.embedded.msg.started}]]*/ 'Embedded AI is running and set as the active LOCAL provider.',
         embeddedStopped: /*[[#{settings.ai.embedded.msg.stopped}]]*/ 'Embedded AI stopped.',
-        embeddedFailed: /*[[#{settings.ai.embedded.error.failed}]]*/ 'Failed to start Embedded AI.'
+        embeddedFailed: /*[[#{settings.ai.embedded.error.failed}]]*/ 'Failed to start Embedded AI.',
+        embeddedConfigSave: /*[[#{settings.ai.embedded.config.save}]]*/ 'Save',
+        embeddedConfigSaving: /*[[#{settings.ai.embedded.config.saving}]]*/ 'Saving…',
+        embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.'
     };
     </script>
 
@@ -671,8 +692,9 @@
             savingProvider: false, savingEnrichment: false, testing: false,
             apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '',
             usageStats: null,
-            embedded: { binaryFound: false, running: false, modelFile: null, modelsDir: null, availableModels: [] },
+            embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [] },
             embeddedBusy: false, embeddedError: null,
+            embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
 
             localeLabel() {
                 return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
@@ -721,15 +743,25 @@
             async loadEmbeddedStatus() {
                 try {
                     const r = await fetch('/api/settings/ai/embedded');
-                    if (r.ok) this.embedded = await r.json();
+                    if (r.ok) {
+                        this.embedded = await r.json();
+                        this.syncEmbeddedInputs();
+                    }
                 } catch (e) { /* non-fatal */ }
+            },
+
+            syncEmbeddedInputs() {
+                this.embeddedModel = this.embedded.modelFile || '';
+                this.embeddedDirInput = this.embedded.modelsDir || '';
             },
 
             async startEmbedded() {
                 this.embeddedBusy = true;
                 this.embeddedError = null;
                 try {
-                    const r = await fetch('/api/settings/ai/embedded/start', {
+                    const url = '/api/settings/ai/embedded/start'
+                        + (this.embeddedModel ? '?model=' + encodeURIComponent(this.embeddedModel) : '');
+                    const r = await fetch(url, {
                         method: 'POST',
                         headers: this.headers()
                     });
@@ -738,7 +770,7 @@
                     if (r.ok && data.success) {
                         this.mode = 'LOCAL';
                         if (data.baseUrl) this.forms.LOCAL.baseUrl = data.baseUrl;
-                        if (data.modelFile) this.forms.LOCAL.modelName = data.modelFile.replace(/\.gguf$/i, '');
+                        if (data.activeModel) this.forms.LOCAL.modelName = data.activeModel.replace(/\.gguf$/i, '');
                         this.showToast(_aiI18n.embeddedStarted);
                     } else {
                         this.embeddedError = data.message || _aiI18n.embeddedFailed;
@@ -747,6 +779,30 @@
                     this.embeddedError = _aiI18n.embeddedFailed;
                 } finally {
                     this.embeddedBusy = false;
+                }
+            },
+
+            async saveEmbeddedConfig() {
+                this.embeddedSaving = true;
+                this.embeddedError = null;
+                try {
+                    const r = await fetch('/api/settings/ai/embedded/config', {
+                        method: 'PUT',
+                        headers: this.headers(),
+                        body: JSON.stringify({ dir: this.embeddedDirInput, model: this.embeddedModel })
+                    });
+                    const data = await r.json();
+                    this.embedded = data;
+                    if (r.ok && data.success) {
+                        this.syncEmbeddedInputs();
+                        this.showToast(_aiI18n.embeddedConfigSaved);
+                    } else {
+                        this.embeddedError = data.message || _aiI18n.embeddedFailed;
+                    }
+                } catch (e) {
+                    this.embeddedError = _aiI18n.embeddedFailed;
+                } finally {
+                    this.embeddedSaving = false;
                 }
             },
 

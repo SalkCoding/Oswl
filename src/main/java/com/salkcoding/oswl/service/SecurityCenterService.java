@@ -271,7 +271,7 @@ public class SecurityCenterService {
         List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
         VersionOrder.sortDesc(allScans);
         if (allScans.isEmpty()) {
-            return csvHeader().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return ('\uFEFF' + csvHeader()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
 
         ScanResult scan = (scanId != null)
@@ -281,7 +281,7 @@ public class SecurityCenterService {
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
 
         var sb = new StringBuilder();
-        sb.append(csvHeader()).append("\n");
+        sb.append('\uFEFF').append(csvHeader()).append("\n");
 
         for (ScanComponent sc : components) {
             Library lib = sc.getLibrary();

@@ -26,7 +26,7 @@
             <a th:href="@{/settings(tab=${t.key})}"
                th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
                class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
-               th:text="${t.label}">Tab</a>
+               th:text="#{${t.labelKey}}">Tab</a>
             <!-- 점 구분자 (4px 원) -->
             <span th:unless="${tStat.last}"
                   class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-40)] shrink-0 -mx-[16px]"></span>

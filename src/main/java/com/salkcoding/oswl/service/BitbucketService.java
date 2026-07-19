@@ -365,7 +365,7 @@ public class BitbucketService {
     private String extractServerPrUrl(JsonNode pr, String serverUrl, String projectKey, String repoSlug, int prId) {
         JsonNode self = pr.path("links").path("self");
         if (self.isArray() && !self.isEmpty()) {
-            return self.getFirst().path("href").asText();
+            return self.get(0).path("href").asText();
         }
         if (self.isObject() && self.has("href")) {
             return self.path("href").asText();

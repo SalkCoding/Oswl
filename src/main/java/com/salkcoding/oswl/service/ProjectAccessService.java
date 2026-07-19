@@ -14,10 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Project-scoped access control. System administrators bypass membership checks.
@@ -50,17 +47,6 @@ public class ProjectAccessService {
                     projectId, currentUserIdOrNull());
             throw new ForbiddenException("You do not have access to this project.");
         }
-    }
-
-    /**
-     * Ensures the scan's project matches the given scan id and the caller may view it.
-     */
-    @Transactional(readOnly = true)
-    public void assertCanViewScan(Long scanId, Long projectId) {
-        if (projectId == null) {
-            throw new ForbiddenException("You do not have access to this scan.");
-        }
-        assertCanViewProject(projectId);
     }
 
     @Transactional(readOnly = true)
@@ -120,7 +106,7 @@ public class ProjectAccessService {
         }
     }
 
-    public OswlUserPrincipal currentPrincipal() {
+    private OswlUserPrincipal currentPrincipal() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof OswlUserPrincipal p) {
             return p;
@@ -131,23 +117,5 @@ public class ProjectAccessService {
     public Long currentUserIdOrNull() {
         OswlUserPrincipal p = currentPrincipal();
         return p != null ? p.getUserId() : null;
-    }
-
-    /** Filters the given ids to those the current user may access (admins receive the input list). */
-    @Transactional(readOnly = true)
-    public Set<Long> filterAccessibleProjectIds(List<Long> projectIds) {
-        if (projectIds == null || projectIds.isEmpty()) {
-            return Collections.emptySet();
-        }
-        OswlUserPrincipal principal = currentPrincipal();
-        if (principal == null) {
-            return Collections.emptySet();
-        }
-        if (principal.isSystemAdmin()) {
-            return Set.copyOf(projectIds);
-        }
-        return projectMemberRepository.findAccessibleProjectIds(projectIds, principal.getUserId())
-                .stream()
-                .collect(Collectors.toSet());
     }
 }

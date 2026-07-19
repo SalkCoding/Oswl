@@ -46,7 +46,7 @@ public class AiUsageRecorderService {
     private double localOutputPer1M;
 
     @Transactional
-    public void record(AiProvider provider, String operation, String modelName,
+    void record(AiProvider provider, String operation, String modelName,
                        int promptTokens, int completionTokens) {
         if (provider == null || operation == null) return;
         int prompt = Math.max(0, promptTokens);

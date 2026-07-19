@@ -131,7 +131,7 @@ public class ScanComponent {
     }
 
     /** Clears a deferred state (called by the expiry scheduler or manual un-defer). */
-    public void clearDeferral() {
+    private void clearDeferral() {
         this.deferredAt = null;
         this.deferralReason = null;
         this.deferralExpiresAt = null;

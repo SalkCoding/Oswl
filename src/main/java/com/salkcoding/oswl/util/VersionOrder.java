@@ -45,7 +45,7 @@ public final class VersionOrder {
     }
 
     /** Compares dotted version strings: numeric segments numerically, others lexicographically. */
-    public static int compareVersions(String a, String b) {
+    private static int compareVersions(String a, String b) {
         String[] as = normalize(a).split("[.\\-_+]");
         String[] bs = normalize(b).split("[.\\-_+]");
         int len = Math.max(as.length, bs.length);
