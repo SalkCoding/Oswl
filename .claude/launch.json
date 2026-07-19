@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "oswl",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "E:\\Programming\\Visual Studio Code\\Oswl\\gradlew.bat", "bootRun"],
+      "port": 8080
+    }
+  ]
+}
