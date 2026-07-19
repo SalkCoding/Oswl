@@ -115,7 +115,7 @@ class AuditLogServiceTest {
         Page<AuditLogDto> result = auditLogService.findAll(filter, Pageable.unpaged());
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getAction()).isEqualTo("USER.CREATE");
+        assertThat(result.getContent().getFirst().getAction()).isEqualTo("USER.CREATE");
     }
 
     @Test

@@ -193,7 +193,7 @@ class GitHubApiControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).hasSize(1);
-        assertThat(resp.getBody().get(0).getLogin()).isEqualTo("octocat");
+        assertThat(resp.getBody().getFirst().getLogin()).isEqualTo("octocat");
     }
 
     // ── repos ─────────────────────────────────────────────────────────────

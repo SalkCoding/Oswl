@@ -180,7 +180,7 @@ public class GitHubService {
         String url = apiBase + "/repos/" + owner + "/" + repo + "/commits?sha=" + branch + "&per_page=1";
         JsonNode commits = getJson(accessToken, url);
         if (commits.isArray() && !commits.isEmpty()) {
-            JsonNode commit = commits.get(0).path("commit");
+            JsonNode commit = commits.getFirst().path("commit");
             String date = commit.path("committer").path("date").asText("");
             if (date.isEmpty()) {
                 date = commit.path("author").path("date").asText("");

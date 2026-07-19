@@ -53,9 +53,9 @@ public class LicenseService {
             scan = allScans.stream()
                     .filter(s -> s.getId().equals(scanId))
                     .findFirst()
-                    .orElse(allScans.isEmpty() ? null : allScans.get(0));
+                    .orElse(allScans.isEmpty() ? null : allScans.getFirst());
         } else {
-            scan = allScans.isEmpty() ? null : allScans.get(0);
+            scan = allScans.isEmpty() ? null : allScans.getFirst();
         }
 
         Long activeScanId = scan != null ? scan.getId() : null;
@@ -688,8 +688,8 @@ public class LicenseService {
         List<ScanResult> scans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
         VersionOrder.sortDesc(scans);
         if (scans.isEmpty()) return null;
-        if (scanId == null) return scans.get(0);
-        return scans.stream().filter(s -> s.getId().equals(scanId)).findFirst().orElse(scans.get(0));
+        if (scanId == null) return scans.getFirst();
+        return scans.stream().filter(s -> s.getId().equals(scanId)).findFirst().orElse(scans.getFirst());
     }
 
     private String safe(String s) {

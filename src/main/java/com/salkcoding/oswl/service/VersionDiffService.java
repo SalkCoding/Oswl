@@ -61,7 +61,7 @@ public class VersionDiffService {
             toScan = allScans.stream().filter(s -> s.getId().equals(toScanId)).findFirst().orElse(null);
         }
 
-        if (toScan == null && !allScans.isEmpty())   toScan   = allScans.get(0);
+        if (toScan == null && !allScans.isEmpty())   toScan   = allScans.getFirst();
         if (fromScan == null && allScans.size() > 1) fromScan = allScans.get(1);
         if (fromScan == null)                        fromScan = toScan;
 

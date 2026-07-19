@@ -155,8 +155,8 @@ function quickImportPage() {
             if (!this.repoUrl.trim())   return false;
             if (!this.detectedProvider) return false;
             if (this.urlError)          return false;
-            if (this.userQueuedCount >= this.maxQueuedSlots) return false;
-            return true;
+            return this.userQueuedCount < this.maxQueuedSlots;
+
         },
 
         _isTerminalPhase(phase) {
