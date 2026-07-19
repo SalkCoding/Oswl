@@ -49,7 +49,7 @@ class VcsConnectionServiceTest {
         List<VcsConnectionDto> result = vcsConnectionService.findByCurrentUser(1L);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getProvider()).isEqualTo(VcsProvider.GITHUB);
+        assertThat(result.getFirst().getProvider()).isEqualTo(VcsProvider.GITHUB);
     }
 
     @Test

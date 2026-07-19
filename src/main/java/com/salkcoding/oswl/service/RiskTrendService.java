@@ -55,14 +55,14 @@ public class RiskTrendService {
                         .build())
                 .toList();
         model.addAttribute("scanVersions", scanVersions);
-        model.addAttribute("currentScanId", (Object) null);
+        model.addAttribute("currentScanId", null);
 
         if (scansDesc.isEmpty()) {
             addEmptyChartData(model);
             return;
         }
 
-        ScanResult latest = scansDesc.get(0);
+        ScanResult latest = scansDesc.getFirst();
         model.addAttribute("projectVersion", latest.getVersion() != null ? latest.getVersion() : "-");
 
         List<ScanResult> scansAsc = new ArrayList<>(scansDesc);

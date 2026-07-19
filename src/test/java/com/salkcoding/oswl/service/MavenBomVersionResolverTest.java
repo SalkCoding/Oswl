@@ -101,7 +101,7 @@ class MavenBomVersionResolverTest {
     List<ScanPayload.ComponentPayload> enriched = resolver.enrichComponentVersions(dir, input);
 
     assertThat(enriched).hasSize(1);
-    assertThat(enriched.get(0).getVersion()).isEqualTo("3.5.5");
+    assertThat(enriched.getFirst().getVersion()).isEqualTo("3.5.5");
   }
 
   @Test

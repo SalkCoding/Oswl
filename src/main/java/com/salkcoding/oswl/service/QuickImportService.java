@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.service.git.CloneRootPathGuard;
 import com.salkcoding.oswl.service.git.GitCloneCredentials;
@@ -12,7 +13,6 @@ import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
@@ -30,25 +30,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
 
-import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -451,8 +441,6 @@ public class QuickImportService {
         return token.substring(0, 8) + "\u2026" + token.substring(token.length() - 4);
     }
 
-    // ?? Repo browser (for Quick Import list UI) ???????????????????????????
-
     /**
      * Returns all repositories accessible by the authenticated user for the given VCS provider.
      *
@@ -733,7 +721,7 @@ public class QuickImportService {
             }
 
             String actorEmail = userRepository.findById(userId)
-                    .map(u -> u.getEmail())
+                    .map(User::getEmail)
                     .orElse("user:" + userId);
             auditLogService.logAnonymous(actorEmail, "SCAN.INGEST", "PROJECT",
                     project.getId().toString(), scanVersion,

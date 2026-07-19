@@ -23,7 +23,7 @@ import org.springframework.core.ParameterizedTypeReference;
 public class OpenAiClient implements AiAnalysisClient {
 
     private static final String DEFAULT_OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-    /** Google AI Studio OpenAI-compatible base (see https://ai.google.dev/gemini-api/docs/openai). */
+    /** Google AI Studio OpenAI-compatible base (see <a href="https://ai.google.dev/gemini-api/docs/openai">...</a>). */
     public static final String DEFAULT_GEMINI_OPENAI_BASE =
             "https://generativelanguage.googleapis.com/v1beta/openai";
     private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -115,7 +115,7 @@ public class OpenAiClient implements AiAnalysisClient {
                 log.debug("[AI][{}] ← status={} elapsedMs={} attempt={}", PROVIDER_TAG, response.getStatusCode(), elapsed, attempt);
 
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                    AiProvider providerTag = setting != null ? setting.getProvider() : AiProvider.OPENAI;
+                    AiProvider providerTag = setting.getProvider();
                     usageRecorder.recordFromOpenAiUsage(response.getBody(), providerTag, op, model);
                     var choices = (List<?>) response.getBody().get("choices");
                     if (choices != null && !choices.isEmpty()) {
@@ -139,7 +139,7 @@ public class OpenAiClient implements AiAnalysisClient {
                 } else {
                     log.error("[AI][{}] Call failed after {}ms attempt={} — {}: {}", PROVIDER_TAG, elapsed, attempt, e.getClass().getSimpleName(), e.getMessage());
                     if ("test.connection".equals(op)) {
-                        throw e instanceof RuntimeException re ? re : new RuntimeException(e);
+                        throw (RuntimeException) e;
                     }
                     break;
                 }
@@ -152,7 +152,6 @@ public class OpenAiClient implements AiAnalysisClient {
      * message.content is normally a string, but some OpenAI-compatible servers
      * (local runtimes, Gemini compat layer) return an array of content parts.
      */
-    @SuppressWarnings("unchecked")
     private static String extractContent(Object content) {
         if (content == null) return null;
         if (content instanceof String s) return s;

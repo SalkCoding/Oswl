@@ -232,7 +232,7 @@ public class DependencyManifestParserService {
             log.warn("[DependencyParser] No recognized manifests in '{}' ??empty component list.", repoName);
             return new ParseResult("UNKNOWN", List.of());
         }
-        String primary = ecosystems.get(0);
+        String primary = ecosystems.getFirst();
         log.info("[DependencyParser] Multi-scan '{}': {} components across ecosystems={}", repoName, allComps.size(), ecosystems);
         return new ParseResult(primary, allComps);
     }
@@ -1257,7 +1257,7 @@ public class DependencyManifestParserService {
         if (!solutions.isEmpty()) {
             return solutions.stream()
                     .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
-                    .orElse(solutions.get(0));
+                    .orElse(solutions.getFirst());
         }
         List<Path> projects = walkNuGetManifests(dir, ".csproj");
         if (projects.isEmpty()) {
@@ -1265,7 +1265,7 @@ public class DependencyManifestParserService {
         }
         return projects.stream()
                 .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
-                .orElse(projects.get(0));
+                .orElse(projects.getFirst());
     }
 
     private List<ScanPayload.ComponentPayload> parseDotNetListJson(String json, String repoName) {

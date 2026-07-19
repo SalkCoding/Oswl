@@ -43,7 +43,7 @@ class ProjectControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(1);
-        assertThat(response.getBody().get(0).getName()).isEqualTo("TestProject");
+        assertThat(response.getBody().getFirst().getName()).isEqualTo("TestProject");
     }
 
     @Test

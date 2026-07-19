@@ -576,7 +576,7 @@ class ComponentDetailServiceTest {
         // Second node: "org.spring:spring-core" → shortName should be "spring-core"
         assertThat(nodes.get(1).getShortName()).isEqualTo("spring-core");
         // Root node with blank name → use project name
-        assertThat(nodes.get(0).getShortName()).isEqualTo("MyProject");
+        assertThat(nodes.getFirst().getShortName()).isEqualTo("MyProject");
     }
 
     @Test

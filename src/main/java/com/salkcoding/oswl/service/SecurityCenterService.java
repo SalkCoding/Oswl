@@ -55,9 +55,9 @@ public class SecurityCenterService {
             scan = allScans.stream()
                     .filter(s -> s.getId().equals(scanId))
                     .findFirst()
-                    .orElse(allScans.isEmpty() ? null : allScans.get(0));
+                    .orElse(allScans.isEmpty() ? null : allScans.getFirst());
         } else {
-            scan = allScans.isEmpty() ? null : allScans.get(0);
+            scan = allScans.isEmpty() ? null : allScans.getFirst();
         }
 
         Long activeScanId = scan != null ? scan.getId() : null;
@@ -91,7 +91,7 @@ public class SecurityCenterService {
                 ? scan.getScannedAt().toLocalDate().toString() : "-");
 
         // Update banner: show when viewing an older scan and a newer completed scan exists
-        ScanResult latestCompleted = allScans.get(0);
+        ScanResult latestCompleted = allScans.getFirst();
         if (!scan.getId().equals(latestCompleted.getId())) {
             String fromVer = scan.getVersion() != null ? scan.getVersion()
                     : scan.getScannedAt().toLocalDate().toString().replace("-", ".");

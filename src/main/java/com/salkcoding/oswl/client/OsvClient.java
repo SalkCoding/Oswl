@@ -203,7 +203,7 @@ public class OsvClient {
         if (!(cweIds instanceof List<?> list) || list.isEmpty()) {
             return null;
         }
-        Object first = list.get(0);
+        Object first = list.getFirst();
         if (!(first instanceof String raw) || raw.isBlank()) {
             return null;
         }
