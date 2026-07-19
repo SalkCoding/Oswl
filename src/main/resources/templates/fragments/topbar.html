@@ -30,8 +30,8 @@
         <div x-show="open" x-transition style="display:none;"
              class="absolute right-0 top-[34px] z-30 w-[220px] rounded-[6px] border border-white/20 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-lg p-[10px] flex flex-col gap-[6px]">
             <div class="px-[8px] py-[4px] border-b border-white/15 mb-[2px]">
-                <div class="text-white text-[13px] font-semibold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : #{topbar.fallback.user}}">User</div>
-                <div class="text-white/50 text-[11px]" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
+                <div class="text-white text-[14px] font-bold" th:text="${#authentication != null ? #authentication.getPrincipal().displayName : #{topbar.fallback.user}}">User</div>
+                <div class="text-white/80 text-[12px] font-medium" th:text="${#authentication != null ? #authentication.getPrincipal().username : ''}">user@example.com</div>
                 <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')" th:text="#{topbar.userMenu.systemAdmin}">??System Admin</div>
             </div>
             <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">Setting</a>

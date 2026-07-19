@@ -10,7 +10,7 @@
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0" 
                 th:text="${totalLicenses} + ' ' + #{license.label.licensesFound}">27 Licenses Found</h2>
             
-            <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
+            <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[12px] text-[#333E42]">
                 <!-- Restricted Count -->
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
@@ -78,7 +78,7 @@
                         <p class="text-[13px] text-[#272D30] tracking-[-0.13px] m-0 leading-relaxed" th:text="${license.aiLicenseSummary}">AI summary</p>
                     </div>
 
-                    <p class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0" th:text="#{license.label.libraries}">Libraries</p>
+                    <p class="text-[12px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase pt-3 pb-2 m-0" th:text="#{license.label.libraries}">Libraries</p>
                     <div th:each="libName : ${license.libraryNames}"
                          class="flex items-center gap-[8px] py-[5px]">
                         <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>

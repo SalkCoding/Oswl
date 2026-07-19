@@ -7,6 +7,8 @@ import com.salkcoding.oswl.service.LicenseService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +34,7 @@ public class LicenseController implements LicenseControllerSpec {
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
     private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
+    private final MessageSource messageSource;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
@@ -57,9 +60,12 @@ public class LicenseController implements LicenseControllerSpec {
         projectAccessService.assertCanViewProject(projectId);
         boolean ok = vulnerabilityEnrichmentService.refreshScanInsights(projectId, scanId);
         if (!ok) {
+            String message = messageSource.getMessage("license.ai.refreshFailed", null,
+                    "AI provider is not configured or insight generation failed.",
+                    LocaleContextHolder.getLocale());
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "AI provider is not configured or insight generation failed."));
+                    "message", message));
         }
         auditLogService.log("LICENSE.REFRESH_AI_INSIGHT", "SCAN", scanId.toString(),
                 "projectId=" + projectId, null);

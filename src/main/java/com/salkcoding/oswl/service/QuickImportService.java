@@ -20,6 +20,7 @@ import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
 import com.salkcoding.oswl.dto.QuickImportJobsResponse;
 import com.salkcoding.oswl.dto.QuickImportMessageKeys;
+import com.salkcoding.oswl.exception.QuickImportDuplicateException;
 import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
@@ -132,6 +133,14 @@ public class QuickImportService {
     private final AtomicInteger runningImports = new AtomicInteger(0);
     private final Object dispatchLock = new Object();
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> jobEmitters = new ConcurrentHashMap<>();
+    /** jobId → normalized repoUrl#branch, used to reject duplicate concurrent imports. */
+    private final ConcurrentHashMap<String, String> jobRepoKeys = new ConcurrentHashMap<>();
+    /** Jobs the owner asked to cancel — checked at phase boundaries in runImport. */
+    private final java.util.Set<String> cancelRequested = ConcurrentHashMap.newKeySet();
+
+    private static final class ImportCanceledException extends RuntimeException {
+        ImportCanceledException() { super("canceled"); }
+    }
 
     private record PendingImport(String jobId, String repoUrl, String branch, Long userId, String repoLabel,
                                  Locale locale) {}
@@ -168,6 +177,7 @@ public class QuickImportService {
             if (userQueued >= maxQueuedPerUser) {
                 throw new QuickImportQueueFullException(maxQueuedPerUser);
             }
+            rejectDuplicateActiveImport(repoUrl, branch, userId);
         }
 
         String jobId = UUID.randomUUID().toString();
@@ -196,11 +206,38 @@ public class QuickImportService {
                 "jobId=" + jobId + " branch=" + (branch != null && !branch.isBlank() ? branch : "default"));
 
         Locale locale = LocaleContextHolder.getLocale();
+        jobRepoKeys.put(jobId, importKey(repoUrl, branch));
         pendingQueue.offer(new PendingImport(jobId, repoUrl, branch, userId, repoLabel, locale));
         refreshQueuePositions();
         dispatchQueue();
 
         return jobId;
+    }
+
+    /**
+     * The same repo imported twice in a row used to scan concurrently and race on
+     * the same project rows — block a re-import while the first one is still active.
+     */
+    private void rejectDuplicateActiveImport(String repoUrl, String branch, Long userId) {
+        String key = importKey(repoUrl, branch);
+        CopyOnWriteArrayList<String> ids = userJobIds.get(userId);
+        if (ids == null) return;
+        for (String id : ids) {
+            QuickImportJobStatus status = jobs.get(id);
+            if (status == null) continue;
+            Phase phase = status.getPhase();
+            if (phase == Phase.DONE || phase == Phase.FAILED) continue;
+            if (key.equals(jobRepoKeys.get(id))) {
+                throw new QuickImportDuplicateException(extractRepoLabel(repoUrl));
+            }
+        }
+    }
+
+    private static String importKey(String repoUrl, String branch) {
+        String url = repoUrl == null ? "" : repoUrl.strip().toLowerCase();
+        if (url.endsWith(".git")) url = url.substring(0, url.length() - 4);
+        if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
+        return url + "#" + (branch == null || branch.isBlank() ? "default" : branch.strip());
     }
 
     public List<QuickImportJobStatus> listJobsForUser(Long userId) {
@@ -264,6 +301,10 @@ public class QuickImportService {
                     .queuePosition(null)
                     .percent(phasePercent(Phase.CLONING, null)));
             runImport(jobId, task.repoUrl(), task.branch(), task.userId());
+        } catch (ImportCanceledException e) {
+            log.info("[QuickImport][{}] Canceled by user", jobId);
+            failJob(jobId, QuickImportMessageKeys.CANCELED, List.of(),
+                    null, null, null, null, null, null);
         } catch (com.salkcoding.oswl.exception.ConflictException e) {
             log.warn("[QuickImport][{}] Blocked by CLI key policy: {}", jobId, e.getMessage());
             failJob(jobId, QuickImportMessageKeys.CLI_POLICY_BLOCKED, List.of(),
@@ -273,9 +314,42 @@ public class QuickImportService {
             failJob(jobId, classifyFailureKey(t), List.of(),
                     null, null, null, null, null, null);
         } finally {
+            cancelRequested.remove(jobId);
             runningImports.decrementAndGet();
             refreshQueuePositions();
             dispatchQueue();
+        }
+    }
+
+    /**
+     * Requests cancellation of a queued or running job. Queued jobs stop immediately;
+     * running jobs stop at the next phase boundary (a long clone finishes first).
+     * Returns false when the job is unknown, not owned by the user, or already finished.
+     */
+    public boolean cancelJob(String jobId, Long requestingUserId) {
+        if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) return false;
+        QuickImportJobStatus status = jobs.get(jobId);
+        if (status == null) return false;
+        Phase phase = status.getPhase();
+        if (phase == Phase.DONE || phase == Phase.FAILED) return false;
+
+        boolean removedFromQueue = pendingQueue.removeIf(t -> t.jobId().equals(jobId));
+        if (removedFromQueue) {
+            failJob(jobId, QuickImportMessageKeys.CANCELED, List.of(),
+                    null, null, null, null, null, null);
+            refreshQueuePositions();
+        } else {
+            cancelRequested.add(jobId);
+        }
+        auditLogService.log("QUICK_IMPORT.CANCEL", "PROJECT", null, status.getRepoLabel(),
+                "jobId=" + jobId + " phase=" + phase);
+        log.info("[QuickImport][{}] Cancellation requested (phase={})", jobId, phase);
+        return true;
+    }
+
+    private void throwIfCanceled(String jobId) {
+        if (cancelRequested.contains(jobId)) {
+            throw new ImportCanceledException();
         }
     }
 
@@ -611,18 +685,21 @@ public class QuickImportService {
         }
 
         // 3. Clone ?????????????????????????????????????????????????????????
+        throwIfCanceled(jobId);
         advanceJob(jobId, Phase.CLONING, null, null, null, null, null, null, null);
 
         Path cloneDir = createTempCloneDir(parsed.owner, parsed.repo, jobId);
         try {
             String cloneUrl = buildCloneUrl(parsed);
             gitCloneExecutor.clone(cloneUrl, credentials, branch, cloneDir, jobId);
+            throwIfCanceled(jobId);
 
             // 4. Parse dependencies ????????????????????????????????????????
             advanceJob(jobId, Phase.PARSING, null, null, null, null, null, null, null);
 
             DependencyManifestParserService.ParseResult deps =
                     dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo);
+            throwIfCanceled(jobId);
 
             // 5. Create/find project and API key ??????????????????????????
             Project project = projectService.upsertFromGitHub(
@@ -1086,6 +1163,7 @@ public class QuickImportService {
         jobs.remove(jobId);
         jobOwners.remove(jobId);
         apiTokenRevealed.remove(jobId);
+        jobRepoKeys.remove(jobId);
         log.debug("[QuickImport] Evicted expired job {}", jobId);
     }
 
