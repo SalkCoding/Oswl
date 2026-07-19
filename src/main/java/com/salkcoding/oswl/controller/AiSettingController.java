@@ -23,6 +23,7 @@ import com.salkcoding.oswl.service.ai.AiGoldenTestService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
 import com.salkcoding.oswl.service.ai.AiUsageStatsService;
+import com.salkcoding.oswl.service.ai.EmbeddedAiService;
 import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,8 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -55,6 +58,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final AiUsageStatsService aiUsageStatsService;
     private final MessageSource messageSource;
     private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
+    private final EmbeddedAiService embeddedAiService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -128,8 +132,12 @@ public class AiSettingController implements AiSettingControllerSpec {
                 setting.getProvider().name(), setting.getProvider().name(),
                 setting.getModelName());
         auditPreferencesIfChanged(before, prefs);
-        if (Boolean.TRUE.equals(request.getActivate())) {
-            vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+        boolean localeChanged = !Objects.equals(before.getPromptsLocale(), prefs.getPromptsLocale());
+        if (localeChanged && aiSettingRepository.findByActiveTrue().isPresent()) {
+            // Existing insights were generated in the previous language — regenerate them
+            runAfterCommit(vulnerabilityEnrichmentService::regenerateRecentInsightsAsync);
+        } else if (Boolean.TRUE.equals(request.getActivate())) {
+            runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
         }
         return ResponseEntity.ok(toResponse(setting, prefs));
     }
@@ -162,8 +170,91 @@ public class AiSettingController implements AiSettingControllerSpec {
         setting.activate();
         auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
                 provider.name(), provider.name(), setting.getModelName());
-        vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+        runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
         return ResponseEntity.ok(toResponse(setting, aiPreferencesService.getEffective()));
+    }
+
+    /**
+     * The backfill runs @Async in its own transaction. Fired inside this
+     * transaction it can read the DB before the new active setting commits and
+     * silently no-op — so defer it to after commit.
+     */
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
+    // ── Embedded AI (llama.cpp sidecar) ─────────────────────────────────
+
+    @GetMapping("/embedded")
+    public ResponseEntity<Map<String, Object>> embeddedStatus() {
+        return ResponseEntity.ok(embeddedStatusBody());
+    }
+
+    @PostMapping("/embedded/start")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> startEmbedded() {
+        try {
+            embeddedAiService.start();
+        } catch (IllegalStateException e) {
+            Map<String, Object> body = embeddedStatusBody();
+            body.put("success", false);
+            body.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+
+        // Register the sidecar as the active LOCAL provider
+        AiSetting setting = aiSettingRepository.findByProvider(AiProvider.LOCAL)
+                .orElseGet(() -> AiSetting.builder().provider(AiProvider.LOCAL).build());
+        setting.update(null, embeddedAiService.modelName(), embeddedAiService.baseUrl());
+        aiSettingRepository.findByActiveTrue()
+                .filter(s -> s.getProvider() != AiProvider.LOCAL)
+                .ifPresent(AiSetting::deactivate);
+        setting.activate();
+        aiSettingRepository.save(setting);
+        auditLogService.log("AI_SETTING.EMBEDDED_START", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), embeddedAiService.modelName());
+        runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
+
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
+    @PostMapping("/embedded/stop")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> stopEmbedded() {
+        embeddedAiService.stop();
+        // Deactivate LOCAL so AI calls don't fail against a dead endpoint
+        aiSettingRepository.findByActiveTrue()
+                .filter(s -> s.getProvider() == AiProvider.LOCAL)
+                .ifPresent(AiSetting::deactivate);
+        auditLogService.log("AI_SETTING.EMBEDDED_STOP", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), null);
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
+    private Map<String, Object> embeddedStatusBody() {
+        EmbeddedAiService.EmbeddedAiStatus status = embeddedAiService.status();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("binaryFound", status.isBinaryFound());
+        body.put("running", status.isRunning());
+        body.put("binaryPath", status.getBinaryPath());
+        body.put("modelFile", status.getModelFile());
+        body.put("availableModels", status.getAvailableModels());
+        body.put("baseUrl", status.getBaseUrl());
+        body.put("modelsDir", status.getModelsDir());
+        return body;
     }
 
     @PostMapping("/test-connection")

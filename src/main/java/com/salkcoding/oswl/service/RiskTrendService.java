@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,9 +39,11 @@ public class RiskTrendService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> scansDesc = scanResultRepository.findRecentCompleted(projectId, trendLimit);
+        List<ScanResult> scansDesc = new ArrayList<>(scanResultRepository.findRecentCompleted(projectId, trendLimit));
+        VersionOrder.sortDesc(scansDesc);
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
                         .scanId(s.getId())

@@ -14,6 +14,7 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +45,8 @@ public class LicenseService {
         model.addAttribute("projectName", project.getName());
         model.addAttribute("context", context);
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
 
         ScanResult scan;
         if (scanId != null) {
@@ -683,7 +685,8 @@ public class LicenseService {
     }
 
     private ScanResult resolveScan(Long projectId, Long scanId) {
-        List<ScanResult> scans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> scans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(scans);
         if (scans.isEmpty()) return null;
         if (scanId == null) return scans.get(0);
         return scans.stream().filter(s -> s.getId().equals(scanId)).findFirst().orElse(scans.get(0));

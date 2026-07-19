@@ -39,6 +39,7 @@
                 </div>
                 <p th:if="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:text="#{license.ai.notEnoughData}">Not enough scan data to generate an insight.</p>
                 <p th:unless="${aiConfigured}" class="text-[14px] text-[var(--grayscale-40)] tracking-[-0.14px] m-0 leading-relaxed" th:text="#{riskTrend.ai.notConfigured}">AI provider is not configured.</p>
+                <p id="license-refresh-insight-error" class="hidden text-[13px] text-[#e62727] tracking-[-0.13px] m-0 leading-relaxed"></p>
             </div>
         </div>
 
@@ -55,7 +56,7 @@
 
         <!-- Legal disclaimer -->
         <div class="mt-10 border-t border-[#DBE4E7] pt-4">
-            <p class="text-[11px] text-[var(--grayscale-50)] leading-relaxed max-w-[1000px]">
+            <p class="text-[12px] text-[var(--grayscale-50)] leading-relaxed max-w-[1000px]">
                 <span class="font-semibold text-[var(--grayscale-60)]" th:text="#{license.disclaimer.prefix}">Disclaimer.</span>
                 <span th:text="#{license.disclaimer}">Obligation classifications, conflict warnings and exported artifacts are generated automatically from SPDX metadata
                 and represent best-effort guidance only. They do not constitute legal advice. Consult qualified counsel before
@@ -72,17 +73,33 @@
         const projectId = btn.dataset.projectId;
         const scanId = btn.dataset.scanId;
         if (!projectId || !scanId) return;
+        const originalText = btn.textContent;
+        const generatingText = /*[[#{license.ai.refreshing}]]*/ 'Generating…';
+        const failedText = /*[[#{license.ai.refreshFailed}]]*/ 'Insight generation failed. Check the AI connection in Settings and that the scan has enough data, then try again.';
+        const errorBox = document.getElementById('license-refresh-insight-error');
         btn.disabled = true;
+        btn.textContent = generatingText;
+        if (errorBox) errorBox.classList.add('hidden');
         try {
             const r = await fetch('/projects/' + projectId + '/license/refresh-insights?scanId=' + scanId, {
                 method: 'POST',
                 headers: oswlJsonHeaders()
             });
-            if (r.ok) location.reload();
-            else btn.disabled = false;
+            if (r.ok) { location.reload(); return; }
+            let serverMsg = null;
+            try { serverMsg = (await r.json()).message; } catch (e) { /* non-JSON */ }
+            if (errorBox) {
+                errorBox.textContent = serverMsg || failedText;
+                errorBox.classList.remove('hidden');
+            }
         } catch (e) {
-            btn.disabled = false;
+            if (errorBox) {
+                errorBox.textContent = failedText;
+                errorBox.classList.remove('hidden');
+            }
         }
+        btn.disabled = false;
+        btn.textContent = originalText;
     });
     </script>
 

@@ -298,6 +298,22 @@ function quickImportPage() {
             }
         },
 
+        async cancelJob(job) {
+            if (!job || job.cancelRequested) return;
+            job.cancelRequested = true;
+            try {
+                const res = await fetch('/api/quick-import/job/' + job.jobId + '/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (!res.ok) job.cancelRequested = false;
+                // On success the job stream/poll delivers the FAILED(canceled) state.
+            } catch (err) {
+                console.error('[QuickImport] Cancel failed:', err);
+                job.cancelRequested = false;
+            }
+        },
+
         async _loadActiveJobs() {
             try {
                 const res = await fetch('/api/quick-import/jobs');

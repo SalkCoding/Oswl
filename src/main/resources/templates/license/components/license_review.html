@@ -39,7 +39,7 @@
                                 item.reason == 'MISSING'     ? 'bg-[rgba(244,122,41,0.08)] text-[#c4500a] border-[rgba(244,122,41,0.25)]' :
                                                                'bg-[var(--grayscale-5)] text-[var(--grayscale-70)] border-[var(--grayscale-15)]'
                               }"
-                              class="text-[10px] font-semibold tracking-[0.5px] uppercase px-2 py-[2px] rounded-[40px] border"
+                              class="text-[12px] font-semibold tracking-[0.5px] uppercase px-2 py-[2px] rounded-[40px] border"
                               th:text="${item.reason}">UNKNOWN</span>
                     </div>
                     <div class="flex items-center gap-[6px]">
@@ -53,7 +53,7 @@
                     <p class="text-[12px] text-[var(--grayscale-70)] leading-relaxed m-0"
                        th:text="${item.hint}">Hint</p>
                     <div class="flex flex-col gap-0">
-                        <p class="text-[11px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] mt-2 m-0" th:text="#{license.review.affectedLibraries}">Affected libraries</p>
+                        <p class="text-[12px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] mt-2 m-0" th:text="#{license.review.affectedLibraries}">Affected libraries</p>
                         <div th:each="libName : ${item.libraries}"
                              class="flex items-center gap-[8px] py-[3px]">
                             <span class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>

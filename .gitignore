@@ -55,3 +55,5 @@ server.log
 
 ### Coverage reports ###
 htmlReport
+# Embedded AI sidecar (binaries + models are too large for git)
+/embedded-ai/

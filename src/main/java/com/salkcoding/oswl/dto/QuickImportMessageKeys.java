@@ -6,6 +6,8 @@ public final class QuickImportMessageKeys {
     private QuickImportMessageKeys() {}
 
     public static final String QUEUE_FULL = "queueFull";
+    public static final String DUPLICATE_IMPORT = "duplicateImport";
+    public static final String CANCELED = "canceled";
     public static final String LOAD_REPOS = "loadRepos";
     public static final String TOKEN_DECRYPT = "tokenDecrypt";
 

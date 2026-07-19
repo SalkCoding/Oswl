@@ -23,6 +23,7 @@
     <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] flex flex-col gap-[6px]">
         <p class="font-semibold text-[13px] text-[var(--grayscale-80)] m-0" th:text="#{settings.ai.privacy.title}">What is sent to AI providers</p>
         <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.privacy.body}">Only metadata is sent — never full source code.</p>
+        <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.backfillNote}">After connecting a provider, insights for recent scans are generated automatically in the background (this can take a minute). Per-CVE summaries apply to scans run after the connection — re-scan a project to fill them in.</p>
     </div>
 
     <!-- Usage summary -->
@@ -267,6 +268,52 @@
             </div>
             <!-- Local Fields -->
             <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+
+                <!-- Embedded AI (llama.cpp sidecar) -->
+                <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[16px] py-[14px] flex flex-col gap-[10px]">
+                    <div class="flex items-center justify-between gap-[10px] flex-wrap">
+                        <div class="flex items-center gap-[8px]">
+                            <span class="font-semibold text-[14px] text-[var(--grayscale-100)]" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</span>
+                            <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
+                            </span>
+                            <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-50)] font-semibold">
+                                <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-[8px]">
+                            <button type="button" x-show="!embedded.running"
+                                    @click="startEmbedded()"
+                                    :disabled="embeddedBusy || !embedded.binaryFound || !embedded.modelFile"
+                                    class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[12px] font-semibold px-[12px] py-[6px] rounded-[7px] transition-colors cursor-pointer"
+                                    x-text="embeddedBusy ? _aiI18n.embeddedStarting : _aiI18n.embeddedStart"></button>
+                            <button type="button" x-show="embedded.running" x-cloak
+                                    @click="stopEmbedded()"
+                                    :disabled="embeddedBusy"
+                                    class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[12px] font-semibold px-[12px] py-[6px] rounded-[7px] transition-colors cursor-pointer"
+                                    x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
+                        </div>
+                    </div>
+                    <p class="m-0 text-[12px] text-[var(--grayscale-60)] leading-[1.45]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; low-spec fallback: Gemma 3 1B.</p>
+                    <div class="text-[12px] text-[var(--grayscale-60)] leading-[1.5]">
+                        <p class="m-0">
+                            <span class="font-medium" th:text="#{settings.ai.embedded.model}">Model:</span>
+                            <span class="font-mono" x-text="embedded.modelFile || '—'"></span>
+                        </p>
+                        <p class="m-0" x-show="!embedded.binaryFound" x-cloak>
+                            <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
+                        </p>
+                        <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile" x-cloak>
+                            <span class="text-amber-600" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model found. Place qwen3-1.7b-q4_k_m.gguf (or gemma-3-1b-it-Q4_K_M.gguf) in the folder below.</span>
+                        </p>
+                        <p class="m-0">
+                            <span class="font-medium" th:text="#{settings.ai.embedded.folder}">Folder:</span>
+                            <span class="font-mono break-all" x-text="embedded.modelsDir || 'embedded-ai/'"></span>
+                        </p>
+                    </div>
+                    <p x-show="embeddedError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.45]" x-text="embeddedError"></p>
+                </div>
+
                 <ul class="m-0 pl-[16px] flex flex-col gap-[4px] text-[12px] text-[var(--grayscale-60)] leading-[1.45] list-disc">
                     <li th:text="#{settings.ai.local.hint.serve}">Start Ollama first: run ollama serve in a terminal, then test the connection.</li>
                     <li th:text="#{settings.ai.local.hint.endpoint}">Use http://localhost:11434/v1 — the /v1 suffix is required.</li>
@@ -585,7 +632,14 @@
         deployCommercial: /*[[#{settings.ai.deployment.commercial}]]*/ 'Commercial product',
         deploySaas:     /*[[#{settings.ai.deployment.saas}]]*/ 'SaaS / network service',
         deployInternal: /*[[#{settings.ai.deployment.internal}]]*/ 'Internal tool',
-        deployOnPrem:   /*[[#{settings.ai.deployment.onPrem}]]*/ 'On-prem / shipped'
+        deployOnPrem:   /*[[#{settings.ai.deployment.onPrem}]]*/ 'On-prem / shipped',
+        embeddedStart:  /*[[#{settings.ai.embedded.btn.start}]]*/ 'Start',
+        embeddedStarting: /*[[#{settings.ai.embedded.btn.starting}]]*/ 'Starting… (model load can take a minute)',
+        embeddedStop:   /*[[#{settings.ai.embedded.btn.stop}]]*/ 'Stop',
+        embeddedStopping: /*[[#{settings.ai.embedded.btn.stopping}]]*/ 'Stopping…',
+        embeddedStarted: /*[[#{settings.ai.embedded.msg.started}]]*/ 'Embedded AI is running and set as the active LOCAL provider.',
+        embeddedStopped: /*[[#{settings.ai.embedded.msg.stopped}]]*/ 'Embedded AI stopped.',
+        embeddedFailed: /*[[#{settings.ai.embedded.error.failed}]]*/ 'Failed to start Embedded AI.'
     };
     </script>
 
@@ -617,6 +671,8 @@
             savingProvider: false, savingEnrichment: false, testing: false,
             apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '',
             usageStats: null,
+            embedded: { binaryFound: false, running: false, modelFile: null, modelsDir: null, availableModels: [] },
+            embeddedBusy: false, embeddedError: null,
 
             localeLabel() {
                 return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
@@ -658,7 +714,57 @@
                     }
                     await this.loadPrompts();
                     await this.loadUsageStats();
+                    await this.loadEmbeddedStatus();
                 } catch (e) { this.apiError = _aiI18n.loadFailed; }
+            },
+
+            async loadEmbeddedStatus() {
+                try {
+                    const r = await fetch('/api/settings/ai/embedded');
+                    if (r.ok) this.embedded = await r.json();
+                } catch (e) { /* non-fatal */ }
+            },
+
+            async startEmbedded() {
+                this.embeddedBusy = true;
+                this.embeddedError = null;
+                try {
+                    const r = await fetch('/api/settings/ai/embedded/start', {
+                        method: 'POST',
+                        headers: this.headers()
+                    });
+                    const data = await r.json();
+                    this.embedded = data;
+                    if (r.ok && data.success) {
+                        this.mode = 'LOCAL';
+                        if (data.baseUrl) this.forms.LOCAL.baseUrl = data.baseUrl;
+                        if (data.modelFile) this.forms.LOCAL.modelName = data.modelFile.replace(/\.gguf$/i, '');
+                        this.showToast(_aiI18n.embeddedStarted);
+                    } else {
+                        this.embeddedError = data.message || _aiI18n.embeddedFailed;
+                    }
+                } catch (e) {
+                    this.embeddedError = _aiI18n.embeddedFailed;
+                } finally {
+                    this.embeddedBusy = false;
+                }
+            },
+
+            async stopEmbedded() {
+                this.embeddedBusy = true;
+                this.embeddedError = null;
+                try {
+                    const r = await fetch('/api/settings/ai/embedded/stop', {
+                        method: 'POST',
+                        headers: this.headers()
+                    });
+                    if (r.ok) {
+                        this.embedded = await r.json();
+                        this.showToast(_aiI18n.embeddedStopped);
+                    }
+                } catch (e) { /* keep state */ } finally {
+                    this.embeddedBusy = false;
+                }
             },
 
             async loadUsageStats() {

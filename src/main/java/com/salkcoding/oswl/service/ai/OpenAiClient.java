@@ -120,7 +120,7 @@ public class OpenAiClient implements AiAnalysisClient {
                     var choices = (List<?>) response.getBody().get("choices");
                     if (choices != null && !choices.isEmpty()) {
                         var message = (Map<?, ?>) ((Map<?, ?>) choices.getFirst()).get("message");
-                        String result = message != null ? (String) message.get("content") : null;
+                        String result = message != null ? extractContent(message.get("content")) : null;
                         if (result != null) result = result.strip();
                         callTrace.logAssistantMessage(log, PROVIDER_TAG, op, result, message);
                         log.debug("[AI][{}] Parsed result resultLen={}", PROVIDER_TAG, result != null ? result.length() : 0);
@@ -146,6 +146,29 @@ public class OpenAiClient implements AiAnalysisClient {
             }
         }
         return null;
+    }
+
+    /**
+     * message.content is normally a string, but some OpenAI-compatible servers
+     * (local runtimes, Gemini compat layer) return an array of content parts.
+     */
+    @SuppressWarnings("unchecked")
+    private static String extractContent(Object content) {
+        if (content == null) return null;
+        if (content instanceof String s) return s;
+        if (content instanceof List<?> parts) {
+            StringBuilder sb = new StringBuilder();
+            for (Object part : parts) {
+                if (part instanceof String s) {
+                    sb.append(s);
+                } else if (part instanceof Map<?, ?> m) {
+                    Object text = m.get("text");
+                    if (text instanceof String s) sb.append(s);
+                }
+            }
+            return sb.isEmpty() ? null : sb.toString();
+        }
+        return String.valueOf(content);
     }
 
     private static int parseRateLimitWaitSeconds(String message) {

@@ -269,11 +269,9 @@ class ComponentDetailServiceTest {
     }
 
     @Test
-    @DisplayName("expiry=custom, customDate 잘못된 형식이면 1달 후 기본값이 적용된다")
-    void defer_customExpiry_invalidDate_fallsBack() {
-        Library lib = Library.builder().id(10L).name("lib").version("1.0").build();
+    @DisplayName("expiry=custom, customDate 잘못된 형식이면 InvalidRequestException을 던진다")
+    void defer_customExpiry_invalidDate_rejected() {
         ScanComponent sc = mock(ScanComponent.class);
-        when(sc.getLibrary()).thenReturn(lib);
         when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
 
         DeferralRequest req = new DeferralRequest();
@@ -282,11 +280,26 @@ class ComponentDetailServiceTest {
         setField(req, "customDate", "not-a-date");
         setField(req, "scope", "project");
 
-        componentDetailService.defer(1L, 20L, req);
+        assertThatThrownBy(() -> componentDetailService.defer(1L, 20L, req))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+        verify(sc, org.mockito.Mockito.never()).applyDeferral(any(), any(), any(), anyString());
+    }
 
-        verify(sc).applyDeferral(any(),
-                argThat(dt -> dt != null && dt.isAfter(java.time.LocalDateTime.now().plusDays(25))),
-                any(), anyString());
+    @Test
+    @DisplayName("expiry=custom, customDate 과거 날짜이면 InvalidRequestException을 던진다")
+    void defer_customExpiry_pastDate_rejected() {
+        ScanComponent sc = mock(ScanComponent.class);
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
+
+        DeferralRequest req = new DeferralRequest();
+        setField(req, "reason", "temporary");
+        setField(req, "expiry", "custom");
+        setField(req, "customDate", "2020-01-01");
+        setField(req, "scope", "project");
+
+        assertThatThrownBy(() -> componentDetailService.defer(1L, 20L, req))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+        verify(sc, org.mockito.Mockito.never()).applyDeferral(any(), any(), any(), anyString());
     }
     // ── createPullRequest ─────────────────────────────────────────────────
 

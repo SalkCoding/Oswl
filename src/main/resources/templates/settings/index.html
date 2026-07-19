@@ -20,7 +20,7 @@
 <!-- Tab bar — full width, Figma #f3f5f6 bg, directly below header -->
 <div th:if="${not #lists.isEmpty(accessibleTabs)}"
      class="bg-[#f3f5f6] w-full shrink-0">
-    <div class="max-w-[1440px] mx-auto px-[60px] flex items-center gap-[32px] pt-[17px] pb-[16px]">
+    <div class="max-w-[1440px] mx-auto px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] flex items-center gap-[32px] pt-[17px] pb-[16px] overflow-x-auto">
         <th:block th:each="t, tStat : ${accessibleTabs}">
             <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
             <a th:href="@{/settings(tab=${t.key})}"
@@ -34,7 +34,7 @@
     </div>
 </div>
 
-<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[60px] max-w-[1440px] mx-auto">
+<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] max-w-[1440px] mx-auto">
 
     <div th:if="${#lists.isEmpty(accessibleTabs)}"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]"

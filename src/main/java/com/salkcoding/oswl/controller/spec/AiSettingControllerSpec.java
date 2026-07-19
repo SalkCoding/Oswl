@@ -182,4 +182,26 @@ public interface AiSettingControllerSpec {
     ResponseEntity<Map<String, Object>> testConnection(
         @Valid @org.springframework.web.bind.annotation.RequestBody AiTestConnectionRequest request
     );
+
+    @Operation(summary = "Embedded AI status",
+            description = "Reports whether the bundled llama.cpp sidecar binary and .gguf models are present and whether the server is running.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Embedded AI status", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> embeddedStatus();
+
+    @Operation(summary = "Start embedded AI",
+            description = "Launches the llama.cpp llama-server sidecar with the preferred local model (Qwen3 1.7B, fallback Gemma 3 1B) and registers it as the active LOCAL provider.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sidecar started and LOCAL provider activated", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Binary or model missing, or startup failed", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> startEmbedded();
+
+    @Operation(summary = "Stop embedded AI",
+            description = "Stops the llama.cpp sidecar and deactivates the LOCAL provider.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Sidecar stopped", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> stopEmbedded();
 }
