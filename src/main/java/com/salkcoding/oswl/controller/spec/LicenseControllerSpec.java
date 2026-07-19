@@ -2,6 +2,7 @@ package com.salkcoding.oswl.controller.spec;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.Map;
 
 @Tag(name = "License", description = "License compliance page — groups detected licenses by risk level, lists deployment-aware obligations, detects cross-license conflicts and exports NOTICE/SPDX artifacts.")
 public interface LicenseControllerSpec {
@@ -43,6 +46,26 @@ public interface LicenseControllerSpec {
         @Parameter(description = "Linking mode — STATIC or DYNAMIC", example = "DYNAMIC")
         @RequestParam(required = false, defaultValue = "DYNAMIC") String linking,
         Model model
+    );
+
+    @Operation(
+        summary = "Refresh AI license insights for a scan",
+        description = """
+            Regenerates the AI-generated license insight summary for the given scan of this project.
+            Returns `400` when no AI provider is configured or insight generation fails.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Insights refreshed",
+            content = @Content(mediaType = "application/json",
+                examples = @ExampleObject(value = "{ \"success\": true }"))),
+        @ApiResponse(responseCode = "400", description = "AI provider not configured or insight generation failed",
+            content = @Content(mediaType = "application/json",
+                examples = @ExampleObject(value = "{ \"success\": false, \"message\": \"AI provider is not configured or insight generation failed.\" }")))
+    })
+    ResponseEntity<Map<String, Object>> refreshInsights(
+        @Parameter(description = "Project ID", example = "1", required = true) @PathVariable Long projectId,
+        @Parameter(description = "Scan result ID to refresh insights for", example = "42", required = true) @RequestParam Long scanId
     );
 
     @Operation(

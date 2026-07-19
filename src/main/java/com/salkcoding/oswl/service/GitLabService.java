@@ -12,11 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -325,14 +321,14 @@ public class GitLabService {
                                 + URLEncoder.encode(username, StandardCharsets.UTF_8);
                         JsonNode users = getJson(token, url);
                         if (users.isArray() && !users.isEmpty()) {
-                            return users.getFirst().path("id").asLong();
+                            return users.get(0).path("id").asLong();
                         }
                     } catch (Exception e) {
                         log.debug("[GitLab] Could not resolve reviewer username {}: {}", username, e.getMessage());
                     }
                     return null;
                 })
-                .filter(id -> id != null)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         if (userIds.isEmpty()) return;

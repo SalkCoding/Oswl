@@ -144,7 +144,7 @@ class AuditLogServiceTest {
         byte[] csv = auditLogService.exportCsv(new AuditLogFilter());
         String content = new String(csv, java.nio.charset.StandardCharsets.UTF_8);
 
-        assertThat(content).startsWith("createdAt,actorDisplayName,actorEmail");
+        assertThat(content).startsWith("\uFEFFcreatedAt,actorDisplayName,actorEmail");
     }
 
     @Test

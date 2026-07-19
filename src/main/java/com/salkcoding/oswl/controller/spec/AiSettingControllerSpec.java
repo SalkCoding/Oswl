@@ -5,6 +5,8 @@ import com.salkcoding.oswl.dto.api.AiPromptsResponse;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
+import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
+import com.salkcoding.oswl.dto.api.EmbeddedAiConfigRequest;
 import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,6 +20,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "AI Settings", description = "Configure the AI provider (OpenAI / Anthropic / Gemini / Local LLM) used for automated CVE and license risk summarisation.")
 public interface AiSettingControllerSpec {
@@ -53,6 +56,14 @@ public interface AiSettingControllerSpec {
                     content = @Content(schema = @Schema(implementation = AiPromptsResponse.class)))
     })
     ResponseEntity<AiPromptsResponse> getPrompts();
+
+    @Operation(summary = "Get AI usage statistics",
+            description = "Returns per-provider token/call usage counters for the current day and totals.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usage statistics",
+                    content = @Content(schema = @Schema(implementation = AiUsageStatsResponse.class)))
+    })
+    ResponseEntity<AiUsageStatsResponse> getUsageStats();
 
     @Operation(summary = "Run golden prompt regression tests",
             description = "Executes built-in fixture prompts against the active AI provider. Does not persist results.")
@@ -191,12 +202,22 @@ public interface AiSettingControllerSpec {
     ResponseEntity<Map<String, Object>> embeddedStatus();
 
     @Operation(summary = "Start embedded AI",
-            description = "Launches the llama.cpp llama-server sidecar with the preferred local model (Qwen3 1.7B, fallback Gemma 3 1B) and registers it as the active LOCAL provider.")
+            description = """
+                Launches the llama.cpp llama-server sidecar and registers it as the active LOCAL provider.
+                The optional `model` query parameter names a .gguf file from the sidecar directory to try first;
+                when it fails to start (or is omitted) the persisted preference, built-in preference order
+                (Qwen3 1.7B, then Gemma 3 1B) and any remaining .gguf are tried in turn (auto-fallback).
+                The response status body includes `activeModel`, `fallbackUsed` and `lastError`.
+                """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Sidecar started and LOCAL provider activated", content = @Content),
             @ApiResponse(responseCode = "400", description = "Binary or model missing, or startup failed", content = @Content)
     })
-    ResponseEntity<Map<String, Object>> startEmbedded();
+    ResponseEntity<Map<String, Object>> startEmbedded(
+            @Parameter(description = "Optional .gguf file name (from `availableModels`) to start with",
+                    example = "qwen3-1.7b-q4_k_m.gguf")
+            @RequestParam(required = false) String model
+    );
 
     @Operation(summary = "Stop embedded AI",
             description = "Stops the llama.cpp sidecar and deactivates the LOCAL provider.")
@@ -204,4 +225,36 @@ public interface AiSettingControllerSpec {
             @ApiResponse(responseCode = "200", description = "Sidecar stopped", content = @Content)
     })
     ResponseEntity<Map<String, Object>> stopEmbedded();
+
+    @Operation(summary = "Configure embedded AI",
+            description = """
+                Persists the embedded sidecar configuration overrides. Either field may be null (keep current
+                value) or blank (clear the override and fall back to the yaml/env default).
+                `dir` must point to an existing directory; the response status body reports `binaryFound`
+                for it instead of hard-failing when llama-server(.exe) is absent. If the sidecar is running
+                and the directory actually changes, the sidecar is stopped first (and the LOCAL provider
+                deactivated) so the old directory's file locks are released. A changed `model` takes effect
+                on the next start.
+                """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Config saved; returns the embedded status body",
+                    content = @Content),
+            @ApiResponse(responseCode = "400", description = "Directory does not exist / is not a directory, or invalid model file name",
+                    content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> updateEmbeddedConfig(
+            @RequestBody(
+                    description = "Embedded config overrides. Null field = keep current; blank string = clear override.",
+                    content = @Content(
+                            schema = @Schema(implementation = EmbeddedAiConfigRequest.class),
+                            examples = @ExampleObject(value = """
+                                    {
+                                      "dir": "C:\\\\tools\\\\embedded-ai",
+                                      "model": "gemma-3-1b-it-Q4_K_M.gguf"
+                                    }
+                                    """)
+                    )
+            )
+            @org.springframework.web.bind.annotation.RequestBody(required = false) EmbeddedAiConfigRequest request
+    );
 }

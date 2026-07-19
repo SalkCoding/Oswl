@@ -116,6 +116,7 @@ public class AuditLogService {
         );
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (PrintWriter pw = new PrintWriter(baos, false, StandardCharsets.UTF_8)) {
+            pw.print('\uFEFF'); // UTF-8 BOM so Excel renders Korean correctly
             pw.println("createdAt,actorDisplayName,actorEmail,actorIp,action,targetType,targetName,detail");
             DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
             for (AuditLog l : page.getContent()) {

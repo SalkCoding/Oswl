@@ -190,7 +190,9 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 | **OpenAI** | API 키 + 모델 (예: `gpt-4o-mini`) |
 | **Anthropic** | API 키 + 모델 |
 | **Gemini** | API 키 (+ 필요 시 OpenAI 호환 base URL) |
-| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama) |
+| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama) — 또는 아래 내장 AI 사이드카 |
+
+같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
 
 활성 제공업체는 **하나**만 둘 수 있습니다. 탭에서 추가로 설정할 수 있는 항목:
 
@@ -203,6 +205,7 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 | 프롬프트 오버라이드 | 키별 템플릿 수정 (`GET /api/settings/ai/prompts`) |
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
+**내장 AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — [API 레퍼런스 — AI](API-Reference.md#ai) 참고.  
 **프로젝트별:** `PATCH /api/projects/{id}/deployment-profile`.  
 **컴포넌트 상세:** `POST .../cves/{cveDbId}/ai-summarize`로 CVE AI 요약 새로고침 (`COMPONENT.CVE_AI_REGENERATE` 감사 로그).
 
