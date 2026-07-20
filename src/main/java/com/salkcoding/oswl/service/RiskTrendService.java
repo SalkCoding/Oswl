@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
 import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -117,8 +118,8 @@ public class RiskTrendService {
         model.addAttribute("licenseIssues",  currentLicIssues);
         model.addAttribute("licenseDelta",   licDelta);
 
-        model.addAttribute("securityAiInsight", latest.getSecurityAiInsight());
-        model.addAttribute("licenseAiInsight",  latest.getLicenseAiInsight());
+        model.addAttribute("securityAiInsight", AiResponseSanitizer.sanitizePlainText(latest.getSecurityAiInsight()));
+        model.addAttribute("licenseAiInsight",  AiResponseSanitizer.sanitizePlainText(latest.getLicenseAiInsight()));
 
         model.addAttribute("chartVersions",    versions);
         model.addAttribute("chartSecCritical", secCritical);

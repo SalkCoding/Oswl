@@ -36,4 +36,30 @@ class ScanApiCredentialThrottleServiceTest {
     assertThatCode(() -> throttle.recordCredentialFailure(1L, "dev@test.com"))
             .doesNotThrowAnyException();
   }
+
+  @Test
+  @DisplayName("API key pre-check is read-only and never consumes the failure window")
+  void apiKeyPreCheck_readOnly() {
+    ScanApiCredentialThrottleService throttle =
+            new ScanApiCredentialThrottleService(3, 900, 100);
+
+    for (int i = 0; i < 10; i++) {
+      assertThatCode(() -> throttle.assertApiKeyCheckAllowed("10.0.0.1"))
+              .doesNotThrowAnyException();
+    }
+  }
+
+  @Test
+  @DisplayName("API key pre-check throws once recorded failures reach the limit")
+  void apiKeyPreCheck_throwsAfterMaxFailures() {
+    ScanApiCredentialThrottleService throttle =
+            new ScanApiCredentialThrottleService(3, 900, 100);
+
+    for (int i = 0; i < 3; i++) {
+      throttle.recordApiKeyFailure("10.0.0.1");
+    }
+
+    assertThatThrownBy(() -> throttle.assertApiKeyCheckAllowed("10.0.0.1"))
+            .isInstanceOf(TooManyRequestsException.class);
+  }
 }

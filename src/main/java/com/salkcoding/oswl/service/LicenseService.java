@@ -14,6 +14,7 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
 import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -146,7 +147,7 @@ public class LicenseService {
         model.addAttribute("conflicts", conflicts);
         model.addAttribute("reviewItems", reviewItems);
         model.addAttribute("licenses", licenses);
-        model.addAttribute("licenseAiInsight", scan.getLicenseAiInsight());
+        model.addAttribute("licenseAiInsight", AiResponseSanitizer.sanitizePlainText(scan.getLicenseAiInsight()));
         model.addAttribute("aiConfigured", aiAnalysisService.isAiConfigured());
     }
 

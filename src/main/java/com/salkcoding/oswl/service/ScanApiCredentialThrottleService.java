@@ -69,10 +69,25 @@ public class ScanApiCredentialThrottleService {
         }
     }
 
-    /** Invalid API key attempts — keyed by client IP to slow key guessing. */
+    /**
+     * Invalid API key attempts — keyed by client IP to slow key guessing.
+     * Read-only pre-check: only failed validations consume the failure window
+     * (see {@link #recordApiKeyFailure}), so valid keys are never rate limited.
+     */
     public void assertApiKeyCheckAllowed(String clientIp) {
-        assertAllowed("api-key:" + normalizeIp(clientIp), failureWindows, failureMaxAttempts, failureWindowMs,
-                "Too many invalid API key attempts. Try again later.");
+        String key = "api-key:" + normalizeIp(clientIp);
+        Window window = failureWindows.get(key);
+        if (window == null) {
+            return;
+        }
+        synchronized (window) {
+            prune(window.events, failureWindowMs);
+            if (window.events.size() >= failureMaxAttempts) {
+                log.warn("[ScanApiThrottle] Rate limit exceeded for key={}", key);
+                throw new TooManyRequestsException("Too many invalid API key attempts. Try again later.");
+            }
+        }
+        purgeIdleWindow(key, failureWindows, failureWindowMs);
     }
 
     public void recordApiKeyFailure(String clientIp) {

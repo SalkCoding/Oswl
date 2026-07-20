@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiUsageDailySummaryDto;
 import com.salkcoding.oswl.dto.api.AiUsageEventDto;
@@ -27,7 +28,7 @@ public class AiUsageStatsService {
     @Transactional(readOnly = true)
     public AiUsageStatsResponse getStats() {
         AiProvider active = aiSettingRepository.findByActiveTrue()
-                .map(s -> s.getProvider())
+                .map(AiSetting::getProvider)
                 .orElse(null);
 
         LocalDate today = LocalDate.now();
@@ -40,11 +41,11 @@ public class AiUsageStatsService {
         int callCount = active != null ? usageLimiter.getTodayCount(active) : 0;
         int cap = usageLimiter.getDailyCallCap();
 
-        List<AiUsageEventDto> recent = eventRepository.findTop30ByUsageDateOrderByCreatedAtDesc(today).stream()
-                .filter(e -> active == null || e.getProvider() == active)
-                .limit(20)
+        // Recent calls across all providers (newest first, max 10) so the provider/model of each call is visible.
+        List<AiUsageEventDto> recent = eventRepository.findTop10ByUsageDateOrderByCreatedAtDesc(today).stream()
                 .map(e -> AiUsageEventDto.builder()
                         .createdAt(e.getCreatedAt())
+                        .provider(e.getProvider())
                         .operation(e.getOperation())
                         .promptTokens(e.getPromptTokens())
                         .completionTokens(e.getCompletionTokens())

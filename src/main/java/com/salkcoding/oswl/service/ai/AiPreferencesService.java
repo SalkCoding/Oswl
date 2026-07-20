@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service.ai;
 import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
+import com.salkcoding.oswl.exception.InvalidRequestException;
 import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -151,13 +153,26 @@ public class AiPreferencesService {
         if (raw == null || raw.isBlank()) {
             return "CRITICAL,HIGH";
         }
-        String normalized = Arrays.stream(raw.split(","))
+        List<String> tokens = Arrays.stream(raw.split(","))
                 .map(String::strip)
                 .filter(s -> !s.isEmpty())
                 .map(String::toUpperCase)
                 .distinct()
-                .collect(Collectors.joining(","));
-        return normalized.isEmpty() ? "CRITICAL,HIGH" : normalized;
+                .toList();
+        if (tokens.isEmpty()) {
+            return "CRITICAL,HIGH";
+        }
+        // Reject unknown severities at save time — a stored non-RiskLevel value would
+        // later break every scan with IllegalArgumentException from RiskLevel.valueOf.
+        for (String token : tokens) {
+            try {
+                RiskLevel.valueOf(token);
+            } catch (IllegalArgumentException e) {
+                throw new InvalidRequestException("Invalid CVE severity '" + token + "'"
+                        + " (allowed: CRITICAL, HIGH, MEDIUM, LOW, NONE)");
+            }
+        }
+        return String.join(",", tokens);
     }
 
     private static String normalizeLocale(String locale) {

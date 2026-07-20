@@ -63,6 +63,10 @@ public class ComponentDetailService {
     private final AiPreferencesService               aiPreferencesService;
     private final KevCatalogService                kevCatalogService;
     private final EpssClient                       epssClient;
+    private final ProjectAccessService             projectAccessService;
+
+    /** deferral_reason column allows at most 50 characters (see ScanComponent). */
+    private static final int DEFERRAL_REASON_MAX_LENGTH = 50;
 
     @Transactional
     public CveDto regenerateCveAiSummary(Long projectId, Long componentId, Long cveDbId) {
@@ -322,7 +326,8 @@ public class ComponentDetailService {
 
     /**
      * Applies a deferral exception to the given ScanComponent (and, when scope = "all-projects",
-     * to every ScanComponent referencing the same Library).
+     * to ScanComponents referencing the same Library — restricted to projects the current
+     * user can access).
      */
     @Transactional
     public void defer(Long projectId, Long componentId, DeferralRequest req) {
@@ -344,14 +349,19 @@ public class ComponentDetailService {
                 + (note != null && !note.isBlank() ? ", note=" + note.substring(0, Math.min(100, note.length())) : "");
 
         if ("all-projects".equals(req.getScope())) {
-            // Apply to every ScanComponent referencing the same library
-            List<ScanComponent> allForLib = scanComponentRepository
-                    .findAllByScanResultStatusAndLibraryId(sc.getLibrary().getId());
+            // Propagate only to projects the current user can access (cross-project IDOR prevention).
+            // Falls back to the current component only when no accessible project can be resolved.
+            List<Long> accessibleIds = projectAccessService.accessibleProjectIds();
+            List<ScanComponent> allForLib = accessibleIds.isEmpty()
+                    ? List.of(sc)
+                    : scanComponentRepository.findAllByLibraryIdAndProjectIdIn(
+                            sc.getLibrary().getId(), accessibleIds);
             for (ScanComponent other : allForLib) {
                 other.applyDeferral(reasonCode, expiresAt, note, byName);
             }
             auditLogService.log("COMPONENT.DEFER_ALL", "LIBRARY",
-                    sc.getLibrary().getId().toString(), libName + " " + libVer, detail);
+                    sc.getLibrary().getId().toString(), libName + " " + libVer,
+                    detail + ", applied=" + allForLib.size() + " components (accessible projects only)");
         } else {
             auditLogService.log("COMPONENT.DEFER", "COMPONENT",
                     componentId.toString(), libName + " " + libVer, detail);
@@ -395,10 +405,16 @@ public class ComponentDetailService {
     }
 
     private String buildReasonCode(String reason, String otherText) {
-        if ("other".equals(reason) && otherText != null && !otherText.isBlank()) {
-            return "other:" + otherText.strip().substring(0, Math.min(80, otherText.strip().length()));
+        String code = ("other".equals(reason) && otherText != null && !otherText.isBlank())
+                ? "other:" + otherText.strip()
+                : (reason != null ? reason : "other");
+        // deferral_reason is varchar(50) — truncate the final string without splitting a surrogate pair
+        if (code.length() > DEFERRAL_REASON_MAX_LENGTH) {
+            int end = DEFERRAL_REASON_MAX_LENGTH;
+            if (Character.isHighSurrogate(code.charAt(end - 1))) end--;
+            code = code.substring(0, end);
         }
-        return reason != null ? reason : "other";
+        return code;
     }
 
     /**

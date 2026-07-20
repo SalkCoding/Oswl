@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 
-    <script th:inline="javascript">
+    <script th:inline="javascript" th:fragment="topbar-i18n">
     const _topbarI18n = {
         deleteFailed: /*[[#{topbar.error.deleteFailed}]]*/ 'Failed to delete.',
         fallbackProjectName: /*[[#{topbar.fallback.projectName}]]*/ 'Project Name',
@@ -20,6 +20,9 @@
     <!-- Reusable user menu (logged-in user dropdown + logout) -->
     <div th:fragment="user-menu" sec:authorize="isAuthenticated()"
          x-data="topbarAccountMenu()" @click.outside="open = false" class="relative">
+        <!-- Account menu scripts -->
+        <th:block th:replace="~{fragments/topbar :: topbar-i18n}"></th:block>
+        <th:block th:replace="~{fragments/topbar :: topbar-account-menu}"></th:block>
         <button type="button" @click="open = !open"
                 class="flex items-center gap-[8px] text-white/80 hover:text-white text-[13px] font-medium tracking-[-0.13px] transition-colors">
             <span class="w-[28px] h-[28px] rounded-full bg-[var(--secondary-100)] text-white flex items-center justify-center text-[12px] font-bold"
@@ -55,6 +58,9 @@
     -->
     <header th:fragment="simple-topbar(pageLabel)"
             class="bg-[var(--background-dark)] flex items-center h-[64px] gap-[44px] pl-[60px] pr-[40px] py-[16px] w-full shrink-0">
+        <!-- Account menu scripts -->
+        <th:block th:replace="~{fragments/topbar :: topbar-i18n}"></th:block>
+        <th:block th:replace="~{fragments/topbar :: topbar-account-menu}"></th:block>
         <!-- Logo -->
         <a th:href="@{/projects}" class="flex gap-[12px] items-center shrink-0 no-underline">
             <img th:src="@{/icon/icon-logo.svg}" class="w-[28px] h-[38px]" alt="OsWL" aria-hidden="true">
@@ -130,6 +136,9 @@
     -->
     <div th:fragment="project-topbar(projectId, projectName, projectVersion, activeTab)"
          class="w-full relative shrink-0 flex flex-col">
+
+        <!-- Topbar i18n bundle (used by scan delete handler) -->
+        <th:block th:replace="~{fragments/topbar :: topbar-i18n}"></th:block>
 
         <!-- Upper bar (logo + breadcrumb + version) -->
         <div class="bg-[var(--background-dark)] flex items-center gap-[44px] pl-[60px] pr-[40px] py-[17px] h-[64px] shrink-0">
@@ -381,7 +390,7 @@
         </div>
     </div>
 
-    <script>
+    <script th:fragment="topbar-account-menu">
     function topbarAccountMenu() {
         return {
             open: false,

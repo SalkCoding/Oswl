@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.AuditLogDto;
 import com.salkcoding.oswl.auth.dto.AuditLogFilter;
 import com.salkcoding.oswl.auth.entity.AuditLog;
 import com.salkcoding.oswl.auth.repository.AuditLogRepository;
+import com.salkcoding.oswl.security.ClientIpResolver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

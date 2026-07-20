@@ -12,6 +12,7 @@
 const REPO_PAGE_SIZE = 10;
 const PROGRESS_DISMISS_MS = 2 * 60 * 1000;
 const COMPLETE_DISMISS_MS = 60 * 1000;
+const ETA_MAX_MS = 2 * 60 * 60 * 1000;
 
 function _qi() {
     return typeof _qiI18n !== 'undefined' ? _qiI18n : {};
@@ -69,18 +70,31 @@ function quickImportPage() {
 
         /* ── Background scan watcher ─────────────── */
         _scanWatcher: null,
+        _nowTickTimer: null,
 
 
         /* ─────────────────────────────────────────── */
 
         async init() {
+            this._ensureNowTickTimer();
             await this.onPanelOpen();
-            // 1s heartbeat so elapsed/ETA texts on job cards re-render
-            setInterval(() => { this.nowTick = Date.now(); }, 1000);
+        },
+
+        /** 1s heartbeat so elapsed/ETA texts on job cards re-render. Guarded so re-entry can't stack timers. */
+        _ensureNowTickTimer() {
+            if (this._nowTickTimer) return;
+            this._nowTickTimer = setInterval(() => { this.nowTick = Date.now(); }, 1000);
+        },
+
+        _stopNowTickTimer() {
+            if (!this._nowTickTimer) return;
+            clearInterval(this._nowTickTimer);
+            this._nowTickTimer = null;
         },
 
         /** Called when the slide-out panel opens (also on first mount). */
         async onPanelOpen() {
+            this._ensureNowTickTimer();
             await this.loadConnections();
             for (const p of this.connectedProviders) {
                 this.loadRepoBrowser(p);
@@ -93,6 +107,7 @@ function quickImportPage() {
          * Clears completed import UI so the next open starts fresh, but keeps in-flight jobs.
          */
         onPanelClose() {
+            this._stopNowTickTimer();
             this.activeJobs.forEach(j => {
                 this._clearProgressDismiss(j);
                 const phase = this._normalizePhase(j.phase);
@@ -200,7 +215,7 @@ function quickImportPage() {
             if (this.userQueuedCount > 0) {
                 parts.push(_qiFmt(i18n.slotsQueued, this.userQueuedCount, this.maxQueuedSlots));
             }
-            return parts.join(' · ');
+            return parts.join(' › ');
         },
 
         _syncSlotMetrics(job) {
@@ -432,6 +447,8 @@ function quickImportPage() {
                     _eventSource: null,
                     _pollTimer: null,
                     _pollInFlight: false,
+                    _etaAnchorPct: null,
+                    _etaAnchorAtEpochMs: null,
                     revealedApiToken: null,
                 };
                 this.activeJobs.push(tracker);
@@ -463,7 +480,10 @@ function quickImportPage() {
                 });
                 es.onerror = () => {
                     es.close();
-                    tracker._eventSource = null;
+                    // _syncTracker replaces activeJobs entries, so this closure's
+                    // tracker may be stale; clear the ref on the live tracker.
+                    const current = this._findTracker(tracker.jobId);
+                    if (current) current._eventSource = null;
                 };
             } catch (_) { /* polling already active */ }
         },
@@ -512,7 +532,19 @@ function quickImportPage() {
             tracker.percent = job.percent != null ? job.percent : tracker.percent;
             tracker.queuePosition = job.queuePosition;
             tracker.startedAtEpochMs = job.startedAtEpochMs || tracker.startedAtEpochMs || null;
+            if (job.runningSinceEpochMs && job.runningSinceEpochMs !== tracker.runningSinceEpochMs) {
+                // Fresh run: drop ETA anchors so a stale estimate can't leak across runs.
+                tracker._etaAnchorPct = null;
+                tracker._etaAnchorAtEpochMs = null;
+            }
             tracker.runningSinceEpochMs = job.runningSinceEpochMs || tracker.runningSinceEpochMs || null;
+            if (tracker.runningSinceEpochMs && tracker.percent != null
+                    && (tracker._etaAnchorPct == null || tracker.percent > tracker._etaAnchorPct)) {
+                // Mark when percent last advanced; ETA extrapolates from this anchor.
+                // Percent regressions (stale poll racing newer SSE) keep the forward anchor.
+                tracker._etaAnchorPct = tracker.percent;
+                tracker._etaAnchorAtEpochMs = Date.now();
+            }
 
             if (job.phase === tracker.lastPhase) {
                 if (tracker.progressLog.length > 0) {
@@ -586,7 +618,11 @@ function quickImportPage() {
         },
 
         /**
-         * Rough remaining-time estimate extrapolated from running time vs. percent.
+         * Remaining-time estimate extrapolated from the last percent advance.
+         * Percent is a per-phase step value, so extrapolating from "now" inflates the
+         * estimate while a long phase runs; the anchor keeps it stable and the
+         * countdown below ticks it down between updates. Clamped so progress
+         * regressions/jumps can't spike it.
          * Hidden while queued, in the first seconds, or when percent is unreliable.
          */
         etaText(job) {
@@ -596,9 +632,14 @@ function quickImportPage() {
             if (!this._isRunningPhase(phase)) return '';
             const pct = job.percent;
             if (!job.runningSinceEpochMs || pct == null || pct < 5 || pct >= 100) return '';
-            const running = Date.now() - job.runningSinceEpochMs;
-            if (running < 5000) return '';
-            const remainingSec = Math.round((running * (100 - pct)) / pct / 1000);
+            if (job._etaAnchorPct == null || job._etaAnchorAtEpochMs == null) return '';
+            const progressedMs = job._etaAnchorAtEpochMs - job.runningSinceEpochMs;
+            if (progressedMs < 5000) return '';
+            const anchorPct = Math.max(job._etaAnchorPct, 1);
+            let remainingMs = (progressedMs * (100 - anchorPct)) / anchorPct;
+            remainingMs -= Date.now() - job._etaAnchorAtEpochMs;
+            remainingMs = Math.min(Math.max(remainingMs, 0), ETA_MAX_MS);
+            const remainingSec = Math.round(remainingMs / 1000);
             const q = _qi();
             if (remainingSec >= 60) {
                 return _qiFmt(q.etaMinutes || 'about {0} min left', Math.ceil(remainingSec / 60));
@@ -658,7 +699,7 @@ function quickImportPage() {
                 DIFF: q.subPhaseDiff || 'Version changes',
             };
             if (phase === 'ENRICHING' && job.subPhase && subLabels[job.subPhase]) {
-                return phaseLabels.ENRICHING + ' · ' + subLabels[job.subPhase];
+                return phaseLabels.ENRICHING + ' › ' + subLabels[job.subPhase];
             }
             return phaseLabels[phase] || phase;
         },

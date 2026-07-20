@@ -108,6 +108,8 @@ ScanIngestService → CVE·라이선스 비동기 보강 (OSV / deps.dev)
 | `POST` | `/api/scan` | API key + 비밀번호 | 스캔 제출·보강 |
 | `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 (UI) |
 
+> CLI 엔드포인트는 `Authorization: Bearer` 헤더만으로 인증하며, 세션 쿠키나 CSRF 토큰은 필요 없습니다. `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`은 브라우저 CSRF 검사에서 제외되고, 그 외 경로는 기존 CSRF 보호가 유지됩니다. [Scan API 보안](Scan-Api-Security.md) 참고.
+
 ---
 
 ## API 키 관리
