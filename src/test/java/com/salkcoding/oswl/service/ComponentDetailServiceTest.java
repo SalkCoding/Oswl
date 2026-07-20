@@ -44,6 +44,7 @@ class ComponentDetailServiceTest {
     @Mock BitbucketService            bitbucketService;
     @Mock UserVcsConnectionRepository vcsConnectionRepository;
     @Mock EncryptionService           encryptionService;
+    @Mock ProjectAccessService        projectAccessService;
 
     @InjectMocks
     ComponentDetailService componentDetailService;
@@ -178,7 +179,7 @@ class ComponentDetailServiceTest {
     }
 
     @Test
-    @DisplayName("defer: scope=all-projects 일 때 전체 감사 로그가 기록된다")
+    @DisplayName("defer: scope=all-projects 일 때 접근 가능한 프로젝트에만 적용하고 전체 감사 로그가 기록된다")
     void defer_allScope_logsLibrary() {
         Library lib = Library.builder().id(10L).name("lodash").version("4.17.15").build();
         ScanComponent sc = mock(ScanComponent.class);
@@ -187,12 +188,18 @@ class ComponentDetailServiceTest {
         ScanComponent other = mock(ScanComponent.class);
 
         when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
-        when(scanComponentRepository.findAllByScanResultStatusAndLibraryId(10L)).thenReturn(List.of(sc, other));
+        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(1L, 2L));
+        when(scanComponentRepository.findAllByLibraryIdAndProjectIdIn(10L, List.of(1L, 2L)))
+                .thenReturn(List.of(sc, other));
 
         DeferralRequest req = buildDeferralRequest("temporary", "1-month", "all-projects");
         componentDetailService.defer(1L, 20L, req);
 
-        verify(auditLogService).log(eq("COMPONENT.DEFER_ALL"), eq("LIBRARY"), eq("10"), any(), any());
+        // Cross-project propagation is restricted to projects the current user can access
+        verify(scanComponentRepository).findAllByLibraryIdAndProjectIdIn(10L, List.of(1L, 2L));
+        verify(other).applyDeferral(eq("temporary"), any(), any(), anyString());
+        verify(auditLogService).log(eq("COMPONENT.DEFER_ALL"), eq("LIBRARY"), eq("10"), any(),
+                argThat(d -> d.contains("applied=2")));
     }
 
     @Test
@@ -229,6 +236,44 @@ class ComponentDetailServiceTest {
         componentDetailService.defer(1L, 20L, req);
 
         verify(sc).applyDeferral(argThat(r -> r.startsWith("other:custom")), isNull(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("defer: reason=other 이고 otherText가 길어도 reason 코드는 50자를 넘지 않는다")
+    void defer_otherReason_truncatedToColumnLength() {
+        Library lib = Library.builder().id(10L).name("lib").version("1.0").build();
+        ScanComponent sc = mock(ScanComponent.class);
+        when(sc.getLibrary()).thenReturn(lib);
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
+
+        DeferralRequest req = new DeferralRequest();
+        setField(req, "reason", "other");
+        setField(req, "otherText", "x".repeat(200));
+        setField(req, "expiry", "indefinite");
+        setField(req, "scope", "project");
+
+        componentDetailService.defer(1L, 20L, req);
+
+        // deferral_reason is varchar(50): final reason code must fit the column
+        verify(sc).applyDeferral(argThat(r -> r != null && r.length() <= 50 && r.startsWith("other:")),
+                isNull(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("defer: scope=all-projects 인데 접근 가능 프로젝트가 없으면 현재 컴포넌트만 적용된다")
+    void defer_allScope_noAccessibleProjects_appliesCurrentOnly() {
+        Library lib = Library.builder().id(10L).name("lib").version("1.0").build();
+        ScanComponent sc = mock(ScanComponent.class);
+        when(sc.getLibrary()).thenReturn(lib);
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(sc));
+        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of());
+
+        DeferralRequest req = buildDeferralRequest("temporary", "1-month", "all-projects");
+        componentDetailService.defer(1L, 20L, req);
+
+        verify(scanComponentRepository, never()).findAllByLibraryIdAndProjectIdIn(any(), any());
+        verify(auditLogService).log(eq("COMPONENT.DEFER_ALL"), eq("LIBRARY"), eq("10"), any(),
+                argThat(d -> d.contains("applied=1")));
     }
 
     // ── resolveExpiryDate (via defer) ─────────────────────────────────────

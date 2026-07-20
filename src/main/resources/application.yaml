@@ -36,6 +36,11 @@ oswl:
   security:
     # When true, OSWL_TD is always sent with Secure (HTTPS-only). Otherwise Secure follows request.isSecure().
     trusted-device-cookie-secure: ${OSWL_TRUSTED_DEVICE_COOKIE_SECURE:false}
+    # Comma-separated list of trusted reverse-proxy IPs or CIDR ranges
+    # (e.g. "10.0.0.0/8,192.168.1.10"). X-Forwarded-* headers are only honored
+    # when the direct peer matches an entry here.
+    # Default: empty — no proxy is trusted (safe default for direct exposure).
+    # trusted-proxies: ${OSWL_SECURITY_TRUSTED_PROXIES:}
     trusted-device:
       # Optional dedicated HMAC key (Base64, 32+ bytes). Falls back to OSWL_ENCRYPTION_KEY if unset.
       hmac-key: ${OSWL_TRUSTED_DEVICE_HMAC_KEY:}
@@ -54,6 +59,12 @@ oswl:
     # Directory for temporary git clones during Quick Import.
     # Defaults to system temp directory if left blank.
     temp-dir: ${OSWL_CLONE_TEMP_DIR:}
+  quick-import:
+    # When true, Quick Import may execute build tools from the cloned repository
+    # (mvnw / gradlew / dotnet) for full transitive dependency resolution.
+    # SECURITY: this runs arbitrary repo code on the server — enable only when
+    # every imported repository is trusted. Default: false (static manifest parse only).
+    allow-build-exec: ${OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC:false}
   github:
     # Override to use GitHub Enterprise Server. E.g. https://github.example.com/api/v3
     api-base: ${OSWL_GITHUB_API_BASE:https://api.github.com}

@@ -339,11 +339,12 @@
                                           : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-30)]' : 'bg-[var(--risk-unknown)]')))"
                           class="w-[6px] h-[6px] rounded-full"></span>
                     <p th:if="${cve.title}" class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="${cve.title}">Vulnerability Title</p>
-                    <span th:class="${cve.severity == 'CRITICAL'} ? 'ml-auto bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : (${cve.severity == 'HIGH'} ? 'ml-auto bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : (${cve.severity == 'MEDIUM'} ? 'ml-auto bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : (${cve.severity == 'LOW'} ? 'ml-auto bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : 'ml-auto bg-[rgba(39,45,48,0.05)] border border-[rgba(39,45,48,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]')))">
+                    <span class="ml-auto flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px] border"
+                          th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
+                                        : (${cve.severity == 'HIGH'} ? 'bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]'
+                                        : (${cve.severity == 'MEDIUM'} ? 'bg-[rgba(245,189,38,0.05)] border-[rgba(245,189,38,0.2)]'
+                                        : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-5)] border-[var(--grayscale-20)]'
+                                        : 'bg-[rgba(39,45,48,0.05)] border-[rgba(39,45,48,0.2)]')))">
                         <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
                                                : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
                                                : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]'
@@ -385,9 +386,16 @@
                         <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.summary}"></p>
                     </div>
                     <div class="flex flex-wrap gap-x-[24px] gap-y-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
-                        <span th:if="${cve.cweId}"><span class="font-medium" th:text="#{componentDetail.cve.type} + ':'" >Type:</span> <span th:text="${cve.cweId}">CWE-20</span></span>
-                        <span><span class="font-medium" th:text="#{componentDetail.cve.affects} + ':'" >Affects:</span> <span th:text="${dependencyInfo}">-</span></span>
-                        <span><span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'" >Fix:</span>
+                        <span th:if="${cve.cweId}">
+                            <span class="font-medium" th:text="#{componentDetail.cve.type} + ':'">Type:</span>
+                            <span th:text="${cve.cweId}">CWE-20</span>
+                        </span>
+                        <span>
+                            <span class="font-medium" th:text="#{componentDetail.cve.affects} + ':'">Affects:</span>
+                            <span th:text="${dependencyInfo}">-</span>
+                        </span>
+                        <span>
+                            <span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'">Fix:</span>
                             <span th:class="${cve.fixVersion} ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)]'"
                                   th:text="${cve.fixVersion} ?: #{componentDetail.cve.noFix}">2.2.1-alpha01</span>
                         </span>

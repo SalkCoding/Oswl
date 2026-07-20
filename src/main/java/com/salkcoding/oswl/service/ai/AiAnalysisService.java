@@ -143,7 +143,7 @@ public class AiAnalysisService {
         if (preflight.isPresent()) {
             return preflight.get();
         }
-        if (!usageLimiter.tryConsume(setting.getProvider())) {
+        if (usageLimiter.isCapReached(setting.getProvider())) {
             return connectionDiagnostics.dailyCapReached();
         }
 

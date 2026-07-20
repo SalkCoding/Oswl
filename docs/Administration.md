@@ -144,6 +144,17 @@ When 2FA is enabled, users can mark a browser as **trusted** after a successful 
 
 ---
 
+## Server Properties (application.yaml)
+
+Instance-level security flags set in `application.yaml` or via environment variable (Spring relaxed binding). They are not editable from the Settings UI; a restart is required.
+
+| Config key | Env var | Default | Description |
+|---|---|---|---|
+| `oswl.quick-import.allow-build-exec` | `OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC` | `false` | When `false`, Quick Import parses manifests **statically** and never executes build tooling found in the cloned repository (`mvnw`, `gradlew`, `dotnet`). Set to `true` only when every importable repository is trusted — build-based version resolution runs repository build scripts on the OsWL host. |
+| `oswl.security.trusted-proxies` | `OSWL_SECURITY_TRUSTED_PROXIES` | *(empty)* | Comma-separated IPs of trusted reverse proxies. The `X-Forwarded-For` header is honored for client-IP resolution (audit logs, rate limiting) only when the direct peer is in this list; when empty, the header is ignored. Set this only when OsWL runs behind a proxy you control. |
+
+---
+
 ## Audit Log
 
 **Settings → Admin → Audit Logs**

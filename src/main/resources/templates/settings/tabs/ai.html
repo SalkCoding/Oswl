@@ -59,13 +59,15 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-[12px]">
                             <thead><tr class="text-left text-[var(--grayscale-50)] border-b border-[var(--grayscale-15)]">
-                                <th class="py-[6px] pr-[8px]">Time</th><th class="py-[6px] pr-[8px]">Operation</th><th class="py-[6px] pr-[8px]">Tokens</th><th class="py-[6px]">Est. $</th>
+                                <th class="py-[6px] pr-[8px]">Time</th><th class="py-[6px] pr-[8px]">Operation</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.provider.label}">Provider</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.label.model}">Model</th><th class="py-[6px] pr-[8px]">Tokens</th><th class="py-[6px]">Est. $</th>
                             </tr></thead>
                             <tbody>
                                 <template x-for="ev in usageStats.recentEvents" :key="ev.createdAt + ev.operation">
                                     <tr class="border-b border-[var(--grayscale-10)]">
                                         <td class="py-[6px] pr-[8px]" x-text="ev.createdAt ? ev.createdAt.replace('T',' ').substring(0,19) : ''"></td>
                                         <td class="py-[6px] pr-[8px] font-medium" x-text="ev.operation"></td>
+                                        <td class="py-[6px] pr-[8px]" x-text="ev.provider"></td>
+                                        <td class="py-[6px] pr-[8px] font-mono" x-text="ev.modelName || '-'"></td>
                                         <td class="py-[6px] pr-[8px]" x-text="ev.totalTokens"></td>
                                         <td class="py-[6px]" x-text="Number(ev.estimatedCostUsd || 0).toFixed(4)"></td>
                                     </tr>
@@ -194,20 +196,20 @@
                                    @input="forms.OPENAI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.OPENAI.modelName || ''"
-                                   placeholder="e.g. gpt-4o"
+                                   placeholder="e.g. gpt-5.6-terra"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.openaiModelInput.focus())}else{modelSearch=forms.OPENAI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in ['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -247,20 +249,20 @@
                                    @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.ANTHROPIC.modelName || ''"
-                                   placeholder="e.g. claude-sonnet-4-6"
+                                   placeholder="e.g. claude-sonnet-5"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.anthropicModelInput.focus())}else{modelSearch=forms.ANTHROPIC.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in ['claude-opus-4-8','claude-sonnet-5','claude-haiku-4-5','claude-fable-5','claude-opus-4-7','claude-sonnet-4-6'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="['claude-opus-4-8','claude-sonnet-5','claude-haiku-4-5','claude-fable-5','claude-opus-4-7','claude-sonnet-4-6'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -669,8 +671,8 @@
         return {
             mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
             forms: {
-                OPENAI:    { apiKey: '', modelName: 'gpt-5.5',               baseUrl: '' },
-                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-7',       baseUrl: '' },
+                OPENAI:    { apiKey: '', modelName: 'gpt-5.6-sol',           baseUrl: '' },
+                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-8',       baseUrl: '' },
                 GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
                 LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
             },

@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
 import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -107,7 +108,7 @@ public class VersionDiffService {
                                         ScanVersionDiffAnalyzer.DiffResult diff) {
         if (toScan.getVersionDiffAiInsight() != null
                 && fromScan.getId().equals(toScan.getVersionDiffFromScanId())) {
-            return toScan.getVersionDiffAiInsight();
+            return AiResponseSanitizer.sanitizePlainText(toScan.getVersionDiffAiInsight());
         }
         try {
             return aiAnalysisService.summarizeVersionDiff(

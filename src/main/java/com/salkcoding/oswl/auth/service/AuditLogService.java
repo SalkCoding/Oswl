@@ -5,7 +5,7 @@ import com.salkcoding.oswl.auth.dto.AuditLogFilter;
 import com.salkcoding.oswl.auth.entity.AuditLog;
 import com.salkcoding.oswl.auth.repository.AuditLogRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
-import jakarta.servlet.http.HttpServletRequest;
+import com.salkcoding.oswl.security.ClientIpResolver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
+    private final ClientIpResolver clientIpResolver;
 
     @Value("${oswl.audit.retention-months:6}")
     private int retentionMonths;
@@ -83,12 +84,7 @@ public class AuditLogService {
             ServletRequestAttributes attrs =
                     (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attrs == null) return null;
-            HttpServletRequest req = attrs.getRequest();
-            String xff = req.getHeader("X-Forwarded-For");
-            String ip = (xff != null && !xff.isBlank()) ? xff.split(",")[0].trim() : req.getRemoteAddr();
-            // Normalize IPv6 loopback to 127.0.0.1
-            if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) return "127.0.0.1";
-            return ip;
+            return clientIpResolver.resolve(attrs.getRequest());
         } catch (Exception e) {
             return null;
         }

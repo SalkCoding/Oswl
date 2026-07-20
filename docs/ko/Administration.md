@@ -142,6 +142,17 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 
 ---
 
+## 서버 프로퍼티 (application.yaml)
+
+`application.yaml` 또는 환경 변수(Spring relaxed binding)로 설정하는 인스턴스 수준 보안 플래그입니다. 설정 UI에서 변경할 수 없으며, 적용하려면 재시작이 필요합니다.
+
+| 설정 키 | 환경 변수 | 기본값 | 설명 |
+|---|---|---|---|
+| `oswl.quick-import.allow-build-exec` | `OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC` | `false` | `false`이면 Quick Import가 manifest를 **정적으로만** 파싱하며, 클론된 저장소 안의 빌드 도구(`mvnw`, `gradlew`, `dotnet`)를 실행하지 않습니다. `true`이면 빌드 기반 버전 해결이 가능하지만, 저장소의 빌드 스크립트가 OsWL 호스트에서 실행되므로 **신뢰하는 저장소만** import하는 환경에서만 켜야 합니다. |
+| `oswl.security.trusted-proxies` | `OSWL_SECURITY_TRUSTED_PROXIES` | *(비어 있음)* | 신뢰하는 리버스 프록시 IP 목록(쉼표 구분). 직접 연결된 peer가 이 목록에 있을 때만 클라이언트 IP 판별(감사 로그, 속도 제한)에 `X-Forwarded-For` 헤더를 사용하고, 비어 있으면(기본값) 해당 헤더를 무시합니다. OsWL이 직접 제어하는 프록시 뒤에서 동작할 때만 설정하세요. |
+
+---
+
 ## 감사 로그
 
 **설정 → 관리자 → 감사 로그**
