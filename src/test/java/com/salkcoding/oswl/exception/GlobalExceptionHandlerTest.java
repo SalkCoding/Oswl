@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.ModelAndView;
 
+import com.salkcoding.oswl.security.ClientIpResolver;
+
 import java.util.Locale;
 import java.util.Map;
 
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.*;
 class GlobalExceptionHandlerTest {
 
     @Mock MessageSource messageSource;
+    @Mock ClientIpResolver clientIpResolver;
 
     @InjectMocks GlobalExceptionHandler handler;
 

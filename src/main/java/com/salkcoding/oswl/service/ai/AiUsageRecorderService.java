@@ -70,7 +70,6 @@ public class AiUsageRecorderService {
     }
 
     /** Parses OpenAI-compatible {@code usage} block from a chat completion response. */
-    @SuppressWarnings("unchecked")
     public void recordFromOpenAiUsage(Map<String, Object> body, AiProvider provider,
                                       String operation, String modelName) {
         if (body == null) return;
@@ -86,7 +85,6 @@ public class AiUsageRecorderService {
     }
 
     /** Parses Anthropic Messages API usage block. */
-    @SuppressWarnings("unchecked")
     public void recordFromAnthropicUsage(Map<String, Object> body, AiProvider provider,
                                          String operation, String modelName) {
         if (body == null) return;

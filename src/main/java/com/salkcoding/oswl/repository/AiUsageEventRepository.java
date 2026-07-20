@@ -11,7 +11,7 @@ import java.util.List;
 
 public interface AiUsageEventRepository extends JpaRepository<AiUsageEvent, Long> {
 
-    List<AiUsageEvent> findTop30ByUsageDateOrderByCreatedAtDesc(LocalDate usageDate);
+    List<AiUsageEvent> findTop10ByUsageDateOrderByCreatedAtDesc(LocalDate usageDate);
 
     @Query("""
             select coalesce(sum(e.promptTokens), 0), coalesce(sum(e.completionTokens), 0),

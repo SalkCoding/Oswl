@@ -7,6 +7,7 @@ import com.salkcoding.oswl.service.git.CloneRootPathGuard;
 import com.salkcoding.oswl.service.manifest.ManifestCollectRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -49,6 +50,14 @@ public class DependencyManifestParserService {
 
     private final MavenBomVersionResolver bomVersionResolver;
 
+    /**
+     * SECURITY: executing mvnw/gradlew/dotnet from a cloned repository runs arbitrary repo
+     * code on this server. Disabled by default; when false the parser falls back to static
+     * manifest parsing (no transitive resolution via build tools).
+     */
+    @Value("${oswl.quick-import.allow-build-exec:false}")
+    private boolean allowBuildExec;
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     /** Console tools (mvnw, gradlew, npm) write human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
     private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
@@ -56,6 +65,9 @@ public class DependencyManifestParserService {
     public record ParseResult(String ecosystem, List<ScanPayload.ComponentPayload> components) {}
 
     private record GradleComponent(String name, String version, List<List<ScanPayload.DependencyNodeRef>> paths) {}
+
+    /** Outcome of an external process run: exit code, captured merged output, timeout flag. */
+    private record ProcessOutput(int exitCode, String output, boolean timedOut) {}
 
     public ParseResult parseDependencies(Path cloneDir, String repoName) {
         List<ScanPayload.ComponentPayload> allComps = new ArrayList<>();
@@ -338,6 +350,11 @@ public class DependencyManifestParserService {
             log.debug("[DependencyParser][Maven] No mvnw in '{}', using static pom.xml parse", repoName);
             return null;
         }
+        if (!allowBuildExec) {
+            log.warn("[DependencyParser][Maven] mvnw found in '{}' but build execution is disabled "
+                    + "(oswl.quick-import.allow-build-exec=false) — using static pom.xml parse", repoName);
+            return null;
+        }
         try {
             if (!isWindows) wrapper.toFile().setExecutable(true, false);
             List<String> cmd = isWindows
@@ -349,14 +366,17 @@ public class DependencyManifestParserService {
             String javaHome = System.getProperty("java.home");
             if (javaHome != null && !javaHome.isBlank()) pb.environment().put("JAVA_HOME", javaHome);
             log.info("[DependencyParser][Maven] Running mvnw dependency:list for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), CONSOLE_CHARSET);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) { proc.destroyForcibly(); log.warn("[DependencyParser][Maven] mvnw timed out for '{}'", repoName); return null; }
-            if (proc.exitValue() != 0) {
-                log.warn("[DependencyParser][Maven] mvnw exited {} for '{}', falling back to static parse", proc.exitValue(), repoName);
+            ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, CONSOLE_CHARSET);
+            if (result.timedOut()) {
+                log.warn("[DependencyParser][Maven] mvnw timed out for '{}' — partial output: {}",
+                        repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
+            if (result.exitCode() != 0) {
+                log.warn("[DependencyParser][Maven] mvnw exited {} for '{}', falling back to static parse", result.exitCode(), repoName);
+                return null;
+            }
+            String output = result.output();
             // [INFO]    groupId:artifactId:jar:version:scope
             Pattern lineP = Pattern.compile("^\\[INFO\\]\\s+([\\w.\\-]+:[\\w.\\-]+):[\\w.\\-]+:([\\w.+\\-]+):(compile|runtime)\\s*$");
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
@@ -532,17 +552,15 @@ public class DependencyManifestParserService {
                             "--ignore-scripts", "--no-audit", "--no-fund", "--no-progress");
             ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
             log.info("[DependencyParser][npm] Running npm install --package-lock-only for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), CONSOLE_CHARSET);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[DependencyParser][npm] npm lock generation timed out for '{}'", repoName);
+            ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, CONSOLE_CHARSET);
+            if (result.timedOut()) {
+                log.warn("[DependencyParser][npm] npm lock generation timed out for '{}' — partial output: {}",
+                        repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
-            if (proc.exitValue() != 0) {
+            if (result.exitCode() != 0) {
                 log.warn("[DependencyParser][npm] npm exited {} for '{}' — {}",
-                        proc.exitValue(), repoName, summarizeProcessOutput(output));
+                        result.exitCode(), repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
             if (!Files.exists(dir.resolve("package-lock.json"))) {
@@ -726,6 +744,11 @@ public class DependencyManifestParserService {
             log.info("[DependencyParser][Gradle] No gradlew found in '{}', falling back to static parse", repoName);
             return null;
         }
+        if (!allowBuildExec) {
+            log.warn("[DependencyParser][Gradle] gradlew found in '{}' but build execution is disabled "
+                    + "(oswl.quick-import.allow-build-exec=false) — using static parse", repoName);
+            return null;
+        }
         try {
             if (!isWindows) {
                 wrapper.toFile().setExecutable(true, false);
@@ -747,16 +770,18 @@ public class DependencyManifestParserService {
                             (existing, added) -> added + pathSep + existing);
                 }
                 log.info("[DependencyParser][Gradle] Running gradlew dependencies --configuration {} for '{}'", config, repoName);
-                Process proc = pb.start();
-                String output = new String(proc.getInputStream().readAllBytes(), CONSOLE_CHARSET);
-                boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-                if (!finished) { proc.destroyForcibly(); log.warn("[DependencyParser][Gradle] gradlew timed out for '{}'", repoName); return null; }
-                if (proc.exitValue() != 0) {
+                ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, CONSOLE_CHARSET);
+                if (result.timedOut()) {
+                    log.warn("[DependencyParser][Gradle] gradlew timed out for '{}' — partial output: {}",
+                            repoName, summarizeProcessOutput(result.output()));
+                    return null;
+                }
+                if (result.exitCode() != 0) {
                     log.warn("[DependencyParser][Gradle] gradlew --configuration {} exited {} for '{}' — {}",
-                            config, proc.exitValue(), repoName, summarizeProcessOutput(output));
+                            config, result.exitCode(), repoName, summarizeProcessOutput(result.output()));
                     continue;
                 }
-                List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(output, repoName);
+                List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(result.output(), repoName);
                 if (!comps.isEmpty()) {
                     log.info("[DependencyParser][Gradle] gradlew --configuration {} resolved {} components for '{}'", config, comps.size(), repoName);
                     return comps;
@@ -839,6 +864,42 @@ public class DependencyManifestParserService {
                     gc.name(), gc.version(), "MAVEN", info, gc.paths()));
         }
         return result;
+    }
+
+    /**
+     * Runs an external process, draining its merged stdout/stderr on a separate reader thread
+     * (same pattern as {@code GitCloneExecutor}). Reading inline before {@code waitFor} would
+     * block until process exit and defeat the timeout. On timeout the process is destroyed
+     * forcibly and whatever partial output was captured is returned for logging.
+     */
+    private static ProcessOutput runProcess(ProcessBuilder pb, long timeout, TimeUnit unit, Charset charset)
+            throws IOException, InterruptedException {
+        Process proc = pb.start();
+        final String[] outputHolder = {""};
+        Thread outputReader = Thread.ofVirtual().start(() -> {
+            try {
+                outputHolder[0] = new String(proc.getInputStream().readAllBytes(), charset);
+            } catch (IOException ignored) {
+                // stream closed because the process was destroyed
+            }
+        });
+        boolean finished;
+        try {
+            finished = proc.waitFor(timeout, unit);
+        } catch (InterruptedException e) {
+            proc.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw e;
+        }
+        if (!finished) {
+            proc.destroyForcibly();
+        }
+        try {
+            outputReader.join(2_000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return new ProcessOutput(finished ? proc.exitValue() : -1, outputHolder[0], !finished);
     }
 
     /** First line of Gradle/Maven tool output for logs (failure diagnosis). */
@@ -1211,6 +1272,11 @@ public class DependencyManifestParserService {
      * Returns {@code null} when dotnet is unavailable or the command fails.
      */
     private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName) {
+        if (!allowBuildExec) {
+            log.warn("[DependencyParser][NuGet] Build execution is disabled "
+                    + "(oswl.quick-import.allow-build-exec=false) — skipping dotnet list for '{}', using static parse", repoName);
+            return null;
+        }
         if (!isCommandOnPath("dotnet")) {
             log.debug("[DependencyParser][NuGet] dotnet not on PATH for '{}', skipping CLI resolve", repoName);
             return null;
@@ -1229,20 +1295,18 @@ public class DependencyManifestParserService {
                             "package", "--include-transitive", "--format", "json");
             ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
             log.info("[DependencyParser][NuGet] Running dotnet list package for '{}' ({})", repoName, target.getFileName());
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[DependencyParser][NuGet] dotnet list timed out for '{}'", repoName);
+            ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, StandardCharsets.UTF_8);
+            if (result.timedOut()) {
+                log.warn("[DependencyParser][NuGet] dotnet list timed out for '{}' — partial output: {}",
+                        repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
-            if (proc.exitValue() != 0) {
+            if (result.exitCode() != 0) {
                 log.warn("[DependencyParser][NuGet] dotnet list exited {} for '{}' — {}",
-                        proc.exitValue(), repoName, summarizeProcessOutput(output));
+                        result.exitCode(), repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
-            List<ScanPayload.ComponentPayload> comps = parseDotNetListJson(output, repoName);
+            List<ScanPayload.ComponentPayload> comps = parseDotNetListJson(result.output(), repoName);
             if (comps.isEmpty()) {
                 log.warn("[DependencyParser][NuGet] dotnet list produced no packages for '{}'", repoName);
                 return null;

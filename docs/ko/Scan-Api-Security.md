@@ -16,6 +16,7 @@ CSRF 보호는 **쿠키 기반 브라우저 세션**용입니다. CLI는 헤더�
 CSRF 예외는 다음만 해당합니다.
 
 - `POST /api/scan`
+- `POST /api/scan/parse`
 - `GET /api/scan/ping`
 
 그 외 경로는 UI용 CSRF가 유지됩니다.

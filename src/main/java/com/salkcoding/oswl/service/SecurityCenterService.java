@@ -13,6 +13,7 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -203,7 +204,7 @@ public class SecurityCenterService {
                 .reversed()
                 .thenComparing(ComponentRowDto::getName, String.CASE_INSENSITIVE_ORDER));
         model.addAttribute("components", rows);
-        model.addAttribute("securityPostureInsight", scan.getSecurityPostureInsight());
+        model.addAttribute("securityPostureInsight", AiResponseSanitizer.sanitizePlainText(scan.getSecurityPostureInsight()));
         model.addAttribute("expiredDeferralCount",
                 scanComponentRepository.countRecentlyExpiredDeferrals(
                         scan.getId(), java.time.LocalDateTime.now().minusDays(7)));

@@ -24,6 +24,7 @@ import com.salkcoding.oswl.service.ai.AiGoldenTestService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
 import com.salkcoding.oswl.service.ai.AiUsageStatsService;
+import com.salkcoding.oswl.service.ai.EmbeddedAiProviderRegistrar;
 import com.salkcoding.oswl.service.ai.EmbeddedAiService;
 import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import jakarta.validation.Valid;
@@ -62,6 +63,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final MessageSource messageSource;
     private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
     private final EmbeddedAiService embeddedAiService;
+    private final EmbeddedAiProviderRegistrar embeddedProviderRegistrar;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -216,7 +218,8 @@ public class AiSettingController implements AiSettingControllerSpec {
             return ResponseEntity.badRequest().body(body);
         }
 
-        registerEmbeddedAsActiveProvider();
+        embeddedProviderRegistrar.registerAsActiveProvider(
+                embeddedAiService.modelName(), embeddedAiService.baseUrl());
         auditLogService.log("AI_SETTING.EMBEDDED_START", "AI_SETTING",
                 AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), embeddedAiService.modelName());
         vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
@@ -224,22 +227,6 @@ public class AiSettingController implements AiSettingControllerSpec {
         Map<String, Object> body = embeddedStatusBody();
         body.put("success", true);
         return ResponseEntity.ok(body);
-    }
-
-    /** Registers the running sidecar as the active LOCAL provider (own transaction). */
-    @Transactional
-    protected void registerEmbeddedAsActiveProvider() {
-        AiSetting setting = aiSettingRepository.findByProvider(AiProvider.LOCAL)
-                .orElseGet(() -> AiSetting.builder().provider(AiProvider.LOCAL).build());
-        setting.update(null, embeddedAiService.modelName(), embeddedAiService.baseUrl());
-        aiSettingRepository.findByActiveTrue()
-                .filter(s -> s.getProvider() != AiProvider.LOCAL)
-                .ifPresent(other -> {
-                    other.deactivate();
-                    aiSettingRepository.save(other);
-                });
-        setting.activate();
-        aiSettingRepository.save(setting);
     }
 
     @PostMapping("/embedded/stop")

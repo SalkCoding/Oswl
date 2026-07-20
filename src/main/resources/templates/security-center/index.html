@@ -72,11 +72,8 @@
           exportOpen: false,
           sortOpen: false,
           sortMode: 'risk',
-          sortLabels: {
-              risk: /*[[#{securityCenter.sort.risk}]]*/ 'Risk (default)',
-              name: /*[[#{securityCenter.sort.name}]]*/ 'Name',
-              license: /*[[#{securityCenter.sort.license}]]*/ 'License risk'
-          },
+          // Injected via the th:inline script block below (attribute values are not JS-inlined).
+          sortLabels: window.securityCenterData.sortLabels,
           selectedComponents: [],
           selectAll: false,
           filters: {
@@ -101,8 +98,8 @@
               patchUpToDate: false
           },
           filterVersion: 0,
-          scanStatus: /*[[${latestScanStatus}]]*/ 'NONE',
-          latestScanId: /*[[${latestScanId}]]*/ null,
+          scanStatus: window.securityCenterData.scanStatus,
+          latestScanId: window.securityCenterData.latestScanId,
           scanPollTimer: null,
           rowVisible(el) {
               // Track filterVersion so that manual DOM attribute updates (ignored, deferred)
@@ -232,6 +229,14 @@
               if (!this.selectedComponents.length) return;
               const projectId = document.body.dataset.projectId;
               const ids = this.selectedComponents.map(Number);
+              this.bulkActionsOpen = false;
+
+              const clearSelection = () => {
+                  this.selectedComponents = [];
+                  this.selectAll = false;
+              };
+              // fetch resolves even on 403/500 — treat non-OK and network errors as failure
+              const onFailure = () => alert(window.securityCenterData.i18n.actionFailed);
 
               if (action === 'reviewed' || action === 'unreviewed') {
                   const value = action === 'reviewed';
@@ -241,12 +246,12 @@
                       headers: oswlJsonHeaders(),
                       body: JSON.stringify({ids: ids, reviewed: value})
                   }).then(r => {
-                      if (r.ok) {
-                          window.dispatchEvent(new CustomEvent('bulk-review', {
-                              detail: {ids: idStrings, value: value}
-                          }));
-                      }
-                  });
+                      if (!r.ok) { onFailure(); return; }
+                      window.dispatchEvent(new CustomEvent('bulk-review', {
+                          detail: {ids: idStrings, value: value}
+                      }));
+                      clearSelection();
+                  }).catch(onFailure);
               } else if (action === 'ignore' || action === 'unignore') {
                   const value = action === 'ignore';
                   const idStrings = ids.map(String);
@@ -255,23 +260,19 @@
                       headers: oswlJsonHeaders(),
                       body: JSON.stringify({ids: ids, ignored: value})
                   }).then(r => {
-                      if (r.ok) {
-                          window.dispatchEvent(new CustomEvent('bulk-ignore', {
-                              detail: {ids: idStrings, value: value}
-                          }));
-                          // When ignoring, automatically show non-ignored items so
-                          // the user can see the list update in real time.
-                          if (action === 'ignore') {
-                              this.filters.nonIgnored = true;
-                              this.filterVersion++;
-                          }
+                      if (!r.ok) { onFailure(); return; }
+                      window.dispatchEvent(new CustomEvent('bulk-ignore', {
+                          detail: {ids: idStrings, value: value}
+                      }));
+                      // When ignoring, automatically show non-ignored items so
+                      // the user can see the list update in real time.
+                      if (action === 'ignore') {
+                          this.filters.nonIgnored = true;
+                          this.filterVersion++;
                       }
-                  });
+                      clearSelection();
+                  }).catch(onFailure);
               }
-
-              this.bulkActionsOpen = false;
-              this.selectedComponents = [];
-              this.selectAll = false;
           },
           exportAs(format) {
               this.exportOpen = false;
@@ -307,6 +308,23 @@
           }
       }"
       x-init="init()">
+
+    <!-- Attribute values are not JS-inlined by Thymeleaf, so model/message values
+         for the Alpine component are injected here (th:inline) and read from x-data. -->
+    <script th:inline="javascript">
+    window.securityCenterData = {
+        scanStatus:   /*[[${latestScanStatus}]]*/ 'NONE',
+        latestScanId: /*[[${latestScanId}]]*/ null,
+        sortLabels: {
+            risk:    /*[[#{securityCenter.sort.risk}]]*/ 'Risk (default)',
+            name:    /*[[#{securityCenter.sort.name}]]*/ 'Name',
+            license: /*[[#{securityCenter.sort.license}]]*/ 'License risk'
+        },
+        i18n: {
+            actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.'
+        }
+    };
+    </script>
 
     <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
 
@@ -386,7 +404,10 @@
 
             <div class="flex flex-1 min-h-0">
                 <aside th:replace="~{security-center/fragments/filters :: filters}"></aside>
-                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none; order: 1; overscroll-behavior: contain;">
+                <!-- overscroll-behavior-x only: this container grows with content and never scrolls
+                     vertically (the document does). A plain `contain` traps every wheel gesture over
+                     the table on Chrome 144+, killing page scroll. -->
+                <div class="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar" style="overflow-anchor: none; order: 1; overscroll-behavior-x: contain;">
                     <div th:replace="~{security-center/fragments/table :: table}"></div>
                 </div>
             </div>

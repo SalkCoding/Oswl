@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * Normalizes plain-text AI responses before storing or displaying them.
@@ -13,10 +15,19 @@ import java.util.List;
  * return JSON" system rule and wrap even single-sentence answers in JSON arrays
  * or objects, or markdown fences. This unwraps any such structure back to the
  * human-readable text instead of leaking raw {@code ["...", ...]} to the UI.
+ *
+ * Thinking models (e.g. Qwen3 behind an OpenAI-compatible endpoint) may also
+ * inline their reasoning as a {@code <think>...</think>} block in the content —
+ * or return only the reasoning tail plus {@code </think>} when the chat template
+ * pre-fills the opening tag. Reasoning is never user-facing, so it is stripped.
  */
 public final class AiResponseSanitizer {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** Complete {@code <think>...</think>} sections (reasoning may span lines). */
+    private static final Pattern THINK_SECTION =
+            Pattern.compile("(?is)<think\\s*>.*?</think\\s*>");
 
     /** Object fields that carry the human-readable payload, in preference order. */
     private static final List<String> TEXT_FIELDS =
@@ -26,7 +37,7 @@ public final class AiResponseSanitizer {
 
     public static String sanitizePlainText(String raw) {
         if (raw == null || raw.isBlank()) return raw;
-        String text = stripCodeFence(raw.strip());
+        String text = stripCodeFence(stripReasoning(raw.strip()));
 
         if (text.startsWith("[") || text.startsWith("{") || text.startsWith("\"")) {
             String extracted = tryExtractFromJson(text);
@@ -36,6 +47,28 @@ public final class AiResponseSanitizer {
         }
 
         return text.replace("\\n", "\n").strip();
+    }
+
+    /**
+     * Removes inlined reasoning from thinking models. Handles a complete
+     * {@code <think>} section, a stray closing tag whose opener was pre-filled by
+     * the chat template (everything before it is reasoning), and an opener left
+     * unclosed when max_tokens truncates the response (nothing usable after it).
+     */
+    private static String stripReasoning(String text) {
+        String out = THINK_SECTION.matcher(text).replaceAll("");
+        String lower = out.toLowerCase(Locale.ROOT);
+        int open = lower.indexOf("<think>");
+        int close = lower.indexOf("</think>");
+        if (close >= 0 && (open < 0 || close < open)) {
+            out = out.substring(close + "</think>".length());
+            lower = out.toLowerCase(Locale.ROOT);
+            open = lower.indexOf("<think>");
+        }
+        if (open >= 0) {
+            out = out.substring(0, open);
+        }
+        return out.strip();
     }
 
     private static String stripCodeFence(String text) {
@@ -96,8 +129,30 @@ public final class AiResponseSanitizer {
                 if (!sb.isEmpty()) sb.append(' ');
                 sb.append(action.asText().strip());
             }
-            return sb.isEmpty() ? null : sb.toString();
+            if (!sb.isEmpty()) return sb.toString();
+            // Unknown envelope — the model invented its own keys (e.g.
+            // {"trend": "...", "new_risk": "...", "priority_action": "..."}).
+            // Flatten the textual values rather than leak raw JSON to the UI.
+            List<String> parts = new ArrayList<>();
+            collectText(node, parts);
+            return parts.isEmpty() ? null : String.join(" ", parts);
         }
         return null;
+    }
+
+    /** Collects textual leaf values in field order; numbers/booleans are skipped as noise. */
+    private static void collectText(JsonNode node, List<String> out) {
+        if (node == null || node.isNull()) return;
+        if (node.isTextual()) {
+            if (!node.asText().isBlank()) out.add(node.asText().strip());
+            return;
+        }
+        if (node.isArray()) {
+            node.forEach(child -> collectText(child, out));
+            return;
+        }
+        if (node.isObject()) {
+            node.fields().forEachRemaining(e -> collectText(e.getValue(), out));
+        }
     }
 }
