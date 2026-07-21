@@ -77,6 +77,8 @@ public class QuickImportService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String USER_AGENT = "OsWL-App/1.0";
+    /** Safety bound for repo-list pagination (100 per page → up to 1000 repos). */
+    private static final int MAX_REPO_PAGES = 10;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -266,8 +268,9 @@ public class QuickImportService {
         emitter.onTimeout(() -> removeEmitter(jobId, emitter));
         emitter.onError(e -> removeEmitter(jobId, emitter));
         try {
-            // SSE is owner-scoped; do not consume the one-time HTTP reveal slot or mask the token here.
-            QuickImportJobStatus status = resolveJobStatus(jobId);
+            // SSE follows the same reveal-once policy as HTTP polling: the full apiToken
+            // is delivered only on the first DONE frame, then masked.
+            QuickImportJobStatus status = sanitizeApiToken(jobId, resolveJobStatus(jobId));
             emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
         } catch (Exception e) {
             emitter.completeWithError(e);
@@ -447,14 +450,14 @@ public class QuickImportService {
     }
 
     /**
-     * Returns the API token in full only on the first DONE poll; subsequent polls receive a masked value.
+     * Returns the API token in full only on the first DONE delivery (HTTP poll or SSE frame,
+     * whichever comes first); every later delivery receives the masked value.
      */
     private QuickImportJobStatus sanitizeApiToken(String jobId, QuickImportJobStatus job) {
         if (job == null || job.getApiToken() == null || job.getApiToken().isBlank()) {
             return job;
         }
-        if (job.getPhase() == Phase.DONE && !Boolean.TRUE.equals(apiTokenRevealed.get(jobId))) {
-            apiTokenRevealed.put(jobId, true);
+        if (job.getPhase() == Phase.DONE && apiTokenRevealed.putIfAbsent(jobId, true) == null) {
             return job;
         }
         return job.toBuilder().apiToken(maskApiToken(job.getApiToken())).build();
@@ -526,39 +529,67 @@ public class QuickImportService {
         // membership=true works for classic PATs (user-level membership context).
         // Fine-grained project-scoped tokens lack that context — fall back to min_access_level.
         String url = base + "/api/v4/projects?membership=true&per_page=100&order_by=last_activity_at";
-        HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("PRIVATE-TOKEN", token)
-                .header("User-Agent", USER_AGENT)
-                .GET().build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> resp = sendGitLabGet(token, url);
         if (resp.statusCode() == 403) {
             log.warn("[RepoBrowser] GitLab membership=true returned 403, retrying with min_access_level (fine-grained token)");
             return listGitLabReposByAccessLevel(token, base);
         }
         if (resp.statusCode() != 200) {
-            log.warn("[RepoBrowser] GitLab returned HTTP {} \u2014 {}", resp.statusCode(), resp.body());
+            log.warn("[RepoBrowser] GitLab returned HTTP {} — {}", resp.statusCode(), resp.body());
             throw new IOException("GitLab API returned HTTP " + resp.statusCode());
         }
-        return parseGitLabProjects(resp.body());
+        return collectGitLabProjectPages(token, url, resp);
     }
 
     private List<QuickImportRepoDto> listGitLabReposByAccessLevel(String token, String base) throws Exception {
         String url = base + "/api/v4/projects?min_access_level=10&per_page=100&order_by=last_activity_at";
+        HttpResponse<String> resp = sendGitLabGet(token, url);
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] GitLab min_access_level returned HTTP {} — {}", resp.statusCode(), resp.body());
+            throw new IOException("GitLab API returned HTTP " + resp.statusCode() +
+                " — ensure the fine-grained token has \"Project: Read\" permission.");
+        }
+        return collectGitLabProjectPages(token, url, resp);
+    }
+
+    /**
+     * Parses the first page and follows GitLab's {@code X-Next-Page} header, bounded by
+     * {@link #MAX_REPO_PAGES} so users with more than 100 projects are not silently truncated.
+     */
+    private List<QuickImportRepoDto> collectGitLabProjectPages(String token, String pageUrl,
+                                                               HttpResponse<String> firstResponse) throws Exception {
+        List<QuickImportRepoDto> result = new ArrayList<>(parseGitLabProjects(firstResponse.body()));
+        String nextPage = nextGitLabPage(firstResponse);
+        for (int page = 1; page < MAX_REPO_PAGES && nextPage != null; page++) {
+            HttpResponse<String> resp = sendGitLabGet(token, pageUrl + "&page=" + nextPage);
+            if (resp.statusCode() != 200) {
+                log.warn("[RepoBrowser] GitLab page {} returned HTTP {} — returning {} repos collected so far",
+                        nextPage, resp.statusCode(), result.size());
+                break;
+            }
+            result.addAll(parseGitLabProjects(resp.body()));
+            nextPage = nextGitLabPage(resp);
+        }
+        if (nextPage != null) {
+            log.info("[RepoBrowser] GitLab repo list truncated at {} pages ({} repos collected)",
+                    MAX_REPO_PAGES, result.size());
+        }
+        return result;
+    }
+
+    /** Next page number from GitLab's X-Next-Page header (null when the last page was reached). */
+    private static String nextGitLabPage(HttpResponse<?> resp) {
+        String next = resp.headers().firstValue("X-Next-Page").orElse("").trim();
+        return next.isEmpty() ? null : next;
+    }
+
+    private HttpResponse<String> sendGitLabGet(String token, String url) throws Exception {
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("PRIVATE-TOKEN", token)
                 .header("User-Agent", USER_AGENT)
                 .GET().build();
-
-        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-        if (resp.statusCode() != 200) {
-            log.warn("[RepoBrowser] GitLab min_access_level returned HTTP {} \u2014 {}", resp.statusCode(), resp.body());
-            throw new IOException("GitLab API returned HTTP " + resp.statusCode() +
-                " \u2014 ensure the fine-grained token has \"Project: Read\" permission.");
-        }
-        return parseGitLabProjects(resp.body());
+        return httpClient.send(req, HttpResponse.BodyHandlers.ofString());
     }
 
     private List<QuickImportRepoDto> parseGitLabProjects(String body) throws Exception {
@@ -1134,9 +1165,10 @@ public class QuickImportService {
         CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.get(jobId);
         if (emitters == null || emitters.isEmpty()) return;
         Long owner = jobOwners.get(jobId);
-        // Live SSE updates carry the in-memory status (full apiToken until job eviction).
+        // SSE follows the same reveal-once policy as HTTP polling: the full apiToken is
+        // sent only on the first DONE delivery, then masked (the UI keeps the revealed copy).
         QuickImportJobStatus status = owner != null
-                ? resolveJobStatus(jobId)
+                ? sanitizeApiToken(jobId, resolveJobStatus(jobId))
                 : jobs.get(jobId);
         if (status == null) return;
         for (SseEmitter emitter : emitters) {

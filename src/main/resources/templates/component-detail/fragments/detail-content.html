@@ -696,13 +696,20 @@
             try {
                 const r = await fetch(`/projects/${projectId}/components/${componentId}/cves/${cveDbId}/ai-summarize`, {
                     method: 'POST',
-                    headers: Object.assign(
-                        { 'Accept': 'application/json' },
-                        window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}
-                    )
+                    headers: oswlJsonHeaders({ 'Accept': 'application/json' })
                 });
                 if (r.ok) {
-                    location.reload();
+                    // 슬라이드아웃 안에서는 패널 내용만 다시 로드 (전체 리로드 시 패널 상태 소실)
+                    const slideout = document.getElementById('slideout-content');
+                    if (slideout && window.htmx) {
+                        htmx.ajax('GET', `/projects/${projectId}/components/${componentId}`, {
+                            target: '#slideout-content',
+                            select: '#component-detail-content',
+                            swap: 'innerHTML'
+                        });
+                    } else {
+                        location.reload();
+                    }
                     return;
                 }
                 let message = _aiI18n.generic;

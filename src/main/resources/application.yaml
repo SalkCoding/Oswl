@@ -13,6 +13,11 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  jpa:
+    properties:
+      hibernate:
+        # Fetch LAZY associations/collections in batches instead of one-by-one (global N+1 mitigation)
+        default_batch_fetch_size: 50
 
 server:
   port: 8080
@@ -20,6 +25,11 @@ server:
   address: 0.0.0.0
   # Honor X-Forwarded-* from reverse proxies (required for HSTS behind TLS termination).
   forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:framework}
+  # Gzip-compress text responses larger than 2KB
+  compression:
+    enabled: true
+    mime-types: text/html,text/css,application/javascript,application/json
+    min-response-size: 2KB
 
 management:
   endpoints:
@@ -33,6 +43,8 @@ management:
       show-details: never
 
 oswl:
+  # Default timezone for time-sensitive features (e.g. AI usage tracking). Override with OSWL_TIMEZONE.
+  timezone: ${OSWL_TIMEZONE:Asia/Seoul}
   security:
     # When true, OSWL_TD is always sent with Secure (HTTPS-only). Otherwise Secure follows request.isSecure().
     trusted-device-cookie-secure: ${OSWL_TRUSTED_DEVICE_COOKIE_SECURE:false}

@@ -36,6 +36,8 @@ public class GitHubService {
 
     private static final String DEFAULT_WEB_BASE = "https://github.com";
     private static final String USER_AGENT = "OsWL-App/1.0";
+    /** Safety bound for Link-header pagination (100 repos per page → up to 1000 repos). */
+    private static final int MAX_REPO_PAGES = 10;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -117,15 +119,7 @@ public class GitHubService {
 
     public List<GitHubRepoDto> listAllUserRepos(String accessToken, String serverUrl) {
         String apiBase = resolveApiBase(serverUrl);
-        String url = apiBase + "/user/repos?per_page=100&sort=updated";
-        JsonNode repos = getJson(accessToken, url);
-        List<GitHubRepoDto> result = new ArrayList<>();
-        if (repos.isArray()) {
-            for (JsonNode r : repos) {
-                result.add(toRepoDto(r));
-            }
-        }
-        return result;
+        return fetchRepoPages(accessToken, apiBase + "/user/repos?per_page=100&sort=updated");
     }
 
     public List<GitHubRepoDto> getRepos(String accessToken, String account) {
@@ -135,18 +129,10 @@ public class GitHubService {
     public List<GitHubRepoDto> getRepos(String accessToken, String account, String serverUrl) {
         String apiBase = resolveApiBase(serverUrl);
         String userLogin = getUserLogin(accessToken, serverUrl);
-        String url = account.equalsIgnoreCase(userLogin)
+        String firstPageUrl = account.equalsIgnoreCase(userLogin)
                 ? apiBase + "/user/repos?per_page=100&sort=updated&affiliation=owner"
                 : apiBase + "/orgs/" + account + "/repos?per_page=100&sort=updated";
-
-        JsonNode repos = getJson(accessToken, url);
-        List<GitHubRepoDto> result = new ArrayList<>();
-        if (repos.isArray()) {
-            for (JsonNode r : repos) {
-                result.add(toRepoDto(r));
-            }
-        }
-        return result;
+        return fetchRepoPages(accessToken, firstPageUrl);
     }
 
     public List<String> getBranches(String accessToken, String owner, String repo) {
@@ -258,6 +244,46 @@ public class GitHubService {
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Collects repo pages following the Link header's rel="next" (100 per page),
+     * bounded by {@link #MAX_REPO_PAGES} so huge accounts are truncated, not failed.
+     */
+    private List<GitHubRepoDto> fetchRepoPages(String accessToken, String firstPageUrl) {
+        List<GitHubRepoDto> result = new ArrayList<>();
+        String url = firstPageUrl;
+        for (int page = 0; page < MAX_REPO_PAGES && url != null; page++) {
+            JsonPage jsonPage = getJsonPage(accessToken, url);
+            if (jsonPage.body().isArray()) {
+                for (JsonNode r : jsonPage.body()) {
+                    result.add(toRepoDto(r));
+                }
+            }
+            url = jsonPage.nextUrl();
+        }
+        if (url != null) {
+            log.info("[GitHub] Repo list truncated at {} pages ({} repos collected)", MAX_REPO_PAGES, result.size());
+        }
+        return result;
+    }
+
+    /** One page of a GET endpoint: parsed body plus the rel="next" URL from the Link header. */
+    private record JsonPage(JsonNode body, String nextUrl) {}
+
+    /** Extracts the rel="next" URL from a GitHub Link header (null when absent). */
+    private static String parseNextLink(String linkHeader) {
+        if (linkHeader == null) return null;
+        for (String part : linkHeader.split(",")) {
+            String[] segments = part.split(";");
+            if (segments.length == 2 && segments[1].contains("rel=\"next\"")) {
+                String url = segments[0].trim();
+                if (url.startsWith("<") && url.endsWith(">")) {
+                    return url.substring(1, url.length() - 1);
+                }
+            }
+        }
+        return null;
+    }
 
     private GitHubRepoDto toRepoDto(JsonNode r) {
         return GitHubRepoDto.builder()
@@ -425,6 +451,10 @@ public class GitHubService {
     }
 
     private JsonNode getJson(String accessToken, String url) {
+        return getJsonPage(accessToken, url).body();
+    }
+
+    private JsonPage getJsonPage(String accessToken, String url) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -445,7 +475,8 @@ public class GitHubService {
                 log.warn("[GitHub] API error {} for URL: {}", response.statusCode(), url);
                 throw new GitHubAuthException("GitHub API error: " + response.statusCode());
             }
-            return objectMapper.readTree(response.body());
+            String nextUrl = parseNextLink(response.headers().firstValue("Link").orElse(null));
+            return new JsonPage(objectMapper.readTree(response.body()), nextUrl);
         } catch (GitHubAuthException e) {
             throw e;
         } catch (Exception e) {

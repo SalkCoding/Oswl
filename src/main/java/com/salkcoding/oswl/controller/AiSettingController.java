@@ -12,6 +12,7 @@ import com.salkcoding.oswl.dto.api.AiPromptsResponse;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
+import com.salkcoding.oswl.dto.api.AiUsageEventDto;
 import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
 import com.salkcoding.oswl.dto.api.EmbeddedAiConfigRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
@@ -31,6 +32,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -88,6 +90,13 @@ public class AiSettingController implements AiSettingControllerSpec {
         return ResponseEntity.ok(aiUsageStatsService.getStats());
     }
 
+    @GetMapping("/usage/events")
+    public ResponseEntity<Page<AiUsageEventDto>> getUsageEvents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(aiUsageStatsService.getEvents(page, size));
+    }
+
     @GetMapping("/prompts")
     public ResponseEntity<AiPromptsResponse> getPrompts() {
         Map<String, String> snapshot = promptTemplateService.snapshot();
@@ -127,12 +136,16 @@ public class AiSettingController implements AiSettingControllerSpec {
         }
         setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
 
-        if (Boolean.TRUE.equals(request.getActivate())) {
+        boolean activating = Boolean.TRUE.equals(request.getActivate());
+        if (activating) {
             aiSettingRepository.findByActiveTrue().ifPresent(AiSetting::deactivate);
             setting.activate();
         }
 
         aiSettingRepository.save(setting);
+        if (activating) {
+            deactivateOtherActiveSettings(setting);
+        }
         auditLogService.log("AI_SETTING.SAVE", "AI_SETTING",
                 setting.getProvider().name(), setting.getProvider().name(),
                 setting.getModelName());
@@ -141,7 +154,7 @@ public class AiSettingController implements AiSettingControllerSpec {
         if (localeChanged && aiSettingRepository.findByActiveTrue().isPresent()) {
             // Existing insights were generated in the previous language — regenerate them
             runAfterCommit(vulnerabilityEnrichmentService::regenerateRecentInsightsAsync);
-        } else if (Boolean.TRUE.equals(request.getActivate())) {
+        } else if (activating) {
             runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
         }
         return ResponseEntity.ok(toResponse(setting, prefs));
@@ -173,10 +186,24 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .orElseThrow(() -> new IllegalArgumentException(
                         provider + " settings not found. Configure it first via PUT /api/settings/ai."));
         setting.activate();
+        deactivateOtherActiveSettings(setting);
         auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
                 provider.name(), provider.name(), setting.getModelName());
         runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
         return ResponseEntity.ok(toResponse(setting, aiPreferencesService.getEffective()));
+    }
+
+    /**
+     * Heals a duplicate-active outcome from a concurrent activate race (a partial unique index
+     * on is_active is not expressible via JPA): every active setting other than {@code keep}
+     * is deactivated. Normally a no-op.
+     */
+    private void deactivateOtherActiveSettings(AiSetting keep) {
+        for (AiSetting other : aiSettingRepository.findAllByActiveTrueOrderByUpdatedAtDesc()) {
+            if (other.isActive() && !Objects.equals(other.getId(), keep.getId())) {
+                other.deactivate();
+            }
+        }
     }
 
     /**

@@ -39,14 +39,22 @@ public final class AiResponseSanitizer {
         if (raw == null || raw.isBlank()) return raw;
         String text = stripCodeFence(stripReasoning(raw.strip()));
 
+        boolean fromJson = false;
         if (text.startsWith("[") || text.startsWith("{") || text.startsWith("\"")) {
             String extracted = tryExtractFromJson(text);
             if (extracted != null && !extracted.isBlank()) {
                 text = extracted;
+                fromJson = true;
             }
         }
 
-        return text.replace("\\n", "\n").strip();
+        // Unescape literal \n only for raw single-line output. JSON extraction already
+        // decoded real escapes (any \\n left was escaped on purpose), and prose that
+        // already has real newlines uses \n deliberately (e.g. paths like C:\new).
+        if (!fromJson && text.indexOf('\n') < 0) {
+            text = text.replace("\\n", "\n");
+        }
+        return text.strip();
     }
 
     /**

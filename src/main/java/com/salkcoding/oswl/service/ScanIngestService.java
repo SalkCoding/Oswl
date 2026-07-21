@@ -14,6 +14,7 @@ import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -149,12 +150,28 @@ public class ScanIngestService {
         String eco = cp.getEcosystem().toUpperCase();
         return libraryRepository
                 .findByNameAndVersionAndEcosystem(cp.getName(), cp.getVersion(), eco)
-                .orElseGet(() -> libraryRepository.save(Library.builder()
-                        .name(cp.getName())
-                        .version(cp.getVersion())
-                        .ecosystem(eco)
-                        .licenseStatus(LicenseStatus.UNKNOWN)
-                        .build()));
+                .orElseGet(() -> createLibrary(cp, eco));
+    }
+
+    /**
+     * Inserts the Library row. When a concurrent ingest commits the same
+     * (name, version, ecosystem) first, the unique constraint violation is caught
+     * and the winner's row is re-read (once) instead of failing the scan with a 500.
+     * The IDENTITY key makes the INSERT execute (and fail) right at save().
+     */
+    private Library createLibrary(ScanPayload.ComponentPayload cp, String eco) {
+        try {
+            return libraryRepository.save(Library.builder()
+                    .name(cp.getName())
+                    .version(cp.getVersion())
+                    .ecosystem(eco)
+                    .licenseStatus(LicenseStatus.UNKNOWN)
+                    .build());
+        } catch (DataIntegrityViolationException duplicate) {
+            return libraryRepository
+                    .findByNameAndVersionAndEcosystem(cp.getName(), cp.getVersion(), eco)
+                    .orElseThrow(() -> duplicate);
+        }
     }
 }
 

@@ -14,26 +14,22 @@ const PROGRESS_DISMISS_MS = 2 * 60 * 1000;
 const COMPLETE_DISMISS_MS = 60 * 1000;
 const ETA_MAX_MS = 2 * 60 * 60 * 1000;
 
-function _qi() {
-    return typeof _qiI18n !== 'undefined' ? _qiI18n : {};
+/** Bundle accessor: a missing key surfaces as the key name itself (see oswl-i18n.js). */
+function _qi(key) {
+    return oswlI18n(typeof _qiI18n !== 'undefined' ? _qiI18n : null, key);
 }
 
-function _qiFmt(template) {
-    let s = String(template);
-    for (let i = 1; i < arguments.length; i++) {
-        s = s.split('{' + (i - 1) + '}').join(arguments[i]);
-    }
-    return s;
+function _qiFmt(template, ...args) {
+    return oswlI18nFmt(template, ...args);
 }
 
 /** Resolve API error bodies using page locale (_qiI18n), never server-localized strings. */
 function _qiResolveError(body) {
-    const q = _qi();
-    const errors = q.errors || {};
+    const errors = (typeof _qiI18n !== 'undefined' && _qiI18n.errors) || {};
     if (body && body.errorKey && errors[body.errorKey]) {
         return _qiFmt(errors[body.errorKey], ...(body.errorArgs || []));
     }
-    return q.unexpectedError || 'An unexpected error occurred.';
+    return _qi('unexpectedError');
 }
 
 function quickImportPage() {
@@ -68,17 +64,12 @@ function quickImportPage() {
         userRunningCount: 0,
         completedResults: [],
 
-        /* ── Background scan watcher ─────────────── */
-        _scanWatcher: null,
+        /* ── Background scan watchers (one EventSource per project) ── */
+        _scanWatchers: new Map(),
         _nowTickTimer: null,
 
 
         /* ─────────────────────────────────────────── */
-
-        async init() {
-            this._ensureNowTickTimer();
-            await this.onPanelOpen();
-        },
 
         /** 1s heartbeat so elapsed/ETA texts on job cards re-render. Guarded so re-entry can't stack timers. */
         _ensureNowTickTimer() {
@@ -92,7 +83,7 @@ function quickImportPage() {
             this._nowTickTimer = null;
         },
 
-        /** Called when the slide-out panel opens (also on first mount). */
+        /** Called when the slide-out panel opens (the first open doubles as the lazy init). */
         async onPanelOpen() {
             this._ensureNowTickTimer();
             await this.loadConnections();
@@ -206,14 +197,13 @@ function quickImportPage() {
         },
 
         importSlotsLabel() {
-            const i18n = _qi();
             const parts = [];
             const runningSlots = Math.min(this.activeSlotsUsed, this.maxConcurrentSlots);
             if (runningSlots > 0) {
-                parts.push(_qiFmt(i18n.slotsRunning, runningSlots, this.maxConcurrentSlots));
+                parts.push(_qiFmt(_qi('slotsRunning'), runningSlots, this.maxConcurrentSlots));
             }
             if (this.userQueuedCount > 0) {
-                parts.push(_qiFmt(i18n.slotsQueued, this.userQueuedCount, this.maxQueuedSlots));
+                parts.push(_qiFmt(_qi('slotsQueued'), this.userQueuedCount, this.maxQueuedSlots));
             }
             return parts.join(' › ');
         },
@@ -273,10 +263,10 @@ function quickImportPage() {
             try {
                 const url = new URL(this.repoUrl);
                 if (!['http:', 'https:'].includes(url.protocol)) {
-                    this.urlError = _qi().urlProtocol || 'URL must use http:// or https://.';
+                    this.urlError = _qi('urlProtocol');
                 }
             } catch (_) {
-                this.urlError = _qi().invalidUrl || 'Please enter a valid URL.';
+                this.urlError = _qi('invalidUrl');
             }
         },
 
@@ -294,7 +284,7 @@ function quickImportPage() {
                 });
 
                 if (!res.ok) {
-                    let errMsg = _qi().unexpectedError || 'An unexpected error occurred.';
+                    let errMsg = _qi('unexpectedError');
                     try {
                         errMsg = _qiResolveError(await res.json());
                     } catch (_) { /* keep fallback */ }
@@ -505,8 +495,7 @@ function quickImportPage() {
                 const res = await fetch('/api/quick-import/job/' + tracker.jobId);
                 if (res.status === 404) {
                     this._stopJobWatch(tracker);
-                    this._appendLogToJob(tracker, 'error',
-                        _qi().sessionExpired || 'Import session expired.');
+                    this._appendLogToJob(tracker, 'error', _qi('sessionExpired'));
                     return;
                 }
                 if (!res.ok) return;
@@ -640,12 +629,11 @@ function quickImportPage() {
             remainingMs -= Date.now() - job._etaAnchorAtEpochMs;
             remainingMs = Math.min(Math.max(remainingMs, 0), ETA_MAX_MS);
             const remainingSec = Math.round(remainingMs / 1000);
-            const q = _qi();
             if (remainingSec >= 60) {
-                return _qiFmt(q.etaMinutes || 'about {0} min left', Math.ceil(remainingSec / 60));
+                return _qiFmt(_qi('etaMinutes'), Math.ceil(remainingSec / 60));
             }
             // Round up to 10s steps so the number doesn't jitter every second
-            return _qiFmt(q.etaSeconds || 'about {0} sec left', Math.max(10, Math.ceil(remainingSec / 10) * 10));
+            return _qiFmt(_qi('etaSeconds'), Math.max(10, Math.ceil(remainingSec / 10) * 10));
         },
 
         _localizedMessage(job) {
@@ -656,19 +644,17 @@ function quickImportPage() {
         },
 
         _queueStatusLine(queuePosition) {
-            const q = _qi();
             if (queuePosition == null) {
-                return q.phaseQueued || 'Queued';
+                return _qi('phaseQueued');
             }
             const max = this.maxConcurrentSlots || 3;
             if (queuePosition <= max) {
-                return _qiFmt(q.queueNext || 'Starting soon (slot {0})\u2026', queuePosition);
+                return _qiFmt(_qi('queueNext'), queuePosition);
             }
-            return _qiFmt(q.queueWaiting || 'Waiting in queue (#{0})\u2026', queuePosition - max);
+            return _qiFmt(_qi('queueWaiting'), queuePosition - max);
         },
 
         _phaseLine(job) {
-            const q = _qi();
             const phase = this._normalizePhase(job.phase);
             if (phase === 'QUEUED') {
                 return this._queueStatusLine(job.queuePosition);
@@ -680,23 +666,23 @@ function quickImportPage() {
                 if (job.messageKey === 'importComplete') {
                     return this._localizedMessage(job);
                 }
-                return q.phaseDone || 'Done';
+                return _qi('phaseDone');
             }
             const phaseLabels = {
-                QUEUED:    q.phaseQueued    || 'Queued',
-                CLONING:   q.phaseCloning   || 'Cloning repository…',
-                PARSING:   q.phaseParsing   || 'Parsing dependencies…',
-                SCANNING:  q.phaseScanning  || 'Running security scan…',
-                ENRICHING: q.phaseEnriching || 'Analyzing components…',
-                DONE:      q.phaseDone      || 'Done',
-                FAILED:    q.phaseFailed    || 'Failed',
+                QUEUED:    _qi('phaseQueued'),
+                CLONING:   _qi('phaseCloning'),
+                PARSING:   _qi('phaseParsing'),
+                SCANNING:  _qi('phaseScanning'),
+                ENRICHING: _qi('phaseEnriching'),
+                DONE:      _qi('phaseDone'),
+                FAILED:    _qi('phaseFailed'),
             };
             const subLabels = {
-                CVE: q.subPhaseCve || 'CVE analysis',
-                LICENSE: q.subPhaseLicense || 'License review',
-                POSTURE: q.subPhasePosture || 'Security overview',
-                TREND: q.subPhaseTrend || 'Risk trends',
-                DIFF: q.subPhaseDiff || 'Version changes',
+                CVE: _qi('subPhaseCve'),
+                LICENSE: _qi('subPhaseLicense'),
+                POSTURE: _qi('subPhasePosture'),
+                TREND: _qi('subPhaseTrend'),
+                DIFF: _qi('subPhaseDiff'),
             };
             if (phase === 'ENRICHING' && job.subPhase && subLabels[job.subPhase]) {
                 return phaseLabels.ENRICHING + ' › ' + subLabels[job.subPhase];
@@ -771,7 +757,7 @@ function quickImportPage() {
             try {
                 const res = await fetch('/api/quick-import/repos?provider=' + provider);
                 if (!res.ok) {
-                    let msg = _qi().unexpectedError || 'An unexpected error occurred.';
+                    let msg = _qi('unexpectedError');
                     try { msg = _qiResolveError(await res.json()); } catch (_) {}
                     throw new Error(msg);
                 }
@@ -843,33 +829,26 @@ function quickImportPage() {
 
         formatRepoDate(dateStr) {
             if (!dateStr) return '';
-            const q = _qi();
-            const fmt = (t, n) => String(t || '').replace('{0}', n);
             try {
                 const d = new Date(dateStr);
                 if (isNaN(d)) return '';
                 const now = new Date();
                 const diff = Math.floor((now - d) / 1000);
-                if (diff < 60)   return q.justNow || 'just now';
-                if (diff < 3600) return fmt(q.minutesShort, Math.floor(diff / 60));
-                if (diff < 86400) return fmt(q.hoursShort, Math.floor(diff / 3600));
-                if (diff < 2592000) return fmt(q.daysShort, Math.floor(diff / 86400));
+                if (diff < 60)   return _qi('justNow');
+                if (diff < 3600) return _qiFmt(_qi('minutesShort'), Math.floor(diff / 60));
+                if (diff < 86400) return _qiFmt(_qi('hoursShort'), Math.floor(diff / 3600));
+                if (diff < 2592000) return _qiFmt(_qi('daysShort'), Math.floor(diff / 86400));
                 return d.toLocaleDateString();
             } catch (_) { return ''; }
         },
 
         providerLabel(provider) {
-            const q = _qi();
             const map = {
-                GITHUB: q.providerGithub || 'GitHub',
-                GITLAB: q.providerGitlab || 'GitLab',
-                BITBUCKET: q.providerBitbucket || 'Bitbucket',
+                GITHUB: _qi('providerGithub'),
+                GITLAB: _qi('providerGitlab'),
+                BITBUCKET: _qi('providerBitbucket'),
             };
             return map[provider] || provider;
-        },
-
-        providerBrandColor(provider) {
-            return { GITHUB: '#24292f', GITLAB: '#fc6d26', BITBUCKET: '#0052cc' }[provider] || '#6b7280';
         },
 
         _refreshBackground(projectId) {
@@ -877,18 +856,20 @@ function quickImportPage() {
                 window.refreshProjectCards();
             }
             if (!projectId) return;
-            if (this._scanWatcher) { this._scanWatcher.close(); this._scanWatcher = null; }
+            // One watcher per project so back-to-back imports are all tracked.
+            const prev = this._scanWatchers.get(projectId);
+            if (prev) { prev.close(); this._scanWatchers.delete(projectId); }
             try {
                 const es = new EventSource('/projects/scan-status/stream?ids=' + projectId);
-                this._scanWatcher = es;
+                this._scanWatchers.set(projectId, es);
                 es.addEventListener('scan-update', () => {
                     es.close();
-                    this._scanWatcher = null;
+                    this._scanWatchers.delete(projectId);
                     if (typeof window.refreshProjectCards === 'function') {
                         window.refreshProjectCards();
                     }
                 });
-                es.onerror = () => { es.close(); this._scanWatcher = null; };
+                es.onerror = () => { es.close(); this._scanWatchers.delete(projectId); };
             } catch (_) {}
         },
 

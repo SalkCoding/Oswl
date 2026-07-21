@@ -53,8 +53,8 @@
                         <p class="font-bold text-[20px] text-[var(--grayscale-100)]">$<span x-text="Number(usageStats.todayEstimatedCostUsd || 0).toFixed(4)"></span></p>
                     </div>
                 </div>
-                <p class="text-[11px] text-[var(--grayscale-50)]" x-text="usageStats.pricingDisclaimer"></p>
-                <div x-show="usageStats.recentEvents && usageStats.recentEvents.length" class="flex flex-col gap-[8px]">
+                <p class="text-[11px] text-[var(--grayscale-50)]" th:text="#{settings.ai.usage.pricingDisclaimer}">Cost figures are rough estimates from configured per-million token rates, not provider invoices.</p>
+                <div x-show="usageEvents.length" class="flex flex-col gap-[8px]">
                     <p class="font-medium text-[13px] text-[var(--grayscale-80)]" th:text="#{settings.ai.usage.recent}">Recent calls</p>
                     <div class="overflow-x-auto">
                         <table class="w-full text-[12px]">
@@ -62,7 +62,7 @@
                                 <th class="py-[6px] pr-[8px]">Time</th><th class="py-[6px] pr-[8px]">Operation</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.provider.label}">Provider</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.label.model}">Model</th><th class="py-[6px] pr-[8px]">Tokens</th><th class="py-[6px]">Est. $</th>
                             </tr></thead>
                             <tbody>
-                                <template x-for="ev in usageStats.recentEvents" :key="ev.createdAt + ev.operation">
+                                <template x-for="ev in usageEvents" :key="ev.createdAt + ev.operation">
                                     <tr class="border-b border-[var(--grayscale-10)]">
                                         <td class="py-[6px] pr-[8px]" x-text="ev.createdAt ? ev.createdAt.replace('T',' ').substring(0,19) : ''"></td>
                                         <td class="py-[6px] pr-[8px] font-medium" x-text="ev.operation"></td>
@@ -75,6 +75,27 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- Pagination footer (same pattern as the quick-import repo browser) -->
+                    <template x-if="usageEventTotalPages > 1">
+                        <div class="flex items-center justify-between px-[8px] py-[6px] border-t border-[var(--grayscale-15)]">
+                            <span class="text-[12px] text-[var(--grayscale-50)]">
+                                <span th:text="#{settings.ai.usage.page}">Page</span> <span x-text="usageEventPage + 1"></span>
+                                <span th:text="#{settings.ai.usage.of}">of</span> <span x-text="usageEventTotalPages"></span>
+                            </span>
+                            <div class="flex items-center gap-[6px]">
+                                <button @click="usageEventsPrevPage()"
+                                        :disabled="usageEventPage <= 0"
+                                        class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                                </button>
+                                <button @click="usageEventsNextPage()"
+                                        :disabled="usageEventPage + 1 >= usageEventTotalPages"
+                                        class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </template>
@@ -694,6 +715,7 @@
             savingProvider: false, savingEnrichment: false, testing: false,
             apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '',
             usageStats: null,
+            usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
             embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [] },
             embeddedBusy: false, embeddedError: null,
             embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
@@ -738,6 +760,7 @@
                     }
                     await this.loadPrompts();
                     await this.loadUsageStats();
+                    await this.loadUsageEvents(0);
                     await this.loadEmbeddedStatus();
                 } catch (e) { this.apiError = _aiI18n.loadFailed; }
             },
@@ -831,6 +854,20 @@
                     if (r.ok) this.usageStats = await r.json();
                 } catch (e) { /* non-fatal */ }
             },
+
+            async loadUsageEvents(page) {
+                try {
+                    const r = await fetch('/api/settings/ai/usage/events?page=' + page + '&size=10');
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    this.usageEvents = data.content || [];
+                    this.usageEventPage = data.number || 0;
+                    this.usageEventTotalPages = Math.min(data.totalPages || 0, 10);
+                } catch (e) { /* non-fatal */ }
+            },
+
+            usageEventsPrevPage() { if (this.usageEventPage > 0) this.loadUsageEvents(this.usageEventPage - 1); },
+            usageEventsNextPage() { if (this.usageEventPage + 1 < this.usageEventTotalPages) this.loadUsageEvents(this.usageEventPage + 1); },
 
             async loadPrompts() {
                 try {

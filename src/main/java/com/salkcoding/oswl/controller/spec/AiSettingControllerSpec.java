@@ -5,6 +5,7 @@ import com.salkcoding.oswl.dto.api.AiPromptsResponse;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
+import com.salkcoding.oswl.dto.api.AiUsageEventDto;
 import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
 import com.salkcoding.oswl.dto.api.EmbeddedAiConfigRequest;
 import java.util.Map;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -58,12 +60,24 @@ public interface AiSettingControllerSpec {
     ResponseEntity<AiPromptsResponse> getPrompts();
 
     @Operation(summary = "Get AI usage statistics",
-            description = "Returns per-provider token/call usage counters for the current day and totals.")
+            description = "Returns today's token/cost totals, the daily call cap and per-day aggregates for the last 7 days, read from the daily aggregate table. The recent-call list is served separately by `GET /api/settings/ai/usage/events`.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usage statistics",
                     content = @Content(schema = @Schema(implementation = AiUsageStatsResponse.class)))
     })
     ResponseEntity<AiUsageStatsResponse> getUsageStats();
+
+    @Operation(summary = "List recent AI call events",
+            description = "Returns raw AI call events, newest first, as a page (default size 10, max 50). Only the most recent 100 events are retained (FIFO), so at most 10 pages of 10 exist.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of usage events", content = @Content)
+    })
+    ResponseEntity<Page<AiUsageEventDto>> getUsageEvents(
+            @Parameter(description = "Zero-based page index", example = "0")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size (1-50)", example = "10")
+            @RequestParam(defaultValue = "10") int size
+    );
 
     @Operation(summary = "Run golden prompt regression tests",
             description = "Executes built-in fixture prompts against the active AI provider. Does not persist results.")

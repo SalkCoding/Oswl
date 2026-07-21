@@ -57,6 +57,8 @@ public class EmbeddedAiService {
     private volatile String activeModelFile;
     private volatile boolean fallbackUsed;
     private volatile String lastError;
+    /** Set by {@link #stop()} so a {@link #start(String)} blocked in the health wait aborts. */
+    private volatile boolean stopRequested;
 
     public EmbeddedAiService(
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.dir:embedded-ai}") String dirPath,
@@ -74,6 +76,8 @@ public class EmbeddedAiService {
     public static class EmbeddedAiStatus {
         boolean binaryFound;
         boolean running;
+        /** True when the port answers /health but the process was not started by this OsWL instance. */
+        boolean external;
         String binaryPath;
         /** Selected/preferred model for UI display (persisted preference or first preferred .gguf). */
         String modelFile;
@@ -103,9 +107,14 @@ public class EmbeddedAiService {
 
     public synchronized EmbeddedAiStatus status() {
         Optional<Path> binary = findServerBinary();
+        boolean childAlive = process != null && process.isAlive();
+        boolean healthy = childAlive || healthCheck();
         return EmbeddedAiStatus.builder()
                 .binaryFound(binary.isPresent())
-                .running(isRunning())
+                .running(healthy)
+                // A server started outside OsWL (or orphaned by a previous run) answers
+                // /health but is not our child — stop() cannot kill it, so flag it for the UI.
+                .external(healthy && !childAlive)
                 .binaryPath(binary.map(Path::toString).orElse(null))
                 .modelFile(preferredModelFile())
                 .activeModel(activeModelFile)
@@ -149,6 +158,7 @@ public class EmbeddedAiService {
      */
     public synchronized void start(String requestedModel) {
         if (isRunning()) return;
+        stopRequested = false;
 
         Path binary = findServerBinary().orElseThrow(() -> new IllegalStateException(
                 "llama-server binary not found. Place llama-server(.exe) in " + resolveDir().toAbsolutePath()
@@ -179,6 +189,13 @@ public class EmbeddedAiService {
                 log.info("[EmbeddedAI] llama-server healthy at {} model={}{}",
                         baseUrl(), name, fallbackUsed ? " (fallback)" : "");
                 return;
+            }
+            if (stopRequested) {
+                // stop() was pressed during the health wait — do not fall through to the
+                // next candidate and relaunch a server the user just asked to stop.
+                activeModelFile = null;
+                lastError = "Start cancelled: llama-server was stopped while starting up.";
+                throw new IllegalStateException(lastError);
             }
             Process p = process;
             String reason = p != null && p.isAlive()
@@ -219,10 +236,18 @@ public class EmbeddedAiService {
     }
 
     public synchronized void stop() {
+        stopRequested = true;
         killProcess();
         activeModelFile = null;
         fallbackUsed = false;
-        log.info("[EmbeddedAI] llama-server stopped");
+        // Wake a start() blocked in the health wait so it can abort promptly.
+        notifyAll();
+        if (healthCheck()) {
+            log.info("[EmbeddedAI] Port {} still answers /health after stop — an external "
+                    + "llama-server not managed by OsWL is running and was left untouched", port);
+        } else {
+            log.info("[EmbeddedAI] llama-server stopped");
+        }
     }
 
     /** Kills the child process (if any) without touching status fields. */
@@ -386,14 +411,19 @@ public class EmbeddedAiService {
 
     // ── Health ───────────────────────────────────────────────────────────
 
-    private boolean waitUntilHealthy(Duration timeout) {
+    /**
+     * Polls /health until the timeout. Sleeps via {@link #wait(long)} so the monitor is
+     * released between probes — {@link #status()} and {@link #stop()} stay responsive
+     * during the (up to 90s per model) startup window, and {@code stop()} wakes us at once.
+     */
+    private synchronized boolean waitUntilHealthy(Duration timeout) {
         long deadline = System.currentTimeMillis() + timeout.toMillis();
         while (System.currentTimeMillis() < deadline) {
             Process p = process;
             if (p == null || !p.isAlive()) return false;
             if (healthCheck()) return true;
             try {
-                Thread.sleep(1000);
+                wait(1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;

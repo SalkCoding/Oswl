@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
+
 /**
  * Registers the running embedded sidecar as the active LOCAL provider. Kept as a separate
  * bean so the transactional boundary actually applies — a @Transactional method invoked
@@ -33,5 +35,16 @@ public class EmbeddedAiProviderRegistrar {
                 });
         setting.activate();
         aiSettingRepository.save(setting);
+        deactivateOtherActiveProviders(setting);
+    }
+
+    /** Heals duplicate-active rows left by a concurrent activate race; normally a no-op. */
+    private void deactivateOtherActiveProviders(AiSetting keep) {
+        for (AiSetting other : aiSettingRepository.findAllByActiveTrueOrderByUpdatedAtDesc()) {
+            if (other.isActive() && !Objects.equals(other.getId(), keep.getId())) {
+                other.deactivate();
+                aiSettingRepository.save(other);
+            }
+        }
     }
 }
