@@ -236,8 +236,8 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | Run built-in prompt regression fixtures |
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI usage stats — today's calls/tokens/estimated cost, daily cap, and the last 7 days, read from the daily aggregate table |
 | `GET` | `/api/settings/ai/usage/events` | `SETTINGS_AI_MANAGE` | Recent AI call events, newest first (`?page=`, `?size=`, default size `10`). Only the last **100** events are retained (FIFO), so at most 10 pages exist |
-| `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | Embedded AI status (`running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`) |
-| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | Start the llama.cpp sidecar (optional model file name; auto-fallback across candidates, 400 with reason on failure) |
+| `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | Embedded AI status (`running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`, and while a default-model download is in flight: `downloading`, `downloadedBytes`, `downloadTotalBytes`) |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | Start the llama.cpp sidecar (optional model file name; auto-fallback across candidates, 400 with reason on failure). On a fresh install with no `.gguf` present, downloads the Apache-2.0 Qwen3-1.7B model in the background instead and returns immediately (`downloading: true`) — poll `GET .../embedded` for progress |
 | `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | Stop the sidecar and deactivate the LOCAL provider |
 | `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | Save folder/model overrides `{ "dir", "model" }` (null keeps current, blank clears; 400 if dir missing) |
 

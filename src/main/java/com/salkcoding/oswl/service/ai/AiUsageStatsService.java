@@ -89,6 +89,7 @@ public class AiUsageStatsService {
                 .totalTokens(e.getTotalTokens())
                 .estimatedCostUsd(e.getEstimatedCostUsd())
                 .modelName(e.getModelName())
+                .projectName(e.getProjectName())
                 .build();
     }
 

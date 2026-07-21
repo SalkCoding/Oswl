@@ -53,4 +53,8 @@ public class AiUsageEvent {
 
     @Column(name = "model_name", length = 128)
     private String modelName;
+
+    /** Denormalized name of the project this call was made for (null for non-project calls, e.g. connection tests). */
+    @Column(name = "project_name", length = 160)
+    private String projectName;
 }

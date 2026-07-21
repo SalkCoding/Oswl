@@ -28,6 +28,7 @@ import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiStructuredSummary;
+import com.salkcoding.oswl.service.ai.AiUsageContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -103,7 +104,10 @@ public class ComponentDetailService {
                 "direct", lib.computePatchability().name(),
                 cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()));
 
-        var outcome = aiAnalysisService.summarizeCveWithOutcome(request, deployment);
+        AiAnalysisService.CveSummarizeOutcome outcome;
+        try (var ignored = AiUsageContext.scope(project.getName())) {
+            outcome = aiAnalysisService.summarizeCveWithOutcome(request, deployment);
+        }
         if (!outcome.success()) {
             AiSummaryFailureReason reason = outcome.failure() != null
                     ? outcome.failure() : AiSummaryFailureReason.UNKNOWN;
