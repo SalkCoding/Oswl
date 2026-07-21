@@ -97,7 +97,9 @@ OsWL이 다른 디렉터리를 바라보게 하는 방법은 두 가지입니다
 
 ## 상태 및 로그
 
-`GET /api/settings/ai/embedded`는 `running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`을 반환합니다.
+`GET /api/settings/ai/embedded`는 `running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`을 반환합니다.
+
+`external`은 설정된 포트에서 OsWL이 직접 시작하지 않은 무언가(수동으로 띄운 `llama-server`, 또는 이전 OsWL 프로세스·크래시로 남겨진 고아 프로세스)가 이미 `/health`에 응답 중일 때 `true`가 됩니다. 이 경우에도 `running`은 `true`로 유지됩니다 — 엔드포인트 자체는 LOCAL 프로바이더로 정상 사용 가능하기 때문입니다 — 하지만 **중지** 버튼을 눌러도 OsWL이 소유하지 않은 프로세스는 종료할 수 없어 계속 실행 상태로 남고 상태 응답도 `external: true`를 유지합니다.
 
 `llama-server`의 stdout/stderr는 **`<dir>/llama-server.log`**에 기록됩니다. 시작에 실패하면 이 로그의 마지막 몇 줄이 `lastError`에 포함되어 카드에 빨간색으로 표시되며, 자세한 내용은 파일 전체를 확인하세요.
 
@@ -111,7 +113,8 @@ OsWL이 다른 디렉터리를 바라보게 하는 방법은 두 가지입니다
 | ".gguf 모델이 없습니다" | 모델 폴더 바로 아래에 `.gguf` 파일을 하나 이상 넣으세요 |
 | 로그에 `failed to open GGUF file` | 설정의 폴더와 모델이 실제 있는 위치가 다릅니다 — **폴더** 입력값과 파일 이름이 드롭다운 항목과 일치하는지 확인 |
 | "did not become healthy within 90s" | 기기가 느리거나 모델이 너무 큽니다 — 더 작은 양자화 모델(예: 기본 제공 `gemma-3-1b-it-Q4_K_M.gguf`)로 시도 |
-| 포트가 이미 사용 중 | 다른 프로세스(또는 수동으로 띄운 `llama-server`)가 포트를 점유 중입니다 — 종료하거나 `OSWL_EMBEDDED_AI_PORT`를 변경하세요. 해당 포트에서 이미 healthy한 서버가 응답하면 "실행 중"으로 간주됩니다 |
+| 포트가 이미 사용 중 | 다른 프로세스(또는 수동으로 띄운 `llama-server`)가 포트를 점유 중입니다 — 종료하거나 `OSWL_EMBEDDED_AI_PORT`를 변경하세요. 해당 포트에서 이미 healthy한 서버가 응답하면 "실행 중"으로 간주되며 상태 응답에 `external`로 표시됩니다 |
+| **중지**를 눌러도 카드가 꺼지지 않음 | 실행 중인 서버가 `external`(이 OsWL 인스턴스가 시작하지 않음) 상태입니다 — 해당 프로세스를 직접 종료하세요(또는 실행 중인 머신/컨테이너를 재시작). OsWL은 이 프로세스를 종료할 수 없습니다 |
 | 저장 시 "폴더가 없거나 디렉터리가 아닙니다" | 디렉터리를 먼저 만드세요 — 저장은 존재하는 폴더만 허용됩니다 |
 
 ---

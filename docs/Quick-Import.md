@@ -37,7 +37,7 @@ Open **Projects → Quick Import** (`/projects/quick-import`).
 You can either:
 
 1. **Paste a repository URL** (and optional branch), then click **Import & Scan**, or  
-2. **Browse** connected accounts — pick a repository and branch from the provider list.
+2. **Browse** connected accounts — pick a repository and branch from the provider list. GitHub listings follow the API's `Link`-header pagination (100 repos per page, up to 1,000 repos per account/org); larger accounts are truncated rather than failing to load.
 
 ### Progress and concurrency
 

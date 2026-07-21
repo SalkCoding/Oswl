@@ -152,6 +152,7 @@ Instance-level security flags set in `application.yaml` or via environment varia
 |---|---|---|---|
 | `oswl.quick-import.allow-build-exec` | `OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC` | `false` | When `false`, Quick Import parses manifests **statically** and never executes build tooling found in the cloned repository (`mvnw`, `gradlew`, `dotnet`). Set to `true` only when every importable repository is trusted — build-based version resolution runs repository build scripts on the OsWL host. |
 | `oswl.security.trusted-proxies` | `OSWL_SECURITY_TRUSTED_PROXIES` | *(empty)* | Comma-separated IPs of trusted reverse proxies. The `X-Forwarded-For` header is honored for client-IP resolution (audit logs, rate limiting) only when the direct peer is in this list; when empty, the header is ignored. Set this only when OsWL runs behind a proxy you control. |
+| `oswl.timezone` | `OSWL_TIMEZONE` | `Asia/Seoul` | Timezone used for time-sensitive features (currently AI usage tracking — the "day" a call is billed to). Change only if the deployment's business day should follow a different zone than the default. |
 
 ---
 
@@ -221,6 +222,21 @@ Only one provider is **active** at a time. The tab also exposes:
 **Embedded AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — see [API Reference — AI](API-Reference.md#ai).  
 **Per project:** `PATCH /api/projects/{id}/deployment-profile`.  
 **Component detail:** `POST .../cves/{cveDbId}/ai-summarize` to refresh a CVE AI summary (logged as `COMPONENT.CVE_AI_REGENERATE`).
+
+### Usage & Cost Tracking
+
+The AI card shows today's call count, token totals, and estimated cost (`GET /api/settings/ai/usage`, backed by a daily aggregate table so the totals stay cheap to query as history grows), plus a **Recent calls** table paginated 10 rows at a time (`GET /api/settings/ai/usage/events`). Only the most recent **100** raw call events are kept — older ones are dropped (FIFO) once a new call is recorded, but the daily totals and the 7-day trend are unaffected since they come from the aggregate table, not the raw event log.
+
+Estimated cost is a rough figure — it is **not** an invoice from the provider — computed per-provider (not per-model) from these rates:
+
+| Config key | Default (USD / 1M tokens) |
+|---|---|
+| `oswl.ai.pricing.openai-input-per-1m` / `openai-output-per-1m` | `2.50` / `10.00` |
+| `oswl.ai.pricing.anthropic-input-per-1m` / `anthropic-output-per-1m` | `3.00` / `15.00` |
+| `oswl.ai.pricing.gemini-input-per-1m` / `gemini-output-per-1m` | `1.25` / `5.00` |
+| `oswl.ai.pricing.local-input-per-1m` / `local-output-per-1m` | `0` / `0` |
+
+Update these to match your actual contracted rates if they drift from the defaults above.
 
 ---
 

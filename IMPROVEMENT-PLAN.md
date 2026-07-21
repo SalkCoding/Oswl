@@ -10,6 +10,9 @@
 > G-4(EAGER→LAZY 단독 커밋), C-1~C-3, D-1~D-4, E-1~E-6.**
 >
 > (2026-07-20) 전체 코드 감사의 HIGH 8건 + MED 14건은 별도 스웜으로 수정 완료 → 커밋 654137b.
+> 1차 스웜은 커밋 4f2ddd2로 반영됨. 그 직후 관련 docs(en/ko) 최신화 완료: API-Reference(`/usage/events`),
+> Administration(`oswl.timezone`, 사용량/비용 추적 + provider별 단가표), Embedded-AI(`external` 상태 필드),
+> Version-Diff(다이아몬드 의존성 버전별 diff), Quick-Import(GitHub 저장소 1,000개 페이지네이션 상한).
 
 ---
 
