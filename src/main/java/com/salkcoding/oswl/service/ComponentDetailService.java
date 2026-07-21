@@ -457,7 +457,7 @@ public class ComponentDetailService {
                     "No patch or newer version is available for this component.");
         }
         if (req.getTargetBranch() == null || req.getTargetBranch().isBlank()) {
-            throw new IllegalArgumentException("Target branch is required.");
+            throw new InvalidRequestException("Target branch is required.");
         }
         String base = req.getTargetBranch().strip();
         String prTitle = "chore: bump " + libName + " to " + newVer + " [OsWL]";

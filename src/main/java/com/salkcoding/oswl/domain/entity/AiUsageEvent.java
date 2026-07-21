@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "ai_usage_events",
-        indexes = @Index(name = "ix_ai_usage_events_date_provider", columnList = "usage_date, provider"))
+        indexes = {
+                @Index(name = "ix_ai_usage_events_date_provider", columnList = "usage_date, provider"),
+                @Index(name = "ix_ai_usage_events_date_created", columnList = "usage_date, created_at")
+        })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder

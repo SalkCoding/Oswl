@@ -486,19 +486,6 @@
         <div th:replace="~{projects/cli-integration :: slideout}"></div>
     </div>
 
-    <!-- Git Integration Panel -->
-    <div x-show="openPanel === 'git'"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-in duration-300"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="translate-x-full"
-         class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
-         style="display: none;">
-        <div th:replace="~{projects/git-integration :: slideout}"></div>
-    </div>
-
     <!-- Quick Import Panel -->
     <div x-show="openPanel === 'quickImport'"
          x-transition:enter="transition ease-out duration-300"
@@ -639,10 +626,27 @@
                 location.reload();
             });
 
-            // SSE 연결 실패 시 8초 후 한 번만 fallback 리로드
+            // SSE 연결 실패 시 8초 후 fallback 리로드. 연속 실패는 3회로 제한하고,
+            // 세션 만료(401/로그인 리다이렉트)면 리로드 대신 로그인 페이지로 유도한다.
+            const FAIL_KEY = 'oswl-sse-fail';
+            const MAX_FAILS = 3;
+            es.onopen = () => sessionStorage.removeItem(FAIL_KEY);
             es.onerror = () => {
                 es.close();
-                setTimeout(() => location.reload(), 8000);
+                const fails = Number(sessionStorage.getItem(FAIL_KEY) || 0) + 1;
+                sessionStorage.setItem(FAIL_KEY, String(fails));
+                if (fails > MAX_FAILS) return;
+                setTimeout(async () => {
+                    try {
+                        const probe = await fetch(location.pathname, { method: 'HEAD', headers: { 'Accept': 'application/json' } });
+                        if (probe.status === 401 || (probe.redirected && probe.url.includes('/login'))) {
+                            sessionStorage.removeItem(FAIL_KEY);
+                            window.location.href = '/login';
+                            return;
+                        }
+                    } catch (_) { /* 네트워크 오류는 무시하고 리로드로 처리 */ }
+                    location.reload();
+                }, 8000);
             };
         })();
     </script>

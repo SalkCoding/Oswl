@@ -1,7 +1,6 @@
 <div th:fragment="slideout"
      class="h-full flex flex-col bg-[var(--grayscale-5)] overflow-y-auto overflow-x-hidden custom-scrollbar w-full min-w-0"
      x-data="quickImportPage()"
-     x-init="init()"
      @qi-panel-open.window="onPanelOpen()"
      @qi-panel-close.window="onPanelClose()">
 
@@ -363,7 +362,7 @@
                         <!-- Repo count badge -->
                         <template x-if="!repoBrowsers[provider].loading && repoBrowsers[provider].repos.length > 0">
                             <span class="px-[6px] py-[1px] bg-[var(--grayscale-10)] text-[var(--grayscale-60)] text-[11px] font-semibold rounded-full"
-                                  x-text="_qiFmt(_qiI18n.repoCount, repoBrowsers[provider].repos.length)"></span>
+                                  x-text="oswlI18nFmt(_qiI18n.repoCount, repoBrowsers[provider].repos.length)"></span>
                         </template>
                     </div>
                     <!-- Refresh button -->
@@ -383,7 +382,7 @@
                         <div class="bg-[var(--grayscale-10)] flex gap-[9px] h-[32px] items-center px-[12px] rounded-[75px] border border-transparent focus-within:border-[var(--primary-120)]">
                             <img src="/icon/icon-search.svg" class="w-[16px] h-[16px]" alt="" aria-hidden="true">
                             <input type="text"
-                                   :placeholder="_qiFmt(_qiI18n.searchRepos, providerLabel(provider))"
+                                   :placeholder="oswlI18nFmt(_qiI18n.searchRepos, providerLabel(provider))"
                                    x-model="repoBrowsers[provider].search"
                                    @input="onBrowserSearch(provider)"
                                    class="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-50)] tracking-[-0.12px]" />
@@ -515,24 +514,15 @@
 
     <script th:inline="javascript">
     const _qiI18n = {
-        connected:           /*[[#{quickImport.connected}]]*/ 'Connected',
-        notConnected:        /*[[#{quickImport.notConnected}]]*/ 'Not connected',
-        noAccounts:          /*[[#{quickImport.noAccountsConnected}]]*/ 'No VCS accounts connected yet.',
         providerNotConnected: /*[[#{quickImport.providerNotConnected}]]*/ 'Your {0} account is not connected.',
-        importing:           /*[[#{quickImport.importing}]]*/ 'Importing\u2026',
         importAndScan:       /*[[#{quickImport.btn.importAndScan}]]*/ 'Import & Scan',
         cancelImport:        /*[[#{quickImport.btn.cancel}]]*/ 'Cancel',
         canceling:           /*[[#{quickImport.btn.canceling}]]*/ 'Canceling…',
         etaMinutes:          /*[[#{quickImport.progress.etaMinutes}]]*/ 'about {0} min left',
         etaSeconds:          /*[[#{quickImport.progress.etaSeconds}]]*/ 'about {0} sec left',
         completeTitleTpl:    /*[[#{quickImport.complete.title}]]*/ 'Import Complete \u2014 {0} created.',
-        viewSecurityCenter:  /*[[#{quickImport.btn.viewSecurityCenter}]]*/ 'View Security Center',
-        importAnother:       /*[[#{quickImport.btn.importAnother}]]*/ 'Import Another',
-        tryAgain:            /*[[#{quickImport.btn.tryAgain}]]*/ 'Try Again',
-        noRepo:              /*[[#{quickImport.repoBrowser.noRepo}]]*/ 'No repositories found.',
         noRepoSearchTpl:     /*[[#{quickImport.repoBrowser.noRepoSearch}]]*/ 'No repositories matching "{0}"',
         unexpectedError:     /*[[#{quickImport.error.unexpected}]]*/ 'An unexpected error occurred.',
-        completeSummary:     /*[[#{quickImport.complete.summary}]]*/ 'Import complete \u2014 {0} components scanned.',
         errors: {
             queueFull:        /*[[#{quickImport.error.queueFull}]]*/ 'You can queue up to {0} imports. Wait for queued jobs to start.',
             duplicateImport:  /*[[#{quickImport.error.duplicateImport}]]*/ '{0} is already queued or importing. Wait for the current import to finish before starting it again.',
@@ -555,8 +545,6 @@
         },
         invalidUrl:          /*[[#{quickImport.error.invalidUrl}]]*/ 'Please enter a valid URL.',
         urlProtocol:         /*[[#{quickImport.error.urlProtocol}]]*/ 'URL must use http:// or https://.',
-        loadReposFailed:     /*[[#{quickImport.error.loadRepos}]]*/ 'Failed to load repositories.',
-        startFailed:         /*[[#{quickImport.error.startFailed}]]*/ 'Failed to start import: {0}',
         sessionExpired:      /*[[#{quickImport.error.sessionExpired}]]*/ 'Import session expired. The server may have been restarted — please try again.',
         phaseQueued:         /*[[#{quickImport.phase.QUEUED}]]*/ 'Queued',
         queueNext:           /*[[#{quickImport.queue.next}]]*/ 'Starting soon (slot {0})\u2026',
@@ -569,13 +557,11 @@
         phaseFailed:         /*[[#{quickImport.phase.FAILED}]]*/ 'Failed',
         slotsRunning:        /*[[#{quickImport.slots.running}]]*/ '{0}/{1} running',
         slotsQueued:         /*[[#{quickImport.slots.queued}]]*/ '{0}/{1} queued',
-        queueFull:           /*[[#{quickImport.error.queueFull}]]*/ 'You can queue up to {0} imports. Wait for queued jobs to start.',
         subPhaseCve:         /*[[#{quickImport.subPhase.CVE}]]*/ 'CVE enrichment',
         subPhaseLicense:     /*[[#{quickImport.subPhase.LICENSE}]]*/ 'License policy',
         subPhasePosture:     /*[[#{quickImport.subPhase.POSTURE}]]*/ 'Security posture',
         subPhaseTrend:       /*[[#{quickImport.subPhase.TREND}]]*/ 'Risk trend',
         subPhaseDiff:        /*[[#{quickImport.subPhase.DIFF}]]*/ 'Version diff',
-        title:               /*[[#{quickImport.title}]]*/ 'Quick Import',
         repoCount:           /*[[#{quickImport.repoCount}]]*/ '{0} repos',
         searchRepos:         /*[[#{quickImport.searchRepos}]]*/ 'Search {0} repositories\u2026',
         defaultProjectName:  /*[[#{quickImport.fallback.projectName}]]*/ 'project',
@@ -584,24 +570,12 @@
         providerGitlab:      /*[[#{settings.vcs.provider.gitlab}]]*/ 'GitLab',
         providerBitbucket:   /*[[#{settings.vcs.provider.bitbucket}]]*/ 'Bitbucket',
         justNow:             /*[[#{common.time.justNow}]]*/ 'just now',
-        minuteAgo:           /*[[#{common.time.minuteAgo}]]*/ '1 minute ago',
-        minutesAgo:          /*[[#{common.time.minutesAgo}]]*/ '{0} minutes ago',
-        hourAgo:             /*[[#{common.time.hourAgo}]]*/ '1 hour ago',
-        hoursAgo:            /*[[#{common.time.hoursAgo}]]*/ '{0} hours ago',
-        dayAgo:              /*[[#{common.time.dayAgo}]]*/ '1 day ago',
-        daysAgo:             /*[[#{common.time.daysAgo}]]*/ '{0} days ago',
         minutesShort:        /*[[#{common.time.minutesShort}]]*/ '{0}m ago',
         hoursShort:          /*[[#{common.time.hoursShort}]]*/ '{0}h ago',
         daysShort:           /*[[#{common.time.daysShort}]]*/ '{0}d ago'
     };
-    function _qiFmt(template) {
-        let s = String(template);
-        for (let i = 1; i < arguments.length; i++) {
-            s = s.split('{' + (i - 1) + '}').join(arguments[i]);
-        }
-        return s;
-    }
     </script>
 
+    <script th:src="@{/js/oswl-i18n.js}"></script>
     <script th:src="@{/js/projects/quick-import.js}"></script>
 </div>

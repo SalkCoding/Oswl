@@ -410,10 +410,7 @@
                 try {
                     const r = await fetch('/api/my/delete-account', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': window.OswlCsrf ? window.OswlCsrf.token() : ''
-                        },
+                        headers: oswlJsonHeaders(),
                         body: JSON.stringify({ password: this.deletePassword })
                     });
                     const data = await r.json().catch(() => ({}));

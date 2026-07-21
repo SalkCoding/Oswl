@@ -4,9 +4,12 @@
 > 각 항목은 **내용 → 이유 → 수정 방향 → AI 작업 지시문** 순으로 구성된다.
 > 우선순위: **P0** = 버그(즉시), **P1** = 사용자 요청 사항, **P2** = 품질/최적화, **P3** = 엔터프라이즈 고도화(장기).
 >
-> **상태 갱신 (2026-07-20 저녁)**: 별도 진행된 전체 코드 감사의 HIGH 8건 + MED 14건은 에이전트 스웜으로 **수정 완료**
-> (컴파일 클린, 대상 테스트 245건 통과). 이 문서의 A/B/C/D/E 항목은 그 감사와 겹치지 않아 **전부 아직 유효**하다.
-> 감사에서 나온 **LOW 22건은 미수정**이며 아래 F절에 백로그로 정리했다.
+> **상태 갱신 (2026-07-21)**: 1차 실행 스웜 완료 — **A-1~A-4, B-2, B-3, B-4, F절 전체(L1 제외: uncertain/설계 의도로 보류,
+> L14 제외: 전담 패스 필요), G-1~G-3 모두 수정 완료** (대상 테스트 268건 통과, 미커밋).
+> **남은 항목: B-1(모델별 가격표 — B-2 완료로 착수 가능), B-5(구조 리팩터링 4단계), L14(예외 메시지 108곳 i18n),
+> G-4(EAGER→LAZY 단독 커밋), C-1~C-3, D-1~D-4, E-1~E-6.**
+>
+> (2026-07-20) 전체 코드 감사의 HIGH 8건 + MED 14건은 별도 스웜으로 수정 완료 → 커밋 654137b.
 
 ---
 
@@ -449,6 +452,54 @@
 | FL5 | `quick-import.js:78-81` | 패널 미개방에도 페이지 로드 즉시 타이머/fetch/폴링 시작 + `_scanWatcher` 단일 슬롯이라 연속 임포트 시 마지막 것만 감시 | init을 첫 개방 시점으로 지연, watcher Map 관리 |
 | FL6 | `projects/index.html:499` + `git-integration.html:83-99` | 여는 버튼 없는 Git Integration 패널이 매 로드마다 `/api/github/status` fetch (+ `static/js/projects/git-integration.js`는 어떤 템플릿도 로드 안 하는 구버전 파일) | include 제거 or lazy-init; 미사용 js 파일 삭제 |
 | FL7 | `security-center/index.html:353-355`, `settings/tabs/vcs.html:46-58 외` | `x-cloak` 누락 초기 깜빡임(코스메틱 묶음) | 해당 x-show 요소에 x-cloak 추가 |
+
+---
+
+## G. 성능 최적화 추가 발견 (2026-07-20 스윕, 미수정)
+
+> 감사와 별개로 성능 관점 스윕에서 확인한 항목. F절의 L4(장기 트랜잭션)/L11(페이지네이션)/L12(N+1),
+> C-2(외부 API 캐싱), B-2(인덱스)와 함께 성능 트랙을 구성한다.
+
+### G-1. `regenerateRecentInsights`의 전량 로드 후 메모리 정렬
+- **내용**: `VulnerabilityEnrichmentService.java:878` — `scanResultRepository.findAll()`로 **모든 프로젝트의 전체 스캔**을
+  로드한 뒤 메모리에서 정렬해 15개만 쓴다. 스캔이 쌓일수록 선형으로 느려지고 메모리를 낭비한다.
+- **AI 작업 지시문**:
+  ```
+  ScanResultRepository에 findTop15ByStatusOrderByScannedAtDesc(ScanStatus status) 파생 쿼리를 추가하고
+  VulnerabilityEnrichmentService.regenerateRecentInsights의 findAll().stream()... 블록을 그것으로 교체하라.
+  scannedAt null 정렬 순서가 기존 로직(nullsLast)과 동일한지 확인하고, 다르면 @Query로 명시하라.
+  ```
+
+### G-2. Hibernate `default_batch_fetch_size` 미설정
+- **내용**: LAZY 연관/컬렉션 접근 시 1건씩 SELECT가 나간다(전역 N+1 완화 장치 부재).
+- **AI 작업 지시문**:
+  ```
+  application.yaml의 spring.jpa.properties에 hibernate.default_batch_fetch_size: 50을 추가하라.
+  변경 후 로컬에서 security-center와 scan-history 페이지를 열어 SQL 로그(H2)에서 IN 절 배치가 적용되는지 확인하라.
+  ```
+
+### G-3. HTTP 응답 압축·정적 자원 캐시 헤더 부재
+- **내용**: `server.compression` 미설정, 정적 자원(tailwind.css, chart.umd.min.js 등) long-cache 헤더 미설정 —
+  매 요청 원본 전송.
+- **AI 작업 지시문**:
+  ```
+  application.yaml에 server.compression.enabled: true (mime-types에 text/html,text/css,application/javascript,
+  application/json 포함, min-response-size 2KB)를 추가하고,
+  WebMvcConfigurer의 addResourceHandlers로 /css,/js,/img,/icon,/graphic에 cache-control(max-age 7일,
+  content 버저닝 있으면 immutable) 설정을 추가하라. 템플릿 링크 캐시버스팅(예: ?v=@buildTimestamp)이
+  가능하면 함께 적용하되, 범위가 커지면 헤더 설정까지만 하고 보고하라.
+  ```
+
+### G-4. `ScanComponent.library` EAGER 연관
+- **내용**: `ScanComponent.java:38`의 `@ManyToOne(fetch = EAGER)` — 컴포넌트 목록 로드 시 항상 Library를 끌고 온다.
+  주요 경로는 fetch join을 쓰고 있어 당장 병목은 아니나, 파생 쿼리 추가 시마다 숨은 N+1을 만든다.
+- **AI 작업 지시문**:
+  ```
+  ScanComponent.library를 LAZY로 전환하고, 컴파일 후 ScanComponent를 조회하는 모든 리포지토리 메서드/사용처를
+  훑어 LazyInitializationException 가능 지점에 fetch join(또는 @EntityGraph)을 추가하라.
+  변경 후 security-center, component-detail, scan-history, version-diff 페이지 로드를 로컬에서 확인하라.
+  위험도가 있는 변경이므로 단독 커밋으로 분리하라.
+  ```
 
 ---
 
