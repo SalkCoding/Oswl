@@ -238,8 +238,8 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | 골든 프롬프트 회귀 테스트 실행 |
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 — 오늘 호출 수/토큰/예상 비용, 일일 상한, 최근 7일 집계(일별 집계 테이블에서 조회) |
 | `GET` | `/api/settings/ai/usage/events` | `SETTINGS_AI_MANAGE` | 최근 AI 호출 이벤트, 최신순 (`?page=`, `?size=`, 기본 크기 `10`). 최근 **100건**만 보존되며(FIFO), 최대 10페이지까지 존재 |
-| `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | 내장 AI 상태 (`running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`) |
-| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp 사이드카 시작 (모델 파일명 선택 지정; 후보 자동 폴백, 실패 시 400과 사유) |
+| `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | 내장 AI 상태 (`running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`, 기본 모델 다운로드 진행 중이면 `downloading`, `downloadedBytes`, `downloadTotalBytes`도 포함) |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp 사이드카 시작 (모델 파일명 선택 지정; 후보 자동 폴백, 실패 시 400과 사유). `.gguf`가 하나도 없는 신규 설치에서는 대신 Apache 2.0 Qwen3-1.7B 모델을 백그라운드로 다운로드하고 즉시 응답(`downloading: true`) — 진행률은 `GET .../embedded`로 폴링 |
 | `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | 사이드카 중지 및 LOCAL 프로바이더 비활성화 |
 | `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | 폴더/모델 오버라이드 저장 `{ "dir", "model" }` (null은 유지, 공백은 해제; dir이 없으면 400) |
 

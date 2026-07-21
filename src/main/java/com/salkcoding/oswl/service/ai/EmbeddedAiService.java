@@ -9,13 +9,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.DigestInputStream;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -44,6 +51,22 @@ public class EmbeddedAiService {
     /** Model filename fragments in preference order (first match wins). */
     private static final List<String> MODEL_PREFERENCE = List.of("qwen3", "gemma-3-1b", "gemma3");
 
+    /**
+     * Default model auto-fetched when the sidecar directory has no .gguf at all, so a fresh
+     * on-premise install works out of the box with just {@code java -jar app.jar} — no
+     * separate download step or build tooling required. Apache 2.0 licensed (see
+     * THIRD_PARTY_LICENSES.md), so bundling/auto-fetching it carries no extra redistribution
+     * obligation. Gemma is intentionally never auto-fetched: it's under the Gemma Terms of
+     * Use (not a standard OSS license, imposes obligations on whoever redistributes the
+     * weights) — users who want it download it themselves, see docs/Embedded-AI.md.
+     */
+    private static final String DEFAULT_MODEL_FILE = "qwen3-1.7b-q4_k_m.gguf";
+    private static final String DEFAULT_MODEL_URL =
+            "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf";
+    private static final String DEFAULT_MODEL_SHA256 =
+            "d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5";
+    private static final long DEFAULT_MODEL_SIZE_BYTES = 1_282_439_264L;
+
     private final String dirPath;
     private final int port;
     private final int contextSize;
@@ -59,6 +82,12 @@ public class EmbeddedAiService {
     private volatile String lastError;
     /** Set by {@link #stop()} so a {@link #start(String)} blocked in the health wait aborts. */
     private volatile boolean stopRequested;
+
+    // ── Default-model download state (read by status() for UI polling; written only from
+    // downloadDefaultModel(), which never holds the `this` monitor so status() stays live) ──
+    private volatile boolean downloading;
+    private volatile long downloadedBytes;
+    private volatile long downloadTotalBytes;
 
     public EmbeddedAiService(
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.dir:embedded-ai}") String dirPath,
@@ -90,6 +119,10 @@ public class EmbeddedAiService {
         List<String> availableModels;
         String baseUrl;
         String modelsDir;
+        /** True while the default Qwen3 model is being fetched (see {@link #downloadDefaultModel()}). */
+        boolean downloading;
+        long downloadedBytes;
+        long downloadTotalBytes;
     }
 
     public String baseUrl() {
@@ -123,7 +156,19 @@ public class EmbeddedAiService {
                 .availableModels(findModels().stream().map(p -> p.getFileName().toString()).toList())
                 .baseUrl(baseUrl())
                 .modelsDir(displayDir())
+                .downloading(downloading)
+                .downloadedBytes(downloadedBytes)
+                .downloadTotalBytes(downloadTotalBytes)
                 .build();
+    }
+
+    /** True when the sidecar directory has no {@code .gguf} file yet (fresh install). */
+    public boolean needsModelDownload() {
+        return findModels().isEmpty();
+    }
+
+    public boolean isDownloading() {
+        return downloading;
     }
 
     public boolean isRunning() {
@@ -209,6 +254,83 @@ public class EmbeddedAiService {
         activeModelFile = null;
         throw new IllegalStateException(lastError != null ? lastError
                 : "llama-server could not start with any available model.");
+    }
+
+    /**
+     * Downloads the default Qwen3 model into the sidecar directory, verifying its SHA256
+     * checksum before making it visible under its final name. Deliberately <b>not</b>
+     * {@code synchronized} — a 1.2GB download can take minutes, and {@link #status()} (also
+     * synchronized) must keep responding to polling for the {@code downloading}/progress
+     * fields the whole time. Concurrent callers are guarded by the {@code downloading} flag
+     * instead: a second call while one is in flight returns immediately.
+     *
+     * @throws IllegalStateException with a user-facing reason on network failure or a
+     *         checksum mismatch (the partial/corrupt file is removed either way)
+     */
+    public void downloadDefaultModel() {
+        if (downloading) return;
+        downloading = true;
+        downloadedBytes = 0;
+        downloadTotalBytes = DEFAULT_MODEL_SIZE_BYTES;
+        Path dir = resolveDir();
+        Path dest = dir.resolve(DEFAULT_MODEL_FILE);
+        Path partFile = dir.resolve(DEFAULT_MODEL_FILE + ".part");
+        try {
+            Files.createDirectories(dir);
+            log.info("[EmbeddedAI] Downloading default model {} ({} MB) from {}",
+                    DEFAULT_MODEL_FILE, DEFAULT_MODEL_SIZE_BYTES / 1024 / 1024, DEFAULT_MODEL_URL);
+
+            HttpClient downloadClient = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .build();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(DEFAULT_MODEL_URL))
+                    .timeout(Duration.ofMinutes(60))
+                    .GET()
+                    .build();
+            HttpResponse<InputStream> response = downloadClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() != 200) {
+                throw new IllegalStateException(
+                        "Model download failed: HTTP " + response.statusCode() + " from " + DEFAULT_MODEL_URL);
+            }
+            response.headers().firstValueAsLong("Content-Length")
+                    .ifPresent(len -> downloadTotalBytes = len);
+
+            MessageDigest digest = sha256Digest();
+            try (DigestInputStream in = new DigestInputStream(response.body(), digest);
+                 OutputStream out = Files.newOutputStream(partFile)) {
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                    downloadedBytes += read;
+                }
+            }
+
+            String actualSha256 = HexFormat.of().formatHex(digest.digest());
+            if (!actualSha256.equalsIgnoreCase(DEFAULT_MODEL_SHA256)) {
+                Files.deleteIfExists(partFile);
+                throw new IllegalStateException("Downloaded model failed checksum verification "
+                        + "(expected " + DEFAULT_MODEL_SHA256 + ", got " + actualSha256 + ") — deleted, please retry.");
+            }
+            Files.move(partFile, dest, StandardCopyOption.REPLACE_EXISTING);
+            log.info("[EmbeddedAI] Default model downloaded and verified: {}", dest);
+        } catch (IOException | InterruptedException e) {
+            try { Files.deleteIfExists(partFile); } catch (IOException ignored) { /* best effort cleanup */ }
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            throw new IllegalStateException("Model download failed: " + e.getMessage(), e);
+        } finally {
+            downloading = false;
+        }
+    }
+
+    private static MessageDigest sha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable in this JVM", e);
+        }
     }
 
     /**

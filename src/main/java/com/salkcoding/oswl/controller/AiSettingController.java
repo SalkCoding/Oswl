@@ -25,6 +25,7 @@ import com.salkcoding.oswl.service.ai.AiGoldenTestService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
 import com.salkcoding.oswl.service.ai.AiUsageStatsService;
+import com.salkcoding.oswl.service.ai.EmbeddedAiBootstrapService;
 import com.salkcoding.oswl.service.ai.EmbeddedAiProviderRegistrar;
 import com.salkcoding.oswl.service.ai.EmbeddedAiService;
 import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
@@ -66,6 +67,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
     private final EmbeddedAiService embeddedAiService;
     private final EmbeddedAiProviderRegistrar embeddedProviderRegistrar;
+    private final EmbeddedAiBootstrapService embeddedAiBootstrapService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -234,6 +236,19 @@ public class AiSettingController implements AiSettingControllerSpec {
     @PostMapping("/embedded/start")
     public ResponseEntity<Map<String, Object>> startEmbedded(
             @RequestParam(required = false) String model) {
+        // Fresh install, no .gguf present yet: kick off the download+start in the background
+        // and return immediately — a 1.2GB fetch can take minutes, far past any reasonable
+        // HTTP timeout. The UI polls GET /embedded for downloadedBytes/downloadTotalBytes
+        // and the eventual running/lastError outcome (see EmbeddedAiBootstrapService).
+        if (embeddedAiService.needsModelDownload()) {
+            if (!embeddedAiService.isDownloading()) {
+                embeddedAiBootstrapService.downloadAndStart(model);
+            }
+            Map<String, Object> body = embeddedStatusBody();
+            body.put("success", true);
+            return ResponseEntity.ok(body);
+        }
+
         // Launch the sidecar OUTSIDE any DB transaction — model load can block up to ~90s and
         // must not hold a database connection open.
         try {
@@ -331,6 +346,7 @@ public class AiSettingController implements AiSettingControllerSpec {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("binaryFound", status.isBinaryFound());
         body.put("running", status.isRunning());
+        body.put("external", status.isExternal());
         body.put("binaryPath", status.getBinaryPath());
         body.put("modelFile", status.getModelFile());
         body.put("activeModel", status.getActiveModel());
@@ -339,6 +355,9 @@ public class AiSettingController implements AiSettingControllerSpec {
         body.put("availableModels", status.getAvailableModels());
         body.put("baseUrl", status.getBaseUrl());
         body.put("modelsDir", status.getModelsDir());
+        body.put("downloading", status.isDownloading());
+        body.put("downloadedBytes", status.getDownloadedBytes());
+        body.put("downloadTotalBytes", status.getDownloadTotalBytes());
         return body;
     }
 

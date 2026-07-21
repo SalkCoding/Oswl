@@ -6,7 +6,7 @@ Embedded AI lets OsWL run a local LLM out of the box — no cloud account, no AP
 
 ## How It Works
 
-* OsWL launches `llama-server` from a **model directory** (default `./embedded-ai`) and waits until it answers `/health`.
+* OsWL launches `llama-server` from a **model directory** (default `./embedded-ai`) and waits until it answers `/health`. On first Start with an empty directory, it first downloads the default Qwen3 model over the internet (one-time, ~1.2 GB) — on an **air-gapped** machine, place a `.gguf` file there yourself beforehand instead (see [Requirements & Directory Layout](#requirements--directory-layout)).
 * The server binds **localhost only** (`127.0.0.1`) — it is never reachable from other machines.
 * On a successful start, OsWL saves the endpoint as the **LOCAL** provider and activates it (any other active provider is deactivated, as only one provider is active at a time).
 * Stopping Embedded AI also deactivates the LOCAL provider so AI calls do not fail against a dead endpoint.
@@ -18,18 +18,32 @@ Embedded AI lets OsWL run a local LLM out of the box — no cloud account, no AP
 
 ## Requirements & Directory Layout
 
-The model directory must contain the server binary and at least one `.gguf` model:
+The model directory needs the server binary; a `.gguf` model is fetched automatically the
+first time you click **Start** if none is present yet:
 
 ```
 embedded-ai/
-  llama-server(.exe)            — llama.cpp server binary
-  qwen3-1.7b-q4_k_m.gguf        — preferred bundled model
-  gemma-3-1b-it-Q4_K_M.gguf     — low-spec bundled fallback
+  llama-server(.exe)            — llama.cpp server binary (you provide this)
+  qwen3-1.7b-q4_k_m.gguf        — default model (Apache 2.0) — auto-downloaded on first Start
+  gemma-3-1b-it-Q4_K_M.gguf     — low-spec fallback (Gemma Terms of Use) — get this yourself
 ```
+
+Clicking **Start** with the directory empty downloads Qwen3-1.7B (~1.2 GB) straight into it,
+verifies the SHA256 checksum, and only then launches the sidecar — the card shows live
+download progress, and the whole thing runs from just `java -jar app.jar`, no separate
+script or build step needed. This is safe because Qwen3 is Apache 2.0 licensed (see
+[THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)) — bundling/fetching it
+on the user's behalf carries no extra redistribution obligation.
+
+Gemma is **never** auto-fetched: it's licensed under the
+[Gemma Terms of Use](https://ai.google.dev/gemma/terms), a custom license (not a standard
+open-source one) that imposes redistribution obligations on whoever hands out the weights.
+Download it yourself from Google/Hugging Face if you want it as a low-spec fallback — that
+way you accept those terms directly rather than OsWL redistributing it on your behalf.
 
 | Item | Where OsWL looks |
 |---|---|
-| Server binary | `<dir>/llama-server(.exe)`, then `<dir>/bin/`, then the system `PATH` ([llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)) |
+| Server binary | `<dir>/llama-server(.exe)`, then `<dir>/bin/`, then the system `PATH` ([llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)) — **not** auto-downloaded, place it yourself |
 | Models | Every `.gguf` file directly inside the directory |
 
 Configuration defaults (a folder saved in the UI takes precedence over `dir`):
@@ -46,10 +60,13 @@ Configuration defaults (a folder saved in the UI takes precedence over `dir`):
 
 Open **Settings → AI** and use the **Embedded AI (built-in local model)** card:
 
-1. Check the status line — **Running** / **Stopped**, plus warnings when the binary or a model is missing.
-2. Click **Start**. Model loading can take a minute; the button shows progress.
+1. Check the status line — **Running** / **Stopped**, plus a note when the binary is missing.
+2. Click **Start**. If the directory has no model yet, a progress bar shows the Qwen3
+   download (~1.2 GB — can take a few minutes depending on connection speed) before the
+   server launches; otherwise model loading alone can take up to a minute.
 3. Once running, the card shows the **Active** model and the endpoint is live as the LOCAL provider.
-4. Click **Stop** to shut the sidecar down.
+4. Click **Stop** to shut the sidecar down. (This does not delete the downloaded model —
+   the next Start reuses it instantly.)
 
 The card also shows the folder in use, all detected `.gguf` files, and the last start error (if any) in red.
 
@@ -57,7 +74,7 @@ The card also shows the folder in use, all detected `.gguf` files, and the last 
 
 ## Switching Models
 
-You are not limited to the bundled models — any llama.cpp-compatible `.gguf` works:
+You are not limited to the two models above — any llama.cpp-compatible `.gguf` works:
 
 1. **Download** a quantized GGUF model (e.g. from [Hugging Face](https://huggingface.co/models?library=gguf)).
 2. **Place** the `.gguf` file in the model folder shown on the card.
@@ -97,9 +114,11 @@ When OsWL ends up running a model that is **not** the first choice, the card sho
 
 ## Status and Logs
 
-`GET /api/settings/ai/embedded` reports `running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, and `baseUrl`.
+`GET /api/settings/ai/embedded` reports `running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`, and (while a default-model download triggered by Start is in flight) `downloading`, `downloadedBytes`, `downloadTotalBytes`.
 
 `external` is `true` when something already answers `/health` on the configured port that OsWL did not start itself (a manually launched `llama-server`, or one orphaned by a previous OsWL process/crash). `running` stays `true` in this case — the endpoint is genuinely usable as the LOCAL provider — but clicking **Stop** cannot kill a process OsWL doesn't own; it leaves it running and the status keeps reporting `external: true`.
+
+`POST /api/settings/ai/embedded/start` returns immediately (`success: true`, `downloading: true`) when it kicks off the Qwen3 download instead of waiting for it — the settings page polls status for progress and the eventual `running`/`lastError` outcome. The download itself runs on the server independent of any browser session, so refreshing the page (or closing it) doesn't cancel it; reopening the page resumes showing progress.
 
 `llama-server` writes its own stdout/stderr to **`<dir>/llama-server.log`**. When a start fails, the last lines of that log are included in `lastError` and shown in red on the card — check the full file for details.
 
@@ -109,10 +128,11 @@ When OsWL ends up running a model that is **not** the first choice, the card sho
 
 | Symptom | Likely cause / fix |
 |---|---|
-| "llama-server binary not found" | Put `llama-server(.exe)` in the folder shown on the card (or its `bin/` subfolder, or on `PATH`) |
-| "No .gguf model found" | Place at least one `.gguf` file directly inside the model folder |
+| "llama-server binary not found" | Put `llama-server(.exe)` in the folder shown on the card (or its `bin/` subfolder, or on `PATH`) — this is never auto-downloaded |
+| No model yet, and Start doesn't seem to do anything | Check for internet access — the default-model download needs it once. On an air-gapped machine, place a `.gguf` file directly inside the model folder yourself instead |
+| "Model download failed" / checksum mismatch | Network interrupted mid-download or a corrupted transfer — the partial file is deleted automatically; click **Start** again to retry |
 | `failed to open GGUF file` in the log | The folder in settings does not match where the model actually is — check the **Folder** field and that the file name matches the dropdown entry |
-| "did not become healthy within 90s" | Slow machine or oversized model — try a smaller quantization (e.g. the bundled `gemma-3-1b-it-Q4_K_M.gguf`) |
+| "did not become healthy within 90s" | Slow machine or oversized model — try a smaller quantization (e.g. `gemma-3-1b-it-Q4_K_M.gguf`) |
 | Port already in use | Another process (or a manually started `llama-server`) occupies the port — stop it or set `OSWL_EMBEDDED_AI_PORT`. A healthy server already listening on the port counts as "running" and is flagged `external` in the status response |
 | Clicking **Stop** doesn't turn the card off | The running server is `external` (not started by this OsWL instance) — stop the process yourself (or restart the machine/container it runs in), OsWL cannot terminate it |
 | "Folder not found or not a directory" on Save | Create the directory first; the save only accepts existing folders |

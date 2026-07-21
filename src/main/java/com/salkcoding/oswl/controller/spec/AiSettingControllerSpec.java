@@ -209,7 +209,7 @@ public interface AiSettingControllerSpec {
     );
 
     @Operation(summary = "Embedded AI status",
-            description = "Reports whether the bundled llama.cpp sidecar binary and .gguf models are present and whether the server is running.")
+            description = "Reports whether the sidecar binary and .gguf models are present, whether the server is running (and `external` if it wasn't started by this OsWL instance), and — while the default model download triggered by `POST .../embedded/start` is in flight — `downloading`/`downloadedBytes`/`downloadTotalBytes` for a progress UI.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Embedded AI status", content = @Content)
     })
@@ -222,9 +222,15 @@ public interface AiSettingControllerSpec {
                 when it fails to start (or is omitted) the persisted preference, built-in preference order
                 (Qwen3 1.7B, then Gemma 3 1B) and any remaining .gguf are tried in turn (auto-fallback).
                 The response status body includes `activeModel`, `fallbackUsed` and `lastError`.
+
+                On a fresh install with no `.gguf` file present, this instead downloads the
+                Apache-2.0-licensed Qwen3-1.7B model (verifying its SHA256) in the background and
+                returns immediately with `success: true` — poll `GET /api/settings/ai/embedded` for
+                `downloading`, `downloadedBytes`/`downloadTotalBytes`, and the eventual `running` or
+                `lastError` outcome. Gemma is never auto-downloaded (see docs/Embedded-AI.md).
                 """)
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sidecar started and LOCAL provider activated", content = @Content),
+            @ApiResponse(responseCode = "200", description = "Sidecar started and LOCAL provider activated, or the default-model download started in the background", content = @Content),
             @ApiResponse(responseCode = "400", description = "Binary or model missing, or startup failed", content = @Content)
     })
     ResponseEntity<Map<String, Object>> startEmbedded(
