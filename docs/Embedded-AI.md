@@ -97,7 +97,9 @@ When OsWL ends up running a model that is **not** the first choice, the card sho
 
 ## Status and Logs
 
-`GET /api/settings/ai/embedded` reports `running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, and `baseUrl`.
+`GET /api/settings/ai/embedded` reports `running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, and `baseUrl`.
+
+`external` is `true` when something already answers `/health` on the configured port that OsWL did not start itself (a manually launched `llama-server`, or one orphaned by a previous OsWL process/crash). `running` stays `true` in this case — the endpoint is genuinely usable as the LOCAL provider — but clicking **Stop** cannot kill a process OsWL doesn't own; it leaves it running and the status keeps reporting `external: true`.
 
 `llama-server` writes its own stdout/stderr to **`<dir>/llama-server.log`**. When a start fails, the last lines of that log are included in `lastError` and shown in red on the card — check the full file for details.
 
@@ -111,7 +113,8 @@ When OsWL ends up running a model that is **not** the first choice, the card sho
 | "No .gguf model found" | Place at least one `.gguf` file directly inside the model folder |
 | `failed to open GGUF file` in the log | The folder in settings does not match where the model actually is — check the **Folder** field and that the file name matches the dropdown entry |
 | "did not become healthy within 90s" | Slow machine or oversized model — try a smaller quantization (e.g. the bundled `gemma-3-1b-it-Q4_K_M.gguf`) |
-| Port already in use | Another process (or a manually started `llama-server`) occupies the port — stop it or set `OSWL_EMBEDDED_AI_PORT`. A healthy server already listening on the port counts as "running" |
+| Port already in use | Another process (or a manually started `llama-server`) occupies the port — stop it or set `OSWL_EMBEDDED_AI_PORT`. A healthy server already listening on the port counts as "running" and is flagged `external` in the status response |
+| Clicking **Stop** doesn't turn the card off | The running server is `external` (not started by this OsWL instance) — stop the process yourself (or restart the machine/container it runs in), OsWL cannot terminate it |
 | "Folder not found or not a directory" on Save | Create the directory first; the save only accepts existing folders |
 
 ---

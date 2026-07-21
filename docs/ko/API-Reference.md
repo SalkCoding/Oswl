@@ -236,7 +236,8 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함) |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | 편집 가능 프롬프트 + 오버라이드 |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | 골든 프롬프트 회귀 테스트 실행 |
-| `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 (오늘 호출 수/토큰, 예상 비용, 일일 상한, 최근 이벤트) |
+| `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 — 오늘 호출 수/토큰/예상 비용, 일일 상한, 최근 7일 집계(일별 집계 테이블에서 조회) |
+| `GET` | `/api/settings/ai/usage/events` | `SETTINGS_AI_MANAGE` | 최근 AI 호출 이벤트, 최신순 (`?page=`, `?size=`, 기본 크기 `10`). 최근 **100건**만 보존되며(FIFO), 최대 10페이지까지 존재 |
 | `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | 내장 AI 상태 (`running`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`) |
 | `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp 사이드카 시작 (모델 파일명 선택 지정; 후보 자동 폴백, 실패 시 400과 사유) |
 | `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | 사이드카 중지 및 LOCAL 프로바이더 비활성화 |
