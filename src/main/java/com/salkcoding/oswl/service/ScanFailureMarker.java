@@ -12,12 +12,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 /**
  * Marks a scan as FAILED in a fresh (REQUIRES_NEW) transaction.
  *
- * The enrichment pipeline catches catastrophic failures while its own transaction is already
- * doomed (rollback-only, or holding uncommitted state such as the ANALYZING transition).
- * Writing the FAILED status in that transaction would be rolled back with it — or overwritten
- * by the outer commit — leaving the scan stuck in SCANNING/ANALYZING forever. Suspending the
- * doomed transaction and writing in a new one guarantees the status, and the SSE notification
- * after its commit, actually lands.
+ * The enrichment pipeline runs without an outer transaction (staged commits), so this
+ * marker guarantees the FAILED status — and the SSE notification after its commit —
+ * is written independently of any partially-applied pipeline state.
  */
 @Slf4j
 @Service

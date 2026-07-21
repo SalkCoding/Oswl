@@ -17,7 +17,5 @@ public class AiUsageStatsResponse {
     private final long todayTotalTokens;
     private final BigDecimal todayEstimatedCostUsd;
     private final int dailyCallCap;
-    private final String pricingDisclaimer;
-    private final List<AiUsageEventDto> recentEvents;
     private final List<AiUsageDailySummaryDto> dailySummaries;
 }
