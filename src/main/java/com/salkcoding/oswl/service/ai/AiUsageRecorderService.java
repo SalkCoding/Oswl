@@ -105,6 +105,7 @@ public class AiUsageRecorderService {
                 .totalTokens(total)
                 .estimatedCostUsd(cost)
                 .modelName(modelName)
+                .projectName(AiUsageContext.currentProject())
                 .build());
         trimToMaxEvents();
         upsertDailyUsage(today, provider, prompt, completion, cost);

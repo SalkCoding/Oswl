@@ -13,6 +13,7 @@ const REPO_PAGE_SIZE = 10;
 const PROGRESS_DISMISS_MS = 2 * 60 * 1000;
 const COMPLETE_DISMISS_MS = 60 * 1000;
 const ETA_MAX_MS = 2 * 60 * 60 * 1000;
+const ETA_MIN_SAMPLE_MS = 5000;
 
 /** Bundle accessor: a missing key surfaces as the key name itself (see oswl-i18n.js). */
 function _qi(key) {
@@ -528,9 +529,18 @@ function quickImportPage() {
             }
             tracker.runningSinceEpochMs = job.runningSinceEpochMs || tracker.runningSinceEpochMs || null;
             if (tracker.runningSinceEpochMs && tracker.percent != null
-                    && (tracker._etaAnchorPct == null || tracker.percent > tracker._etaAnchorPct)) {
+                    && (tracker._etaAnchorPct == null || tracker.percent > tracker._etaAnchorPct)
+                    && (Date.now() - tracker.runningSinceEpochMs) >= ETA_MIN_SAMPLE_MS) {
                 // Mark when percent last advanced; ETA extrapolates from this anchor.
                 // Percent regressions (stale poll racing newer SSE) keep the forward anchor.
+                // The elapsed-time gate keeps the very first anchor (set the instant CLONING
+                // starts, with ~0ms of real data) from freezing a near-zero estimate that then
+                // sits hidden for the rest of that phase — CLONING/PARSING/SCANNING report a
+                // fixed percent per phase (not a gradually climbing one), so without this gate
+                // the ETA would only ever surface once a *later* phase transition happened to
+                // accumulate 5s of elapsed time, which can take several phases on a fast import.
+                // Requiring 5s of real elapsed time up front instead means the estimate appears
+                // as soon as there's a real sample, regardless of which phase we're in.
                 tracker._etaAnchorPct = tracker.percent;
                 tracker._etaAnchorAtEpochMs = Date.now();
             }
@@ -623,7 +633,9 @@ function quickImportPage() {
             if (!job.runningSinceEpochMs || pct == null || pct < 5 || pct >= 100) return '';
             if (job._etaAnchorPct == null || job._etaAnchorAtEpochMs == null) return '';
             const progressedMs = job._etaAnchorAtEpochMs - job.runningSinceEpochMs;
-            if (progressedMs < 5000) return '';
+            // Redundant with the ETA_MIN_SAMPLE_MS gate applied when the anchor is set
+            // (see _applyJobUpdate) — kept as a safety net in case of clock skew.
+            if (progressedMs < ETA_MIN_SAMPLE_MS) return '';
             const anchorPct = Math.max(job._etaAnchorPct, 1);
             let remainingMs = (progressedMs * (100 - anchorPct)) / anchorPct;
             remainingMs -= Date.now() - job._etaAnchorAtEpochMs;

@@ -6,7 +6,7 @@
 
 ## 동작 방식
 
-* OsWL이 **모델 디렉터리**(기본값 `./embedded-ai`)에서 `llama-server`를 실행하고 `/health`에 응답할 때까지 기다립니다.
+* OsWL이 **모델 디렉터리**(기본값 `./embedded-ai`)에서 `llama-server`를 실행하고 `/health`에 응답할 때까지 기다립니다. 디렉터리가 비어 있는 상태로 최초 시작하면 인터넷에서 기본 Qwen3 모델을 먼저 다운로드합니다(최초 1회, 약 1.2GB) — **폐쇄망** 환경이라면 미리 직접 `.gguf` 파일을 넣어두세요([요구 사항 및 디렉터리 구조](#요구-사항-및-디렉터리-구조) 참고).
 * 서버는 **localhost(`127.0.0.1`)에만 바인딩**되므로 다른 기기에서 접근할 수 없습니다.
 * 시작에 성공하면 OsWL이 이 엔드포인트를 **LOCAL** 프로바이더로 저장하고 활성화합니다(활성 프로바이더는 하나뿐이므로 기존 프로바이더는 비활성화됩니다).
 * 내장 AI를 중지하면 LOCAL 프로바이더도 함께 비활성화되어, 죽은 엔드포인트로 AI 호출이 나가는 일이 없습니다.
@@ -18,18 +18,32 @@
 
 ## 요구 사항 및 디렉터리 구조
 
-모델 디렉터리에는 서버 바이너리와 하나 이상의 `.gguf` 모델이 있어야 합니다:
+모델 디렉터리에는 서버 바이너리가 있어야 하며, `.gguf` 모델이 없으면 **시작** 버튼을 처음
+누를 때 자동으로 받아옵니다:
 
 ```
 embedded-ai/
-  llama-server(.exe)            — llama.cpp 서버 바이너리
-  qwen3-1.7b-q4_k_m.gguf        — 기본 제공 선호 모델
-  gemma-3-1b-it-Q4_K_M.gguf     — 저사양용 기본 제공 폴백
+  llama-server(.exe)            — llama.cpp 서버 바이너리 (직접 준비)
+  qwen3-1.7b-q4_k_m.gguf        — 기본 모델 (Apache 2.0) — 최초 시작 시 자동 다운로드
+  gemma-3-1b-it-Q4_K_M.gguf     — 저사양용 폴백 (Gemma Terms of Use) — 직접 받아야 함
 ```
+
+디렉터리가 비어 있는 상태로 **시작**을 누르면 Qwen3-1.7B(~1.2GB)를 바로 그 위치로 다운로드하고
+SHA256 체크섬을 검증한 뒤에야 사이드카를 실행합니다 — 카드에 실시간 다운로드 진행률이 표시되며,
+`java -jar app.jar`만으로 전 과정이 끝납니다. 별도 스크립트나 빌드 단계가 필요 없습니다. 이렇게
+할 수 있는 이유는 Qwen3가 Apache 2.0 라이선스이기 때문입니다
+([THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf) 참고) — 사용자를
+대신해 받아오는 데 별도 재배포 의무가 없습니다.
+
+Gemma는 **절대 자동으로 받아오지 않습니다** — 표준 오픈소스 라이선스가 아닌
+[Gemma Terms of Use](https://ai.google.dev/gemma/terms)라는 커스텀 라이선스를 따르며, 이
+가중치를 배포하는 쪽에게 재배포 의무를 지웁니다. 저사양용 폴백이 필요하면 구글/Hugging Face에서
+직접 받으세요 — 그래야 그 약관에 본인이 직접 동의하는 것이 되어, OsWL이 대신 재배포하는 상황을
+피할 수 있습니다.
 
 | 항목 | OsWL이 찾는 위치 |
 |---|---|
-| 서버 바이너리 | `<dir>/llama-server(.exe)` → `<dir>/bin/` → 시스템 `PATH` 순 ([llama.cpp 릴리스](https://github.com/ggml-org/llama.cpp/releases)) |
+| 서버 바이너리 | `<dir>/llama-server(.exe)` → `<dir>/bin/` → 시스템 `PATH` 순 ([llama.cpp 릴리스](https://github.com/ggml-org/llama.cpp/releases)) — **자동 다운로드 안 됨**, 직접 준비 |
 | 모델 | 디렉터리 바로 아래의 모든 `.gguf` 파일 |
 
 설정 기본값(UI에서 저장한 폴더가 `dir`보다 우선):
@@ -46,10 +60,13 @@ embedded-ai/
 
 **설정 → AI**의 **내장 AI (기본 제공 로컬 모델)** 카드에서 관리합니다:
 
-1. 상태 표시(**실행 중** / **중지됨**)와 바이너리·모델 누락 경고를 확인합니다.
-2. **시작**을 클릭합니다. 모델 로딩에 몇 분 걸릴 수 있으며 버튼에 진행 상태가 표시됩니다.
+1. 상태 표시(**실행 중** / **중지됨**)와 바이너리 누락 경고를 확인합니다.
+2. **시작**을 클릭합니다. 디렉터리에 모델이 없으면 Qwen3 다운로드 진행률(~1.2GB, 연결 속도에
+   따라 몇 분 소요)이 먼저 표시된 뒤 서버가 실행됩니다. 모델이 이미 있으면 로딩만 최대 1분
+   정도 걸릴 수 있습니다.
 3. 실행되면 카드에 **실행 모델**이 표시되고, 엔드포인트가 LOCAL 프로바이더로 동작합니다.
-4. **중지**를 클릭하면 사이드카가 종료됩니다.
+4. **중지**를 클릭하면 사이드카가 종료됩니다(다운로드된 모델 파일은 삭제되지 않으므로 다음
+   시작 시 바로 재사용됩니다).
 
 카드에는 현재 사용 중인 폴더, 감지된 `.gguf` 파일 목록, 마지막 시작 오류(있으면 빨간색)도 함께 표시됩니다.
 
@@ -57,7 +74,7 @@ embedded-ai/
 
 ## 모델 교체
 
-기본 제공 모델 외에도 llama.cpp와 호환되는 `.gguf`라면 무엇이든 사용할 수 있습니다:
+위 두 모델 외에도 llama.cpp와 호환되는 `.gguf`라면 무엇이든 사용할 수 있습니다:
 
 1. 양자화된 GGUF 모델을 **다운로드**합니다 (예: [Hugging Face](https://huggingface.co/models?library=gguf)).
 2. `.gguf` 파일을 카드에 표시된 모델 폴더에 **넣습니다**.
@@ -97,9 +114,11 @@ OsWL이 다른 디렉터리를 바라보게 하는 방법은 두 가지입니다
 
 ## 상태 및 로그
 
-`GET /api/settings/ai/embedded`는 `running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`을 반환합니다.
+`GET /api/settings/ai/embedded`는 `running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`을 반환하며, 시작 버튼으로 트리거된 기본 모델 다운로드가 진행 중일 때는 `downloading`, `downloadedBytes`, `downloadTotalBytes`도 함께 반환합니다.
 
 `external`은 설정된 포트에서 OsWL이 직접 시작하지 않은 무언가(수동으로 띄운 `llama-server`, 또는 이전 OsWL 프로세스·크래시로 남겨진 고아 프로세스)가 이미 `/health`에 응답 중일 때 `true`가 됩니다. 이 경우에도 `running`은 `true`로 유지됩니다 — 엔드포인트 자체는 LOCAL 프로바이더로 정상 사용 가능하기 때문입니다 — 하지만 **중지** 버튼을 눌러도 OsWL이 소유하지 않은 프로세스는 종료할 수 없어 계속 실행 상태로 남고 상태 응답도 `external: true`를 유지합니다.
+
+`POST /api/settings/ai/embedded/start`는 Qwen3 다운로드를 기다리는 대신 트리거만 하고 즉시 응답합니다(`success: true`, `downloading: true`) — 설정 페이지가 상태를 폴링하며 진행률과 최종 `running`/`lastError` 결과를 표시합니다. 다운로드 자체는 브라우저 세션과 무관하게 서버에서 진행되므로, 페이지를 새로고침하거나 닫아도 취소되지 않고 다시 열면 진행 상황이 이어서 표시됩니다.
 
 `llama-server`의 stdout/stderr는 **`<dir>/llama-server.log`**에 기록됩니다. 시작에 실패하면 이 로그의 마지막 몇 줄이 `lastError`에 포함되어 카드에 빨간색으로 표시되며, 자세한 내용은 파일 전체를 확인하세요.
 
@@ -109,10 +128,11 @@ OsWL이 다른 디렉터리를 바라보게 하는 방법은 두 가지입니다
 
 | 증상 | 원인 및 해결 |
 |---|---|
-| "llama-server 바이너리를 찾을 수 없습니다" | 카드에 표시된 폴더(또는 그 `bin/` 하위, `PATH`)에 `llama-server(.exe)`를 넣으세요 |
-| ".gguf 모델이 없습니다" | 모델 폴더 바로 아래에 `.gguf` 파일을 하나 이상 넣으세요 |
+| "llama-server 바이너리를 찾을 수 없습니다" | 카드에 표시된 폴더(또는 그 `bin/` 하위, `PATH`)에 `llama-server(.exe)`를 넣으세요 — 이건 자동으로 받아지지 않습니다 |
+| 모델이 없는데 시작을 눌러도 반응이 없어 보임 | 인터넷 연결을 확인하세요 — 기본 모델 다운로드에 최초 1회 인터넷이 필요합니다. 폐쇄망 환경이면 `.gguf` 파일을 직접 모델 폴더에 넣으세요 |
+| "모델 다운로드 실패" / 체크섬 불일치 | 다운로드 도중 네트워크가 끊기거나 손상됐습니다 — 손상된 파일은 자동 삭제되니 **시작**을 다시 누르면 재시도됩니다 |
 | 로그에 `failed to open GGUF file` | 설정의 폴더와 모델이 실제 있는 위치가 다릅니다 — **폴더** 입력값과 파일 이름이 드롭다운 항목과 일치하는지 확인 |
-| "did not become healthy within 90s" | 기기가 느리거나 모델이 너무 큽니다 — 더 작은 양자화 모델(예: 기본 제공 `gemma-3-1b-it-Q4_K_M.gguf`)로 시도 |
+| "did not become healthy within 90s" | 기기가 느리거나 모델이 너무 큽니다 — 더 작은 양자화 모델(예: `gemma-3-1b-it-Q4_K_M.gguf`)로 시도 |
 | 포트가 이미 사용 중 | 다른 프로세스(또는 수동으로 띄운 `llama-server`)가 포트를 점유 중입니다 — 종료하거나 `OSWL_EMBEDDED_AI_PORT`를 변경하세요. 해당 포트에서 이미 healthy한 서버가 응답하면 "실행 중"으로 간주되며 상태 응답에 `external`로 표시됩니다 |
 | **중지**를 눌러도 카드가 꺼지지 않음 | 실행 중인 서버가 `external`(이 OsWL 인스턴스가 시작하지 않음) 상태입니다 — 해당 프로세스를 직접 종료하세요(또는 실행 중인 머신/컨테이너를 재시작). OsWL은 이 프로세스를 종료할 수 없습니다 |
 | 저장 시 "폴더가 없거나 디렉터리가 아닙니다" | 디렉터리를 먼저 만드세요 — 저장은 존재하는 폴더만 허용됩니다 |

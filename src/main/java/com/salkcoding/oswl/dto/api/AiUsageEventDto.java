@@ -18,4 +18,5 @@ public class AiUsageEventDto {
     private final int totalTokens;
     private final BigDecimal estimatedCostUsd;
     private final String modelName;
+    private final String projectName;
 }
