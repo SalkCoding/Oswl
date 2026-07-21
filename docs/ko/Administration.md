@@ -150,6 +150,7 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 |---|---|---|---|
 | `oswl.quick-import.allow-build-exec` | `OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC` | `false` | `false`이면 Quick Import가 manifest를 **정적으로만** 파싱하며, 클론된 저장소 안의 빌드 도구(`mvnw`, `gradlew`, `dotnet`)를 실행하지 않습니다. `true`이면 빌드 기반 버전 해결이 가능하지만, 저장소의 빌드 스크립트가 OsWL 호스트에서 실행되므로 **신뢰하는 저장소만** import하는 환경에서만 켜야 합니다. |
 | `oswl.security.trusted-proxies` | `OSWL_SECURITY_TRUSTED_PROXIES` | *(비어 있음)* | 신뢰하는 리버스 프록시 IP 목록(쉼표 구분). 직접 연결된 peer가 이 목록에 있을 때만 클라이언트 IP 판별(감사 로그, 속도 제한)에 `X-Forwarded-For` 헤더를 사용하고, 비어 있으면(기본값) 해당 헤더를 무시합니다. OsWL이 직접 제어하는 프록시 뒤에서 동작할 때만 설정하세요. |
+| `oswl.timezone` | `OSWL_TIMEZONE` | `Asia/Seoul` | 시간에 민감한 기능(현재는 AI 사용량 추적 — 호출이 집계되는 "하루" 기준)에 사용하는 타임존입니다. 배포 환경의 영업일 기준이 기본값과 다른 경우에만 변경하세요. |
 
 ---
 
@@ -219,6 +220,21 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 **내장 AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — [API 레퍼런스 — AI](API-Reference.md#ai) 참고.  
 **프로젝트별:** `PATCH /api/projects/{id}/deployment-profile`.  
 **컴포넌트 상세:** `POST .../cves/{cveDbId}/ai-summarize`로 CVE AI 요약 새로고침 (`COMPONENT.CVE_AI_REGENERATE` 감사 로그).
+
+### 사용량 및 비용 추적
+
+AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(`GET /api/settings/ai/usage` — 이력이 쌓여도 조회 비용이 늘지 않도록 일별 집계 테이블에서 조회), 10건씩 페이지네이션되는 **최근 호출** 표를 함께 보여줍니다(`GET /api/settings/ai/usage/events`). 원본 호출 이벤트는 최근 **100건**만 보존되며 — 새 호출이 기록될 때마다 오래된 것부터 삭제(FIFO)됩니다 — 일별 합계와 7일 추이는 원본 이벤트 로그가 아닌 집계 테이블에서 나오므로 영향받지 않습니다.
+
+예상 비용은 실제 청구서가 **아니며**, 다음 프로바이더별(모델별이 아님) 단가로 계산한 대략적인 값입니다:
+
+| 설정 키 | 기본값 (USD / 100만 토큰) |
+|---|---|
+| `oswl.ai.pricing.openai-input-per-1m` / `openai-output-per-1m` | `2.50` / `10.00` |
+| `oswl.ai.pricing.anthropic-input-per-1m` / `anthropic-output-per-1m` | `3.00` / `15.00` |
+| `oswl.ai.pricing.gemini-input-per-1m` / `gemini-output-per-1m` | `1.25` / `5.00` |
+| `oswl.ai.pricing.local-input-per-1m` / `local-output-per-1m` | `0` / `0` |
+
+실제 계약 단가가 위 기본값과 다르면 이 값들을 갱신하세요.
 
 ---
 
