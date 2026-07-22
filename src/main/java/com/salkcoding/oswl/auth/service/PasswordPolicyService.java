@@ -18,7 +18,7 @@ public class PasswordPolicyService {
         return securitySettingService.getOrCreate().getMinPasswordLength();
     }
 
-    public boolean meetsMinLength(String password) {
+    private boolean meetsMinLength(String password) {
         if (password == null) {
             return false;
         }

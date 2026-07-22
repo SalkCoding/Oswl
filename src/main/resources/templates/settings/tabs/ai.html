@@ -14,8 +14,166 @@
 
     <!-- Error Banner -->
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
-         x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-[13px] leading-[1.5]">
+        <p class="text-red-800 font-medium m-0" x-text="apiError"></p>
+        <p x-show="apiErrorHint" x-cloak class="text-red-700 mt-[6px] m-0" x-text="apiErrorHint"></p>
+    </div>
+
+    <!-- Data privacy -->
+    <div class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] flex flex-col gap-[6px]">
+        <p class="font-semibold text-[13px] text-[var(--grayscale-80)] m-0" th:text="#{settings.ai.privacy.title}">What is sent to AI providers</p>
+        <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.privacy.body}">Only metadata is sent — never full source code.</p>
+        <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.backfillNote}">After connecting a provider, insights for recent scans are generated automatically in the background (this can take a minute). Per-CVE summaries apply to scans run after the connection — re-scan a project to fill them in.</p>
+    </div>
+
+    <!-- Usage summary -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[28px] py-[24px] flex flex-col gap-[16px]">
+        <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]" th:text="#{settings.ai.usage.heading}">Usage today</h3>
+        <p x-show="!usageStats || !usageStats.provider" x-cloak class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.ai.usage.noProvider}">Enable an AI provider to track usage here.</p>
+        <template x-if="usageStats && usageStats.provider">
+            <div class="flex flex-col gap-[16px]">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-[12px]">
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
+                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.calls}">API calls</p>
+                        <p class="font-bold text-[20px] text-[var(--grayscale-100)]">
+                            <span x-text="usageStats.todayCallCount"></span>
+                            <span class="text-[13px] font-medium text-[var(--grayscale-50)]" x-show="usageStats.dailyCallCap > 0"> / <span x-text="usageStats.dailyCallCap"></span></span>
+                        </p>
+                    </div>
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
+                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.tokens}">Tokens</p>
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)]">
+                            <span x-text="usageStats.todayPromptTokens"></span> /
+                            <span x-text="usageStats.todayCompletionTokens"></span> /
+                            <span x-text="usageStats.todayTotalTokens"></span>
+                        </p>
+                    </div>
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
+                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.estimatedCost}">Estimated cost</p>
+                        <p class="font-bold text-[20px] text-[var(--grayscale-100)]">$<span x-text="Number(usageStats.todayEstimatedCostUsd || 0).toFixed(4)"></span></p>
+                    </div>
+                </div>
+                <p class="text-[11px] text-[var(--grayscale-50)]" th:text="#{settings.ai.usage.pricingDisclaimer}">Cost figures are rough estimates from configured per-million token rates, not provider invoices.</p>
+                <div x-show="usageEvents.length" class="flex flex-col gap-[8px]">
+                    <p class="font-medium text-[13px] text-[var(--grayscale-80)]" th:text="#{settings.ai.usage.recent}">Recent calls</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[12px]">
+                            <thead><tr class="text-left text-[var(--grayscale-50)] border-b border-[var(--grayscale-15)]">
+                                <th class="py-[6px] pr-[8px]">Time</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.project}">Project</th><th class="py-[6px] pr-[8px]">Operation</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.provider.label}">Provider</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.label.model}">Model</th><th class="py-[6px] pr-[8px]">Tokens</th><th class="py-[6px]">Est. $</th>
+                            </tr></thead>
+                            <tbody>
+                                <template x-for="ev in usageEvents" :key="ev.createdAt + ev.operation">
+                                    <tr class="border-b border-[var(--grayscale-10)]">
+                                        <td class="py-[6px] pr-[8px]" x-text="ev.createdAt ? ev.createdAt.replace('T',' ').substring(0,19) : ''"></td>
+                                        <td class="py-[6px] pr-[8px] truncate max-w-[140px]" x-text="ev.projectName || '-'"></td>
+                                        <td class="py-[6px] pr-[8px] font-medium" x-text="ev.operation"></td>
+                                        <td class="py-[6px] pr-[8px]" x-text="ev.provider"></td>
+                                        <td class="py-[6px] pr-[8px] font-mono" x-text="ev.modelName || '-'"></td>
+                                        <td class="py-[6px] pr-[8px]" x-text="ev.totalTokens"></td>
+                                        <td class="py-[6px]" x-text="Number(ev.estimatedCostUsd || 0).toFixed(4)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination footer (same pattern as the quick-import repo browser) -->
+                    <template x-if="usageEventTotalPages > 1">
+                        <div class="flex items-center justify-between px-[8px] py-[6px] border-t border-[var(--grayscale-15)]">
+                            <span class="text-[12px] text-[var(--grayscale-50)]">
+                                <span th:text="#{settings.ai.usage.page}">Page</span> <span x-text="usageEventPage + 1"></span>
+                                <span th:text="#{settings.ai.usage.of}">of</span> <span x-text="usageEventTotalPages"></span>
+                            </span>
+                            <div class="flex items-center gap-[6px]">
+                                <button @click="usageEventsPrevPage()"
+                                        :disabled="usageEventPage <= 0"
+                                        class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                                </button>
+                                <button @click="usageEventsNextPage()"
+                                        :disabled="usageEventPage + 1 >= usageEventTotalPages"
+                                        class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Embedded AI Card (built-in llama.cpp local model — standalone, not a provider radio) -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[24px] flex flex-col gap-[12px]">
+        <div class="flex items-center justify-between gap-[10px] flex-wrap">
+            <div class="flex items-center gap-[10px]">
+                <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3] m-0" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</h3>
+                <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[12px] text-emerald-600 font-semibold">
+                    <span class="w-[6px] h-[6px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
+                </span>
+                <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] font-semibold">
+                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
+                </span>
+            </div>
+            <div class="flex items-center gap-[8px]">
+                <button type="button" x-show="!embedded.running"
+                        @click="startEmbedded()"
+                        :disabled="embeddedBusy || !embedded.binaryFound"
+                        class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] transition-colors cursor-pointer"
+                        x-text="embeddedButtonLabel()"></button>
+                <button type="button" x-show="embedded.running" x-cloak
+                        @click="stopEmbedded()"
+                        :disabled="embeddedBusy"
+                        class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] transition-colors cursor-pointer"
+                        x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
+            </div>
+        </div>
+        <p class="m-0 text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; low-spec fallback: Gemma 3 1B.</p>
+        <div class="text-[12px] text-[var(--grayscale-60)] leading-[1.6] flex flex-col gap-[6px]">
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <span class="font-medium" th:text="#{settings.ai.embedded.model}">Model:</span>
+                <select x-model="embeddedModel" :disabled="embedded.running || embeddedBusy"
+                        class="border border-[var(--grayscale-20)] rounded-[6px] text-[12px] px-[8px] py-[4px] bg-white text-black font-mono disabled:opacity-40">
+                    <option value="" th:text="#{settings.ai.embedded.modelAuto}">Auto (preference order)</option>
+                    <template x-for="m in embedded.availableModels" :key="m">
+                        <option :value="m" x-text="m"></option>
+                    </template>
+                </select>
+                <span x-show="embedded.fallbackUsed" x-cloak
+                      class="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-[5px] px-[6px] py-[2px]"
+                      th:text="#{settings.ai.embedded.fallbackUsed}">Started with fallback model</span>
+            </div>
+            <p class="m-0" x-show="embedded.activeModel" x-cloak>
+                <span class="font-medium" th:text="#{settings.ai.embedded.activeModel}">Active:</span>
+                <span class="font-mono" x-text="embedded.activeModel"></span>
+            </p>
+            <p class="m-0" x-show="!embedded.binaryFound" x-cloak>
+                <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
+            </p>
+            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && !embedded.downloading" x-cloak>
+                <span class="text-[var(--grayscale-60)]" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — clicking Start downloads the Qwen3-1.7B model automatically (~1.2 GB, one-time). Or place your own .gguf (e.g. gemma-3-1b-it-Q4_K_M.gguf) in the folder below.</span>
+            </p>
+            <div x-show="embedded.downloading" x-cloak class="flex flex-col gap-[4px]">
+                <div class="flex items-center justify-between text-[11px] text-[var(--grayscale-60)]">
+                    <span x-text="_aiI18n.embeddedDownloading.replace('{0}', embeddedDownloadPercent())"></span>
+                    <span x-text="embeddedDownloadMB().done + ' / ' + embeddedDownloadMB().total + ' MB'"></span>
+                </div>
+                <div class="w-full h-[6px] bg-[var(--grayscale-10)] rounded-full overflow-hidden">
+                    <div class="h-full bg-[#00A093] transition-all duration-300" :style="'width: ' + embeddedDownloadPercent() + '%'"></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <span class="font-medium shrink-0" th:text="#{settings.ai.embedded.folder}">Folder:</span>
+                <input type="text" x-model="embeddedDirInput" :disabled="embeddedSaving"
+                       class="flex-1 min-w-[200px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] px-[8px] py-[4px] font-mono disabled:opacity-40"
+                       placeholder="./embedded-ai"/>
+                <button type="button" @click="saveEmbeddedConfig()" :disabled="embeddedSaving"
+                        class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[12px] font-semibold px-[12px] py-[5px] rounded-[6px] transition-colors cursor-pointer disabled:opacity-40"
+                        x-text="embeddedSaving ? _aiI18n.embeddedConfigSaving : _aiI18n.embeddedConfigSave"></button>
+            </div>
+        </div>
+        <p x-show="embedded.lastError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.5] break-all" x-text="embedded.lastError"></p>
+        <p x-show="embeddedError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.5]" x-text="embeddedError"></p>
+    </div>
 
     <!-- Provider Card -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
@@ -69,20 +227,20 @@
                                    @input="forms.OPENAI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.OPENAI.modelName || ''"
-                                   placeholder="e.g. gpt-4o"
+                                   placeholder="e.g. gpt-5.6-terra"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.openaiModelInput.focus())}else{modelSearch=forms.OPENAI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in ['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4.1','gpt-4.1-mini','gpt-4.1-nano','gpt-4o','gpt-4o-mini'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -122,20 +280,20 @@
                                    @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.ANTHROPIC.modelName || ''"
-                                   placeholder="e.g. claude-sonnet-4-6"
+                                   placeholder="e.g. claude-sonnet-5"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.anthropicModelInput.focus())}else{modelSearch=forms.ANTHROPIC.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in ['claude-opus-4-8','claude-sonnet-5','claude-haiku-4-5','claude-fable-5','claude-opus-4-7','claude-sonnet-4-6'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
                                 <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['claude-opus-4-7','claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-5','claude-sonnet-4-5','claude-haiku-3-5'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="['claude-opus-4-8','claude-sonnet-5','claude-haiku-4-5','claude-fable-5','claude-opus-4-7','claude-sonnet-4-6'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -207,6 +365,11 @@
             </div>
             <!-- Local Fields -->
             <div x-show="mode==='LOCAL'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <ul class="m-0 pl-[16px] flex flex-col gap-[4px] text-[12px] text-[var(--grayscale-60)] leading-[1.45] list-disc">
+                    <li th:text="#{settings.ai.local.hint.serve}">Start Ollama first: run ollama serve in a terminal, then test the connection.</li>
+                    <li th:text="#{settings.ai.local.hint.endpoint}">Use http://localhost:11434/v1 — the /v1 suffix is required.</li>
+                    <li th:text="#{settings.ai.local.hint.model}">Include the full model tag (e.g. llama3.2:latest). Run ollama pull if the model is missing.</li>
+                </ul>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.endpoint}">API Endpoint</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
@@ -492,12 +655,15 @@
          class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
          style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
         <div class="relative shrink-0 size-[32px]">
-            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
-            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <div class="absolute inset-0 rounded-full" :style="toastKind === 'error' ? 'background: rgba(230,39,39,0.25);' : 'background: rgba(34,239,195,0.25);'"></div>
+            <svg x-show="toastKind !== 'error'" class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="4,10 8,14 16,6"></polyline>
             </svg>
+            <svg x-show="toastKind === 'error'" class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#e62727" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/>
+            </svg>
         </div>
-        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap max-w-[420px] truncate" x-text="toastMsg"></span>
     </div>
 
     <script th:inline="javascript">
@@ -507,8 +673,14 @@
         save:           /*[[#{common.save}]]*/ 'Save',
         saving:         /*[[#{settings.ai.btn.saving}]]*/ 'Saving\u2026',
         saved:          /*[[#{settings.ai.msg.saved}]]*/ 'AI settings saved successfully.',
+        activated:      /*[[#{settings.ai.msg.activated}]]*/ '{0} is now the active AI provider.',
+        activatedEmbeddedStillRunning: /*[[#{settings.ai.msg.activatedEmbeddedStillRunning}]]*/ 'Embedded AI is still running in the background — click Stop above to free resources.',
         enrichmentSaved:/*[[#{settings.ai.msg.enrichmentSaved}]]*/ 'Scan enrichment settings saved.',
         disabled:       /*[[#{settings.ai.msg.disabled}]]*/ 'AI analysis disabled.',
+        providerOpenai:    /*[[#{settings.ai.provider.openai}]]*/ 'OpenAI (GPT)',
+        providerAnthropic: /*[[#{settings.ai.provider.anthropic}]]*/ 'Anthropic (Claude)',
+        providerGemini:    /*[[#{settings.ai.provider.gemini}]]*/ 'Google (Gemini)',
+        providerLocal:     /*[[#{settings.ai.provider.local}]]*/ 'Local / Ollama',
         testOk:         /*[[#{settings.ai.msg.testOk}]]*/ 'Connection successful!',
         loadFailed:     /*[[#{settings.ai.error.loadFailed}]]*/ 'Failed to load AI settings.',
         disableFailed:  /*[[#{settings.ai.error.disableFailed}]]*/ 'Failed to disable AI.',
@@ -520,7 +692,18 @@
         deployCommercial: /*[[#{settings.ai.deployment.commercial}]]*/ 'Commercial product',
         deploySaas:     /*[[#{settings.ai.deployment.saas}]]*/ 'SaaS / network service',
         deployInternal: /*[[#{settings.ai.deployment.internal}]]*/ 'Internal tool',
-        deployOnPrem:   /*[[#{settings.ai.deployment.onPrem}]]*/ 'On-prem / shipped'
+        deployOnPrem:   /*[[#{settings.ai.deployment.onPrem}]]*/ 'On-prem / shipped',
+        embeddedStart:  /*[[#{settings.ai.embedded.btn.start}]]*/ 'Start',
+        embeddedStarting: /*[[#{settings.ai.embedded.btn.starting}]]*/ 'Starting… (model load can take a minute)',
+        embeddedDownloading: /*[[#{settings.ai.embedded.btn.downloading}]]*/ 'Downloading model… {0}%',
+        embeddedStop:   /*[[#{settings.ai.embedded.btn.stop}]]*/ 'Stop',
+        embeddedStopping: /*[[#{settings.ai.embedded.btn.stopping}]]*/ 'Stopping…',
+        embeddedStarted: /*[[#{settings.ai.embedded.msg.started}]]*/ 'Embedded AI is running and set as the active LOCAL provider.',
+        embeddedStopped: /*[[#{settings.ai.embedded.msg.stopped}]]*/ 'Embedded AI stopped.',
+        embeddedFailed: /*[[#{settings.ai.embedded.error.failed}]]*/ 'Failed to start Embedded AI.',
+        embeddedConfigSave: /*[[#{settings.ai.embedded.config.save}]]*/ 'Save',
+        embeddedConfigSaving: /*[[#{settings.ai.embedded.config.saving}]]*/ 'Saving…',
+        embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.'
     };
     </script>
 
@@ -529,8 +712,8 @@
         return {
             mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
             forms: {
-                OPENAI:    { apiKey: '', modelName: 'gpt-5.5',               baseUrl: '' },
-                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-7',       baseUrl: '' },
+                OPENAI:    { apiKey: '', modelName: 'gpt-5.6-sol',           baseUrl: '' },
+                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-8',       baseUrl: '' },
                 GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
                 LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
             },
@@ -550,7 +733,12 @@
                 { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
             ],
             savingProvider: false, savingEnrichment: false, testing: false,
-            apiError: null, toastVisible: false, toastMsg: '',
+            apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '', toastKind: 'success', _toastTimer: null,
+            usageStats: null,
+            usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
+            embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [], downloading: false, downloadedBytes: 0, downloadTotalBytes: 0 },
+            embeddedBusy: false, embeddedError: null, _embeddedPollActive: false,
+            embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
 
             localeLabel() {
                 return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
@@ -591,8 +779,193 @@
                         this.preferences.defaultDeploymentProfile = data.defaultDeploymentProfile;
                     }
                     await this.loadPrompts();
+                    await this.loadUsageStats();
+                    await this.loadUsageEvents(0);
+                    await this.loadEmbeddedStatus();
                 } catch (e) { this.apiError = _aiI18n.loadFailed; }
             },
+
+            async loadEmbeddedStatus() {
+                try {
+                    const r = await fetch('/api/settings/ai/embedded');
+                    if (r.ok) {
+                        this.embedded = await r.json();
+                        this.syncEmbeddedInputs();
+                        if (this.embedded.downloading && !this._embeddedPollActive) {
+                            // A page reload landed mid-download (it runs server-side, independent
+                            // of any browser session) — resume polling instead of leaving a stale
+                            // progress snapshot on screen forever.
+                            this.embeddedBusy = true;
+                            this._pollEmbeddedUntilSettled().finally(() => { this.embeddedBusy = false; });
+                        }
+                    }
+                } catch (e) { /* non-fatal */ }
+            },
+
+            syncEmbeddedInputs() {
+                this.embeddedModel = this.embedded.modelFile || '';
+                this.embeddedDirInput = this.embedded.modelsDir || '';
+            },
+
+            async startEmbedded() {
+                this.embeddedBusy = true;
+                this.embeddedError = null;
+                try {
+                    const url = '/api/settings/ai/embedded/start'
+                        + (this.embeddedModel ? '?model=' + encodeURIComponent(this.embeddedModel) : '');
+                    const r = await fetch(url, {
+                        method: 'POST',
+                        headers: this.headers()
+                    });
+                    const data = await r.json();
+                    this.embedded = data;
+                    if (!r.ok) {
+                        this.embeddedError = data.message || _aiI18n.embeddedFailed;
+                        return;
+                    }
+                    if (data.downloading) {
+                        // No .gguf present yet — the server started downloading Qwen3 in the
+                        // background and returned immediately. Poll until it settles.
+                        await this._pollEmbeddedUntilSettled();
+                    } else {
+                        this._applyEmbeddedStartResult(data);
+                    }
+                } catch (e) {
+                    this.embeddedError = _aiI18n.embeddedFailed;
+                } finally {
+                    this.embeddedBusy = false;
+                }
+            },
+
+            _applyEmbeddedStartResult(data) {
+                if (data.success && data.running) {
+                    this.mode = 'LOCAL';
+                    if (data.baseUrl) this.forms.LOCAL.baseUrl = data.baseUrl;
+                    if (data.activeModel) this.forms.LOCAL.modelName = data.activeModel.replace(/\.gguf$/i, '');
+                    this.showToast(_aiI18n.embeddedStarted);
+                } else {
+                    this.embeddedError = data.message || data.lastError || _aiI18n.embeddedFailed;
+                }
+            },
+
+            /**
+             * Polls GET /embedded every 1.5s while a background download and/or llama-server
+             * launch is in flight (download progress, then the same ~90s health wait a normal
+             * start already blocks on). Stops as soon as the outcome is decided: running, or
+             * lastError set. A generous 20-minute cap guards against polling forever if the
+             * server-side state machine ever gets stuck without reporting either.
+             */
+            async _pollEmbeddedUntilSettled() {
+                if (this._embeddedPollActive) return;
+                this._embeddedPollActive = true;
+                const deadline = Date.now() + 20 * 60 * 1000;
+                try {
+                    while (Date.now() < deadline) {
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        let data;
+                        try {
+                            const r = await fetch('/api/settings/ai/embedded');
+                            if (!r.ok) continue;
+                            data = await r.json();
+                        } catch (e) { continue; }
+                        this.embedded = data;
+                        if (data.running) {
+                            this._applyEmbeddedStartResult({ ...data, success: true });
+                            return;
+                        }
+                        if (data.lastError) {
+                            this.embeddedError = data.lastError;
+                            return;
+                        }
+                        // Still downloading, or still waiting for llama-server to become healthy.
+                    }
+                    this.embeddedError = _aiI18n.embeddedFailed;
+                } finally {
+                    this._embeddedPollActive = false;
+                }
+            },
+
+            embeddedButtonLabel() {
+                if (this.embedded.downloading) {
+                    return _aiI18n.embeddedDownloading.replace('{0}', this.embeddedDownloadPercent());
+                }
+                return this.embeddedBusy ? _aiI18n.embeddedStarting : _aiI18n.embeddedStart;
+            },
+
+            embeddedDownloadPercent() {
+                const total = this.embedded.downloadTotalBytes || 0;
+                if (!total) return 0;
+                return Math.min(100, Math.round((this.embedded.downloadedBytes || 0) / total * 100));
+            },
+
+            embeddedDownloadMB() {
+                return {
+                    done: Math.round((this.embedded.downloadedBytes || 0) / 1024 / 1024),
+                    total: Math.round((this.embedded.downloadTotalBytes || 0) / 1024 / 1024)
+                };
+            },
+
+            async saveEmbeddedConfig() {
+                this.embeddedSaving = true;
+                this.embeddedError = null;
+                try {
+                    const r = await fetch('/api/settings/ai/embedded/config', {
+                        method: 'PUT',
+                        headers: this.headers(),
+                        body: JSON.stringify({ dir: this.embeddedDirInput, model: this.embeddedModel })
+                    });
+                    const data = await r.json();
+                    this.embedded = data;
+                    if (r.ok && data.success) {
+                        this.syncEmbeddedInputs();
+                        this.showToast(_aiI18n.embeddedConfigSaved);
+                    } else {
+                        this.embeddedError = data.message || _aiI18n.embeddedFailed;
+                    }
+                } catch (e) {
+                    this.embeddedError = _aiI18n.embeddedFailed;
+                } finally {
+                    this.embeddedSaving = false;
+                }
+            },
+
+            async stopEmbedded() {
+                this.embeddedBusy = true;
+                this.embeddedError = null;
+                try {
+                    const r = await fetch('/api/settings/ai/embedded/stop', {
+                        method: 'POST',
+                        headers: this.headers()
+                    });
+                    if (r.ok) {
+                        this.embedded = await r.json();
+                        this.showToast(_aiI18n.embeddedStopped);
+                    }
+                } catch (e) { /* keep state */ } finally {
+                    this.embeddedBusy = false;
+                }
+            },
+
+            async loadUsageStats() {
+                try {
+                    const r = await fetch('/api/settings/ai/usage');
+                    if (r.ok) this.usageStats = await r.json();
+                } catch (e) { /* non-fatal */ }
+            },
+
+            async loadUsageEvents(page) {
+                try {
+                    const r = await fetch('/api/settings/ai/usage/events?page=' + page + '&size=10');
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    this.usageEvents = data.content || [];
+                    this.usageEventPage = data.number || 0;
+                    this.usageEventTotalPages = Math.min(data.totalPages || 0, 10);
+                } catch (e) { /* non-fatal */ }
+            },
+
+            usageEventsPrevPage() { if (this.usageEventPage > 0) this.loadUsageEvents(this.usageEventPage - 1); },
+            usageEventsNextPage() { if (this.usageEventPage + 1 < this.usageEventTotalPages) this.loadUsageEvents(this.usageEventPage + 1); },
 
             async loadPrompts() {
                 try {
@@ -628,7 +1001,23 @@
 
             headers() { return oswlJsonHeaders(); },
 
-            showToast(msg) { this.toastMsg = msg; this.toastVisible = true; setTimeout(() => { this.toastVisible = false; }, 3000); },
+            providerLabel(mode) {
+                const map = {
+                    OPENAI: _aiI18n.providerOpenai,
+                    ANTHROPIC: _aiI18n.providerAnthropic,
+                    GEMINI: _aiI18n.providerGemini,
+                    LOCAL: _aiI18n.providerLocal,
+                };
+                return map[mode] || mode;
+            },
+
+            showToast(msg, kind = 'success') {
+                this._toastTimer && clearTimeout(this._toastTimer);
+                this.toastMsg = msg;
+                this.toastKind = kind;
+                this.toastVisible = true;
+                this._toastTimer = setTimeout(() => { this.toastVisible = false; }, kind === 'error' ? 5000 : 3000);
+            },
 
             preferencePayload() {
                 const severities = this.preferences.cveSeverities.length
@@ -652,7 +1041,7 @@
             },
 
             async saveProvider() {
-                this.savingProvider = true; this.apiError = null;
+                this.savingProvider = true; this.apiError = null; this.apiErrorHint = null;
                 try {
                     if (this.mode === 'off') {
                         const r = await fetch('/api/settings/ai/deactivate', {
@@ -661,7 +1050,9 @@
                         });
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
-                        this.showToast(_aiI18n.disabled);
+                        this.showToast(this.embedded.running
+                            ? _aiI18n.disabled + ' ' + _aiI18n.activatedEmbeddedStillRunning
+                            : _aiI18n.disabled);
                         return;
                     }
                     const f = this.forms[this.mode];
@@ -679,13 +1070,20 @@
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                    this.showToast(_aiI18n.saved);
+                    let msg = _aiI18n.activated.replace('{0}', this.providerLabel(this.mode));
+                    // Starting Embedded AI switches mode to LOCAL, but the sidecar process itself
+                    // is a separate on/off control — switching to a *different* provider here does
+                    // not stop it. Make that explicit so "both look active" doesn't happen silently.
+                    if (this.mode !== 'LOCAL' && this.embedded.running) {
+                        msg += ' ' + _aiI18n.activatedEmbeddedStillRunning;
+                    }
+                    this.showToast(msg);
                 } catch (e) { this.apiError = String(e); }
                 finally { this.savingProvider = false; }
             },
 
             async saveEnrichment() {
-                this.savingEnrichment = true; this.apiError = null;
+                this.savingEnrichment = true; this.apiError = null; this.apiErrorHint = null;
                 try {
                     const prefs = this.preferencePayload();
                     if (this.mode === 'off') {
@@ -716,6 +1114,7 @@
                 if (this.mode === 'off') return;
                 this.testing = true;
                 this.apiError = null;
+                this.apiErrorHint = null;
                 try {
                     const f = this.forms[this.mode];
                     const body = {
@@ -735,9 +1134,16 @@
                         this.showToast(_aiI18n.testOk);
                     } else {
                         this.apiError = data.message || _aiI18n.testFailed;
+                        this.apiErrorHint = data.hint || null;
+                        // The error banner above lives at the top of a long settings page and can
+                        // scroll out of view of the Test Connection button — always surface a toast
+                        // too, so pass/fail is visible right where the user clicked.
+                        this.showToast(this.apiError, 'error');
                     }
                 } catch (e) {
-                    this.apiError = _aiI18n.testFailed + ': ' + e.message;
+                    this.apiError = _aiI18n.testFailed;
+                    this.apiErrorHint = e.message;
+                    this.showToast(this.apiError, 'error');
                 } finally {
                     this.testing = false;
                 }

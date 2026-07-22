@@ -13,6 +13,7 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 
+import com.salkcoding.oswl.util.VersionOrder;
+
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -44,16 +48,17 @@ public class SecurityCenterService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
 
         ScanResult scan;
         if (scanId != null) {
             scan = allScans.stream()
                     .filter(s -> s.getId().equals(scanId))
                     .findFirst()
-                    .orElse(allScans.isEmpty() ? null : allScans.get(0));
+                    .orElse(allScans.isEmpty() ? null : allScans.getFirst());
         } else {
-            scan = allScans.isEmpty() ? null : allScans.get(0);
+            scan = allScans.isEmpty() ? null : allScans.getFirst();
         }
 
         Long activeScanId = scan != null ? scan.getId() : null;
@@ -87,7 +92,7 @@ public class SecurityCenterService {
                 ? scan.getScannedAt().toLocalDate().toString() : "-");
 
         // Update banner: show when viewing an older scan and a newer completed scan exists
-        ScanResult latestCompleted = allScans.get(0);
+        ScanResult latestCompleted = allScans.getFirst();
         if (!scan.getId().equals(latestCompleted.getId())) {
             String fromVer = scan.getVersion() != null ? scan.getVersion()
                     : scan.getScannedAt().toLocalDate().toString().replace("-", ".");
@@ -191,8 +196,18 @@ public class SecurityCenterService {
         model.addAttribute("licenseHigh", licHigh);
         model.addAttribute("licenseMedium", licMedium);
         model.addAttribute("licenseLow", licLow);
+        rows.sort(Comparator
+                .comparingInt(ComponentRowDto::getSecurityCritical)
+                .thenComparingInt(ComponentRowDto::getSecurityHigh)
+                .thenComparingInt(ComponentRowDto::getSecurityMedium)
+                .thenComparingInt(ComponentRowDto::getSecurityLow)
+                .reversed()
+                .thenComparing(ComponentRowDto::getName, String.CASE_INSENSITIVE_ORDER));
         model.addAttribute("components", rows);
-        model.addAttribute("securityPostureInsight", scan.getSecurityPostureInsight());
+        model.addAttribute("securityPostureInsight", AiResponseSanitizer.sanitizePlainText(scan.getSecurityPostureInsight()));
+        model.addAttribute("expiredDeferralCount",
+                scanComponentRepository.countRecentlyExpiredDeferrals(
+                        scan.getId(), java.time.LocalDateTime.now().minusDays(7)));
     }
 
     @Transactional
@@ -254,9 +269,10 @@ public class SecurityCenterService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
         if (allScans.isEmpty()) {
-            return csvHeader().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return ('\uFEFF' + csvHeader()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
 
         ScanResult scan = (scanId != null)
@@ -266,7 +282,7 @@ public class SecurityCenterService {
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
 
         var sb = new StringBuilder();
-        sb.append(csvHeader()).append("\n");
+        sb.append('\uFEFF').append(csvHeader()).append("\n");
 
         for (ScanComponent sc : components) {
             Library lib = sc.getLibrary();

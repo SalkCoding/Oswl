@@ -4,6 +4,7 @@ import com.salkcoding.oswl.auth.dto.AuditLogDto;
 import com.salkcoding.oswl.auth.dto.AuditLogFilter;
 import com.salkcoding.oswl.auth.entity.AuditLog;
 import com.salkcoding.oswl.auth.repository.AuditLogRepository;
+import com.salkcoding.oswl.security.ClientIpResolver;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -115,7 +116,7 @@ class AuditLogServiceTest {
         Page<AuditLogDto> result = auditLogService.findAll(filter, Pageable.unpaged());
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getAction()).isEqualTo("USER.CREATE");
+        assertThat(result.getContent().getFirst().getAction()).isEqualTo("USER.CREATE");
     }
 
     @Test
@@ -144,7 +145,7 @@ class AuditLogServiceTest {
         byte[] csv = auditLogService.exportCsv(new AuditLogFilter());
         String content = new String(csv, java.nio.charset.StandardCharsets.UTF_8);
 
-        assertThat(content).startsWith("createdAt,actorDisplayName,actorEmail");
+        assertThat(content).startsWith("\uFEFFcreatedAt,actorDisplayName,actorEmail");
     }
 
     @Test

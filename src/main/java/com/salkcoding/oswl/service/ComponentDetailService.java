@@ -13,7 +13,6 @@ import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
-import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.CveDto;
@@ -21,14 +20,15 @@ import com.salkcoding.oswl.dto.DeferralRequest;
 import com.salkcoding.oswl.dto.DependencyPathDto;
 import com.salkcoding.oswl.exception.AiSummaryException;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
+import com.salkcoding.oswl.exception.InvalidRequestException;
 import com.salkcoding.oswl.repository.CveRepository;
 import com.salkcoding.oswl.repository.DependencyPathRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
-import com.salkcoding.oswl.service.ai.AiEnrichmentContextBuilder;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiStructuredSummary;
+import com.salkcoding.oswl.service.ai.AiUsageContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -64,6 +64,10 @@ public class ComponentDetailService {
     private final AiPreferencesService               aiPreferencesService;
     private final KevCatalogService                kevCatalogService;
     private final EpssClient                       epssClient;
+    private final ProjectAccessService             projectAccessService;
+
+    /** deferral_reason column allows at most 50 characters (see ScanComponent). */
+    private static final int DEFERRAL_REASON_MAX_LENGTH = 50;
 
     @Transactional
     public CveDto regenerateCveAiSummary(Long projectId, Long componentId, Long cveDbId) {
@@ -100,7 +104,10 @@ public class ComponentDetailService {
                 "direct", lib.computePatchability().name(),
                 cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()));
 
-        var outcome = aiAnalysisService.summarizeCveWithOutcome(request, deployment);
+        AiAnalysisService.CveSummarizeOutcome outcome;
+        try (var ignored = AiUsageContext.scope(project.getName())) {
+            outcome = aiAnalysisService.summarizeCveWithOutcome(request, deployment);
+        }
         if (!outcome.success()) {
             AiSummaryFailureReason reason = outcome.failure() != null
                     ? outcome.failure() : AiSummaryFailureReason.UNKNOWN;
@@ -323,7 +330,8 @@ public class ComponentDetailService {
 
     /**
      * Applies a deferral exception to the given ScanComponent (and, when scope = "all-projects",
-     * to every ScanComponent referencing the same Library).
+     * to ScanComponents referencing the same Library — restricted to projects the current
+     * user can access).
      */
     @Transactional
     public void defer(Long projectId, Long componentId, DeferralRequest req) {
@@ -345,14 +353,19 @@ public class ComponentDetailService {
                 + (note != null && !note.isBlank() ? ", note=" + note.substring(0, Math.min(100, note.length())) : "");
 
         if ("all-projects".equals(req.getScope())) {
-            // Apply to every ScanComponent referencing the same library
-            List<ScanComponent> allForLib = scanComponentRepository
-                    .findAllByScanResultStatusAndLibraryId(sc.getLibrary().getId());
+            // Propagate only to projects the current user can access (cross-project IDOR prevention).
+            // Falls back to the current component only when no accessible project can be resolved.
+            List<Long> accessibleIds = projectAccessService.accessibleProjectIds();
+            List<ScanComponent> allForLib = accessibleIds.isEmpty()
+                    ? List.of(sc)
+                    : scanComponentRepository.findAllByLibraryIdAndProjectIdIn(
+                            sc.getLibrary().getId(), accessibleIds);
             for (ScanComponent other : allForLib) {
                 other.applyDeferral(reasonCode, expiresAt, note, byName);
             }
             auditLogService.log("COMPONENT.DEFER_ALL", "LIBRARY",
-                    sc.getLibrary().getId().toString(), libName + " " + libVer, detail);
+                    sc.getLibrary().getId().toString(), libName + " " + libVer,
+                    detail + ", applied=" + allForLib.size() + " components (accessible projects only)");
         } else {
             auditLogService.log("COMPONENT.DEFER", "COMPONENT",
                     componentId.toString(), libName + " " + libVer, detail);
@@ -371,8 +384,16 @@ public class ComponentDetailService {
             case "3-month" -> today.plusMonths(3).atStartOfDay();
             case "6-month" -> today.plusMonths(6).atStartOfDay();
             case "custom"  -> {
-                try { yield LocalDate.parse(customDate).atStartOfDay(); }
-                catch (Exception e) { yield today.plusMonths(1).atStartOfDay(); }
+                LocalDate parsed;
+                try {
+                    parsed = LocalDate.parse(customDate != null ? customDate.strip() : "");
+                } catch (Exception e) {
+                    throw new InvalidRequestException("Invalid expiry date — use the YYYY-MM-DD format.");
+                }
+                if (!parsed.isAfter(today)) {
+                    throw new InvalidRequestException("Expiry date must be a future date.");
+                }
+                yield parsed.atStartOfDay();
             }
             default -> null;
         };
@@ -388,10 +409,16 @@ public class ComponentDetailService {
     }
 
     private String buildReasonCode(String reason, String otherText) {
-        if ("other".equals(reason) && otherText != null && !otherText.isBlank()) {
-            return "other:" + otherText.strip().substring(0, Math.min(80, otherText.strip().length()));
+        String code = ("other".equals(reason) && otherText != null && !otherText.isBlank())
+                ? "other:" + otherText.strip()
+                : (reason != null ? reason : "other");
+        // deferral_reason is varchar(50) — truncate the final string without splitting a surrogate pair
+        if (code.length() > DEFERRAL_REASON_MAX_LENGTH) {
+            int end = DEFERRAL_REASON_MAX_LENGTH;
+            if (Character.isHighSurrogate(code.charAt(end - 1))) end--;
+            code = code.substring(0, end);
         }
-        return reason != null ? reason : "other";
+        return code;
     }
 
     /**
@@ -434,7 +461,7 @@ public class ComponentDetailService {
                     "No patch or newer version is available for this component.");
         }
         if (req.getTargetBranch() == null || req.getTargetBranch().isBlank()) {
-            throw new IllegalArgumentException("Target branch is required.");
+            throw new InvalidRequestException("Target branch is required.");
         }
         String base = req.getTargetBranch().strip();
         String prTitle = "chore: bump " + libName + " to " + newVer + " [OsWL]";

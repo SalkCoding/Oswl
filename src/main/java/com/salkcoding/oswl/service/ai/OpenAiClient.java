@@ -23,7 +23,7 @@ import org.springframework.core.ParameterizedTypeReference;
 public class OpenAiClient implements AiAnalysisClient {
 
     private static final String DEFAULT_OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-    /** Google AI Studio OpenAI-compatible base (see https://ai.google.dev/gemini-api/docs/openai). */
+    /** Google AI Studio OpenAI-compatible base (see <a href="https://ai.google.dev/gemini-api/docs/openai">...</a>). */
     public static final String DEFAULT_GEMINI_OPENAI_BASE =
             "https://generativelanguage.googleapis.com/v1beta/openai";
     private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -31,6 +31,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
     private final AiPromptTemplateService promptTemplates;
     private final AiCallTrace callTrace;
+    private final AiUsageRecorderService usageRecorder;
     private final OutboundUrlValidator outboundUrlValidator;
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -114,10 +115,12 @@ public class OpenAiClient implements AiAnalysisClient {
                 log.debug("[AI][{}] ← status={} elapsedMs={} attempt={}", PROVIDER_TAG, response.getStatusCode(), elapsed, attempt);
 
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    AiProvider providerTag = setting.getProvider();
+                    usageRecorder.recordFromOpenAiUsage(response.getBody(), providerTag, op, model);
                     var choices = (List<?>) response.getBody().get("choices");
                     if (choices != null && !choices.isEmpty()) {
                         var message = (Map<?, ?>) ((Map<?, ?>) choices.getFirst()).get("message");
-                        String result = message != null ? (String) message.get("content") : null;
+                        String result = message != null ? extractContent(message.get("content")) : null;
                         if (result != null) result = result.strip();
                         callTrace.logAssistantMessage(log, PROVIDER_TAG, op, result, message);
                         log.debug("[AI][{}] Parsed result resultLen={}", PROVIDER_TAG, result != null ? result.length() : 0);
@@ -135,11 +138,36 @@ public class OpenAiClient implements AiAnalysisClient {
                     try { Thread.sleep(waitSec * 1000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return null; }
                 } else {
                     log.error("[AI][{}] Call failed after {}ms attempt={} — {}: {}", PROVIDER_TAG, elapsed, attempt, e.getClass().getSimpleName(), e.getMessage());
+                    if ("test.connection".equals(op)) {
+                        throw (RuntimeException) e;
+                    }
                     break;
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * message.content is normally a string, but some OpenAI-compatible servers
+     * (local runtimes, Gemini compat layer) return an array of content parts.
+     */
+    private static String extractContent(Object content) {
+        if (content == null) return null;
+        if (content instanceof String s) return s;
+        if (content instanceof List<?> parts) {
+            StringBuilder sb = new StringBuilder();
+            for (Object part : parts) {
+                if (part instanceof String s) {
+                    sb.append(s);
+                } else if (part instanceof Map<?, ?> m) {
+                    Object text = m.get("text");
+                    if (text instanceof String s) sb.append(s);
+                }
+            }
+            return sb.isEmpty() ? null : sb.toString();
+        }
+        return String.valueOf(content);
     }
 
     private static int parseRateLimitWaitSeconds(String message) {

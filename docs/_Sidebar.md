@@ -6,6 +6,7 @@
 * [Quick Import](Quick-Import)
 * [CLI Integration](CLI-Integration)
 * [Scan History](Scan-History)
+* [Embedded AI](Embedded-AI)
 
 ### Analysis
 * [Security Center](Security-Center)

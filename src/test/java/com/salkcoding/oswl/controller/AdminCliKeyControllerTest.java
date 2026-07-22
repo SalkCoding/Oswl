@@ -82,7 +82,7 @@ class AdminCliKeyControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).hasSize(2);
-        assertThat(resp.getBody().get(0).getProjectName()).isEqualTo("Project Alpha");
+        assertThat(resp.getBody().getFirst().getProjectName()).isEqualTo("Project Alpha");
         assertThat(resp.getBody().get(1).getProjectName()).isEqualTo("Project Beta");
     }
 
@@ -105,7 +105,7 @@ class AdminCliKeyControllerTest {
 
         ResponseEntity<List<GlobalApiKeyResponse>> resp = controller.listAll();
 
-        assertThat(resp.getBody().get(0).getToken()).isEqualTo("***");
+        assertThat(resp.getBody().getFirst().getToken()).isEqualTo("***");
     }
 
     @Test
@@ -126,7 +126,7 @@ class AdminCliKeyControllerTest {
 
         ResponseEntity<List<GlobalApiKeyResponse>> resp = controller.listAll();
 
-        assertThat(resp.getBody().get(0).getLastUsedAt()).isNull();
+        assertThat(resp.getBody().getFirst().getLastUsedAt()).isNull();
     }
 
     // ── issue ─────────────────────────────────────────────────────────────

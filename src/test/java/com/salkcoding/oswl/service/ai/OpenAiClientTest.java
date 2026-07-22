@@ -42,7 +42,7 @@ class OpenAiClientTest {
         OutboundUrlValidator urlValidator = mock(OutboundUrlValidator.class);
         doNothing().when(urlValidator).validateHttpUrl(anyString());
         doNothing().when(urlValidator).validateLocalAiBaseUrl(anyString());
-        client = new OpenAiClient(prompts, new AiCallTrace(new AiDebugSettings()), urlValidator);
+        client = new OpenAiClient(prompts, new AiCallTrace(new AiDebugSettings()), mock(AiUsageRecorderService.class), urlValidator);
         restTemplate = mock(RestTemplate.class);
         ReflectionTestUtils.setField(client, "restTemplate", restTemplate);
     }

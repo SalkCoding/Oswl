@@ -103,10 +103,14 @@
                      method: 'PATCH',
                      headers: oswlJsonHeaders(),
                      body: JSON.stringify({ids: [Number(row.dataset.compId)], reviewed: reviewed})
+                   }).then(r => {
+                     // fetch resolves even on 403/500 — treat non-OK as failure
+                     if (!r.ok) throw new Error('bulk-status ' + r.status);
                    }).catch(() => {
                      reviewed = prev;
                      row.dataset.reviewed = String(prev);
                      filterVersion++;
+                     alert(window.securityCenterData.i18n.actionFailed);
                    })">
                 <img x-show="reviewed" th:src="@{/icon/icon-check-circle-filled.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
                 <img x-show="!reviewed" th:src="@{/icon/icon-check-circle.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="display:none;">
