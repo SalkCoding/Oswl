@@ -5,7 +5,7 @@
       th:attr="data-active-count=${#lists.size(projects)},data-trash-count=${#lists.size(trashProjects)}"
       x-data="projectsPage()"
       x-init="initToast()"
-      :class="(openPanel || confirmModal) ? 'overflow-hidden h-screen' : ''">
+      :class="(openPanel || confirmModal || showOnboarding) ? 'overflow-hidden h-screen' : ''">
     <script th:inline="javascript">
     const _pi18n = {
         githubConnected:        /*[[#{projects.github.connected}]]*/         'GitHub connected successfully.',
@@ -19,7 +19,8 @@
         deleteAllTitle:         /*[[#{projects.trash.deleteAllPermanently}]]*/ 'Delete All Permanently',
         confirmDeleteAll:       /*[[#{projects.trash.confirmDeleteAllPermanent}]]*/ 'Permanently delete ALL trashed projects? This cannot be undone.',
         deletePermanentTitle:   /*[[#{projects.trash.deletePermanent}]]*/    'Delete Permanently',
-        confirmDeletePermanent: /*[[#{projects.trash.confirmDeletePermanent}]]*/ 'Permanently delete \u201c{0}\u201d? This cannot be undone.'
+        confirmDeletePermanent: /*[[#{projects.trash.confirmDeletePermanent}]]*/ 'Permanently delete \u201c{0}\u201d? This cannot be undone.',
+        onboardingDismiss:      /*[[#{projects.onboarding.dismiss}]]*/ 'Got it'
     };
     </script>
 
@@ -39,6 +40,7 @@
                 newProjectName: '',
                 newProjectSaving: false,
                 newProjectError: '',
+                showOnboarding: false,
                 initToast() {
                     const p = new URLSearchParams(location.search).get('github');
                     if (p === 'connected')         this.toast = { type: 'success', msg: _pi18n.githubConnected };
@@ -55,6 +57,9 @@
                         this.openPanel = 'cli';
                         history.replaceState(null, '', location.pathname);
                     }
+                    if (!localStorage.getItem('oswl-onboarding-v1')) {
+                        this.showOnboarding = true;
+                    }
                     const self = this;
                     window.updateProjectCounts = (a, t) => { self.activeCount += a; self.trashCount += t; };
                     window.getTrashSelected    = () => [...self.trashSelected];
@@ -67,6 +72,10 @@
                 },
                 openConfirm(title, message, onConfirm) {
                     this.confirmModal = { title, message, onConfirm };
+                },
+                dismissOnboarding() {
+                    localStorage.setItem('oswl-onboarding-v1', '1');
+                    this.showOnboarding = false;
                 },
                 async submitNewProject() {
                     this.newProjectError = '';
@@ -102,15 +111,17 @@
     <main class="w-full flex flex-col gap-[40px] mt-[40px] pb-[80px]">
 
         <!-- Add Projects -->
-        <section class="flex flex-col gap-[20px] px-[60px] w-full shrink-0">
-            <div class="flex gap-[10px] items-center w-full">
-                <svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16.4458 10.7853C16.5489 10.7853 16.651 10.765 16.7463 10.7255C16.8416 10.6861 16.9281 10.6282 17.0011 10.5553C17.074 10.4824 17.1318 10.3958 17.1713 10.3005C17.2108 10.2052 17.2311 10.1031 17.2311 10C17.2311 9.89687 17.2108 9.79476 17.1713 9.69948C17.1318 9.6042 17.074 9.51763 17.0011 9.44471C16.9281 9.37179 16.8416 9.31395 16.7463 9.27448C16.651 9.23502 16.5489 9.21471 16.4458 9.21471L10.5635 9.2147L10.5635 3.3324C10.5635 3.22927 10.5432 3.12716 10.5037 3.03188C10.4642 2.93661 10.4064 2.85003 10.3335 2.77711C10.2605 2.70419 10.174 2.64635 10.0787 2.60688C9.98342 2.56742 9.8813 2.54711 9.77817 2.54711C9.67505 2.54711 9.57293 2.56742 9.47766 2.60688C9.38238 2.64635 9.29581 2.70419 9.22289 2.77711C9.14997 2.85003 9.09212 2.9366 9.05266 3.03188C9.01319 3.12716 8.99288 3.22927 8.99288 3.3324L8.99288 9.2147L3.11058 9.2147C3.00745 9.2147 2.90533 9.23502 2.81006 9.27448C2.71478 9.31395 2.62821 9.37179 2.55529 9.44471C2.40802 9.59198 2.32528 9.79173 2.32528 10C2.32528 10.1031 2.34559 10.2052 2.38506 10.3005C2.42452 10.3958 2.48237 10.4824 2.55529 10.5553C2.70256 10.7026 2.9023 10.7853 3.11058 10.7853L8.99288 10.7853L8.99288 16.6676C8.99288 16.7707 9.01319 16.8728 9.05266 16.9681C9.09212 17.0634 9.14997 17.15 9.22289 17.2229C9.29581 17.2958 9.38238 17.3537 9.47766 17.3931C9.57293 17.4326 9.67505 17.4529 9.77817 17.4529C9.8813 17.4529 9.98342 17.4326 10.0787 17.3931C10.174 17.3537 10.2605 17.2958 10.3335 17.2229C10.4064 17.15 10.4642 17.0634 10.5037 16.9681C10.5432 16.8728 10.5635 16.7707 10.5635 16.6676L10.5635 10.7853L16.4458 10.7853Z" fill="#00B9A3"/></svg>
-                <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]" th:text="#{projects.add.heading}">Add Projects</h3>
+        <section class="flex flex-col gap-[20px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] w-full shrink-0">
+            <div class="flex gap-[10px] items-center justify-between w-full">
+                <div class="flex gap-[10px] items-center">
+                    <svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16.4458 10.7853C16.5489 10.7853 16.651 10.765 16.7463 10.7255C16.8416 10.6861 16.9281 10.6282 17.0011 10.5553C17.074 10.4824 17.1318 10.3958 17.1713 10.3005C17.2108 10.2052 17.2311 10.1031 17.2311 10C17.2311 9.89687 17.2108 9.79476 17.1713 9.69948C17.1318 9.6042 17.074 9.51763 17.0011 9.44471C16.9281 9.37179 16.8416 9.31395 16.7463 9.27448C16.651 9.23502 16.5489 9.21471 16.4458 9.21471L10.5635 9.2147L10.5635 3.3324C10.5635 3.22927 10.5432 3.12716 10.5037 3.03188C10.4642 2.93661 10.4064 2.85003 10.3335 2.77711C10.2605 2.70419 10.174 2.64635 10.0787 2.60688C9.98342 2.56742 9.8813 2.54711 9.77817 2.54711C9.67505 2.54711 9.57293 2.56742 9.47766 2.60688C9.38238 2.64635 9.29581 2.70419 9.22289 2.77711C9.14997 2.85003 9.09212 2.9366 9.05266 3.03188C9.01319 3.12716 8.99288 3.22927 8.99288 3.3324L8.99288 9.2147L3.11058 9.2147C3.00745 9.2147 2.90533 9.23502 2.81006 9.27448C2.71478 9.31395 2.62821 9.37179 2.55529 9.44471C2.40802 9.59198 2.32528 9.79173 2.32528 10C2.32528 10.1031 2.34559 10.2052 2.38506 10.3005C2.42452 10.3958 2.48237 10.4824 2.55529 10.5553C2.70256 10.7026 2.9023 10.7853 3.11058 10.7853L8.99288 10.7853L8.99288 16.6676C8.99288 16.7707 9.01319 16.8728 9.05266 16.9681C9.09212 17.0634 9.14997 17.15 9.22289 17.2229C9.29581 17.2958 9.38238 17.3537 9.47766 17.3931C9.57293 17.4326 9.67505 17.4529 9.77817 17.4529C9.8813 17.4529 9.98342 17.4326 10.0787 17.3931C10.174 17.3537 10.2605 17.2958 10.3335 17.2229C10.4064 17.15 10.4642 17.0634 10.5037 16.9681C10.5432 16.8728 10.5635 16.7707 10.5635 16.6676L10.5635 10.7853L16.4458 10.7853Z" fill="#00B9A3"/></svg>
+                    <h3 class="font-bold text-[22px] text-[var(--grayscale-100)] tracking-[-0.22px] leading-[1.3]" th:text="#{projects.add.heading}">Add Projects</h3>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
                 <button type="button" @click="openPanel = 'cli'"
-                   class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
+                   class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-terminal.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
                         <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]" th:text="#{projects.add.cli.title}">CLI Integration</span>
@@ -122,10 +133,11 @@
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.cli.badge.highSecurity}">High Security</span>
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.cli.badge.noUpload}">No Source Code Upload</span>
                     </div>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
 
                 <button type="button" @click="openPanel = 'quickImport'; $nextTick(() => window.dispatchEvent(new CustomEvent('qi-panel-open')))"
-                   class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none">
+                   class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
                             <!-- GitHub -->
@@ -156,13 +168,14 @@
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.quickImport.badge.quickSetup}">Quick Setup</span>
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.quickImport.badge.authRequired}">Auth Required</span>
                     </div>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
 
                 <!-- New Project card — admin or PROJECT_CREATE only -->
                 <button type="button"
                         th:if="${#authorization.expression('hasPermission(null, ''PROJECT_CREATE'') or hasRole(''SYSTEM_ADMIN'')')}"
                         @click="newProjectName = ''; newProjectError = ''; newProjectSaving = false; openPanel = 'newProject'; $nextTick(() => $refs.newProjectInput && $refs.newProjectInput.focus())"
-                        class="bg-[var(--background-dark)] flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none">
+                        class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-plus.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
                         <span class="font-bold text-[20px] text-white tracking-[-0.2px] leading-[1.3]" th:text="#{projects.add.new.title}">New Project</span>
@@ -174,12 +187,13 @@
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.new.badge.adminOnly}">Admin Only</span>
                         <span class="bg-white/15 px-[12px] py-[4px] rounded-[20px] font-medium text-[11px] text-[var(--secondary-20)] tracking-[-0.11px]" th:text="#{projects.add.new.badge.cliReady}">CLI-ready</span>
                     </div>
+                    <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
             </div>
         </section>
 
         <!-- Select a Project -->
-        <section class="flex flex-col gap-[20px] px-[60px] w-full shrink-0"
+        <section class="flex flex-col gap-[20px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] w-full shrink-0"
                  @project-imported.window="refreshProjectCards()">
             <div class="flex gap-[10px] items-center justify-between w-full">
                 <div class="flex gap-[10px] items-center">
@@ -284,11 +298,12 @@
 
                         <!-- Scan in progress -->
                         <div th:if="${project.scanStatus == 'SCANNING' or project.scanStatus == 'ANALYZING' or project.scanStatus == 'PENDING'}"
-                             class="w-full flex items-center gap-[10px] rounded-[8px] px-[14px] py-[12px]"
+                             class="w-full flex items-center gap-[12px] rounded-[8px] px-[14px] py-[12px]"
                              style="background:rgba(0,160,147,0.06);border:1px solid rgba(0,160,147,0.2);">
-                            <!-- spinner -->
-                            <svg class="shrink-0 animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00a093" stroke-width="2.5" stroke-linecap="round"><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-                            <span class="text-[12px] font-medium text-[#00a093] tracking-[-0.12px]" th:text="#{projects.scanning}">Analyzing vulnerabilities… Page will refresh automatically.</span>
+                            <div class="flex flex-col gap-[2px] min-w-0">
+                                <span class="text-[12px] font-semibold text-[#00a093] tracking-[-0.12px]" th:text="#{projects.scanning}">Analyzing vulnerabilities… Page will refresh automatically.</span>
+                                <span class="text-[11px] font-medium text-[#5e6b70] tracking-[-0.11px]" th:text="#{projects.scanning.tip}">Hang tight — OsWL is checking CVE databases.</span>
+                            </div>
                         </div>
 
                         <!-- Scan failed -->
@@ -471,19 +486,6 @@
         <div th:replace="~{projects/cli-integration :: slideout}"></div>
     </div>
 
-    <!-- Git Integration Panel -->
-    <div x-show="openPanel === 'git'"
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="translate-x-full"
-         x-transition:enter-end="translate-x-0"
-         x-transition:leave="transition ease-in duration-300"
-         x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="translate-x-full"
-         class="fixed top-0 right-0 h-screen w-full max-w-[960px] z-[110] bg-white shadow-2xl flex flex-col"
-         style="display: none;">
-        <div th:replace="~{projects/git-integration :: slideout}"></div>
-    </div>
-
     <!-- Quick Import Panel -->
     <div x-show="openPanel === 'quickImport'"
          x-transition:enter="transition ease-out duration-300"
@@ -624,10 +626,27 @@
                 location.reload();
             });
 
-            // SSE 연결 실패 시 8초 후 한 번만 fallback 리로드
+            // SSE 연결 실패 시 8초 후 fallback 리로드. 연속 실패는 3회로 제한하고,
+            // 세션 만료(401/로그인 리다이렉트)면 리로드 대신 로그인 페이지로 유도한다.
+            const FAIL_KEY = 'oswl-sse-fail';
+            const MAX_FAILS = 3;
+            es.onopen = () => sessionStorage.removeItem(FAIL_KEY);
             es.onerror = () => {
                 es.close();
-                setTimeout(() => location.reload(), 8000);
+                const fails = Number(sessionStorage.getItem(FAIL_KEY) || 0) + 1;
+                sessionStorage.setItem(FAIL_KEY, String(fails));
+                if (fails > MAX_FAILS) return;
+                setTimeout(async () => {
+                    try {
+                        const probe = await fetch(location.pathname, { method: 'HEAD', headers: { 'Accept': 'application/json' } });
+                        if (probe.status === 401 || (probe.redirected && probe.url.includes('/login'))) {
+                            sessionStorage.removeItem(FAIL_KEY);
+                            window.location.href = '/login';
+                            return;
+                        }
+                    } catch (_) { /* 네트워크 오류는 무시하고 리로드로 처리 */ }
+                    location.reload();
+                }, 8000);
             };
         })();
     </script>
@@ -673,6 +692,31 @@
                     Delete Permanently
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- First-visit onboarding -->
+    <div x-show="showOnboarding" x-cloak
+         class="fixed inset-0 z-[140] flex items-center justify-center bg-black/50 px-[20px]"
+         @keydown.escape.window="dismissOnboarding()">
+        <div class="bg-white rounded-[12px] shadow-2xl w-full max-w-[520px] p-[28px] flex flex-col gap-[18px]"
+             role="dialog" aria-modal="true" @click.stop>
+            <div class="flex items-start gap-[14px]">
+                <img th:src="@{/graphic/symbol_w.svg}" class="w-[52px] h-[52px] shrink-0" alt="" aria-hidden="true">
+                <div>
+                    <h2 class="font-bold text-[20px] text-[var(--grayscale-100)] tracking-[-0.2px] m-0" th:text="#{projects.onboarding.title}">Welcome to OsWL</h2>
+                    <p class="text-[13px] text-[var(--grayscale-60)] mt-[6px] m-0" th:text="#{projects.onboarding.subtitle}">Three steps to your first security insight</p>
+                </div>
+            </div>
+            <ol class="list-decimal list-inside flex flex-col gap-[10px] text-[13px] text-[var(--grayscale-80)] leading-[1.5] m-0 pl-[4px]">
+                <li th:text="#{projects.onboarding.step1}">Connect a repository</li>
+                <li th:text="#{projects.onboarding.step2}">Open Security Center</li>
+                <li th:text="#{projects.onboarding.step3}">Apply a patch or defer</li>
+            </ol>
+            <p class="text-[12px] text-[var(--grayscale-50)] bg-[var(--grayscale-5)] rounded-[8px] px-[12px] py-[10px] m-0" th:text="#{projects.onboarding.demoHint}">Local dev tip</p>
+            <button type="button" @click="dismissOnboarding()"
+                    class="self-end bg-[var(--primary-120)] hover:opacity-90 text-white font-bold text-[14px] px-[24px] py-[10px] rounded-[8px] transition-opacity"
+                    th:text="#{projects.onboarding.dismiss}">Got it</button>
         </div>
     </div>
 

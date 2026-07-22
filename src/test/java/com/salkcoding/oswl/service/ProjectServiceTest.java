@@ -76,7 +76,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.empty());
 
-        ProjectSummaryDto result = projectService.findAll().get(0);
+        ProjectSummaryDto result = projectService.findAll().getFirst();
 
         assertThat(result.getId()).isEqualTo(1L);
         assertThat(result.getName()).isEqualTo("P1");
@@ -114,7 +114,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
 
-        ProjectSummaryDto result = projectService.findAll().get(0);
+        ProjectSummaryDto result = projectService.findAll().getFirst();
 
         assertThat(result.getSecurityCritical()).isEqualTo(1);
         assertThat(result.getSecurityHigh()).isEqualTo(1);
@@ -152,7 +152,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
 
-        ProjectSummaryDto result = projectService.findAll().get(0);
+        ProjectSummaryDto result = projectService.findAll().getFirst();
 
         assertThat(result.getLicenseCritical()).isEqualTo(1);  // RESTRICTED
         assertThat(result.getLicenseHigh()).isEqualTo(1);      // CAUTION
@@ -173,7 +173,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
 
-        assertThat(projectService.findAll().get(0).getLastScanned()).isEqualTo("2026.04.15");
+        assertThat(projectService.findAll().getFirst().getLastScanned()).isEqualTo("2026.04.15");
     }
 
     @Test
@@ -184,7 +184,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.empty());
 
-        ProjectSummaryDto result = projectService.findAll().get(0);
+        ProjectSummaryDto result = projectService.findAll().getFirst();
 
         assertThat(result.getSecurityCritical()).isZero();
         assertThat(result.getLicenseCritical()).isZero();
@@ -203,7 +203,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scanning));
 
-        ProjectSummaryDto result = projectService.findAll().get(0);
+        ProjectSummaryDto result = projectService.findAll().getFirst();
 
         assertThat(result.getScanStatus()).isEqualTo("SCANNING");
         assertThat(result.getLastScanned()).isEqualTo("-");
@@ -223,7 +223,7 @@ class ProjectServiceTest {
         stubAccessible(project);
         when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(failed));
 
-        ProjectSummaryDto result = projectService.findAll().get(0);
+        ProjectSummaryDto result = projectService.findAll().getFirst();
 
         assertThat(result.getScanStatus()).isEqualTo("FAILED");
         assertThat(result.getLicenseCritical()).isZero();
@@ -243,8 +243,8 @@ class ProjectServiceTest {
         List<TrashProjectDto> result = projectService.findTrash();
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getName()).isEqualTo("Deleted");
-        assertThat(result.get(0).getDaysLeft()).isGreaterThanOrEqualTo(0);
+        assertThat(result.getFirst().getName()).isEqualTo("Deleted");
+        assertThat(result.getFirst().getDaysLeft()).isGreaterThanOrEqualTo(0);
     }
 
     @Test
@@ -259,7 +259,7 @@ class ProjectServiceTest {
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc()).thenReturn(List.of(p));
         when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(2L));
 
-        TrashProjectDto dto = projectService.findTrash().get(0);
+        TrashProjectDto dto = projectService.findTrash().getFirst();
 
         // Just deleted (0 days elapsed) → 30 days left → "yellow"
         assertThat(dto.getUrgencyColor()).isEqualTo("yellow");

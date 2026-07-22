@@ -11,4 +11,6 @@ public interface UserVcsConnectionRepository extends JpaRepository<UserVcsConnec
     List<UserVcsConnection> findByUserIdAndActiveTrue(Long userId);
 
     Optional<UserVcsConnection> findByUserIdAndProviderAndActiveTrue(Long userId, VcsProvider provider);
+
+    void deleteByUser_Id(Long userId);
 }

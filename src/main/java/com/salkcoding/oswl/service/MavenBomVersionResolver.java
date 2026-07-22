@@ -123,7 +123,7 @@ public class MavenBomVersionResolver {
         return result;
     }
 
-    public String resolveVersion(String declaredVersion, String groupArtifact, Map<String, String> index) {
+    private String resolveVersion(String declaredVersion, String groupArtifact, Map<String, String> index) {
         if (declaredVersion != null && !declaredVersion.isBlank() && !isUnresolvedPlaceholder(declaredVersion)) {
             return declaredVersion;
         }

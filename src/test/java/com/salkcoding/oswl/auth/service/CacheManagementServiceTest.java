@@ -73,7 +73,7 @@ class CacheManagementServiceTest {
 
         List<CacheSettingDto> dtos = cacheManagementService.findAll();
 
-        assertThat(dtos.get(0).getLastClearedByName()).isNull();
+        assertThat(dtos.getFirst().getLastClearedByName()).isNull();
         verify(userRepository, never()).findById(any());
     }
 
@@ -92,7 +92,7 @@ class CacheManagementServiceTest {
 
         List<CacheSettingDto> dtos = cacheManagementService.findAll();
 
-        assertThat(dtos.get(0).getLastClearedByName()).isEqualTo("Alice");
+        assertThat(dtos.getFirst().getLastClearedByName()).isEqualTo("Alice");
     }
 
     // ── updateTtl ─────────────────────────────────────────────────────────

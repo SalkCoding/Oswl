@@ -9,7 +9,7 @@
         <div class="bg-[#F3F5F6] border-b border-[#DBE4E7] flex flex-col items-start px-6 py-4 w-full shrink-0 gap-2">
             <h2 class="font-bold text-[24px] text-black tracking-[-0.24px] m-0"
                 th:text="${totalObligations} + ' ' + #{license.obligations.heading}">0 Obligations</h2>
-            <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[11px] text-[#333E42]">
+            <div class="flex flex-wrap gap-x-6 gap-y-2 items-start shrink-0 w-full text-[12px] text-[#333E42]">
                 <div class="flex gap-2 items-center shrink-0">
                     <div class="w-1.5 h-1.5 bg-[#e62727] rounded-full"></div>
                     <span th:text="${obligationRestrictedCount} + ' ' + #{license.status.restricted}">0 Restricted</span>
@@ -54,7 +54,7 @@
                     </div>
                     <div class="flex items-center gap-[6px]">
                         <div class="bg-[var(--grayscale-10)] flex items-center px-3 py-1 rounded-[40px] shrink-0">
-                            <span class="font-normal text-[11px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap"
+                            <span class="font-normal text-[12px] text-[var(--grayscale-60)] tracking-tight whitespace-nowrap"
                                   th:text="${#lists.size(obligation.entries)} + ' ' + (${#lists.size(obligation.entries) != 1} ? #{license.obligations.licenses} : #{license.obligations.license})">1 license</span>
                         </div>
                         <img src="/icon/icon-triangle-down.svg" class="w-[12px] h-[12px] shrink-0 pointer-events-none transition-transform" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
@@ -72,8 +72,8 @@
                     <!-- Clause citation -->
                     <div th:if="${obligation.clauseCitation != null and !#strings.isEmpty(obligation.clauseCitation)}"
                          class="flex items-start gap-2 px-6 pt-2 pb-0">
-                        <span class="text-[10px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] shrink-0 mt-[1px]" th:text="#{license.obligations.clause}">Clause</span>
-                        <span class="text-[11px] text-[var(--grayscale-60)] leading-relaxed"
+                        <span class="text-[12px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)] shrink-0 mt-[1px]" th:text="#{license.obligations.clause}">Clause</span>
+                        <span class="text-[12px] text-[var(--grayscale-60)] leading-relaxed"
                               th:text="${obligation.clauseCitation}">§ 3</span>
                     </div>
 
@@ -83,10 +83,10 @@
                          x-data="{ copied: false, copy(t){ navigator.clipboard.writeText(t).then(()=>{ this.copied=true; setTimeout(()=>this.copied=false, 1500); }); } }">
                         <div class="bg-white border border-[#DBE4E7] rounded-md p-2">
                             <div class="flex items-center justify-between mb-1">
-                                <span class="text-[10px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)]" th:text="#{license.obligations.noticeSnippet}">Suggested NOTICE snippet</span>
+                                <span class="text-[12px] font-semibold tracking-[0.5px] uppercase text-[var(--grayscale-50)]" th:text="#{license.obligations.noticeSnippet}">Suggested NOTICE snippet</span>
                                 <button type="button"
                                         @click="copy($refs.snippet.innerText)"
-                                        class="text-[11px] text-[var(--grayscale-60)] hover:text-black flex items-center gap-1">
+                                        class="text-[12px] text-[var(--grayscale-60)] hover:text-black flex items-center gap-1">
                                     <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
                                     </svg>
@@ -94,7 +94,7 @@
                                     <span x-show="copied" x-cloak th:text="#{common.copiedShort}">Copied!</span>
                                 </button>
                             </div>
-                            <pre x-ref="snippet" class="text-[11px] text-[var(--grayscale-80)] whitespace-pre-wrap font-mono m-0 leading-snug" th:text="${obligation.noticeTemplate}">notice</pre>
+                            <pre x-ref="snippet" class="text-[12px] text-[var(--grayscale-80)] whitespace-pre-wrap font-mono m-0 leading-snug" th:text="${obligation.noticeTemplate}">notice</pre>
                         </div>
                     </div>
 
@@ -107,7 +107,7 @@
                         <button @click="libsOpen = !libsOpen"
                                 class="flex items-center justify-between gap-[8px] px-6 py-3 w-full text-left hover:bg-white/60 transition-colors">
                             <div class="flex items-center gap-[8px]">
-                                <span class="bg-[#F3F5F6] border border-[#DBE4E7] text-[11px] text-[#425055] px-3 py-1 rounded-[40px] font-normal"
+                                <span class="bg-[#F3F5F6] border border-[#DBE4E7] text-[12px] text-[#425055] px-3 py-1 rounded-[40px] font-normal"
                                       th:text="${entry.spdxId}">MIT</span>
                                 <a th:if="${entry.spdxUrl != null and !#strings.isEmpty(entry.spdxUrl)}"
                                    th:href="${entry.spdxUrl}" target="_blank" rel="noopener"

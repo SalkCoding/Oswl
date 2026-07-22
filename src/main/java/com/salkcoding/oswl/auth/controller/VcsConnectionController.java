@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.VcsConnectionControllerSpec;
 import com.salkcoding.oswl.auth.dto.AddVcsConnectionRequest;
 import com.salkcoding.oswl.auth.dto.VcsConnectionDto;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
@@ -16,7 +17,7 @@ import java.util.List;
 @RequestMapping("/api/settings/vcs")
 @RequiredArgsConstructor
 @PreAuthorize("hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')")
-public class VcsConnectionController {
+public class VcsConnectionController implements VcsConnectionControllerSpec {
 
     private final VcsConnectionService vcsConnectionService;
 

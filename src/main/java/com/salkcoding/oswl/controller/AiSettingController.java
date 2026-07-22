@@ -12,20 +12,36 @@ import com.salkcoding.oswl.dto.api.AiPromptsResponse;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
+import com.salkcoding.oswl.dto.api.AiUsageEventDto;
+import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
+import com.salkcoding.oswl.dto.api.EmbeddedAiConfigRequest;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import com.salkcoding.oswl.service.ai.AiGoldenTestService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
+import com.salkcoding.oswl.service.ai.AiUsageStatsService;
+import com.salkcoding.oswl.service.ai.EmbeddedAiBootstrapService;
+import com.salkcoding.oswl.service.ai.EmbeddedAiProviderRegistrar;
+import com.salkcoding.oswl.service.ai.EmbeddedAiService;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -46,6 +62,12 @@ public class AiSettingController implements AiSettingControllerSpec {
     private final AiPromptTemplateService promptTemplateService;
     private final OutboundUrlValidator outboundUrlValidator;
     private final AiGoldenTestService goldenTestService;
+    private final AiUsageStatsService aiUsageStatsService;
+    private final MessageSource messageSource;
+    private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
+    private final EmbeddedAiService embeddedAiService;
+    private final EmbeddedAiProviderRegistrar embeddedProviderRegistrar;
+    private final EmbeddedAiBootstrapService embeddedAiBootstrapService;
 
     @GetMapping
     public ResponseEntity<AiSettingResponse> getCurrent() {
@@ -63,6 +85,18 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .orElseGet(() -> ResponseEntity.ok(builder
                         .message("No AI provider configured")
                         .build()));
+    }
+
+    @GetMapping("/usage")
+    public ResponseEntity<AiUsageStatsResponse> getUsageStats() {
+        return ResponseEntity.ok(aiUsageStatsService.getStats());
+    }
+
+    @GetMapping("/usage/events")
+    public ResponseEntity<Page<AiUsageEventDto>> getUsageEvents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(aiUsageStatsService.getEvents(page, size));
     }
 
     @GetMapping("/prompts")
@@ -104,16 +138,27 @@ public class AiSettingController implements AiSettingControllerSpec {
         }
         setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
 
-        if (Boolean.TRUE.equals(request.getActivate())) {
+        boolean activating = Boolean.TRUE.equals(request.getActivate());
+        if (activating) {
             aiSettingRepository.findByActiveTrue().ifPresent(AiSetting::deactivate);
             setting.activate();
         }
 
         aiSettingRepository.save(setting);
+        if (activating) {
+            deactivateOtherActiveSettings(setting);
+        }
         auditLogService.log("AI_SETTING.SAVE", "AI_SETTING",
                 setting.getProvider().name(), setting.getProvider().name(),
                 setting.getModelName());
         auditPreferencesIfChanged(before, prefs);
+        boolean localeChanged = !Objects.equals(before.getPromptsLocale(), prefs.getPromptsLocale());
+        if (localeChanged && aiSettingRepository.findByActiveTrue().isPresent()) {
+            // Existing insights were generated in the previous language — regenerate them
+            runAfterCommit(vulnerabilityEnrichmentService::regenerateRecentInsightsAsync);
+        } else if (activating) {
+            runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
+        }
         return ResponseEntity.ok(toResponse(setting, prefs));
     }
 
@@ -121,7 +166,7 @@ public class AiSettingController implements AiSettingControllerSpec {
     @Transactional
     public ResponseEntity<Void> deactivate(@RequestBody(required = false) AiSettingUpdateRequest request) {
         AiPreferences before = aiPreferencesService.getEffective();
-        AiPreferences after = before;
+        AiPreferences after;
         if (request != null) {
             after = savePreferencesIfPresent(request, before);
             auditPreferencesIfChanged(before, after);
@@ -143,9 +188,177 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .orElseThrow(() -> new IllegalArgumentException(
                         provider + " settings not found. Configure it first via PUT /api/settings/ai."));
         setting.activate();
+        deactivateOtherActiveSettings(setting);
         auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
                 provider.name(), provider.name(), setting.getModelName());
+        runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
         return ResponseEntity.ok(toResponse(setting, aiPreferencesService.getEffective()));
+    }
+
+    /**
+     * Heals a duplicate-active outcome from a concurrent activate race (a partial unique index
+     * on is_active is not expressible via JPA): every active setting other than {@code keep}
+     * is deactivated. Normally a no-op.
+     */
+    private void deactivateOtherActiveSettings(AiSetting keep) {
+        for (AiSetting other : aiSettingRepository.findAllByActiveTrueOrderByUpdatedAtDesc()) {
+            if (other.isActive() && !Objects.equals(other.getId(), keep.getId())) {
+                other.deactivate();
+            }
+        }
+    }
+
+    /**
+     * The backfill runs @Async in its own transaction. Fired inside this
+     * transaction it can read the DB before the new active setting commits and
+     * silently no-op — so defer it to after commit.
+     */
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
+    // ── Embedded AI (llama.cpp sidecar) ─────────────────────────────────
+
+    @GetMapping("/embedded")
+    public ResponseEntity<Map<String, Object>> embeddedStatus() {
+        return ResponseEntity.ok(embeddedStatusBody());
+    }
+
+    @PostMapping("/embedded/start")
+    public ResponseEntity<Map<String, Object>> startEmbedded(
+            @RequestParam(required = false) String model) {
+        // Fresh install, no .gguf present yet: kick off the download+start in the background
+        // and return immediately — a 1.2GB fetch can take minutes, far past any reasonable
+        // HTTP timeout. The UI polls GET /embedded for downloadedBytes/downloadTotalBytes
+        // and the eventual running/lastError outcome (see EmbeddedAiBootstrapService).
+        if (embeddedAiService.needsModelDownload()) {
+            if (!embeddedAiService.isDownloading()) {
+                embeddedAiBootstrapService.downloadAndStart(model);
+            }
+            Map<String, Object> body = embeddedStatusBody();
+            body.put("success", true);
+            return ResponseEntity.ok(body);
+        }
+
+        // Launch the sidecar OUTSIDE any DB transaction — model load can block up to ~90s and
+        // must not hold a database connection open.
+        try {
+            embeddedAiService.start(model);
+        } catch (IllegalStateException e) {
+            Map<String, Object> body = embeddedStatusBody();
+            body.put("success", false);
+            body.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+
+        embeddedProviderRegistrar.registerAsActiveProvider(
+                embeddedAiService.modelName(), embeddedAiService.baseUrl());
+        auditLogService.log("AI_SETTING.EMBEDDED_START", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), embeddedAiService.modelName());
+        vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
+    @PostMapping("/embedded/stop")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> stopEmbedded() {
+        embeddedAiService.stop();
+        // Deactivate LOCAL so AI calls don't fail against a dead endpoint
+        aiSettingRepository.findByActiveTrue()
+                .filter(s -> s.getProvider() == AiProvider.LOCAL)
+                .ifPresent(AiSetting::deactivate);
+        auditLogService.log("AI_SETTING.EMBEDDED_STOP", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), null);
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
+    /**
+     * Saves the embedded sidecar config overrides (dir / preferred model). A null field keeps
+     * the current value; a blank string clears that override. When the dir actually changes
+     * while the sidecar is running, the sidecar is stopped first (a running llama-server would
+     * keep file locks on the old directory); a changed model takes effect on the next start.
+     */
+    @PutMapping("/embedded/config")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateEmbeddedConfig(
+            @RequestBody(required = false) EmbeddedAiConfigRequest request) {
+        String dir = request != null ? request.getDir() : null;
+        String model = request != null ? request.getModel() : null;
+
+        String normalizedDir = null;
+        if (dir != null && !dir.isBlank()) {
+            Path path = Path.of(dir.strip()).toAbsolutePath().normalize();
+            if (!Files.isDirectory(path)) {
+                Map<String, Object> body = embeddedStatusBody();
+                body.put("success", false);
+                body.put("message", msg("settings.ai.embedded.config.dirNotFound", dir.strip()));
+                return ResponseEntity.badRequest().body(body);
+            }
+            normalizedDir = path.toString();
+        }
+        if (model != null && !model.isBlank()
+                && (model.contains("/") || model.contains("\\") || model.contains(".."))) {
+            Map<String, Object> body = embeddedStatusBody();
+            body.put("success", false);
+            body.put("message", msg("settings.ai.embedded.config.invalidModel"));
+            return ResponseEntity.badRequest().body(body);
+        }
+
+        boolean dirChanged = normalizedDir != null
+                && !normalizedDir.equals(embeddedAiService.effectiveDir().toAbsolutePath().normalize().toString());
+        if (dirChanged && embeddedAiService.isRunning()) {
+            // Release file locks on the old directory before switching
+            embeddedAiService.stop();
+            aiSettingRepository.findByActiveTrue()
+                    .filter(s -> s.getProvider() == AiProvider.LOCAL)
+                    .ifPresent(AiSetting::deactivate);
+        }
+
+        aiPreferencesService.saveEmbeddedConfig(
+                dir == null ? aiPreferencesService.getEmbeddedDir() : normalizedDir,
+                model == null ? aiPreferencesService.getEmbeddedModel()
+                        : model.isBlank() ? null : model.strip());
+        auditLogService.log("AI_SETTING.EMBEDDED_CONFIG", "AI_SETTING",
+                AiProvider.LOCAL.name(), AiProvider.LOCAL.name(),
+                "dir=" + (normalizedDir != null ? normalizedDir : "-") + " model=" + (model != null ? model : "-"));
+
+        Map<String, Object> body = embeddedStatusBody();
+        body.put("success", true);
+        return ResponseEntity.ok(body);
+    }
+
+    private Map<String, Object> embeddedStatusBody() {
+        EmbeddedAiService.EmbeddedAiStatus status = embeddedAiService.status();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("binaryFound", status.isBinaryFound());
+        body.put("running", status.isRunning());
+        body.put("external", status.isExternal());
+        body.put("binaryPath", status.getBinaryPath());
+        body.put("modelFile", status.getModelFile());
+        body.put("activeModel", status.getActiveModel());
+        body.put("fallbackUsed", status.isFallbackUsed());
+        body.put("lastError", status.getLastError());
+        body.put("availableModels", status.getAvailableModels());
+        body.put("baseUrl", status.getBaseUrl());
+        body.put("modelsDir", status.getModelsDir());
+        body.put("downloading", status.isDownloading());
+        body.put("downloadedBytes", status.getDownloadedBytes());
+        body.put("downloadTotalBytes", status.getDownloadTotalBytes());
+        return body;
     }
 
     @PostMapping("/test-connection")
@@ -161,16 +374,16 @@ public class AiSettingController implements AiSettingControllerSpec {
             var stored = aiSettingRepository.findByProvider(request.getProvider());
             if (stored.isEmpty() || stored.get().getApiKey() == null
                     || stored.get().getApiKey().isBlank()) {
-                return ResponseEntity.badRequest().body(
-                        Map.of("success", false,
-                               "message", "API key is not configured. Enter a key to test."));
+                return ResponseEntity.badRequest().body(testFailBody(
+                        "settings.ai.test.missingApiKey",
+                        "settings.ai.test.missingApiKey.hint"));
             }
             try {
                 resolvedKey = encryptionService.decrypt(stored.get().getApiKey());
             } catch (Exception e) {
-                return ResponseEntity.badRequest().body(
-                        Map.of("success", false,
-                               "message", "Stored API key could not be decrypted. Re-save the key in AI settings."));
+                return ResponseEntity.badRequest().body(testFailBody(
+                        "settings.ai.test.decryptFailed",
+                        "settings.ai.test.decryptFailed.hint"));
             }
         }
 
@@ -181,7 +394,10 @@ public class AiSettingController implements AiSettingControllerSpec {
         } catch (OutboundUrlBlockedException e) {
             auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
                     request.getProvider().name(), request.getProvider().name(), "blocked-url");
-            return ResponseEntity.ok(Map.of("success", false, "message", e.getMessage()));
+            return ResponseEntity.ok(testFailBody(
+                    "settings.ai.test.blockedUrl",
+                    "settings.ai.test.blockedUrl.hint",
+                    e.getMessage()));
         }
 
         AiSetting tempSetting = AiSetting.builder()
@@ -191,13 +407,29 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .baseUrl(request.getBaseUrl())
                 .build();
 
-        boolean ok = aiAnalysisService.testConnection(tempSetting);
+        AiConnectionTestResult result = aiAnalysisService.testConnectionDetailed(tempSetting);
         auditLogService.log("AI_SETTING.TEST", "AI_SETTING",
                 request.getProvider().name(), request.getProvider().name(),
-                ok ? "success" : "failed");
-        return ResponseEntity.ok(ok
-                ? Map.of("success", true,  "message", "Connection successful!")
-                : Map.of("success", false, "message", "Connection failed. Check your API key and model name."));
+                result.success() ? "success" : "failed");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", result.success());
+        body.put("message", result.message());
+        if (result.hint() != null && !result.hint().isBlank()) {
+            body.put("hint", result.hint());
+        }
+        return ResponseEntity.ok(body);
+    }
+
+    private Map<String, Object> testFailBody(String messageKey, String hintKey, Object... args) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", false);
+        body.put("message", msg(messageKey, args));
+        body.put("hint", msg(hintKey, args));
+        return body;
+    }
+
+    private String msg(String key, Object... args) {
+        return messageSource.getMessage(key, args, key, LocaleContextHolder.getLocale());
     }
 
     private AiPreferences savePreferencesIfPresent(AiSettingUpdateRequest request, AiPreferences current) {

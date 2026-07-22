@@ -9,6 +9,7 @@ import com.salkcoding.oswl.service.ApiKeyTokenSupport;
 import com.salkcoding.oswl.service.IssuedApiKey;
 import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.controller.spec.AdminCliKeyControllerSpec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin/cli-keys")
 @PreAuthorize("hasPermission(null, 'SETTINGS_CLI_KEY_MANAGE') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
-public class AdminCliKeyController {
+public class AdminCliKeyController implements AdminCliKeyControllerSpec {
 
     private final ApiKeyService apiKeyService;
     private final AuditLogService auditLogService;

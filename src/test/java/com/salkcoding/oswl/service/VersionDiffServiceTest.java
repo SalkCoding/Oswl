@@ -109,7 +109,7 @@ class VersionDiffServiceTest {
         @SuppressWarnings("unchecked")
         List<VersionDiffRowDto> rows = (List<VersionDiffRowDto>) model.getAttribute("diffRows");
         assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getChangeType()).isEqualTo(ChangeType.ADDED);
+        assertThat(rows.getFirst().getChangeType()).isEqualTo(ChangeType.ADDED);
     }
 
     @Test

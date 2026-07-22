@@ -33,6 +33,20 @@
 
 > 비활성화된 사용자는 로그인할 수 없지만 데이터(감사 로그, 스캔 귀속)는 보존됩니다.
 
+### 본인 계정 탈퇴 (self-service)
+
+**시스템 관리자**를 제외한 로그인 사용자는 사용자 메뉴의 **계정 탈퇴**에서 현재 비밀번호 확인 후 본인 계정을 삭제할 수 있습니다.
+
+| 항목 | 동작 |
+|---|---|
+| 엔드포인트 | `POST /api/my/delete-account` — 사용자 ID는 **세션 principal에서만** 취득 (경로/본문으로 타인 ID 지정 불가) |
+| 시스템 관리자 | 본인 탈퇴 불가 |
+| 삭제 대상 | `users` 행, `project_members`, 저장된 VCS 토큰 |
+| 보존 | 기존 **감사 로그** 전체( actor 이메일/이름/id 스냅샷), 프로젝트·스캔·import 이력 |
+| 감사 액션 | `USER.SELF_DELETE` — 사용자 행 삭제 **전**에 기록하여 `actor_user_id`·표시 이름 보존 |
+
+관리자가 삭제하는 경우는 기존과 같이 `USER.DELETE` (`DELETE /api/admin/users/{id}`)입니다.
+
 ---
 
 ## 역할 템플릿
@@ -128,6 +142,18 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 
 ---
 
+## 서버 프로퍼티 (application.yaml)
+
+`application.yaml` 또는 환경 변수(Spring relaxed binding)로 설정하는 인스턴스 수준 보안 플래그입니다. 설정 UI에서 변경할 수 없으며, 적용하려면 재시작이 필요합니다.
+
+| 설정 키 | 환경 변수 | 기본값 | 설명 |
+|---|---|---|---|
+| `oswl.quick-import.allow-build-exec` | `OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC` | `false` | `false`이면 Quick Import가 manifest를 **정적으로만** 파싱하며, 클론된 저장소 안의 빌드 도구(`mvnw`, `gradlew`, `dotnet`)를 실행하지 않습니다. `true`이면 빌드 기반 버전 해결이 가능하지만, 저장소의 빌드 스크립트가 OsWL 호스트에서 실행되므로 **신뢰하는 저장소만** import하는 환경에서만 켜야 합니다. |
+| `oswl.security.trusted-proxies` | `OSWL_SECURITY_TRUSTED_PROXIES` | *(비어 있음)* | 신뢰하는 리버스 프록시 IP 목록(쉼표 구분). 직접 연결된 peer가 이 목록에 있을 때만 클라이언트 IP 판별(감사 로그, 속도 제한)에 `X-Forwarded-For` 헤더를 사용하고, 비어 있으면(기본값) 해당 헤더를 무시합니다. OsWL이 직접 제어하는 프록시 뒤에서 동작할 때만 설정하세요. |
+| `oswl.timezone` | `OSWL_TIMEZONE` | `Asia/Seoul` | 시간에 민감한 기능(현재는 AI 사용량 추적 — 호출이 집계되는 "하루" 기준)에 사용하는 타임존입니다. 배포 환경의 영업일 기준이 기본값과 다른 경우에만 변경하세요. |
+
+---
+
 ## 감사 로그
 
 **설정 → 관리자 → 감사 로그**
@@ -145,7 +171,9 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 
 ### 필터링
 
-행위자, 작업, 리소스 유형, 날짜 범위로 필터링합니다.
+행위자, 작업(UI에서 auth·사용자·프로젝트·스캔·CLI 키·컴포넌트·설정 등으로 그룹화), 날짜 범위로 필터링합니다.
+
+**사용자 작업 코드**에는 `USER.SELF_DELETE`(본인 탈퇴)와 `USER.DELETE`(관리자 삭제)가 포함됩니다.
 
 ### 내보내기
 
@@ -174,7 +202,9 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 | **OpenAI** | API 키 + 모델 (예: `gpt-4o-mini`) |
 | **Anthropic** | API 키 + 모델 |
 | **Gemini** | API 키 (+ 필요 시 OpenAI 호환 base URL) |
-| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama) |
+| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama) — 또는 아래 내장 AI 사이드카 |
+
+같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
 
 활성 제공업체는 **하나**만 둘 수 있습니다. 탭에서 추가로 설정할 수 있는 항목:
 
@@ -187,8 +217,24 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 | 프롬프트 오버라이드 | 키별 템플릿 수정 (`GET /api/settings/ai/prompts`) |
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
+**내장 AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — [API 레퍼런스 — AI](API-Reference.md#ai) 참고.  
 **프로젝트별:** `PATCH /api/projects/{id}/deployment-profile`.  
 **컴포넌트 상세:** `POST .../cves/{cveDbId}/ai-summarize`로 CVE AI 요약 새로고침 (`COMPONENT.CVE_AI_REGENERATE` 감사 로그).
+
+### 사용량 및 비용 추적
+
+AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(`GET /api/settings/ai/usage` — 이력이 쌓여도 조회 비용이 늘지 않도록 일별 집계 테이블에서 조회), 10건씩 페이지네이션되는 **최근 호출** 표를 함께 보여줍니다(`GET /api/settings/ai/usage/events`). 원본 호출 이벤트는 최근 **100건**만 보존되며 — 새 호출이 기록될 때마다 오래된 것부터 삭제(FIFO)됩니다 — 일별 합계와 7일 추이는 원본 이벤트 로그가 아닌 집계 테이블에서 나오므로 영향받지 않습니다.
+
+예상 비용은 실제 청구서가 **아니며**, 다음 프로바이더별(모델별이 아님) 단가로 계산한 대략적인 값입니다:
+
+| 설정 키 | 기본값 (USD / 100만 토큰) |
+|---|---|
+| `oswl.ai.pricing.openai-input-per-1m` / `openai-output-per-1m` | `2.50` / `10.00` |
+| `oswl.ai.pricing.anthropic-input-per-1m` / `anthropic-output-per-1m` | `3.00` / `15.00` |
+| `oswl.ai.pricing.gemini-input-per-1m` / `gemini-output-per-1m` | `1.25` / `5.00` |
+| `oswl.ai.pricing.local-input-per-1m` / `local-output-per-1m` | `0` / `0` |
+
+실제 계약 단가가 위 기본값과 다르면 이 값들을 갱신하세요.
 
 ---
 

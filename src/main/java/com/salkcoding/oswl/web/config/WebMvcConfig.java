@@ -4,14 +4,16 @@ import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 
-import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 @RequiredArgsConstructor
@@ -22,15 +24,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
     // ── i18n configuration ───────────────────────────────────────────────
 
     /**
-     * Cookie-based Locale store. The default is English.
-     * The language can be changed at runtime with the ?lang=en / ?lang=ko parameter.
-     * Uses a cookie so it is not affected by the browser's Accept-Language header.
+     * Cookie-based Locale store. Until the user picks a language (?lang=ko / ?lang=en)
+     * the browser's Accept-Language decides — Korean browsers start in Korean,
+     * everything else falls back to English (messages.properties).
      */
     @Bean
     public LocaleResolver localeResolver() {
-        CookieLocaleResolver resolver = new CookieLocaleResolver("OSWL_LOCALE");
-        resolver.setDefaultLocale(Locale.ENGLISH);  // en → messages.properties
-        return resolver;
+        // No setDefaultLocale: CookieLocaleResolver then honors Accept-Language
+        return new CookieLocaleResolver("OSWL_LOCALE");
     }
 
     /**
@@ -48,6 +49,24 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addViewController("/oss-notices").setViewName("oss-notices/index");
+    }
+
+    // ── Static resources ─────────────────────────────────────────────────
+
+    /**
+     * Long-lived cache headers (7 days, public) for static assets such as
+     * tailwind.css and chart.umd.min.js. Templates reference fixed file names
+     * (no content versioning), so the immutable flag is not used — browsers
+     * revalidate once max-age expires.
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        CacheControl cacheControl = CacheControl.maxAge(7, TimeUnit.DAYS).cachePublic();
+        registry.addResourceHandler("/css/**").addResourceLocations("classpath:/static/css/").setCacheControl(cacheControl);
+        registry.addResourceHandler("/js/**").addResourceLocations("classpath:/static/js/").setCacheControl(cacheControl);
+        registry.addResourceHandler("/img/**").addResourceLocations("classpath:/static/img/").setCacheControl(cacheControl);
+        registry.addResourceHandler("/icon/**").addResourceLocations("classpath:/static/icon/").setCacheControl(cacheControl);
+        registry.addResourceHandler("/graphic/**").addResourceLocations("classpath:/static/graphic/").setCacheControl(cacheControl);
     }
 
     @Override

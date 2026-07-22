@@ -42,7 +42,7 @@ public class DeferExpiryScheduler {
                     sc.getId().toString(),
                     libName,
                     "scanResultId=" + scanId);
-            sc.clearDeferral();
+            sc.expireDeferral();
         }
     }
 }

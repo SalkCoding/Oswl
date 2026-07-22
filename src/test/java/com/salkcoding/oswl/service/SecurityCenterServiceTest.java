@@ -263,7 +263,7 @@ class SecurityCenterServiceTest {
         byte[] csv = securityCenterService.buildExportCsv(1L, null);
         String result = new String(csv, java.nio.charset.StandardCharsets.UTF_8);
 
-        assertThat(result).startsWith("Component Name,Version");
+        assertThat(result).startsWith("\uFEFFComponent Name,Version");
         // 헤더 이후 데이터 행 없음
         assertThat(result.split("\n")).hasSize(1);
     }

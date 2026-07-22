@@ -12,27 +12,25 @@
 const REPO_PAGE_SIZE = 10;
 const PROGRESS_DISMISS_MS = 2 * 60 * 1000;
 const COMPLETE_DISMISS_MS = 60 * 1000;
+const ETA_MAX_MS = 2 * 60 * 60 * 1000;
+const ETA_MIN_SAMPLE_MS = 5000;
 
-function _qi() {
-    return typeof _qiI18n !== 'undefined' ? _qiI18n : {};
+/** Bundle accessor: a missing key surfaces as the key name itself (see oswl-i18n.js). */
+function _qi(key) {
+    return oswlI18n(typeof _qiI18n !== 'undefined' ? _qiI18n : null, key);
 }
 
-function _qiFmt(template) {
-    let s = String(template);
-    for (let i = 1; i < arguments.length; i++) {
-        s = s.split('{' + (i - 1) + '}').join(arguments[i]);
-    }
-    return s;
+function _qiFmt(template, ...args) {
+    return oswlI18nFmt(template, ...args);
 }
 
 /** Resolve API error bodies using page locale (_qiI18n), never server-localized strings. */
 function _qiResolveError(body) {
-    const q = _qi();
-    const errors = q.errors || {};
+    const errors = (typeof _qiI18n !== 'undefined' && _qiI18n.errors) || {};
     if (body && body.errorKey && errors[body.errorKey]) {
         return _qiFmt(errors[body.errorKey], ...(body.errorArgs || []));
     }
-    return q.unexpectedError || 'An unexpected error occurred.';
+    return _qi('unexpectedError');
 }
 
 function quickImportPage() {
@@ -59,6 +57,7 @@ function quickImportPage() {
 
         /* ── Multi-job tracking ─────────────────── */
         activeJobs: [],
+        nowTick: Date.now(),
         maxConcurrentSlots: 3,
         maxQueuedSlots: 3,
         activeSlotsUsed: 0,
@@ -66,18 +65,28 @@ function quickImportPage() {
         userRunningCount: 0,
         completedResults: [],
 
-        /* ── Background scan watcher ─────────────── */
-        _scanWatcher: null,
+        /* ── Background scan watchers (one EventSource per project) ── */
+        _scanWatchers: new Map(),
+        _nowTickTimer: null,
 
 
         /* ─────────────────────────────────────────── */
 
-        async init() {
-            await this.onPanelOpen();
+        /** 1s heartbeat so elapsed/ETA texts on job cards re-render. Guarded so re-entry can't stack timers. */
+        _ensureNowTickTimer() {
+            if (this._nowTickTimer) return;
+            this._nowTickTimer = setInterval(() => { this.nowTick = Date.now(); }, 1000);
         },
 
-        /** Called when the slide-out panel opens (also on first mount). */
+        _stopNowTickTimer() {
+            if (!this._nowTickTimer) return;
+            clearInterval(this._nowTickTimer);
+            this._nowTickTimer = null;
+        },
+
+        /** Called when the slide-out panel opens (the first open doubles as the lazy init). */
         async onPanelOpen() {
+            this._ensureNowTickTimer();
             await this.loadConnections();
             for (const p of this.connectedProviders) {
                 this.loadRepoBrowser(p);
@@ -90,6 +99,7 @@ function quickImportPage() {
          * Clears completed import UI so the next open starts fresh, but keeps in-flight jobs.
          */
         onPanelClose() {
+            this._stopNowTickTimer();
             this.activeJobs.forEach(j => {
                 this._clearProgressDismiss(j);
                 const phase = this._normalizePhase(j.phase);
@@ -155,8 +165,8 @@ function quickImportPage() {
             if (!this.repoUrl.trim())   return false;
             if (!this.detectedProvider) return false;
             if (this.urlError)          return false;
-            if (this.userQueuedCount >= this.maxQueuedSlots) return false;
-            return true;
+            return this.userQueuedCount < this.maxQueuedSlots;
+
         },
 
         _isTerminalPhase(phase) {
@@ -188,16 +198,15 @@ function quickImportPage() {
         },
 
         importSlotsLabel() {
-            const i18n = _qi();
             const parts = [];
             const runningSlots = Math.min(this.activeSlotsUsed, this.maxConcurrentSlots);
             if (runningSlots > 0) {
-                parts.push(_qiFmt(i18n.slotsRunning, runningSlots, this.maxConcurrentSlots));
+                parts.push(_qiFmt(_qi('slotsRunning'), runningSlots, this.maxConcurrentSlots));
             }
             if (this.userQueuedCount > 0) {
-                parts.push(_qiFmt(i18n.slotsQueued, this.userQueuedCount, this.maxQueuedSlots));
+                parts.push(_qiFmt(_qi('slotsQueued'), this.userQueuedCount, this.maxQueuedSlots));
             }
-            return parts.join(' · ');
+            return parts.join(' › ');
         },
 
         _syncSlotMetrics(job) {
@@ -255,10 +264,10 @@ function quickImportPage() {
             try {
                 const url = new URL(this.repoUrl);
                 if (!['http:', 'https:'].includes(url.protocol)) {
-                    this.urlError = _qi().urlProtocol || 'URL must use http:// or https://.';
+                    this.urlError = _qi('urlProtocol');
                 }
             } catch (_) {
-                this.urlError = _qi().invalidUrl || 'Please enter a valid URL.';
+                this.urlError = _qi('invalidUrl');
             }
         },
 
@@ -276,7 +285,7 @@ function quickImportPage() {
                 });
 
                 if (!res.ok) {
-                    let errMsg = _qi().unexpectedError || 'An unexpected error occurred.';
+                    let errMsg = _qi('unexpectedError');
                     try {
                         errMsg = _qiResolveError(await res.json());
                     } catch (_) { /* keep fallback */ }
@@ -295,6 +304,26 @@ function quickImportPage() {
             } catch (err) {
                 console.error('[QuickImport] Start failed:', err);
                 this._appendLogToJob(null, 'error', err.message);
+            }
+        },
+
+        async cancelJob(job) {
+            if (!job || job.cancelRequested) return;
+            job.cancelRequested = true;
+            try {
+                const res = await fetch('/api/quick-import/job/' + job.jobId + '/cancel', {
+                    method: 'POST',
+                    headers: oswlJsonHeaders(),
+                });
+                if (!res.ok) { job.cancelRequested = false; return; }
+                // Reflect cancellation immediately; the poll/SSE will also deliver FAILED(canceled).
+                job.phase = 'FAILED';
+                job.messageKey = 'canceled';
+                job.messageArgs = [];
+                this._appendLogToJob(job, 'error', this._localizedMessage(job));
+            } catch (err) {
+                console.error('[QuickImport] Cancel failed:', err);
+                job.cancelRequested = false;
             }
         },
 
@@ -402,11 +431,15 @@ function quickImportPage() {
                     messageArgs: [],
                     percent: 0,
                     queuePosition: null,
+                    startedAtEpochMs: serverJob.startedAtEpochMs || Date.now(),
+                    runningSinceEpochMs: serverJob.runningSinceEpochMs || null,
                     progressLog: [],
                     lastPhase: null,
                     _eventSource: null,
                     _pollTimer: null,
                     _pollInFlight: false,
+                    _etaAnchorPct: null,
+                    _etaAnchorAtEpochMs: null,
                     revealedApiToken: null,
                 };
                 this.activeJobs.push(tracker);
@@ -438,7 +471,10 @@ function quickImportPage() {
                 });
                 es.onerror = () => {
                     es.close();
-                    tracker._eventSource = null;
+                    // _syncTracker replaces activeJobs entries, so this closure's
+                    // tracker may be stale; clear the ref on the live tracker.
+                    const current = this._findTracker(tracker.jobId);
+                    if (current) current._eventSource = null;
                 };
             } catch (_) { /* polling already active */ }
         },
@@ -460,8 +496,7 @@ function quickImportPage() {
                 const res = await fetch('/api/quick-import/job/' + tracker.jobId);
                 if (res.status === 404) {
                     this._stopJobWatch(tracker);
-                    this._appendLogToJob(tracker, 'error',
-                        _qi().sessionExpired || 'Import session expired.');
+                    this._appendLogToJob(tracker, 'error', _qi('sessionExpired'));
                     return;
                 }
                 if (!res.ok) return;
@@ -486,6 +521,29 @@ function quickImportPage() {
             tracker.messageArgs = job.messageArgs || [];
             tracker.percent = job.percent != null ? job.percent : tracker.percent;
             tracker.queuePosition = job.queuePosition;
+            tracker.startedAtEpochMs = job.startedAtEpochMs || tracker.startedAtEpochMs || null;
+            if (job.runningSinceEpochMs && job.runningSinceEpochMs !== tracker.runningSinceEpochMs) {
+                // Fresh run: drop ETA anchors so a stale estimate can't leak across runs.
+                tracker._etaAnchorPct = null;
+                tracker._etaAnchorAtEpochMs = null;
+            }
+            tracker.runningSinceEpochMs = job.runningSinceEpochMs || tracker.runningSinceEpochMs || null;
+            if (tracker.runningSinceEpochMs && tracker.percent != null
+                    && (tracker._etaAnchorPct == null || tracker.percent > tracker._etaAnchorPct)
+                    && (Date.now() - tracker.runningSinceEpochMs) >= ETA_MIN_SAMPLE_MS) {
+                // Mark when percent last advanced; ETA extrapolates from this anchor.
+                // Percent regressions (stale poll racing newer SSE) keep the forward anchor.
+                // The elapsed-time gate keeps the very first anchor (set the instant CLONING
+                // starts, with ~0ms of real data) from freezing a near-zero estimate that then
+                // sits hidden for the rest of that phase — CLONING/PARSING/SCANNING report a
+                // fixed percent per phase (not a gradually climbing one), so without this gate
+                // the ETA would only ever surface once a *later* phase transition happened to
+                // accumulate 5s of elapsed time, which can take several phases on a fast import.
+                // Requiring 5s of real elapsed time up front instead means the estimate appears
+                // as soon as there's a real sample, regardless of which phase we're in.
+                tracker._etaAnchorPct = tracker.percent;
+                tracker._etaAnchorAtEpochMs = Date.now();
+            }
 
             if (job.phase === tracker.lastPhase) {
                 if (tracker.progressLog.length > 0) {
@@ -538,6 +596,58 @@ function quickImportPage() {
             this._syncTracker(tracker);
         },
 
+        /* ── Elapsed / ETA display ────────────────── */
+
+        _fmtDuration(ms) {
+            if (ms == null || ms < 0) return '';
+            const total = Math.floor(ms / 1000);
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            const mm = String(m).padStart(2, '0');
+            const ss = String(s).padStart(2, '0');
+            return h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss;
+        },
+
+        /** Elapsed time since the job was queued (ticks via nowTick). */
+        elapsedText(job) {
+            void this.nowTick;
+            if (!job || !job.startedAtEpochMs) return '';
+            return this._fmtDuration(Date.now() - job.startedAtEpochMs);
+        },
+
+        /**
+         * Remaining-time estimate extrapolated from the last percent advance.
+         * Percent is a per-phase step value, so extrapolating from "now" inflates the
+         * estimate while a long phase runs; the anchor keeps it stable and the
+         * countdown below ticks it down between updates. Clamped so progress
+         * regressions/jumps can't spike it.
+         * Hidden while queued, in the first seconds, or when percent is unreliable.
+         */
+        etaText(job) {
+            void this.nowTick;
+            if (!job) return '';
+            const phase = this._normalizePhase(job.phase);
+            if (!this._isRunningPhase(phase)) return '';
+            const pct = job.percent;
+            if (!job.runningSinceEpochMs || pct == null || pct < 5 || pct >= 100) return '';
+            if (job._etaAnchorPct == null || job._etaAnchorAtEpochMs == null) return '';
+            const progressedMs = job._etaAnchorAtEpochMs - job.runningSinceEpochMs;
+            // Redundant with the ETA_MIN_SAMPLE_MS gate applied when the anchor is set
+            // (see _applyJobUpdate) — kept as a safety net in case of clock skew.
+            if (progressedMs < ETA_MIN_SAMPLE_MS) return '';
+            const anchorPct = Math.max(job._etaAnchorPct, 1);
+            let remainingMs = (progressedMs * (100 - anchorPct)) / anchorPct;
+            remainingMs -= Date.now() - job._etaAnchorAtEpochMs;
+            remainingMs = Math.min(Math.max(remainingMs, 0), ETA_MAX_MS);
+            const remainingSec = Math.round(remainingMs / 1000);
+            if (remainingSec >= 60) {
+                return _qiFmt(_qi('etaMinutes'), Math.ceil(remainingSec / 60));
+            }
+            // Round up to 10s steps so the number doesn't jitter every second
+            return _qiFmt(_qi('etaSeconds'), Math.max(10, Math.ceil(remainingSec / 10) * 10));
+        },
+
         _localizedMessage(job) {
             return _qiResolveError({
                 errorKey: job.messageKey,
@@ -546,19 +656,17 @@ function quickImportPage() {
         },
 
         _queueStatusLine(queuePosition) {
-            const q = _qi();
             if (queuePosition == null) {
-                return q.phaseQueued || 'Queued';
+                return _qi('phaseQueued');
             }
             const max = this.maxConcurrentSlots || 3;
             if (queuePosition <= max) {
-                return _qiFmt(q.queueNext || 'Starting soon (slot {0})\u2026', queuePosition);
+                return _qiFmt(_qi('queueNext'), queuePosition);
             }
-            return _qiFmt(q.queueWaiting || 'Waiting in queue (#{0})\u2026', queuePosition - max);
+            return _qiFmt(_qi('queueWaiting'), queuePosition - max);
         },
 
         _phaseLine(job) {
-            const q = _qi();
             const phase = this._normalizePhase(job.phase);
             if (phase === 'QUEUED') {
                 return this._queueStatusLine(job.queuePosition);
@@ -570,26 +678,26 @@ function quickImportPage() {
                 if (job.messageKey === 'importComplete') {
                     return this._localizedMessage(job);
                 }
-                return q.phaseDone || 'Done';
+                return _qi('phaseDone');
             }
             const phaseLabels = {
-                QUEUED:    q.phaseQueued    || 'Queued',
-                CLONING:   q.phaseCloning   || 'Cloning repository…',
-                PARSING:   q.phaseParsing   || 'Parsing dependencies…',
-                SCANNING:  q.phaseScanning  || 'Running security scan…',
-                ENRICHING: q.phaseEnriching || 'Analyzing components…',
-                DONE:      q.phaseDone      || 'Done',
-                FAILED:    q.phaseFailed    || 'Failed',
+                QUEUED:    _qi('phaseQueued'),
+                CLONING:   _qi('phaseCloning'),
+                PARSING:   _qi('phaseParsing'),
+                SCANNING:  _qi('phaseScanning'),
+                ENRICHING: _qi('phaseEnriching'),
+                DONE:      _qi('phaseDone'),
+                FAILED:    _qi('phaseFailed'),
             };
             const subLabels = {
-                CVE: q.subPhaseCve || 'CVE analysis',
-                LICENSE: q.subPhaseLicense || 'License review',
-                POSTURE: q.subPhasePosture || 'Security overview',
-                TREND: q.subPhaseTrend || 'Risk trends',
-                DIFF: q.subPhaseDiff || 'Version changes',
+                CVE: _qi('subPhaseCve'),
+                LICENSE: _qi('subPhaseLicense'),
+                POSTURE: _qi('subPhasePosture'),
+                TREND: _qi('subPhaseTrend'),
+                DIFF: _qi('subPhaseDiff'),
             };
             if (phase === 'ENRICHING' && job.subPhase && subLabels[job.subPhase]) {
-                return phaseLabels.ENRICHING + ' · ' + subLabels[job.subPhase];
+                return phaseLabels.ENRICHING + ' › ' + subLabels[job.subPhase];
             }
             return phaseLabels[phase] || phase;
         },
@@ -661,7 +769,7 @@ function quickImportPage() {
             try {
                 const res = await fetch('/api/quick-import/repos?provider=' + provider);
                 if (!res.ok) {
-                    let msg = _qi().unexpectedError || 'An unexpected error occurred.';
+                    let msg = _qi('unexpectedError');
                     try { msg = _qiResolveError(await res.json()); } catch (_) {}
                     throw new Error(msg);
                 }
@@ -733,33 +841,26 @@ function quickImportPage() {
 
         formatRepoDate(dateStr) {
             if (!dateStr) return '';
-            const q = _qi();
-            const fmt = (t, n) => String(t || '').replace('{0}', n);
             try {
                 const d = new Date(dateStr);
                 if (isNaN(d)) return '';
                 const now = new Date();
                 const diff = Math.floor((now - d) / 1000);
-                if (diff < 60)   return q.justNow || 'just now';
-                if (diff < 3600) return fmt(q.minutesShort, Math.floor(diff / 60));
-                if (diff < 86400) return fmt(q.hoursShort, Math.floor(diff / 3600));
-                if (diff < 2592000) return fmt(q.daysShort, Math.floor(diff / 86400));
+                if (diff < 60)   return _qi('justNow');
+                if (diff < 3600) return _qiFmt(_qi('minutesShort'), Math.floor(diff / 60));
+                if (diff < 86400) return _qiFmt(_qi('hoursShort'), Math.floor(diff / 3600));
+                if (diff < 2592000) return _qiFmt(_qi('daysShort'), Math.floor(diff / 86400));
                 return d.toLocaleDateString();
             } catch (_) { return ''; }
         },
 
         providerLabel(provider) {
-            const q = _qi();
             const map = {
-                GITHUB: q.providerGithub || 'GitHub',
-                GITLAB: q.providerGitlab || 'GitLab',
-                BITBUCKET: q.providerBitbucket || 'Bitbucket',
+                GITHUB: _qi('providerGithub'),
+                GITLAB: _qi('providerGitlab'),
+                BITBUCKET: _qi('providerBitbucket'),
             };
             return map[provider] || provider;
-        },
-
-        providerBrandColor(provider) {
-            return { GITHUB: '#24292f', GITLAB: '#fc6d26', BITBUCKET: '#0052cc' }[provider] || '#6b7280';
         },
 
         _refreshBackground(projectId) {
@@ -767,18 +868,20 @@ function quickImportPage() {
                 window.refreshProjectCards();
             }
             if (!projectId) return;
-            if (this._scanWatcher) { this._scanWatcher.close(); this._scanWatcher = null; }
+            // One watcher per project so back-to-back imports are all tracked.
+            const prev = this._scanWatchers.get(projectId);
+            if (prev) { prev.close(); this._scanWatchers.delete(projectId); }
             try {
                 const es = new EventSource('/projects/scan-status/stream?ids=' + projectId);
-                this._scanWatcher = es;
+                this._scanWatchers.set(projectId, es);
                 es.addEventListener('scan-update', () => {
                     es.close();
-                    this._scanWatcher = null;
+                    this._scanWatchers.delete(projectId);
                     if (typeof window.refreshProjectCards === 'function') {
                         window.refreshProjectCards();
                     }
                 });
-                es.onerror = () => { es.close(); this._scanWatcher = null; };
+                es.onerror = () => { es.close(); this._scanWatchers.delete(projectId); };
             } catch (_) {}
         },
 

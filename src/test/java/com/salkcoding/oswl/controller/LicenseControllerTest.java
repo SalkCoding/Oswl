@@ -3,6 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.LicenseService;
 import com.salkcoding.oswl.service.ProjectAccessService;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,7 @@ class LicenseControllerTest {
     @Mock LicenseService licenseService;
     @Mock AuditLogService auditLogService;
     @Mock ProjectAccessService projectAccessService;
+    @Mock VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
     @InjectMocks LicenseController controller;
 
     @Test

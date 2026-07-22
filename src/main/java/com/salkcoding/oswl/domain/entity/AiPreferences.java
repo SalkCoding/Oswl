@@ -54,6 +54,14 @@ public class AiPreferences {
     @Column(name = "default_deployment_profile", nullable = false, length = 40)
     private DeploymentProfile defaultDeploymentProfile;
 
+    /** Nullable override for the llama.cpp sidecar directory (falls back to oswl.ai.embedded.dir) */
+    @Column(name = "embedded_dir", length = 512)
+    private String embeddedDir;
+
+    /** Nullable preferred embedded model file name (falls back to built-in preference order) */
+    @Column(name = "embedded_model", length = 255)
+    private String embeddedModel;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -85,5 +93,11 @@ public class AiPreferences {
         this.defaultDeploymentProfile = defaultDeploymentProfile != null
                 ? defaultDeploymentProfile
                 : DeploymentProfile.COMMERCIAL_PRODUCT;
+    }
+
+    /** Updates only the embedded sidecar overrides; blank values clear the override. */
+    public void updateEmbedded(String embeddedDir, String embeddedModel) {
+        this.embeddedDir = embeddedDir != null && !embeddedDir.isBlank() ? embeddedDir.strip() : null;
+        this.embeddedModel = embeddedModel != null && !embeddedModel.isBlank() ? embeddedModel.strip() : null;
     }
 }

@@ -44,6 +44,8 @@ Components present in **both** scans but with a **different version**.
 
 An upgrade that resolves CVEs shows a negative CVE delta (green). A downgrade or a version bump that introduces new CVEs shows a positive delta (red).
 
+> When a library appears in **multiple versions within the same scan** (a diamond dependency — e.g. two transitive paths pulling different major versions of the same package), each version is tracked and diffed independently rather than collapsed into a single row.
+
 ---
 
 ## Use Cases

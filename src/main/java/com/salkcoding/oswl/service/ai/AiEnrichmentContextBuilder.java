@@ -136,7 +136,7 @@ public final class AiEnrichmentContextBuilder {
         return map;
     }
 
-    public static String nullSafe(String value) {
+    private static String nullSafe(String value) {
         return value != null ? value : "-";
     }
 
