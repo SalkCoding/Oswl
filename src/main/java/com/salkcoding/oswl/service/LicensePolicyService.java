@@ -32,7 +32,11 @@ import org.springframework.data.domain.Sort;
 
 import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.PlatformTransactionManager;
+
 import org.springframework.transaction.annotation.Transactional;
+
+import org.springframework.transaction.support.TransactionTemplate;
 
 
 
@@ -84,6 +88,8 @@ public class LicensePolicyService {
 
     private final SpdxLicenseRegistry spdxLicenseRegistry;
 
+    private final PlatformTransactionManager transactionManager;
+
 
 
     /** In-memory cache: SPDX ID (upper-case) → LicenseStatus */
@@ -100,11 +106,13 @@ public class LicensePolicyService {
 
     @PostConstruct
 
-    @Transactional
-
     public void init() {
 
-        ensureBuiltInDefaults();
+        // @Transactional on @PostConstruct is silently ignored (the proxy is not applied
+        // to the lifecycle callback), so the seeding runs through a TransactionTemplate
+        // to keep it atomic instead of committing entry by entry.
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> ensureBuiltInDefaults());
 
         refreshCache();
 

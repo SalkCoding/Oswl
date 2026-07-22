@@ -108,6 +108,8 @@ ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 | `POST` | `/api/scan` | API key + user password | Submit scan for enrichment |
 | `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status (UI) |
 
+> The CLI endpoints authenticate with the `Authorization: Bearer` header only — no session cookie or CSRF token is required. `POST /api/scan`, `POST /api/scan/parse`, and `GET /api/scan/ping` are exempt from the browser CSRF checks; every other route keeps normal CSRF protection. See [Scan API Security](Scan-Api-Security.md).
+
 ---
 
 ## API key management

@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.controller.spec.ScanHistoryControllerSpec;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanHistoryService;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/projects/{projectId}/scan-history")
 @PreAuthorize("hasPermission(null, 'SCAN_HISTORY_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
-public class ScanHistoryController {
+public class ScanHistoryController implements ScanHistoryControllerSpec {
 
     private final ScanHistoryService scanHistoryService;
     private final ScanResultRepository scanResultRepository;

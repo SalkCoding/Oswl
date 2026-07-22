@@ -16,6 +16,7 @@ Cross-site request forgery protections apply to **cookie-based browser sessions*
 OsWL therefore **exempts only** these paths from CSRF checks:
 
 - `POST /api/scan` — submit scan payload  
+- `POST /api/scan/parse` — parse manifest archive (CLI step 1)  
 - `GET /api/scan/ping` — verify API key  
 
 All other routes keep normal CSRF protection for the UI.

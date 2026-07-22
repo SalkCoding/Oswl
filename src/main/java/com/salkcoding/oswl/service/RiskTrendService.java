@@ -7,6 +7,8 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
+import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,9 +40,11 @@ public class RiskTrendService {
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> scansDesc = scanResultRepository.findRecentCompleted(projectId, trendLimit);
+        List<ScanResult> scansDesc = new ArrayList<>(scanResultRepository.findRecentCompleted(projectId, trendLimit));
+        VersionOrder.sortDesc(scansDesc);
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
                         .scanId(s.getId())
@@ -52,14 +56,14 @@ public class RiskTrendService {
                         .build())
                 .toList();
         model.addAttribute("scanVersions", scanVersions);
-        model.addAttribute("currentScanId", (Object) null);
+        model.addAttribute("currentScanId", null);
 
         if (scansDesc.isEmpty()) {
             addEmptyChartData(model);
             return;
         }
 
-        ScanResult latest = scansDesc.get(0);
+        ScanResult latest = scansDesc.getFirst();
         model.addAttribute("projectVersion", latest.getVersion() != null ? latest.getVersion() : "-");
 
         List<ScanResult> scansAsc = new ArrayList<>(scansDesc);
@@ -114,8 +118,8 @@ public class RiskTrendService {
         model.addAttribute("licenseIssues",  currentLicIssues);
         model.addAttribute("licenseDelta",   licDelta);
 
-        model.addAttribute("securityAiInsight", latest.getSecurityAiInsight());
-        model.addAttribute("licenseAiInsight",  latest.getLicenseAiInsight());
+        model.addAttribute("securityAiInsight", AiResponseSanitizer.sanitizePlainText(latest.getSecurityAiInsight()));
+        model.addAttribute("licenseAiInsight",  AiResponseSanitizer.sanitizePlainText(latest.getLicenseAiInsight()));
 
         model.addAttribute("chartVersions",    versions);
         model.addAttribute("chartSecCritical", secCritical);

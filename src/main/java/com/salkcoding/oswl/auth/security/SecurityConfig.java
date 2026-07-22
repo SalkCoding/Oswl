@@ -86,6 +86,9 @@ public class SecurityConfig {
                     .ignoringRequestMatchers(
                             req -> "POST".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan".equals(req.getRequestURI()),
+                            // Documented CLI flow uploads manifests here; the API key still authenticates.
+                            req -> "POST".equalsIgnoreCase(req.getMethod())
+                                    && "/api/scan/parse".equals(req.getRequestURI()),
                             req -> "GET".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan/ping".equals(req.getRequestURI())))
             .headers(headers -> applySecurityHeaders(headers))

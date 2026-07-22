@@ -67,7 +67,22 @@ docker compose -f docker-compose.prod.yml up -d --build
 |------|------|
 | `OSWL_TRUSTED_DEVICE_HMAC_KEY` | `OSWL_TD` 쿠키 전용 HMAC (`OSWL_ENCRYPTION_KEY`와 분리 권장) |
 
-## 8. 데이터베이스 스키마 (업그레이드)
+## 8. 내장 AI 모델 (선택, 온프레미스)
+
+**내장 AI**(설정 → AI → 로컬)를 클라우드 프로바이더 대신 또는 함께 쓸 계획일 때만 해당됩니다.
+
+| 확인 | 조치 |
+|------|------|
+| 서버 바이너리 | [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)에서 플랫폼에 맞는 `llama-server(.exe)`를 받아 `embedded-ai/`(또는 그 하위 `bin/`, 혹은 `PATH`)에 배치 — 유일한 수동 단계입니다 |
+| 모델 | 별도 조치 불필요 — 신규 설치에서 **시작**을 누르면 Apache 2.0 라이선스인 Qwen3-1.7B 모델(~1.2GB)이 자동으로 다운로드됩니다(SHA256 검증, UI에 진행률 표시) |
+| 폐쇄망 환경 | 자동 다운로드는 최초 1회 아웃바운드 인터넷 접근이 필요합니다. 인터넷이 없다면 시작을 누르기 전 `.gguf` 파일(예: 직접 받은 Gemma — 아래 참고)을 `embedded-ai/`에 미리 넣어두세요 |
+| Gemma 폴백 | 자동으로 받아지지 않음 — [Gemma Terms of Use](https://ai.google.dev/gemma/terms)라는 비표준 라이선스라 OsWL이 대신 재배포하지 않기 때문. 저사양용 폴백이 필요하면 직접 다운로드 — [내장 AI](Embedded-AI.md) 참고 |
+| 디렉터리 | 기본값은 JVM이 시작되는 작업 디렉터리 기준 `./embedded-ai` — 다른 경로를 쓰려면 `OSWL_EMBEDDED_AI_DIR` 설정 |
+
+Gradle 태스크나 별도 스크립트가 필요 없습니다 — 다운로드는 시작 버튼을 처음 누를 때 앱
+자체에서 실행되므로, 단순히 `java -jar app.jar`로 배포해도 동작합니다.
+
+## 9. 데이터베이스 스키마 (업그레이드)
 
 OsWL **`prod`는 Hibernate `ddl-auto=validate`** — 기동 시 PostgreSQL을 자동 변경하지 않습니다.
 
@@ -89,7 +104,7 @@ OsWL **`prod`는 Hibernate `ddl-auto=validate`** — 기동 시 PostgreSQL을 �
 
 자세한 내용: [데이터베이스 스키마](Database-Schema.md)
 
-## 9. 배포 후 스모크 테스트
+## 10. 배포 후 스모크 테스트
 
 1. HTTPS 리버스 프록시로만 UI 접근.
 2. 설정/로그인 및 2FA(활성 시) 완료.
@@ -98,7 +113,7 @@ OsWL **`prod`는 Hibernate `ddl-auto=validate`** — 기동 시 PostgreSQL을 �
 5. 멤버 프로젝트 접근, 타 사용자 프로젝트 ID는 forbidden 확인.
 6. 감사 로그에서 인증 실패 검토.
 
-## 10. 운영
+## 11. 운영
 
 - PostgreSQL 백업, `OSWL_ENCRYPTION_KEY`는 시크릿 매니저에 보관(분실 시 VCS 토큰 복호 불가).
 - 유출 시 API 키·SMTP 자격 증명 교체.

@@ -27,6 +27,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [Chart.js](#chartjs) | MIT |
 | [htmx](#htmx) | BSD Zero-Clause (0BSD) |
 | [Tailwind CSS](#tailwind-css) | MIT |
+| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf) | Apache 2.0 |
 
 ---
 
@@ -398,10 +399,38 @@ all copies or substantial portions of the Software.
 
 ---
 
+## Bundled AI Models
+
+Unlike the libraries above, model weights are not source code and are not covered by a
+uniform "open source" regime — each model below is listed with its actual license, which
+may impose obligations beyond a copyright notice.
+
+### Qwen3-1.7B (GGUF)
+
+- **Version:** Qwen3-1.7B, quantized to GGUF (Q4_K_M)
+- **Publisher:** Alibaba Cloud (Qwen team)
+- **Website:** https://github.com/QwenLM/Qwen3
+- **License:** Apache License, Version 2.0 — full text below under [Apache License 2.0 — Full Text](#apache-license-20--full-text)
+- **Distribution:** Not bundled in the git repository or build artifacts — OsWL downloads this file itself from the official `ggml-org/Qwen3-1.7B-GGUF` Hugging Face repository (over plain HTTPS, verifying its SHA256) the first time a user clicks **Start** on Embedded AI with no model present, storing it at `embedded-ai/qwen3-1.7b-q4_k_m.gguf`. Permissively licensed, so this auto-fetch carries no redistribution obligation beyond this notice. See [Embedded AI](docs/Embedded-AI.md).
+
+```
+Copyright Alibaba Cloud. Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License. You may obtain a copy
+of the License at https://www.apache.org/licenses/LICENSE-2.0
+```
+
+### Gemma 3 1B (GGUF) — not bundled
+
+- **Website:** https://ai.google.dev/gemma
+- **License:** [Gemma Terms of Use](https://ai.google.dev/gemma/terms) — a custom license, **not** an OSI-approved open-source license. It requires redistributors to pass a full copy of the terms and a Prohibited Use Policy notice to every downstream recipient, among other obligations that don't fit a standard third-party-notice format.
+- **Distribution:** **Not included** in OsWL's repository, build, or release artifacts. It is offered only as an optional low-spec fallback for Embedded AI — users who want it download it themselves directly from Google/Hugging Face and accept the Gemma Terms of Use in that transaction. See [Embedded AI](docs/Embedded-AI.md).
+
+---
+
 ## Apache License 2.0 — Full Text
 
-The following libraries are licensed under the Apache License, Version 2.0:
-Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail.
+The following libraries and models are licensed under the Apache License, Version 2.0:
+Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Qwen3-1.7B.
 
 ```
                                  Apache License

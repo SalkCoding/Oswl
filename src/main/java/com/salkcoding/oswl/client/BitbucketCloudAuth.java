@@ -90,10 +90,6 @@ public record BitbucketCloudAuth(String email, String workspaceSlug, Mode mode) 
         return workspaceSlug != null && !workspaceSlug.isBlank();
     }
 
-    public boolean isAtlassianAccountToken(String token) {
-        return token != null && token.startsWith("ATATT") && mode == Mode.ATLASSIAN_ACCOUNT;
-    }
-
     private static String basicHeader(String user, String token) {
         String credentials = user + ":" + token;
         return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));

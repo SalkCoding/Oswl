@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.function.Supplier;
 
 /**
  * deps.dev REST API v3 client.
@@ -31,9 +33,12 @@ import java.util.concurrent.Executors;
 public class DepsDevClient {
 
     private static final String BASE_URL = "https://api.deps.dev";
+    /** Max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
+    private static final int MAX_CONCURRENT_REQUESTS = 10;
 
     private final RestClient restClient;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final Semaphore requestPermits = new Semaphore(MAX_CONCURRENT_REQUESTS);
 
     public DepsDevClient() {
         this.restClient = RestClient.builder()
@@ -69,7 +74,7 @@ public class DepsDevClient {
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
         List<CompletableFuture<VersionInfo>> futures = components.stream()
-                .map(key -> CompletableFuture.supplyAsync(() -> getVersion(key), executor))
+                .map(key -> CompletableFuture.supplyAsync(() -> withPermit(() -> getVersion(key)), executor))
                 .toList();
 
         List<VersionInfo> results = new ArrayList<>(components.size());
@@ -90,7 +95,7 @@ public class DepsDevClient {
      */
     public List<AdvisoryInfo> getAdvisoriesBatch(List<String> ghsaIds) {
         List<CompletableFuture<AdvisoryInfo>> futures = ghsaIds.stream()
-                .map(id -> CompletableFuture.supplyAsync(() -> getAdvisory(id), executor))
+                .map(id -> CompletableFuture.supplyAsync(() -> withPermit(() -> getAdvisory(id)), executor))
                 .toList();
 
         List<AdvisoryInfo> results = new ArrayList<>(ghsaIds.size());
@@ -106,6 +111,24 @@ public class DepsDevClient {
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
+
+    /**
+     * Runs one deps.dev call under the concurrency permit, so a large batch cannot fire
+     * hundreds of simultaneous HTTP requests. Returns {@code null} when interrupted.
+     */
+    private <T> T withPermit(Supplier<T> call) {
+        try {
+            requestPermits.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+        try {
+            return call.get();
+        } finally {
+            requestPermits.release();
+        }
+    }
 
     private VersionInfo getVersion(ComponentKey key) {
         try {

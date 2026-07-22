@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.repository;
 
 import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.enums.ScanStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -37,4 +38,19 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
 
     /** Find scan by id scoped to a project — avoids lazy-loading the project association */
     Optional<ScanResult> findByIdAndProjectId(Long id, Long projectId);
+
+    /**
+     * Scan with its (LAZY) project fetch-joined — project fields stay readable
+     * after the query's own transaction ends (async enrichment runs without an outer tx).
+     */
+    @Query("SELECT s FROM ScanResult s JOIN FETCH s.project WHERE s.id = :id")
+    Optional<ScanResult> findWithProjectById(@Param("id") Long id);
+
+    /**
+     * Most recent 15 scans with the given status across all projects (AI insight backfill).
+     * NULLS LAST keeps parity with the previous in-memory nullsLast ordering —
+     * PostgreSQL would default to NULLS FIRST for DESC.
+     */
+    @Query("SELECT s FROM ScanResult s WHERE s.status = :status ORDER BY s.scannedAt DESC NULLS LAST LIMIT 15")
+    List<ScanResult> findTop15ByStatusOrderByScannedAtDesc(@Param("status") ScanStatus status);
 }
