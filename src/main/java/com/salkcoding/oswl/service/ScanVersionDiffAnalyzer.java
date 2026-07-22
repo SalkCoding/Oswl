@@ -22,8 +22,8 @@ public class ScanVersionDiffAnalyzer {
             List<VersionDiffRowDto> rows, String threatDetails) {}
 
     public DiffResult compare(Long fromScanId, Long toScanId) {
-        Map<String, ScanComponent> fromMap = buildMap(fromScanId);
-        Map<String, ScanComponent> toMap   = buildMap(toScanId);
+        Map<String, List<ScanComponent>> fromMap = buildMap(fromScanId);
+        Map<String, List<ScanComponent>> toMap   = buildMap(toScanId);
 
         List<VersionDiffRowDto> rows = new ArrayList<>();
         Set<String> allNames = new LinkedHashSet<>();
@@ -33,51 +33,84 @@ public class ScanVersionDiffAnalyzer {
         int added = 0, removed = 0, updated = 0, newThreat = 0;
 
         for (String name : allNames) {
-            ScanComponent fromComp = fromMap.get(name);
-            ScanComponent toComp   = toMap.get(name);
+            // Compare per (name, version) so a library present in several versions
+            // (e.g. diamond dependencies) is never collapsed into a single row.
+            Map<String, ScanComponent> fromByVersion = byVersion(fromMap.get(name));
+            Map<String, ScanComponent> toByVersion   = byVersion(toMap.get(name));
 
-            ChangeType type;
-            if (fromComp == null) {
-                RiskLevel toRisk = toComp.getLibrary().highestSeverity();
-                if (toRisk != RiskLevel.NONE) {
-                    type = ChangeType.NEW_THREAT;
-                    newThreat++;
+            Set<String> allVersions = new LinkedHashSet<>();
+            allVersions.addAll(fromByVersion.keySet());
+            allVersions.addAll(toByVersion.keySet());
+
+            List<String> removedVersions = new ArrayList<>();
+            List<String> addedVersions   = new ArrayList<>();
+            for (String version : allVersions) {
+                ScanComponent fromComp = fromByVersion.get(version);
+                ScanComponent toComp   = toByVersion.get(version);
+                if (fromComp != null && toComp != null) {
+                    // Same name+version in both scans — only a severity change is notable.
+                    if (isNewThreat(fromComp, toComp)) {
+                        rows.add(diffRow(fromComp, toComp, ChangeType.NEW_THREAT));
+                        newThreat++;
+                    }
+                } else if (fromComp != null) {
+                    removedVersions.add(version);
                 } else {
-                    type = ChangeType.ADDED;
-                    added++;
-                }
-            } else if (toComp == null) {
-                type = ChangeType.REMOVED;
-                removed++;
-            } else {
-                boolean versionChanged = !Objects.equals(fromComp.getVersion(), toComp.getVersion());
-                RiskLevel fromRisk = fromComp.getLibrary().highestSeverity();
-                RiskLevel toRisk   = toComp.getLibrary().highestSeverity();
-                boolean isNewThreat = (toRisk != RiskLevel.NONE)
-                        && (fromRisk == RiskLevel.NONE || toRisk.ordinal() < fromRisk.ordinal());
-                if (isNewThreat) {
-                    type = ChangeType.NEW_THREAT;
-                    newThreat++;
-                } else if (versionChanged) {
-                    type = ChangeType.UPDATED;
-                    updated++;
-                } else {
-                    continue;
+                    addedVersions.add(version);
                 }
             }
 
-            rows.add(VersionDiffRowDto.builder()
-                    .fromName(fromComp != null ? fromComp.getName() : null)
-                    .fromVersion(fromComp != null ? fromComp.getVersion() : null)
-                    .fromRiskLevel(fromComp != null ? fromComp.getLibrary().highestSeverity().name() : null)
-                    .toName(toComp != null ? toComp.getName() : null)
-                    .toVersion(toComp != null ? toComp.getVersion() : null)
-                    .toRiskLevel(toComp != null ? toComp.getLibrary().highestSeverity().name() : null)
-                    .changeType(type)
-                    .build());
+            // One from-only version replaced by one to-only version → version change.
+            if (removedVersions.size() == 1 && addedVersions.size() == 1) {
+                ScanComponent fromComp = fromByVersion.get(removedVersions.get(0));
+                ScanComponent toComp   = toByVersion.get(addedVersions.get(0));
+                if (isNewThreat(fromComp, toComp)) {
+                    rows.add(diffRow(fromComp, toComp, ChangeType.NEW_THREAT));
+                    newThreat++;
+                } else {
+                    rows.add(diffRow(fromComp, toComp, ChangeType.UPDATED));
+                    updated++;
+                }
+                continue;
+            }
+
+            for (String version : removedVersions) {
+                rows.add(diffRow(fromByVersion.get(version), null, ChangeType.REMOVED));
+                removed++;
+            }
+            for (String version : addedVersions) {
+                ScanComponent toComp = toByVersion.get(version);
+                if (toComp.getLibrary().highestSeverity() != RiskLevel.NONE) {
+                    rows.add(diffRow(null, toComp, ChangeType.NEW_THREAT));
+                    newThreat++;
+                } else {
+                    rows.add(diffRow(null, toComp, ChangeType.ADDED));
+                    added++;
+                }
+            }
         }
 
         return new DiffResult(added, removed, updated, newThreat, rows, buildThreatDetails(rows));
+    }
+
+    /** True when the to-scan component is a new or more severe threat than the from-scan one. */
+    private static boolean isNewThreat(ScanComponent fromComp, ScanComponent toComp) {
+        RiskLevel fromRisk = fromComp.getLibrary().highestSeverity();
+        RiskLevel toRisk   = toComp.getLibrary().highestSeverity();
+        return (toRisk != RiskLevel.NONE)
+                && (fromRisk == RiskLevel.NONE || toRisk.ordinal() < fromRisk.ordinal());
+    }
+
+    private static VersionDiffRowDto diffRow(ScanComponent fromComp, ScanComponent toComp, ChangeType type) {
+        return VersionDiffRowDto.builder()
+                .fromName(fromComp != null ? fromComp.getName() : null)
+                .fromVersion(fromComp != null ? fromComp.getVersion() : null)
+                .fromRiskLevel(fromComp != null ? fromComp.getLibrary().highestSeverity().name() : null)
+                .toName(toComp != null ? toComp.getName() : null)
+                .toVersion(toComp != null ? toComp.getVersion() : null)
+                .toRiskLevel(toComp != null ? toComp.getLibrary().highestSeverity().name() : null)
+                .changeType(type)
+                .build();
     }
 
     private static String buildThreatDetails(List<VersionDiffRowDto> rows) {
@@ -103,11 +136,21 @@ public class ScanVersionDiffAnalyzer {
         return threatDetails.toString().strip();
     }
 
-    private Map<String, ScanComponent> buildMap(Long scanId) {
+    private Map<String, List<ScanComponent>> buildMap(Long scanId) {
         return scanComponentRepository.findByScanResultId(scanId).stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(java.util.stream.Collectors.groupingBy(
                         sc -> sc.getLibrary().getName(),
-                        sc -> sc,
-                        (a, b) -> a));
+                        LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+    }
+
+    /** Components of one library name keyed by version; the first row wins on exact duplicates. */
+    private static Map<String, ScanComponent> byVersion(List<ScanComponent> components) {
+        if (components == null) return Map.of();
+        Map<String, ScanComponent> map = new LinkedHashMap<>();
+        for (ScanComponent sc : components) {
+            map.putIfAbsent(sc.getVersion() != null ? sc.getVersion() : "", sc);
+        }
+        return map;
     }
 }

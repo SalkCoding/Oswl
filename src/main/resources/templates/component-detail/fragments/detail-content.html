@@ -332,18 +332,19 @@
                          class="w-[14px] h-[14px] transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''" aria-hidden="true">
                         <path d="M13.2578 4H5.74222C4.78379 4 4.21212 5.06818 4.74376 5.86564L8.50154 11.5023C8.97653 12.2148 10.0235 12.2148 10.4985 11.5023L14.2562 5.86564C14.7879 5.06817 14.2162 4 13.2578 4Z" fill="#00A093"/>
                     </svg>
-                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]" th:text="${cve.id}">CVE-2024-11053</p>
                     <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
                                           : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
                                           : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]'
                                           : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-30)]' : 'bg-[var(--risk-unknown)]')))"
-                          class="w-[6px] h-[6px] rounded-full"></span>
-                    <p th:if="${cve.title}" class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="${cve.title}">Vulnerability Title</p>
-                    <span th:class="${cve.severity == 'CRITICAL'} ? 'ml-auto bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : (${cve.severity == 'HIGH'} ? 'ml-auto bg-[rgba(244,122,41,0.05)] border border-[rgba(244,122,41,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : (${cve.severity == 'MEDIUM'} ? 'ml-auto bg-[rgba(245,189,38,0.05)] border border-[rgba(245,189,38,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : (${cve.severity == 'LOW'} ? 'ml-auto bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
-                                    : 'ml-auto bg-[rgba(39,45,48,0.05)] border border-[rgba(39,45,48,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]')))">
+                          class="w-[6px] h-[6px] rounded-full shrink-0"></span>
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] shrink-0 w-[190px] truncate" th:text="${cve.id}" th:title="${cve.id}">CVE-2024-11053</p>
+                    <p class="flex-1 min-w-0 truncate text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="${cve.title}" th:title="${cve.title}">Vulnerability Title</p>
+                    <span class="shrink-0 flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px] border"
+                          th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
+                                        : (${cve.severity == 'HIGH'} ? 'bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]'
+                                        : (${cve.severity == 'MEDIUM'} ? 'bg-[rgba(245,189,38,0.05)] border-[rgba(245,189,38,0.2)]'
+                                        : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-5)] border-[var(--grayscale-20)]'
+                                        : 'bg-[rgba(39,45,48,0.05)] border-[rgba(39,45,48,0.2)]')))">
                         <span th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[var(--risk-critical)]'
                                                : (${cve.severity == 'HIGH'} ? 'bg-[var(--risk-high)]'
                                                : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]'
@@ -385,9 +386,16 @@
                         <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.summary}"></p>
                     </div>
                     <div class="flex flex-wrap gap-x-[24px] gap-y-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
-                        <span th:if="${cve.cweId}"><span class="font-medium" th:text="#{componentDetail.cve.type} + ':'" >Type:</span> <span th:text="${cve.cweId}">CWE-20</span></span>
-                        <span><span class="font-medium" th:text="#{componentDetail.cve.affects} + ':'" >Affects:</span> <span th:text="${dependencyInfo}">-</span></span>
-                        <span><span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'" >Fix:</span>
+                        <span th:if="${cve.cweId}">
+                            <span class="font-medium" th:text="#{componentDetail.cve.type} + ':'">Type:</span>
+                            <span th:text="${cve.cweId}">CWE-20</span>
+                        </span>
+                        <span>
+                            <span class="font-medium" th:text="#{componentDetail.cve.affects} + ':'">Affects:</span>
+                            <span th:text="${dependencyInfo}">-</span>
+                        </span>
+                        <span>
+                            <span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'">Fix:</span>
                             <span th:class="${cve.fixVersion} ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)]'"
                                   th:text="${cve.fixVersion} ?: #{componentDetail.cve.noFix}">2.2.1-alpha01</span>
                         </span>
@@ -688,13 +696,20 @@
             try {
                 const r = await fetch(`/projects/${projectId}/components/${componentId}/cves/${cveDbId}/ai-summarize`, {
                     method: 'POST',
-                    headers: Object.assign(
-                        { 'Accept': 'application/json' },
-                        window.OswlCsrf ? { 'X-CSRF-TOKEN': window.OswlCsrf.token() } : {}
-                    )
+                    headers: oswlJsonHeaders({ 'Accept': 'application/json' })
                 });
                 if (r.ok) {
-                    location.reload();
+                    // 슬라이드아웃 안에서는 패널 내용만 다시 로드 (전체 리로드 시 패널 상태 소실)
+                    const slideout = document.getElementById('slideout-content');
+                    if (slideout && window.htmx) {
+                        htmx.ajax('GET', `/projects/${projectId}/components/${componentId}`, {
+                            target: '#slideout-content',
+                            select: '#component-detail-content',
+                            swap: 'innerHTML'
+                        });
+                    } else {
+                        location.reload();
+                    }
                     return;
                 }
                 let message = _aiI18n.generic;

@@ -5,6 +5,7 @@ import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.controller.spec.VcsBranchControllerSpec;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.GitHubService;
@@ -33,7 +34,7 @@ import java.util.List;
 @RequestMapping("/api/vcs")
 @PreAuthorize("hasPermission(null, 'COMPONENT_DETAIL_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
-public class VcsBranchController {
+public class VcsBranchController implements VcsBranchControllerSpec {
 
     private final ProjectRepository           projectRepository;
     private final ProjectAccessService        projectAccessService;

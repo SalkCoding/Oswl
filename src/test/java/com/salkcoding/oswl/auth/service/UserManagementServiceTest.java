@@ -324,7 +324,7 @@ class UserManagementServiceTest {
         List<UserSummaryDto> result = userManagementService.findAllUsers();
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getEmail()).isEqualTo("u@example.com");
+        assertThat(result.getFirst().getEmail()).isEqualTo("u@example.com");
     }
 }
 

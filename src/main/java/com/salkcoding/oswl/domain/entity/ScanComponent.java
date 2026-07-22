@@ -78,6 +78,10 @@ public class ScanComponent {
     @Column(name = "deferred_by_name", length = 100)
     private String deferredByName;
 
+    /** When the last deferral expired (set by the scheduler) — drives the re-review reminder. */
+    @Column(name = "deferral_expired_at")
+    private LocalDateTime deferralExpiredAt;
+
     /** Display name of the user who last marked this component as reviewed; null = not reviewed */
     @Column(name = "reviewed_by_name", length = 100)
     private String reviewedByName;
@@ -127,13 +131,19 @@ public class ScanComponent {
     }
 
     /** Clears a deferred state (called by the expiry scheduler or manual un-defer). */
-    public void clearDeferral() {
+    private void clearDeferral() {
         this.deferredAt = null;
         this.deferralReason = null;
         this.deferralExpiresAt = null;
         this.deferralNote = null;
         this.deferredByName = null;
         this.ignored = false;
+    }
+
+    /** Expires a deferral: clears it and stamps deferralExpiredAt for the re-review reminder. */
+    public void expireDeferral() {
+        clearDeferral();
+        this.deferralExpiredAt = LocalDateTime.now();
     }
 
     public boolean isDeferred() {

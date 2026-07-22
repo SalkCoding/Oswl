@@ -82,10 +82,6 @@ public class AiPromptTemplateService {
                 .orElseGet(() -> AiPreferences.defaults("en", 10, 8, "CRITICAL,HIGH", 0));
     }
 
-    public void reload() {
-        loadWithLocale(locale);
-    }
-
     public String getSystemPrompt() {
         return require("system.default");
     }
@@ -111,7 +107,7 @@ public class AiPromptTemplateService {
         return (int) parseDouble(require("params.maxTokens"), 1200);
     }
 
-    public void applyDbOverrides(String jsonOverrides) {
+    private void applyDbOverrides(String jsonOverrides) {
         if (jsonOverrides == null || jsonOverrides.isBlank()) return;
         try {
             Map<String, String> overrides = MAPPER.readValue(jsonOverrides, new TypeReference<>() {});
@@ -148,7 +144,7 @@ public class AiPromptTemplateService {
         return m;
     }
 
-    public String cveSingleRich(String cveId, String severity, double cvssScore, String component,
+    private String cveSingleRich(String cveId, String severity, double cvssScore, String component,
                                 String title, String osvSummary, String fixVersion, String cweId,
                                 String cvssVector, String dependencyType, String patchability) {
         return render("cve.single", vars(

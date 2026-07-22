@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <!-- Filter Sidebar Fragment -->
-<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb] overflow-hidden" style="order: 2;">
+<div th:fragment="filters" class="flex flex-col max-w-[240px] w-[240px] border-l border-[#dbe4e7] bg-[#fafbfb] overflow-hidden lg:sticky lg:top-0 lg:self-start lg:max-h-screen" style="order: 2;">
     <!-- Title -->
     <div class="bg-[#001d35] flex items-center gap-[8px] h-[40px] px-[20px] w-full text-white shrink-0">
         <img th:src="@{/icon/icon-fillter.svg}" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
@@ -10,10 +10,10 @@
         </p>
     </div>
 
-    <div class="flex flex-col gap-[17px] p-[20px] w-full overflow-y-auto flex-1 min-h-0">
+    <div class="flex flex-col gap-[12px] p-[14px] w-full overflow-y-auto flex-1 min-h-0" style="overscroll-behavior: contain;">
 
         <!-- Review Filter -->
-        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.reviewStatus}">Review Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.reviewed" class="sr-only">
@@ -38,7 +38,7 @@
         </div>
 
         <!-- Ignored Filter -->
-        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.ignoreStatus}">Ignore Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.ignored" class="sr-only">
@@ -75,7 +75,7 @@
 
 
         <!-- Security Severity Filter -->
-        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.securitySeverity}">Security Severity</p>
             <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.secCritical" class="sr-only">
@@ -130,7 +130,7 @@
         </div>
 
         <!-- License Status Filter -->
-        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.licenseStatus}">License Status</p>
             <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.licRestricted" class="sr-only">
@@ -175,7 +175,7 @@
         </div>
 
         <!-- Patchability Filter — order: Patchable, Non-Patchable, Up to date, Outdated, Deprecated -->
-        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[12px] p-[20px] rounded-[8px] w-full">
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.patchabilityLabel}">Patchability</p>
             <label class="flex gap-[8px] items-center cursor-pointer relative">
                 <input type="checkbox" x-model="filters.patchable" class="sr-only">

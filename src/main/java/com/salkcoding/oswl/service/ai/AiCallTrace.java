@@ -115,7 +115,7 @@ public class AiCallTrace {
             this.executor = executor;
         }
 
-        static Session noop() {
+        private static Session noop() {
             return NOOP;
         }
 

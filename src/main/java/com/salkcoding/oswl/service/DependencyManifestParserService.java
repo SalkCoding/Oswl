@@ -7,6 +7,7 @@ import com.salkcoding.oswl.service.git.CloneRootPathGuard;
 import com.salkcoding.oswl.service.manifest.ManifestCollectRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -15,6 +16,7 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -48,18 +50,31 @@ public class DependencyManifestParserService {
 
     private final MavenBomVersionResolver bomVersionResolver;
 
+    /**
+     * SECURITY: executing mvnw/gradlew/dotnet from a cloned repository runs arbitrary repo
+     * code on this server. Disabled by default; when false the parser falls back to static
+     * manifest parsing (no transitive resolution via build tools).
+     */
+    @Value("${oswl.quick-import.allow-build-exec:false}")
+    private boolean allowBuildExec;
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    /** Console tools (mvnw, gradlew, npm) write human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
+    private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
     private static final Set<String> MANIFEST_SKIP_DIRS = ManifestCollectRules.SKIP_DIRS;
     public record ParseResult(String ecosystem, List<ScanPayload.ComponentPayload> components) {}
 
     private record GradleComponent(String name, String version, List<List<ScanPayload.DependencyNodeRef>> paths) {}
+
+    /** Outcome of an external process run: exit code, captured merged output, timeout flag. */
+    private record ProcessOutput(int exitCode, String output, boolean timedOut) {}
 
     public ParseResult parseDependencies(Path cloneDir, String repoName) {
         List<ScanPayload.ComponentPayload> allComps = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         List<String> ecosystems = new ArrayList<>();
 
-        // ?? Maven: walk all pom.xml files ??????????????????????????????????????
+        // ── Maven: walk all pom.xml files ──────────────────────────────────────
         List<Path> pomFiles = walkManifests(cloneDir, Set.of("pom.xml"), MANIFEST_SKIP_DIRS);
         if (!pomFiles.isEmpty()) {
             ecosystems.add("MAVEN");
@@ -71,10 +86,10 @@ public class DependencyManifestParserService {
                     mergeComponents(allComps, seen, parseSingleMavenPom(pom, cloneDir, repoName), "MAVEN");
                 }
             }
-            log.info("[DependencyParser][Multi] Maven: {} pom.xml ??{} components so far", pomFiles.size(), allComps.size());
+            log.info("[DependencyParser][Multi] Maven: {} pom.xml → {} components so far", pomFiles.size(), allComps.size());
         }
 
-        // ?? Gradle: build.gradle / build.gradle.kts ????????????????????????????
+        // ── Gradle: build.gradle / build.gradle.kts ────────────────────────────
         List<Path> gradleFiles = walkManifests(cloneDir,
                 Set.of("build.gradle", "build.gradle.kts"), MANIFEST_SKIP_DIRS);
         if (!gradleFiles.isEmpty()) {
@@ -89,10 +104,10 @@ public class DependencyManifestParserService {
             mergeComponents(allComps, seen, gradleDeps, "MAVEN");
             // Version catalogs cover libs.xxx references not captured by static regex
             mergeComponents(allComps, seen, parseVersionCatalogs(cloneDir, repoName), "MAVEN");
-            log.info("[DependencyParser][Multi] Gradle: {} build files ??{} components so far", gradleFiles.size(), allComps.size());
+            log.info("[DependencyParser][Multi] Gradle: {} build files → {} components so far", gradleFiles.size(), allComps.size());
         }
 
-        // ?? npm: lock files first (full transitive), then package.json ??????????
+        // ── npm: lock files first (full transitive), then package.json ──────────
         for (Path lock : walkManifests(cloneDir,
                 Set.of("package-lock.json", "yarn.lock", "pnpm-lock.yaml"), MANIFEST_SKIP_DIRS)) {
             String fn = lock.getFileName().toString();
@@ -131,7 +146,7 @@ public class DependencyManifestParserService {
             }
         }
 
-        // ?? Python: lock files first, then requirements.txt ????????????????????
+        // ── Python: lock files first, then requirements.txt ────────────────────
         for (Path lock : walkManifests(cloneDir,
                 Set.of("poetry.lock", "uv.lock", "Pipfile.lock"), MANIFEST_SKIP_DIRS)) {
             String fn = lock.getFileName().toString();
@@ -164,7 +179,7 @@ public class DependencyManifestParserService {
             }
         }
 
-        // ?? Cargo: Cargo.lock, then Cargo.toml fallback ????????????????????????
+        // ── Cargo: Cargo.lock, then Cargo.toml fallback ────────────────────────
         for (Path lock : walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> cargoComps = parseTomlPackageLock(lock, "CARGO", repoName);
             if (cargoComps != null && !cargoComps.isEmpty()) {
@@ -182,7 +197,7 @@ public class DependencyManifestParserService {
             }
         }
 
-        // ?? Go: go.sum, then go.mod fallback ???????????????????????????????????
+        // ── Go: go.sum, then go.mod fallback ───────────────────────────────────
         for (Path sum : walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> goComps = parseGoSum(sum.getParent(), repoName);
             if (goComps != null && !goComps.isEmpty()) {
@@ -200,7 +215,7 @@ public class DependencyManifestParserService {
             }
         }
 
-        // ?? NuGet: packages.lock.json / .csproj ????????????????????????????????
+        // ── NuGet: packages.lock.json / .csproj ────────────────────────────────
         for (Path lock : walkManifests(cloneDir, Set.of("packages.lock.json"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
             if (nugetComps != null && !nugetComps.isEmpty()) {
@@ -219,7 +234,7 @@ public class DependencyManifestParserService {
             }
         }
 
-        // ?? Ruby: Gemfile.lock ????????????????????????????????????????????????
+        // ── Ruby: Gemfile.lock ────────────────────────────────────────────────
         for (Path lock : walkManifests(cloneDir, Set.of("Gemfile.lock"), MANIFEST_SKIP_DIRS)) {
             List<ScanPayload.ComponentPayload> rubyComps = parseGemfileLock(lock.getParent(), repoName);
             if (rubyComps != null && !rubyComps.isEmpty()) {
@@ -229,10 +244,10 @@ public class DependencyManifestParserService {
         }
 
         if (allComps.isEmpty()) {
-            log.warn("[DependencyParser] No recognized manifests in '{}' ??empty component list.", repoName);
+            log.warn("[DependencyParser] No recognized manifests in '{}' — empty component list.", repoName);
             return new ParseResult("UNKNOWN", List.of());
         }
-        String primary = ecosystems.get(0);
+        String primary = ecosystems.getFirst();
         log.info("[DependencyParser] Multi-scan '{}': {} components across ecosystems={}", repoName, allComps.size(), ecosystems);
         return new ParseResult(primary, allComps);
     }
@@ -266,7 +281,7 @@ public class DependencyManifestParserService {
         return sb.toString();
     }
 
-    // ?? Multi-manifest helpers ?????????????????????????????????????????????
+    // ── Multi-manifest helpers ─────────────────────────────────────────────
 
     /** Parses a single {@code pom.xml} file and returns its non-test, non-system direct dependencies. */
     private List<ScanPayload.ComponentPayload> parseSingleMavenPom(Path pomFile, Path projectDir, String repoName) {
@@ -335,6 +350,11 @@ public class DependencyManifestParserService {
             log.debug("[DependencyParser][Maven] No mvnw in '{}', using static pom.xml parse", repoName);
             return null;
         }
+        if (!allowBuildExec) {
+            log.warn("[DependencyParser][Maven] mvnw found in '{}' but build execution is disabled "
+                    + "(oswl.quick-import.allow-build-exec=false) — using static pom.xml parse", repoName);
+            return null;
+        }
         try {
             if (!isWindows) wrapper.toFile().setExecutable(true, false);
             List<String> cmd = isWindows
@@ -346,14 +366,17 @@ public class DependencyManifestParserService {
             String javaHome = System.getProperty("java.home");
             if (javaHome != null && !javaHome.isBlank()) pb.environment().put("JAVA_HOME", javaHome);
             log.info("[DependencyParser][Maven] Running mvnw dependency:list for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) { proc.destroyForcibly(); log.warn("[DependencyParser][Maven] mvnw timed out for '{}'", repoName); return null; }
-            if (proc.exitValue() != 0) {
-                log.warn("[DependencyParser][Maven] mvnw exited {} for '{}', falling back to static parse", proc.exitValue(), repoName);
+            ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, CONSOLE_CHARSET);
+            if (result.timedOut()) {
+                log.warn("[DependencyParser][Maven] mvnw timed out for '{}' — partial output: {}",
+                        repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
+            if (result.exitCode() != 0) {
+                log.warn("[DependencyParser][Maven] mvnw exited {} for '{}', falling back to static parse", result.exitCode(), repoName);
+                return null;
+            }
+            String output = result.output();
             // [INFO]    groupId:artifactId:jar:version:scope
             Pattern lineP = Pattern.compile("^\\[INFO\\]\\s+([\\w.\\-]+:[\\w.\\-]+):[\\w.\\-]+:([\\w.+\\-]+):(compile|runtime)\\s*$");
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
@@ -529,17 +552,15 @@ public class DependencyManifestParserService {
                             "--ignore-scripts", "--no-audit", "--no-fund", "--no-progress");
             ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
             log.info("[DependencyParser][npm] Running npm install --package-lock-only for '{}'", repoName);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[DependencyParser][npm] npm lock generation timed out for '{}'", repoName);
+            ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, CONSOLE_CHARSET);
+            if (result.timedOut()) {
+                log.warn("[DependencyParser][npm] npm lock generation timed out for '{}' — partial output: {}",
+                        repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
-            if (proc.exitValue() != 0) {
-                log.warn("[DependencyParser][npm] npm exited {} for '{}' ??{}",
-                        proc.exitValue(), repoName, summarizeProcessOutput(output));
+            if (result.exitCode() != 0) {
+                log.warn("[DependencyParser][npm] npm exited {} for '{}' — {}",
+                        result.exitCode(), repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
             if (!Files.exists(dir.resolve("package-lock.json"))) {
@@ -547,7 +568,7 @@ public class DependencyManifestParserService {
                 return null;
             }
             List<ScanPayload.ComponentPayload> comps = parseNpmLock(dir, repoName);
-            log.info("[DependencyParser][npm] Generated lock ??{} components for '{}'",
+            log.info("[DependencyParser][npm] Generated lock → {} components for '{}'",
                     comps != null ? comps.size() : 0, repoName);
             return comps;
         } catch (Exception e) {
@@ -556,7 +577,7 @@ public class DependencyManifestParserService {
         }
     }
 
-    /** Parse package-lock.json ??supports lockfileVersion 1 (npm 5/6), 2 and 3 (npm 7+). */
+    /** Parse package-lock.json — supports lockfileVersion 1 (npm 5/6), 2 and 3 (npm 7+). */
     private List<ScanPayload.ComponentPayload> parseNpmLock(Path dir, String repoName) {
         try {
             JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("package-lock.json").toFile());
@@ -564,7 +585,7 @@ public class DependencyManifestParserService {
             Set<String> seen = new LinkedHashSet<>();
 
             if (root.has("packages")) {
-                // lockfileVersion 2/3 (npm 7+): "packages" ??{ "node_modules/x": { version, ... } }
+                // lockfileVersion 2/3 (npm 7+): "packages" → { "node_modules/x": { version, ... } }
                 root.path("packages").properties().forEach(e -> {
                     String pkgPath = e.getKey();
                     if (pkgPath.isEmpty()) return; // skip root entry
@@ -632,7 +653,7 @@ public class DependencyManifestParserService {
      * Parses {@code yarn.lock} (classic / v1 format). Each entry header may list multiple
      * descriptor strings (e.g. {@code "@scope/pkg@^1.0", "@scope/pkg@~1.1":}) followed by
      * an indented body containing {@code version "X.Y.Z"}. Same package may appear under
-     * multiple resolved versions ??we keep all distinct (name, version) pairs.
+     * multiple resolved versions — we keep all distinct (name, version) pairs.
      */
     private List<ScanPayload.ComponentPayload> parseYarnLock(Path dir, String repoName) {
         try {
@@ -723,6 +744,11 @@ public class DependencyManifestParserService {
             log.info("[DependencyParser][Gradle] No gradlew found in '{}', falling back to static parse", repoName);
             return null;
         }
+        if (!allowBuildExec) {
+            log.warn("[DependencyParser][Gradle] gradlew found in '{}' but build execution is disabled "
+                    + "(oswl.quick-import.allow-build-exec=false) — using static parse", repoName);
+            return null;
+        }
         try {
             if (!isWindows) {
                 wrapper.toFile().setExecutable(true, false);
@@ -744,16 +770,18 @@ public class DependencyManifestParserService {
                             (existing, added) -> added + pathSep + existing);
                 }
                 log.info("[DependencyParser][Gradle] Running gradlew dependencies --configuration {} for '{}'", config, repoName);
-                Process proc = pb.start();
-                String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-                if (!finished) { proc.destroyForcibly(); log.warn("[DependencyParser][Gradle] gradlew timed out for '{}'", repoName); return null; }
-                if (proc.exitValue() != 0) {
-                    log.warn("[DependencyParser][Gradle] gradlew --configuration {} exited {} for '{}' ??{}",
-                            config, proc.exitValue(), repoName, summarizeProcessOutput(output));
+                ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, CONSOLE_CHARSET);
+                if (result.timedOut()) {
+                    log.warn("[DependencyParser][Gradle] gradlew timed out for '{}' — partial output: {}",
+                            repoName, summarizeProcessOutput(result.output()));
+                    return null;
+                }
+                if (result.exitCode() != 0) {
+                    log.warn("[DependencyParser][Gradle] gradlew --configuration {} exited {} for '{}' — {}",
+                            config, result.exitCode(), repoName, summarizeProcessOutput(result.output()));
                     continue;
                 }
-                List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(output, repoName);
+                List<ScanPayload.ComponentPayload> comps = parseGradleTreeOutput(result.output(), repoName);
                 if (!comps.isEmpty()) {
                     log.info("[DependencyParser][Gradle] gradlew --configuration {} resolved {} components for '{}'", config, comps.size(), repoName);
                     return comps;
@@ -776,7 +804,7 @@ public class DependencyManifestParserService {
         String projectName = repoName.contains("/")
                 ? repoName.substring(repoName.lastIndexOf('/') + 1) : repoName;
         Map<String, GradleComponent> depComps = new LinkedHashMap<>();
-        Map<Integer, String[]> depStack = new HashMap<>(); // depth ??[compName, compVer]
+        Map<Integer, String[]> depStack = new HashMap<>(); // depth → [compName, compVer]
 
         for (String rawLine : output.split("\r?\n")) {
             int pos = rawLine.indexOf("+---");
@@ -836,6 +864,42 @@ public class DependencyManifestParserService {
                     gc.name(), gc.version(), "MAVEN", info, gc.paths()));
         }
         return result;
+    }
+
+    /**
+     * Runs an external process, draining its merged stdout/stderr on a separate reader thread
+     * (same pattern as {@code GitCloneExecutor}). Reading inline before {@code waitFor} would
+     * block until process exit and defeat the timeout. On timeout the process is destroyed
+     * forcibly and whatever partial output was captured is returned for logging.
+     */
+    private static ProcessOutput runProcess(ProcessBuilder pb, long timeout, TimeUnit unit, Charset charset)
+            throws IOException, InterruptedException {
+        Process proc = pb.start();
+        final String[] outputHolder = {""};
+        Thread outputReader = Thread.ofVirtual().start(() -> {
+            try {
+                outputHolder[0] = new String(proc.getInputStream().readAllBytes(), charset);
+            } catch (IOException ignored) {
+                // stream closed because the process was destroyed
+            }
+        });
+        boolean finished;
+        try {
+            finished = proc.waitFor(timeout, unit);
+        } catch (InterruptedException e) {
+            proc.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw e;
+        }
+        if (!finished) {
+            proc.destroyForcibly();
+        }
+        try {
+            outputReader.join(2_000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return new ProcessOutput(finished ? proc.exitValue() : -1, outputHolder[0], !finished);
     }
 
     /** First line of Gradle/Maven tool output for logs (failure diagnosis). */
@@ -1002,10 +1066,10 @@ public class DependencyManifestParserService {
 
     /** Static Cargo.toml fallback when Cargo.lock is absent. */
     private List<ScanPayload.ComponentPayload> parseCargoToml(Path dir, String repoName) {
-        // Static Cargo.toml ??handles inline string form and table form:
+        // Static Cargo.toml — handles inline string form and table form:
         //   foo = "1.0"
         //   foo = { version = "1.0", features = [...] }
-        //   foo = { git = "..." }   (no version ??skip)
+        //   foo = { git = "..." }   (no version → skip)
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         try {
@@ -1067,14 +1131,14 @@ public class DependencyManifestParserService {
 
     /** go.mod fallback when go.sum is absent. */
     private List<ScanPayload.ComponentPayload> parseGoModDeclared(Path dir, String repoName) {
-        // go.mod fallback ??we trim each line first, so both block and single patterns
+        // go.mod fallback — we trim each line first, so both block and single patterns
         // match against the trimmed text.
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         try {
             List<String> lines = Files.readAllLines(dir.resolve("go.mod"), StandardCharsets.UTF_8);
             boolean inRequire = false;
-            // "require module v1.2.3" (single) and inside a require( ??) block "module v1.2.3"
+            // "require module v1.2.3" (single) and inside a require( … ) block "module v1.2.3"
             Pattern single = Pattern.compile("^require\\s+(\\S+)\\s+(v\\S+)");
             Pattern entry  = Pattern.compile("^(\\S+)\\s+(v\\S+)");
             for (String rawLine : lines) {
@@ -1098,7 +1162,7 @@ public class DependencyManifestParserService {
         return comps;
     }
 
-    // ?? Lock-file & new-ecosystem parsers ??????????????????????????????????
+    // ── Lock-file & new-ecosystem parsers ──────────────────────────────────
 
     /**
      * Generic parser for TOML-formatted lock files using {@code [[package]]} blocks
@@ -1128,7 +1192,7 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * Parses {@code Pipfile.lock} (JSON) ??reads {@code default} and {@code develop} sections,
+     * Parses {@code Pipfile.lock} (JSON) — reads {@code default} and {@code develop} sections,
      * deduplicating across sections (a package in both lists is kept only once).
      */
     private List<ScanPayload.ComponentPayload> parsePipfileLock(Path dir, String repoName) {
@@ -1156,7 +1220,7 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * Parses {@code go.sum} ??each line: {@code <module> <version>[/go.mod] <hash>}.
+     * Parses {@code go.sum} — each line: {@code <module> <version>[/go.mod] <hash>}.
      * De-duplicates by module path to get one entry per dependency.
      */
     private List<ScanPayload.ComponentPayload> parseGoSum(Path dir, String repoName) {
@@ -1208,6 +1272,11 @@ public class DependencyManifestParserService {
      * Returns {@code null} when dotnet is unavailable or the command fails.
      */
     private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName) {
+        if (!allowBuildExec) {
+            log.warn("[DependencyParser][NuGet] Build execution is disabled "
+                    + "(oswl.quick-import.allow-build-exec=false) — skipping dotnet list for '{}', using static parse", repoName);
+            return null;
+        }
         if (!isCommandOnPath("dotnet")) {
             log.debug("[DependencyParser][NuGet] dotnet not on PATH for '{}', skipping CLI resolve", repoName);
             return null;
@@ -1226,20 +1295,18 @@ public class DependencyManifestParserService {
                             "package", "--include-transitive", "--format", "json");
             ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
             log.info("[DependencyParser][NuGet] Running dotnet list package for '{}' ({})", repoName, target.getFileName());
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(5, TimeUnit.MINUTES);
-            if (!finished) {
-                proc.destroyForcibly();
-                log.warn("[DependencyParser][NuGet] dotnet list timed out for '{}'", repoName);
+            ProcessOutput result = runProcess(pb, 5, TimeUnit.MINUTES, StandardCharsets.UTF_8);
+            if (result.timedOut()) {
+                log.warn("[DependencyParser][NuGet] dotnet list timed out for '{}' — partial output: {}",
+                        repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
-            if (proc.exitValue() != 0) {
-                log.warn("[DependencyParser][NuGet] dotnet list exited {} for '{}' ??{}",
-                        proc.exitValue(), repoName, summarizeProcessOutput(output));
+            if (result.exitCode() != 0) {
+                log.warn("[DependencyParser][NuGet] dotnet list exited {} for '{}' — {}",
+                        result.exitCode(), repoName, summarizeProcessOutput(result.output()));
                 return null;
             }
-            List<ScanPayload.ComponentPayload> comps = parseDotNetListJson(output, repoName);
+            List<ScanPayload.ComponentPayload> comps = parseDotNetListJson(result.output(), repoName);
             if (comps.isEmpty()) {
                 log.warn("[DependencyParser][NuGet] dotnet list produced no packages for '{}'", repoName);
                 return null;
@@ -1257,7 +1324,7 @@ public class DependencyManifestParserService {
         if (!solutions.isEmpty()) {
             return solutions.stream()
                     .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
-                    .orElse(solutions.get(0));
+                    .orElse(solutions.getFirst());
         }
         List<Path> projects = walkNuGetManifests(dir, ".csproj");
         if (projects.isEmpty()) {
@@ -1265,7 +1332,7 @@ public class DependencyManifestParserService {
         }
         return projects.stream()
                 .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
-                .orElse(projects.get(0));
+                .orElse(projects.getFirst());
     }
 
     private List<ScanPayload.ComponentPayload> parseDotNetListJson(String json, String repoName) {
@@ -1531,7 +1598,7 @@ public class DependencyManifestParserService {
         }
     }
 
-    // ?? Helpers ???????????????????????????????????????????????????????????
+    // ── Helpers ───────────────────────────────────────────────────────────
 
     private ScanPayload.ComponentPayload buildComponent(String name, String version, String ecosystem) {
         return ScanPayload.ComponentPayload.create(name, version, ecosystem, "Direct", List.of());

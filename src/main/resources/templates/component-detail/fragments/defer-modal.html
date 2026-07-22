@@ -7,6 +7,10 @@
     Show with: x-show="modal === 'defer'"
     usage: th:replace="~{component-detail/fragments/defer-modal :: defer}"
 -->
+<style>
+@keyframes oswl-hourglass-spin { 0%{ transform: rotate(0deg); } 100%{ transform: rotate(360deg); } }
+.oswl-anim-hourglass { animation: oswl-hourglass-spin 1.4s linear infinite; }
+</style>
 
 <script th:inline="javascript" th:fragment="defer-i18n">
 const _deferI18n = {
@@ -39,6 +43,7 @@ const _deferI18n = {
     successMsg:      /*[[#{componentDetail.defer.success}]]*/ 'Deferral confirmed successfully.',
     errorFailed:     /*[[#{componentDetail.defer.error.failed}]]*/ 'Failed to defer ({0}). Please try again.',
     errorNetwork:    /*[[#{componentDetail.defer.error.network}]]*/ 'Network error. Please try again.',
+    errorInvalidDate:/*[[#{componentDetail.defer.error.invalidDate}]]*/ 'Expiry date must be a future date.',
     cancel:          /*[[#{common.cancel}]]*/ 'Cancel'
 };
 </script>
@@ -59,8 +64,19 @@ const _deferI18n = {
         submitting: false,
         deferError: null,
         deferDone: false,
+        get minCustomDate() {
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().slice(0, 10);
+        },
 
         async confirmDefer() {
+            if (this.expiry === 'custom') {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(this.customDate) || this.customDate < this.minCustomDate) {
+                    this.deferError = _deferI18n.errorInvalidDate;
+                    return;
+                }
+            }
             this.submitting = true;
             this.deferError = null;
             const root = document.getElementById('component-detail-content');
@@ -86,7 +102,9 @@ const _deferI18n = {
                     this.deferDone = true;
                     setTimeout(() => { this.modal = null; this.deferDone = false; }, 1200);
                 } else {
-                    this.deferError = _deferI18n.errorFailed.replace('{0}', r.status);
+                    let serverMsg = null;
+                    try { serverMsg = (await r.json()).error; } catch (e) { /* non-JSON body */ }
+                    this.deferError = serverMsg || _deferI18n.errorFailed.replace('{0}', r.status);
                 }
             } catch (e) {
                 this.deferError = _deferI18n.errorNetwork;
@@ -212,10 +230,11 @@ const _deferI18n = {
                             <span class="font-medium text-[12px] text-[#00659c] tracking-[-0.12px]" th:text="#{componentDetail.defer.expiry.custom}">Custom</span>
                             <div class="border rounded-[6px] px-[10px] py-[2px] transition-colors ml-[4px]"
                                  :class="expiry === 'custom' ? 'border-[var(--primary-120)]' : 'border-[var(--grayscale-20)]'">
-                                <input type="text" x-model="customDate"
+                                <input type="date" x-model="customDate"
+                                       :min="minCustomDate"
                                        th:placeholder="#{componentDetail.defer.placeholder.date}"
                                        @focus="expiry = 'custom'"
-                                       class="w-[90px] bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-30)] tracking-[-0.12px]" />
+                                       class="w-[130px] bg-transparent border-none outline-none text-[12px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-30)] tracking-[-0.12px]" />
                             </div>
                         </label>
                     </div>
@@ -274,7 +293,8 @@ const _deferI18n = {
             <div class="flex gap-[16px] items-center">
                 <button type="button" @click="confirmDefer()" :disabled="submitting || deferDone"
                         class="bg-[var(--semantic-caution)] hover:opacity-90 disabled:opacity-50 flex flex-1 items-center justify-center gap-[6px] px-[14px] py-[10px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-opacity">
-                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);">
+                    <img th:src="@{/icon/icon-hourglass.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true" style="filter: brightness(0) invert(1);"
+                         :class="submitting ? 'oswl-anim-hourglass' : ''">
                     <span th:attr="data-msg-submitting=#{componentDetail.defer.btn.submitting},data-msg-confirm=#{componentDetail.defer.btn.confirm}"
                           x-text="submitting ? $el.dataset.msgSubmitting : $el.dataset.msgConfirm">Confirm Deferral</span>
                 </button>

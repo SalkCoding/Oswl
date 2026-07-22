@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -16,12 +17,14 @@ import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
+import com.salkcoding.oswl.security.ClientIpResolver;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @ControllerAdvice
@@ -29,6 +32,7 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     private final MessageSource messageSource;
+    private final ClientIpResolver clientIpResolver;
 
     @ExceptionHandler(NoResourceFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
@@ -57,7 +61,7 @@ public class GlobalExceptionHandler {
         } else if (auth != null && auth.isAuthenticated()) {
             email = auth.getName();
         }
-        String ip = resolveClientIp(request);
+        String ip = clientIpResolver.resolve(request);
         log.warn("[Security] Access denied — user='{}' name='{}' ip='{}' {} {}",
                 email, displayName, ip, request.getMethod(), request.getRequestURI());
         String accept = request.getHeader("Accept");
@@ -76,6 +80,33 @@ public class GlobalExceptionHandler {
                     .body(Map.of("error", ex.getMessage(), "status", 404));
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    }
+
+    /**
+     * Bean Validation failure on a {@code @RequestBody} (e.g. a required field is null).
+     * Validation failures are client errors — mapped to 400, never to the generic 500
+     * catch-all or the 404 used for "not found" IllegalArgumentExceptions.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public Object handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        if (message.isBlank()) {
+            message = "Request validation failed";
+        }
+        String accept = request.getHeader("Accept");
+        if (accept != null && accept.contains("application/json")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", message, "status", 400));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidRequest(InvalidRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage(), "status", 400));
     }
 
     @ExceptionHandler(ConflictException.class)
@@ -202,26 +233,5 @@ public class GlobalExceptionHandler {
         if (msg == null) return ex.getClass().getSimpleName();
         int nl = msg.indexOf('\n');
         return nl > 0 ? msg.substring(0, nl) : msg;
-    }
-
-    /** Resolves the real client IP, honouring X-Forwarded-For when behind a proxy.
-     *  IPv6-mapped IPv4 addresses (::ffff:x.x.x.x) and the IPv6 loopback (::1) are
-     *  normalised to their IPv4 equivalents so logs are consistent. */
-    private static String resolveClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        String raw = (xff != null && !xff.isBlank())
-                ? xff.split(",")[0].trim()
-                : request.getRemoteAddr();
-        return normalizeIp(raw);
-    }
-
-    private static String normalizeIp(String ip) {
-        if (ip == null) return "unknown";
-        // IPv6 loopback → IPv4 loopback
-        if ("::1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip)) return "127.0.0.1";
-        // IPv6-mapped IPv4 address: ::ffff:192.168.1.1
-        if (ip.startsWith("::ffff:") || ip.startsWith("::FFFF:")) return ip.substring(7);
-        if (ip.startsWith("0:0:0:0:0:ffff:") || ip.startsWith("0:0:0:0:0:FFFF:")) return ip.substring(15);
-        return ip;
     }
 }

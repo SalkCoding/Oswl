@@ -87,10 +87,10 @@ class ScanHistoryServiceTest {
         @SuppressWarnings("unchecked")
         List<ScanHistoryRowDto> rows = (List<ScanHistoryRowDto>) model.getAttribute("scanRows");
         assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getScanId()).isEqualTo(10L);
-        assertThat(rows.get(0).getVersion()).isEqualTo("1.2.3");
-        assertThat(rows.get(0).getStatus()).isEqualTo("COMPLETED");
-        assertThat(rows.get(0).getComponentCount()).isEqualTo(5L);
+        assertThat(rows.getFirst().getScanId()).isEqualTo(10L);
+        assertThat(rows.getFirst().getVersion()).isEqualTo("1.2.3");
+        assertThat(rows.getFirst().getStatus()).isEqualTo("COMPLETED");
+        assertThat(rows.getFirst().getComponentCount()).isEqualTo(5L);
         assertThat(model.getAttribute("totalScans")).isEqualTo(1);
     }
 
@@ -114,7 +114,7 @@ class ScanHistoryServiceTest {
 
         @SuppressWarnings("unchecked")
         List<ScanHistoryRowDto> rows = (List<ScanHistoryRowDto>) model.getAttribute("scanRows");
-        assertThat(rows.get(0).getVersion()).isEqualTo("-");
-        assertThat(rows.get(0).getScannedAt()).isEqualTo("-");
+        assertThat(rows.getFirst().getVersion()).isEqualTo("-");
+        assertThat(rows.getFirst().getScannedAt()).isEqualTo("-");
     }
 }

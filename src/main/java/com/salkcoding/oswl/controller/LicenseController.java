@@ -5,18 +5,24 @@ import com.salkcoding.oswl.dto.LicenseContextDto;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.LicenseService;
 import com.salkcoding.oswl.service.ProjectAccessService;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/projects/{projectId}/license")
@@ -27,6 +33,8 @@ public class LicenseController implements LicenseControllerSpec {
     private final LicenseService licenseService;
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
+    private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
+    private final MessageSource messageSource;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
@@ -43,6 +51,25 @@ public class LicenseController implements LicenseControllerSpec {
                 .build();
         licenseService.populateModel(projectId, scanId, context, model);
         return "license/index";
+    }
+
+    @PostMapping("/refresh-insights")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> refreshInsights(@PathVariable Long projectId,
+                                                                @RequestParam Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
+        boolean ok = vulnerabilityEnrichmentService.refreshScanInsights(projectId, scanId);
+        if (!ok) {
+            String message = messageSource.getMessage("license.ai.refreshFailed", null,
+                    "AI provider is not configured or insight generation failed.",
+                    LocaleContextHolder.getLocale());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", message));
+        }
+        auditLogService.log("LICENSE.REFRESH_AI_INSIGHT", "SCAN", scanId.toString(),
+                "projectId=" + projectId, null);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/export/notice")

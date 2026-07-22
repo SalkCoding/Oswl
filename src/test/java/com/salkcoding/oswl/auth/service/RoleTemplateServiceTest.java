@@ -43,9 +43,9 @@ class RoleTemplateServiceTest {
         List<RoleTemplateDto> result = roleTemplateService.findAll();
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getName()).isEqualTo("Developer");
-        assertThat(result.get(0).getUserCount()).isEqualTo(3L);
-        assertThat(result.get(0).getPermissions()).contains("PROJECT_VIEW");
+        assertThat(result.getFirst().getName()).isEqualTo("Developer");
+        assertThat(result.getFirst().getUserCount()).isEqualTo(3L);
+        assertThat(result.getFirst().getPermissions()).contains("PROJECT_VIEW");
     }
 
     @Test

@@ -37,7 +37,7 @@ Open **Projects → Quick Import** (`/projects/quick-import`).
 You can either:
 
 1. **Paste a repository URL** (and optional branch), then click **Import & Scan**, or  
-2. **Browse** connected accounts — pick a repository and branch from the provider list.
+2. **Browse** connected accounts — pick a repository and branch from the provider list. GitHub listings follow the API's `Link`-header pagination (100 repos per page, up to 1,000 repos per account/org); larger accounts are truncated rather than failing to load.
 
 ### Progress and concurrency
 
@@ -51,10 +51,12 @@ Each import is an asynchronous **job** with its own progress card:
 | `SCANNING` | Creating the project and submitting the scan payload |
 | `ENRICHING` | CVE/license enrichment and optional AI summaries |
 | `DONE` | Import finished — project and API key available |
-| `FAILED` | Error — see the job message |
+| `FAILED` | Error or canceled — see the job message |
 
 - Up to **two** imports run at once (`oswl.quick-import.max-concurrent`, default `2`). Additional jobs are queued (FIFO); `queuePosition` shows wait order.
 - You may start **multiple imports** without waiting for the previous one to finish.
+- Starting an import for a repository that already has a queued or running job is rejected with **409 Conflict** — wait for it or cancel it first.
+- Each job card has a **Cancel** button (`POST /api/quick-import/job/{jobId}/cancel`): queued jobs stop immediately, running jobs stop at the next phase boundary (a long clone finishes first). Canceled jobs appear as `FAILED` with a "canceled" message.
 - The UI subscribes to **`GET /api/quick-import/job/{jobId}/stream`** (SSE event `job-update`) and falls back to polling `GET /api/quick-import/job/{jobId}` if needed.
 - During `ENRICHING`, the job exposes `percent` (0–100), `subPhase` (`CVE`, `LICENSE`, `POSTURE`, `TREND`, `DIFF`), `detailLines`, and `aiPreviews` when AI enrichment is enabled.
 
