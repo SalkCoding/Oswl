@@ -159,6 +159,25 @@ public interface GitHubApiControllerSpec {
     );
 
     @Operation(
+        summary = "List branches for a project's linked repository",
+        description = """
+            Resolves the GitHub repository linked to the given project and returns its branch names.
+            Falls back to `[\"main\"]` when the project has no GitHub link, no token is available for the owner, or the lookup fails.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Branch list returned",
+            content = @Content(
+                array = @ArraySchema(schema = @Schema(type = "string")),
+                examples = @ExampleObject(value = "[\"main\", \"develop\", \"feature/scanner\"]")))
+    })
+    ResponseEntity<List<String>> branchesByProject(
+        @Parameter(description = "Project ID", example = "1", required = true)
+        @RequestParam Long projectId,
+        @Parameter(hidden = true) HttpSession session
+    );
+
+    @Operation(
         summary = "Get last commit date for a branch",
         description = "Returns the ISO-8601 date of the most recent commit on the specified branch."
     )

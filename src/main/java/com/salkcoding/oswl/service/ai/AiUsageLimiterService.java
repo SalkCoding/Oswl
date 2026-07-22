@@ -5,8 +5,12 @@ import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.repository.AiDailyUsageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 
@@ -17,18 +21,34 @@ public class AiUsageLimiterService {
 
     private final AiDailyUsageRepository usageRepository;
     private final AiPreferencesService preferencesService;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * @return true if a call may proceed; false if daily cap exceeded (cap 0 = unlimited)
      */
-    @Transactional
     public boolean tryConsume(AiProvider provider) {
         int cap = preferencesService.getEffective().getDailyCallCap();
         if (cap <= 0) return true;
 
+        // Always a fresh read-write transaction: callers (AiAnalysisService) run readOnly
+        // transactions where the increment would silently never be flushed.
+        TransactionTemplate writeTx = new TransactionTemplate(transactionManager);
+        writeTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        try {
+            return Boolean.TRUE.equals(writeTx.execute(status -> consumeOnce(provider, cap)));
+        } catch (DataIntegrityViolationException concurrentInsert) {
+            // A concurrent request created today's row first; its transaction is already
+            // rolled back, so retry once against a fresh one (PostgreSQL would refuse to
+            // continue in the aborted transaction anyway).
+            return Boolean.TRUE.equals(writeTx.execute(status -> consumeOnce(provider, cap)));
+        }
+    }
+
+    private boolean consumeOnce(AiProvider provider, int cap) {
         LocalDate today = LocalDate.now();
-        AiDailyUsage usage = usageRepository.findByUsageDateAndProvider(today, provider)
-                .orElseGet(() -> usageRepository.save(AiDailyUsage.builder()
+        // Pessimistic lock serializes the check-then-increment across concurrent callers.
+        AiDailyUsage usage = usageRepository.findLockedByUsageDateAndProvider(today, provider)
+                .orElseGet(() -> usageRepository.saveAndFlush(AiDailyUsage.builder()
                         .usageDate(today)
                         .provider(provider)
                         .callCount(0)

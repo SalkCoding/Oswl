@@ -164,7 +164,7 @@ class LicenseServiceTest {
         List<LicenseConflictDto> conflicts =
                 (List<LicenseConflictDto>) model.getAttribute("conflicts");
         assertThat(conflicts).isNotEmpty();
-        assertThat(conflicts.get(0).getSeverity()).isEqualTo("HIGH");
+        assertThat(conflicts.getFirst().getSeverity()).isEqualTo("HIGH");
     }
 
     @Test

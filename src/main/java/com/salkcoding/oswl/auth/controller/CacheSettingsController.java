@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.CacheSettingsControllerSpec;
 import com.salkcoding.oswl.auth.dto.CacheSettingDto;
 import com.salkcoding.oswl.auth.dto.UpdateCacheTtlRequest;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
@@ -17,7 +18,7 @@ import java.util.List;
 @RequestMapping("/api/settings/cache")
 @RequiredArgsConstructor
 @PreAuthorize("hasPermission(null, 'SETTINGS_CACHE_MANAGE') or hasRole('SYSTEM_ADMIN')")
-public class CacheSettingsController {
+public class CacheSettingsController implements CacheSettingsControllerSpec {
 
     private final CacheManagementService cacheManagementService;
 

@@ -125,18 +125,20 @@ public class BitbucketService {
         String safeName  = libName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
         String newBranch = "oswl/bump-" + safeName + "-" + newVersion;
 
-        boolean manifestUpdated = updateDependencyFileCloud(
+        ManifestPatchInfo patchInfo = updateDependencyFileCloud(
                 authHeader, apiBase, newBranch, baseSha, baseBranch, libName, oldVersion, newVersion);
-        if (!manifestUpdated) {
+        if (patchInfo == null) {
             throw new IllegalStateException(
                     "Could not find " + libName + " at version " + oldVersion
                             + " in any dependency manifest in this repository.");
         }
 
+        String fullBody = prBody + patchInfo.toPrAppendix();
+
         // 3. Create the pull request
         var prNode = objectMapper.createObjectNode();
         prNode.put("title", prTitle);
-        prNode.put("description", prBody);
+        prNode.put("description", fullBody);
         prNode.putObject("source").putObject("branch").put("name", newBranch);
         prNode.putObject("destination").putObject("branch").put("name", baseBranch);
         prNode.put("close_source_branch", true);
@@ -151,10 +153,14 @@ public class BitbucketService {
         String prUrl   = pr.path("links").path("html").path("href").asText();
 
         log.info("[Bitbucket Cloud] PR #{} created: {}", prId, prUrl);
-        return Map.of("prUrl", prUrl, "prNumber", prId);
+        return Map.of(
+                "prUrl", prUrl,
+                "prNumber", prId,
+                "manifestPath", patchInfo.filePath(),
+                "changePreview", patchInfo.libraryName() + " " + patchInfo.oldVersion() + " → " + patchInfo.newVersion());
     }
 
-    private boolean updateDependencyFileCloud(String authHeader, String apiBase,
+    private ManifestPatchInfo updateDependencyFileCloud(String authHeader, String apiBase,
                                                String newBranch, String baseSha, String baseBranch,
                                                String libName, String oldVersion, String newVersion) {
         List<String> paths = discoverCloudManifestPaths(authHeader, apiBase, baseBranch);
@@ -177,13 +183,13 @@ public class BitbucketService {
                         + " to " + newVersion + " [OsWL]";
                 commitFileCloud(authHeader, apiBase + "/src", path, updated.get(), newBranch, baseSha, message);
                 log.info("[Bitbucket Cloud] Updated {} on branch {}", path, newBranch);
-                return true;
+                return new ManifestPatchInfo(path, libName, oldVersion, newVersion);
             } catch (Exception e) {
                 log.debug("[Bitbucket Cloud] Skipping {}: {}", path, e.getMessage());
             }
         }
         log.warn("[Bitbucket Cloud] Dependency file not updated — {} {} not found in manifests", libName, oldVersion);
-        return false;
+        return null;
     }
 
     /** Lists manifest paths via Bitbucket file search (best-effort). */
@@ -283,22 +289,28 @@ public class BitbucketService {
         createServerBranch(authHeader, apiBase, newBranch, baseSha);
 
         // 3. Find and update the dependency file on the new branch
-        boolean manifestUpdated = updateDependencyFileServer(
+        ManifestPatchInfo patchInfo = updateDependencyFileServer(
                 authHeader, apiBase, newBranch, baseBranch, baseSha, libName, oldVersion, newVersion);
-        if (!manifestUpdated) {
+        if (patchInfo == null) {
             throw new IllegalStateException(
                     "Could not find " + libName + " at version " + oldVersion
                             + " in any dependency manifest in this repository.");
         }
 
+        String fullBody = prBody + patchInfo.toPrAppendix();
+
         // 4. Create the pull request (Server REST API requires full ref + repository objects)
-        String payload = buildServerPrPayload(projectKey, repoSlug, newBranch, baseBranch, prTitle, prBody).toString();
+        String payload = buildServerPrPayload(projectKey, repoSlug, newBranch, baseBranch, prTitle, fullBody).toString();
         JsonNode pr  = postJson(authHeader, apiBase + "/pull-requests", payload);
         int    prId  = pr.path("id").asInt();
         String prUrl = extractServerPrUrl(pr, serverUrl, projectKey, repoSlug, prId);
 
         log.info("[Bitbucket Server] PR #{} created: {}", prId, prUrl);
-        return Map.of("prUrl", prUrl, "prNumber", prId);
+        return Map.of(
+                "prUrl", prUrl,
+                "prNumber", prId,
+                "manifestPath", patchInfo.filePath(),
+                "changePreview", patchInfo.libraryName() + " " + patchInfo.oldVersion() + " → " + patchInfo.newVersion());
     }
 
     private String serverApiBase(String serverUrl, String projectKey, String repoSlug) {
@@ -370,7 +382,7 @@ public class BitbucketService {
         postJson(authHeader, apiBase + "/branches", payload);
     }
 
-    private boolean updateDependencyFileServer(String authHeader, String apiBase,
+    private ManifestPatchInfo updateDependencyFileServer(String authHeader, String apiBase,
                                                 String branch, String baseBranch, String baseSha,
                                                 String libName, String oldVersion, String newVersion) {
         List<String> paths = List.of(
@@ -389,13 +401,13 @@ public class BitbucketService {
                 commitFileServer(authHeader, apiBase, path, updated.get(), branch, baseSha,
                         "chore: bump " + libName + " from " + oldVersion + " to " + newVersion + " [OsWL]");
                 log.info("[Bitbucket Server] Updated {} on branch {}", path, branch);
-                return true;
+                return new ManifestPatchInfo(path, libName, oldVersion, newVersion);
             } catch (Exception e) {
                 log.debug("[Bitbucket Server] Skipping {}: {}", path, e.getMessage());
             }
         }
         log.warn("[Bitbucket Server] Dependency file not updated — {} {} not found", libName, oldVersion);
-        return false;
+        return null;
     }
 
     private String encodePath(String path) {

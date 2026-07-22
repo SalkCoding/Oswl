@@ -56,7 +56,7 @@ public final class ManifestCollectRules {
      * Returns whether a file at {@code relativePath} (POSIX separators) should be included
      * in a CLI manifest archive for server-side parsing.
      */
-    public static boolean shouldCollect(String relativePath) {
+    private static boolean shouldCollect(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
             return false;
         }
@@ -88,7 +88,7 @@ public final class ManifestCollectRules {
         return false;
     }
 
-    public static boolean containsSkipDir(String relativePath) {
+    private static boolean containsSkipDir(String relativePath) {
         String norm = relativePath.replace('\\', '/');
         for (String segment : norm.split("/")) {
             if (SKIP_DIRS.contains(segment)) {

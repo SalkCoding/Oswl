@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.AdminRoleTemplateControllerSpec;
 import com.salkcoding.oswl.auth.dto.RoleTemplateDto;
 import com.salkcoding.oswl.auth.dto.RoleTemplateRequest;
 import com.salkcoding.oswl.auth.enums.Permission;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/admin/role-templates")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('SYSTEM_ADMIN')")
-public class AdminRoleTemplateController {
+public class AdminRoleTemplateController implements AdminRoleTemplateControllerSpec {
 
     private final RoleTemplateService roleTemplateService;
     private final MessageSource messageSource;

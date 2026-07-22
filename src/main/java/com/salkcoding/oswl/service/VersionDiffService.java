@@ -7,12 +7,16 @@ import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
+import com.salkcoding.oswl.service.ai.AiUsageContext;
+import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -34,7 +38,8 @@ public class VersionDiffService {
         model.addAttribute("projectId",   projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
 
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
@@ -58,7 +63,7 @@ public class VersionDiffService {
             toScan = allScans.stream().filter(s -> s.getId().equals(toScanId)).findFirst().orElse(null);
         }
 
-        if (toScan == null && !allScans.isEmpty())   toScan   = allScans.get(0);
+        if (toScan == null && !allScans.isEmpty())   toScan   = allScans.getFirst();
         if (fromScan == null && allScans.size() > 1) fromScan = allScans.get(1);
         if (fromScan == null)                        fromScan = toScan;
 
@@ -104,9 +109,9 @@ public class VersionDiffService {
                                         ScanVersionDiffAnalyzer.DiffResult diff) {
         if (toScan.getVersionDiffAiInsight() != null
                 && fromScan.getId().equals(toScan.getVersionDiffFromScanId())) {
-            return toScan.getVersionDiffAiInsight();
+            return AiResponseSanitizer.sanitizePlainText(toScan.getVersionDiffAiInsight());
         }
-        try {
+        try (var ignored = AiUsageContext.scope(project.getName())) {
             return aiAnalysisService.summarizeVersionDiff(
                     project.getName(), fromVersion, toVersion,
                     diff.added(), diff.removed(), diff.updated(), diff.newThreats(),

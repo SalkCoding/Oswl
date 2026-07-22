@@ -81,6 +81,22 @@ public interface QuickImportControllerSpec {
             @Parameter(hidden = true) @AuthenticationPrincipal OswlUserPrincipal principal
     );
 
+    @Operation(summary = "Cancel a Quick Import job",
+            description = """
+                    Cancels a queued or running job owned by the current user.
+                    Returns `404` when the job does not exist or belongs to another user.
+                    """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Job canceled",
+                    content = @Content(schema = @Schema(example = "{\"canceled\": true}"))),
+            @ApiResponse(responseCode = "404", description = "Unknown job or not owned by user", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> cancelJob(
+            @Parameter(description = "Job ID from POST /api/quick-import/start", required = true)
+            @PathVariable String jobId,
+            @Parameter(hidden = true) @AuthenticationPrincipal OswlUserPrincipal principal
+    );
+
     @Operation(summary = "List Quick Import jobs for the current user",
             description = """
                     Returns all in-memory jobs owned by the user plus queue capacity snapshot

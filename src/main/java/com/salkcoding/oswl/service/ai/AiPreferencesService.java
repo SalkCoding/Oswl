@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service.ai;
 import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
+import com.salkcoding.oswl.exception.InvalidRequestException;
 import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -112,6 +114,26 @@ public class AiPreferencesService {
                 current.getPromptOverrides(), current.getDefaultDeploymentProfile());
     }
 
+    /** Persisted override for the embedded sidecar directory (null = use oswl.ai.embedded.dir). */
+    public String getEmbeddedDir() {
+        return getEffective().getEmbeddedDir();
+    }
+
+    /** Persisted preferred embedded model file name (null = built-in preference order). */
+    public String getEmbeddedModel() {
+        return getEffective().getEmbeddedModel();
+    }
+
+    @Transactional
+    public AiPreferences saveEmbeddedConfig(String embeddedDir, String embeddedModel) {
+        AiPreferences prefs = repository.findById(AiPreferences.SINGLETON_ID)
+                .orElseGet(this::defaultPreferences);
+        prefs.updateEmbedded(embeddedDir, embeddedModel);
+        repository.save(prefs);
+        log.info("[AI] Embedded config saved dir={} model={}", prefs.getEmbeddedDir(), prefs.getEmbeddedModel());
+        return prefs;
+    }
+
     private void ensureDefaults() {
         if (repository.findById(AiPreferences.SINGLETON_ID).isEmpty()) {
             repository.save(defaultPreferences());
@@ -131,19 +153,39 @@ public class AiPreferencesService {
         if (raw == null || raw.isBlank()) {
             return "CRITICAL,HIGH";
         }
-        String normalized = Arrays.stream(raw.split(","))
+        List<String> tokens = Arrays.stream(raw.split(","))
                 .map(String::strip)
                 .filter(s -> !s.isEmpty())
                 .map(String::toUpperCase)
                 .distinct()
-                .collect(Collectors.joining(","));
-        return normalized.isEmpty() ? "CRITICAL,HIGH" : normalized;
+                .toList();
+        if (tokens.isEmpty()) {
+            return "CRITICAL,HIGH";
+        }
+        // Reject unknown severities at save time — a stored non-RiskLevel value would
+        // later break every scan with IllegalArgumentException from RiskLevel.valueOf.
+        for (String token : tokens) {
+            try {
+                RiskLevel.valueOf(token);
+            } catch (IllegalArgumentException e) {
+                throw new InvalidRequestException("Invalid CVE severity '" + token + "'"
+                        + " (allowed: CRITICAL, HIGH, MEDIUM, LOW, NONE)");
+            }
+        }
+        return String.join(",", tokens);
     }
 
     private static String normalizeLocale(String locale) {
-        if (locale == null || locale.isBlank()) return "en";
+        if (locale == null || locale.isBlank()) return detectLocale();
         String value = locale.strip().toLowerCase();
+        // "auto" (the default) follows the server's JVM/OS locale so a Korean
+        // machine gets Korean AI prompts out of the box; anything else is en.
+        if ("auto".equals(value)) return detectLocale();
         return "ko".equals(value) ? "ko" : "en";
+    }
+
+    private static String detectLocale() {
+        return "ko".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage()) ? "ko" : "en";
     }
 
     private static int clamp(int value, int min, int max, int fallback) {

@@ -82,7 +82,7 @@ final class DependencyManifestPatcher {
         return patchGeneric(content, libName, oldVersion, newVersion);
     }
 
-    static String artifactId(String libName) {
+    private static String artifactId(String libName) {
         if (libName == null || libName.isBlank()) return "";
         int colon = libName.lastIndexOf(':');
         if (colon >= 0 && colon < libName.length() - 1) {
@@ -112,7 +112,7 @@ final class DependencyManifestPatcher {
         String versionSpec = matcher.group(2);
         if (!versionSpecContains(versionSpec, oldVersion)) return Optional.empty();
         String bumped = versionSpec.replace(oldVersion, newVersion);
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(1) + bumped + matcher.group(3)));
         matcher.appendTail(sb);
         return Optional.of(sb.toString());
@@ -129,7 +129,7 @@ final class DependencyManifestPatcher {
                 Pattern.CASE_INSENSITIVE);
         Matcher m = lockEntry.matcher(content);
         if (m.find()) {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             m.appendReplacement(sb, Matcher.quoteReplacement(m.group(1) + newVersion + m.group(2)));
             m.appendTail(sb);
             content = sb.toString();
@@ -145,7 +145,7 @@ final class DependencyManifestPatcher {
                 Pattern.CASE_INSENSITIVE);
         m = blockVersion.matcher(content);
         if (m.find()) {
-            StringBuffer sb = new StringBuffer();
+            StringBuilder sb = new StringBuilder();
             m.appendReplacement(sb, Matcher.quoteReplacement(m.group(1) + newVersion + m.group(2)));
             m.appendTail(sb);
             return Optional.of(sb.toString());

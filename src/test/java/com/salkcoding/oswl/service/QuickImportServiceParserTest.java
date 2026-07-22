@@ -130,9 +130,9 @@ class QuickImportServiceParserTest {
         List<ScanPayload.ComponentPayload> comps = invokeMavenPom(dir.resolve("pom.xml"), dir);
 
         assertThat(comps).hasSize(1); // test scope skipped
-        assertThat(comps.get(0).getName()).isEqualTo("org.springframework:spring-core");
-        assertThat(comps.get(0).getVersion()).isEqualTo("6.1.0");
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("MAVEN");
+        assertThat(comps.getFirst().getName()).isEqualTo("org.springframework:spring-core");
+        assertThat(comps.getFirst().getVersion()).isEqualTo("6.1.0");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("MAVEN");
     }
 
     @Test
@@ -164,7 +164,7 @@ class QuickImportServiceParserTest {
         List<ScanPayload.ComponentPayload> comps = invokeMavenPom(dir.resolve("pom.xml"), dir);
 
         assertThat(comps).hasSize(1);
-        assertThat(comps.get(0).getVersion()).isEqualTo("2.0.0");
+        assertThat(comps.getFirst().getVersion()).isEqualTo("2.0.0");
     }
 
     // ── parseNpm (via package.json) ───────────────────────────────────────
@@ -380,7 +380,7 @@ class QuickImportServiceParserTest {
         List<ScanPayload.ComponentPayload> comps = invokeList("parseGoSum", dir);
 
         assertThat(comps).hasSize(2);
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("GO");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("GO");
     }
 
     @Test
@@ -399,7 +399,7 @@ class QuickImportServiceParserTest {
 
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
                 .contains("jekyll", "mercenary");
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("RUBYGEMS");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("RUBYGEMS");
     }
 
     @Test
@@ -457,9 +457,9 @@ class QuickImportServiceParserTest {
         List<ScanPayload.ComponentPayload> comps = invokeList("parseGoModDeclared", dir);
 
         assertThat(comps).hasSize(1);
-        assertThat(comps.get(0).getName()).isEqualTo("github.com/pkg/errors");
-        assertThat(comps.get(0).getVersion()).isEqualTo("v0.9.1");
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("GO");
+        assertThat(comps.getFirst().getName()).isEqualTo("github.com/pkg/errors");
+        assertThat(comps.getFirst().getVersion()).isEqualTo("v0.9.1");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("GO");
     }
 
     // ── parseCargo ────────────────────────────────────────────────────────
@@ -483,7 +483,7 @@ class QuickImportServiceParserTest {
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
                 .containsExactlyInAnyOrder("serde", "tokio");
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("CARGO");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("CARGO");
     }
 
     // ── parseNuGetStatic ─────────────────────────────────────────────────
@@ -505,7 +505,7 @@ class QuickImportServiceParserTest {
         assertThat(comps).hasSize(2);
         assertThat(comps).extracting(ScanPayload.ComponentPayload::getName)
                 .containsExactlyInAnyOrder("Newtonsoft.Json", "Microsoft.Extensions.Logging");
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("NUGET");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("NUGET");
     }
 
     @Test
@@ -610,7 +610,7 @@ class QuickImportServiceParserTest {
                         "org.springframework.boot:spring-boot-starter",
                         "org.junit.jupiter:junit-jupiter",
                         "com.h2database:h2");
-        assertThat(comps.get(0).getEcosystem()).isEqualTo("MAVEN");
+        assertThat(comps.getFirst().getEcosystem()).isEqualTo("MAVEN");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
@@ -32,6 +33,7 @@ class AiAnalysisServiceTest {
     @Mock AnthropicClient anthropicClient;
     @Mock EncryptionService encryptionService;
     @Mock AiUsageLimiterService usageLimiter;
+    @Mock AiConnectionDiagnostics connectionDiagnostics;
 
     @InjectMocks
     AiAnalysisService aiAnalysisService;
@@ -46,6 +48,12 @@ class AiAnalysisServiceTest {
         prompts.reloadWithLocale("en");
         ReflectionTestUtils.setField(aiAnalysisService, "promptTemplates", prompts);
         lenient().when(usageLimiter.tryConsume(any())).thenReturn(true);
+        lenient().when(connectionDiagnostics.preflight(any())).thenReturn(Optional.empty());
+        lenient().when(connectionDiagnostics.success()).thenReturn(AiConnectionTestResult.ok("OK"));
+        lenient().when(connectionDiagnostics.fromEmptyResponse(any()))
+                .thenReturn(AiConnectionTestResult.fail("empty", "hint"));
+        lenient().when(connectionDiagnostics.fromException(any(), any()))
+                .thenReturn(AiConnectionTestResult.fail("err", "hint"));
     }
 
     // ── isAiConfigured ────────────────────────────────────────────────────
@@ -336,5 +344,30 @@ class AiAnalysisServiceTest {
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
         verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("testConnection: 연결 테스트 1회는 일일 cap을 정확히 1회만 소비한다")
+    void testConnection_consumesDailyCapExactlyOnce() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
+
+        assertThat(aiAnalysisService.testConnection(setting)).isTrue();
+        verify(usageLimiter, times(1)).tryConsume(AiProvider.OPENAI);
+    }
+
+    @Test
+    @DisplayName("testConnection: 일일 cap 도달 시 소비 없이 실패 결과를 반환한다")
+    void testConnection_capReached_returnsFailureWithoutConsuming() {
+        AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
+        when(usageLimiter.isCapReached(AiProvider.OPENAI)).thenReturn(true);
+        when(connectionDiagnostics.dailyCapReached())
+                .thenReturn(AiConnectionTestResult.fail("cap", "hint"));
+
+        AiConnectionTestResult result = aiAnalysisService.testConnectionDetailed(setting);
+
+        assertThat(result.success()).isFalse();
+        verify(usageLimiter, never()).tryConsume(any());
+        verifyNoInteractions(openAiClient, anthropicClient);
     }
 }

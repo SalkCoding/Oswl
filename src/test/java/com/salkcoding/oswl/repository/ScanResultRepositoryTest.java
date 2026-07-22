@@ -41,7 +41,7 @@ class ScanResultRepositoryTest {
         List<ScanResult> results = scanResultRepository.findCompletedByProjectId(project.getId());
 
         assertThat(results).hasSize(2);
-        assertThat(results.get(0).getVersion()).isEqualTo("3.0");
+        assertThat(results.getFirst().getVersion()).isEqualTo("3.0");
     }
 
     @Test
@@ -78,7 +78,7 @@ class ScanResultRepositoryTest {
         List<ScanResult> all = scanResultRepository.findAllByProjectIdOrderByScannedAtDesc(project.getId());
 
         assertThat(all).hasSize(3);
-        assertThat(all.get(0).getVersion()).isEqualTo("3.0");
+        assertThat(all.getFirst().getVersion()).isEqualTo("3.0");
         assertThat(all.get(2).getVersion()).isEqualTo("1.0");
     }
 

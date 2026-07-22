@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.ChangePasswordControllerSpec;
 import com.salkcoding.oswl.auth.dto.ChangePasswordRequest;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.ChangePasswordService;
@@ -37,7 +38,7 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-public class ChangePasswordController {
+public class ChangePasswordController implements ChangePasswordControllerSpec {
 
     private final ChangePasswordService  changePasswordService;
     private final UserDetailsService     userDetailsService;

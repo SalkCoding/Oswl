@@ -33,6 +33,20 @@ The user receives an email with a temporary password and is forced to change it 
 
 > Deactivated users cannot log in but their data (audit logs, scan attributions) is preserved.
 
+### Self-service account deletion
+
+Any authenticated user (except the **system administrator**) can delete their own account from the user menu (**Delete account**), after confirming their current password.
+
+| Item | Behaviour |
+|---|---|
+| Endpoint | `POST /api/my/delete-account` — user id is taken **only** from the session principal (no path/body user id) |
+| System admin | Cannot self-delete |
+| Removed | `users` row, `project_members` rows, stored VCS tokens |
+| Preserved | All prior **audit log** rows (actor email/name/id snapshots), projects, scans, import history |
+| Audit action | `USER.SELF_DELETE` — logged **before** the user row is deleted so `actor_user_id` and display name are captured |
+
+Admin-initiated deletion remains `USER.DELETE` via `DELETE /api/admin/users/{id}`.
+
 ---
 
 ## Role Templates
@@ -130,6 +144,18 @@ When 2FA is enabled, users can mark a browser as **trusted** after a successful 
 
 ---
 
+## Server Properties (application.yaml)
+
+Instance-level security flags set in `application.yaml` or via environment variable (Spring relaxed binding). They are not editable from the Settings UI; a restart is required.
+
+| Config key | Env var | Default | Description |
+|---|---|---|---|
+| `oswl.quick-import.allow-build-exec` | `OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC` | `false` | When `false`, Quick Import parses manifests **statically** and never executes build tooling found in the cloned repository (`mvnw`, `gradlew`, `dotnet`). Set to `true` only when every importable repository is trusted — build-based version resolution runs repository build scripts on the OsWL host. |
+| `oswl.security.trusted-proxies` | `OSWL_SECURITY_TRUSTED_PROXIES` | *(empty)* | Comma-separated IPs of trusted reverse proxies. The `X-Forwarded-For` header is honored for client-IP resolution (audit logs, rate limiting) only when the direct peer is in this list; when empty, the header is ignored. Set this only when OsWL runs behind a proxy you control. |
+| `oswl.timezone` | `OSWL_TIMEZONE` | `Asia/Seoul` | Timezone used for time-sensitive features (currently AI usage tracking — the "day" a call is billed to). Change only if the deployment's business day should follow a different zone than the default. |
+
+---
+
 ## Audit Log
 
 **Settings → Admin → Audit Logs**
@@ -147,7 +173,9 @@ The audit log records every significant user and system action.
 
 ### Filtering
 
-Filter by actor, action (grouped in the UI — includes auth, projects, scans, CLI keys, components, and settings), and date range.
+Filter by actor, action (grouped in the UI — includes auth, users, projects, scans, CLI keys, components, and settings), and date range.
+
+**User action codes** include `USER.SELF_DELETE` (self-service account deletion) and `USER.DELETE` (admin deletion).
 
 ### Export
 
@@ -176,7 +204,9 @@ Configure the LLM provider and enrichment behaviour for CVE/license summaries.
 | **OpenAI** | API key + model (e.g. `gpt-4o-mini`) |
 | **Anthropic** | API key + model |
 | **Gemini** | API key + OpenAI-compatible base URL when required |
-| **Local** | OpenAI-compatible endpoint (e.g. Ollama) |
+| **Local** | OpenAI-compatible endpoint (e.g. Ollama) — or the built-in Embedded AI sidecar below |
+
+The **Embedded AI (built-in local model)** card on the same tab runs a bundled llama.cpp `llama-server` sidecar (CPU-only, localhost-only, no API key) and registers it as the LOCAL provider. The card offers a **model dropdown** (any `.gguf` in the folder, or Auto preference order), a **folder override** with Save (persisted; changing it while running stops the sidecar), and **automatic fallback** to the next available model when the first choice fails to start. See [Embedded AI](Embedded-AI.md).
 
 Only one provider is **active** at a time. The tab also exposes:
 
@@ -189,8 +219,24 @@ Only one provider is **active** at a time. The tab also exposes:
 | Prompt overrides | Per-key template edits (see `GET /api/settings/ai/prompts`) |
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
+**Embedded AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — see [API Reference — AI](API-Reference.md#ai).  
 **Per project:** `PATCH /api/projects/{id}/deployment-profile`.  
 **Component detail:** `POST .../cves/{cveDbId}/ai-summarize` to refresh a CVE AI summary (logged as `COMPONENT.CVE_AI_REGENERATE`).
+
+### Usage & Cost Tracking
+
+The AI card shows today's call count, token totals, and estimated cost (`GET /api/settings/ai/usage`, backed by a daily aggregate table so the totals stay cheap to query as history grows), plus a **Recent calls** table paginated 10 rows at a time (`GET /api/settings/ai/usage/events`). Only the most recent **100** raw call events are kept — older ones are dropped (FIFO) once a new call is recorded, but the daily totals and the 7-day trend are unaffected since they come from the aggregate table, not the raw event log.
+
+Estimated cost is a rough figure — it is **not** an invoice from the provider — computed per-provider (not per-model) from these rates:
+
+| Config key | Default (USD / 1M tokens) |
+|---|---|
+| `oswl.ai.pricing.openai-input-per-1m` / `openai-output-per-1m` | `2.50` / `10.00` |
+| `oswl.ai.pricing.anthropic-input-per-1m` / `anthropic-output-per-1m` | `3.00` / `15.00` |
+| `oswl.ai.pricing.gemini-input-per-1m` / `gemini-output-per-1m` | `1.25` / `5.00` |
+| `oswl.ai.pricing.local-input-per-1m` / `local-output-per-1m` | `0` / `0` |
+
+Update these to match your actual contracted rates if they drift from the defaults above.
 
 ---
 

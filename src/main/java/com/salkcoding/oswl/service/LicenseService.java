@@ -14,6 +14,8 @@ import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
+import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
+import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,16 +46,17 @@ public class LicenseService {
         model.addAttribute("projectName", project.getName());
         model.addAttribute("context", context);
 
-        List<ScanResult> allScans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(allScans);
 
         ScanResult scan;
         if (scanId != null) {
             scan = allScans.stream()
                     .filter(s -> s.getId().equals(scanId))
                     .findFirst()
-                    .orElse(allScans.isEmpty() ? null : allScans.get(0));
+                    .orElse(allScans.isEmpty() ? null : allScans.getFirst());
         } else {
-            scan = allScans.isEmpty() ? null : allScans.get(0);
+            scan = allScans.isEmpty() ? null : allScans.getFirst();
         }
 
         Long activeScanId = scan != null ? scan.getId() : null;
@@ -144,7 +147,7 @@ public class LicenseService {
         model.addAttribute("conflicts", conflicts);
         model.addAttribute("reviewItems", reviewItems);
         model.addAttribute("licenses", licenses);
-        model.addAttribute("licenseAiInsight", scan.getLicenseAiInsight());
+        model.addAttribute("licenseAiInsight", AiResponseSanitizer.sanitizePlainText(scan.getLicenseAiInsight()));
         model.addAttribute("aiConfigured", aiAnalysisService.isAiConfigured());
     }
 
@@ -683,10 +686,11 @@ public class LicenseService {
     }
 
     private ScanResult resolveScan(Long projectId, Long scanId) {
-        List<ScanResult> scans = scanResultRepository.findCompletedByProjectId(projectId);
+        List<ScanResult> scans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(scans);
         if (scans.isEmpty()) return null;
-        if (scanId == null) return scans.get(0);
-        return scans.stream().filter(s -> s.getId().equals(scanId)).findFirst().orElse(scans.get(0));
+        if (scanId == null) return scans.getFirst();
+        return scans.stream().filter(s -> s.getId().equals(scanId)).findFirst().orElse(scans.getFirst());
     }
 
     private String safe(String s) {

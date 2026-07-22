@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.controller.spec.AdminAuditLogControllerSpec;
 import com.salkcoding.oswl.auth.dto.AuditLogDto;
 import com.salkcoding.oswl.auth.dto.AuditLogFilter;
 import com.salkcoding.oswl.auth.service.AuditLogService;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin/audit-logs")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('SYSTEM_ADMIN')")
-public class AdminAuditLogController {
+public class AdminAuditLogController implements AdminAuditLogControllerSpec {
 
     private final AuditLogService auditLogService;
 
