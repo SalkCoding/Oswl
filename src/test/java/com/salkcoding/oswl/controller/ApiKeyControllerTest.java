@@ -80,7 +80,7 @@ class ApiKeyControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).hasSize(1);
-        ApiKeyResponse r = resp.getBody().get(0);
+        ApiKeyResponse r = resp.getBody().getFirst();
         assertThat(r.getToken()).isEqualTo("oswl_ABCDEFGHI12...");
         assertThat(r.isActive()).isTrue();
         assertThat(r.getLabel()).isEqualTo("CI");
@@ -95,7 +95,7 @@ class ApiKeyControllerTest {
 
         ResponseEntity<List<ApiKeyResponse>> resp = controller.list(1L);
 
-        assertThat(resp.getBody().get(0).getToken()).isEqualTo("***");
+        assertThat(resp.getBody().getFirst().getToken()).isEqualTo("***");
     }
 
     @Test
@@ -107,7 +107,7 @@ class ApiKeyControllerTest {
 
         ResponseEntity<List<ApiKeyResponse>> resp = controller.list(1L);
 
-        assertThat(resp.getBody().get(0).getToken()).isEqualTo("***");
+        assertThat(resp.getBody().getFirst().getToken()).isEqualTo("***");
     }
 
     @Test
@@ -119,7 +119,7 @@ class ApiKeyControllerTest {
 
         ResponseEntity<List<ApiKeyResponse>> resp = controller.list(1L);
 
-        assertThat(resp.getBody().get(0).getLastUsedAt()).isNull();
+        assertThat(resp.getBody().getFirst().getLastUsedAt()).isNull();
     }
 
     @Test
@@ -131,8 +131,8 @@ class ApiKeyControllerTest {
 
         ResponseEntity<List<ApiKeyResponse>> resp = controller.list(5L);
 
-        assertThat(resp.getBody().get(0).getRevokedAt()).isNotNull();
-        assertThat(resp.getBody().get(0).isActive()).isFalse();
+        assertThat(resp.getBody().getFirst().getRevokedAt()).isNotNull();
+        assertThat(resp.getBody().getFirst().isActive()).isFalse();
     }
 
     // ── issue ──────────────────────────────────────────────────────────────

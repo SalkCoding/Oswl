@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
-@Tag(name = "Admin — CLI Keys", description = "Global CLI API key management across all projects. Requires SYSTEM_ADMIN role.")
+@Tag(name = "Admin — CLI Keys", description = "Global CLI API key management across all projects. Requires the SETTINGS_CLI_KEY_MANAGE permission or the SYSTEM_ADMIN role.")
 public interface AdminCliKeyControllerSpec {
 
     @Operation(summary = "List all CLI API keys",

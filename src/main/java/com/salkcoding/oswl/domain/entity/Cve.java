@@ -92,10 +92,6 @@ public class Cve {
         if (severity != null) this.severity = severity;
     }
 
-    public void setAiSummary(String summary) {
-        this.aiSummary = summary;
-    }
-
     public void setAiTriage(String summary, String priority, String recommendedAction) {
         this.aiSummary = summary;
         this.aiPriority = priority;
@@ -111,10 +107,6 @@ public class Cve {
     public void setThreatIntel(Double epssScore, boolean kevListed) {
         this.epssScore = epssScore;
         this.kevListed = kevListed;
-    }
-
-    public void updateFixVersion(String fixVersion) {
-        this.fixVersion = fixVersion;
     }
 
     /** Backfills summary, fix version, and CWE from OSV when available. */

@@ -6,6 +6,8 @@ public final class QuickImportMessageKeys {
     private QuickImportMessageKeys() {}
 
     public static final String QUEUE_FULL = "queueFull";
+    public static final String DUPLICATE_IMPORT = "duplicateImport";
+    public static final String CANCELED = "canceled";
     public static final String LOAD_REPOS = "loadRepos";
     public static final String TOKEN_DECRYPT = "tokenDecrypt";
 
@@ -18,4 +20,8 @@ public final class QuickImportMessageKeys {
     public static final String ENRICHMENT_FAILED = "enrichmentFailed";
     public static final String CLI_POLICY_BLOCKED = "cliPolicyBlocked";
     public static final String IMPORT_COMPLETE = "importComplete";
+    public static final String PARSE_FAILED = "parseFailed";
+    public static final String JAVA_REQUIRED = "javaRequired";
+    public static final String NO_MANIFESTS = "noManifests";
+    public static final String GRADLE_FAILED = "gradleFailed";
 }

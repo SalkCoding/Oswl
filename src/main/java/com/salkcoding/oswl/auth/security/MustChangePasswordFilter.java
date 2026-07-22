@@ -67,6 +67,7 @@ public class MustChangePasswordFilter extends OncePerRequestFilter {
                 || uri.equals("/my/change-password")
                 || uri.startsWith("/my/change-password/")
                 || uri.startsWith("/api/my/change-password")
+                || uri.startsWith("/api/my/delete-account")
                 || uri.startsWith("/logout")
                 || uri.startsWith("/login")
                 || uri.startsWith("/setup")

@@ -1,7 +1,6 @@
 package com.salkcoding.oswl.auth.service;
 
 import com.salkcoding.oswl.auth.enums.Permission;
-import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.security.OtpPendingIdentity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -16,7 +15,6 @@ import org.springframework.mock.web.MockHttpSession;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -27,10 +25,9 @@ import static org.mockito.Mockito.*;
 @DisplayName("OtpService unit tests")
 class OtpServiceTest {
 
-    @Mock MailService         mailService;
-    @Mock UserRepository      userRepository;
-    @Mock AuditLogService     auditLogService;
-    @Mock UserDetailsService  userDetailsService;
+    @Mock MailService           mailService;
+    @Mock UserDetailsService    userDetailsService;
+    @Mock OtpAccountLockService otpAccountLockService;
 
     @InjectMocks OtpService otpService;
 
@@ -146,16 +143,12 @@ class OtpServiceTest {
         session.setAttribute(OtpService.SESSION_OTP, "999999");
         session.setAttribute(OtpService.SESSION_EXPIRY, expiry);
 
-        com.salkcoding.oswl.auth.entity.User user = mock(com.salkcoding.oswl.auth.entity.User.class);
-        when(user.isEnabled()).thenReturn(true);
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
-
         for (int i = 0; i < 5; i++) {
             otpService.verify(session, "000001");
         }
 
         assertThat(session.getAttribute(OtpService.SESSION_LOCKED)).isEqualTo(true);
-        verify(user).setEnabled(false);
+        verify(otpAccountLockService).lockAccount("user@example.com", 5);
     }
 
     // ── canResend ─────────────────────────────────────────────────────

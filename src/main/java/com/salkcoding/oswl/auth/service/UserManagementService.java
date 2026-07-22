@@ -137,9 +137,14 @@ public class UserManagementService {
     public int handleLoginFailure(String email) {
         return userRepository.findByEmail(email.toLowerCase())
                 .map(user -> {
+                    // Increment atomically in the DB so concurrent failures never lose a count.
+                    // The bulk update clears the persistence context, so the (now detached)
+                    // entity is mirrored by hand for the lockout check and the return value.
+                    userRepository.incrementLoginFailureCount(user.getEmail());
                     int count = user.getLoginFailureCount() + 1;
                     user.setLoginFailureCount(count);
                     if (count >= 10 && user.isEnabled()) {
+                        userRepository.disableByEmail(user.getEmail());
                         user.setEnabled(false);
                         auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
                                 user.getId().toString(), email,

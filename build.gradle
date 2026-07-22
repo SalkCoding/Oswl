@@ -1,3 +1,5 @@
+import java.util.zip.ZipInputStream
+
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.0.5'
@@ -7,7 +9,7 @@ plugins {
 
 group = 'com.salkcoding'
 // x-release-please-start-version
-version = '1.0.0'
+version = '1.0.3'
 // x-release-please-end
 
 java {
@@ -85,6 +87,29 @@ tasks.named('compileJava') {
 
 tasks.named('bootRun') {
 	dependsOn compileLocalJava
+	doFirst {
+		def os = org.gradle.internal.os.OperatingSystem.current()
+		def script = os.isWindows() ? file('scripts/check-java.ps1') : file('scripts/check-java.sh')
+		if (script.exists()) {
+			def cmd = os.isWindows()
+					? ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath]
+					: ['bash', script.absolutePath]
+			try {
+				def result = exec {
+					commandLine cmd
+					ignoreExitValue = true
+				}
+				if (result.exitValue != 0) {
+					throw new GradleException('JDK preflight failed — see the install instructions above.')
+				}
+			} catch (GradleException e) {
+				throw e
+			} catch (Exception e) {
+				// Preflight runner itself unavailable (no bash/powershell) — don't block startup
+				logger.warn("[OsWL] JDK preflight could not run (${e.message}) — continuing.")
+			}
+		}
+	}
 	jvmArgs = ['-Djava.net.preferIPv4Stack=true']
 	classpath = sourceSets.main.runtimeClasspath + sourceSets.local.runtimeClasspath
 }
@@ -101,7 +126,7 @@ tasks.register('verifyProdJar') {
 		def jarFile = tasks.named('bootJar').get().archiveFile.get().asFile
 		def forbidden = ['com/salkcoding/oswl/controller/TestDataController.class']
 		jarFile.withInputStream { input ->
-			def zip = new java.util.zip.ZipInputStream(input)
+			def zip = new ZipInputStream(input)
 			def entry
 			while ((entry = zip.nextEntry) != null) {
 				if (forbidden.any { entry.name == it }) {

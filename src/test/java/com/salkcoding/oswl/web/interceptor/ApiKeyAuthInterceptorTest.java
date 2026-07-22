@@ -3,7 +3,9 @@ package com.salkcoding.oswl.web.interceptor;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.exception.TooManyRequestsException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
+import com.salkcoding.oswl.security.ClientIpResolver;
 import com.salkcoding.oswl.service.ApiKeyService;
 import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +29,7 @@ class ApiKeyAuthInterceptorTest {
     @Mock ApiKeyService apiKeyService;
     @Mock ScanApiCredentialThrottleService scanApiCredentialThrottleService;
     @Mock AuditLogService auditLogService;
+    @Mock ClientIpResolver clientIpResolver;
     @InjectMocks ApiKeyAuthInterceptor interceptor;
 
     @Mock HttpServletRequest request;
@@ -35,8 +38,7 @@ class ApiKeyAuthInterceptorTest {
 
     @BeforeEach
     void stubRequestMeta() {
-        lenient().when(request.getHeader("X-Forwarded-For")).thenReturn(null);
-        lenient().when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        lenient().when(clientIpResolver.resolve(any())).thenReturn("127.0.0.1");
         lenient().when(request.getRequestURI()).thenReturn("/api/scan");
         lenient().doNothing().when(scanApiCredentialThrottleService).assertApiKeyCheckAllowed(anyString());
         lenient().doNothing().when(scanApiCredentialThrottleService).recordApiKeyFailure(anyString());
@@ -94,7 +96,22 @@ class ApiKeyAuthInterceptorTest {
         assertThat(result).isTrue();
         verify(request).setAttribute(ApiKeyAuthInterceptor.ATTR_API_KEY, apiKey);
         verify(request).setAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID, 10L);
+        verify(scanApiCredentialThrottleService, never()).recordApiKeyFailure(anyString());
         verifyNoInteractions(response);
+    }
+
+    @Test
+    @DisplayName("preHandle: 스로틀이 429를 던지면 키 검증 없이 429를 반환한다")
+    void preHandle_rateLimited_returns429WithoutValidating() throws Exception {
+        when(request.getHeader("Authorization")).thenReturn("Bearer any-token");
+        doThrow(new TooManyRequestsException("Too many invalid API key attempts. Try again later."))
+                .when(scanApiCredentialThrottleService).assertApiKeyCheckAllowed("127.0.0.1");
+
+        boolean result = interceptor.preHandle(request, response, handler);
+
+        assertThat(result).isFalse();
+        verify(response).sendError(eq(429), anyString());
+        verifyNoInteractions(apiKeyService);
     }
 
     @Test

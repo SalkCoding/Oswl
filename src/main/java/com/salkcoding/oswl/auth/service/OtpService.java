@@ -1,6 +1,5 @@
 package com.salkcoding.oswl.auth.service;
 
-import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.security.OtpPendingIdentity;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -8,7 +7,6 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -50,9 +48,8 @@ public class OtpService {
     private static final long RESEND_COOLDOWN_MS = 60_000L;   // 60 seconds
 
     private final MailService         mailService;
-    private final UserRepository      userRepository;
-    private final AuditLogService     auditLogService;
     private final UserDetailsService    userDetailsService;
+    private final OtpAccountLockService otpAccountLockService;
     private final SecureRandom   secureRandom = new SecureRandom();
 
     // ── Public API ─────────────────────────────────────────────────────
@@ -151,7 +148,9 @@ public class OtpService {
 
         if (attempts >= MAX_OTP_ATTEMPTS) {
             session.setAttribute(SESSION_LOCKED, true);
-            lockAccount(session);
+            if (failed != null) {
+                otpAccountLockService.lockAccount(failed.getUsername(), MAX_OTP_ATTEMPTS);
+            }
         }
         return false;
     }
@@ -274,24 +273,5 @@ public class OtpService {
         Long expiry = (Long) session.getAttribute(SESSION_CHANGE_PW_EXPIRY);
         if (expiry == null) return 0;
         return Math.max(0, (expiry - Instant.now().toEpochMilli()) / 1000);
-    }
-
-    // ── Private helpers ───────────────────────────────────────────────
-
-    @Transactional
-    private void lockAccount(HttpSession session) {
-        OswlUserPrincipal principal = getPendingPrincipal(session);
-        if (principal == null) return;
-
-        String email = principal.getUsername();
-        userRepository.findByEmail(email).ifPresent(user -> {
-            if (user.isEnabled()) {
-                user.setEnabled(false);
-                auditLogService.logAnonymous(email, "USER.DEACTIVATE", "USER",
-                        user.getId().toString(), email,
-                        "Auto-locked after " + MAX_OTP_ATTEMPTS + " OTP failures");
-                log.warn("[OTP] Account '{}' locked after {} OTP failures", email, MAX_OTP_ATTEMPTS);
-            }
-        });
     }
 }

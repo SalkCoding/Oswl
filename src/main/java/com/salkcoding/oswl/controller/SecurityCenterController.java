@@ -5,6 +5,7 @@ import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.SecurityCenterService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -51,7 +52,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
     @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SYSTEM_ADMIN')")
     @ResponseBody
     public ResponseEntity<Void> bulkStatus(@PathVariable Long projectId,
-                                           @RequestBody BulkStatusRequest req) {
+                                           @Valid @RequestBody BulkStatusRequest req) {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.bulkUpdateStatus(projectId, req);
         return ResponseEntity.noContent().build();

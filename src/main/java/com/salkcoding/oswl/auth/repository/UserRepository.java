@@ -21,4 +21,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Transactional
     @Query("update User u set u.lastLoginAt = :time where u.email = :email")
     void updateLastLoginAt(@Param("email") String email, @Param("time") LocalDateTime time);
+
+    /** Atomic DB-side increment so concurrent login failures never lose a count. */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("update User u set u.loginFailureCount = u.loginFailureCount + 1 where u.email = :email")
+    int incrementLoginFailureCount(@Param("email") String email);
+
+    /** Atomic account disable applied when the login failure threshold is crossed. */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("update User u set u.enabled = false where u.email = :email")
+    int disableByEmail(@Param("email") String email);
 }
