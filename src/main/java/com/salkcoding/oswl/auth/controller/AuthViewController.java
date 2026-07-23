@@ -21,9 +21,13 @@ public class AuthViewController {
 
     private final OtpService             otpService;
     private final SecuritySettingService securitySettingService;
+    /** Present only when an OIDC provider is configured (roadmap #13 SSO). */
+    private final org.springframework.beans.factory.ObjectProvider<
+            org.springframework.security.oauth2.client.registration.ClientRegistrationRepository> clientRegistrations;
 
     @GetMapping("/login")
-    public String loginPage() {
+    public String loginPage(Model model) {
+        model.addAttribute("ssoEnabled", clientRegistrations.getIfAvailable() != null);
         return "auth/login";
     }
 

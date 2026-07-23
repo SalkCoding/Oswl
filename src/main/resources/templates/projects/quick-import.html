@@ -206,6 +206,81 @@
             </button>
         </div>
 
+        <!-- ── SBOM Upload (CycloneDX) ──────────────────────────────────── -->
+        <div id="sbom-import-card"
+             x-data="{
+                 file: null, projectName: '', version: '', busy: false, result: null, error: null,
+                 pick(e) { this.file = e.target.files[0] || null; this.result = null; this.error = null; },
+                 async submit() {
+                     if (!this.file || this.busy) return;
+                     this.busy = true; this.result = null; this.error = null;
+                     try {
+                         const fd = new FormData();
+                         fd.append('file', this.file);
+                         if (this.projectName.trim()) fd.append('projectName', this.projectName.trim());
+                         if (this.version.trim()) fd.append('version', this.version.trim());
+                         const r = await fetch('/api/sbom/import', {
+                             method: 'POST',
+                             headers: { 'X-XSRF-TOKEN': OswlCsrf.token() },
+                             body: fd
+                         });
+                         const body = await r.json().catch(() => ({}));
+                         if (!r.ok) {
+                             this.error = body.error || _sbomI18n.failed;
+                             return;
+                         }
+                         this.result = body;
+                     } catch (e) {
+                         this.error = _sbomI18n.failed;
+                     } finally {
+                         this.busy = false;
+                     }
+                 },
+                 successText() {
+                     if (!this.result) return '';
+                     let msg = _sbomI18n.success
+                         .replace('{0}', this.result.importedComponents)
+                         .replace('{1}', this.result.projectName);
+                     if (this.result.skippedComponents > 0) {
+                         msg += ' ' + _sbomI18n.skipped.replace('{0}', this.result.skippedComponents);
+                     }
+                     return msg;
+                 }
+             }"
+             class="w-full bg-white border border-[var(--grayscale-15)] rounded-[14px] p-[28px] flex flex-col gap-[16px]">
+            <div class="flex flex-col gap-[6px]">
+                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]" th:text="#{quickImport.sbom.title}">SBOM Upload (CycloneDX)</label>
+                <p class="text-[12px] text-[var(--grayscale-60)] m-0 leading-[1.4]" th:text="#{quickImport.sbom.hint}">Import a CycloneDX SBOM (JSON or XML). Components are stored and analyzed through the same pipeline as a repository import.</p>
+                <p class="text-[12px] text-[var(--grayscale-60)] m-0 leading-[1.4]" th:text="#{quickImport.sbom.lockHint}">Raw lock files are also accepted: composer.lock (PHP) and conan.lock (C/C++) are parsed and stored through the same pipeline.</p>
+            </div>
+            <div class="flex gap-[10px] flex-wrap items-center">
+                <input type="file" accept=".json,.xml,.lock,application/json,application/xml"
+                       @change="pick($event)"
+                       class="flex-1 min-w-[220px] text-[13px] text-[var(--grayscale-70)] border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] file:mr-[10px] file:border-0 file:rounded-[6px] file:px-[10px] file:py-[4px] file:bg-[var(--grayscale-10)] file:text-[13px] file:font-medium file:cursor-pointer cursor-pointer">
+                <input type="text" x-model="projectName"
+                       th:placeholder="#{quickImport.sbom.projectName.placeholder}"
+                       class="w-[200px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors">
+                <input type="text" x-model="version"
+                       th:placeholder="#{quickImport.sbom.version.placeholder}"
+                       class="w-[150px] px-[12px] py-[10px] border border-[var(--grayscale-20)] rounded-[8px] text-[14px] text-[var(--grayscale-90)] placeholder-[var(--grayscale-40)] focus:outline-none focus:border-[#33D1B7] transition-colors">
+            </div>
+            <button @click="submit()"
+                    :disabled="!file || busy"
+                    class="self-start inline-flex items-center gap-[8px] px-[20px] py-[10px] rounded-[8px] text-[14px] font-semibold transition-all
+                           bg-[var(--primary-120)] text-white hover:bg-[var(--primary-100)]
+                           disabled:opacity-40 disabled:cursor-not-allowed">
+                <span x-text="busy ? _sbomI18n.busy : _sbomI18n.btn"></span>
+            </button>
+            <p x-show="error" x-cloak class="text-[12px] text-red-500 m-0" x-text="error"></p>
+            <div x-show="result" x-cloak
+                 class="flex items-center gap-[8px] rounded-[8px] px-[14px] py-[10px]"
+                 style="background:rgba(0,160,147,0.06);border:1px solid rgba(0,160,147,0.2);">
+                <span class="text-[13px] font-medium text-[#00a093]" x-text="successText()"></span>
+                <a :href="result ? '/projects/' + result.projectId + '/security-center' : '#'"
+                   class="text-[13px] font-semibold underline text-[#00a093]" th:text="#{quickImport.sbom.open}">Open Security Center →</a>
+            </div>
+        </div>
+
         <!-- ── Progress Log (multi-job) ─────────────────────────────────── -->
         <div x-show="showProgress" x-cloak id="import-progress" class="w-full min-w-0 flex flex-col gap-[12px]">
             <p class="text-[12px] font-semibold text-[var(--grayscale-50)] uppercase tracking-[0.6px] m-0" th:text="#{quickImport.progress.heading}">Import progress</p>
@@ -573,6 +648,13 @@
         minutesShort:        /*[[#{common.time.minutesShort}]]*/ '{0}m ago',
         hoursShort:          /*[[#{common.time.hoursShort}]]*/ '{0}h ago',
         daysShort:           /*[[#{common.time.daysShort}]]*/ '{0}d ago'
+    };
+    const _sbomI18n = {
+        btn:     /*[[#{quickImport.sbom.btn}]]*/ 'Import SBOM',
+        busy:    /*[[#{quickImport.sbom.busy}]]*/ 'Importing…',
+        failed:  /*[[#{quickImport.sbom.failed}]]*/ 'SBOM import failed. Check that the file is a valid CycloneDX document.',
+        success: /*[[#{quickImport.sbom.success}]]*/ 'Imported {0} components into "{1}" — scan started.',
+        skipped: /*[[#{quickImport.sbom.skipped}]]*/ '({0} components skipped — no supported purl)'
     };
     </script>
 

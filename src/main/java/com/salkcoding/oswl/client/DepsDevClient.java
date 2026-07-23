@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotAdvisory;
+import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVersion;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -10,8 +12,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,9 +31,12 @@ import java.util.function.Supplier;
  *
  * Since deps.dev has no batch endpoint, GetVersion calls are processed in parallel
  * through a virtual-thread executor (limited to 10 concurrent requests).
+ *
+ * Air-gapped mode: when constructed with a snapshot store and the air-gapped flag,
+ * lookups are answered from the offline snapshot instead of HTTP (components absent
+ * from the snapshot resolve as {@link #unresolved()}).
  */
 @Slf4j
-@Component
 public class DepsDevClient {
 
     private static final String BASE_URL = "https://api.deps.dev";
@@ -39,12 +46,24 @@ public class DepsDevClient {
     private final RestClient restClient;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Semaphore requestPermits = new Semaphore(MAX_CONCURRENT_REQUESTS);
+    private final AirgappedSnapshotService snapshotService;
+    private final boolean airgapped;
 
+    /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public DepsDevClient() {
+        this(null, false);
+    }
+
+    public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped) {
+        this.snapshotService = snapshotService;
+        this.airgapped = airgapped && snapshotService != null;
         this.restClient = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader("Accept", "application/json")
                 .build();
+        if (this.airgapped) {
+            log.info("[DepsDevClient] Air-gapped mode — deps.dev lookups served from the offline snapshot store, no outbound HTTP");
+        }
     }
 
     // ── DTO ────────────────────────────────────────────────────────────
@@ -57,7 +76,7 @@ public class DepsDevClient {
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
                               boolean isDefault, String deprecated, String latestVersion,
-                              boolean resolved) {}
+                              boolean resolved, Double scorecardScore) {}
 
     public record AdvisoryInfo(
             String ghsaId,
@@ -73,6 +92,9 @@ public class DepsDevClient {
      * Returns a list aligned with the input list; null means the package lookup failed.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
+        if (airgapped) {
+            return getVersionsFromSnapshot(components);
+        }
         List<CompletableFuture<VersionInfo>> futures = components.stream()
                 .map(key -> CompletableFuture.supplyAsync(() -> withPermit(() -> getVersion(key)), executor))
                 .toList();
@@ -94,6 +116,9 @@ public class DepsDevClient {
      * Returns a list aligned with the input list; null means the lookup failed.
      */
     public List<AdvisoryInfo> getAdvisoriesBatch(List<String> ghsaIds) {
+        if (airgapped) {
+            return getAdvisoriesFromSnapshot(ghsaIds);
+        }
         List<CompletableFuture<AdvisoryInfo>> futures = ghsaIds.stream()
                 .map(id -> CompletableFuture.supplyAsync(() -> withPermit(() -> getAdvisory(id)), executor))
                 .toList();
@@ -107,6 +132,54 @@ public class DepsDevClient {
                 results.add(null);
             }
         }
+        return results;
+    }
+
+    // ── Air-gapped (offline snapshot) ─────────────────────────────────────
+
+    /** Offline GetVersion: snapshot hit → resolved VersionInfo; miss → {@link #unresolved()}. */
+    private List<VersionInfo> getVersionsFromSnapshot(List<ComponentKey> components) {
+        List<String> keys = new ArrayList<>(components.size());
+        Set<String> distinctKeys = new LinkedHashSet<>();
+        for (ComponentKey key : components) {
+            String k = AirgappedSnapshotService.componentKey(key.ecosystem(), key.name(), key.version());
+            keys.add(k);
+            if (k != null) distinctKeys.add(k);
+        }
+        Map<String, SnapshotVersion> found = snapshotService.findVersions(distinctKeys);
+
+        List<VersionInfo> results = new ArrayList<>(components.size());
+        int hits = 0;
+        for (String key : keys) {
+            SnapshotVersion sv = key != null ? found.get(key) : null;
+            if (sv == null) {
+                results.add(unresolved());
+            } else {
+                hits++;
+                results.add(new VersionInfo(sv.licenses(), sv.advisoryKeys(), sv.isDefault(),
+                        sv.deprecated(), sv.latestVersion(), true, sv.scorecardScore()));
+            }
+        }
+        log.debug("[DepsDevClient] air-gapped GetVersion batch size={} snapshotHits={}", components.size(), hits);
+        return results;
+    }
+
+    /** Offline GetAdvisory: snapshot hit → AdvisoryInfo; miss → null (live failure semantics). */
+    private List<AdvisoryInfo> getAdvisoriesFromSnapshot(List<String> ghsaIds) {
+        Map<String, SnapshotAdvisory> found = snapshotService.findAdvisories(new LinkedHashSet<>(ghsaIds));
+        List<AdvisoryInfo> results = new ArrayList<>(ghsaIds.size());
+        int hits = 0;
+        for (String id : ghsaIds) {
+            SnapshotAdvisory sa = id != null ? found.get(id) : null;
+            if (sa == null) {
+                results.add(null);
+            } else {
+                hits++;
+                results.add(new AdvisoryInfo(sa.ghsaId(), sa.title(), sa.aliases(),
+                        sa.cvss3Score(), sa.cvss3Vector()));
+            }
+        }
+        log.debug("[DepsDevClient] air-gapped GetAdvisory batch size={} snapshotHits={}", ghsaIds.size(), hits);
         return results;
     }
 
@@ -184,9 +257,11 @@ public class DepsDevClient {
                 }
             }
 
-            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
-                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion);
-            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true);
+            Double scorecardScore = fetchScorecardScore(body);
+
+            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={} scorecard={}",
+                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion, scorecardScore);
+            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true, scorecardScore);
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] GetVersion 404/error {}:{} - {}", key.name(), key.version(), e.getMessage());
             return unresolved();
@@ -195,7 +270,50 @@ public class DepsDevClient {
 
     /** Placeholder when GetVersion failed — must not be written to Library version columns. */
     public static VersionInfo unresolved() {
-        return new VersionInfo(List.of(), List.of(), false, null, null, false);
+        return new VersionInfo(List.of(), List.of(), false, null, null, false, null);
+    }
+
+    /**
+     * Reads the OpenSSF Scorecard overall score for the version's source-repo project.
+     * The version response links related projects; the SOURCE_REPO one carries the scorecard
+     * via a second {@code GET /v3/projects/{projectKey}} call. Returns null when unavailable.
+     */
+    @SuppressWarnings("unchecked")
+    private Double fetchScorecardScore(Map<String, Object> versionBody) {
+        String projectKey = extractSourceRepoProjectKey(versionBody);
+        if (projectKey == null) return null;
+        try {
+            String path = "/v3/projects/" + URLEncoder.encode(projectKey, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
+            Map<String, Object> body = restClient.get().uri(uri).retrieve().body(Map.class);
+            if (body == null) return null;
+            Object sc = body.get("scorecard");
+            if (sc instanceof Map<?, ?> scMap) {
+                Object overall = scMap.get("overallScore");
+                if (overall instanceof Number n) return n.doubleValue();
+            }
+            return null;
+        } catch (RestClientException e) {
+            log.debug("[DepsDevClient] Scorecard fetch failed for {} - {}", projectKey, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Finds the SOURCE_REPO related-project key (e.g. "github.com/owner/repo") from a version response. */
+    private static String extractSourceRepoProjectKey(Map<String, Object> versionBody) {
+        Object rpRaw = versionBody.get("relatedProjects");
+        if (!(rpRaw instanceof List<?> rpList)) return null;
+        String firstAny = null;
+        for (Object rp : rpList) {
+            if (!(rp instanceof Map<?, ?> rpMap)) continue;
+            Object pkRaw = rpMap.get("projectKey");
+            String id = (pkRaw instanceof Map<?, ?> pkMap && pkMap.get("id") instanceof String s) ? s : null;
+            if (id == null) continue;
+            if ("SOURCE_REPO".equals(rpMap.get("relationType"))) return id;
+            if (firstAny == null) firstAny = id;
+        }
+        return firstAny;
     }
 
     /** Reads registry default (latest stable) version from the package listing API. */
@@ -299,8 +417,9 @@ public class DepsDevClient {
      * Maven: groupId:artifactId → groupId%3AartifactId
      * npm scope: @org/pkg → %40org%2Fpkg
      * Go: github.com/x/y → github.com%2Fx%2Fy
+     *
+     * Reads CVSS 3.x base score from GetAdvisory JSON (camelCase or snake_case).
      */
-    /** Reads CVSS 3.x base score from GetAdvisory JSON (camelCase or snake_case). */
     private static Double extractCvss3Score(Map<String, Object> body) {
         Object s = body.get("cvss3Score");
         if (s == null) s = body.get("cvss3_score");
