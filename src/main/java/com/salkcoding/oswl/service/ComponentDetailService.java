@@ -40,8 +40,10 @@ import org.springframework.ui.Model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.salkcoding.oswl.domain.entity.ScanResult;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,6 +54,7 @@ public class ComponentDetailService {
 
     private final ProjectRepository              projectRepository;
     private final ScanComponentRepository         scanComponentRepository;
+    private final com.salkcoding.oswl.repository.ScanResultRepository scanResultRepository;
     private final DependencyPathRepository         dependencyPathRepository;
     private final AuditLogService                  auditLogService;
     private final GitHubService                    gitHubService;
@@ -217,6 +220,18 @@ public class ComponentDetailService {
         // PR target: patch (CVE fix) version first, else latest when outdated; null → no PR
         model.addAttribute("prTargetVersion", lib.resolvePrTargetVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
+
+        // Package health: OpenSSF Scorecard score (null when deps.dev has none) + malicious flag (OSV MAL-)
+        model.addAttribute("scorecardScore", lib.getScorecardScore());
+        model.addAttribute("malicious", lib.isMalicious());
+
+        // Supply-chain heuristics: possible typosquat / dependency-confusion flag
+        model.addAttribute("typosquatRisk", lib.isTyposquatRisk());
+        model.addAttribute("typosquatReason", lib.getTyposquatReason());
+
+        // Jira integration (#10): existing linked issue, if any
+        model.addAttribute("jiraIssueKey", sc.getJiraIssueKey());
+        model.addAttribute("jiraIssueUrl", sc.getJiraIssueUrl());
 
         // Deferral info
         model.addAttribute("isDeferred", sc.isDeferred());
@@ -514,6 +529,78 @@ public class ComponentDetailService {
         log.info("[CreatePR] provider={} projectId={} componentId={} prUrl={}",
                 provider, projectId, componentId, result.get("prUrl"));
         return result;
+    }
+
+    /**
+     * Batch upgrade PRs (Renovate-lite): creates one PR per patchable component of the latest
+     * completed scan. Reuses the single-PR path per component; a failure on one component is
+     * captured and the rest proceed (partial success). Deferred/ignored components are skipped.
+     *
+     * @return per-component outcomes: {componentId, name, currentVersion, targetVersion, success, prUrl|error}
+     */
+    @Transactional
+    public Map<String, Object> createBatchPullRequests(Long projectId, String baseBranch,
+                                                       Long userId, String githubToken) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        if (project.getVcsProvider() == null || project.getGithubRepo() == null) {
+            throw new IllegalStateException(
+                    "This project is not connected to a VCS repository. (CLI imports do not support PR creation.)");
+        }
+        if (baseBranch == null || baseBranch.isBlank()) {
+            throw new InvalidRequestException("Target branch is required.");
+        }
+
+        ScanResult scan = scanResultRepository.findRecentCompleted(projectId, 1).stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Project has no completed scan."));
+        List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
+
+        // One PR per distinct patchable library; skip accepted exceptions.
+        java.util.Map<Long, ScanComponent> patchable = new java.util.LinkedHashMap<>();
+        for (ScanComponent sc : components) {
+            if (sc.isDeferred() || sc.isIgnored()) continue;
+            Library lib = sc.getLibrary();
+            if (lib.resolvePrTargetVersion() == null) continue;
+            patchable.putIfAbsent(lib.getId(), sc);
+        }
+
+        List<Map<String, Object>> outcomes = new ArrayList<>();
+        int created = 0, failed = 0;
+        for (ScanComponent sc : patchable.values()) {
+            Library lib = sc.getLibrary();
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("componentId", sc.getId());
+            row.put("name", lib.getName());
+            row.put("currentVersion", lib.getVersion());
+            row.put("targetVersion", lib.resolvePrTargetVersion());
+            try {
+                CreatePrRequest req = CreatePrRequest.ofBranch(baseBranch);
+                Map<String, Object> result = createPullRequest(projectId, sc.getId(), req, userId, githubToken);
+                row.put("success", true);
+                row.put("prUrl", result.get("prUrl"));
+                created++;
+            } catch (Exception e) {
+                row.put("success", false);
+                row.put("error", e.getMessage());
+                failed++;
+                log.warn("[BatchPR] projectId={} componentId={} failed: {}", projectId, sc.getId(), e.getMessage());
+            }
+            outcomes.add(row);
+        }
+
+        auditLogService.log("PROJECT.BATCH_PR", "PROJECT", projectId.toString(), project.getName(),
+                "branch=" + baseBranch + " candidates=" + patchable.size()
+                        + " created=" + created + " failed=" + failed);
+        log.info("[BatchPR] projectId={} candidates={} created={} failed={}",
+                projectId, patchable.size(), created, failed);
+
+        Map<String, Object> response = new java.util.LinkedHashMap<>();
+        response.put("candidates", patchable.size());
+        response.put("created", created);
+        response.put("failed", failed);
+        response.put("results", outcomes);
+        return response;
     }
 }
 

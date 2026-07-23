@@ -20,4 +20,11 @@ public class CreatePrRequest {
 
     /** PR body / description (freeform text) */
     private String prDescription;
+
+    /** Factory used by batch PR creation — only the base branch is needed. */
+    public static CreatePrRequest ofBranch(String targetBranch) {
+        CreatePrRequest r = new CreatePrRequest();
+        r.targetBranch = targetBranch;
+        return r;
+    }
 }

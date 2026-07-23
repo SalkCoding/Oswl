@@ -521,6 +521,49 @@ public class GitHubService {
         }
     }
 
+    // ── PR gate: comment + check run ──────────────────────────────────────
+
+    /**
+     * Posts an issue/PR comment (pull requests share the issues comment endpoint).
+     * Returns the created comment's html_url.
+     */
+    public String postPrComment(String token, String owner, String repo, int prNumber,
+                                String body, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/issues/" + prNumber + "/comments";
+        String payload = objectMapper.createObjectNode().put("body", body).toString();
+        JsonNode res = postJson(token, url, payload);
+        String htmlUrl = res.path("html_url").asText(null);
+        log.info("[GitHub] Posted PR gate comment to {}/{}#{}", owner, repo, prNumber);
+        return htmlUrl;
+    }
+
+    /**
+     * Creates a completed Check Run on the given head SHA.
+     * {@code conclusion} must be a GitHub value: success | failure | neutral | action_required.
+     * Returns the created check run's html_url.
+     */
+    public String createCheckRun(String token, String owner, String repo, String headSha,
+                                 String name, String conclusion, String title, String summary,
+                                 String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/check-runs";
+        var output = objectMapper.createObjectNode()
+                .put("title", title)
+                .put("summary", summary);
+        String payload = objectMapper.createObjectNode()
+                .put("name", name)
+                .put("head_sha", headSha)
+                .put("status", "completed")
+                .put("conclusion", conclusion)
+                .set("output", output)
+                .toString();
+        JsonNode res = postJson(token, url, payload);
+        String htmlUrl = res.path("html_url").asText(null);
+        log.info("[GitHub] Created check run '{}' ({}) on {}/{}@{}", name, conclusion, owner, repo, headSha);
+        return htmlUrl;
+    }
+
     public static class GitHubAuthException extends RuntimeException {
         public GitHubAuthException(String message) {
             super(message);

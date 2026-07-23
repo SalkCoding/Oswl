@@ -1,14 +1,17 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * REST API client for OSV.dev.
@@ -16,21 +19,36 @@ import java.util.Map;
  * Uses only the querybatch endpoint (POST /v1/querybatch) —
  * repeated single-item calls to /v1/query are intentionally avoided.
  * Up to 1,000 queries can be sent in a single batch call, with no rate limit.
+ *
+ * Air-gapped mode: when constructed with a snapshot store and the air-gapped flag,
+ * queries are answered from the offline snapshot instead of HTTP (components absent
+ * from the snapshot resolve as "no vulnerabilities").
  */
 @Slf4j
-@Component
 public class OsvClient {
 
     private static final String BASE_URL = "https://api.osv.dev";
     private static final int MAX_BATCH_SIZE = 1000;
 
     private final RestClient restClient;
+    private final AirgappedSnapshotService snapshotService;
+    private final boolean airgapped;
 
+    /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public OsvClient() {
+        this(null, false);
+    }
+
+    public OsvClient(AirgappedSnapshotService snapshotService, boolean airgapped) {
+        this.snapshotService = snapshotService;
+        this.airgapped = airgapped && snapshotService != null;
         this.restClient = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader("Accept", "application/json")
                 .build();
+        if (this.airgapped) {
+            log.info("[OsvClient] Air-gapped mode — OSV queries served from the offline snapshot store, no outbound HTTP");
+        }
     }
 
     // ── DTO ────────────────────────────────────────────────────────────
@@ -55,6 +73,10 @@ public class OsvClient {
     public List<OsvResult> queryBatch(List<OsvQuery> queries) {
         if (queries.isEmpty()) return Collections.emptyList();
 
+        if (airgapped) {
+            return queryBatchFromSnapshot(queries);
+        }
+
         List<OsvResult> allResults = new ArrayList<>(queries.size());
 
         for (int i = 0; i < queries.size(); i += MAX_BATCH_SIZE) {
@@ -62,6 +84,38 @@ public class OsvClient {
             allResults.addAll(doQueryBatch(chunk));
         }
         return allResults;
+    }
+
+    /** Offline path: answers every query from the snapshot store, preserving input alignment. */
+    private List<OsvResult> queryBatchFromSnapshot(List<OsvQuery> queries) {
+        List<String> keys = new ArrayList<>(queries.size());
+        Set<String> distinctKeys = new LinkedHashSet<>();
+        for (OsvQuery q : queries) {
+            String key = q.version() != null && q.name() != null && q.ecosystem() != null
+                    ? AirgappedSnapshotService.componentKey(q.ecosystem(), q.name(), q.version())
+                    : null;
+            keys.add(key);
+            if (key != null) distinctKeys.add(key);
+        }
+        Map<String, List<SnapshotVuln>> found = snapshotService.findOsvVulns(distinctKeys);
+
+        List<OsvResult> results = new ArrayList<>(queries.size());
+        int hits = 0;
+        for (String key : keys) {
+            List<SnapshotVuln> vulns = key != null ? found.get(key) : null;
+            if (vulns == null) {
+                results.add(new OsvResult(List.of()));
+            } else {
+                hits++;
+                results.add(new OsvResult(vulns.stream()
+                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId()))
+                        .toList()));
+            }
+        }
+        log.debug("[OsvClient] air-gapped querybatch size={} snapshotHits={} totalVulns={}",
+                queries.size(), hits,
+                results.stream().mapToInt(r -> r.vulns().size()).sum());
+        return results;
     }
 
     // ── Internal ─────────────────────────────────────────────────────────

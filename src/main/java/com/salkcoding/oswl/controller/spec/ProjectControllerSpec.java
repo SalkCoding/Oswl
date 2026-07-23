@@ -148,6 +148,21 @@ public interface ProjectControllerSpec {
         @RequestBody List<Long> ids
     );
 
+    @Operation(
+        summary = "Acknowledge new-CVE alerts",
+        description = """
+            Marks every unacknowledged continuous-monitoring alert of the project as seen,
+            clearing the "new CVE" badge on the project card. Requires PROJECT_VIEW permission.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Alerts acknowledged", content = @Content)
+    })
+    ResponseEntity<Void> acknowledgeCveAlerts(
+        @Parameter(description = "Project ID", example = "1", required = true)
+        @PathVariable Long projectId
+    );
+
     @Hidden
     String cliIntegration();
 

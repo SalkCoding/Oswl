@@ -43,7 +43,7 @@ public class Library {
 
     /**
      * Package ecosystem used for the deps.dev system parameter.
-     * Examples: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS
+     * Examples: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS, COMPOSER, CONAN
      */
     @Column(nullable = false, length = 20)
     private String ecosystem;
@@ -86,6 +86,25 @@ public class Library {
     @Column(name = "ai_license_summary", columnDefinition = "TEXT")
     private String aiLicenseSummary;
 
+    /** OpenSSF Scorecard overall score (0.0–10.0) from deps.dev; null when unavailable. */
+    @Column(name = "scorecard_score")
+    private Double scorecardScore;
+
+    /** True when OSV flags this package version as malicious (a {@code MAL-} advisory). */
+    // columnDefinition supplies a DB default so ddl-auto=update can add this NOT NULL column to an existing populated table.
+    @Column(name = "malicious", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean malicious = false;
+
+    /** True when supply-chain heuristics flag this name as a possible typosquat / dependency-confusion package. */
+    @Column(name = "typosquat_risk", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean typosquatRisk = false;
+
+    /** Human-readable reason for {@link #typosquatRisk} (matched popular name / heuristic detail); null when not flagged. */
+    @Column(name = "typosquat_reason", length = 300)
+    private String typosquatReason;
+
     @OneToMany(mappedBy = "library", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Cve> cves = new ArrayList<>();
@@ -109,6 +128,19 @@ public class Library {
 
     public void updateAiLicenseSummary(String summary) {
         this.aiLicenseSummary = summary;
+    }
+
+    public void updateScorecardScore(Double scorecardScore) {
+        this.scorecardScore = scorecardScore;
+    }
+
+    public void markMalicious() {
+        this.malicious = true;
+    }
+
+    public void updateTyposquatRisk(boolean typosquatRisk, String typosquatReason) {
+        this.typosquatRisk = typosquatRisk;
+        this.typosquatReason = typosquatRisk ? typosquatReason : null;
     }
 
     // ── Derived properties ─────────────────────────────────────────

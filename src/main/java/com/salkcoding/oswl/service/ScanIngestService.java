@@ -92,6 +92,7 @@ public class ScanIngestService {
                         .scanResult(scanResult)
                         .library(library)
                         .dependencyInfo(cp.getDependencyInfo())
+                        .scope(cp.getScope())
                         .reviewed(false)
                         .ignored(false)
                         .build();
