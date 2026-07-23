@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="|${report.projectName()} — #{report.compliance.title}|">Compliance Report</title>
+    <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/globals.css}">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 10pt;
+            color: var(--grayscale-100);
+            background: var(--grayscale-10);
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            letter-spacing: -0.01em;
+            min-width: unset;
+        }
+        .page { max-width: 960px; margin: 0 auto; background: white; }
+        .print-toolbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+            background: var(--background-dark); color: white;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px; height: 48px; font-size: 13px; gap: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .toolbar-left { display: flex; align-items: center; gap: 10px; }
+        .toolbar-title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.7); letter-spacing: -0.13px; }
+        .print-btn {
+            display: flex; align-items: center; gap: 7px;
+            background: var(--primary-120); color: white; border: none;
+            border-radius: 6px; padding: 8px 16px;
+            font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+            cursor: pointer; letter-spacing: -0.13px;
+        }
+        .print-btn:hover { background: #008a7e; }
+        @media screen { .page { margin-top: 48px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); } }
+
+        .report-header { background: var(--background-dark); padding: 24px 32px 20px; }
+        .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .header-logo { display: flex; align-items: center; gap: 8px; }
+        .header-logo-text { font-size: 18px; font-weight: 800; color: white; letter-spacing: -0.4px; }
+        .header-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+        .header-report-type { font-size: 11px; font-weight: 600; color: var(--primary-80); text-transform: uppercase; letter-spacing: 0.8px; }
+        .header-meta {
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0;
+            border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px;
+        }
+        .meta-item { display: flex; flex-direction: column; gap: 4px; padding-right: 20px; }
+        .meta-item + .meta-item { padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.08); }
+        .meta-label { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.6px; }
+        .meta-value { font-size: 13px; font-weight: 600; color: white; letter-spacing: -0.13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .section { padding: 20px 32px; }
+        .section + .section { border-top: 1px solid var(--grayscale-15); }
+        .section-title { font-size: 11px; font-weight: 700; color: var(--grayscale-50); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+
+        /* KPI cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .kpi-card { border: 1px solid var(--grayscale-15); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 6px; background: var(--grayscale-5); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .kpi-card.alert { background: rgba(230,39,39,0.04); border-color: rgba(230,39,39,0.25); }
+        .kpi-card.ok { background: rgba(0,176,160,0.04); border-color: rgba(0,176,160,0.25); }
+        .kpi-num { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -1px; color: var(--grayscale-100); }
+        .kpi-num.alert { color: var(--risk-critical); }
+        .kpi-num.ok { color: var(--primary-120); }
+        .kpi-label { font-size: 11px; font-weight: 600; color: var(--grayscale-70); letter-spacing: -0.11px; }
+        .kpi-sub { font-size: 10px; color: var(--grayscale-50); letter-spacing: -0.1px; }
+
+        /* Stat strip */
+        .stat-strip { display: flex; gap: 0; border: 1px solid var(--grayscale-15); border-radius: 8px; overflow: hidden; }
+        .stat-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: var(--grayscale-5); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .stat-item + .stat-item { border-left: 1px solid var(--grayscale-15); }
+        .stat-num { font-size: 22px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+        .stat-num.critical { color: var(--risk-critical); }
+        .stat-num.high     { color: var(--risk-high); }
+        .stat-num.medium   { color: var(--risk-medium); }
+        .stat-num.low      { color: var(--grayscale-50); }
+        .stat-num.unscored { color: var(--grayscale-30); }
+        .stat-num.restricted { color: var(--risk-critical); }
+        .stat-num.caution    { color: var(--semantic-caution); }
+        .stat-num.unknown    { color: var(--grayscale-40); }
+        .stat-num.permitted  { color: var(--risk-permitted); }
+        .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 4px; color: var(--grayscale-60); }
+
+        /* KEV table */
+        .kev-table { width: 100%; border-collapse: collapse; font-size: 11px; letter-spacing: -0.11px; }
+        .kev-table thead tr { background: var(--grayscale-5); border-bottom: 1px solid var(--grayscale-20); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .kev-table th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; color: var(--grayscale-100); letter-spacing: -0.1px; white-space: nowrap; }
+        .kev-table td { padding: 9px 12px; vertical-align: middle; border-bottom: 1px solid var(--grayscale-15); }
+        .kev-table tr:last-child td { border-bottom: none; }
+        .sev-badge { display: inline-flex; align-items: center; justify-content: center; height: 18px; padding: 0 7px; border-radius: 4px; font-size: 10px; font-weight: 600; color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .sev-badge.CRITICAL { background: var(--risk-critical); }
+        .sev-badge.HIGH     { background: var(--risk-high); }
+        .sev-badge.MEDIUM   { background: var(--risk-medium); color: var(--grayscale-80); }
+        .sev-badge.LOW      { background: var(--risk-low); color: var(--grayscale-60); }
+        .sev-badge.UNSCORED { background: var(--risk-unknown); color: var(--grayscale-50); }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+        .triage-tag { font-size: 10px; color: var(--grayscale-60); }
+        .empty-note { font-size: 11px; color: var(--grayscale-50); padding: 8px 0; }
+
+        .report-footer { padding: 14px 32px; border-top: 1px solid var(--grayscale-15); display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--grayscale-40); letter-spacing: -0.1px; }
+
+        @media print {
+            @page { size: A4; margin: 8mm 10mm 12mm; }
+            html, body { background: white; min-width: unset; }
+            .print-toolbar { display: none !important; }
+            .page { margin-top: 0; max-width: 100%; box-shadow: none; }
+            .kev-table thead { display: table-header-group; }
+            .kev-table tr { page-break-inside: avoid; }
+            .section { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="print-toolbar">
+    <div class="toolbar-left">
+        <img th:src="@{/icon/icon-logo-card.svg}" width="14" height="19" alt="OsWL" style="display:block;">
+        <span class="toolbar-title" th:text="#{report.compliance.toolbarSubtitle(${report.projectName()})}">Project — Compliance Report</span>
+    </div>
+    <button class="print-btn" onclick="window.print()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        <span th:text="#{report.compliance.saveAsPdf}">Save as PDF</span>
+    </button>
+</div>
+
+<div class="page">
+
+    <div class="report-header">
+        <div class="header-top">
+            <div class="header-logo">
+                <img th:src="@{/icon/icon-logo-card.svg}" width="16" height="22" alt="OsWL" style="display:block;">
+                <span class="header-logo-text">OsWL</span>
+            </div>
+            <div class="header-divider"></div>
+            <span class="header-report-type" th:text="#{report.compliance.type}">Compliance Report · CRA / ISMS-P</span>
+        </div>
+        <div class="header-meta">
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{report.compliance.meta.project}">Project</span>
+                <span class="meta-value" th:text="${report.projectName()}">My-Service</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{report.compliance.meta.version}">Version</span>
+                <span class="meta-value" th:text="${report.scanVersion()}">1.2.5</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{report.compliance.meta.scannedAt}">Inventory as of</span>
+                <span class="meta-value" th:text="${report.scannedAt()}">2026-07-22</span>
+            </div>
+            <div class="meta-item">
+                <span class="meta-label" th:text="#{report.compliance.meta.generatedAt}">Generated</span>
+                <span class="meta-value" th:text="${report.generatedAt()}">2026-07-22 20:00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- No scan -->
+    <div class="section" th:unless="${report.hasScan()}">
+        <p class="empty-note" th:text="#{report.compliance.noScan}">This project has no completed scan yet. Run a scan to generate a compliance report.</p>
+    </div>
+
+    <th:block th:if="${report.hasScan()}">
+
+    <!-- CRA readiness KPIs -->
+    <div class="section">
+        <div class="section-title" th:text="#{report.compliance.section.craReadiness}">CRA Readiness</div>
+        <div class="kpi-grid">
+            <div class="kpi-card ok">
+                <span class="kpi-num ok">SBOM</span>
+                <span class="kpi-label" th:text="#{report.compliance.kpi.sbomAvailable}">SBOM / VEX available</span>
+                <span class="kpi-sub" th:text="#{report.compliance.kpi.sbomAsOf(${report.scannedAt()})}">CycloneDX 1.6, as of 2026-07-22</span>
+            </div>
+            <div class="kpi-card" th:classappend="${report.kevUnresolved() > 0} ? 'alert' : 'ok'">
+                <span class="kpi-num" th:classappend="${report.kevUnresolved() > 0} ? 'alert' : 'ok'" th:text="${report.kevUnresolved()}">0</span>
+                <span class="kpi-label" th:text="#{report.compliance.kpi.kevUnresolved}">Unresolved exploited (KEV)</span>
+                <span class="kpi-sub" th:text="#{report.compliance.kpi.kevTotal(${report.kevTotal()})}">of 0 KEV-listed total</span>
+            </div>
+            <div class="kpi-card" th:classappend="${report.untriagedRiskComponents() > 0} ? 'alert' : 'ok'">
+                <span class="kpi-num" th:classappend="${report.untriagedRiskComponents() > 0} ? 'alert' : 'ok'" th:text="${report.untriagedRiskComponents()}">0</span>
+                <span class="kpi-label" th:text="#{report.compliance.kpi.untriaged}">Untriaged risk components</span>
+                <span class="kpi-sub" th:text="#{report.compliance.kpi.avgTriage(${report.avgTriageTime()})}">avg triage: 2d</span>
+            </div>
+            <div class="kpi-card" th:classappend="${report.licenseViolations() > 0} ? 'alert' : 'ok'">
+                <span class="kpi-num" th:classappend="${report.licenseViolations() > 0} ? 'alert' : 'ok'" th:text="${report.licenseViolations()}">0</span>
+                <span class="kpi-label" th:text="#{report.compliance.kpi.licenseViolations}">License policy violations</span>
+                <span class="kpi-sub" th:text="#{report.compliance.kpi.componentsTotal(${report.totalComponents()})}">0 components total</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vulnerability posture -->
+    <div class="section">
+        <div class="section-title" th:text="#{report.compliance.section.vulnPosture}">Vulnerability Posture</div>
+        <div class="stat-strip">
+            <div class="stat-item"><span class="stat-num critical" th:text="${report.criticalCves()}">0</span><span class="stat-label" th:text="#{riskTrend.legend.critical}">Critical</span></div>
+            <div class="stat-item"><span class="stat-num high" th:text="${report.highCves()}">0</span><span class="stat-label" th:text="#{riskTrend.legend.high}">High</span></div>
+            <div class="stat-item"><span class="stat-num medium" th:text="${report.mediumCves()}">0</span><span class="stat-label" th:text="#{riskTrend.legend.medium}">Medium</span></div>
+            <div class="stat-item"><span class="stat-num low" th:text="${report.lowCves()}">0</span><span class="stat-label" th:text="#{riskTrend.legend.low}">Low</span></div>
+            <div class="stat-item"><span class="stat-num unscored" th:text="${report.unscoredCves()}">0</span><span class="stat-label" th:text="#{riskTrend.legend.unscored}">Unscored</span></div>
+        </div>
+    </div>
+
+    <!-- Triage SLA -->
+    <div class="section">
+        <div class="section-title" th:text="#{report.compliance.section.triageSla}">Triage SLA</div>
+        <div class="stat-strip">
+            <div class="stat-item"><span class="stat-num" th:text="${report.reviewedComponents()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.reviewed}">Reviewed</span></div>
+            <div class="stat-item"><span class="stat-num" th:text="${report.deferredComponents()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.deferred}">Deferred</span></div>
+            <div class="stat-item"><span class="stat-num" th:text="${report.untriagedRiskComponents()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.untriaged}">Untriaged (risk)</span></div>
+            <div class="stat-item"><span class="stat-num" th:text="${report.avgTriageTime()}">—</span><span class="stat-label" th:text="#{report.compliance.stat.avgTriage}">Avg triage</span></div>
+        </div>
+    </div>
+
+    <!-- License compliance -->
+    <div class="section">
+        <div class="section-title" th:text="#{report.compliance.section.license}">License Compliance</div>
+        <div class="stat-strip">
+            <div class="stat-item"><span class="stat-num restricted" th:text="${report.licenseViolations()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.violations}">Violations</span></div>
+            <div class="stat-item"><span class="stat-num caution" th:text="${report.licenseWarnings()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.warnings}">Warnings</span></div>
+            <div class="stat-item"><span class="stat-num unknown" th:text="${report.licenseUnknown()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.unknown}">Unknown</span></div>
+            <div class="stat-item"><span class="stat-num permitted" th:text="${report.licensePermitted()}">0</span><span class="stat-label" th:text="#{report.compliance.stat.permitted}">Permitted</span></div>
+        </div>
+    </div>
+
+    <!-- KEV detail table -->
+    <div class="section">
+        <div class="section-title" th:text="#{report.compliance.section.kevDetail}">Actively Exploited (KEV) Vulnerabilities</div>
+        <p class="empty-note" th:if="${report.kevRows().isEmpty()}" th:text="#{report.compliance.kev.none}">No actively-exploited (CISA KEV) vulnerabilities in the current inventory.</p>
+        <table class="kev-table" th:unless="${report.kevRows().isEmpty()}">
+            <thead>
+                <tr>
+                    <th th:text="#{report.compliance.kev.col.cve}">CVE</th>
+                    <th th:text="#{report.compliance.kev.col.component}">Component</th>
+                    <th th:text="#{report.compliance.kev.col.severity}">Severity</th>
+                    <th th:text="#{report.compliance.kev.col.fix}">Fix version</th>
+                    <th th:text="#{report.compliance.kev.col.triage}">Triage state</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="row : ${report.kevRows()}">
+                    <td class="mono" th:text="${row.cveId()}">CVE-2026-0001</td>
+                    <td><span th:text="${row.componentName()}">lib</span> <span class="triage-tag" th:text="${row.componentVersion()}">1.0.0</span></td>
+                    <td><span class="sev-badge" th:classappend="${row.severity()}" th:text="${row.severity()}">HIGH</span></td>
+                    <td class="mono" th:text="${row.fixVersion()}">1.0.1</td>
+                    <td class="triage-tag" th:text="${row.triageState()}">untriaged</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    </th:block>
+
+    <div class="report-footer">
+        <span th:text="#{report.compliance.footer.disclaimer}">Generated by OsWL — figures reflect the latest completed scan. For CRA / ISMS-P evidence purposes.</span>
+        <span th:text="${report.generatedAt()}">2026-07-22 20:00</span>
+    </div>
+
+</div>
+
+</body>
+</html>

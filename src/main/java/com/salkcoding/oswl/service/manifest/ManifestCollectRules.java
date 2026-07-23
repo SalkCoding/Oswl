@@ -36,6 +36,7 @@ public final class ManifestCollectRules {
             "go.sum", "go.mod",
             "packages.lock.json", "packages.config", "Directory.Packages.props",
             "Gemfile.lock",
+            "composer.lock", "conan.lock",
             "mvnw", "mvnw.cmd", "gradlew", "gradlew.bat",
             "global.json", "nuget.config");
 

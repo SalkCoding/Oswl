@@ -9,6 +9,8 @@ import com.salkcoding.oswl.dto.api.PingResponse;
 import com.salkcoding.oswl.dto.api.ScanParseResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
 import com.salkcoding.oswl.dto.api.ScanStatusResponse;
+import com.salkcoding.oswl.dto.gate.GateRequest;
+import com.salkcoding.oswl.dto.gate.GateResultDto;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
@@ -63,6 +65,7 @@ public class ScanController implements ScanControllerSpec {
     private final ScanApiCredentialThrottleService scanApiCredentialThrottleService;
     private final DependencyManifestParserService dependencyManifestParserService;
     private final ManifestArchiveService manifestArchiveService;
+    private final com.salkcoding.oswl.service.PrGateService prGateService;
 
     /** Ping endpoint used by the CLI auth command for a connection test */
     @GetMapping("/ping")
@@ -79,7 +82,7 @@ public class ScanController implements ScanControllerSpec {
      * Accepts a zip of project manifests (relative paths preserved); returns components
      * using the same parser as Quick Import.
      */
-  /** Manifest collection rules shared with the CLI (same source as {@link ManifestCollectRules}). */
+    /** Manifest collection rules shared with the CLI (same source as {@link ManifestCollectRules}). */
     @GetMapping("/manifest-rules")
     public ResponseEntity<ManifestCollectRules.RulesJson> manifestRules() {
         return ResponseEntity.ok(ManifestCollectRules.RulesJson.current());
@@ -151,6 +154,20 @@ public class ScanController implements ScanControllerSpec {
                 .status(result.getStatus().name())
                 .message("Scan received successfully")
                 .build());
+    }
+
+    /**
+     * PR / CI security gate. Authenticated by the CLI API key (same as scan ingest);
+     * the project is taken from the key. Returns a machine-readable verdict whose
+     * {@code exitCode} the CI job maps to its process exit code (0 pass, 1 fail).
+     * When a GitHub target is supplied, the result is also posted as a PR comment / Check Run.
+     */
+    @PostMapping("/gate")
+    public ResponseEntity<GateResultDto> gate(
+            @RequestBody(required = false) GateRequest request,
+            HttpServletRequest httpRequest) {
+        Long projectId = (Long) httpRequest.getAttribute(ApiKeyAuthInterceptor.ATTR_PROJECT_ID);
+        return ResponseEntity.ok(prGateService.evaluateAndPublish(projectId, request));
     }
 
     /**

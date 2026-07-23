@@ -4,6 +4,12 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
+  servlet:
+    multipart:
+      # SBOM archives and air-gapped snapshot bundles can be several MB.
+      max-file-size: ${OSWL_MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${OSWL_MULTIPART_MAX_REQUEST_SIZE:50MB}
+
   messages:
     basename: messages
     encoding: UTF-8
@@ -18,6 +24,15 @@ spring:
       hibernate:
         # Fetch LAZY associations/collections in batches instead of one-by-one (global N+1 mitigation)
         default_batch_fetch_size: 50
+
+  flyway:
+    # Opt-in DB migrations (roadmap #13). Disabled by default so existing ddl-auto deploys are unaffected.
+    # Enable in production (OSWL_FLYWAY_ENABLED=true) after generating a full baseline; existing schemas
+    # are baselined automatically, then versioned migrations under db/migration apply forward.
+    enabled: ${OSWL_FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
 
 server:
   port: 8080
@@ -36,11 +51,21 @@ management:
     enabled-by-default: false
     web:
       exposure:
-        include: health
+        # health + Prometheus scrape endpoint. /actuator/** is admin-authenticated (SecurityConfig),
+        # so a scraper must present admin credentials — never exposed anonymously.
+        include: health,prometheus,info
   endpoint:
     health:
       enabled: true
       show-details: never
+    prometheus:
+      enabled: true
+    info:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 oswl:
   # Default timezone for time-sensitive features (e.g. AI usage tracking). Override with OSWL_TIMEZONE.
@@ -83,6 +108,31 @@ oswl:
   risk-trend:
     # Maximum number of recent scans shown in the risk trend chart
     limit: ${OSWL_RISK_TREND_LIMIT:10}
+  monitoring:
+    # Continuous monitoring: nightly OSV re-query of every project's latest completed scan.
+    # New vulnerabilities raise dashboard alerts and email project members.
+    enabled: ${OSWL_MONITORING_ENABLED:true}
+    # Spring cron expression (seconds minutes hours day month weekday). Default: 03:00 daily.
+    cron: ${OSWL_MONITORING_CRON:0 0 3 * * *}
+  airgapped:
+    # Air-gapped (offline snapshot) mode. When true, vulnerability/threat-intel lookups
+    # (OSV, deps.dev, FIRST.org EPSS, CISA KEV) are served from the imported offline
+    # snapshot store instead of live external APIs — no outbound HTTP is attempted.
+    # Import a snapshot bundle first (POST /api/admin/snapshot/import, SYSTEM_ADMIN only);
+    # components absent from the snapshot resolve as "no data" (empty results).
+    enabled: ${OSWL_AIRGAPPED_ENABLED:false}
+  gate:
+    # PR / CI security-gate default thresholds (overridable per request).
+    # fail-on-severity: gate fails on CVEs at this severity or higher (CRITICAL|HIGH|MEDIUM|LOW).
+    fail-on-severity: ${OSWL_GATE_FAIL_ON_SEVERITY:HIGH}
+    # fail-on-kev: gate fails on any CISA KEV-listed CVE.
+    fail-on-kev: ${OSWL_GATE_FAIL_ON_KEV:true}
+    # fail-on-epss: gate fails on CVEs with EPSS >= this value. Set negative to disable.
+    fail-on-epss: ${OSWL_GATE_FAIL_ON_EPSS:0.5}
+    # fail-on-license-violation: gate fails on RESTRICTED-license components.
+    fail-on-license-violation: ${OSWL_GATE_FAIL_ON_LICENSE_VIOLATION:true}
+    # only-new: gate considers only findings absent from the previous completed scan (baseline).
+    only-new: ${OSWL_GATE_ONLY_NEW:true}
   ai:
     embedded:
       # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.

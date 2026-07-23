@@ -69,4 +69,7 @@ public class ProjectSummaryDto {
      */
     @Schema(description = "Latest scan status — null if never scanned", example = "COMPLETED")
     private final String scanStatus;
+
+    @Schema(description = "Unacknowledged new-CVE alerts raised by continuous monitoring since the last scan", example = "2")
+    private final long newCveAlerts;
 }

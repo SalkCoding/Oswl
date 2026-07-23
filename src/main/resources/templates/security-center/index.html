@@ -95,7 +95,8 @@
               nonPatchable: false,
               patchDeprecated: false,
               patchOutdated: false,
-              patchUpToDate: false
+              patchUpToDate: false,
+              hideNonRuntime: true
           },
           filterVersion: 0,
           scanStatus: window.securityCenterData.scanStatus,
@@ -107,7 +108,11 @@
               void this.filterVersion;
               const f = this.filters;
               const q = this.searchQuery.trim().toLowerCase();
-              const anyFilter = Object.values(f).some(v => v);
+
+              // Noise cut: hide test/dev/provided components unless the toggle is off.
+              if (f.hideNonRuntime && el.dataset.runtimeScope === 'false') return false;
+
+              const anyFilter = Object.entries(f).some(([k, v]) => v && k !== 'hideNonRuntime');
               if (!anyFilter && !q) return true;
 
               if (q) {
@@ -274,6 +279,25 @@
                   }).catch(onFailure);
               }
           },
+          async batchUpgradePrs() {
+              const projectId = document.body.dataset.projectId;
+              const i18n = window.securityCenterData.i18n || {};
+              const branch = prompt(i18n.batchPrPrompt || 'Base branch for the upgrade PRs:', 'main');
+              if (!branch || !branch.trim()) return;
+              try {
+                  const r = await fetch('/projects/' + projectId + '/security-center/batch-pr', {
+                      method: 'POST', headers: oswlJsonHeaders(),
+                      body: JSON.stringify({ targetBranch: branch.trim() })
+                  });
+                  const body = await r.json().catch(() => ({}));
+                  if (!r.ok) { alert(body.error || (i18n.actionFailed || 'Failed.')); return; }
+                  if (body.candidates === 0) { alert(i18n.batchPrNone || 'No patchable components found.'); return; }
+                  const tmpl = i18n.batchPrResult || 'Batch PRs: {0} created, {1} failed (of {2} candidates).';
+                  alert(tmpl.replace('{0}', body.created).replace('{1}', body.failed).replace('{2}', body.candidates));
+              } catch (e) {
+                  alert((window.securityCenterData.i18n || {}).actionFailed || 'Failed.');
+              }
+          },
           exportAs(format) {
               this.exportOpen = false;
               const projectId = document.body.dataset.projectId;
@@ -282,6 +306,22 @@
                   const scanId = new URLSearchParams(window.location.search).get('scanId');
                   if (scanId) url += '?scanId=' + scanId;
                   window.open(url, '_blank');
+                  return;
+              }
+              if (format === 'sbom') {
+                  window.location.href = '/api/projects/' + projectId + '/sbom?format=json';
+                  return;
+              }
+              if (format === 'vex') {
+                  window.location.href = '/api/projects/' + projectId + '/vex?format=json';
+                  return;
+              }
+              if (format === 'sarif') {
+                  window.location.href = '/api/projects/' + projectId + '/sarif';
+                  return;
+              }
+              if (format === 'compliance') {
+                  window.open('/projects/' + projectId + '/security-center/compliance-report', '_blank');
                   return;
               }
               // CSV download
@@ -321,7 +361,10 @@
             license: /*[[#{securityCenter.sort.license}]]*/ 'License risk'
         },
         i18n: {
-            actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.'
+            actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.',
+            batchPrPrompt: /*[[#{securityCenter.batchPr.prompt}]]*/ 'Base branch for the upgrade PRs:',
+            batchPrNone: /*[[#{securityCenter.batchPr.none}]]*/ 'No patchable components found.',
+            batchPrResult: /*[[#{securityCenter.batchPr.result}]]*/ 'Batch PRs: {0} created, {1} failed (of {2} candidates).'
         }
     };
     </script>

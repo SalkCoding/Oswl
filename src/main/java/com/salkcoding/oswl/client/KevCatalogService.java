@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.Collections;
@@ -14,19 +14,43 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In-memory CISA Known Exploited Vulnerabilities (KEV) catalog.
  * Refreshed daily; used to flag actively exploited CVEs in AI prompts.
+ *
+ * Air-gapped mode: when constructed with a snapshot store and the air-gapped flag,
+ * the scheduled refresh loads the catalog from the offline snapshot store instead
+ * of the CISA feed — no outbound HTTP is attempted.
  */
 @Slf4j
-@Component
 public class KevCatalogService {
 
     private static final String KEV_FEED_URL =
             "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
 
     private final RestClient restClient = RestClient.create();
+    private final AirgappedSnapshotService snapshotService;
+    private final boolean airgapped;
     private volatile Set<String> kevCveIds = Set.of();
+
+    /** Live-HTTP catalog (no snapshot store). Used directly by unit tests. */
+    public KevCatalogService() {
+        this(null, false);
+    }
+
+    public KevCatalogService(AirgappedSnapshotService snapshotService, boolean airgapped) {
+        this.snapshotService = snapshotService;
+        this.airgapped = airgapped && snapshotService != null;
+        if (this.airgapped) {
+            log.info("[KEV] Air-gapped mode — KEV catalog served from the offline snapshot store, no outbound HTTP");
+        }
+    }
 
     @Scheduled(initialDelay = 5_000, fixedDelay = 86_400_000)
     public void refresh() {
+        if (airgapped) {
+            Set<String> ids = snapshotService.loadKevCveIds();
+            kevCveIds = Collections.unmodifiableSet(ids);
+            log.info("[KEV] Air-gapped mode — loaded {} known exploited CVE entries from the offline snapshot", ids.size());
+            return;
+        }
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> body = restClient.get()

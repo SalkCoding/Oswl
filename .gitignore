@@ -57,3 +57,5 @@ server.log
 htmlReport
 # Embedded AI sidecar (binaries + models are too large for git)
 /embedded-ai/
+.kimi
+.claude

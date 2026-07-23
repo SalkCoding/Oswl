@@ -771,11 +771,23 @@
                     </div>
                 </div>
             </div>
-            <a :href="auditExportUrl()"
-               class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                <span th:text="#{settings.admin.auditLog.btn.export}">Export CSV</span>
-            </a>
+            <div class="flex items-center gap-[8px] flex-wrap">
+                <a :href="auditExportUrl('csv')"
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span th:text="#{settings.admin.auditLog.btn.export}">Export CSV</span>
+                </a>
+                <a :href="auditExportUrl('jsonl')"
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span th:text="#{settings.admin.auditLog.btn.exportJsonl}">JSONL (SIEM)</span>
+                </a>
+                <a :href="auditExportUrl('cef')"
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span th:text="#{settings.admin.auditLog.btn.exportCef}">CEF (SIEM)</span>
+                </a>
+            </div>
         </div>
         <div class="flex flex-col relative">
         <div class="bg-white rounded-t-[10px] border border-[var(--grayscale-20)] overflow-x-auto">
@@ -1374,7 +1386,7 @@
                 range.push(total);
                 return range;
             },
-            auditExportUrl() {
+            auditExportUrl(format) {
                 const params = new URLSearchParams();
                 if (this.auditFilter.dateRange === 'custom') {
                     if (this.auditFilter.dateFrom) params.set('startDate', this.auditFilter.dateFrom + 'T00:00:00');
@@ -1388,7 +1400,8 @@
                 if (this.auditFilter.actorEmail) params.set('actorEmail', this.auditFilter.actorEmail);
                 if (this.auditFilter.action) params.set('action', this.auditFilter.action);
                 const qs = params.toString();
-                return '/api/admin/audit-logs/export.csv' + (qs ? '?' + qs : '');
+                if (!format || format === 'csv') return '/api/admin/audit-logs/export.csv' + (qs ? '?' + qs : '');
+                return '/api/admin/audit-logs/export?format=' + format + (qs ? '&' + qs : '');
             },
             dateRangeLabel() {
                 if (this.auditFilter.dateRange === 'custom') {

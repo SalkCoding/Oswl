@@ -1,21 +1,32 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.SecurityCenterControllerSpec;
+import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
+import com.salkcoding.oswl.dto.ComplianceReportDto;
+import com.salkcoding.oswl.dto.CreatePrRequest;
+import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.service.ComplianceReportService;
+import com.salkcoding.oswl.service.ComponentDetailService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.SecurityCenterService;
+import com.salkcoding.oswl.service.VcsAuthTokenService;
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/projects/{projectId}/security-center")
@@ -24,6 +35,10 @@ import java.time.LocalDate;
 public class SecurityCenterController implements SecurityCenterControllerSpec {
 
     private final SecurityCenterService securityCenterService;
+    private final ComplianceReportService complianceReportService;
+    private final ComponentDetailService componentDetailService;
+    private final VcsAuthTokenService vcsAuthTokenService;
+    private final ProjectRepository projectRepository;
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
 
@@ -46,6 +61,46 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
         auditLogService.log("SECURITY_CENTER.PRINT", "PROJECT", projectId.toString(), null,
                 "scanId=" + (scanId != null ? scanId : "latest"));
         return "security-center/print";
+    }
+
+    /**
+     * Batch upgrade PRs (Renovate-lite): one PR per patchable component of the latest scan.
+     * Partial failures are tolerated — the response reports each component's outcome.
+     */
+    @PostMapping("/batch-pr")
+    @ResponseBody
+    @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<Map<String, Object>> batchPr(@PathVariable Long projectId,
+                                                       @RequestBody CreatePrRequest req,
+                                                       HttpSession session,
+                                                       @AuthenticationPrincipal OswlUserPrincipal principal) {
+        projectAccessService.assertCanViewProject(projectId);
+        Long userId = principal != null ? principal.getUserId() : null;
+        String githubOwner = projectRepository.findById(projectId)
+                .map(Project::getGithubRepo)
+                .filter(r -> r.contains("/"))
+                .map(r -> r.split("/", 2)[0])
+                .orElse(null);
+        String githubToken = vcsAuthTokenService.resolveGithubToken(session, userId, githubOwner);
+        try {
+            Map<String, Object> result = componentDetailService.createBatchPullRequests(
+                    projectId, req.getTargetBranch(), userId, githubToken);
+            return ResponseEntity.ok(result);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** Printable CRA / ISMS-P compliance report for the latest completed scan. */
+    @GetMapping("/compliance-report")
+    @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_EXPORT') or hasRole('SYSTEM_ADMIN')")
+    public String complianceReport(@PathVariable Long projectId, Model model) {
+        projectAccessService.assertCanViewProject(projectId);
+        ComplianceReportDto report = complianceReportService.build(projectId);
+        model.addAttribute("report", report);
+        model.addAttribute("projectId", projectId);
+        auditLogService.log("COMPLIANCE_REPORT.VIEW", "PROJECT", projectId.toString(), null, null);
+        return "reports/compliance-report";
     }
 
     @PatchMapping("/bulk-status")

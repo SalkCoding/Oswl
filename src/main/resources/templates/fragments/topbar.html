@@ -116,6 +116,14 @@
                 </div>
                 <div th:replace="~{fragments/topbar :: delete-account-modal}"></div>
             </div>
+            <!-- Org Dashboard (system admin only) -->
+            <a sec:authorize="hasRole('SYSTEM_ADMIN')" th:href="@{/org-dashboard}"
+               class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+                    <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+                </svg>
+                <span class="text-[16px] font-medium tracking-[-0.16px] whitespace-nowrap" th:text="#{topbar.nav.orgDashboard}">Org Dashboard</span>
+            </a>
             <!-- Settings -->
             <a th:unless="${pageLabel == 'Settings'}" th:href="@{/settings}"
                class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">

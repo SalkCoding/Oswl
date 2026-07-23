@@ -12,6 +12,7 @@ import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.dto.TrashProjectDto;
+import com.salkcoding.oswl.repository.CveAlertRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
@@ -43,10 +44,10 @@ class ProjectServiceTest {
     ScanResultRepository scanResultRepository;
 
     @Mock
-    com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
+    ProjectAccessService projectAccessService;
 
     @Mock
-    ProjectAccessService projectAccessService;
+    CveAlertRepository cveAlertRepository;
 
     @InjectMocks
     ProjectService projectService;
@@ -56,6 +57,7 @@ class ProjectServiceTest {
         when(projectAccessService.accessibleProjectIds()).thenReturn(ids);
         when(projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(ids))
                 .thenReturn(List.of(projects));
+        when(cveAlertRepository.countUnacknowledgedByProjectIds(ids)).thenReturn(List.of());
     }
 
     // ── findAll ───────────────────────────────────────────────────────────

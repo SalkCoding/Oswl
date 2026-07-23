@@ -49,6 +49,50 @@
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                       th:text="${projectsCount} + ' ' + (${projectsCount} == 1 ? #{common.project} : #{common.projects})">7 Projects</span>
             </span>
+            <!-- OpenSSF Scorecard (package health) — shown when deps.dev provides a score -->
+            <span th:if="${scorecardScore != null}"
+                  class="flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]"
+                  th:styleappend="${scorecardScore >= 7.0} ? 'background:rgba(0,215,97,0.08);border:1px solid rgba(0,215,97,0.25)'
+                                 : (${scorecardScore >= 4.0} ? 'background:rgba(245,189,38,0.08);border:1px solid rgba(245,189,38,0.3)'
+                                 : 'background:rgba(230,39,39,0.06);border:1px solid rgba(230,39,39,0.25)')"
+                  th:title="#{componentDetail.scorecard.tooltip}">
+                <span class="text-[11px] font-semibold tracking-[-0.11px]"
+                      th:styleappend="${scorecardScore >= 7.0} ? 'color:#00a049' : (${scorecardScore >= 4.0} ? 'color:#a9781a' : 'color:#e62727')"
+                      th:text="#{componentDetail.scorecard.label} + ' ' + ${#numbers.formatDecimal(scorecardScore, 1, 1)} + '/10'">Scorecard 7.4/10</span>
+            </span>
+            <!-- Malicious package (OSV MAL-) -->
+            <span th:if="${malicious}"
+                  class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px]"
+                  style="background:rgba(230,39,39,0.12);border:1px solid rgba(230,39,39,0.4)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e62727" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span class="text-[11px] font-bold text-[#e62727] tracking-[-0.11px]" th:text="#{componentDetail.malicious.label}">Malicious package</span>
+            </span>
+            <!-- Supply-chain heuristic: possible typosquat / dependency confusion (amber warning) -->
+            <span th:if="${typosquatRisk}"
+                  class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px]"
+                  style="background:rgba(245,189,38,0.12);border:1px solid rgba(245,189,38,0.4)"
+                  th:title="${typosquatReason} ?: #{componentDetail.typosquat.tooltip}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a9781a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span class="text-[11px] font-bold text-[#a9781a] tracking-[-0.11px]" th:text="#{componentDetail.typosquat.label}">Possible typosquat</span>
+            </span>
+            <!-- Jira issue link / create action (#10) -->
+            <a th:if="${jiraIssueUrl != null}" th:href="${jiraIssueUrl}" target="_blank" rel="noopener"
+               class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px] no-underline"
+               style="background:rgba(0,82,204,0.08);border:1px solid rgba(0,82,204,0.25)">
+                <span class="text-[11px] font-semibold tracking-[-0.11px]" style="color:#0052cc"
+                      th:text="'Jira: ' + ${jiraIssueKey}">Jira: SEC-1</span>
+            </a>
+            <button th:if="${jiraIssueUrl == null}" type="button"
+                    x-data="{ busy: false }"
+                    :disabled="busy"
+                    @click="busy = true; fetch('/projects/' + $el.closest('#component-detail-content').dataset.projectId + '/components/' + $el.closest('#component-detail-content').dataset.componentId + '/jira-ticket', { method:'POST', headers: oswlJsonHeaders() })
+                            .then(async r => { const b = await r.json().catch(()=>({})); if (r.ok && b.issueUrl) { window.location.reload(); } else { $dispatch('oswl-ai-toast', { message: b.error || 'Jira ticket failed.' }); busy = false; } })
+                            .catch(() => { $dispatch('oswl-ai-toast', { message: 'Jira ticket failed.' }); busy = false; })"
+                    class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px] transition-colors hover:opacity-80"
+                    style="background:var(--grayscale-5);border:1px solid var(--grayscale-25)">
+                <span class="text-[11px] font-medium text-[var(--grayscale-70)] tracking-[-0.11px]"
+                      x-text="busy ? '…' : $el.dataset.label" th:attr="data-label=#{componentDetail.jira.create}">Create Jira Ticket</span>
+            </button>
             <!-- Patchability: when CVEs exist show patchability; when no CVEs show version health -->
             <span th:if="${hasVulnerabilities}"
                   th:class="${patchability == 'patchable'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
