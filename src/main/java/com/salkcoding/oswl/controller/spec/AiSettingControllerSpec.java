@@ -220,14 +220,14 @@ public interface AiSettingControllerSpec {
                 Launches the llama.cpp llama-server sidecar and registers it as the active LOCAL provider.
                 The optional `model` query parameter names a .gguf file from the sidecar directory to try first;
                 when it fails to start (or is omitted) the persisted preference, built-in preference order
-                (Qwen3 1.7B, then Gemma 3 1B) and any remaining .gguf are tried in turn (auto-fallback).
+                (Qwen3 1.7B, then any remaining `.gguf`) are tried in turn (auto-fallback).
                 The response status body includes `activeModel`, `fallbackUsed` and `lastError`.
 
                 On a fresh install with no `.gguf` file present, this instead downloads the
                 Apache-2.0-licensed Qwen3-1.7B model (verifying its SHA256) in the background and
                 returns immediately with `success: true` — poll `GET /api/settings/ai/embedded` for
                 `downloading`, `downloadedBytes`/`downloadTotalBytes`, and the eventual `running` or
-                `lastError` outcome. Gemma is never auto-downloaded (see docs/Embedded-AI.md).
+                `lastError` outcome.
                 """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Sidecar started and LOCAL provider activated, or the default-model download started in the background", content = @Content),
@@ -270,7 +270,7 @@ public interface AiSettingControllerSpec {
                             examples = @ExampleObject(value = """
                                     {
                                       "dir": "C:\\\\tools\\\\embedded-ai",
-                                      "model": "gemma-3-1b-it-Q4_K_M.gguf"
+                                      "model": "qwen3-1.7b-q4_k_m.gguf"
                                     }
                                     """)
                     )

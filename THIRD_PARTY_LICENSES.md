@@ -501,12 +501,6 @@ you may not use this file except in compliance with the License. You may obtain 
 of the License at https://www.apache.org/licenses/LICENSE-2.0
 ```
 
-### Gemma 3 1B (GGUF) — not bundled
-
-- **Website:** https://ai.google.dev/gemma
-- **License:** [Gemma Terms of Use](https://ai.google.dev/gemma/terms) — a custom license, **not** an OSI-approved open-source license. It requires redistributors to pass a full copy of the terms and a Prohibited Use Policy notice to every downstream recipient, among other obligations that don't fit a standard third-party-notice format.
-- **Distribution:** **Not included** in OsWL's repository, build, or release artifacts. It is offered only as an optional low-spec fallback for Embedded AI — users who want it download it themselves directly from Google/Hugging Face and accept the Gemma Terms of Use in that transaction. See [Embedded AI](docs/Embedded-AI.md).
-
 ---
 
 ## Apache License 2.0 — Full Text

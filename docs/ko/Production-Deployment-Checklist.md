@@ -89,8 +89,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 |------|------|
 | 서버 바이너리 | [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)에서 플랫폼에 맞는 `llama-server(.exe)`를 받아 `embedded-ai/`(또는 그 하위 `bin/`, 혹은 `PATH`)에 배치 — 유일한 수동 단계입니다 |
 | 모델 | 별도 조치 불필요 — 신규 설치에서 **시작**을 누르면 Apache 2.0 라이선스인 Qwen3-1.7B 모델(~1.2GB)이 자동으로 다운로드됩니다(SHA256 검증, UI에 진행률 표시) |
-| 폐쇄망 환경 | 자동 다운로드는 최초 1회 아웃바운드 인터넷 접근이 필요합니다. 인터넷이 없다면 시작을 누르기 전 `.gguf` 파일(예: 직접 받은 Gemma — 아래 참고)을 `embedded-ai/`에 미리 넣어두세요 |
-| Gemma 폴백 | 자동으로 받아지지 않음 — [Gemma Terms of Use](https://ai.google.dev/gemma/terms)라는 비표준 라이선스라 OsWL이 대신 재배포하지 않기 때문. 저사양용 폴백이 필요하면 직접 다운로드 — [내장 AI](Embedded-AI.md) 참고 |
+| 폐쇄망 환경 | 자동 다운로드는 최초 1회 아웃바운드 인터넷 접근이 필요합니다. 인터넷이 없다면 시작을 누르기 전 직접 받은 `.gguf` 파일을 `embedded-ai/`에 미리 넣어두세요 |
+| 커스텀 모델 | OsWL이 번들/자동 다운로드하는 것은 Qwen3-1.7B뿐입니다. 다른 `.gguf`(다른 크기나 라이선스)를 쓰고 싶다면 해당 모델의 라이선스를 직접 확인한 뒤 `embedded-ai/`에 넣으세요 — [내장 AI](Embedded-AI.md) 참고 |
 | 디렉터리 | 기본값은 JVM이 시작되는 작업 디렉터리 기준 `./embedded-ai` — 다른 경로를 쓰려면 `OSWL_EMBEDDED_AI_DIR` 설정 |
 
 Gradle 태스크나 별도 스크립트가 필요 없습니다 — 다운로드는 시작 버튼을 처음 누를 때 앱
