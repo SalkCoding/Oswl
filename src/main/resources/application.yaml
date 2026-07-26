@@ -104,6 +104,11 @@ oswl:
     # Directory for temporary git clones during Quick Import.
     # Defaults to system temp directory if left blank.
     temp-dir: ${OSWL_CLONE_TEMP_DIR:}
+    # When true, Quick Import clones are blobless (--filter=blob:none) and sparse-checked-out
+    # to manifest files only (static parse path). Ignored when allow-build-exec=true, since
+    # mvnw/gradlew need the full source tree. Servers without partial-clone support fall back
+    # to a full shallow clone automatically.
+    sparse-enabled: ${OSWL_CLONE_SPARSE_ENABLED:true}
   quick-import:
     # When true, Quick Import may execute build tools from the cloned repository
     # (mvnw / gradlew / dotnet) for full transitive dependency resolution.
@@ -159,6 +164,11 @@ oswl:
     # only-new: gate considers only findings absent from the previous completed scan (baseline).
     only-new: ${OSWL_GATE_ONLY_NEW:true}
   ai:
+    # D2: stream free-form AI calls (security posture / trend / version diff) token-by-token
+    # over OpenAI-compatible SSE so the Quick Import panel can show a live preview. Endpoints
+    # that reject streaming fall back to the plain non-streaming call automatically; batch
+    # (JSON) calls never stream. Disable to force the pre-D2 behavior everywhere.
+    streaming-enabled: ${OSWL_AI_STREAMING_ENABLED:true}
     embedded:
       # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.
       dir: ${OSWL_EMBEDDED_AI_DIR:embedded-ai}

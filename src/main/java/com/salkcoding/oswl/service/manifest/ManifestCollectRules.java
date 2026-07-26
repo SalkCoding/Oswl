@@ -120,6 +120,28 @@ public final class ManifestCollectRules {
         return slash >= 0 ? norm.substring(slash + 1) : norm;
     }
 
+    /**
+     * Non-cone {@code git sparse-checkout set} patterns covering every file these rules collect.
+     * Sorted for deterministic command lines. A leading {@code **} segment also matches the repo root.
+     */
+    public static List<String> sparseCheckoutPatterns() {
+        Set<String> patterns = new java.util.TreeSet<>();
+        for (String name : EXACT_FILE_NAMES) {
+            patterns.add("**/" + name);
+        }
+        for (String suffix : FILE_SUFFIXES) {
+            patterns.add("**/*" + suffix);
+        }
+        for (String prefix : PATH_PREFIXES) {
+            // trailing-slash dir patterns match nothing in non-cone mode; use /** for contents
+            patterns.add("/" + prefix + "**");
+        }
+        for (String suffix : BUILD_SRC_SUFFIXES) {
+            patterns.add("/buildSrc/**/*" + suffix);
+        }
+        return List.copyOf(patterns);
+    }
+
     /** DTO shape for {@code manifest-rules.json}. */
     public record RulesJson(
             int version,

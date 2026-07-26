@@ -434,6 +434,10 @@ function quickImportPage() {
                     startedAtEpochMs: serverJob.startedAtEpochMs || Date.now(),
                     runningSinceEpochMs: serverJob.runningSinceEpochMs || null,
                     progressLog: [],
+                    detailLines: [],
+                    aiPreview: '',
+                    cacheTotal: null,
+                    cacheHit: null,
                     lastPhase: null,
                     _eventSource: null,
                     _pollTimer: null,
@@ -521,6 +525,12 @@ function quickImportPage() {
             tracker.messageArgs = job.messageArgs || [];
             tracker.percent = job.percent != null ? job.percent : tracker.percent;
             tracker.queuePosition = job.queuePosition;
+            // D2/D4: live enrichment details — preview joins the rolling tail chunks into one
+            // string; the cache badge keeps its last known values once the job is DONE.
+            if (Array.isArray(job.detailLines)) tracker.detailLines = job.detailLines;
+            if (Array.isArray(job.aiPreviews)) tracker.aiPreview = job.aiPreviews.join('');
+            if (job.cacheTotal != null) tracker.cacheTotal = job.cacheTotal;
+            if (job.cacheHit != null) tracker.cacheHit = job.cacheHit;
             tracker.startedAtEpochMs = job.startedAtEpochMs || tracker.startedAtEpochMs || null;
             if (job.runningSinceEpochMs && job.runningSinceEpochMs !== tracker.runningSinceEpochMs) {
                 // Fresh run: drop ETA anchors so a stale estimate can't leak across runs.
@@ -535,10 +545,10 @@ function quickImportPage() {
                 // Percent regressions (stale poll racing newer SSE) keep the forward anchor.
                 // The elapsed-time gate keeps the very first anchor (set the instant CLONING
                 // starts, with ~0ms of real data) from freezing a near-zero estimate that then
-                // sits hidden for the rest of that phase — CLONING/PARSING/SCANNING report a
-                // fixed percent per phase (not a gradually climbing one), so without this gate
-                // the ETA would only ever surface once a *later* phase transition happened to
-                // accumulate 5s of elapsed time, which can take several phases on a fast import.
+                // sits hidden for the rest of that phase — some phases still report a near-fixed
+                // percent (D3 made PARSING/ENRICHING gradually climbing, but CLONING/SCANNING
+                // have no in-phase signal), so without this gate the ETA could surface only once
+                // a *later* phase transition happened to accumulate 5s of elapsed time.
                 // Requiring 5s of real elapsed time up front instead means the estimate appears
                 // as soon as there's a real sample, regardless of which phase we're in.
                 tracker._etaAnchorPct = tracker.percent;
@@ -653,6 +663,15 @@ function quickImportPage() {
                 errorKey: job.messageKey,
                 errorArgs: job.messageArgs,
             });
+        },
+
+        /**
+         * D4 cache badge. Hidden on a first scan (0 hits) — "0 of N served from cache" would
+         * read as if something went wrong, so the badge only appears once there is a real hit.
+         */
+        cacheBadgeText(job) {
+            if (!job || !job.cacheTotal || !job.cacheHit) return '';
+            return _qiFmt(_qi('cacheHitBadge'), job.cacheTotal, job.cacheHit);
         },
 
         _queueStatusLine(queuePosition) {

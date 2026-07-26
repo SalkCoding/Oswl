@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import jakarta.annotation.PostConstruct;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -135,6 +136,60 @@ public class QuickImportService {
      * back to DONE. This is what makes cancel actually stick during the long enrichment phase.
      */
     private final java.util.Set<String> canceledJobs = ConcurrentHashMap.newKeySet();
+
+    /** scanResultId → jobId, so enrichment progress events can find the owning job for SSE pushes (D3). */
+    private final ConcurrentHashMap<Long, String> jobIdByScanResultId = new ConcurrentHashMap<>();
+    /**
+     * Per-job SSE throttle for high-frequency progress updates (D3): [lastSentAtMs, lastSentPercent].
+     * Phase transitions always notify immediately (via {@link #patchJob}); only the continuous
+     * in-phase progress path is throttled to one frame per 500ms unless the percent advanced.
+     */
+    private final ConcurrentHashMap<String, long[]> progressThrottle = new ConcurrentHashMap<>();
+
+    /**
+     * Routes enrichment progress events (streaming previews, per-fetch counts) to the owning
+     * job's SSE stream — throttled, since streaming can produce several events per second.
+     */
+    @PostConstruct
+    void registerEnrichmentProgressListener() {
+        enrichmentProgressHolder.setUpdateListener(this::onEnrichmentProgress);
+    }
+
+    private void onEnrichmentProgress(Long scanResultId) {
+        String jobId = jobIdByScanResultId.get(scanResultId);
+        if (jobId == null) return;
+        QuickImportJobStatus job = jobs.get(jobId);
+        int percent = job != null && job.getPercent() != null ? job.getPercent() : 0;
+        throttledNotify(jobId, percent);
+    }
+
+    /**
+     * D3: continuous in-phase progress (e.g. manifests parsed N/M). Percent is clamped
+     * monotonically per job and SSE pushes are throttled; HTTP polls read the stored value.
+     */
+    private void reportJobProgress(String jobId, int percent) {
+        if (canceledJobs.contains(jobId)) return;
+        QuickImportJobStatus prev = jobs.get(jobId);
+        if (prev == null) return;
+        int previous = prev.getPercent() != null ? prev.getPercent() : 0;
+        int clamped = Math.min(100, Math.max(previous, percent));
+        if (clamped == previous) return;
+        patchJobQuiet(jobId, b -> b.percent(clamped));
+        throttledNotify(jobId, clamped);
+    }
+
+    private void throttledNotify(String jobId, int latestPercent) {
+        long now = System.currentTimeMillis();
+        long[] state = progressThrottle.computeIfAbsent(jobId, k -> new long[]{0L, -1});
+        synchronized (state) {
+            boolean percentAdvanced = latestPercent > state[1];
+            boolean intervalElapsed = now - state[0] >= 500;
+            if (!percentAdvanced && !intervalElapsed) return;
+            state[0] = now;
+            if (percentAdvanced) state[1] = latestPercent;
+        }
+        notifyJobUpdate(jobId);
+    }
 
     private static final class ImportCanceledException extends RuntimeException {
         ImportCanceledException() { super("canceled"); }
@@ -435,11 +490,17 @@ public class QuickImportService {
                         }
                         QuickImportJobStatus.QuickImportJobStatusBuilder enriching = current.toBuilder();
                         if (enrich != null) {
+                            // D3: the holder reports absolute 55–100 progress; clamp against the
+                            // stored percent so a stale poll/SSE race can never move it backwards.
+                            int jobPercent = current.getPercent() != null ? current.getPercent() : 0;
                             enriching.message(enrich.message())
                                     .subPhase(enrich.subPhase() != null ? enrich.subPhase().name() : null)
                                     .detailLines(enrich.detailLines())
                                     .aiPreviews(enrich.aiPreviews())
-                                    .percent(enrichingPercent(enrich.percent()));
+                                    .cacheTotal(enrich.cacheTotal())
+                                    .cacheHit(enrich.cacheHit())
+                                    .cacheToFetch(enrich.cacheToFetch())
+                                    .percent(Math.max(jobPercent, enrich.percent()));
                         }
                         QuickImportJobStatus live = enriching.build();
                         jobs.put(jobId, live);
@@ -453,13 +514,21 @@ public class QuickImportService {
         // UI can flip "AI summary generating" -> done without the job itself changing phase again.
         if (current.getPhase() == Phase.DONE && current.getScanResultId() != null
                 && !isTerminalAiStatus(current.getAiStatus())) {
+            // D2: AI previews/detail lines keep streaming after DONE (D1 moved AI past the
+            // data pipeline), so merge the live snapshot while AI is still running.
+            EnrichmentProgressHolder.Snapshot enrich =
+                    enrichmentProgressHolder.getSnapshot(current.getScanResultId());
             return scanResultRepository.findById(current.getScanResultId())
                     .map(sr -> {
-                        QuickImportJobStatus refreshed = current.toBuilder()
-                                .aiStatus(sr.getAiStatus().name())
-                                .build();
-                        jobs.put(jobId, refreshed);
-                        return refreshed;
+                        QuickImportJobStatus.QuickImportJobStatusBuilder refreshed = current.toBuilder()
+                                .aiStatus(sr.getAiStatus().name());
+                        if (enrich != null) {
+                            refreshed.detailLines(enrich.detailLines())
+                                    .aiPreviews(enrich.aiPreviews());
+                        }
+                        QuickImportJobStatus next = refreshed.build();
+                        jobs.put(jobId, next);
+                        return next;
                     })
                     .orElse(current);
         }
@@ -471,10 +540,6 @@ public class QuickImportService {
                 || aiStatus.equals("COMPLETED")
                 || aiStatus.equals("FAILED")
                 || aiStatus.equals("NOT_APPLICABLE");
-    }
-
-    private static int enrichingPercent(int enrichStepPercent) {
-        return 60 + (enrichStepPercent * 35 / 100);
     }
 
     /**
@@ -776,8 +841,11 @@ public class QuickImportService {
             advanceJob(jobId, Phase.PARSING, null, null, null, null, null, null, null);
 
             long parseStartMs = System.currentTimeMillis();
+            // D3: manifest N/M progress fills the PARSING band (20–40).
             DependencyManifestParserService.ParseResult deps =
-                    dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo);
+                    dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo,
+                            (done, total) -> reportJobProgress(jobId,
+                                    20 + (int) Math.round(20.0 * done / Math.max(1, total))));
             parseMs = System.currentTimeMillis() - parseStartMs;
             throwIfCanceled(jobId);
 
@@ -1024,6 +1092,9 @@ public class QuickImportService {
                           Long scanResultId) {
         QuickImportJobStatus prev = jobs.getOrDefault(jobId,
                 baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        if (scanResultId != null) {
+            jobIdByScanResultId.put(scanResultId, jobId);
+        }
         patchJob(jobId, b -> {
             b.phase(phase)
                     .message(null)
@@ -1106,6 +1177,18 @@ public class QuickImportService {
         if (canceledJobs.contains(jobId)) {
             return;
         }
+        patchJobQuiet(jobId, patch);
+        notifyJobUpdate(jobId);
+    }
+
+    /**
+     * Applies a status patch WITHOUT emitting an SSE frame — used by the throttled progress
+     * path (D3), which decides on its own cadence when to push.
+     */
+    private void patchJobQuiet(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
+        if (canceledJobs.contains(jobId)) {
+            return;
+        }
         QuickImportJobStatus prev = jobs.getOrDefault(jobId,
                 baseJobBuilder(jobId).phase(Phase.QUEUED).build());
         QuickImportJobStatus.QuickImportJobStatusBuilder builder = prev.toBuilder();
@@ -1113,9 +1196,7 @@ public class QuickImportService {
         builder.activeSlotsUsed(runningImports.get())
                 .maxConcurrentSlots(maxConcurrentImports)
                 .maxQueuedSlots(maxQueuedPerUser);
-        QuickImportJobStatus next = builder.build();
-        jobs.put(jobId, next);
-        notifyJobUpdate(jobId);
+        jobs.put(jobId, builder.build());
     }
 
     private QuickImportJobStatus.QuickImportJobStatusBuilder baseJobBuilder(String jobId) {
@@ -1173,13 +1254,18 @@ public class QuickImportService {
         }
     }
 
+    /**
+     * Phase-entry percents (D3). Each phase owns a band that in-phase progress signals fill:
+     * CLONING 5–20, PARSING 20–40 (manifests N/M), SCANNING 40–55, ENRICHING 55–100
+     * (data fetch 55–80 via EnrichmentProgressHolder, AI blocks 80–100).
+     */
     private static int phasePercent(Phase phase, Long scanResultId) {
         return switch (phase) {
             case QUEUED -> 0;
-            case CLONING -> 12;
-            case PARSING -> 35;
-            case SCANNING -> 55;
-            case ENRICHING -> 60;
+            case CLONING -> 5;
+            case PARSING -> 20;
+            case SCANNING -> 40;
+            case ENRICHING -> 55;
             case DONE -> 100;
             case FAILED -> 0;
         };
@@ -1250,6 +1336,8 @@ public class QuickImportService {
         apiTokenRevealed.remove(jobId);
         jobRepoKeys.remove(jobId);
         canceledJobs.remove(jobId);
+        progressThrottle.remove(jobId);
+        jobIdByScanResultId.values().remove(jobId);
         log.debug("[QuickImport] Evicted expired job {}", jobId);
     }
 
