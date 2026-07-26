@@ -54,6 +54,16 @@ public class AiPromptTemplateService {
     @Value("${oswl.ai.enrichment.local-simple-schema:true}")
     private boolean localSimpleSchema;
 
+    /**
+     * F3: cloud providers (OPENAI/ANTHROPIC/GEMINI) get a pipe-delimited batch item format
+     * instead of repeating a full field label on every line — the labels alone cost ~17 tokens
+     * per item. LOCAL never uses this: C3 already pulls the opposite direction (smaller models
+     * need explicit labels to avoid mis-assigning fields), and local tokens are effectively
+     * free (self-hosted), so the accuracy risk is not worth the saving there.
+     */
+    @Value("${oswl.ai.enrichment.compact-batch-prompts:true}")
+    private boolean compactBatchPromptsEnabled;
+
     public AiPromptTemplateService(
             ResourceLoader resourceLoader,
             AiPreferencesRepository preferencesRepository,
@@ -287,29 +297,40 @@ public class AiPromptTemplateService {
 
     public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items, String deploymentProfile,
                                  AiProvider provider) {
-        String header = render("batch.cve.header", provider, Map.of(
+        boolean compact = useCompactBatchFormat(provider);
+        String header = render(compact ? "batch.cve.header.compact" : "batch.cve.header", provider, Map.of(
                 "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT"));
         StringBuilder sb = new StringBuilder(header);
+        String itemKey = compact ? "batch.cve.item.compact" : "batch.cve.item";
+        // F3: compact mode drops the trailing "-" for a missing field to blank ("||") — every
+        // char counts once the label is gone, and an empty field is still unambiguous in a
+        // fixed pipe-delimited position. The labeled format keeps "-" (unambiguous either way).
+        java.util.function.Function<String, String> missing = compact ? s -> s != null ? s : "" : AiEnrichmentContextBuilder::orDash;
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.CveSummaryRequest r = items.get(i);
-            sb.append(render("batch.cve.item", vars(
+            sb.append(render(itemKey, vars(
                     "index", i + 1,
                     "id", r.id(),
                     "component", r.component(),
                     "severity", r.severity(),
                     "cvssScore", formatCvss(r.cvssScore()),
-                    "epss", r.epssScore() != null ? String.format("%.3f", r.epssScore()) : "-",
+                    "epss", r.epssScore() != null ? String.format("%.3f", r.epssScore()) : (compact ? "" : "-"),
                     "kevListed", r.kevListed() ? "yes" : "no",
-                    "title", AiEnrichmentContextBuilder.orDash(r.title()),
-                    "osvSummary", AiEnrichmentContextBuilder.orDash(r.osvSummary()),
-                    "fixVersion", AiEnrichmentContextBuilder.orDash(r.fixVersion()),
-                    "cweId", AiEnrichmentContextBuilder.orDash(r.cweId()),
-                    "cvssVector", AiEnrichmentContextBuilder.orDash(r.cvssVector()),
+                    "title", missing.apply(r.title()),
+                    "osvSummary", missing.apply(r.osvSummary()),
+                    "fixVersion", missing.apply(r.fixVersion()),
+                    "cweId", missing.apply(r.cweId()),
+                    "cvssVector", missing.apply(r.cvssVector()),
                     "dependencyType", r.dependencyType(),
                     "patchability", r.patchability())));
             sb.append('\n');
         }
         return sb.toString().stripTrailing();
+    }
+
+    /** F3: pipe-delimited compact batch prompts are cloud-only (see {@link #compactBatchPromptsEnabled}). */
+    private boolean useCompactBatchFormat(AiProvider provider) {
+        return compactBatchPromptsEnabled && provider != null && provider != AiProvider.LOCAL;
     }
 
     public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
@@ -319,20 +340,23 @@ public class AiPromptTemplateService {
 
     public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
                                      String deploymentProfile, AiProvider provider) {
-        StringBuilder sb = new StringBuilder(render("batch.license.header", provider, Map.of(
-                "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT")));
+        boolean compact = useCompactBatchFormat(provider);
+        StringBuilder sb = new StringBuilder(render(compact ? "batch.license.header.compact" : "batch.license.header",
+                provider, Map.of("deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT")));
+        String itemKey = compact ? "batch.license.item.compact" : "batch.license.item";
+        java.util.function.Function<String, String> missing = compact ? s -> s != null ? s : "" : AiEnrichmentContextBuilder::orDash;
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.LicenseSummaryRequest r = items.get(i);
-            sb.append(render("batch.license.item", Map.of(
+            sb.append(render(itemKey, Map.of(
                     "index", i + 1,
                     "id", r.id(),
                     "licenseName", r.licenseName(),
                     "licenseStatus", r.licenseStatus(),
-                    "policyReason", AiEnrichmentContextBuilder.orDash(r.policyReason()),
+                    "policyReason", missing.apply(r.policyReason()),
                     "component", r.component(),
-                    "ecosystem", AiEnrichmentContextBuilder.orDash(r.ecosystem()),
+                    "ecosystem", missing.apply(r.ecosystem()),
                     "dependencyType", r.dependencyType(),
-                    "latestVersion", AiEnrichmentContextBuilder.orDash(r.latestVersion()))));
+                    "latestVersion", missing.apply(r.latestVersion()))));
             sb.append('\n');
         }
         return sb.toString().stripTrailing();

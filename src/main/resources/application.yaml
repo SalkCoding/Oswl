@@ -169,6 +169,11 @@ oswl:
     # that reject streaming fall back to the plain non-streaming call automatically; batch
     # (JSON) calls never stream. Disable to force the pre-D2 behavior everywhere.
     streaming-enabled: ${OSWL_AI_STREAMING_ENABLED:true}
+    anthropic:
+      # F4: mark the (per-provider fixed) system prompt as an ephemeral cache breakpoint so
+      # repeat calls within Anthropic's cache TTL are billed as cache reads. Disable if a
+      # future Anthropic API/beta-header change makes this incompatible with the account.
+      prompt-caching-enabled: ${OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED:true}
     embedded:
       # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.
       dir: ${OSWL_EMBEDDED_AI_DIR:embedded-ai}
