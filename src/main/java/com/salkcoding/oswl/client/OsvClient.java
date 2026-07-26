@@ -3,9 +3,11 @@ package com.salkcoding.oswl.client;
 import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -29,6 +31,10 @@ public class OsvClient {
 
     private static final String BASE_URL = "https://api.osv.dev";
     private static final int MAX_BATCH_SIZE = 1000;
+    /** Default timeouts used by the no-arg/2-arg constructors (unit tests, and any caller not wired through Spring config). */
+    private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    /** Generous — a 1,000-item querybatch against a slow connection legitimately takes a while. */
+    private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(30);
 
     private final RestClient restClient;
     private final AirgappedSnapshotService snapshotService;
@@ -40,11 +46,20 @@ public class OsvClient {
     }
 
     public OsvClient(AirgappedSnapshotService snapshotService, boolean airgapped) {
+        this(snapshotService, airgapped, DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT);
+    }
+
+    public OsvClient(AirgappedSnapshotService snapshotService, boolean airgapped,
+                     Duration connectTimeout, Duration readTimeout) {
         this.snapshotService = snapshotService;
         this.airgapped = airgapped && snapshotService != null;
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
         this.restClient = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader("Accept", "application/json")
+                .requestFactory(requestFactory)
                 .build();
         if (this.airgapped) {
             log.info("[OsvClient] Air-gapped mode — OSV queries served from the offline snapshot store, no outbound HTTP");

@@ -50,7 +50,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -109,6 +108,8 @@ public class QuickImportService {
     private final EnrichmentProgressHolder enrichmentProgressHolder;
     private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
     private final DependencyManifestParserService dependencyManifestParserService;
+    private final ScanTimingRecorder scanTimingRecorder;
+    private final CloneCleanupService cloneCleanupService;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -734,16 +735,23 @@ public class QuickImportService {
         advanceJob(jobId, Phase.CLONING, null, null, null, null, null, null, null);
 
         Path cloneDir = createTempCloneDir(parsed.owner, parsed.repo, jobId);
+        ScanResult scanResult = null;
+        long cloneMs = 0;
+        long parseMs = 0;
         try {
+            long cloneStartMs = System.currentTimeMillis();
             String cloneUrl = buildCloneUrl(parsed);
             gitCloneExecutor.clone(cloneUrl, credentials, branch, cloneDir, jobId);
+            cloneMs = System.currentTimeMillis() - cloneStartMs;
             throwIfCanceled(jobId);
 
             // 4. Parse dependencies ────────────────────────────────────────
             advanceJob(jobId, Phase.PARSING, null, null, null, null, null, null, null);
 
+            long parseStartMs = System.currentTimeMillis();
             DependencyManifestParserService.ParseResult deps =
                     dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo);
+            parseMs = System.currentTimeMillis() - parseStartMs;
             throwIfCanceled(jobId);
 
             // 5. Create/find project and API key ──────────────────────────
@@ -762,7 +770,7 @@ public class QuickImportService {
 
             String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
             ScanPayload payload = dependencyManifestParserService.buildScanPayload(deps, scanVersion);
-            ScanResult scanResult;
+            long ingestStartMs = System.currentTimeMillis();
             try {
                 scanResult = scanIngestService.ingest(project.getId(), payload);
             } catch (Exception ingestEx) {
@@ -776,6 +784,11 @@ public class QuickImportService {
                         deps.ecosystem(), deps.components().size());
                 return;
             }
+            long ingestMs = System.currentTimeMillis() - ingestStartMs;
+            String timingKey = String.valueOf(scanResult.getId());
+            scanTimingRecorder.record(timingKey, "clone", cloneMs);
+            scanTimingRecorder.record(timingKey, "parse", parseMs);
+            scanTimingRecorder.record(timingKey, "ingest", ingestMs);
 
             String actorEmail = userRepository.findById(userId)
                     .map(User::getEmail)
@@ -790,7 +803,12 @@ public class QuickImportService {
                     deps.ecosystem(), deps.components().size(), scanResult.getId());
 
         } finally {
-            deleteDirectory(cloneDir);
+            long cleanupStartMs = System.currentTimeMillis();
+            cloneCleanupService.submit(cloneDir);
+            long cleanupMs = System.currentTimeMillis() - cleanupStartMs;
+            if (scanResult != null) {
+                scanTimingRecorder.record(String.valueOf(scanResult.getId()), "cleanup", cleanupMs);
+            }
         }
     }
 
@@ -963,17 +981,6 @@ public class QuickImportService {
             throw new SecurityException("Clone directory escapes configured root: " + dir);
         }
         return dirReal;
-    }
-
-    private void deleteDirectory(Path dir) {
-        if (dir == null || !Files.exists(dir)) return;
-        try (Stream<Path> stream = Files.walk(dir)){
-            stream
-                    .sorted(Comparator.reverseOrder())
-                    .forEach(p -> { try { Files.delete(p); } catch (IOException ignored) {} });
-        } catch (IOException e) {
-            log.warn("[QuickImport] Could not delete temp dir '{}': {}", dir, e.getMessage());
-        }
     }
 
     private void advanceJob(String jobId, Phase phase,
