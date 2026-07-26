@@ -142,7 +142,7 @@ public class OpenAiClient implements AiAnalysisClient {
                                "content", promptTemplates.getSystemPrompt(setting.getProvider())),
                         Map.of("role", "user", "content", userPrompt)
                 ),
-                "max_tokens", promptTemplates.getMaxTokens(),
+                "max_tokens", promptTemplates.getMaxTokens(op),
                 "temperature", promptTemplates.getTemperature()
         );
 
@@ -167,9 +167,11 @@ public class OpenAiClient implements AiAnalysisClient {
                         callTrace.logAssistantMessage(log, PROVIDER_TAG, op, result, message);
                         log.debug("[AI][{}] Parsed result resultLen={}", PROVIDER_TAG, result != null ? result.length() : 0);
                         if (result != null && !result.isBlank()) return result;
-                        log.warn("[AI][{}] Empty result on attempt {}, {}", PROVIDER_TAG, attempt, attempt < 2 ? "retrying" : "giving up");
+                        log.warn("[AI][{}] Empty result on attempt {} — giving up (retry is AiAnalysisService's responsibility)", PROVIDER_TAG, attempt);
+                        return null;
                     }
                     log.warn("[AI][{}] Response body has no 'choices' — keys={}", PROVIDER_TAG, response.getBody().keySet());
+                    return null;
                 }
             } catch (Exception e) {
                 long elapsed = System.currentTimeMillis() - start;

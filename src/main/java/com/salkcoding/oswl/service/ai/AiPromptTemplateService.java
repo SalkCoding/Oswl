@@ -45,6 +45,15 @@ public class AiPromptTemplateService {
 
     private Properties templates = new Properties();
 
+    /**
+     * When true, {@code AiProvider.LOCAL} batch calls use the leaner {@code .local} prompt
+     * variant (fewer fields, few-shot example) instead of the full schema meant for larger
+     * cloud models — a 1.7B-class model following a 4-field JSON schema with a 6-line priority
+     * rubric has a much higher chance of drifting from the schema than a cloud model does.
+     */
+    @Value("${oswl.ai.enrichment.local-simple-schema:true}")
+    private boolean localSimpleSchema;
+
     public AiPromptTemplateService(
             ResourceLoader resourceLoader,
             AiPreferencesRepository preferencesRepository,
@@ -119,6 +128,28 @@ public class AiPromptTemplateService {
         Integer pref = readPreferences().getMaxTokens();
         if (pref != null) return pref;
         return (int) parseDouble(require("params.maxTokens"), 1200);
+    }
+
+    /**
+     * Operation-specific max_tokens (e.g. {@code "batch.cve"}, {@code "security.posture"}).
+     * A short free-text insight and a 10-item batch JSON array need very different budgets —
+     * one generic value either truncates the batch or wastes headroom on the short prompts.
+     *
+     * <p>Priority: {@code params.maxTokens.<operation>} (if present) &gt; {@link #getMaxTokens()}
+     * (DB override, then {@code params.maxTokens}). An operation-specific key intentionally
+     * outranks the DB override — a batch operation's token floor must not be silently cut
+     * below what a truncation-free response requires just because the user set a smaller
+     * global default for the short free-text insights.
+     */
+    public int getMaxTokens(String operation) {
+        if (operation != null) {
+            String key = "params.maxTokens." + operation;
+            String value = templates.getProperty(key);
+            if (value != null) {
+                return (int) parseDouble(value, getMaxTokens());
+            }
+        }
+        return getMaxTokens();
     }
 
     private void applyDbOverrides(String jsonOverrides) {
@@ -251,7 +282,12 @@ public class AiPromptTemplateService {
     }
 
     public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items, String deploymentProfile) {
-        String header = render("batch.cve.header", Map.of(
+        return batchCvePrompt(items, deploymentProfile, null);
+    }
+
+    public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items, String deploymentProfile,
+                                 AiProvider provider) {
+        String header = render("batch.cve.header", provider, Map.of(
                 "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT"));
         StringBuilder sb = new StringBuilder(header);
         for (int i = 0; i < items.size(); i++) {
@@ -278,7 +314,12 @@ public class AiPromptTemplateService {
 
     public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
                                      String deploymentProfile) {
-        StringBuilder sb = new StringBuilder(render("batch.license.header", Map.of(
+        return batchLicensePrompt(items, deploymentProfile, null);
+    }
+
+    public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
+                                     String deploymentProfile, AiProvider provider) {
+        StringBuilder sb = new StringBuilder(render("batch.license.header", provider, Map.of(
                 "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT")));
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.LicenseSummaryRequest r = items.get(i);
@@ -298,7 +339,16 @@ public class AiPromptTemplateService {
     }
 
     public String render(String key, Map<String, ?> vars) {
-        String result = require(key);
+        return render(key, null, vars);
+    }
+
+    /**
+     * Same as {@link #render(String, Map)}, but resolves {@code key + ".local"} first when
+     * {@code provider} is {@link AiProvider#LOCAL} and {@link #localSimpleSchema} is enabled —
+     * falling back to {@code key} when no {@code .local} variant is defined for it.
+     */
+    public String render(String key, AiProvider provider, Map<String, ?> vars) {
+        String result = requireForProvider(key, provider);
         for (Map.Entry<String, ?> entry : vars.entrySet()) {
             result = result.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
         }
@@ -306,6 +356,16 @@ public class AiPromptTemplateService {
             log.warn("[AI] Unresolved placeholders remain in prompt '{}'", key);
         }
         return result;
+    }
+
+    private String requireForProvider(String key, AiProvider provider) {
+        if (provider == AiProvider.LOCAL && localSimpleSchema) {
+            String localValue = templates.getProperty(key + ".local");
+            if (localValue != null) {
+                return localValue;
+            }
+        }
+        return require(key);
     }
 
     public Map<String, String> snapshot() {
