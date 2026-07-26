@@ -40,8 +40,9 @@ import java.util.stream.Stream;
  *   embedded-ai/
  *     llama-server(.exe)     — llama.cpp server binary (or on PATH)
  *     qwen3-1.7b-q4_k_m.gguf — preferred model
- *     gemma-3-1b-it-Q4_K_M.gguf — low-spec fallback
  * </pre>
+ * Any other {@code .gguf} file dropped in this directory is picked up too — see
+ * {@link #MODEL_PREFERENCE}.
  * The started server exposes an OpenAI-compatible endpoint at
  * {@code http://127.0.0.1:port/v1}, which is registered as the LOCAL provider.
  */
@@ -49,17 +50,20 @@ import java.util.stream.Stream;
 @Service
 public class EmbeddedAiService {
 
-    /** Model filename fragments in preference order (first match wins). */
-    private static final List<String> MODEL_PREFERENCE = List.of("qwen3", "gemma-3-1b", "gemma3");
+    /**
+     * Model filename fragment preferred when the sidecar directory has more than one
+     * {@code .gguf} — any other file the user drops in is still picked up as a fallback
+     * candidate by {@code startCandidates()}/{@code pickPreferredModel()}, this list only
+     * orders preference among what's present.
+     */
+    private static final List<String> MODEL_PREFERENCE = List.of("qwen3");
 
     /**
      * Default model auto-fetched when the sidecar directory has no .gguf at all, so a fresh
      * on-premise install works out of the box with just {@code java -jar app.jar} — no
      * separate download step or build tooling required. Apache 2.0 licensed (see
      * THIRD_PARTY_LICENSES.md), so bundling/auto-fetching it carries no extra redistribution
-     * obligation. Gemma is intentionally never auto-fetched: it's under the Gemma Terms of
-     * Use (not a standard OSS license, imposes obligations on whoever redistributes the
-     * weights) — users who want it download it themselves, see docs/Embedded-AI.md.
+     * obligation.
      */
     private static final String DEFAULT_MODEL_FILE = "qwen3-1.7b-q4_k_m.gguf";
     private static final String DEFAULT_MODEL_URL =
@@ -239,7 +243,7 @@ public class EmbeddedAiService {
         if (candidates.isEmpty()) {
             throw new IllegalStateException(
                     "No .gguf model found in " + resolveDir().toAbsolutePath()
-                            + ". Expected qwen3-1.7b-q4_k_m.gguf (or gemma-3-1b-it-Q4_K_M.gguf).");
+                            + ". Expected qwen3-1.7b-q4_k_m.gguf (or any other .gguf file).");
         }
 
         lastError = null;

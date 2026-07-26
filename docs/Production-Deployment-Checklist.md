@@ -90,8 +90,8 @@ addition to, a cloud provider.
 |-------|--------|
 | Server binary | Download `llama-server(.exe)` for your platform from the [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases) and place it in `embedded-ai/` (or `bin/` under it, or anywhere on `PATH`) — this is the only manual step |
 | Model | Nothing to do — clicking **Start** on a fresh install downloads the Apache-2.0-licensed Qwen3-1.7B model automatically (~1.2 GB, verifies SHA256, shows progress in the UI) |
-| Air-gapped hosts | The auto-download needs outbound internet access once. Without it, place a `.gguf` file (e.g. a manually fetched Gemma — see below) into `embedded-ai/` yourself before clicking Start |
-| Gemma fallback | Never auto-downloaded — it's under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms), not a standard OSS license, so OsWL doesn't redistribute it on your behalf. Download it yourself if you want the low-spec fallback; see [Embedded AI](Embedded-AI.md) |
+| Air-gapped hosts | The auto-download needs outbound internet access once. Without it, place a `.gguf` file you've obtained yourself into `embedded-ai/` before clicking Start |
+| Custom models | OsWL only bundles/auto-fetches Qwen3-1.7B. Any other `.gguf` you want (e.g. a different size or license) — check its own license, then place it in `embedded-ai/` yourself; see [Embedded AI](Embedded-AI.md) |
 | Directory | Defaults to `./embedded-ai` relative to the working directory the JVM starts in — set `OSWL_EMBEDDED_AI_DIR` for a different path |
 
 No Gradle task or separate script is involved — the download runs inside the application
