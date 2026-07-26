@@ -75,16 +75,29 @@ public class AiUsageRecorderService {
         record(provider, operation, modelName, prompt, completion);
     }
 
-    /** Parses Anthropic Messages API usage block. */
+    /**
+     * Parses Anthropic Messages API usage block. F4: {@code cache_creation_input_tokens}/
+     * {@code cache_read_input_tokens} are real prompt content Anthropic still processed (a
+     * cache read is billed at a discount, not for free) and are excluded from
+     * {@code input_tokens} by the API — folding them into the recorded prompt total keeps
+     * token/usage stats accurate. {@link AiModelPricing} already documents that its list
+     * prices ignore the cache discount, so cost is a conservative (slightly high) estimate
+     * whenever the cache is actually hit.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFromAnthropicUsage(Map<String, Object> body, AiProvider provider,
                                          String operation, String modelName) {
         if (body == null) return;
         Object usageObj = body.get("usage");
         if (!(usageObj instanceof Map<?, ?> usage)) return;
-        record(provider, operation, modelName,
-                intVal(usage.get("input_tokens")),
-                intVal(usage.get("output_tokens")));
+        int input = intVal(usage.get("input_tokens"));
+        int cacheCreation = intVal(usage.get("cache_creation_input_tokens"));
+        int cacheRead = intVal(usage.get("cache_read_input_tokens"));
+        if (cacheCreation > 0 || cacheRead > 0) {
+            log.debug("[AI][Anthropic][Cache] op={} model={} cacheCreation={} cacheRead={} freshInput={}",
+                    operation, modelName, cacheCreation, cacheRead, input);
+        }
+        record(provider, operation, modelName, input + cacheCreation + cacheRead, intVal(usage.get("output_tokens")));
     }
 
     private void record(AiProvider provider, String operation, String modelName,
