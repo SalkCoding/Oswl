@@ -30,12 +30,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,6 +72,18 @@ public class DependencyManifestParserService {
     private record ProcessOutput(int exitCode, String output, boolean timedOut) {}
 
     public ParseResult parseDependencies(Path cloneDir, String repoName) {
+        return parseDependencies(cloneDir, repoName, null);
+    }
+
+    /**
+     * @param manifestProgress optional D3 callback receiving {@code (processedManifests, totalManifests)}
+     *                         as each manifest group is handled — the A3 index knows the full
+     *                         manifest count up front, so the caller can interpolate continuous
+     *                         progress. Parsing must never fail because of reporting, so callback
+     *                         exceptions are swallowed at debug level.
+     */
+    public ParseResult parseDependencies(Path cloneDir, String repoName,
+                                         BiConsumer<Integer, Integer> manifestProgress) {
         List<ScanPayload.ComponentPayload> allComps = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         List<String> ecosystems = new ArrayList<>();
@@ -78,6 +92,26 @@ public class DependencyManifestParserService {
         ManifestIndex index = buildIndex(cloneDir);
         log.debug("[DependencyParser] Manifest index built for '{}': {} basenames, {} suffixes",
                 repoName, index.byFileName().size(), index.bySuffix().size());
+
+        // D3: progress denominator = every distinct indexed manifest; numerator = the ones
+        // actually processed below (fallback groups skipped because a lock file already
+        // resolved the ecosystem simply never count — the caller clamps monotonically).
+        Set<Path> indexedManifests = new HashSet<>();
+        index.byFileName().values().forEach(indexedManifests::addAll);
+        index.bySuffix().values().forEach(indexedManifests::addAll);
+        int totalManifests = Math.max(1, indexedManifests.size());
+        Set<Path> processedManifests = new HashSet<>();
+        java.util.function.Consumer<List<Path>> report = paths -> {
+            if (manifestProgress == null) return;
+            int before = processedManifests.size();
+            processedManifests.addAll(paths);
+            if (processedManifests.size() == before) return;
+            try {
+                manifestProgress.accept(processedManifests.size(), totalManifests);
+            } catch (Exception e) {
+                log.debug("[DependencyParser] progress callback failed for '{}': {}", repoName, e.getMessage());
+            }
+        };
 
         // ── Maven: walk all pom.xml files ──────────────────────────────────────
         List<Path> pomFiles = indexByNames(index, "pom.xml");
@@ -92,6 +126,7 @@ public class DependencyManifestParserService {
                 }
             }
             log.info("[DependencyParser][Multi] Maven: {} pom.xml → {} components so far", pomFiles.size(), allComps.size());
+            report.accept(pomFiles);
         }
 
         // ── Gradle: build.gradle / build.gradle.kts ────────────────────────────
@@ -109,6 +144,7 @@ public class DependencyManifestParserService {
             // Version catalogs cover libs.xxx references not captured by static regex
             mergeComponents(allComps, seen, parseVersionCatalogs(cloneDir, repoName, index), "MAVEN");
             log.info("[DependencyParser][Multi] Gradle: {} build files → {} components so far", gradleFiles.size(), allComps.size());
+            report.accept(gradleFiles);
         }
 
         // ── npm: lock files first (full transitive), then package.json ──────────
@@ -125,18 +161,19 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("NPM")) ecosystems.add("NPM");
                 mergeComponents(allComps, seen, npmComps, "NPM");
             }
+            report.accept(List.of(lock));
         }
         if (!ecosystems.contains("NPM")) {
             indexByNames(index, "package.json").stream()
                     .min(Comparator.comparingInt(p -> cloneDir.relativize(p).getNameCount()))
-                    .map(Path::getParent)
-                    .ifPresent(pkgDir -> {
+                    .ifPresent(pkg -> {
                         List<ScanPayload.ComponentPayload> npmComps =
-                                runNpmPackageLockOnly(pkgDir, repoName);
+                                runNpmPackageLockOnly(pkg.getParent(), repoName);
                         if (npmComps != null && !npmComps.isEmpty()) {
                             ecosystems.add("NPM");
                             mergeComponents(allComps, seen, npmComps, "NPM");
                         }
+                        report.accept(List.of(pkg));
                     });
         }
         if (!ecosystems.contains("NPM")) {
@@ -146,6 +183,7 @@ public class DependencyManifestParserService {
                     ecosystems.add("NPM");
                     mergeComponents(allComps, seen, npmComps, "NPM");
                 }
+                report.accept(List.of(pkg));
             }
         }
 
@@ -159,6 +197,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("PYPI")) ecosystems.add("PYPI");
                 mergeComponents(allComps, seen, pyComps, "PYPI");
             }
+            report.accept(List.of(lock));
         }
         if (!ecosystems.contains("PYPI")) {
             for (Path req : indexByNames(index, "requirements.txt")) {
@@ -168,6 +207,7 @@ public class DependencyManifestParserService {
                     if (!ecosystems.contains("PYPI")) ecosystems.add("PYPI");
                     mergeComponents(allComps, seen, pyComps, "PYPI");
                 }
+                report.accept(List.of(req));
             }
             if (!ecosystems.contains("PYPI")) {
                 for (Path toml : indexByNames(index, "pyproject.toml")) {
@@ -177,6 +217,7 @@ public class DependencyManifestParserService {
                         ecosystems.add("PYPI");
                         mergeComponents(allComps, seen, pyComps, "PYPI");
                     }
+                    report.accept(List.of(toml));
                 }
             }
         }
@@ -188,6 +229,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("CARGO")) ecosystems.add("CARGO");
                 mergeComponents(allComps, seen, cargoComps, "CARGO");
             }
+            report.accept(List.of(lock));
         }
         if (!ecosystems.contains("CARGO")) {
             for (Path toml : indexByNames(index, "Cargo.toml")) {
@@ -196,6 +238,7 @@ public class DependencyManifestParserService {
                     ecosystems.add("CARGO");
                     mergeComponents(allComps, seen, cargoComps, "CARGO");
                 }
+                report.accept(List.of(toml));
             }
         }
 
@@ -206,6 +249,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("GO")) ecosystems.add("GO");
                 mergeComponents(allComps, seen, goComps, "GO");
             }
+            report.accept(List.of(sum));
         }
         if (!ecosystems.contains("GO")) {
             for (Path gomod : indexByNames(index, "go.mod")) {
@@ -214,6 +258,7 @@ public class DependencyManifestParserService {
                     ecosystems.add("GO");
                     mergeComponents(allComps, seen, goComps, "GO");
                 }
+                report.accept(List.of(gomod));
             }
         }
 
@@ -224,6 +269,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
                 mergeComponents(allComps, seen, nugetComps, "NUGET");
             }
+            report.accept(List.of(lock));
         }
         if (!ecosystems.contains("NUGET") && hasCsprojFiles(index)) {
             List<ScanPayload.ComponentPayload> nugetComps = runDotNetListPackages(cloneDir, repoName, index);
@@ -234,6 +280,7 @@ public class DependencyManifestParserService {
                 ecosystems.add("NUGET");
                 mergeComponents(allComps, seen, nugetComps, "NUGET");
             }
+            report.accept(indexBySuffix(index, ".csproj"));
         }
 
         // ── Ruby: Gemfile.lock ────────────────────────────────────────────────
@@ -243,6 +290,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("RUBYGEMS")) ecosystems.add("RUBYGEMS");
                 mergeComponents(allComps, seen, rubyComps, "RUBYGEMS");
             }
+            report.accept(List.of(lock));
         }
 
         // ── PHP: composer.lock ────────────────────────────────────────────────
@@ -252,6 +300,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("COMPOSER")) ecosystems.add("COMPOSER");
                 mergeComponents(allComps, seen, composerComps, "COMPOSER");
             }
+            report.accept(List.of(lock));
         }
 
         // ── C/C++: conan.lock ─────────────────────────────────────────────────
@@ -261,6 +310,7 @@ public class DependencyManifestParserService {
                 if (!ecosystems.contains("CONAN")) ecosystems.add("CONAN");
                 mergeComponents(allComps, seen, conanComps, "CONAN");
             }
+            report.accept(List.of(lock));
         }
 
         if (allComps.isEmpty()) {
