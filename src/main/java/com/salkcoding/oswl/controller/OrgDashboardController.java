@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
 @RequestMapping("/org-dashboard")
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
+@PreAuthorize("hasPermission(null, 'ORG_DASHBOARD_VIEW') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class OrgDashboardController implements OrgDashboardControllerSpec {
 

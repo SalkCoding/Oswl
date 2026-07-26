@@ -137,25 +137,29 @@ public class AiAnalysisService {
 
     /**
      * Connection probe with localized, actionable failure messages for the settings UI.
+     *
+     * <p>This lists the provider's models rather than sending a throwaway completion. Listing
+     * is free on every supported provider and exercises the same failure surface a real call
+     * would — DNS, TLS, reachability, credentials — so testing a provider no longer burns
+     * tokens or a slot in the daily call cap. As a bonus the returned catalogue lets us warn
+     * when the configured model id is not one the account can actually use, which a
+     * "reply OK" probe could only discover by paying for a failed request.
      */
     public AiConnectionTestResult testConnectionDetailed(AiSetting setting) {
         Optional<AiConnectionTestResult> preflight = connectionDiagnostics.preflight(setting);
         if (preflight.isPresent()) {
             return preflight.get();
         }
-        if (usageLimiter.isCapReached(setting.getProvider())) {
-            return connectionDiagnostics.dailyCapReached();
-        }
 
-        String prompt = promptTemplates.testConnection();
         try {
-            String result = delegate(prompt, setting, "test.connection", setting.getApiKey());
-            if (result != null && !result.isBlank()) {
-                log.info("[AI] {} provider connection test succeeded", setting.getProvider());
-                return connectionDiagnostics.success();
-            }
-            log.warn("[AI] {} provider connection test returned empty response", setting.getProvider());
-            return connectionDiagnostics.fromEmptyResponse(setting);
+            String apiKey = setting.getApiKey();
+            List<String> availableModels = switch (setting.getProvider()) {
+                case ANTHROPIC -> anthropicClient.probeModels(apiKey);
+                case OPENAI, GEMINI, LOCAL -> openAiClient.probeModels(setting, apiKey);
+            };
+            log.info("[AI] {} provider connection test succeeded ({} model(s) listed)",
+                    setting.getProvider(), availableModels.size());
+            return connectionDiagnostics.successFor(setting, availableModels);
         } catch (Exception e) {
             log.warn("[AI] {} provider connection test failed: {}", setting.getProvider(), e.getMessage());
             return connectionDiagnostics.fromException(setting, e);
@@ -227,11 +231,11 @@ public class AiAnalysisService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, String> batchSummarizeLicenses(List<LicenseSummaryRequest> items) {
+    public Map<String, String> batchSummarizeLicenses(List<LicenseSummaryRequest> items, String deploymentProfile) {
         AiSetting setting = getActiveSetting();
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.license start — {} item(s), provider={}", items.size(), setting.getProvider());
-        String prompt = promptTemplates.batchLicensePrompt(items);
+        String prompt = promptTemplates.batchLicensePrompt(items, deploymentProfile);
         return batchWithRetry(prompt, setting, items.size(), "license", "batch.license");
     }
 

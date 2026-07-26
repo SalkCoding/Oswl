@@ -2,14 +2,16 @@
     'use strict';
 
     const STORAGE_KEY = 'oswl-landing-locale';
-    const SUPPORTED = ['en', 'ko'];
+    const SUPPORTED = ['en', 'ko', 'ja'];
 
     function detectLocale() {
         const param = new URLSearchParams(location.search).get('lang');
         if (SUPPORTED.includes(param)) return param;
         const stored = localStorage.getItem(STORAGE_KEY);
         if (SUPPORTED.includes(stored)) return stored;
-        if ((navigator.language || '').toLowerCase().startsWith('ko')) return 'ko';
+        const browser = (navigator.language || '').toLowerCase();
+        if (browser.startsWith('ko')) return 'ko';
+        if (browser.startsWith('ja')) return 'ja';
         return 'en';
     }
 

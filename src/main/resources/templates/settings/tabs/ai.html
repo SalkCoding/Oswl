@@ -59,13 +59,14 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-[12px]">
                             <thead><tr class="text-left text-[var(--grayscale-50)] border-b border-[var(--grayscale-15)]">
-                                <th class="py-[6px] pr-[8px]">Time</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.project}">Project</th><th class="py-[6px] pr-[8px]">Operation</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.provider.label}">Provider</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.label.model}">Model</th><th class="py-[6px] pr-[8px]">Tokens</th><th class="py-[6px]">Est. $</th>
+                                <th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.time}">Time</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.project}">Project</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.branch}">Branch</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.operation}">Operation</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.provider.label}">Provider</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.label.model}">Model</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.totalTokens}">Tokens</th><th class="py-[6px]" th:text="#{settings.ai.usage.estCost}">Est. $</th>
                             </tr></thead>
                             <tbody>
                                 <template x-for="ev in usageEvents" :key="ev.createdAt + ev.operation">
                                     <tr class="border-b border-[var(--grayscale-10)]">
                                         <td class="py-[6px] pr-[8px]" x-text="ev.createdAt ? ev.createdAt.replace('T',' ').substring(0,19) : ''"></td>
                                         <td class="py-[6px] pr-[8px] truncate max-w-[140px]" x-text="ev.projectName || '-'"></td>
+                                        <td class="py-[6px] pr-[8px] truncate max-w-[120px]" x-text="ev.branch || '-'"></td>
                                         <td class="py-[6px] pr-[8px] font-medium" x-text="ev.operation"></td>
                                         <td class="py-[6px] pr-[8px]" x-text="ev.provider"></td>
                                         <td class="py-[6px] pr-[8px] font-mono" x-text="ev.modelName || '-'"></td>
@@ -234,13 +235,13 @@
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in filterModels('OPENAI', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['gpt-5.6-sol','gpt-5.6-terra','gpt-5.6-luna','gpt-5.5','gpt-5.4','gpt-5.4-mini','gpt-5.4-nano'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="filterModels('OPENAI', modelSearch).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -287,13 +288,13 @@
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['claude-opus-4-8','claude-sonnet-5','claude-haiku-4-5','claude-fable-5','claude-opus-4-7','claude-sonnet-4-6'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in filterModels('ANTHROPIC', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['claude-opus-4-8','claude-sonnet-5','claude-haiku-4-5','claude-fable-5','claude-opus-4-7','claude-sonnet-4-6'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="filterModels('ANTHROPIC', modelSearch).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -333,20 +334,20 @@
                                    @input="forms.GEMINI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.GEMINI.modelName || ''"
-                                   placeholder="e.g. gemini-2.5-flash"
+                                   placeholder="e.g. gemini-3.1-pro"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.geminiModelInput.focus())}else{modelSearch=forms.GEMINI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in filterModels('GEMINI', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.GEMINI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.GEMINI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-3.1-flash-lite','gemini-2.5-pro','gemini-2.5-flash','gemini-2.5-flash-lite'].filter(o => !modelSearch || o.toLowerCase().includes(modelSearch.toLowerCase())).length === 0"
+                            <div x-show="filterModels('GEMINI', modelSearch).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
@@ -396,17 +397,51 @@
                         </div>
                         <div x-show="open" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
-                            <template x-for="opt in ['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase()))" :key="opt">
+                            <template x-for="opt in filterModels('LOCAL', localSearch)" :key="opt">
                                 <button type="button" @click="forms.LOCAL.modelName = opt; localSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="forms.LOCAL.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
-                            <div x-show="['llama3.3','llama3.2','llama3.1','mistral','mistral-nemo','gemma3','phi4','deepseek-r1','qwen2.5','qwen2.5-coder','codellama'].filter(o => !localSearch || o.toLowerCase().includes(localSearch.toLowerCase())).length === 0"
+                            <div x-show="filterModels('LOCAL', localSearch).length === 0"
                                  class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ── Inline test result ──
+             The banner at the top of the card is far off-screen by the time the user reaches
+             these buttons, so the outcome of Test Connection is repeated right where it was
+             triggered. Warnings (reachable but the model id looks wrong) get amber, hard
+             failures red. -->
+        <div x-show="testResult" x-cloak
+             class="rounded-[8px] px-[16px] py-[12px] flex items-start gap-[10px] text-[13px] leading-[1.5]"
+             :class="testResult && testResult.success
+                 ? (testResult.hint ? 'bg-amber-50 border border-amber-200' : 'bg-emerald-50 border border-emerald-200')
+                 : 'bg-red-50 border border-red-200'">
+            <svg class="w-[16px] h-[16px] shrink-0 mt-[2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+                 :class="testResult && testResult.success
+                     ? (testResult.hint ? 'text-amber-600' : 'text-emerald-600')
+                     : 'text-red-600'">
+                <template x-if="testResult && testResult.success && !testResult.hint">
+                    <polyline points="20 6 9 17 4 12"/>
+                </template>
+                <template x-if="testResult && (!testResult.success || testResult.hint)">
+                    <g><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></g>
+                </template>
+            </svg>
+            <div class="flex flex-col gap-[4px] min-w-0">
+                <p class="font-medium m-0"
+                   :class="testResult && testResult.success
+                       ? (testResult.hint ? 'text-amber-900' : 'text-emerald-900')
+                       : 'text-red-800'"
+                   x-text="testResult && testResult.message"></p>
+                <p x-show="testResult && testResult.hint" x-cloak class="m-0"
+                   :class="testResult && testResult.success ? 'text-amber-800' : 'text-red-700'"
+                   x-text="testResult && testResult.hint"></p>
             </div>
         </div>
 
@@ -468,6 +503,10 @@
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                     :class="preferences.promptsLocale==='ko' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                     th:text="#{settings.ai.locale.ko}">Korean</button>
+                            <button type="button" @click="preferences.promptsLocale='ja'; localeDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[8px] text-[13px] transition-colors"
+                                    :class="preferences.promptsLocale==='ja' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    th:text="#{settings.ai.locale.ja}">Japanese</button>
                         </div>
                     </div>
                 </div>
@@ -544,6 +583,12 @@
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.temperature}">Lower means more repeatable, factual output; higher means more varied wording. Triage notes read best at 0.1–0.3 (0–2).</p>
+                <!-- Anthropic's current models reject sampling parameters outright, so the client
+                     never sends this value for them — say so rather than let it look applied. -->
+                <p x-show="mode === 'ANTHROPIC'" x-cloak
+                   class="text-[12px] text-amber-700 tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]"
+                   th:text="#{settings.ai.hint.temperature.anthropic}">Not used by Anthropic — current Claude models reject a temperature setting, so response style is steered by the prompt instead.</p>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
@@ -551,6 +596,7 @@
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
@@ -689,6 +735,7 @@
         saveFailed:     /*[[#{settings.ai.error.saveFailed}]]*/ 'Save failed.',
         localeEn:       /*[[#{settings.ai.locale.en}]]*/ 'English',
         localeKo:       /*[[#{settings.ai.locale.ko}]]*/ 'Korean',
+        localeJa:       /*[[#{settings.ai.locale.ja}]]*/ 'Japanese',
         deployCommercial: /*[[#{settings.ai.deployment.commercial}]]*/ 'Commercial product',
         deploySaas:     /*[[#{settings.ai.deployment.saas}]]*/ 'SaaS / network service',
         deployInternal: /*[[#{settings.ai.deployment.internal}]]*/ 'Internal tool',
@@ -712,10 +759,39 @@
         return {
             mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
             forms: {
-                OPENAI:    { apiKey: '', modelName: 'gpt-5.6-sol',           baseUrl: '' },
-                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-4-8',       baseUrl: '' },
-                GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro-preview', baseUrl: '' },
-                LOCAL:     { apiKey: '', modelName: 'llama3.3',               baseUrl: 'http://localhost:11434/v1' }
+                OPENAI:    { apiKey: '', modelName: 'gpt-5.6-terra',   baseUrl: '' },
+                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-5',   baseUrl: '' },
+                GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro',  baseUrl: '' },
+                LOCAL:     { apiKey: '', modelName: 'llama3.3',        baseUrl: 'http://localhost:11434/v1' }
+            },
+            // Suggestions only — any id can be typed in. Kept here rather than inline in each
+            // dropdown so a model refresh is a one-line change instead of eight duplicated
+            // array literals (each dropdown previously repeated its list twice).
+            models: {
+                OPENAI: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
+                         'gpt-5.5-pro', 'gpt-5.5',
+                         'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano'],
+                ANTHROPIC: ['claude-opus-5', 'claude-fable-5', 'claude-sonnet-5', 'claude-haiku-4-5',
+                            'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6'],
+                GEMINI: ['gemini-3.1-pro', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite',
+                         'gemini-3-pro', 'gemini-3-flash',
+                         'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+                // Popular Ollama tags. Small models first — an 8B-class model on CPU is what
+                // most self-hosted setups can actually run at a usable speed.
+                LOCAL: ['llama3.3', 'llama3.2', 'llama3.1',
+                        'qwen3', 'qwen3-coder', 'qwen2.5', 'qwen2.5-coder',
+                        'gemma3', 'gemma3n', 'phi4', 'phi4-mini',
+                        'deepseek-r1', 'deepseek-v3',
+                        'mistral', 'mistral-nemo', 'mixtral',
+                        'codellama', 'granite3.3', 'smollm2']
+            },
+
+            /** Case-insensitive substring filter over the suggestion list for one provider. */
+            filterModels(provider, query) {
+                const list = this.models[provider] || [];
+                if (!query) return list;
+                const q = query.toLowerCase();
+                return list.filter(o => o.toLowerCase().includes(q));
             },
             preferences: {
                 promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'],
@@ -733,6 +809,9 @@
                 { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
             ],
             savingProvider: false, savingEnrichment: false, testing: false,
+            // Last Test Connection outcome, rendered inline next to the button:
+            // { success: bool, message: string, hint: string|null }.
+            testResult: null,
             apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '', toastKind: 'success', _toastTimer: null,
             usageStats: null,
             usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
@@ -741,7 +820,9 @@
             embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
 
             localeLabel() {
-                return this.preferences.promptsLocale === 'ko' ? _aiI18n.localeKo : _aiI18n.localeEn;
+                if (this.preferences.promptsLocale === 'ko') return _aiI18n.localeKo;
+                if (this.preferences.promptsLocale === 'ja') return _aiI18n.localeJa;
+                return _aiI18n.localeEn;
             },
             deploymentLabel() {
                 const opt = this.deploymentOptions.find(o => o.value === this.preferences.defaultDeploymentProfile);
@@ -753,6 +834,9 @@
             },
 
             async init() {
+                // A result from the previously selected provider would be misleading once the
+                // user switches — drop it as soon as the selection changes.
+                this.$watch('mode', () => { this.testResult = null; });
                 try {
                     const r = await fetch('/api/settings/ai');
                     if (r.status === 401) { location.href = '/login'; return; }
@@ -1115,6 +1199,7 @@
                 this.testing = true;
                 this.apiError = null;
                 this.apiErrorHint = null;
+                this.testResult = null;
                 try {
                     const f = this.forms[this.mode];
                     const body = {
@@ -1130,19 +1215,25 @@
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     const data = await r.json();
-                    if (r.ok && data.success) {
-                        this.showToast(_aiI18n.testOk);
+                    // Always record the outcome inline, next to the button that produced it.
+                    // A success may still carry a hint (e.g. the model id was not in the
+                    // provider's catalogue), which renders as a warning rather than an error.
+                    this.testResult = {
+                        success: !!(r.ok && data.success),
+                        message: data.message || (r.ok && data.success ? _aiI18n.testOk : _aiI18n.testFailed),
+                        hint: data.hint || null
+                    };
+                    if (this.testResult.success) {
+                        this.showToast(this.testResult.message, this.testResult.hint ? 'error' : 'success');
                     } else {
-                        this.apiError = data.message || _aiI18n.testFailed;
-                        this.apiErrorHint = data.hint || null;
-                        // The error banner above lives at the top of a long settings page and can
-                        // scroll out of view of the Test Connection button — always surface a toast
-                        // too, so pass/fail is visible right where the user clicked.
+                        this.apiError = this.testResult.message;
+                        this.apiErrorHint = this.testResult.hint;
                         this.showToast(this.apiError, 'error');
                     }
                 } catch (e) {
                     this.apiError = _aiI18n.testFailed;
                     this.apiErrorHint = e.message;
+                    this.testResult = { success: false, message: this.apiError, hint: e.message };
                     this.showToast(this.apiError, 'error');
                 } finally {
                     this.testing = false;

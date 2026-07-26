@@ -73,6 +73,9 @@ public class AirgappedSnapshotService {
 
     private static final int SAVE_CHUNK_SIZE = 500;
 
+    /** Max decompressed characters per bundle entry (decompression-bomb guard). */
+    private static final long MAX_ENTRY_CHARS = 200L * 1024 * 1024; // ~200 MB of text
+
     private final SnapshotEntryRepository snapshotEntryRepository;
     private final SnapshotMetaRepository snapshotMetaRepository;
     private final LibraryRepository libraryRepository;
@@ -380,12 +383,23 @@ public class AirgappedSnapshotService {
         }
     }
 
-    /** Reads one zip entry fully as UTF-8 lines (leaves the stream open for the next entry). */
+    /** Reads one zip entry fully as UTF-8 lines (leaves the stream open for the next entry).
+     *
+     * Reads one zip entry as lines, bounded by {@link #MAX_ENTRY_CHARS}. The bound guards against a
+     * decompression bomb: a small upload can otherwise expand without limit and exhaust the heap.
+     */
     private static List<String> readLines(ZipInputStream zis) throws IOException {
         List<String> lines = new ArrayList<>();
         BufferedReader reader = new BufferedReader(new InputStreamReader(zis, StandardCharsets.UTF_8));
         String line;
+        long chars = 0;
         while ((line = reader.readLine()) != null) {
+            chars += line.length() + 1;
+            if (chars > MAX_ENTRY_CHARS) {
+                throw new InvalidRequestException(
+                        "Snapshot bundle entry exceeds the decompressed size limit ("
+                                + (MAX_ENTRY_CHARS / (1024 * 1024)) + " MB). The bundle may be corrupt or malicious.");
+            }
             lines.add(line);
         }
         return lines;

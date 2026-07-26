@@ -74,7 +74,7 @@ public class AiUsageStatsService {
     @Transactional(readOnly = true)
     public Page<AiUsageEventDto> getEvents(int page, int size) {
         int safePage = Math.max(0, page);
-        int safeSize = Math.min(Math.max(1, size), MAX_EVENTS_PAGE_SIZE);
+        int safeSize = Math.clamp(size, 1, MAX_EVENTS_PAGE_SIZE);
         return eventRepository.findAllByOrderByCreatedAtDescIdDesc(PageRequest.of(safePage, safeSize))
                 .map(AiUsageStatsService::toEventDto);
     }
@@ -90,6 +90,7 @@ public class AiUsageStatsService {
                 .estimatedCostUsd(e.getEstimatedCostUsd())
                 .modelName(e.getModelName())
                 .projectName(e.getProjectName())
+                .branch(e.getBranch())
                 .build();
     }
 

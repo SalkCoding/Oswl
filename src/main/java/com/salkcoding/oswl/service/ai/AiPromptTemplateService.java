@@ -25,7 +25,7 @@ import java.util.Properties;
  * Loads AI prompt templates from classpath resources and renders placeholders.
  *
  * <p>Default: {@code classpath:ai/prompts.properties}
- * Korean overlay: {@code classpath:ai/prompts_ko.properties} when {@code oswl.ai.prompts.locale=ko}
+ * Locale overlay: {@code classpath:ai/prompts_<locale>.properties} (e.g. {@code prompts_ko}, {@code prompts_ja})
  * Override path: {@code oswl.ai.prompts.location}
  */
 @Slf4j
@@ -33,7 +33,7 @@ import java.util.Properties;
 public class AiPromptTemplateService {
 
     private static final String DEFAULT_LOCATION = "classpath:ai/prompts.properties";
-    private static final String KO_OVERLAY = "classpath:ai/prompts_ko.properties";
+    private static final String OVERLAY_PATTERN = "classpath:ai/prompts_%s.properties";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -67,14 +67,28 @@ public class AiPromptTemplateService {
 
     private void loadWithLocale(String activeLocale) {
         templates = loadFrom(resourceLoader.getResource(promptsLocation));
-        if ("ko".equalsIgnoreCase(activeLocale)) {
-            Resource ko = resourceLoader.getResource(KO_OVERLAY);
-            if (ko.exists()) {
-                overlay(loadFrom(ko));
-                log.info("[AI] Applied Korean prompt overlay from {}", ko);
+        // Any locale with a prompts_<locale>.properties overlay is supported (ko, ja, ...).
+        if (activeLocale != null && !activeLocale.isBlank() && !"en".equalsIgnoreCase(activeLocale)) {
+            String code = activeLocale.strip().toLowerCase(java.util.Locale.ROOT);
+            Resource overlay = resourceLoader.getResource(String.format(OVERLAY_PATTERN, code));
+            if (overlay.exists()) {
+                overlay(loadFrom(overlay));
+                log.info("[AI] Applied '{}' prompt overlay from {}", code, overlay);
+            } else {
+                log.debug("[AI] No prompt overlay for locale '{}' — using default templates", code);
             }
         }
         applyDbOverrides(readPreferences().getPromptOverrides());
+    }
+
+    /**
+     * Language directive appended to the system prompt so the model answers in the language of the
+     * person who triggered the scan ({@link AiLanguageContext}), independent of the globally
+     * configured template overlay. Returns an empty string when no request language is bound.
+     */
+    private String languageDirective() {
+        String lang = AiLanguageContext.currentLanguageName();
+        return lang == null ? "" : "\nAlways write every free-text answer in " + lang + ".";
     }
 
     private AiPreferences readPreferences() {
@@ -83,14 +97,14 @@ public class AiPromptTemplateService {
     }
 
     public String getSystemPrompt() {
-        return require("system.default");
+        return require("system.default") + languageDirective();
     }
 
     public String getSystemPrompt(AiProvider provider) {
         if (provider == null) return getSystemPrompt();
         String key = "system." + provider.name().toLowerCase();
         if (templates.containsKey(key)) {
-            return templates.getProperty(key);
+            return templates.getProperty(key) + languageDirective();
         }
         return getSystemPrompt();
     }
@@ -262,8 +276,10 @@ public class AiPromptTemplateService {
         return sb.toString().stripTrailing();
     }
 
-    public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items) {
-        StringBuilder sb = new StringBuilder(require("batch.license.header"));
+    public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
+                                     String deploymentProfile) {
+        StringBuilder sb = new StringBuilder(render("batch.license.header", Map.of(
+                "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT")));
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.LicenseSummaryRequest r = items.get(i);
             sb.append(render("batch.license.item", Map.of(
@@ -282,8 +298,7 @@ public class AiPromptTemplateService {
     }
 
     public String render(String key, Map<String, ?> vars) {
-        String template = require(key);
-        String result = template;
+        String result = require(key);
         for (Map.Entry<String, ?> entry : vars.entrySet()) {
             result = result.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
         }

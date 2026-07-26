@@ -249,7 +249,13 @@
              }"
              class="w-full bg-white border border-[var(--grayscale-15)] rounded-[14px] p-[28px] flex flex-col gap-[16px]">
             <div class="flex flex-col gap-[6px]">
-                <label class="text-[13px] font-semibold text-[var(--grayscale-80)]" th:text="#{quickImport.sbom.title}">SBOM Upload (CycloneDX)</label>
+                <label class="text-[13px] font-semibold text-[var(--grayscale-80)] flex items-center gap-[5px]">
+                    <span th:text="#{quickImport.sbom.title}">SBOM Upload (CycloneDX)</span>
+                    <!-- What is CycloneDX? → official spec -->
+                    <a href="https://cyclonedx.org/specification/overview/" target="_blank" rel="noopener noreferrer"
+                       th:title="#{help.cyclonedx.tooltip}" th:aria-label="#{help.cyclonedx.tooltip}"
+                       class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-[var(--grayscale-30)] text-[10px] font-bold text-[var(--grayscale-50)] hover:text-[var(--primary-120)] hover:border-[var(--primary-120)] no-underline transition-colors shrink-0">?</a>
+                </label>
                 <p class="text-[12px] text-[var(--grayscale-60)] m-0 leading-[1.4]" th:text="#{quickImport.sbom.hint}">Import a CycloneDX SBOM (JSON or XML). Components are stored and analyzed through the same pipeline as a repository import.</p>
                 <p class="text-[12px] text-[var(--grayscale-60)] m-0 leading-[1.4]" th:text="#{quickImport.sbom.lockHint}">Raw lock files are also accepted: composer.lock (PHP) and conan.lock (C/C++) are parsed and stored through the same pipeline.</p>
             </div>

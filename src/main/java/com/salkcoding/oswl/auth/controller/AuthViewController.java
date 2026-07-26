@@ -25,9 +25,18 @@ public class AuthViewController {
     private final org.springframework.beans.factory.ObjectProvider<
             org.springframework.security.oauth2.client.registration.ClientRegistrationRepository> clientRegistrations;
 
+    /**
+     * True when an OIDC provider is configured, so the login page can offer the SSO button.
+     * Exposed as a model attribute (rather than a handler parameter) to keep the handler
+     * signatures unchanged.
+     */
+    @org.springframework.web.bind.annotation.ModelAttribute("ssoEnabled")
+    public boolean ssoEnabled() {
+        return clientRegistrations.getIfAvailable() != null;
+    }
+
     @GetMapping("/login")
-    public String loginPage(Model model) {
-        model.addAttribute("ssoEnabled", clientRegistrations.getIfAvailable() != null);
+    public String loginPage() {
         return "auth/login";
     }
 

@@ -33,7 +33,8 @@ public class OpenAiClient implements AiAnalysisClient {
     private final AiCallTrace callTrace;
     private final AiUsageRecorderService usageRecorder;
     private final OutboundUrlValidator outboundUrlValidator;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = AiRestTemplates.forCompletions();
+    private final RestTemplate probeTemplate = AiRestTemplates.forProbe();
 
     // ── Called only within the package (delegated by AiAnalysisService) ───────────────
 
@@ -66,13 +67,54 @@ public class OpenAiClient implements AiAnalysisClient {
         return call(prompt, setting, operation, resolvedApiKey);
     }
 
+    /**
+     * Free connection probe: {@code GET {base}/models} lists the caller's available models.
+     * It exercises exactly what a connection test needs — DNS, TLS, reachability and
+     * credentials — without generating a single token, so testing a provider costs nothing
+     * and does not draw down the daily call cap. Covers OpenAI, Gemini's OpenAI-compatible
+     * endpoint and any OpenAI-compatible local runtime (Ollama, LM Studio, llama.cpp).
+     *
+     * @return the model ids the endpoint reported, empty when it returned no parseable list
+     * @throws org.springframework.web.client.RestClientException on any transport or HTTP error,
+     *         which {@link AiConnectionDiagnostics} turns into an actionable message
+     */
+    public List<String> probeModels(AiSetting setting, String resolvedApiKey) {
+        String url = resolveModelsUrl(setting);
+        HttpHeaders headers = new HttpHeaders();
+        if (resolvedApiKey != null && !resolvedApiKey.isBlank()) {
+            headers.setBearerAuth(resolvedApiKey);
+        }
+        log.debug("[AI][{}] probe → GET {}", PROVIDER_TAG, url);
+        ResponseEntity<Map<String, Object>> response = probeTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), new ParameterizedTypeReference<>() {});
+        return extractModelIds(response.getBody());
+    }
+
+    /** Reads the {@code data[].id} list an OpenAI-compatible {@code /models} response returns. */
+    private static List<String> extractModelIds(Map<String, Object> body) {
+        if (body == null || !(body.get("data") instanceof List<?> data)) return List.of();
+        return data.stream()
+                .filter(Map.class::isInstance)
+                .map(entry -> ((Map<?, ?>) entry).get("id"))
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .toList();
+    }
+
+    private String resolveModelsUrl(AiSetting setting) {
+        // resolveUrl() appends /chat/completions; the models endpoint is its sibling.
+        String completions = resolveUrl(setting);
+        return completions.endsWith("/chat/completions")
+                ? completions.substring(0, completions.length() - "/chat/completions".length()) + "/models"
+                : completions;
+    }
+
     // ── Internal ─────────────────────────────────────────────────────────────────
 
     private String call(String userPrompt, AiSetting setting, String operation, String resolvedApiKey) {
         String url   = resolveUrl(setting);
         String model = resolveModel(setting);
-        String apiKey = resolvedApiKey;
-        boolean hasAuth = apiKey != null && !apiKey.isBlank();
+        boolean hasAuth = resolvedApiKey != null && !resolvedApiKey.isBlank();
         String op = operation != null ? operation : "completion";
         String detail = "model=" + model + " promptLen=" + userPrompt.length();
 
@@ -90,7 +132,7 @@ public class OpenAiClient implements AiAnalysisClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         // LOCAL (for example, Ollama) does not require an API key — set Authorization only when a key exists
         if (hasAuth) {
-            headers.setBearerAuth(apiKey);
+            headers.setBearerAuth(resolvedApiKey);
         }
 
         Map<String, Object> body = Map.of(
@@ -106,7 +148,7 @@ public class OpenAiClient implements AiAnalysisClient {
 
         long start = System.currentTimeMillis();
         for (int attempt = 1; attempt <= 2; attempt++) {
-            try (AiCallTrace.Session trace = callTrace.begin(log, PROVIDER_TAG, op, detail + " attempt=" + attempt)) {
+            try (AiCallTrace.Session _ = callTrace.begin(log, PROVIDER_TAG, op, detail + " attempt=" + attempt)) {
                 ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                         url, HttpMethod.POST, new HttpEntity<>(body, headers),
                         new ParameterizedTypeReference<>() {});
@@ -153,19 +195,27 @@ public class OpenAiClient implements AiAnalysisClient {
      * (local runtimes, Gemini compat layer) return an array of content parts.
      */
     private static String extractContent(Object content) {
-        if (content == null) return null;
-        if (content instanceof String s) return s;
-        if (content instanceof List<?> parts) {
-            StringBuilder sb = new StringBuilder();
-            for (Object part : parts) {
-                if (part instanceof String s) {
-                    sb.append(s);
-                } else if (part instanceof Map<?, ?> m) {
-                    Object text = m.get("text");
-                    if (text instanceof String s) sb.append(s);
-                }
+        switch (content) {
+            case null -> {
+                return null;
             }
-            return sb.isEmpty() ? null : sb.toString();
+            case String s -> {
+                return s;
+            }
+            case List<?> parts -> {
+                StringBuilder sb = new StringBuilder();
+                for (Object part : parts) {
+                    if (part instanceof String s) {
+                        sb.append(s);
+                    } else if (part instanceof Map<?, ?> m) {
+                        Object text = m.get("text");
+                        if (text instanceof String s) sb.append(s);
+                    }
+                }
+                return sb.isEmpty() ? null : sb.toString();
+            }
+            default -> {
+            }
         }
         return String.valueOf(content);
     }

@@ -68,6 +68,16 @@ Dependency detection and manifest parsing use **`DependencyManifestParserService
 
 ---
 
+## Import an SBOM instead (v1.0.4)
+
+If you can't clone the source — a vendor deliverable, a container base image, or an SBOM produced by another tool — upload its CycloneDX file instead:
+
+**Quick Import → Import SBOM**, or `POST /api/sbom/import` (multipart).
+
+Components are read from the CycloneDX `components` array using their `purl`, then enriched exactly like a cloned scan: CVEs, licences, KEV / EPSS, and supply-chain badges all apply.
+
+---
+
 ## Re-importing a Branch
 
 Import the same repository/branch again at any time to create a new scan result. Compare results in [Version Diff](Version-Diff.md) and [Risk Trend](Risk-Trend.md).

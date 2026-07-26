@@ -14,6 +14,24 @@ OsWL stores all application data in PostgreSQL (`prod`) or H2 file-mode (`local`
 
 When upgrading a production database, apply SQL scripts from `src/main/resources/db/` **before** restarting the app on the new version.
 
+### Flyway (v1.0.4, opt-in)
+
+`OSWL_FLYWAY_ENABLED=true` hands schema management to Flyway (`baseline-on-migrate` on, so an existing database is baselined rather than rejected). Generate a baseline matching your current schema before enabling it. The default is `false`, which keeps the `ddl-auto` behaviour above.
+
+### Columns added in v1.0.4
+
+| Table | Column | Type |
+|---|---|---|
+| `libraries` | `malicious` | `boolean NOT NULL DEFAULT false` |
+| `libraries` | `typosquat_risk` | `boolean NOT NULL DEFAULT false` |
+| `libraries` | `description` | `text` — upstream project blurb from deps.dev, shown on Component Detail |
+| `libraries` | `homepage` | `varchar(500)` — project homepage URL, nullable |
+| `libraries` | `source_repo_url` | `varchar(500)` — source repository URL, nullable |
+| `scan_results` | `ai_locale` | `varchar(16)` — locale of the operator who started the scan, so AI Insight answers in their language |
+| `ai_usage_events` | `branch` | `varchar(160)` — branch attribution for AI usage |
+
+The two booleans carry SQL defaults specifically so `ddl-auto=update` can add them to a populated table; without the default, a `NOT NULL` column addition fails on existing rows. `description`/`homepage`/`source_repo_url` are populated lazily during enrichment (from the same deps.dev project call that already fetches the OpenSSF Scorecard) and stay `null` until the next scan for components that predate the column addition — `V3__component_metadata.sql` covers the Flyway path.
+
 ---
 
 ## Manual migration scripts

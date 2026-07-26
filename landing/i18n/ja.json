@@ -1,0 +1,140 @@
+{
+  "meta": {
+    "title": "OsWL - エンタープライズ SCA プラットフォーム",
+    "description": "OsWL は、オープンソース依存関係の CVE 脆弱性とライセンスリスクを継続的に追跡するエンタープライズ向けソフトウェア構成分析（SCA）プラットフォームです。"
+  },
+  "nav": {
+    "features": "機能",
+    "platform": "プラットフォーム",
+    "howItWorks": "使い方",
+    "download": "ダウンロードへ",
+    "themeToggle": "ライト／ダークテーマを切り替え"
+  },
+  "hero": {
+    "badge": "エンタープライズ SCA プラットフォーム",
+    "title": "<span class=\"gradient-text\">オープンソース</span>の<br>脆弱性をすべて把握する",
+    "subtitle": "OsWL は依存関係の CVE、ライセンス義務、推移的リスクを継続的にスキャンし、セキュリティ・コンプライアンスチームに単一のセルフホスト基盤で完全な SBOM 可視性を提供します。",
+    "ctaPrimary": "今すぐインストール",
+    "ctaSecondary": "プラットフォームを見る"
+  },
+  "stats": {
+    "multiSource": "マルチソース",
+    "multiSourceLabel": "GHSA · OSV アドバイザリ",
+    "ecosystemsLabel": "パッケージエコシステム",
+    "onDemand": "オンデマンド",
+    "onDemandLabel": "deps.dev による情報拡充",
+    "cvssLabel": "スコアリング対応",
+    "gitNative": "Git ネイティブ",
+    "gitNativeLabel": "GitHub · GitLab · Bitbucket"
+  },
+  "features": {
+    "label": "主要機能",
+    "title": "エンドツーエンドの<br>ソフトウェア構成分析",
+    "subtitle": "依存関係の取り込みから修正対応まで、OsWL はエンタープライズ品質の精度と監査性で SCA ライフサイクル全体をカバーします。",
+    "cveTitle": "CVE 脆弱性の追跡",
+    "cveDesc": "deps.dev と OSV からオンデマンドで情報を拡充します。すべてのコンポーネントを CVSS 3.x スコアとパッチの提供状況と照合します。",
+    "cveTag": "deps.dev · OSV · GHSA",
+    "licenseTitle": "ライセンスリスク管理",
+    "licenseDesc": "OSS ライセンスを SPDX で自動分類（コピーレフト／寛容／独占）し、義務ルール、競合検出、スキャンごとの NOTICE / SPDX SBOM 出力を提供します。",
+    "licenseTag": "GPL · LGPL · Apache · MIT · AGPL · MPL",
+    "riskTitle": "リスク傾向分析",
+    "riskDesc": "スキャンをまたいでセキュリティ状態を追跡します。Critical・High・Medium・Low の推移を可視化し、LLM プロバイダーを設定すれば AI による差分インサイトも利用できます。",
+    "riskTag": "バージョン間の差分",
+    "transitiveTitle": "推移的依存関係の探索",
+    "transitiveDesc": "依存グラフの奥に潜む脆弱性を発見します。DependencyPath 解析により、対応するすべてのマニフェストで直接・推移的な影響範囲を追跡します。",
+    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems",
+    "gitTitle": "Git ネイティブなリポジトリ連携",
+    "gitDesc": "Personal Access Token で GitHub、GitLab、Bitbucket に接続します。ブランチ単位のインポート、バージョンごとのスナップショット、プロジェクト別スキャン履歴を標準で備えています。",
+    "gitTag": "GitHub · GitLab · Bitbucket",
+    "cliTitle": "CLI & CI/CD パイプラインスキャン",
+    "cliDesc": "単一の CLI コマンドで、あらゆるビルドパイプラインに OsWL を組み込めます。アップロードされるのは解析済みのマニフェスト情報のみで、ソースコードはビルドホストから出ません。プロジェクト単位・組織全体の Bearer トークン API キーに対応します。",
+    "cliTag": "マニフェストのみ送信",
+    "sbomTitle": "CycloneDX SBOM & VEX",
+    "sbomDesc": "CycloneDX 1.6 の SBOM、トリアージ判断を含む VEX 文書、コードスキャン用の SARIF レポートを出力できます。自社でビルドしないコンポーネントは、外部の CycloneDX ファイルを取り込んでスキャンします。",
+    "sbomTag": "CycloneDX 1.6 · VEX · SARIF 2.1.0",
+    "gateTitle": "プルリクエストのポリシーゲート",
+    "gateDesc": "プロジェクトごとに深刻度・ライセンス・KEV のしきい値を定めると、ゲートがスキャンごとに合否を判定します。結果は GitHub のチェックランと PR コメントとして返され、新規検出のみをベースラインと比較するため、既存の負債がマージを妨げることはありません。",
+    "gateTag": "ベースライン比較 · GitHub チェックラン",
+    "orgTitle": "組織ダッシュボード",
+    "orgDesc": "すべてのプロジェクトを一画面で。KEV 収載・実際に悪用されている CVE を最優先で表示し、それ以外は EPSS の悪用確率で並べ替え、ライセンス警告と SIEM 向け監査ログ出力も備えます。",
+    "orgTag": "CISA KEV · EPSS · SIEM 出力"
+  },
+  "platform": {
+    "label": "実画面",
+    "title": "セキュリティ &amp;<br>コンプライアンスチームのために",
+    "subtitle": "すべての画面が「次の行動」を前提に設計されています。CVE のトリアージから対応追跡まで、画面を行き来する必要はありません。",
+    "tabSc": "セキュリティセンター",
+    "tabProjects": "プロジェクト",
+    "tabLicense": "ライセンス分析",
+    "tabRisk": "リスク傾向",
+    "altSc": "OsWL セキュリティセンター — CVSS スコアによる CVE トリアージ",
+    "altProjects": "OsWL プロジェクトダッシュボード — 複数プロジェクトのリスク概要",
+    "altLicense": "OsWL ライセンス分析 — コピーレフトとコンプライアンスリスクの追跡",
+    "altRisk": "OsWL リスク傾向 — スキャン間のセキュリティ状態"
+  },
+  "vuln": {
+    "label": "脆弱性インテリジェンス",
+    "title": "本当に重要なものから<br>優先順位をつける",
+    "desc": "OsWL は悪用可能かつ修正可能な脆弱性を先に提示します。CVSS スコア、悪用の成熟度、修正版の有無は deps.dev と OSV のアドバイザリから自動的に拡充されます。",
+    "bullet1": "<strong style=\"color:var(--text-primary)\">Critical &amp; High</strong> の脆弱性をパッチ対象とともに提示",
+    "bullet2": "<strong style=\"color:var(--text-primary)\">修正バージョンを表示</strong> — トリアージ前に修正版の有無を確認",
+    "bullet3": "<strong style=\"color:var(--text-primary)\">推移的な影響</strong>をルート依存パスまで追跡",
+    "bullet4": "<strong style=\"color:var(--text-primary)\">ステータスの一括更新</strong> — 確認済み・無視をまとめて反映",
+    "demoTitle": "backend-api · v3.2.0 — セキュリティセンター"
+  },
+  "table": {
+    "component": "コンポーネント",
+    "cveId": "CVE ID",
+    "cvss": "CVSS",
+    "severity": "深刻度"
+  },
+  "severity": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium"
+  },
+  "licCard": {
+    "gpl2Type": "コピーレフト · 強",
+    "lgplType": "コピーレフト · 弱",
+    "apacheType": "寛容",
+    "mitType": "寛容",
+    "mplType": "コピーレフト · ファイル単位",
+    "proprietaryType": "商用",
+    "restricted": "制限",
+    "caution": "注意",
+    "permitted": "許可",
+    "unknown": "不明"
+  },
+  "license": {
+    "label": "ライセンスインテリジェンス",
+    "title": "コンプライアンスの<br>死角をなくす",
+    "desc": "依存ツリー全体の SPDX ライセンスを自動分類します。コピーレフト義務、ライセンス競合、本番投入前に法務レビューが必要なコンポーネントを特定できます。",
+    "bullet1": "ソース全体の開示が必要なコピーレフトライセンス",
+    "bullet2": "弱いコピーレフトまたはデュアルライセンス — 法務レビュー推奨",
+    "bullet3": "寛容なライセンス — 商用利用でも安全"
+  },
+  "workflow": {
+    "label": "ワークフロー",
+    "title": "数分で<br>スキャンを開始",
+    "subtitle": "OsWL は既存の開発ワークフローにそのまま組み込めます。エージェントも大掛かりな準備も不要です。",
+    "step1Title": "リポジトリを接続",
+    "step1Desc": "GitHub、GitLab、Bitbucket の Personal Access Token を登録します。OsWL がリポジトリとブランチを検出してマニフェストを取り込みます — ソースコードのアップロードは不要です。",
+    "step2Title": "依存関係スキャンを実行",
+    "step2Desc": "OsWL がロックファイルとビルドマニフェストを解析し、推移的な依存グラフを解決したうえで、すべてのコンポーネントを deps.dev、OSV、ライセンスポリシーと照合します。",
+    "step3Title": "トリアージと修正対応",
+    "step3Desc": "セキュリティセンターで結果を確認し、深刻度で絞り込み、ステータスを一括更新して、リスク傾向ダッシュボードでスキャンごとの状態を追跡します。",
+    "step4Title": "CI/CD で自動化",
+    "step4Desc": "OsWL CLI でプルリクエストをゲートします。Bearer トークン API キーがあれば、Jenkins、GitHub Actions、GitLab CI、独自のビルドサーバーなど、あらゆるパイプラインで自動スキャンできます。"
+  },
+  "cta": {
+    "title": "<span class=\"shimmer-text\">オープンソース</span>を<br>安全に運用する",
+    "sub": "OsWL をオンプレミスに配置し、組織のすべてのプロジェクト・チーム・依存関係にわたる完全な SBOM 可視性を手に入れましょう。",
+    "primary": "今すぐ始める →",
+    "secondary": "使い方を見る"
+  },
+  "footer": {
+    "copyright": "Copyright © 2026 OsWL, Licensed under the MIT License.",
+    "ossNotices": "オープンソース表記",
+    "langLabel": "言語"
+  }
+}

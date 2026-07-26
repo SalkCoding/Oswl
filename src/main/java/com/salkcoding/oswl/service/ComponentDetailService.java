@@ -28,6 +28,7 @@ import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiStructuredSummary;
+import com.salkcoding.oswl.service.ai.AiLanguageContext;
 import com.salkcoding.oswl.service.ai.AiUsageContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -108,7 +109,9 @@ public class ComponentDetailService {
                 cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()));
 
         AiAnalysisService.CveSummarizeOutcome outcome;
-        try (var ignored = AiUsageContext.scope(project.getName())) {
+        try (var ignored = AiUsageContext.scope(project.getName());
+             var ignoredLang = AiLanguageContext.scope(
+                     org.springframework.context.i18n.LocaleContextHolder.getLocale().getLanguage())) {
             outcome = aiAnalysisService.summarizeCveWithOutcome(request, deployment);
         }
         if (!outcome.success()) {
@@ -223,6 +226,11 @@ public class ComponentDetailService {
 
         // Package health: OpenSSF Scorecard score (null when deps.dev has none) + malicious flag (OSV MAL-)
         model.addAttribute("scorecardScore", lib.getScorecardScore());
+        // Upstream identity (deps.dev project record) — lets the description say what the
+        // component actually is instead of restating badges shown above it.
+        model.addAttribute("componentDescription", lib.getDescription());
+        model.addAttribute("componentHomepage", lib.getHomepage());
+        model.addAttribute("componentSourceRepoUrl", lib.getSourceRepoUrl());
         model.addAttribute("malicious", lib.isMalicious());
 
         // Supply-chain heuristics: possible typosquat / dependency-confusion flag

@@ -93,7 +93,7 @@ public class AiUsageRecorderService {
         int prompt = Math.max(0, promptTokens);
         int completion = Math.max(0, completionTokens);
         int total = prompt + completion;
-        BigDecimal cost = estimateCost(provider, prompt, completion);
+        BigDecimal cost = estimateCost(provider, modelName, prompt, completion);
 
         LocalDate today = LocalDate.now(clock);
         eventRepository.save(AiUsageEvent.builder()
@@ -106,6 +106,7 @@ public class AiUsageRecorderService {
                 .estimatedCostUsd(cost)
                 .modelName(modelName)
                 .projectName(AiUsageContext.currentProject())
+                .branch(AiUsageContext.currentBranch())
                 .build());
         trimToMaxEvents();
         upsertDailyUsage(today, provider, prompt, completion, cost);
@@ -135,7 +136,23 @@ public class AiUsageRecorderService {
         dailyUsageRepository.save(daily);
     }
 
-    private BigDecimal estimateCost(AiProvider provider, int promptTokens, int completionTokens) {
+    /**
+     * Prefers the published per-model list price; a flat per-provider rate is only a fallback
+     * for models with no known price (custom deployments, self-hosted, newly released ids).
+     * Using one rate for a whole provider mis-estimates by an order of magnitude between that
+     * provider's cheapest and most expensive models.
+     */
+    private BigDecimal estimateCost(AiProvider provider, String modelName,
+                                    int promptTokens, int completionTokens) {
+        // A locally hosted model costs nothing to call regardless of what it is named, so the
+        // provider rate (0 by default) wins over any list price its id happens to collide with.
+        if (provider != AiProvider.LOCAL) {
+            var listPrice = AiModelPricing.estimate(modelName, promptTokens, completionTokens);
+            if (listPrice.isPresent()) {
+                return listPrice.get().setScale(6, RoundingMode.HALF_UP);
+            }
+        }
+
         double inRate;
         double outRate;
         switch (provider) {

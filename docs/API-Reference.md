@@ -104,6 +104,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `POST` | `/api/scan/parse` | API key | Parse a manifest zip archive (CLI step 1) |
 | `POST` | `/api/scan` | API key + credentials | Submit a dependency scan (CLI step 2) |
 | `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status |
+| `POST` | `/api/scan/gate` | API key | **v1.0.4** — PR / CI security gate; verdict with `exitCode` |
 
 ---
 
@@ -114,6 +115,17 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | Security Center page |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | Bulk CVE status update |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | Download the CVE list as CSV (`?scanId=`, `?format=csv`) |
+| `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — Open one upgrade PR for all selected components |
+| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — Print-ready compliance report |
+
+### SBOM / VEX / SARIF (v1.0.4)
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/api/projects/{projectId}/sbom` | `SECURITY_CENTER_EXPORT` | CycloneDX 1.6 SBOM (`application/vnd.cyclonedx+json`) |
+| `GET` | `/api/projects/{projectId}/vex` | `SECURITY_CENTER_EXPORT` | CycloneDX VEX built from triage decisions |
+| `GET` | `/api/projects/{projectId}/sarif` | `SECURITY_CENTER_EXPORT` | SARIF 2.1.0 (`application/sarif+json`) |
+| `POST` | `/api/sbom/import` | `PROJECT_CREATE` | Import a third-party CycloneDX file (multipart) |
 
 ---
 
@@ -125,6 +137,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `POST` | `/projects/{id}/components/{compId}/cves/{cveDbId}/ai-summarize` | `SECURITY_CENTER_UPDATE_STATUS` | Regenerate AI triage for one CVE |
 | `POST` | `/projects/{id}/components/{compId}/defer` | `SECURITY_CENTER_UPDATE_STATUS` | Record remediation deferral |
 | `POST` | `/projects/{id}/components/{compId}/create-pr` | `SECURITY_CENTER_UPDATE_STATUS` | Open a VCS pull request with a dependency fix |
+| `POST` | `/projects/{id}/components/{compId}/jira-ticket` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — Create a Jira issue for this finding |
 
 ---
 
@@ -202,6 +215,30 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 |---|---|---|
 | `GET` | `/api/admin/audit-logs` | Paginated audit log |
 | `GET` | `/api/admin/audit-logs/export.csv` | Export as CSV |
+| `GET` | `/api/admin/audit-logs/export?format=jsonl\|cef` | **v1.0.4** — SIEM export (`AUDIT_LOG_EXPORT`) |
+
+### Organization Dashboard (v1.0.4)
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/org-dashboard` | `ORG_DASHBOARD_VIEW` | Portfolio-wide posture, ranking, KEV and licence rollups |
+
+### Offline Snapshots (v1.0.4)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/admin/snapshot` | Bundle status |
+| `POST` | `/api/admin/snapshot/import` | Import a snapshot bundle (multipart) |
+| `GET` | `/api/admin/snapshot/export` | Export a snapshot bundle |
+
+### Monitoring (v1.0.4)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/actuator/health` | Health check (admin-gated) |
+| `GET` | `/actuator/info` | Build / version info |
+| `GET` | `/actuator/prometheus` | Micrometer metrics for Prometheus |
+| `POST` | `/projects/{projectId}/cve-alerts/acknowledge` | Acknowledge new-CVE alerts (`SECURITY_CENTER_VIEW`) |
 
 ### Admin CLI Keys
 
@@ -231,7 +268,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | Upsert provider credentials and/or preferences |
 | `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | Deactivate active provider (optional preference body) |
 | `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | Switch active provider |
-| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | Test provider connectivity (no persist) |
+| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | Test provider connectivity (no persist). Lists available models rather than sending a completion, so it costs no tokens and does not count against the daily call cap; response includes a warning `hint` if the configured model ID isn't in the returned catalogue |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | Editable prompt templates + overrides |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | Run built-in prompt regression fixtures |
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI usage stats — today's calls/tokens/estimated cost, daily cap, and the last 7 days, read from the daily aggregate table |
