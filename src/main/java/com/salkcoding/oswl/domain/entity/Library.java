@@ -94,6 +94,15 @@ public class Library {
     @Column(name = "ai_license_summary", columnDefinition = "TEXT")
     private String aiLicenseSummary;
 
+    /**
+     * SHA-256 (hex) of the fields that drive the AI license summary prompt (licenseName,
+     * licenseStatus, policyReason, ecosystem, dependencyType, latestVersion, deploymentProfile —
+     * see {@code VulnerabilityEnrichmentService.licenseContextHash()}). Mirrors
+     * {@code Cve.aiContextHash} (F1) — null on every pre-existing row, always a cache miss.
+     */
+    @Column(name = "ai_license_context_hash", length = 64)
+    private String aiLicenseContextHash;
+
     /** OpenSSF Scorecard overall score (0.0–10.0) from deps.dev; null when unavailable. */
     @Column(name = "scorecard_score")
     private Double scorecardScore;
@@ -152,6 +161,11 @@ public class Library {
 
     public void updateAiLicenseSummary(String summary) {
         this.aiLicenseSummary = summary;
+    }
+
+    /** F1: records the context hash the current {@link #aiLicenseSummary} was generated for. */
+    public void updateAiLicenseContextHash(String hash) {
+        this.aiLicenseContextHash = hash;
     }
 
     /**
