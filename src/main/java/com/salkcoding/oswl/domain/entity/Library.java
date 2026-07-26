@@ -82,6 +82,14 @@ public class Library {
     @Column(name = "fetched_at")
     private LocalDateTime fetchedAt;
 
+    /**
+     * Timestamp of the last deps.dev version-metadata refresh (isLatestVersion / deprecated /
+     * latestVersion / scorecard). Tracked separately from {@link #fetchedAt} (full CVE + license
+     * fetch) so a cache-hit library can skip the deps.dev GetVersion refresh while this is fresh.
+     */
+    @Column(name = "version_meta_fetched_at")
+    private LocalDateTime versionMetaFetchedAt;
+
     /** AI-generated one-sentence compliance risk summary for the library license (generated during enrichment) */
     @Column(name = "ai_license_summary", columnDefinition = "TEXT")
     private String aiLicenseSummary;
@@ -136,6 +144,10 @@ public class Library {
 
     public void markFetched() {
         this.fetchedAt = LocalDateTime.now();
+    }
+
+    public void markVersionMetaFetched() {
+        this.versionMetaFetchedAt = LocalDateTime.now();
     }
 
     public void updateAiLicenseSummary(String summary) {

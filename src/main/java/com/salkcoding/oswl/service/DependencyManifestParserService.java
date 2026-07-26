@@ -38,7 +38,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /**
  * Parses dependency manifests from a project directory tree.
@@ -75,8 +74,13 @@ public class DependencyManifestParserService {
         Set<String> seen = new LinkedHashSet<>();
         List<String> ecosystems = new ArrayList<>();
 
+        // A3: walk the tree exactly once; every manifest lookup below hits this index.
+        ManifestIndex index = buildIndex(cloneDir);
+        log.debug("[DependencyParser] Manifest index built for '{}': {} basenames, {} suffixes",
+                repoName, index.byFileName().size(), index.bySuffix().size());
+
         // ── Maven: walk all pom.xml files ──────────────────────────────────────
-        List<Path> pomFiles = walkManifests(cloneDir, Set.of("pom.xml"), MANIFEST_SKIP_DIRS);
+        List<Path> pomFiles = indexByNames(index, "pom.xml");
         if (!pomFiles.isEmpty()) {
             ecosystems.add("MAVEN");
             List<ScanPayload.ComponentPayload> mvnComps = runMvnDependencyList(cloneDir, repoName);
@@ -91,8 +95,7 @@ public class DependencyManifestParserService {
         }
 
         // ── Gradle: build.gradle / build.gradle.kts ────────────────────────────
-        List<Path> gradleFiles = walkManifests(cloneDir,
-                Set.of("build.gradle", "build.gradle.kts"), MANIFEST_SKIP_DIRS);
+        List<Path> gradleFiles = indexByNames(index, "build.gradle", "build.gradle.kts");
         if (!gradleFiles.isEmpty()) {
             if (!ecosystems.contains("MAVEN")) ecosystems.add("MAVEN");
             List<ScanPayload.ComponentPayload> gradleDeps = runGradleDependencies(cloneDir, repoName);
@@ -104,13 +107,12 @@ public class DependencyManifestParserService {
             }
             mergeComponents(allComps, seen, gradleDeps, "MAVEN");
             // Version catalogs cover libs.xxx references not captured by static regex
-            mergeComponents(allComps, seen, parseVersionCatalogs(cloneDir, repoName), "MAVEN");
+            mergeComponents(allComps, seen, parseVersionCatalogs(cloneDir, repoName, index), "MAVEN");
             log.info("[DependencyParser][Multi] Gradle: {} build files → {} components so far", gradleFiles.size(), allComps.size());
         }
 
         // ── npm: lock files first (full transitive), then package.json ──────────
-        for (Path lock : walkManifests(cloneDir,
-                Set.of("package-lock.json", "yarn.lock", "pnpm-lock.yaml"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "package-lock.json", "yarn.lock", "pnpm-lock.yaml")) {
             String fn = lock.getFileName().toString();
             Path d = lock.getParent();
             List<ScanPayload.ComponentPayload> npmComps = switch (fn) {
@@ -125,7 +127,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("NPM")) {
-            walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS).stream()
+            indexByNames(index, "package.json").stream()
                     .min(Comparator.comparingInt(p -> cloneDir.relativize(p).getNameCount()))
                     .map(Path::getParent)
                     .ifPresent(pkgDir -> {
@@ -138,7 +140,7 @@ public class DependencyManifestParserService {
                     });
         }
         if (!ecosystems.contains("NPM")) {
-            for (Path pkg : walkManifests(cloneDir, Set.of("package.json"), MANIFEST_SKIP_DIRS)) {
+            for (Path pkg : indexByNames(index, "package.json")) {
                 List<ScanPayload.ComponentPayload> npmComps = parseNpmPackageJson(pkg.getParent(), repoName).components();
                 if (!npmComps.isEmpty()) {
                     ecosystems.add("NPM");
@@ -148,8 +150,7 @@ public class DependencyManifestParserService {
         }
 
         // ── Python: lock files first, then requirements.txt ────────────────────
-        for (Path lock : walkManifests(cloneDir,
-                Set.of("poetry.lock", "uv.lock", "Pipfile.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "poetry.lock", "uv.lock", "Pipfile.lock")) {
             String fn = lock.getFileName().toString();
             List<ScanPayload.ComponentPayload> pyComps = fn.equals("Pipfile.lock")
                     ? parsePipfileLock(lock.getParent(), repoName)
@@ -160,7 +161,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("PYPI")) {
-            for (Path req : walkManifests(cloneDir, Set.of("requirements.txt"), MANIFEST_SKIP_DIRS)) {
+            for (Path req : indexByNames(index, "requirements.txt")) {
                 List<ScanPayload.ComponentPayload> pyComps =
                         parseRequirementsFile(req, repoName);
                 if (pyComps != null && !pyComps.isEmpty()) {
@@ -169,7 +170,7 @@ public class DependencyManifestParserService {
                 }
             }
             if (!ecosystems.contains("PYPI")) {
-                for (Path toml : walkManifests(cloneDir, Set.of("pyproject.toml"), MANIFEST_SKIP_DIRS)) {
+                for (Path toml : indexByNames(index, "pyproject.toml")) {
                     List<ScanPayload.ComponentPayload> pyComps =
                             parsePyprojectToml(toml, repoName);
                     if (pyComps != null && !pyComps.isEmpty()) {
@@ -181,7 +182,7 @@ public class DependencyManifestParserService {
         }
 
         // ── Cargo: Cargo.lock, then Cargo.toml fallback ────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("Cargo.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "Cargo.lock")) {
             List<ScanPayload.ComponentPayload> cargoComps = parseTomlPackageLock(lock, "CARGO", repoName);
             if (cargoComps != null && !cargoComps.isEmpty()) {
                 if (!ecosystems.contains("CARGO")) ecosystems.add("CARGO");
@@ -189,7 +190,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("CARGO")) {
-            for (Path toml : walkManifests(cloneDir, Set.of("Cargo.toml"), MANIFEST_SKIP_DIRS)) {
+            for (Path toml : indexByNames(index, "Cargo.toml")) {
                 List<ScanPayload.ComponentPayload> cargoComps = parseCargoToml(toml.getParent(), repoName);
                 if (!cargoComps.isEmpty()) {
                     ecosystems.add("CARGO");
@@ -199,7 +200,7 @@ public class DependencyManifestParserService {
         }
 
         // ── Go: go.sum, then go.mod fallback ───────────────────────────────────
-        for (Path sum : walkManifests(cloneDir, Set.of("go.sum"), MANIFEST_SKIP_DIRS)) {
+        for (Path sum : indexByNames(index, "go.sum")) {
             List<ScanPayload.ComponentPayload> goComps = parseGoSum(sum.getParent(), repoName);
             if (goComps != null && !goComps.isEmpty()) {
                 if (!ecosystems.contains("GO")) ecosystems.add("GO");
@@ -207,7 +208,7 @@ public class DependencyManifestParserService {
             }
         }
         if (!ecosystems.contains("GO")) {
-            for (Path gomod : walkManifests(cloneDir, Set.of("go.mod"), MANIFEST_SKIP_DIRS)) {
+            for (Path gomod : indexByNames(index, "go.mod")) {
                 List<ScanPayload.ComponentPayload> goComps = parseGoModDeclared(gomod.getParent(), repoName);
                 if (!goComps.isEmpty()) {
                     ecosystems.add("GO");
@@ -217,17 +218,17 @@ public class DependencyManifestParserService {
         }
 
         // ── NuGet: packages.lock.json / .csproj ────────────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("packages.lock.json"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "packages.lock.json")) {
             List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
             if (nugetComps != null && !nugetComps.isEmpty()) {
                 if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
                 mergeComponents(allComps, seen, nugetComps, "NUGET");
             }
         }
-        if (!ecosystems.contains("NUGET") && hasCsprojFiles(cloneDir)) {
-            List<ScanPayload.ComponentPayload> nugetComps = runDotNetListPackages(cloneDir, repoName);
+        if (!ecosystems.contains("NUGET") && hasCsprojFiles(index)) {
+            List<ScanPayload.ComponentPayload> nugetComps = runDotNetListPackages(cloneDir, repoName, index);
             if (nugetComps == null || nugetComps.isEmpty()) {
-                nugetComps = parseNuGetStatic(cloneDir, repoName).components();
+                nugetComps = parseNuGetStatic(cloneDir, repoName, index).components();
             }
             if (!nugetComps.isEmpty()) {
                 ecosystems.add("NUGET");
@@ -236,7 +237,7 @@ public class DependencyManifestParserService {
         }
 
         // ── Ruby: Gemfile.lock ────────────────────────────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("Gemfile.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "Gemfile.lock")) {
             List<ScanPayload.ComponentPayload> rubyComps = parseGemfileLock(lock.getParent(), repoName);
             if (rubyComps != null && !rubyComps.isEmpty()) {
                 if (!ecosystems.contains("RUBYGEMS")) ecosystems.add("RUBYGEMS");
@@ -245,7 +246,7 @@ public class DependencyManifestParserService {
         }
 
         // ── PHP: composer.lock ────────────────────────────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("composer.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "composer.lock")) {
             List<ScanPayload.ComponentPayload> composerComps = parseComposerLock(lock.getParent(), repoName);
             if (composerComps != null && !composerComps.isEmpty()) {
                 if (!ecosystems.contains("COMPOSER")) ecosystems.add("COMPOSER");
@@ -254,7 +255,7 @@ public class DependencyManifestParserService {
         }
 
         // ── C/C++: conan.lock ─────────────────────────────────────────────────
-        for (Path lock : walkManifests(cloneDir, Set.of("conan.lock"), MANIFEST_SKIP_DIRS)) {
+        for (Path lock : indexByNames(index, "conan.lock")) {
             List<ScanPayload.ComponentPayload> conanComps = parseConanLock(lock.getParent(), repoName);
             if (conanComps != null && !conanComps.isEmpty()) {
                 if (!ecosystems.contains("CONAN")) ecosystems.add("CONAN");
@@ -416,17 +417,34 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * Recursively finds all files whose name is in {@code fileNames} under {@code root},
-     * skipping any path segment listed in {@code skipDirs}.
+     * Single-walk manifest index over the clone tree (A3). Built once per
+     * {@link #parseDependencies} call; all per-ecosystem manifest lookups read
+     * from it instead of re-walking the tree.
+     *
+     * @param root       resolved clone root the indexed paths sit under
+     * @param byFileName basename → paths (e.g. "pom.xml"), each list sorted by path string
+     * @param bySuffix   suffix → paths (e.g. ".csproj"), each list sorted by path string
      */
-    private List<Path> walkManifests(Path root, Set<String> fileNames, Set<String> skipDirs) {
-        List<Path> result = new ArrayList<>();
+    private record ManifestIndex(Path root,
+                                 Map<String, List<Path>> byFileName,
+                                 Map<String, List<Path>> bySuffix) {}
+
+    /**
+     * Walks the tree under {@code root} exactly once and indexes every file whose
+     * basename is in {@link ManifestCollectRules#EXACT_FILE_NAMES} or ends with one of
+     * {@link ManifestCollectRules#FILE_SUFFIXES}, skipping any path segment listed in
+     * {@link ManifestCollectRules#SKIP_DIRS}. Index lists are sorted by path string so
+     * iteration order is deterministic.
+     */
+    private ManifestIndex buildIndex(Path root) {
+        Map<String, List<Path>> byFileName = new HashMap<>();
+        Map<String, List<Path>> bySuffix = new HashMap<>();
         final Path rootReal;
         try {
             rootReal = new CloneRootPathGuard(root).root();
         } catch (IOException e) {
-            log.warn("[DependencyParser] walkManifests: invalid clone root '{}': {}", root, e.getMessage());
-            return result;
+            log.warn("[DependencyParser] buildIndex: invalid clone root '{}': {}", root, e.getMessage());
+            return new ManifestIndex(root, byFileName, bySuffix);
         }
         try {
             Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
@@ -435,7 +453,7 @@ public class DependencyManifestParserService {
                     if (!dir.equals(rootReal)) {
                         Path rel = rootReal.relativize(dir);
                         for (int i = 0; i < rel.getNameCount(); i++) {
-                            if (skipDirs.contains(rel.getName(i).toString())) {
+                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
                                 return FileVisitResult.SKIP_SUBTREE;
                             }
                         }
@@ -450,16 +468,21 @@ public class DependencyManifestParserService {
                         if (!fileReal.startsWith(rootReal)) {
                             return FileVisitResult.CONTINUE;
                         }
-                        if (!fileNames.contains(fileReal.getFileName().toString())) {
-                            return FileVisitResult.CONTINUE;
-                        }
                         Path rel = rootReal.relativize(fileReal);
                         for (int i = 0; i < rel.getNameCount() - 1; i++) {
-                            if (skipDirs.contains(rel.getName(i).toString())) {
+                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
                                 return FileVisitResult.CONTINUE;
                             }
                         }
-                        result.add(fileReal);
+                        String name = fileReal.getFileName().toString();
+                        if (ManifestCollectRules.EXACT_FILE_NAMES.contains(name)) {
+                            byFileName.computeIfAbsent(name, k -> new ArrayList<>()).add(fileReal);
+                        }
+                        for (String suffix : ManifestCollectRules.FILE_SUFFIXES) {
+                            if (name.endsWith(suffix)) {
+                                bySuffix.computeIfAbsent(suffix, k -> new ArrayList<>()).add(fileReal);
+                            }
+                        }
                     } catch (IOException e) {
                         log.debug("[DependencyParser] skip file '{}': {}", file, e.getMessage());
                     }
@@ -467,9 +490,37 @@ public class DependencyManifestParserService {
                 }
             });
         } catch (IOException e) {
-            log.warn("[DependencyParser] walkManifests error under '{}': {}", root, e.getMessage());
+            log.warn("[DependencyParser] buildIndex error under '{}': {}", root, e.getMessage());
         }
+        Comparator<Path> byPath = Comparator.comparing(Path::toString);
+        byFileName.values().forEach(paths -> paths.sort(byPath));
+        bySuffix.values().forEach(paths -> paths.sort(byPath));
+        return new ManifestIndex(rootReal, byFileName, bySuffix);
+    }
+
+    /** Returns indexed paths for the given exact basenames, merged and sorted by path string. */
+    private List<Path> indexByNames(ManifestIndex index, String... fileNames) {
+        List<Path> result = new ArrayList<>();
+        for (String name : fileNames) {
+            result.addAll(index.byFileName().getOrDefault(name, List.of()));
+        }
+        result.sort(Comparator.comparing(Path::toString));
         return result;
+    }
+
+    /** Returns indexed paths whose basename ends with {@code suffix} (already path-sorted). */
+    private List<Path> indexBySuffix(ManifestIndex index, String suffix) {
+        return index.bySuffix().getOrDefault(suffix, List.of());
+    }
+
+    /** Mirrors the legacy {@code Files.walk(dir, 8)} depth limit on top of the shared index. */
+    private boolean hasCsprojFiles(ManifestIndex index) {
+        for (Path p : indexBySuffix(index, ".csproj")) {
+            if (index.root().relativize(p).getNameCount() <= 8) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Merges {@code src} into {@code target}, deduplicating on name+version+ecosystem. */
@@ -491,15 +542,14 @@ public class DependencyManifestParserService {
      * Resolves {@code version.ref} references and returns all {@code [libraries]} entries as
      * Maven ecosystem components (Gradle uses Maven coordinates).
      */
-    private List<ScanPayload.ComponentPayload> parseVersionCatalogs(Path dir, String repoName) {
+    private List<ScanPayload.ComponentPayload> parseVersionCatalogs(Path dir, String repoName, ManifestIndex index) {
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
         List<Path> catalogs = new ArrayList<>();
-        try (Stream<Path> walk = Files.walk(dir, 3)) {
-            walk.filter(p -> !Files.isDirectory(p) && p.getFileName().toString().endsWith(".versions.toml"))
-                .forEach(catalogs::add);
-        } catch (IOException e) {
-            log.warn("[DependencyParser][Gradle] Error finding version catalogs: {}", e.getMessage());
-            return comps;
+        // Original logic used Files.walk(dir, 3); keep that depth limit on top of the shared index.
+        for (Path p : indexBySuffix(index, ".versions.toml")) {
+            if (index.root().relativize(p).getNameCount() <= 3) {
+                catalogs.add(p);
+            }
         }
         if (catalogs.isEmpty()) { log.debug("[DependencyParser][Gradle] No *.versions.toml in '{}'", repoName); return comps; }
         for (Path catalog : catalogs) {
@@ -1290,7 +1340,7 @@ public class DependencyManifestParserService {
      * Runs {@code dotnet list package --include-transitive --format json} when the SDK is on PATH.
      * Returns {@code null} when dotnet is unavailable or the command fails.
      */
-    private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName) {
+    private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName, ManifestIndex index) {
         if (!allowBuildExec) {
             log.warn("[DependencyParser][NuGet] Build execution is disabled "
                     + "(oswl.quick-import.allow-build-exec=false) — skipping dotnet list for '{}', using static parse", repoName);
@@ -1300,7 +1350,7 @@ public class DependencyManifestParserService {
             log.debug("[DependencyParser][NuGet] dotnet not on PATH for '{}', skipping CLI resolve", repoName);
             return null;
         }
-        Path target = findDotNetListTarget(dir);
+        Path target = findDotNetListTarget(index);
         if (target == null) {
             log.debug("[DependencyParser][NuGet] No .sln/.csproj for dotnet list in '{}'", repoName);
             return null;
@@ -1338,19 +1388,19 @@ public class DependencyManifestParserService {
         }
     }
 
-    private Path findDotNetListTarget(Path dir) {
-        List<Path> solutions = walkNuGetManifests(dir, ".sln");
+    private Path findDotNetListTarget(ManifestIndex index) {
+        List<Path> solutions = indexBySuffix(index, ".sln");
         if (!solutions.isEmpty()) {
             return solutions.stream()
-                    .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
+                    .min(Comparator.comparingInt(p -> index.root().relativize(p).getNameCount()))
                     .orElse(solutions.getFirst());
         }
-        List<Path> projects = walkNuGetManifests(dir, ".csproj");
+        List<Path> projects = indexBySuffix(index, ".csproj");
         if (projects.isEmpty()) {
             return null;
         }
         return projects.stream()
-                .min(Comparator.comparingInt(p -> dir.relativize(p).getNameCount()))
+                .min(Comparator.comparingInt(p -> index.root().relativize(p).getNameCount()))
                 .orElse(projects.getFirst());
     }
 
@@ -1382,20 +1432,25 @@ public class DependencyManifestParserService {
         }
     }
 
+    /** Standalone entry point (no shared index): builds a one-off index for {@code dir}. */
     private ParseResult parseNuGetStatic(Path dir, String repoName) {
+        return parseNuGetStatic(dir, repoName, buildIndex(dir));
+    }
+
+    private ParseResult parseNuGetStatic(Path dir, String repoName, ManifestIndex index) {
         Set<String> seen = new LinkedHashSet<>();
         List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Map<String, String> propsVersions = buildNuGetPropsVersionIndex(dir);
+        Map<String, String> propsVersions = buildNuGetPropsVersionIndex(index);
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             dbf.setNamespaceAware(false);
-            for (Path props : walkNuGetManifests(dir, "Directory.Packages.props")) {
+            for (Path props : indexByNames(index, "Directory.Packages.props")) {
                 mergeDirectoryPackageVersions(dbf, props, propsVersions);
             }
             List<Path> targets = new ArrayList<>();
-            targets.addAll(walkNuGetManifests(dir, ".csproj"));
-            targets.addAll(walkManifests(dir, Set.of("packages.config"), MANIFEST_SKIP_DIRS));
+            targets.addAll(indexBySuffix(index, ".csproj"));
+            targets.addAll(indexByNames(index, "packages.config"));
             for (Path f : targets) {
                 try {
                     Document doc = dbf.newDocumentBuilder().parse(f.toFile());
@@ -1414,54 +1469,10 @@ public class DependencyManifestParserService {
         return new ParseResult("NUGET", comps);
     }
 
-    private List<Path> walkNuGetManifests(Path root, String suffix) {
-        List<Path> result = new ArrayList<>();
-        final Path rootReal;
-        try {
-            rootReal = new CloneRootPathGuard(root).root();
-        } catch (IOException e) {
-            return result;
-        }
-        try {
-            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(@NonNull Path dir, @NonNull BasicFileAttributes attrs) {
-                    if (!dir.equals(rootReal)) {
-                        Path rel = rootReal.relativize(dir);
-                        for (int i = 0; i < rel.getNameCount(); i++) {
-                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.SKIP_SUBTREE;
-                            }
-                        }
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(@NonNull Path file, @NonNull BasicFileAttributes attrs) {
-                    String name = file.getFileName().toString();
-                    boolean match = switch (suffix) {
-                        case ".csproj" -> name.endsWith(".csproj");
-                        case ".sln" -> name.endsWith(".sln");
-                        case ".props" -> name.endsWith(".props");
-                        default -> name.equals(suffix);
-                    };
-                    if (match) {
-                        result.add(file);
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            log.warn("[DependencyParser][NuGet] walk failed under '{}': {}", root, e.getMessage());
-        }
-        return result;
-    }
-
-    private Map<String, String> buildNuGetPropsVersionIndex(Path dir) {
-        Map<String, String> index = new LinkedHashMap<>();
+    private Map<String, String> buildNuGetPropsVersionIndex(ManifestIndex index) {
+        Map<String, String> propsIndex = new LinkedHashMap<>();
         Pattern propVersion = Pattern.compile("<([\\w.]+)>\\s*([\\d][^<]*)\\s*</\\1>");
-        for (Path props : walkNuGetManifests(dir, ".props")) {
+        for (Path props : indexBySuffix(index, ".props")) {
             try {
                 String content = Files.readString(props, StandardCharsets.UTF_8);
                 Matcher m = propVersion.matcher(content);
@@ -1469,14 +1480,14 @@ public class DependencyManifestParserService {
                     String key = m.group(1);
                     String val = m.group(2).trim();
                     if (!val.isBlank() && !val.contains("$(")) {
-                        index.putIfAbsent(key, val);
+                        propsIndex.putIfAbsent(key, val);
                     }
                 }
             } catch (Exception e) {
                 log.debug("[DependencyParser][NuGet] props scan failed for {}: {}", props, e.getMessage());
             }
         }
-        return index;
+        return propsIndex;
     }
 
     private void mergeDirectoryPackageVersions(
@@ -1567,14 +1578,6 @@ public class DependencyManifestParserService {
             Process proc = new ProcessBuilder(cmd).redirectErrorStream(true).start();
             return proc.waitFor(15, TimeUnit.SECONDS) && proc.exitValue() == 0;
         } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private boolean hasCsprojFiles(Path dir) {
-        try (Stream<Path> walk = Files.walk(dir, 8)) {
-            return walk.anyMatch(p -> p.getFileName().toString().endsWith(".csproj"));
-        } catch (IOException e) {
             return false;
         }
     }
