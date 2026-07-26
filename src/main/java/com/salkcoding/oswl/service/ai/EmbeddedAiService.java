@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 import java.security.DigestInputStream;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -70,6 +71,18 @@ public class EmbeddedAiService {
     private final String dirPath;
     private final int port;
     private final int contextSize;
+    /** -1 = offload as many layers as the build supports (passed as {@code -ngl 999}); 0 = CPU only. */
+    private final int gpuLayers;
+    /** 0 = let llama.cpp auto-detect thread count (no {@code -t} flag). */
+    private final int threads;
+    /** &gt;1 enables {@code --parallel N --cont-batching} so concurrent AI calls aren't serialized on the server. */
+    private final int parallelSlots;
+    private final boolean flashAttn;
+    /** &lt;=0 disables the {@code --cache-reuse} flag. */
+    private final int cacheReuse;
+    /** Space-separated extra CLI args appended verbatim (SYSTEM_ADMIN-only server config, not user input). */
+    private final String extraArgs;
+    private final int startupTimeoutSeconds;
     private final AiPreferencesRepository preferencesRepository;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -92,11 +105,25 @@ public class EmbeddedAiService {
     public EmbeddedAiService(
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.dir:embedded-ai}") String dirPath,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.port:11435}") int port,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.context-size:4096}") int contextSize,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.context-size:8192}") int contextSize,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.gpu-layers:-1}") int gpuLayers,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.threads:0}") int threads,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.parallel-slots:4}") int parallelSlots,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.flash-attn:true}") boolean flashAttn,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.cache-reuse:256}") int cacheReuse,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.extra-args:}") String extraArgs,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.startup-timeout-seconds:120}") int startupTimeoutSeconds,
             AiPreferencesRepository preferencesRepository) {
         this.dirPath = dirPath;
         this.port = port;
         this.contextSize = contextSize;
+        this.gpuLayers = gpuLayers;
+        this.threads = threads;
+        this.parallelSlots = parallelSlots;
+        this.flashAttn = flashAttn;
+        this.cacheReuse = cacheReuse;
+        this.extraArgs = extraArgs;
+        this.startupTimeoutSeconds = startupTimeoutSeconds;
         this.preferencesRepository = preferencesRepository;
     }
 
@@ -220,40 +247,72 @@ public class EmbeddedAiService {
         Path firstChoice = candidates.get(0);
         for (Path model : candidates) {
             String name = model.getFileName().toString();
-            try {
-                launch(binary, model);
-            } catch (IOException e) {
-                lastError = "Failed to launch llama-server with " + name + ": " + e.getMessage();
-                log.warn("[EmbeddedAI] {} — trying next model", lastError);
-                continue;
-            }
-            if (waitUntilHealthy(Duration.ofSeconds(90))) {
+
+            // GPU offload first (if configured); a launch or health-check failure falls back
+            // to a CPU-only retry of the *same* model before moving on to the next candidate —
+            // VRAM exhaustion shouldn't cost us a model we'd otherwise run fine on CPU.
+            if (tryLaunchModel(binary, model, name, gpuLayers != 0)) {
                 activeModelFile = name;
                 fallbackUsed = !model.equals(firstChoice);
                 lastError = null;
-                log.info("[EmbeddedAI] llama-server healthy at {} model={}{}",
-                        baseUrl(), name, fallbackUsed ? " (fallback)" : "");
                 return;
             }
             if (stopRequested) {
-                // stop() was pressed during the health wait — do not fall through to the
-                // next candidate and relaunch a server the user just asked to stop.
                 activeModelFile = null;
                 lastError = "Start cancelled: llama-server was stopped while starting up.";
                 throw new IllegalStateException(lastError);
             }
-            Process p = process;
-            String reason = p != null && p.isAlive()
-                    ? "llama-server did not become healthy within 90s with " + name + "."
-                    : "llama-server exited early with " + name + ".";
-            killProcess();
-            String tail = logTail();
-            lastError = tail.isEmpty() ? reason : reason + " Log: " + tail;
-            log.warn("[EmbeddedAI] {} — trying next model", reason);
+            if (gpuLayers != 0) {
+                log.warn("[EmbeddedAI] GPU-accelerated start failed for {} — retrying CPU-only", name);
+                if (tryLaunchModel(binary, model, name, false)) {
+                    activeModelFile = name;
+                    fallbackUsed = !model.equals(firstChoice);
+                    lastError = null;
+                    return;
+                }
+                if (stopRequested) {
+                    activeModelFile = null;
+                    lastError = "Start cancelled: llama-server was stopped while starting up.";
+                    throw new IllegalStateException(lastError);
+                }
+            }
+            log.warn("[EmbeddedAI] {} — trying next model", lastError);
         }
         activeModelFile = null;
         throw new IllegalStateException(lastError != null ? lastError
                 : "llama-server could not start with any available model.");
+    }
+
+    /**
+     * One launch + health-wait attempt for a single model. Returns {@code false} (with
+     * {@link #lastError} set) on any failure — launch error, health-check timeout, or an
+     * early exit — instead of throwing, so {@link #start(String)} can decide whether to
+     * retry (CPU fallback, next model) or give up.
+     */
+    private boolean tryLaunchModel(Path binary, Path model, String name, boolean useGpu) {
+        try {
+            launch(binary, model, useGpu);
+        } catch (IOException e) {
+            lastError = "Failed to launch llama-server with " + name
+                    + (useGpu ? " (GPU)" : " (CPU)") + ": " + e.getMessage();
+            return false;
+        }
+        if (waitUntilHealthy(Duration.ofSeconds(startupTimeoutSeconds))) {
+            log.info("[EmbeddedAI] llama-server healthy at {} model={} gpu={}", baseUrl(), name, useGpu);
+            return true;
+        }
+        if (stopRequested) {
+            return false;
+        }
+        Process p = process;
+        String reason = p != null && p.isAlive()
+                ? "llama-server did not become healthy within " + startupTimeoutSeconds + "s with " + name
+                        + (useGpu ? " (GPU)" : " (CPU)") + "."
+                : "llama-server exited early with " + name + (useGpu ? " (GPU)" : " (CPU)") + ".";
+        killProcess();
+        String tail = logTail();
+        lastError = tail.isEmpty() ? reason : reason + " Log: " + tail;
+        return false;
     }
 
     /**
@@ -336,25 +395,91 @@ public class EmbeddedAiService {
     /**
      * Launches llama-server for one model candidate. Binary, model and log paths are
      * absolute-normalized because the child process CWD is the sidecar directory.
+     *
+     * @param useGpu when {@code false}, {@code -ngl} is omitted regardless of the configured
+     *               {@code gpu-layers} — used for the CPU-only retry after a GPU start failure
      */
-    private void launch(Path binary, Path model) throws IOException {
+    private void launch(Path binary, Path model, boolean useGpu) throws IOException {
         Path logFile = resolveDir().resolve("llama-server.log").toAbsolutePath().normalize();
-        ProcessBuilder pb = new ProcessBuilder(
-                binary.toAbsolutePath().normalize().toString(),
-                "-m", model.toAbsolutePath().normalize().toString(),
-                "--host", "127.0.0.1",
-                "--port", String.valueOf(port),
-                "-c", String.valueOf(contextSize),
-                // Thinking models (Qwen3) burn max_tokens on reasoning_content and
-                // return empty content for short completions — disable reasoning.
-                "--reasoning-budget", "0",
-                "--no-webui")
+
+        List<String> cmd = new ArrayList<>();
+        cmd.add(binary.toAbsolutePath().normalize().toString());
+        cmd.add("-m");
+        cmd.add(model.toAbsolutePath().normalize().toString());
+        cmd.add("--host");
+        cmd.add("127.0.0.1");
+        cmd.add("--port");
+        cmd.add(String.valueOf(port));
+        cmd.add("-c");
+        cmd.add(String.valueOf(contextSize));
+        // Thinking models (Qwen3) burn max_tokens on reasoning_content and
+        // return empty content for short completions — disable reasoning.
+        cmd.add("--reasoning-budget");
+        cmd.add("0");
+        cmd.add("--no-webui");
+
+        if (useGpu && gpuLayers != 0) {
+            cmd.add("-ngl");
+            cmd.add(gpuLayers < 0 ? "999" : String.valueOf(gpuLayers));
+        }
+        if (threads > 0) {
+            cmd.add("-t");
+            cmd.add(String.valueOf(threads));
+        }
+        if (parallelSlots > 1) {
+            cmd.add("--parallel");
+            cmd.add(String.valueOf(parallelSlots));
+            cmd.add("--cont-batching");
+            logSlotContextWarningIfNeeded();
+        }
+        if (flashAttn) {
+            cmd.add("-fa");
+        }
+        if (cacheReuse > 0) {
+            cmd.add("--cache-reuse");
+            cmd.add(String.valueOf(cacheReuse));
+        }
+        for (String arg : splitExtraArgs()) {
+            cmd.add(arg);
+        }
+
+        ProcessBuilder pb = new ProcessBuilder(cmd)
                 .directory(resolveDir().toFile())
                 .redirectErrorStream(true)
                 .redirectOutput(logFile.toFile());
         process = pb.start();
-        log.info("[EmbeddedAI] Started llama-server pid={} model={} port={}",
-                process.pid(), model.getFileName(), port);
+        log.info("[EmbeddedAI] Started llama-server pid={} model={} port={} gpu={} ngl={} parallel={} threads={} flashAttn={} cacheReuse={}",
+                process.pid(), model.getFileName(), port, useGpu,
+                useGpu && gpuLayers != 0 ? (gpuLayers < 0 ? "999(auto)" : String.valueOf(gpuLayers)) : "off",
+                parallelSlots, threads > 0 ? String.valueOf(threads) : "auto", flashAttn, cacheReuse);
+    }
+
+    /** Non-empty, whitespace-split tokens from {@link #extraArgs} (empty list when unset). */
+    private List<String> splitExtraArgs() {
+        if (extraArgs == null || extraArgs.isBlank()) {
+            return List.of();
+        }
+        List<String> tokens = new ArrayList<>();
+        for (String token : extraArgs.trim().split("\\s+")) {
+            if (!token.isBlank()) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    /**
+     * {@code --parallel N} divides the total {@code -c} context across N slots — a
+     * misconfigured combination (large parallel count, small context) silently starves each
+     * slot. Warn loudly rather than let it surface later as truncated/garbled completions.
+     */
+    private void logSlotContextWarningIfNeeded() {
+        int slotContext = contextSize / parallelSlots;
+        log.info("[EmbeddedAI] slotContext={} (contextSize={} / parallel={})", slotContext, contextSize, parallelSlots);
+        if (slotContext < 2048) {
+            log.warn("[EmbeddedAI] slotContext={} is below 2048 — raise oswl.ai.embedded.context-size or "
+                    + "lower oswl.ai.embedded.parallel-slots", slotContext);
+        }
     }
 
     public synchronized void stop() {
