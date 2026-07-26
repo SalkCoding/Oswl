@@ -102,6 +102,16 @@ oswl:
     # SECURITY: this runs arbitrary repo code on the server — enable only when
     # every imported repository is trusted. Default: false (static manifest parse only).
     allow-build-exec: ${OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC:false}
+  client:
+    # HTTP timeouts for the deps.dev / OSV enrichment clients. Without these, a stalled
+    # upstream call previously hung indefinitely and held a deps.dev concurrency permit forever.
+    deps-dev:
+      connect-timeout-ms: ${OSWL_DEPSDEV_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${OSWL_DEPSDEV_READ_TIMEOUT_MS:10000}
+    osv:
+      connect-timeout-ms: ${OSWL_OSV_CONNECT_TIMEOUT_MS:5000}
+      # Generous — a 1,000-item querybatch against a slow connection legitimately takes a while.
+      read-timeout-ms: ${OSWL_OSV_READ_TIMEOUT_MS:30000}
   github:
     # Override to use GitHub Enterprise Server. E.g. https://github.example.com/api/v3
     api-base: ${OSWL_GITHUB_API_BASE:https://api.github.com}
@@ -147,6 +157,11 @@ oswl:
       cve-limit: ${OSWL_AI_CVE_LIMIT:10}
       license-limit: ${OSWL_AI_LICENSE_LIMIT:8}
       daily-call-cap: ${OSWL_AI_DAILY_CALL_CAP:0}
+      # Batch CVE/license items are split into chunks of this size (further halved if the
+      # estimated JSON output would still exceed 80% of max_tokens) so a large cve-limit/
+      # license-limit cannot produce a response that gets truncated mid-array and silently
+      # drops the whole batch.
+      batch-chunk-size: ${OSWL_AI_BATCH_CHUNK_SIZE:5}
     debug:
       # Periodic DEBUG logs while waiting on the LLM (0 = disabled). Local profile may override.
       heartbeat-seconds: ${OSWL_AI_DEBUG_HEARTBEAT_SECONDS:0}
