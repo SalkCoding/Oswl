@@ -4,12 +4,14 @@ import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotAdvisory;
 import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVersion;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -42,6 +44,9 @@ public class DepsDevClient {
     private static final String BASE_URL = "https://api.deps.dev";
     /** Max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
     private static final int MAX_CONCURRENT_REQUESTS = 10;
+    /** Default timeouts used by the no-arg/2-arg constructors (unit tests, and any caller not wired through Spring config). */
+    private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(10);
 
     /** Upper bound for the project cache (cleared wholesale when exceeded). */
     private static final int SCORECARD_CACHE_MAX = 5_000;
@@ -62,11 +67,25 @@ public class DepsDevClient {
     }
 
     public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped) {
+        this(snapshotService, airgapped, DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT);
+    }
+
+    /**
+     * @param connectTimeout max time to establish the TCP connection
+     * @param readTimeout    max time to wait for the response once connected — a stalled deps.dev
+     *                       call previously hung indefinitely, holding a {@link #requestPermits} slot forever
+     */
+    public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped,
+                         Duration connectTimeout, Duration readTimeout) {
         this.snapshotService = snapshotService;
         this.airgapped = airgapped && snapshotService != null;
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
         this.restClient = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader("Accept", "application/json")
+                .requestFactory(requestFactory)
                 .build();
         if (this.airgapped) {
             log.info("[DepsDevClient] Air-gapped mode — deps.dev lookups served from the offline snapshot store, no outbound HTTP");

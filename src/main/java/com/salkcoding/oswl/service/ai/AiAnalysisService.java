@@ -10,9 +10,11 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +33,26 @@ public class AiAnalysisService {
     private final AiUsageLimiterService usageLimiter;
     private final AiConnectionDiagnostics connectionDiagnostics;
 
+    /**
+     * Batch items are split into chunks of this size before the prompt is assembled, so a
+     * large CVE/license limit cannot produce a single prompt whose output alone exceeds
+     * max_tokens (which previously truncated the JSON array mid-object and silently dropped
+     * the whole batch — see {@link #splitToFitBudget}).
+     */
+    @Value("${oswl.ai.enrichment.batch-chunk-size:5}")
+    private int batchChunkSize;
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** Conservative chars-per-token ratio (CJK-worst-case) used only to size batches, never to bill usage. */
+    private static final double CHARS_PER_TOKEN = 2.5;
+    /**
+     * Worst-case output size for one batch entry: the JSON structure/id/priority overhead
+     * plus the field budgets enforced in {@code batch.cve.header}/{@code batch.license.header}
+     * ("summary" ≤120 chars, "recommendedAction" ≤100 chars — both batches share the same
+     * {id, summary, recommendedAction, priority} response shape).
+     */
+    private static final int BATCH_ITEM_OUTPUT_CHAR_BUDGET = 70 + 120 + 100;
 
     public record CveSummaryRequest(
             String id, String severity, double cvssScore, String component,
@@ -172,8 +193,12 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.cve start — {} item(s), provider={}", items.size(), setting.getProvider());
-        String prompt = promptTemplates.batchCvePrompt(items, deploymentProfile);
-        return batchStructuredWithRetry(prompt, setting, items.size(), "CVE", "batch.cve");
+        Map<String, AiStructuredSummary.ParsedEntry> merged = new LinkedHashMap<>();
+        for (List<CveSummaryRequest> chunk : chunkForOutputBudget(items)) {
+            String prompt = promptTemplates.batchCvePrompt(chunk, deploymentProfile);
+            merged.putAll(batchStructuredWithRetry(prompt, setting, chunk.size(), "CVE", "batch.cve"));
+        }
+        return merged;
     }
 
     /**
@@ -235,8 +260,59 @@ public class AiAnalysisService {
         AiSetting setting = getActiveSetting();
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.license start — {} item(s), provider={}", items.size(), setting.getProvider());
-        String prompt = promptTemplates.batchLicensePrompt(items, deploymentProfile);
-        return batchWithRetry(prompt, setting, items.size(), "license", "batch.license");
+        Map<String, String> merged = new LinkedHashMap<>();
+        for (List<LicenseSummaryRequest> chunk : chunkForOutputBudget(items)) {
+            String prompt = promptTemplates.batchLicensePrompt(chunk, deploymentProfile);
+            merged.putAll(batchWithRetry(prompt, setting, chunk.size(), "license", "batch.license"));
+        }
+        return merged;
+    }
+
+    /**
+     * Splits a batch into chunks of {@link #batchChunkSize}, then further halves any chunk
+     * whose worst-case JSON output would exceed 80% of {@code max_tokens} — the response gets
+     * cut off mid-object well before that, so this keeps the array reliably parseable instead
+     * of silently losing the whole batch to a truncated JSON tail.
+     */
+    private <T> List<List<T>> chunkForOutputBudget(List<T> items) {
+        int step = effectiveBatchChunkSize();
+        List<List<T>> initial = new ArrayList<>();
+        for (int i = 0; i < items.size(); i += step) {
+            initial.add(items.subList(i, Math.min(i + step, items.size())));
+        }
+        int maxTokens = promptTemplates.getMaxTokens();
+        List<List<T>> result = new ArrayList<>();
+        for (List<T> chunk : initial) {
+            splitToFitBudget(chunk, maxTokens, result);
+        }
+        return result;
+    }
+
+    /**
+     * Guards against an infinite loop in {@link #chunkForOutputBudget} if {@code batchChunkSize}
+     * is ever non-positive (misconfiguration, or a plain-Mockito unit test that never lets Spring
+     * resolve the {@code @Value} default) by degrading to the smallest safe chunk size instead of
+     * silently batching everything unbounded.
+     */
+    private int effectiveBatchChunkSize() {
+        return Math.max(1, batchChunkSize);
+    }
+
+    private <T> void splitToFitBudget(List<T> chunk, int maxTokens, List<List<T>> out) {
+        if (chunk.size() <= 1) {
+            out.add(chunk);
+            return;
+        }
+        double estimatedTokens = (chunk.size() * (double) BATCH_ITEM_OUTPUT_CHAR_BUDGET) / CHARS_PER_TOKEN;
+        if (estimatedTokens <= maxTokens * 0.8) {
+            out.add(chunk);
+            return;
+        }
+        log.debug("[AI] batch chunk (size={}) estimated output ~{} tokens exceeds 80% of max_tokens={} — splitting",
+                chunk.size(), Math.round(estimatedTokens), maxTokens);
+        int mid = chunk.size() / 2;
+        splitToFitBudget(chunk.subList(0, mid), maxTokens, out);
+        splitToFitBudget(chunk.subList(mid, chunk.size()), maxTokens, out);
     }
 
     private Map<String, String> batchWithRetry(String prompt, AiSetting setting, int itemCount,
