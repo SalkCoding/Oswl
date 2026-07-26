@@ -57,4 +57,8 @@ public class AiUsageEvent {
     /** Denormalized name of the project this call was made for (null for non-project calls, e.g. connection tests). */
     @Column(name = "project_name", length = 160)
     private String projectName;
+
+    /** Branch / scan version the AI call was attributed to; null for non-scan calls. */
+    @Column(name = "branch", length = 160)
+    private String branch;
 }

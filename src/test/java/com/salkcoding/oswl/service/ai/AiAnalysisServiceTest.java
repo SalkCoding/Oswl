@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -50,6 +51,8 @@ class AiAnalysisServiceTest {
         lenient().when(usageLimiter.tryConsume(any())).thenReturn(true);
         lenient().when(connectionDiagnostics.preflight(any())).thenReturn(Optional.empty());
         lenient().when(connectionDiagnostics.success()).thenReturn(AiConnectionTestResult.ok("OK"));
+        lenient().when(connectionDiagnostics.successFor(any(), any()))
+                .thenReturn(AiConnectionTestResult.ok("OK"));
         lenient().when(connectionDiagnostics.fromEmptyResponse(any()))
                 .thenReturn(AiConnectionTestResult.fail("empty", "hint"));
         lenient().when(connectionDiagnostics.fromException(any(), any()))
@@ -306,68 +309,72 @@ class AiAnalysisServiceTest {
 
     // ── testConnection ────────────────────────────────────────────────────
 
+    // The connection test lists the provider's models instead of sending a throwaway
+    // completion: listing is free on every supported provider, so testing a provider costs
+    // no tokens and does not touch the daily call cap.
+
     @Test
-    @DisplayName("testConnection: OPENAI 제공자가 응답하면 true를 반환한다")
-    void testConnection_openai_returnsTrue_whenResponseNotNull() {
+    @DisplayName("testConnection: OPENAI 제공자가 모델 목록을 반환하면 true를 반환한다")
+    void testConnection_openai_returnsTrue_whenModelsListed() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
+        when(openAiClient.probeModels(eq(setting), any())).thenReturn(List.of("gpt-5.6-terra"));
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
+        verify(openAiClient).probeModels(eq(setting), any());
     }
 
     @Test
     @DisplayName("testConnection: 클라이언트가 예외를 던지면 false를 반환한다")
     void testConnection_returnsFalse_whenClientThrows() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any()))
+        when(openAiClient.probeModels(eq(setting), any()))
                 .thenThrow(new RuntimeException("Connection refused"));
 
         assertThat(aiAnalysisService.testConnection(setting)).isFalse();
     }
 
     @Test
-    @DisplayName("testConnection: ANTHROPIC 제공자가 응답하면 true를 반환한다")
+    @DisplayName("testConnection: ANTHROPIC 제공자가 모델 목록을 반환하면 true를 반환한다")
     void testConnection_anthropic_returnsTrue() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.ANTHROPIC).apiKey("ant-key").build();
-        when(anthropicClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
+        when(anthropicClient.probeModels(any())).thenReturn(List.of("claude-opus-5"));
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(anthropicClient).callWithSetting(anyString(), eq(setting), anyString(), any());
+        verify(anthropicClient).probeModels(any());
     }
 
     @Test
-    @DisplayName("testConnection: GEMINI 제공자가 응답하면 true를 반환한다")
+    @DisplayName("testConnection: GEMINI 제공자가 모델 목록을 반환하면 true를 반환한다")
     void testConnection_gemini_returnsTrue() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.GEMINI).apiKey("gemini-key").build();
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
+        when(openAiClient.probeModels(eq(setting), any())).thenReturn(List.of("gemini-3.1-pro"));
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(openAiClient).callWithSetting(anyString(), eq(setting), anyString(), any());
+        verify(openAiClient).probeModels(eq(setting), any());
     }
 
     @Test
-    @DisplayName("testConnection: 연결 테스트 1회는 일일 cap을 정확히 1회만 소비한다")
-    void testConnection_consumesDailyCapExactlyOnce() {
+    @DisplayName("testConnection: 연결 테스트는 일일 cap을 소비하지 않는다")
+    void testConnection_doesNotConsumeDailyCap() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(openAiClient.callWithSetting(anyString(), eq(setting), anyString(), any())).thenReturn("OK");
+        when(openAiClient.probeModels(eq(setting), any())).thenReturn(List.of("gpt-5.6-terra"));
 
         assertThat(aiAnalysisService.testConnection(setting)).isTrue();
-        verify(usageLimiter, times(1)).tryConsume(AiProvider.OPENAI);
+        verify(usageLimiter, never()).tryConsume(any());
     }
 
     @Test
-    @DisplayName("testConnection: 일일 cap 도달 시 소비 없이 실패 결과를 반환한다")
-    void testConnection_capReached_returnsFailureWithoutConsuming() {
+    @DisplayName("testConnection: 일일 cap에 도달해도 연결 테스트는 수행된다")
+    void testConnection_stillRunsWhenDailyCapReached() {
         AiSetting setting = AiSetting.builder().provider(AiProvider.OPENAI).apiKey("key").build();
-        when(usageLimiter.isCapReached(AiProvider.OPENAI)).thenReturn(true);
-        when(connectionDiagnostics.dailyCapReached())
-                .thenReturn(AiConnectionTestResult.fail("cap", "hint"));
+        when(openAiClient.probeModels(eq(setting), any())).thenReturn(List.of("gpt-5.6-terra"));
 
         AiConnectionTestResult result = aiAnalysisService.testConnectionDetailed(setting);
 
-        assertThat(result.success()).isFalse();
+        // The probe generates no tokens, so an exhausted analysis budget must not stop a user
+        // from checking whether their credentials and endpoint are correct.
+        assertThat(result.success()).isTrue();
         verify(usageLimiter, never()).tryConsume(any());
-        verifyNoInteractions(openAiClient, anthropicClient);
+        verify(connectionDiagnostics, never()).dailyCapReached();
     }
 }

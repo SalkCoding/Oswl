@@ -10,6 +10,7 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 
 | 페이지 | 내용 |
 |---|---|
+| [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) | SBOM / VEX / SARIF 내보내기, CI 게이트, 연속 모니터링, 조직 대시보드, 폐쇄망 모드 |
 | [시작하기](Getting-Started.md) | 시스템 요구사항, 설치, 설정 마법사, 첫 로그인 |
 | [사용자 가이드](User-Guide.md) | 프로젝트 대시보드, 스캔 카드, 휴지통, 필터 |
 | [Quick Import](Quick-Import.md) | GitHub / GitLab / Bitbucket 연결, 브랜치 임포트 |
@@ -26,6 +27,8 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 | [스캔 API 보안](Scan-Api-Security.md) | CLI 스캔 제출 보호 개요 |
 | [API 레퍼런스](API-Reference.md) | 전체 REST 엔드포인트 목록 |
 | [용어사전](Glossary.md) | OsWL 모든 용어 정의 |
+
+> 영어 문서는 [`docs/`](../Home.md)에, 일본어 문서는 [`docs/ja/`](../ja/Home.md)에 있습니다.
 
 ---
 

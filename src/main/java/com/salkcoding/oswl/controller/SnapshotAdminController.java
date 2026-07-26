@@ -33,7 +33,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/admin/snapshot")
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
+@PreAuthorize("hasPermission(null, 'SETTINGS_SNAPSHOT_MANAGE') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class SnapshotAdminController implements SnapshotAdminControllerSpec {
 

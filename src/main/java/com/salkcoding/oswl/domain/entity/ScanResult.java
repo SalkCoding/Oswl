@@ -32,6 +32,14 @@ public class ScanResult {
     @Column(length = 50)
     private String version;
 
+    /**
+     * UI locale of the user who triggered this scan (e.g. "ko", "ja"). AI enrichment runs
+     * asynchronously and loses the request locale, so it is captured here and re-bound so
+     * AI insights come back in the requester's language. Null = use the configured default.
+     */
+    @Column(name = "ai_locale", length = 16)
+    private String aiLocale;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -102,6 +110,11 @@ public class ScanResult {
         this.status = ScanStatus.ANALYZING;
     }
 
+    /** Captures the requesting user's UI locale so async AI enrichment can answer in that language. */
+    public void recordAiLocale(String locale) {
+        this.aiLocale = (locale != null && !locale.isBlank()) ? locale.strip() : null;
+    }
+
     public void startScanning() {
         this.status = ScanStatus.SCANNING;
     }
@@ -127,3 +140,5 @@ public class ScanResult {
         this.versionDiffFromScanId = null;
     }
 }
+
+

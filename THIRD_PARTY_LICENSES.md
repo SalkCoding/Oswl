@@ -6,28 +6,33 @@ OsWL uses the following third-party libraries. This document lists each library,
 
 ## Table of Contents
 
-| Library | License |
-|---------|---------|
-| [Spring Boot / Spring Framework](#spring-boot--spring-framework) | Apache 2.0 |
-| [Spring Security](#spring-security) | Apache 2.0 |
-| [Spring Data JPA](#spring-data-jpa) | Apache 2.0 |
-| [Hibernate ORM](#hibernate-orm) | LGPL 2.1 |
-| [Thymeleaf](#thymeleaf) | Apache 2.0 |
-| [thymeleaf-extras-springsecurity6](#thymeleaf-extras-springsecurity6) | Apache 2.0 |
-| [springdoc-openapi](#springdoc-openapi) | Apache 2.0 |
-| [Jackson (Databind / Core / Annotations)](#jackson) | Apache 2.0 |
-| [Logback Classic](#logback-classic) | EPL 1.0 / LGPL 2.1 |
-| [SLF4J API](#slf4j-api) | MIT |
-| [GreenMail](#greenmail) | Apache 2.0 |
-| [H2 Database](#h2-database) | EPL 2.0 / MPL 2.0 |
-| [PostgreSQL JDBC Driver](#postgresql-jdbc-driver) | BSD 2-Clause |
-| [Project Lombok](#project-lombok) | MIT |
-| [Alpine.js](#alpinejs) | MIT |
-| [@alpinejs/collapse](#alpinjscollapse) | MIT |
-| [Chart.js](#chartjs) | MIT |
-| [htmx](#htmx) | BSD Zero-Clause (0BSD) |
-| [Tailwind CSS](#tailwind-css) | MIT |
-| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf) | Apache 2.0 |
+| Library                                                               | License                |
+|-----------------------------------------------------------------------|------------------------|
+| [Spring Boot / Spring Framework](#spring-boot--spring-framework)      | Apache 2.0             |
+| [Spring Security](#spring-security)                                   | Apache 2.0             |
+| [Spring Data JPA](#spring-data-jpa)                                   | Apache 2.0             |
+| [Hibernate ORM](#hibernate-orm)                                       | LGPL 2.1               |
+| [Thymeleaf](#thymeleaf)                                               | Apache 2.0             |
+| [thymeleaf-extras-springsecurity6](#thymeleaf-extras-springsecurity6) | Apache 2.0             |
+| [springdoc-openapi](#springdoc-openapi)                               | Apache 2.0             |
+| [Jackson (Databind / Core / Annotations)](#jackson)                   | Apache 2.0             |
+| [Logback Classic](#logback-classic)                                   | EPL 1.0 / LGPL 2.1     |
+| [SLF4J API](#slf4j-api)                                               | MIT                    |
+| [GreenMail](#greenmail)                                               | Apache 2.0             |
+| [H2 Database](#h2-database)                                           | EPL 2.0 / MPL 2.0      |
+| [PostgreSQL JDBC Driver](#postgresql-jdbc-driver)                     | BSD 2-Clause           |
+| [Project Lombok](#project-lombok)                                     | MIT                    |
+| [Alpine.js](#alpinejs)                                                | MIT                    |
+| [@alpinejs/collapse](#alpinejscollapse)                               | MIT                    |
+| [Chart.js](#chartjs)                                                  | MIT                    |
+| [htmx](#htmx)                                                         | BSD Zero-Clause (0BSD) |
+| [Tailwind CSS](#tailwind-css)                                         | MIT                    |
+| [CycloneDX Core (Java)](#cyclonedx-core-java)                         | Apache 2.0             |
+| [packageurl-java](#packageurl-java)                                   | MIT                    |
+| [Micrometer Prometheus Registry](#micrometer-prometheus-registry)     | Apache 2.0             |
+| [Flyway](#flyway)                                                     | Apache 2.0             |
+| [Spring Security OAuth2 Client](#spring-security-oauth2-client)       | Apache 2.0             |
+| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf)                                  | Apache 2.0             |
 
 ---
 
@@ -139,6 +144,83 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ```
 Copyright 2019-2024 the original author or authors.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### CycloneDX Core (Java)
+
+- **Version:** 10.2.1
+- **Website:** https://github.com/CycloneDX/cyclonedx-core-java
+- **License:** Apache License, Version 2.0
+- **Used for:** Generating and validating CycloneDX 1.6 SBOM / VEX documents (v1.0.4).
+
+```
+Copyright (c) OWASP Foundation.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### packageurl-java
+
+- **Version:** Managed by cyclonedx-core-java 10.2.1
+- **Website:** https://github.com/package-url/packageurl-java
+- **License:** MIT License
+- **Used for:** Parsing and building package-url (purl) component coordinates for SBOM export/import (v1.0.4).
+
+```
+Copyright (c) The Package URL authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, subject to the conditions of the MIT License.
+```
+
+---
+
+### Micrometer Prometheus Registry
+
+- **Version:** Managed by Spring Boot 4.0.5
+- **Website:** https://micrometer.io/
+- **License:** Apache License, Version 2.0
+- **Used for:** Exposing application metrics at /actuator/prometheus (v1.0.4).
+
+```
+Copyright (c) VMware, Inc. / Broadcom.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### Flyway
+
+- **Version:** Managed by Spring Boot 4.0.5 (flyway-core, flyway-database-postgresql)
+- **Website:** https://flywaydb.org/
+- **License:** Apache License, Version 2.0
+- **Used for:** Opt-in versioned database schema migrations (v1.0.4).
+
+```
+Copyright (c) Red Gate Software Ltd.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### Spring Security OAuth2 Client
+
+- **Version:** Managed by Spring Boot 4.0.5
+- **Website:** https://spring.io/projects/spring-security
+- **License:** Apache License, Version 2.0
+- **Used for:** Optional OIDC single sign-on (Okta / Entra) login (v1.0.4).
+
+```
+Copyright 2002-2024 the original author or authors.
 
 Licensed under the Apache License, Version 2.0 (the "License").
 ```

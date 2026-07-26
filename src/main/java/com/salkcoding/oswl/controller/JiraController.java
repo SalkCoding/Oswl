@@ -22,7 +22,7 @@ public class JiraController {
     private final JiraService jiraService;
 
     @GetMapping("/api/settings/jira")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasPermission(null, 'SETTINGS_JIRA_MANAGE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<JiraSettingDto> getSettings() {
         return ResponseEntity.ok(jiraService.getSettings());
     }
@@ -31,7 +31,7 @@ public class JiraController {
                                       String projectKey, String issueType, boolean enabled) {}
 
     @PutMapping("/api/settings/jira")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("hasPermission(null, 'SETTINGS_JIRA_MANAGE') or hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<Void> saveSettings(@RequestBody JiraSettingsRequest req) {
         jiraService.saveSettings(req.baseUrl(), req.email(), req.apiToken(),
                 req.projectKey(), req.issueType(), req.enabled());

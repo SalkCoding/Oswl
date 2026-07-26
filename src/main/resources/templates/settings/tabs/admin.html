@@ -80,7 +80,10 @@
         'Scan':             /*[[#{permission.auditGroup.scan}]]*/ 'Scan',
         'License':          /*[[#{permission.auditGroup.license}]]*/ 'License',
         'Component':        /*[[#{permission.auditGroup.component}]]*/ 'Component',
-        'Security Center':  /*[[#{permission.auditGroup.securityCenter}]]*/ 'Security Center'
+        'Security Center':  /*[[#{permission.auditGroup.securityCenter}]]*/ 'Security Center',
+        'Monitoring':       /*[[#{permission.auditGroup.monitoring}]]*/ 'Monitoring',
+        'Integration':      /*[[#{permission.auditGroup.integration}]]*/ 'Integration',
+        'Administration':   /*[[#{permission.auditGroup.administration}]]*/ 'Administration'
     };
     </script>
 
@@ -1119,7 +1122,7 @@
                 { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT', 'AUTH.OTP_FAILURE', 'AUTH.OTP_RESEND', 'AUTH.TRUSTED_DEVICE', 'AUTH.PASSWORD_CHANGE'] },
                 { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE', 'USER.SELF_DELETE'] },
                 { label: _auditGroupLabels['Role Template'],    items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
-                { label: _auditGroupLabels['Project'],          items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE', 'QUICK_IMPORT.START'] },
+                { label: _auditGroupLabels['Project'],          items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE', 'QUICK_IMPORT.START', 'PROJECT.DEPLOYMENT_PROFILE', 'PROJECT.BATCH_PR', 'SBOM.IMPORT'] },
                 { label: _auditGroupLabels['VCS'],              items: ['VCS.CONNECT', 'VCS.DISCONNECT', 'GITHUB.PAT_CONNECT', 'GITHUB.PAT_DISCONNECT'] },
                 { label: _auditGroupLabels['CLI Key'],          items: ['CLI_KEY.CREATE', 'CLI_KEY.ACTIVATE', 'CLI_KEY.REVOKE'] },
                 { label: _auditGroupLabels['Security'],         items: ['SECURITY_SETTING.UPDATE', 'SECURITY_SETTING.MAIL_TEST'] },
@@ -1127,9 +1130,12 @@
                 { label: _auditGroupLabels['Cache'],            items: ['CACHE.UPDATE_TTL', 'CACHE.CLEAR'] },
                 { label: _auditGroupLabels['External Setting'], items: ['EXTERNAL_SETTING.CACHE_POLICY_UPDATE', 'EXTERNAL_SETTING.GITHUB_UPDATE'] },
                 { label: _auditGroupLabels['License'],          items: ['LICENSE_POLICY.UPDATE', 'LICENSE.EXPORT'] },
-                { label: _auditGroupLabels['Scan'],             items: ['SCAN.INGEST', 'SCAN.DELETE', 'SCAN.AUTH_FAILURE', 'SCAN.AUTH_RATE_LIMITED', 'SCAN.API_KEY_FAILURE'] },
-                { label: _auditGroupLabels['Component'],        items: ['COMPONENT.DEFER', 'COMPONENT.DEFER_ALL', 'COMPONENT.CREATE_PR', 'COMPONENT.CVE_AI_REGENERATE', 'COMPONENT.CVE_AI_REGENERATE_FAILED', 'COMPONENT.BULK_STATUS_UPDATE', 'COMPONENT.DEFER_EXPIRE'] },
-                { label: _auditGroupLabels['Security Center'],  items: ['SECURITY_CENTER.EXPORT', 'SECURITY_CENTER.PRINT'] },
+                { label: _auditGroupLabels['Scan'],             items: ['SCAN.INGEST', 'SCAN.DELETE', 'SCAN.AUTH_FAILURE', 'SCAN.AUTH_RATE_LIMITED', 'SCAN.API_KEY_FAILURE', 'GATE.EVALUATE', 'GATE.GITHUB_PUBLISH'] },
+                { label: _auditGroupLabels['Component'],        items: ['COMPONENT.DEFER', 'COMPONENT.DEFER_ALL', 'COMPONENT.CREATE_PR', 'COMPONENT.CVE_AI_REGENERATE', 'COMPONENT.CVE_AI_REGENERATE_FAILED', 'COMPONENT.BULK_STATUS_UPDATE', 'COMPONENT.DEFER_EXPIRE', 'COMPONENT.JIRA_TICKET'] },
+                { label: _auditGroupLabels['Security Center'],  items: ['SECURITY_CENTER.EXPORT', 'SECURITY_CENTER.PRINT', 'SBOM.EXPORT', 'VEX.EXPORT', 'SARIF.EXPORT', 'COMPLIANCE_REPORT.VIEW'] },
+                { label: _auditGroupLabels['Monitoring'],       items: ['MONITOR.NEW_CVE', 'MONITOR.ALERT_EMAIL', 'MONITOR.ALERT_ACK'] },
+                { label: _auditGroupLabels['Integration'],      items: ['JIRA.SETTINGS_UPDATE'] },
+                { label: _auditGroupLabels['Administration'],   items: ['ORG_DASHBOARD.VIEW', 'AUDIT_LOG.EXPORT', 'SNAPSHOT.IMPORT', 'SNAPSHOT.EXPORT'] },
                 { label: 'System',                              items: ['SYSTEM.SETUP'] },
             ],
             get filteredAuditUsers() {

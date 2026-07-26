@@ -67,9 +67,15 @@ OsWL이 각 스캔된 라이브러리의 SPDX 라이선스 식별자, 최신 버
 **MFA / 2FA (다중 인증 / 이중 인증)**  
 표준 이메일 + 비밀번호에 추가하여 이메일로 발송된 일회용 비밀번호(OTP)를 요구하는 추가 로그인 단계. 설정 → 보안에서 전역으로 설정 가능합니다.
 
+**악성 패키지 (Malicious Package)**  
+OSV가 `MAL-` 접두사 어드바이저리 ID로 표시한 패키지 버전 — 정상적인 코드에 존재하는 일반적인 취약점이 아니라, 처음부터 사용자를 공격할 목적으로 배포된 패키지를 의미합니다. OsWL은 이를 자동으로 `CRITICAL` 심각도로 승격하고, 컴포넌트 상세와 보안 센터 목록에 빨간색 **악성(Malicious)** 배지를 표시합니다.
+
 ---
 
 ## ㅂ
+
+**배포 프로필 (Deployment Profile)**  
+스캔 대상 소프트웨어가 실제로 어떻게 배포되는지를 나타내는 값 — `SAAS`, `INTERNAL_TOOL`, `ON_PREMISE_DISTRIBUTION`, 또는 기본값인 `COMMERCIAL_PRODUCT`. AI 트리아지와 라이선스 위험 판단의 비중을 조정합니다: 동일한 CVE나 카피레프트 라이선스라도 사내 전용 도구와 고객에게 배포되는 소프트웨어 사이의 노출도는 크게 다릅니다. 프로젝트별로 설정하며(`PATCH /api/projects/{id}/deployment-profile`), 지정하지 않으면 AI 설정의 **기본 배포 프로필**을 사용합니다.
 
 **버전 비교 (Version Diff)**  
 두 스캔 결과를 비교하여 버전 간에 추가, 제거 또는 변경된 컴포넌트를 보여주는 기능.
@@ -214,3 +220,37 @@ OsWL이 VCS API에 인증하는 데 사용하는 암호화 저장된 PAT + 제�
 ## 제로데이 (Zero-Day)
 
 공개적으로 알려져 있지만 공식 패치가 아직 없는 취약점(수정 버전이 null인 경우). OsWL은 수정 버전이 게시될 때까지 이러한 CVE를 `NON_PATCHABLE`로 표시합니다.
+
+---
+
+## v1.0.4 신규 용어
+
+**CycloneDX**  
+OWASP의 SBOM 표준. OsWL은 CycloneDX 1.6 SBOM·VEX 문서를 내보내고, 외부 CycloneDX 파일을 가져올 수 있습니다.
+
+**VEX (Vulnerability Exploitability eXchange)**  
+포함된 취약점에 실제로 영향을 받는지를 기계 판독 가능하게 진술하는 문서. OsWL은 트리아지 판단을 그대로 CycloneDX VEX로 내보냅니다 — 무시는 `not_affected`, 유예는 `in_triage`, 조치 완료는 `resolved`.
+
+**SARIF (Static Analysis Results Interchange Format)**  
+도구 탐지 결과에 대한 OASIS 표준(2.1.0). OsWL의 SARIF 내보내기는 `github/codeql-action/upload-sarif`와 스키마 호환이므로 결과가 GitHub Security 탭에 표시됩니다.
+
+**KEV (Known Exploited Vulnerabilities)**  
+실제 공격에 사용된 것이 확인된 취약점에 대한 CISA 목록. "실제로 악용되고 있다"는 사실이 높은 CVSS 점수보다 강한 트리아지 신호이므로 OsWL은 KEV 등재 CVE를 최우선 표시합니다. `OSWL_GATE_FAIL_ON_KEV`로 CI 게이트 실패 조건에 넣을 수 있습니다.
+
+**EPSS (Exploit Prediction Scoring System)**  
+향후 30일 내 악용 확률을 0~1로 추정하는 FIRST.org 점수. KEV에 없는 항목의 우선순위를 정하는 데 사용하며, `OSWL_GATE_FAIL_ON_EPSS`로 게이트 임계값을 지정합니다.
+
+**purl (package URL)**  
+패키지를 가리키는 표준 좌표 문자열(예: `pkg:maven/org.springframework/spring-core@6.1.0`). SBOM·VEX·SARIF 내보내기에 사용되며, SBOM 가져오기 시에도 이 값을 읽습니다.
+
+**Scorecard (OpenSSF)**  
+유지보수·리뷰 관행·빌드 보안을 평가한 deps.dev의 0~10 프로젝트 건강도 점수. 컴포넌트 상세에 표시되어, 아직 취약점은 없지만 관리가 중단된 의존성을 조기에 확인할 수 있습니다.
+
+**Typosquatting**  
+유명 패키지와 한두 글자 차이나는 이름으로 패키지를 배포하는 공급망 공격(`express` → `expres`). OsWL은 유명 패키지 목록과의 Levenshtein 거리로 후보를 탐지해 컴포넌트 상세에 배지로 표시합니다.
+
+**보안 게이트 (Security Gate)**  
+`POST /api/scan/gate`. 심각도·라이선스·KEV·EPSS 임계값으로 스캔을 판정해 CI 잡의 통과/실패를 결정합니다. 기본적으로 직전 완료 스캔을 베이스라인으로 삼아 신규 항목만 평가합니다.
+
+**폐쇄망 모드 (Air-gapped Mode)**  
+`OSWL_AIRGAPPED_ENABLED=true`. 취약점·위협 인텔 조회를 반입된 오프라인 스냅샷에서 처리하며 외부로 HTTP를 시도하지 않습니다.

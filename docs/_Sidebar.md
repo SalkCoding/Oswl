@@ -1,5 +1,8 @@
 **[Home](Home)**
 
+### Release
+* [What's New in v1.0.4](Whats-New-v1.0.4)
+
 ### Guides
 * [Getting Started](Getting-Started)
 * [User Guide](User-Guide)

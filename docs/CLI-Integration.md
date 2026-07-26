@@ -107,6 +107,11 @@ ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 | `POST` | `/api/scan/parse` | API key | Parse manifest zip → components |
 | `POST` | `/api/scan` | API key + user password | Submit scan for enrichment |
 | `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status (UI) |
+| `POST` | `/api/scan/gate` | API key | **v1.0.4** — PR / CI security gate; returns a verdict with `exitCode` |
+| `GET` | `/api/projects/{projectId}/sbom` | Session / key | **v1.0.4** — CycloneDX 1.6 SBOM |
+| `GET` | `/api/projects/{projectId}/vex` | Session / key | **v1.0.4** — CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | Session / key | **v1.0.4** — SARIF 2.1.0 |
+| `POST` | `/api/sbom/import` | Session | **v1.0.4** — Import a third-party CycloneDX file |
 
 > The CLI endpoints authenticate with the `Authorization: Bearer` header only — no session cookie or CSRF token is required. `POST /api/scan`, `POST /api/scan/parse`, and `GET /api/scan/ping` are exempt from the browser CSRF checks; every other route keeps normal CSRF protection. See [Scan API Security](Scan-Api-Security.md).
 
@@ -185,7 +190,7 @@ Content-Type: application/json
 | `components` | array | — | Discovered OSS components |
 | `components[].name` | string | ✅ | Package name |
 | `components[].version` | string | — | Package version |
-| `components[].ecosystem` | string | ✅ | `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS` |
+| `components[].ecosystem` | string | ✅ | `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS`, `COMPOSER`, `CONAN` |
 | `components[].dependencyInfo` | string | — | Human-readable path summary |
 | `components[].dependencyPaths` | array | — | Optional path trees |
 
@@ -212,6 +217,31 @@ GET /api/scan/{scanId}/status
 ```
 
 Status flow: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (or `FAILED`)
+
+---
+
+## Security gate (v1.0.4)
+
+`POST /api/scan/gate` evaluates the project's latest scan against your thresholds and returns a machine-readable verdict. Map `exitCode` to the job's exit code — `0` pass, `1` fail.
+
+```bash
+verdict=$(curl -sS -X POST "$OSWL_URL/api/scan/gate"   -H "Authorization: Bearer $OSWL_API_KEY"   -H 'Content-Type: application/json'   -d '{"failOnSeverity":"HIGH","onlyNew":true}')
+
+echo "$verdict"
+exit "$(echo "$verdict" | jq -r .exitCode)"
+```
+
+Server-side defaults (all overridable per request):
+
+| Field | Env | Default |
+|---|---|---|
+| `failOnSeverity` | `OSWL_GATE_FAIL_ON_SEVERITY` | `HIGH` |
+| `failOnKev` | `OSWL_GATE_FAIL_ON_KEV` | `true` |
+| `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
+| `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
+| `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+
+`onlyNew` compares against the previous completed scan as a baseline, so pre-existing debt never blocks a merge. Supply a GitHub target in the request and the verdict is also posted as a Check Run and PR comment.
 
 ---
 
@@ -243,6 +273,8 @@ Status flow: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (or `FAILE
 | `CARGO` | `serde` |
 | `NUGET` | `Newtonsoft.Json` |
 | `RUBYGEMS` | `rails` |
+| `COMPOSER` | `monolog/monolog` (v1.0.4) |
+| `CONAN` | `openssl` (v1.0.4) |
 
 ---
 

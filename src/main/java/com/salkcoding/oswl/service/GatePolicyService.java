@@ -104,8 +104,13 @@ public class GatePolicyService {
                 .filter(s -> !s.getId().equals(scan.getId()))
                 .findFirst()
                 .orElse(null);
-        Set<String> baselineVulnKeys = baseline != null ? collectVulnKeys(baseline.getId()) : Set.of();
-        Set<String> baselineLicenseKeys = baseline != null ? collectLicenseViolationKeys(baseline.getId()) : Set.of();
+        // Load the baseline components once — both key sets are derived from the same rows
+        // (the fetch-joined query is heavy, so calling it twice doubled the baseline cost).
+        List<ScanComponent> baselineComponents = baseline != null
+                ? scanComponentRepository.findByScanResultId(baseline.getId())
+                : List.of();
+        Set<String> baselineVulnKeys = collectVulnKeys(baselineComponents);
+        Set<String> baselineLicenseKeys = collectLicenseViolationKeys(baselineComponents);
 
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
 
@@ -184,9 +189,9 @@ public class GatePolicyService {
 
     // ── Baseline key collection ──────────────────────────────────────────
 
-    private Set<String> collectVulnKeys(Long scanId) {
+    private Set<String> collectVulnKeys(List<ScanComponent> components) {
         Set<String> keys = new HashSet<>();
-        for (ScanComponent sc : scanComponentRepository.findByScanResultId(scanId)) {
+        for (ScanComponent sc : components) {
             Library lib = sc.getLibrary();
             String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
             for (Cve cve : lib.getCves()) {
@@ -197,9 +202,9 @@ public class GatePolicyService {
         return keys;
     }
 
-    private Set<String> collectLicenseViolationKeys(Long scanId) {
+    private Set<String> collectLicenseViolationKeys(List<ScanComponent> components) {
         Set<String> keys = new HashSet<>();
-        for (ScanComponent sc : scanComponentRepository.findByScanResultId(scanId)) {
+        for (ScanComponent sc : components) {
             Library lib = sc.getLibrary();
             if (lib.getLicenseStatus() == LicenseStatus.RESTRICTED) {
                 String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");

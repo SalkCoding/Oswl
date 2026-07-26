@@ -43,6 +43,13 @@ public class DepsDevClient {
     /** Max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
     private static final int MAX_CONCURRENT_REQUESTS = 10;
 
+    /** Upper bound for the project cache (cleared wholesale when exceeded). */
+    private static final int SCORECARD_CACHE_MAX = 5_000;
+
+    /** projectKey → project record, so one repo is fetched once per instance, not per component. */
+    private final java.util.concurrent.ConcurrentHashMap<String, ProjectInfo> projectCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private final RestClient restClient;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final Semaphore requestPermits = new Semaphore(MAX_CONCURRENT_REQUESTS);
@@ -76,7 +83,27 @@ public class DepsDevClient {
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
                               boolean isDefault, String deprecated, String latestVersion,
-                              boolean resolved, Double scorecardScore) {}
+                              boolean resolved, Double scorecardScore,
+                              String description, String homepage, String sourceRepoUrl) {
+
+        /** Convenience for callers that only have the pre-metadata fields (e.g. snapshots). */
+        public VersionInfo(List<String> licenses, List<String> advisoryKeys,
+                           boolean isDefault, String deprecated, String latestVersion,
+                           boolean resolved, Double scorecardScore) {
+            this(licenses, advisoryKeys, isDefault, deprecated, latestVersion, resolved,
+                    scorecardScore, null, null, null);
+        }
+    }
+
+    /**
+     * The subset of a deps.dev {@code /v3/projects/{key}} record we keep: the Scorecard score
+     * plus the upstream identity fields that let the component detail page explain what the
+     * library actually is.
+     */
+    public record ProjectInfo(Double scorecardScore, String description,
+                              String homepage, String sourceRepoUrl) {
+        static final ProjectInfo EMPTY = new ProjectInfo(null, null, null, null);
+    }
 
     public record AdvisoryInfo(
             String ghsaId,
@@ -257,11 +284,13 @@ public class DepsDevClient {
                 }
             }
 
-            Double scorecardScore = fetchScorecardScore(body);
+            ProjectInfo project = fetchProjectInfo(body);
 
-            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={} scorecard={}",
-                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion, scorecardScore);
-            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true, scorecardScore);
+            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={} scorecard={} hasDescription={}",
+                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion,
+                    project.scorecardScore(), project.description() != null);
+            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true,
+                    project.scorecardScore(), project.description(), project.homepage(), project.sourceRepoUrl());
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] GetVersion 404/error {}:{} - {}", key.name(), key.version(), e.getMessage());
             return unresolved();
@@ -274,30 +303,58 @@ public class DepsDevClient {
     }
 
     /**
-     * Reads the OpenSSF Scorecard overall score for the version's source-repo project.
-     * The version response links related projects; the SOURCE_REPO one carries the scorecard
-     * via a second {@code GET /v3/projects/{projectKey}} call. Returns null when unavailable.
+     * Reads the source-repo project record for a version: the OpenSSF Scorecard score plus the
+     * upstream description / homepage / repo URL. The version response links related projects;
+     * the SOURCE_REPO one is fetched with a single {@code GET /v3/projects/{projectKey}} call —
+     * the same call the Scorecard already required, so the identity metadata is free.
+     * Returns {@link ProjectInfo#EMPTY} when unavailable.
      */
     @SuppressWarnings("unchecked")
-    private Double fetchScorecardScore(Map<String, Object> versionBody) {
+    private ProjectInfo fetchProjectInfo(Map<String, Object> versionBody) {
         String projectKey = extractSourceRepoProjectKey(versionBody);
-        if (projectKey == null) return null;
+        if (projectKey == null) return ProjectInfo.EMPTY;
+        // Many libraries share one source repo (e.g. every spring-boot-starter-*), so the same
+        // project would otherwise be fetched once per component. EMPTY doubles as the
+        // negative-cache entry, since ConcurrentHashMap forbids null values.
+        ProjectInfo cached = projectCache.get(projectKey);
+        if (cached != null) return cached;
+
+        ProjectInfo resolved = ProjectInfo.EMPTY;
         try {
             String path = "/v3/projects/" + URLEncoder.encode(projectKey, StandardCharsets.UTF_8)
                     .replace("+", "%20");
             java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
             Map<String, Object> body = restClient.get().uri(uri).retrieve().body(Map.class);
-            if (body == null) return null;
-            Object sc = body.get("scorecard");
-            if (sc instanceof Map<?, ?> scMap) {
-                Object overall = scMap.get("overallScore");
-                if (overall instanceof Number n) return n.doubleValue();
+            if (body != null) {
+                Double score = null;
+                if (body.get("scorecard") instanceof Map<?, ?> scMap
+                        && scMap.get("overallScore") instanceof Number n) {
+                    score = n.doubleValue();
+                }
+                resolved = new ProjectInfo(score,
+                        stringOrNull(body.get("description")),
+                        stringOrNull(body.get("homepage")),
+                        // projectKey is a bare host/path ("github.com/owner/repo"); make it linkable.
+                        "https://" + projectKey);
             }
-            return null;
         } catch (RestClientException e) {
-            log.debug("[DepsDevClient] Scorecard fetch failed for {} - {}", projectKey, e.getMessage());
-            return null;
+            log.debug("[DepsDevClient] Project fetch failed for {} - {}", projectKey, e.getMessage());
+            // negative-cache so one failure isn't retried per component
         }
+        cacheProject(projectKey, resolved);
+        return resolved;
+    }
+
+    private static String stringOrNull(Object value) {
+        return (value instanceof String s && !s.isBlank()) ? s.strip() : null;
+    }
+
+    /** Stores a project lookup result, bounding the cache so a long-running instance cannot grow unboundedly. */
+    private void cacheProject(String projectKey, ProjectInfo info) {
+        if (projectCache.size() >= SCORECARD_CACHE_MAX) {
+            projectCache.clear();
+        }
+        projectCache.put(projectKey, info);
     }
 
     /** Finds the SOURCE_REPO related-project key (e.g. "github.com/owner/repo") from a version response. */

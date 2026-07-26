@@ -175,17 +175,21 @@ public class AiPreferencesService {
         return String.join(",", tokens);
     }
 
+    /** Prompt-template locales that ship with an overlay bundle (ai/prompts_&lt;locale&gt;.properties). */
+    private static final java.util.Set<String> SUPPORTED_PROMPT_LOCALES = java.util.Set.of("ko", "ja");
+
     private static String normalizeLocale(String locale) {
         if (locale == null || locale.isBlank()) return detectLocale();
         String value = locale.strip().toLowerCase();
-        // "auto" (the default) follows the server's JVM/OS locale so a Korean
-        // machine gets Korean AI prompts out of the box; anything else is en.
+        // "auto" (the default) follows the server's JVM/OS locale so a Korean or Japanese
+        // machine gets localized AI prompts out of the box; anything else is en.
         if ("auto".equals(value)) return detectLocale();
-        return "ko".equals(value) ? "ko" : "en";
+        return SUPPORTED_PROMPT_LOCALES.contains(value) ? value : "en";
     }
 
     private static String detectLocale() {
-        return "ko".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage()) ? "ko" : "en";
+        String lang = java.util.Locale.getDefault().getLanguage();
+        return SUPPORTED_PROMPT_LOCALES.contains(lang) ? lang : "en";
     }
 
     private static int clamp(int value, int min, int max, int fallback) {

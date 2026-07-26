@@ -106,6 +106,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/api/scan/parse` | API 키 | manifest zip 파싱 (CLI 1단계) |
 | `POST` | `/api/scan` | API 키 + 자격증명 | 의존성 스캔 제출 (CLI 2단계) |
 | `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 |
+| `POST` | `/api/scan/gate` | API 키 | **v1.0.4** — PR / CI 보안 게이트, `exitCode` 포함 판정 |
 
 ---
 
@@ -116,6 +117,17 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | 보안 센터 페이지 |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | CVE 상태 일괄 업데이트 |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | CVE 목록 CSV 다운로드 (`?scanId=`, `?format=csv`) |
+| `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — 선택 컴포넌트 일괄 업그레이드 PR 생성 |
+| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — 인쇄용 컴플라이언스 리포트 |
+
+### SBOM / VEX / SARIF (v1.0.4)
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/projects/{projectId}/sbom` | `SECURITY_CENTER_EXPORT` | CycloneDX 1.6 SBOM (`application/vnd.cyclonedx+json`) |
+| `GET` | `/api/projects/{projectId}/vex` | `SECURITY_CENTER_EXPORT` | 트리아지 판단 기반 CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | `SECURITY_CENTER_EXPORT` | SARIF 2.1.0 (`application/sarif+json`) |
+| `POST` | `/api/sbom/import` | `PROJECT_CREATE` | 외부 CycloneDX 파일 가져오기 (multipart) |
 
 ---
 
@@ -127,6 +139,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/projects/{id}/components/{compId}/cves/{cveDbId}/ai-summarize` | `SECURITY_CENTER_UPDATE_STATUS` | CVE AI 트리아지 재생성 |
 | `POST` | `/projects/{id}/components/{compId}/defer` | `SECURITY_CENTER_UPDATE_STATUS` | 조치 연기 기록 |
 | `POST` | `/projects/{id}/components/{compId}/create-pr` | `SECURITY_CENTER_UPDATE_STATUS` | 의존성 수정 PR 생성 |
+| `POST` | `/projects/{id}/components/{compId}/jira-ticket` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — 해당 항목으로 Jira 이슈 생성 |
 
 ---
 
@@ -204,6 +217,30 @@ Authorization: Bearer oswl_<your_api_key>
 |---|---|---|
 | `GET` | `/api/admin/audit-logs` | 페이지네이션 감사 로그 |
 | `GET` | `/api/admin/audit-logs/export.csv` | CSV로 내보내기 |
+| `GET` | `/api/admin/audit-logs/export?format=jsonl\|cef` | **v1.0.4** — SIEM 내보내기 (`AUDIT_LOG_EXPORT`) |
+
+### 조직 대시보드 (v1.0.4)
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/org-dashboard` | `ORG_DASHBOARD_VIEW` | 전사 포스처·랭킹·KEV·라이선스 롤업 |
+
+### 오프라인 스냅샷 (v1.0.4)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/api/admin/snapshot` | 번들 상태 |
+| `POST` | `/api/admin/snapshot/import` | 스냅샷 번들 반입 (multipart) |
+| `GET` | `/api/admin/snapshot/export` | 스냅샷 번들 내보내기 |
+
+### 모니터링 (v1.0.4)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/actuator/health` | 헬스 체크 (관리자 권한) |
+| `GET` | `/actuator/info` | 빌드·버전 정보 |
+| `GET` | `/actuator/prometheus` | Prometheus용 micrometer 메트릭 |
+| `POST` | `/projects/{projectId}/cve-alerts/acknowledge` | 신규 CVE 알림 확인 처리 (`SECURITY_CENTER_VIEW`) |
 
 ### 관리자 CLI 키
 
@@ -233,7 +270,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | 제공업체 자격증명 및/또는 기본값 저장 |
 | `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | 활성 제공업체 비활성화 |
 | `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | 제공업체 전환 |
-| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함) |
+| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함). 완료 요청 대신 사용 가능한 모델 목록을 조회하므로 토큰이 소비되지 않고 일일 호출 상한에도 반영되지 않습니다. 설정된 모델 ID가 조회된 목록에 없으면 응답에 경고 `hint`가 포함됩니다 |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | 편집 가능 프롬프트 + 오버라이드 |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | 골든 프롬프트 회귀 테스트 실행 |
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 — 오늘 호출 수/토큰/예상 비용, 일일 상한, 최근 7일 집계(일별 집계 테이블에서 조회) |

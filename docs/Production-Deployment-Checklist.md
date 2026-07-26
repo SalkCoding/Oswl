@@ -51,7 +51,8 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 |-------|--------|
 | Log levels | `prod` profile: `com.salkcoding.oswl` at **INFO** only; no DEBUG on AI/clients |
 | AI excerpts | `oswl.ai.debug.log-prompt-excerpt` / `log-response-excerpt` default **false** in prod |
-| Actuator | Only **`/actuator/health`** exposed; all other endpoints disabled |
+| Actuator | **`health`, `info`, `prometheus`** exposed (v1.0.4); everything else disabled (`enabled-by-default: false`) |
+| Metrics scrape | Point Prometheus at `/actuator/prometheus` — the scraper must present admin credentials |
 | Actuator auth | Requires **SYSTEM_ADMIN** session (not public) |
 
 ## 6. Security features enabled in prod
@@ -66,6 +67,19 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 | Variable | Purpose |
 |----------|---------|
 | `OSWL_TRUSTED_DEVICE_HMAC_KEY` | Dedicated HMAC key for `OSWL_TD` cookie (recommended; separate from `OSWL_ENCRYPTION_KEY`) |
+| `OSWL_OIDC_CLIENT_ID` / `OSWL_OIDC_CLIENT_SECRET` / `OSWL_OIDC_ISSUER_URI` | **v1.0.4** — OIDC single sign-on. Also uncomment the `spring.security.oauth2.client` block in `application-prod.yaml`; the login page shows the SSO button only when a provider is registered. |
+
+### v1.0.4 opt-in features
+
+All default to **off** — enable deliberately.
+
+| Variable | Default | Effect when enabled |
+|---|---|---|
+| `OSWL_FLYWAY_ENABLED` | `false` | Versioned migrations with `baseline-on-migrate`; generate a full baseline first |
+| `OSWL_AIRGAPPED_ENABLED` | `false` | All vulnerability / threat-intel lookups served from an imported offline snapshot; no outbound HTTP |
+| `OSWL_GATE_*` | see [What's New](Whats-New-v1.0.4.md) | Default thresholds for `POST /api/scan/gate` |
+
+Continuous monitoring is the exception: `OSWL_MONITORING_ENABLED` defaults to **`true`** (nightly OSV re-query at 03:00, `OSWL_MONITORING_CRON`). It sends e-mail to project members, so confirm SMTP is configured before first launch — or set it to `false`.
 
 ## 8. Embedded AI model (optional, on-premise)
 
@@ -102,6 +116,25 @@ Manual scripts live in `src/main/resources/db/`:
 | `schema_cleanup.sql` | **Once** when upgrading to the release that removes unused tables/columns (`ai_feedback`, `external_api_settings`, denormalized `projects.version`, etc.) |
 
 After running migrations, restart the app and confirm `validate` passes.
+
+### Flyway (v1.0.4, opt-in)
+
+Set `OSWL_FLYWAY_ENABLED=true` to manage the schema with Flyway instead of hand-run scripts. `baseline-on-migrate` is enabled, so an existing populated database is baselined rather than rejected — but generate a full baseline migration that matches your current schema **before** turning it on. Left at the default `false`, nothing changes.
+
+### v1.0.4 columns
+
+This release adds `libraries.malicious` and `libraries.typosquat_risk`, both `NOT NULL DEFAULT false`. The defaults let the column be added to a populated table, so no manual script is required — but on `prod` (`ddl-auto: validate`) you still add them yourself. It also adds three nullable `libraries` columns (`description`, `homepage`, `source_repo_url`) for the upstream project metadata shown on Component Detail — `validate` checks that every mapped column exists regardless of nullability, so these need the same manual treatment:
+
+```sql
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS malicious        boolean NOT NULL DEFAULT false;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS typosquat_risk   boolean NOT NULL DEFAULT false;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS description      text;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS homepage         varchar(500);
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS source_repo_url  varchar(500);
+ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
+```
+
+(Flyway users: `V3__component_metadata.sql` covers the three new `libraries` columns; see [Database Schema](Database-Schema.md).)
 
 ## 10. Post-deploy smoke test
 

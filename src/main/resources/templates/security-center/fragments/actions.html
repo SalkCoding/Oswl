@@ -21,7 +21,7 @@
                  @click.away="bulkActionsOpen = false"
                  x-transition
                  style="display: none;"
-                 class="absolute left-0 top-[36px] z-[9999] w-full rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
+                 class="absolute left-0 top-[36px] z-[9999] w-max min-w-full rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
                 <p class="text-[10px] text-[#849197] font-normal tracking-[-0.10px] mb-[8px] px-[10px]" th:text="#{common.applyToSelected}">Apply to selected</p>
                 <button type="button"
                         @click="applyBulkAction('reviewed')"
@@ -61,7 +61,7 @@
                  @click.away="exportOpen = false"
                  x-transition
                  style="display: none;"
-                 class="absolute left-0 top-[36px] z-[9999] w-full rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[12px]">
+                 class="absolute left-0 top-[36px] z-[9999] w-max min-w-[220px] rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[12px]">
                 <button type="button"
                         @click="exportAs('pdf')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">

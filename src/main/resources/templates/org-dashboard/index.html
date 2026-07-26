@@ -29,7 +29,13 @@
                 </p>
             </div>
             <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
-                <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.summary.kevUnaddressed}">KEV Unaddressed</p>
+                <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0 flex items-center gap-[5px]">
+                    <span th:text="#{orgDashboard.summary.kevUnaddressed}">KEV Unaddressed</span>
+                    <!-- What is KEV? → CISA catalog -->
+                    <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener noreferrer"
+                       th:title="#{help.kev.tooltip}" th:aria-label="#{help.kev.tooltip}"
+                       class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-[var(--grayscale-30)] text-[10px] font-bold text-[var(--grayscale-50)] hover:text-[var(--primary-120)] hover:border-[var(--primary-120)] no-underline transition-colors shrink-0">?</a>
+                </p>
                 <p class="font-bold text-[28px] tracking-[-0.28px] leading-[1.2] m-0"
                    th:classappend="${kevUnaddressed > 0} ? 'text-[var(--risk-critical)]' : 'text-[var(--grayscale-100)]'"
                    th:text="${kevUnaddressed}">0</p>

@@ -81,6 +81,9 @@ public class ScanIngestService {
                     .build());
         }
 
+        // Capture the requester's UI locale so async AI enrichment answers in their language.
+        scanResult.recordAiLocale(
+                org.springframework.context.i18n.LocaleContextHolder.getLocale().getLanguage());
         scanResult.startScanning();
         scanResultRepository.save(scanResult);
 

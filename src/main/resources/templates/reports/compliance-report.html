@@ -37,7 +37,16 @@
             cursor: pointer; letter-spacing: -0.13px;
         }
         .print-btn:hover { background: #008a7e; }
-        @media screen { .page { margin-top: 48px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); } }
+        /* 48px clears the fixed toolbar; the extra 32px keeps the preview from sitting flush against it. */
+        @media screen {
+            .page {
+                margin-top: calc(48px + 32px);
+                margin-bottom: 40px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+                border-radius: 8px;
+                overflow: hidden;
+            }
+        }
 
         .report-header { background: var(--background-dark); padding: 24px 32px 20px; }
         .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
