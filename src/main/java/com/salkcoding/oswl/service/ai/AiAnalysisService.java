@@ -166,6 +166,57 @@ public class AiAnalysisService {
         return delegatePlainText(prompt, setting, "version.diff");
     }
 
+    /** F2: posture + security-trend + license-trend + version-diff folded into one AI call. */
+    public record CombinedInsights(String posture, String securityTrend, String licenseTrend, String versionDiff) {}
+
+    /**
+     * F2: one JSON call producing all 4 free-form scan-level insights instead of 4 separate
+     * prose calls. {@code hasHistory=false} (project's first scan) omits the trend/diff
+     * arguments and uses the reduced posture-only schema/response. A partial parse (some
+     * fields present, others missing) still returns those fields — the caller (block 3 of
+     * {@code VulnerabilityEnrichmentService.enrichWithAiBody}) persists whichever insights
+     * came back and leaves the rest untouched, same "partial success is still success"
+     * philosophy as the CVE/license batch chunking (C1).
+     */
+    @Transactional(readOnly = true)
+    public CombinedInsights generateCombinedInsights(String projectName,
+            AiEnrichmentContextBuilder.PostureContext posture, boolean hasHistory,
+            int secDelta, int licDelta, String recentVersions, String secChangeDetails, String licChangeDetails,
+            String fromVersion, String toVersion, int added, int removed, int updated, int newThreats,
+            String threatDetails) {
+        AiSetting setting = getActiveSetting();
+        if (setting == null) return null;
+        String prompt = promptTemplates.combinedInsightsPrompt(projectName, posture, hasHistory,
+                secDelta, licDelta, recentVersions, secChangeDetails, licChangeDetails,
+                fromVersion, toVersion, added, removed, updated, newThreats, threatDetails);
+        // JSON response — never streamed to the D2 live preview (raw partial JSON is
+        // meaningless as a user-facing preview, same reasoning as the CVE/license batches).
+        String response = delegate(prompt, setting, "insights.combined");
+        Map<String, String> parsed = parseCombinedInsightsResponse(response);
+        if (parsed.isEmpty()) return null;
+        return new CombinedInsights(
+                AiResponseSanitizer.sanitizePlainText(parsed.get("posture")),
+                AiResponseSanitizer.sanitizePlainText(parsed.get("securityTrend")),
+                AiResponseSanitizer.sanitizePlainText(parsed.get("licenseTrend")),
+                AiResponseSanitizer.sanitizePlainText(parsed.get("versionDiff")));
+    }
+
+    private Map<String, String> parseCombinedInsightsResponse(String response) {
+        if (response == null || response.isBlank()) return Map.of();
+        try {
+            int start = response.indexOf('{');
+            int end = response.lastIndexOf('}');
+            if (start < 0 || end <= start) return Map.of();
+            String json = response.substring(start, end + 1);
+            Map<String, String> parsed = MAPPER.readValue(json, new TypeReference<>() {});
+            parsed.values().removeIf(v -> v == null || v.isBlank());
+            return parsed;
+        } catch (Exception e) {
+            log.warn("[AI] insights.combined parse failed: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
     @Transactional(readOnly = true)
     public boolean isAiConfigured() {
         return aiSettingRepository.findByActiveTrue().isPresent();
