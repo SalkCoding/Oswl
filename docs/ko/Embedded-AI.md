@@ -6,7 +6,7 @@
 
 ## 동작 방식
 
-* OsWL이 **모델 디렉터리**(기본값 `./embedded-ai`)에서 `llama-server`를 실행하고 `/health`에 응답할 때까지 기다립니다. 디렉터리가 비어 있는 상태로 최초 시작하면 인터넷에서 기본 Qwen3 모델을 먼저 다운로드합니다(최초 1회, 약 1.2GB) — **폐쇄망** 환경이라면 미리 직접 `.gguf` 파일을 넣어두세요([요구 사항 및 디렉터리 구조](#요구-사항-및-디렉터리-구조) 참고).
+* OsWL이 **모델 디렉터리**(기본값 `./embedded-ai`)에서 `llama-server`를 실행하고 `/health`에 응답할 때까지 기다립니다. `.gguf` 파일이 아직 없다면 부팅 직후 백그라운드에서 기본 Qwen3 모델 다운로드가 자동으로 시작됩니다(최초 1회, 약 1.2GB) — 그래서 Settings에서 **시작**을 누를 때는 이미 다 받아져 있거나 다운로드가 진행 중인 경우가 많습니다. `oswl.ai.embedded.auto-download-on-boot=false`로 설정하면 예전처럼 시작 버튼을 눌러야만 다운로드가 시작됩니다. **폐쇄망**(`oswl.airgapped.enabled=true`) 환경에서는 이 백그라운드 다운로드가 절대 실행되지 않으므로 미리 직접 `.gguf` 파일을 넣어두세요([요구 사항 및 디렉터리 구조](#요구-사항-및-디렉터리-구조) 참고).
 * 서버는 **localhost(`127.0.0.1`)에만 바인딩**되므로 다른 기기에서 접근할 수 없습니다.
 * 시작에 성공하면 OsWL이 이 엔드포인트를 **LOCAL** 프로바이더로 저장하고 활성화합니다(활성 프로바이더는 하나뿐이므로 기존 프로바이더는 비활성화됩니다).
 * 내장 AI를 중지하면 LOCAL 프로바이더도 함께 비활성화되어, 죽은 엔드포인트로 AI 호출이 나가는 일이 없습니다.
@@ -27,12 +27,14 @@ embedded-ai/
   qwen3-1.7b-q4_k_m.gguf        — 기본 모델 (Apache 2.0) — 최초 시작 시 자동 다운로드
 ```
 
-디렉터리가 비어 있는 상태로 **시작**을 누르면 Qwen3-1.7B(~1.2GB)를 바로 그 위치로 다운로드하고
-SHA256 체크섬을 검증한 뒤에야 사이드카를 실행합니다 — 카드에 실시간 다운로드 진행률이 표시되며,
-`java -jar app.jar`만으로 전 과정이 끝납니다. 별도 스크립트나 빌드 단계가 필요 없습니다. 이렇게
-할 수 있는 이유는 Qwen3가 Apache 2.0 라이선스이기 때문입니다
-([THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf) 참고) — 사용자를
-대신해 받아오는 데 별도 재배포 의무가 없습니다.
+디렉터리가 비어 있으면 Qwen3-1.7B(~1.2GB)를 바로 그 위치로 다운로드합니다 — 부팅 직후 자동으로
+시작되거나, 아직 안 끝났다면 **시작**을 누르는 즉시 — SHA256 체크섬을 검증한 뒤에야 사이드카를
+실행합니다. 카드에 실시간 다운로드 진행률이 표시되며, `java -jar app.jar`만으로 전 과정이
+끝납니다. 별도 스크립트나 빌드 단계가 필요 없습니다. 이렇게 할 수 있는 이유는 Qwen3가 Apache 2.0
+라이선스이기 때문입니다([THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)
+참고) — 사용자를 대신해 받아오는 데 별도 재배포 의무가 없습니다. 모델은 기본적으로 OsWL 자체의
+[GitHub Release 자산](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)에서
+다운로드되며, 접근할 수 없으면 원본 Hugging Face 호스트로 자동 폴백합니다.
 
 다른 `.gguf` 모델도 직접 넣어 쓸 수 있습니다 — OsWL은 기본 Qwen3뿐 아니라 이 디렉터리에 직접
 넣은 모든 `.gguf` 파일을 인식합니다. 재배포하거나 공유하기 전에 해당 모델 자체의 라이선스를
@@ -49,7 +51,11 @@ SHA256 체크섬을 검증한 뒤에야 사이드카를 실행합니다 — 카�
 |---|---|---|---|
 | `oswl.ai.embedded.dir` | `OSWL_EMBEDDED_AI_DIR` | `embedded-ai` | 모델 디렉터리 (작업 디렉터리 기준 상대 경로) |
 | `oswl.ai.embedded.port` | `OSWL_EMBEDDED_AI_PORT` | `11435` | 사이드카가 사용할 localhost 포트 |
-| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `4096` | `llama-server -c`에 전달되는 컨텍스트 크기 |
+| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | `llama-server -c`에 전달되는 컨텍스트 크기 |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL의 `models-v1` GitHub Release 자산 | 기본 Qwen3 모델의 1차 다운로드 소스 |
+| `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | (THIRD_PARTY_LICENSES.md 참고) | 기대 SHA256 — URL과 항상 함께 변경 |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | 원본 Hugging Face URL | 1차 URL 실패 시 1회 재시도 |
+| `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 부팅 시 백그라운드로 기본 모델을 미리 받음; `oswl.airgapped.enabled=true`면 절대 실행 안 함 |
 
 ---
 
