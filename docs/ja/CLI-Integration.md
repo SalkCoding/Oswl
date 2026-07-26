@@ -151,9 +151,13 @@ curl -s -X POST https://oswl.example.com/api/scan/parse \
 {
   "ecosystem": "MAVEN",
   "componentCount": 128,
-  "components": [ … ]
+  "components": [
+    { "name": "org.springframework:spring-core", "version": "6.1.4", "ecosystem": "MAVEN" }
+  ]
 }
 ```
+
+（`components` には解析された全128件が入ります — 上記は簡略化のため1件のみ表示）
 
 ### ステップ 2 — スキャン送信
 
