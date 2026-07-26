@@ -15,12 +15,17 @@ import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Receives a CLI scan payload, saves ScanComponents (linked to shared Library rows),
@@ -87,10 +92,14 @@ public class ScanIngestService {
         scanResult.startScanning();
         scanResultRepository.save(scanResult);
 
-        // Save ScanComponents — upsert Library rows as needed
-        if (payload.getComponents() != null) {
+        // Save ScanComponents — resolve all Library rows with one bulk query first (A6)
+        if (payload.getComponents() != null && !payload.getComponents().isEmpty()) {
+            Map<LibraryKey, Library> librariesByKey = resolveLibraries(payload.getComponents());
+
+            List<ScanComponent> scanComponents = new ArrayList<>();
+            List<DependencyPath> dependencyPaths = new ArrayList<>();
             for (ScanPayload.ComponentPayload cp : payload.getComponents()) {
-                Library library = findOrCreateLibrary(cp);
+                Library library = librariesByKey.get(keyOf(cp));
                 ScanComponent sc = ScanComponent.builder()
                         .scanResult(scanResult)
                         .library(library)
@@ -99,7 +108,7 @@ public class ScanIngestService {
                         .reviewed(false)
                         .ignored(false)
                         .build();
-                scanComponentRepository.save(sc);
+                scanComponents.add(sc);
 
                 // Persist full dependency path trees if the CLI sent them
                 if (cp.getDependencyPaths() != null && !cp.getDependencyPaths().isEmpty()) {
@@ -110,7 +119,7 @@ public class ScanIngestService {
                                 .map(n -> new DependencyPath.PathNode(
                                         n.getName(), n.getVersion()))
                                 .toList();
-                        dependencyPathRepository.save(DependencyPath.builder()
+                        dependencyPaths.add(DependencyPath.builder()
                                 .scanComponent(sc)
                                 .pathIndex(pathIdx++)
                                 .pathNodes(nodes)
@@ -119,6 +128,9 @@ public class ScanIngestService {
                     }
                 }
             }
+            // Chunked bulk save — ScanComponents first so DependencyPaths can reference their IDs
+            saveInChunks(scanComponentRepository, scanComponents);
+            saveInChunks(dependencyPathRepository, dependencyPaths);
         }
 
         log.info("[ScanIngest] projectId={} scanId={} version={} components={} rescan={} status=SCANNING — enrichment pending",
@@ -150,11 +162,70 @@ public class ScanIngestService {
 
     // ── Internal ─────────────────────────────────────────────────────────
 
-    private Library findOrCreateLibrary(ScanPayload.ComponentPayload cp) {
-        String eco = cp.getEcosystem().toUpperCase();
-        return libraryRepository
-                .findByNameAndVersionAndEcosystem(cp.getName(), cp.getVersion(), eco)
-                .orElseGet(() -> createLibrary(cp, eco));
+    private static final int SAVE_CHUNK_SIZE = 500;
+
+    /** Natural key of a shared Library row: (name, version, ecosystem-uppercase). */
+    private record LibraryKey(String name, String version, String ecosystem) {}
+
+    private static LibraryKey keyOf(ScanPayload.ComponentPayload cp) {
+        return new LibraryKey(cp.getName(), cp.getVersion(), cp.getEcosystem().toUpperCase());
+    }
+
+    /**
+     * Resolves every distinct (name, version, ecosystem) key in the payload to a Library row:
+     * one name-IN bulk query filtered down to exact keys in memory, then a single saveAll()
+     * for the rows that do not exist yet.
+     */
+    private Map<LibraryKey, Library> resolveLibraries(List<ScanPayload.ComponentPayload> components) {
+        Map<LibraryKey, ScanPayload.ComponentPayload> distinctByKey = new LinkedHashMap<>();
+        for (ScanPayload.ComponentPayload cp : components) {
+            distinctByKey.putIfAbsent(keyOf(cp), cp);
+        }
+
+        Map<LibraryKey, Library> resolved = new HashMap<>();
+        List<String> names = distinctByKey.keySet().stream().map(LibraryKey::name).distinct().toList();
+        for (Library library : libraryRepository.findByNameIn(names)) {
+            LibraryKey key = new LibraryKey(library.getName(), library.getVersion(), library.getEcosystem());
+            if (distinctByKey.containsKey(key)) {
+                resolved.put(key, library);
+            }
+        }
+
+        Map<LibraryKey, ScanPayload.ComponentPayload> missingByKey = new LinkedHashMap<>(distinctByKey);
+        missingByKey.keySet().removeAll(resolved.keySet());
+        if (!missingByKey.isEmpty()) {
+            for (Library library : createLibraries(missingByKey)) {
+                resolved.put(new LibraryKey(library.getName(), library.getVersion(), library.getEcosystem()), library);
+            }
+        }
+        return resolved;
+    }
+
+    /**
+     * Inserts the missing Library rows in one saveAll(). When a concurrent ingest commits the same
+     * (name, version, ecosystem) first, the unique constraint violation is caught and each row goes
+     * through the original per-row save + re-read fallback, so the winner's row is reused (once)
+     * instead of failing the scan with a 500.
+     */
+    private List<Library> createLibraries(Map<LibraryKey, ScanPayload.ComponentPayload> missingByKey) {
+        List<Library> missing = missingByKey.entrySet().stream()
+                .map(e -> Library.builder()
+                        .name(e.getValue().getName())
+                        .version(e.getValue().getVersion())
+                        .ecosystem(e.getKey().ecosystem())
+                        .licenseStatus(LicenseStatus.UNKNOWN)
+                        .build())
+                .toList();
+        try {
+            libraryRepository.saveAll(missing);
+            return missing;
+        } catch (DataIntegrityViolationException duplicate) {
+            List<Library> created = new ArrayList<>(missingByKey.size());
+            for (Map.Entry<LibraryKey, ScanPayload.ComponentPayload> e : missingByKey.entrySet()) {
+                created.add(createLibrary(e.getValue(), e.getKey().ecosystem()));
+            }
+            return created;
+        }
     }
 
     /**
@@ -175,6 +246,13 @@ public class ScanIngestService {
             return libraryRepository
                     .findByNameAndVersionAndEcosystem(cp.getName(), cp.getVersion(), eco)
                     .orElseThrow(() -> duplicate);
+        }
+    }
+
+    /** Persists in fixed-size chunks so a large payload does not build one giant saveAll() batch. */
+    private <T> void saveInChunks(JpaRepository<T, ?> repository, List<T> entities) {
+        for (int from = 0; from < entities.size(); from += SAVE_CHUNK_SIZE) {
+            repository.saveAll(entities.subList(from, Math.min(from + SAVE_CHUNK_SIZE, entities.size())));
         }
     }
 }
