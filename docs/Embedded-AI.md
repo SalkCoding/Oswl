@@ -6,7 +6,7 @@ Embedded AI lets OsWL run a local LLM out of the box — no cloud account, no AP
 
 ## How It Works
 
-* OsWL launches `llama-server` from a **model directory** (default `./embedded-ai`) and waits until it answers `/health`. On first Start with an empty directory, it first downloads the default Qwen3 model over the internet (one-time, ~1.2 GB) — on an **air-gapped** machine, place a `.gguf` file there yourself beforehand instead (see [Requirements & Directory Layout](#requirements--directory-layout)).
+* OsWL launches `llama-server` from a **model directory** (default `./embedded-ai`) and waits until it answers `/health`. If no `.gguf` is present yet, OsWL starts downloading the default Qwen3 model in the background shortly after boot (one-time, ~1.2 GB) — so by the time you visit Settings and click **Start**, the model is often already there or partway through downloading, instead of the download starting only once you click. Set `oswl.ai.embedded.auto-download-on-boot=false` to go back to download-on-click-Start only. On an **air-gapped** machine (`oswl.airgapped.enabled=true`), this background download never runs — place a `.gguf` file there yourself beforehand instead (see [Requirements & Directory Layout](#requirements--directory-layout)).
 * The server binds **localhost only** (`127.0.0.1`) — it is never reachable from other machines.
 * On a successful start, OsWL saves the endpoint as the **LOCAL** provider and activates it (any other active provider is deactivated, as only one provider is active at a time).
 * Stopping Embedded AI also deactivates the LOCAL provider so AI calls do not fail against a dead endpoint.
@@ -27,12 +27,16 @@ embedded-ai/
   qwen3-1.7b-q4_k_m.gguf        — default model (Apache 2.0) — auto-downloaded on first Start
 ```
 
-Clicking **Start** with the directory empty downloads Qwen3-1.7B (~1.2 GB) straight into it,
-verifies the SHA256 checksum, and only then launches the sidecar — the card shows live
+With the directory empty, OsWL downloads Qwen3-1.7B (~1.2 GB) straight into it — starting
+automatically shortly after boot, or immediately on clicking **Start** if it hasn't finished
+yet — verifies the SHA256 checksum, and only then launches the sidecar. The card shows live
 download progress, and the whole thing runs from just `java -jar app.jar`, no separate
 script or build step needed. This is safe because Qwen3 is Apache 2.0 licensed (see
 [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)) — bundling/fetching it
-on the user's behalf carries no extra redistribution obligation.
+on the user's behalf carries no extra redistribution obligation. The model is downloaded from
+OsWL's own [GitHub Release asset](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)
+by default, falling back automatically to the original upstream Hugging Face host if that's
+unreachable.
 
 You can drop in any other `.gguf` model yourself — OsWL picks up every `.gguf` file placed
 directly in this directory, not just the default Qwen3 one. Check the model's own license
@@ -49,7 +53,11 @@ Configuration defaults (a folder saved in the UI takes precedence over `dir`):
 |---|---|---|---|
 | `oswl.ai.embedded.dir` | `OSWL_EMBEDDED_AI_DIR` | `embedded-ai` | Model directory (relative to the working directory) |
 | `oswl.ai.embedded.port` | `OSWL_EMBEDDED_AI_PORT` | `11435` | localhost port for the sidecar |
-| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `4096` | Context window passed to `llama-server -c` |
+| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | Context window passed to `llama-server -c` |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL's `models-v1` GitHub Release asset | Primary download source for the default Qwen3 model |
+| `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | (see THIRD_PARTY_LICENSES.md) | Expected SHA256 — always change together with the URL |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Original Hugging Face URL | Retried once if the primary URL fails |
+| `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | Prefetch the default model in the background on boot; never runs when `oswl.airgapped.enabled=true` |
 
 ---
 
