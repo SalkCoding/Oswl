@@ -50,7 +50,16 @@
             cursor: pointer; letter-spacing: -0.13px;
         }
         .print-btn:hover { background: #008a7e; }
-        @media screen { .page { margin-top: 48px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); } }
+        /* 48px clears the fixed toolbar; the extra 32px keeps the preview from sitting flush against it. */
+        @media screen {
+            .page {
+                margin-top: calc(48px + 32px);
+                margin-bottom: 40px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+                border-radius: 8px;
+                overflow: hidden;
+            }
+        }
         /* Header */
         .report-header { background: var(--background-dark); padding: 24px 32px 20px; }
         .header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
@@ -417,10 +426,7 @@
 
 </div>
 
-<script>
-    window.addEventListener('load', function () {
-        setTimeout(function () { window.print(); }, 400);
-    });
-</script>
+<!-- No auto window.print(): the page opens as a preview so the reader can check the report first
+     and print deliberately via the "Save as PDF" button in the toolbar. -->
 </body>
 </html>

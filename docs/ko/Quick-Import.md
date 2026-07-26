@@ -68,6 +68,16 @@ OsWL이 제공업체 API로 토큰을 즉시 검증합니다. 토큰은 **저장
 
 ---
 
+## SBOM으로 가져오기 (v1.0.4)
+
+소스를 클론할 수 없는 경우 — 협력사 납품물, 컨테이너 베이스 이미지, 다른 도구가 만든 SBOM — 해당 CycloneDX 파일을 업로드하면 됩니다.
+
+**Quick Import → SBOM 가져오기** 또는 `POST /api/sbom/import` (multipart).
+
+컴포넌트는 CycloneDX `components` 배열의 `purl`로 읽어들이며, 이후 클론 스캔과 완전히 동일하게 보강됩니다 — CVE, 라이선스, KEV / EPSS, 공급망 배지가 모두 적용됩니다.
+
+---
+
 ## 브랜치 재임포트
 
 동일 저장소/브랜치를 다시 임포트하면 새 스캔 결과가 생성됩니다. [버전 비교](Version-Diff.md)와 [위험 추세](Risk-Trend.md)에서 비교하세요.

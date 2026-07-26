@@ -90,6 +90,18 @@ public class Library {
     @Column(name = "scorecard_score")
     private Double scorecardScore;
 
+    /** Upstream project blurb (what the library is for), from the deps.dev project record. */
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    /** Project homepage / documentation site; null when upstream publishes none. */
+    @Column(name = "homepage", length = 500)
+    private String homepage;
+
+    /** Source repository URL (e.g. {@code https://github.com/owner/repo}); null when unknown. */
+    @Column(name = "source_repo_url", length = 500)
+    private String sourceRepoUrl;
+
     /** True when OSV flags this package version as malicious (a {@code MAL-} advisory). */
     // columnDefinition supplies a DB default so ddl-auto=update can add this NOT NULL column to an existing populated table.
     @Column(name = "malicious", nullable = false, columnDefinition = "boolean default false")
@@ -128,6 +140,17 @@ public class Library {
 
     public void updateAiLicenseSummary(String summary) {
         this.aiLicenseSummary = summary;
+    }
+
+    /**
+     * Stores upstream identity metadata. Each field is only overwritten when a non-blank value
+     * is supplied, so a later lookup that returns partial data cannot blank out what an earlier
+     * one resolved.
+     */
+    public void updateProjectMetadata(String description, String homepage, String sourceRepoUrl) {
+        if (description != null && !description.isBlank())     this.description = description.strip();
+        if (homepage != null && !homepage.isBlank())           this.homepage = homepage.strip();
+        if (sourceRepoUrl != null && !sourceRepoUrl.isBlank()) this.sourceRepoUrl = sourceRepoUrl.strip();
     }
 
     public void updateScorecardScore(Double scorecardScore) {

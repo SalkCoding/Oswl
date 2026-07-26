@@ -10,6 +10,7 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 
 | Page | What you'll find |
 |---|---|
+| [What's New in v1.0.4](Whats-New-v1.0.4.md) | SBOM / VEX / SARIF export, CI gate, continuous monitoring, org dashboard, air-gapped mode |
 | [Getting Started](Getting-Started.md) | System requirements, installation, setup wizard, first login |
 | [User Guide](User-Guide.md) | Projects dashboard, scan cards, trash, filters |
 | [Quick Import](Quick-Import.md) | Connecting GitHub / GitLab / Bitbucket, branch import |
@@ -26,6 +27,8 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 | [Scan API security](Scan-Api-Security.md) | How CLI scan submission is protected |
 | [API Reference](API-Reference.md) | Full REST endpoint catalogue |
 | [Glossary](Glossary.md) | Definitions of all OsWL terms |
+
+> Korean documentation lives in [`docs/ko/`](ko/Home.md); Japanese documentation lives in [`docs/ja/`](ja/Home.md).
 
 ---
 

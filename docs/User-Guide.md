@@ -81,12 +81,15 @@ Click any component (library) in the Security Center or License view to open the
 It shows:
 
 * Full name, version, and ecosystem
-* CVE list with CVSS score, description, and fix version
+* A **project description**, homepage, and source repository link pulled from the upstream deps.dev project record — populated during enrichment at no extra API cost, since the same call already fetches the OpenSSF Scorecard
+* CVE list with CVSS score, description, and fix version, visually grouped under a **Security Issues** heading separate from the license/version badges above it
 * License name and compliance status
 * AI-generated license risk summary (if AI is configured)
 * Patchability status (Patchable / Non-Patchable / Unknown)
 * Latest available version and deprecation notice (from deps.dev)
 * Dependency path (how the component is pulled in)
+
+If no upstream description is published for a package, the panel says so explicitly and points to the source-repo link instead of showing nothing.
 
 ---
 

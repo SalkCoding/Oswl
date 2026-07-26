@@ -48,7 +48,16 @@
     "gitTag": "GitHub · GitLab · Bitbucket",
     "cliTitle": "CLI & CI/CD 파이프라인 스캔",
     "cliDesc": "단일 CLI 명령으로 모든 빌드 파이프라인에 OsWL을 통합합니다. 파싱된 매니페스트 메타데이터만 업로드되며 소스 코드는 빌드 호스트를 벗어나지 않습니다. 프로젝트별 또는 조직 전체 Bearer 토큰 API 키를 지원합니다.",
-    "cliTag": "매니페스트 전용 업로드"
+    "cliTag": "매니페스트 전용 업로드",
+    "sbomTitle": "CycloneDX SBOM & VEX",
+    "sbomDesc": "CycloneDX 1.6 SBOM, 트리아지 판단이 담긴 VEX 문서, 코드 스캐닝 대시보드용 SARIF 리포트로 내보낼 수 있습니다. 직접 빌드하지 않는 컴포넌트는 외부 CycloneDX 파일을 가져와 스캔하세요.",
+    "sbomTag": "CycloneDX 1.6 · VEX · SARIF 2.1.0",
+    "gateTitle": "Pull Request 정책 게이트",
+    "gateDesc": "프로젝트별로 심각도·라이선스·KEV 기준을 정하면 게이트가 스캔마다 통과/실패를 판정합니다. 결과는 GitHub 체크 런과 PR 코멘트로 게시되며, 새로 발견된 항목만 베이스라인과 비교하므로 기존 부채가 머지를 막지 않습니다.",
+    "gateTag": "베이스라인 비교 · GitHub 체크 런",
+    "orgTitle": "조직 대시보드",
+    "orgDesc": "모든 프로젝트를 한 화면에서 봅니다. KEV 등재·실제 악용 중인 CVE를 먼저 보여주고, 나머지는 EPSS 악용 확률로 순위를 정하며, 라이선스 경고와 SIEM 연동용 감사 로그 내보내기를 제공합니다.",
+    "orgTag": "CISA KEV · EPSS · SIEM 내보내기"
   },
   "platform": {
     "label": "라이브 플랫폼",

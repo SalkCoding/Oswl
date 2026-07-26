@@ -44,6 +44,9 @@ class ProjectServiceTest {
     ScanResultRepository scanResultRepository;
 
     @Mock
+    com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
+
+    @Mock
     ProjectAccessService projectAccessService;
 
     @Mock

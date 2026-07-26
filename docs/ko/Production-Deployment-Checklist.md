@@ -51,7 +51,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 |------|------|
 | 로그 레벨 | `prod`: `com.salkcoding.oswl` **INFO**만; AI/클라이언트 DEBUG 없음 |
 | AI 발췌 | `oswl.ai.debug.log-prompt-excerpt` / `log-response-excerpt` 운영 기본 **false** |
-| Actuator | **`/actuator/health`만** 노출 |
+| Actuator | **`health`, `info`, `prometheus`** 노출 (v1.0.4), 그 외 비활성 (`enabled-by-default: false`) |
+| 메트릭 스크랩 | Prometheus를 `/actuator/prometheus`로 지정 — 스크래퍼도 관리자 인증 필요 |
 | Actuator 인증 | **SYSTEM_ADMIN** 세션 필요 (공개 아님) |
 
 ## 6. 운영에서 활성화되는 보안
@@ -66,6 +67,19 @@ docker compose -f docker-compose.prod.yml up -d --build
 | 변수 | 용도 |
 |------|------|
 | `OSWL_TRUSTED_DEVICE_HMAC_KEY` | `OSWL_TD` 쿠키 전용 HMAC (`OSWL_ENCRYPTION_KEY`와 분리 권장) |
+| `OSWL_OIDC_CLIENT_ID` / `OSWL_OIDC_CLIENT_SECRET` / `OSWL_OIDC_ISSUER_URI` | **v1.0.4** — OIDC 싱글 사인온. `application-prod.yaml`의 `spring.security.oauth2.client` 블록 주석도 해제해야 하며, 프로바이더가 등록된 경우에만 로그인 화면에 SSO 버튼이 표시됩니다. |
+
+### v1.0.4 옵트인 기능
+
+모두 기본 **비활성**입니다 — 필요할 때 명시적으로 켜세요.
+
+| 변수 | 기본값 | 활성화 시 동작 |
+|---|---|---|
+| `OSWL_FLYWAY_ENABLED` | `false` | `baseline-on-migrate` 기반 버전 마이그레이션. 먼저 전체 베이스라인을 생성해야 합니다 |
+| `OSWL_AIRGAPPED_ENABLED` | `false` | 취약점·위협 인텔 조회를 반입된 오프라인 스냅샷에서 처리, 외부 HTTP 없음 |
+| `OSWL_GATE_*` | [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) 참고 | `POST /api/scan/gate`의 기본 임계값 |
+
+예외는 연속 모니터링입니다. `OSWL_MONITORING_ENABLED`가 기본 **`true`**(매일 03:00 OSV 재조회, `OSWL_MONITORING_CRON`)이며 프로젝트 멤버에게 메일을 발송하므로, 최초 기동 전에 SMTP 설정을 확인하거나 `false`로 끄세요.
 
 ## 8. 내장 AI 모델 (선택, 온프레미스)
 
@@ -102,7 +116,24 @@ OsWL **`prod`는 Hibernate `ddl-auto=validate`** — 기동 시 PostgreSQL을 �
 
 마이그레이션 후 앱 재시작, `validate` 통과 확인.
 
-자세한 내용: [데이터베이스 스키마](Database-Schema.md)
+### Flyway (v1.0.4, 옵트인)
+
+`OSWL_FLYWAY_ENABLED=true`로 설정하면 수동 스크립트 대신 Flyway가 스키마를 관리합니다. `baseline-on-migrate`가 켜져 있어 데이터가 있는 기존 DB도 거부되지 않고 베이스라인 처리되지만, **켜기 전에** 현재 스키마와 일치하는 전체 베이스라인 마이그레이션을 만들어 두어야 합니다. 기본값 `false`에서는 아무것도 달라지지 않습니다.
+
+### v1.0.4 신규 컬럼
+
+`libraries.malicious`, `libraries.typosquat_risk`가 추가되며 둘 다 `NOT NULL DEFAULT false`입니다. 기본값 덕분에 데이터가 있는 테이블에도 추가할 수 있지만, `prod`(`ddl-auto: validate`)에서는 직접 적용해야 합니다. 또한 컴포넌트 상세에 표시되는 업스트림 프로젝트 메타데이터용으로 nullable한 `libraries` 컬럼 3개(`description`, `homepage`, `source_repo_url`)도 추가됩니다 — `validate`는 nullable 여부와 무관하게 매핑된 모든 컬럼의 존재를 확인하므로, 이 컬럼들도 동일하게 수동으로 추가해야 합니다.
+
+```sql
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS malicious        boolean NOT NULL DEFAULT false;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS typosquat_risk   boolean NOT NULL DEFAULT false;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS description      text;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS homepage         varchar(500);
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS source_repo_url  varchar(500);
+ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
+```
+
+（Flyway 사용자: 새로운 `libraries` 컬럼 3개는 `V3__component_metadata.sql`에서 처리됩니다. [데이터베이스 스키마](Database-Schema.md) 참고.）
 
 ## 10. 배포 후 스모크 테스트
 

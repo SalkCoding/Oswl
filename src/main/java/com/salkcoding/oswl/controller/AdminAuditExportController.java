@@ -21,7 +21,7 @@ import java.util.Locale;
  */
 @RestController
 @RequestMapping("/api/admin/audit-logs")
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
+@PreAuthorize("hasPermission(null, 'AUDIT_LOG_EXPORT') or hasRole('SYSTEM_ADMIN')")
 @RequiredArgsConstructor
 public class AdminAuditExportController implements AdminAuditExportControllerSpec {
 

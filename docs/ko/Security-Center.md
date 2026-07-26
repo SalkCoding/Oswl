@@ -4,7 +4,7 @@
 
 URL: `/projects/{id}/security-center`
 
-**접근:** `SECURITY_CENTER_VIEW`(또는 시스템 관리자) 및 [프로젝트 멤버십](Authorization-Layers.md) 필요. 보내기·인쇄는 `SECURITY_CENTER_EXPORT`, 상태 변경은 `SECURITY_CENTER_UPDATE_STATUS`.
+**접근:** `SECURITY_CENTER_VIEW`(또는 시스템 관리자) 및 [프로젝트 멤버십](Authorization-Layers.md) 필요. 내보내기·인쇄는 `SECURITY_CENTER_EXPORT`, 상태 변경은 `SECURITY_CENTER_UPDATE_STATUS`.
 
 ---
 
@@ -80,15 +80,38 @@ OsWL은 표준 CVSS 3.x 구간에 따라 기본 점수를 심각도로 분류합
 
 ---
 
+## 내보내기 (v1.0.4)
+
+액션 툴바의 **내보내기** 드롭다운은 가장 최근 완료 스캔을 기준으로 표준 산출물을 생성합니다.
+
+| 항목 | 엔드포인트 | 포맷 |
+|---|---|---|
+| SBOM (CycloneDX) | `GET /api/projects/{projectId}/sbom` | CycloneDX 1.6 JSON |
+| VEX | `GET /api/projects/{projectId}/vex` | CycloneDX VEX — 트리아지 판단 포함 |
+| SARIF | `GET /api/projects/{projectId}/sarif` | SARIF 2.1.0, GitHub 코드 스캐닝 업로드 가능 |
+| 컴플라이언스 리포트 | `GET /security-center/compliance-report` | 인쇄용 HTML (*인쇄 → PDF로 저장* 사용) |
+| CVE / 라이선스 CSV | — | 현재 필터가 적용된 목록 |
+
+일괄 작업에는 선택한 컴포넌트를 모두 수정 버전으로 올리는 **업그레이드 PR 생성**도 포함됩니다.
+
+자세한 내용은 [v1.0.4 새로운 기능](Whats-New-v1.0.4.md)을 참고하세요.
+
+---
+
 ## 컴포넌트 상세
 
 컴포넌트 이름을 클릭하면 **컴포넌트 상세** 사이드 패널이 열립니다:
 
-* 해당 라이브러리의 모든 CVE (전체 CVSS 분석 포함)
+* deps.dev 프로젝트 레코드를 기반으로 한 라이브러리 설명, 홈페이지/소스 저장소 링크
+* 해당 라이브러리의 모든 CVE (전체 CVSS 분석 포함) — 위쪽 배지와 구분된 **보안 취약점** 영역에 그룹화
 * 라이선스 이름 및 컴플라이언스 상태
 * AI 생성 라이선스 리스크 요약
 * 최신 버전 및 지원 중단 공지
 * 전체 의존성 경로 (직접 vs. 전이적)
+* **OpenSSF Scorecard** 점수, 공급망 휴리스틱이 표시한 **악성 패키지** / **typosquat 위험** 배지 (v1.0.4)
+* Jira 연동이 구성된 경우 **Jira 이슈 생성** 버튼 (v1.0.4). 생성 후에는 배지가 바로 해당 Jira 이슈로 연결되며, 생성에 실패하면 앱 전반에서 쓰이는 것과 동일한 스타일의 토스트로 실패 사유가 표시됩니다
+
+접힌 상태에서는 긴 CVE 설명이 축약되지만, 행을 클릭해 펼치면 어드바이저리 전문이 표시됩니다. 왜 취약점인지 항상 확인할 수 있습니다.
 
 패널에서 **패치 적용 (PR 생성)**과 **조치 연기**도 실행할 수 있습니다. 조치 연기는 사유와 만료 기간(1주 / 1·3·6개월 / 직접 지정 / 무기한)을 기록합니다. 직접 지정 날짜는 **미래 날짜**여야 합니다 — 과거이거나 형식이 잘못되면 HTTP 400으로 거부되며, 날짜 선택기도 내일부터만 고를 수 있습니다.
 
@@ -129,5 +152,12 @@ CVE 데이터는 두 출처에서 가져와 병합됩니다:
 * **OSV** (Open Source Vulnerabilities) — `POST https://api.osv.dev/v1/querybatch`로 요약, 수정 버전, **CWE ID**(`database_specific.cwe_ids`) 조회
 
 CWE 식별자(예: `CWE-79`)는 OSV가 제공할 때 컴포넌트 상세 패널에 표시됩니다.
+
+v1.0.4부터 우선순위 판단용 피드 두 개가 함께 병합됩니다.
+
+* **CISA KEV** — *Known Exploited Vulnerabilities* 목록. KEV 등재는 실제 공격 사용이 확인되었다는 뜻이므로 트리아지 순서에서 CVSS 점수보다 우선합니다.
+* **EPSS** (FIRST.org) — 향후 30일 내 악용 확률로, KEV에 없는 항목의 순위를 정하는 데 사용됩니다.
+
+test/dev 전용 의존성은 scope가 태그로 붙고 목록에서 숨길 수 있어 운영 리스크가 드러납니다. 제거가 아니라 태그이므로 SBOM에서는 아무것도 사라지지 않습니다.
 
 보강은 각 스캔 후 자동으로 실행되며, **설정 → 캐시**(`/api/settings/cache`) 정책에 따라 갱신됩니다.

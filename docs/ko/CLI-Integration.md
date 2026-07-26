@@ -107,6 +107,34 @@ ScanIngestService → CVE·라이선스 비동기 보강 (OSV / deps.dev)
 | `POST` | `/api/scan/parse` | API key | manifest zip 파싱 → components |
 | `POST` | `/api/scan` | API key + 비밀번호 | 스캔 제출·보강 |
 | `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 (UI) |
+| `POST` | `/api/scan/gate` | API 키 | **v1.0.4** — PR / CI 보안 게이트, `exitCode`가 담긴 판정 반환 |
+| `GET` | `/api/projects/{projectId}/sbom` | 세션 / 키 | **v1.0.4** — CycloneDX 1.6 SBOM |
+| `GET` | `/api/projects/{projectId}/vex` | 세션 / 키 | **v1.0.4** — CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | 세션 / 키 | **v1.0.4** — SARIF 2.1.0 |
+| `POST` | `/api/sbom/import` | 세션 | **v1.0.4** — 외부 CycloneDX 파일 가져오기 |
+
+### 보안 게이트 (v1.0.4)
+
+`POST /api/scan/gate`는 프로젝트의 최신 스캔을 기준으로 임계값을 평가해 기계 판독 가능한 판정을 반환합니다. `exitCode`를 CI 잡의 종료 코드로 사용하세요(`0` 통과, `1` 실패).
+
+```bash
+verdict=$(curl -sS -X POST "$OSWL_URL/api/scan/gate"   -H "Authorization: Bearer $OSWL_API_KEY"   -H 'Content-Type: application/json'   -d '{"failOnSeverity":"HIGH","onlyNew":true}')
+
+echo "$verdict"
+exit "$(echo "$verdict" | jq -r .exitCode)"
+```
+
+서버 기본값(요청별 재정의 가능):
+
+| 필드 | 환경 변수 | 기본값 |
+|---|---|---|
+| `failOnSeverity` | `OSWL_GATE_FAIL_ON_SEVERITY` | `HIGH` |
+| `failOnKev` | `OSWL_GATE_FAIL_ON_KEV` | `true` |
+| `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
+| `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
+| `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+
+`onlyNew`는 직전 완료 스캔을 베이스라인으로 비교하므로 기존 부채가 머지를 막지 않습니다. 요청에 GitHub 대상을 포함하면 판정이 Check Run과 PR 코멘트로도 게시됩니다.
 
 > CLI 엔드포인트는 `Authorization: Bearer` 헤더만으로 인증하며, 세션 쿠키나 CSRF 토큰은 필요 없습니다. `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`은 브라우저 CSRF 검사에서 제외되고, 그 외 경로는 기존 CSRF 보호가 유지됩니다. [Scan API 보안](Scan-Api-Security.md) 참고.
 
@@ -142,7 +170,42 @@ curl -s -X POST https://oswl.example.com/api/scan/parse \
 
 ### 2단계 — 스캔 제출
 
-`POST /api/scan` — 요청 본문 형식은 [영문 CLI 문서](../CLI-Integration.md)와 동일합니다.
+```
+POST /api/scan
+Authorization: Bearer oswl_<key>
+Content-Type: application/json
+```
+
+```json
+{
+  "version": "1.4.2",
+  "submitterEmail": "dev@company.com",
+  "submitterPassword": "yourpassword",
+  "components": [
+    {
+      "name": "org.springframework:spring-core",
+      "version": "6.1.4",
+      "ecosystem": "MAVEN",
+      "dependencyInfo": "Direct",
+      "dependencyPaths": []
+    }
+  ]
+}
+```
+
+### 필드
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `version` | string | ✅ | 스캔 시점의 프로젝트 버전 |
+| `submitterEmail` | string | ✅ | OsWL 사용자 이메일 |
+| `submitterPassword` | string | ✅ | BCrypt로 검증되며 저장·로그에 남지 않음 |
+| `components` | array | — | 감지된 OSS 컴포넌트 |
+| `components[].name` | string | ✅ | 패키지 이름 |
+| `components[].version` | string | — | 패키지 버전 |
+| `components[].ecosystem` | string | ✅ | `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS`, `COMPOSER`, `CONAN` |
+| `components[].dependencyInfo` | string | — | 사람이 읽을 수 있는 경로 요약 |
+| `components[].dependencyPaths` | array | — | 선택적 경로 트리 |
 
 ### 성공 응답
 
@@ -194,6 +257,8 @@ GET /api/scan/{scanId}/status
 | `CARGO` | `serde` |
 | `NUGET` | `Newtonsoft.Json` |
 | `RUBYGEMS` | `rails` |
+| `COMPOSER` | `monolog/monolog` (v1.0.4) |
+| `CONAN` | `openssl` (v1.0.4) |
 
 ---
 

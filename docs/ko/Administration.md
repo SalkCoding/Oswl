@@ -62,8 +62,8 @@
 | 템플릿 | 용도 |
 |--------|------|
 | **Admin** | 권한 전체 |
-| **Developer** | 스캔·분석·조치, 라이선스 보기/보내기, VCS·CLI 키 |
-| **Viewer** | 읽기 전용·보내기 |
+| **Developer** | 스캔·분석·조치, 라이선스 조회/내보내기, VCS·CLI 키 |
+| **Viewer** | 읽기 전용·내보내기 가능 |
 
 역할 템플릿(레이어 A)과 프로젝트 멤버십(레이어 B)은 별개입니다. [권한 레이어](Authorization-Layers.md) 참고.
 
@@ -94,6 +94,13 @@
 | `SETTINGS_CLI_KEY_MANAGE` | 프로젝트 CLI API 키 관리 |
 | `SETTINGS_CACHE_MANAGE` | 캐시 설정 관리 |
 | `SETTINGS_SECURITY_MANAGE` | SMTP 및 2FA 설정 구성 |
+| `ORG_DASHBOARD_VIEW` | **v1.0.4** — 조직 대시보드(`/org-dashboard`) 조회 |
+| `AUDIT_LOG_VIEW` | **v1.0.4** — 감사 로그 조회 |
+| `AUDIT_LOG_EXPORT` | **v1.0.4** — SIEM 적재용 감사 로그 내보내기 |
+| `SETTINGS_JIRA_MANAGE` | **v1.0.4** — Jira 연동 관리 |
+| `SETTINGS_SNAPSHOT_MANAGE` | **v1.0.4** — 오프라인 스냅샷 번들 관리 |
+
+> v1.0.4의 5개 권한은 기존 역할 템플릿에 자동 추가되지 **않으므로** 미부여 상태로 시작합니다. 필요한 역할에만 명시적으로 부여하세요 — 특히 `AUDIT_LOG_EXPORT`는 감사 기록을 플랫폼 외부로 내보내는 권한입니다.
 
 ### 템플릿 생성
 
@@ -179,6 +186,10 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 
 **CSV 내보내기**를 클릭하면 현재 필터링된 뷰를 CSV 파일로 다운로드합니다.
 
+**SIEM 내보내기 (v1.0.4)** — `GET /api/admin/audit-logs/export?format=jsonl|cef`는 동일한 필터 결과를 SIEM에 바로 적재 가능한 포맷(기본 JSON Lines, 또는 ArcSight CEF)으로 스트리밍합니다. `AUDIT_LOG_EXPORT` 권한이 필요하며, 내보내기 행위 자체가 `AUDIT_LOG.EXPORT`로 기록됩니다.
+
+v1.0.4의 작업 코드는 필터 UI에서 **모니터링**(`MONITOR.*`), **연동**(`JIRA.SETTINGS_UPDATE`), **관리**(`ORG_DASHBOARD.VIEW`, `AUDIT_LOG.EXPORT`, `SNAPSHOT.IMPORT` / `SNAPSHOT.EXPORT`)로 그룹화되며, 신규 내보내기·게이트 코드(`SBOM.EXPORT`, `VEX.EXPORT`, `SARIF.EXPORT`, `COMPLIANCE_REPORT.VIEW`, `GATE.EVALUATE`, `GATE.GITHUB_PUBLISH`, `PROJECT.BATCH_PR`, `SBOM.IMPORT`, `COMPONENT.JIRA_TICKET`)도 함께 제공됩니다.
+
 ### 보존 기간
 
 설정된 보존 기간보다 오래된 감사 레코드는 예약 작업에 의해 자동 삭제됩니다.
@@ -187,6 +198,40 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 |---|---|---|
 | `OSWL_AUDIT_RETENTION_MONTHS` | `6` | 이 기간(월)보다 오래된 레코드 자동 삭제 |
 | `OSWL_AUDIT_MAX_PAGE_SIZE` | `200` | API 페이지당 최대 레코드 수 |
+
+---
+
+## 조직 대시보드 (v1.0.4)
+
+`/org-dashboard`는 모든 프로젝트를 하나의 포트폴리오 화면으로 롤업합니다 — 심각도 총계, 최악 프로젝트 랭킹, KEV 등재 CVE 수, 라이선스 경고.
+
+`ORG_DASHBOARD_VIEW`(또는 `SYSTEM_ADMIN`)가 필요합니다. 권한이 부여되면 프로젝트 목록·프로젝트 상세·버전 비교 화면 상단 바에 진입점이 표시됩니다.
+
+---
+
+## 모니터링 엔드포인트 (v1.0.4)
+
+| 엔드포인트 | 용도 |
+|---|---|
+| `/actuator/health` | 헬스 체크 |
+| `/actuator/info` | 빌드·버전 정보 |
+| `/actuator/prometheus` | Prometheus 스크랩용 micrometer 메트릭 |
+
+세 엔드포인트 모두 관리자 권한이 필요합니다. Prometheus 스크랩 설정은 `application-prod.yaml`의 `management` 블록에 있습니다.
+
+---
+
+## 오프라인 스냅샷 번들 (v1.0.4)
+
+폐쇄망 환경(`OSWL_AIRGAPPED_ENABLED=true`)에서는 취약점·위협 인텔 데이터가 라이브 API 대신 반입된 스냅샷에서 제공됩니다.
+
+| 작업 | 엔드포인트 |
+|---|---|
+| 번들 상태 | `GET /api/admin/snapshot` |
+| 반입 | `POST /api/admin/snapshot/import` (multipart) |
+| 내보내기 | `GET /api/admin/snapshot/export` |
+
+`SYSTEM_ADMIN` 또는 `SETTINGS_SNAPSHOT_MANAGE` 권한이 필요합니다. [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) 참고.
 
 ---
 
@@ -199,10 +244,12 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 | 제공업체 | 참고사항 |
 |---|---|
 | **비활성화** | AI 인사이트 생성 안 함 |
-| **OpenAI** | API 키 + 모델 (예: `gpt-4o-mini`) |
-| **Anthropic** | API 키 + 모델 |
-| **Gemini** | API 키 (+ 필요 시 OpenAI 호환 base URL) |
-| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama) — 또는 아래 내장 AI 사이드카 |
+| **OpenAI** | API 키 + 모델 (예: `gpt-5.6-terra`) |
+| **Anthropic** | API 키 + 모델 (예: `claude-opus-5`). `temperature` 오버라이드는 적용되지 않습니다 — 최신 Claude 모델은 샘플링 파라미터를 거부하므로, 응답 스타일은 프롬프트로 조정됩니다 |
+| **Gemini** | API 키 (+ 필요 시 OpenAI 호환 base URL, 예: `gemini-3.1-pro`) |
+| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama — 드롭다운에 `qwen3`, `gemma3`, `deepseek-r1` 등 인기 모델 태그가 제안됨) — 또는 아래 내장 AI 사이드카 |
+
+각 프로바이더의 모델 입력란은 자유 입력 콤보박스입니다: 드롭다운에는 현재 모델이 제안으로 표시되지만, 계정에서 접근 가능한 어떤 모델 ID든 직접 입력할 수 있습니다.
 
 같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
 
@@ -210,11 +257,13 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 
 | 설정 | 용도 |
 |---|---|
-| 프롬프트 로케일 (`en` / `ko`) | `prompts.properties` vs 한국어 오버레이 |
+| 프롬프트 로케일 (`en` / `ko` / `ja`) | `prompts.properties` vs 한국어·일본어 오버레이 |
 | CVE/라이선스 배치 한도·심각도 | 스캔당 AI 호출 상한 |
-| 온도 / max tokens / 일일 호출 상한 | LLM 동작 및 비용 제한 |
-| 기본 배포 프로필 | 프로젝트 프로필이 없을 때 CVE 트리아지 맥락 |
+| 온도 / max tokens / 일일 호출 상한 | LLM 동작 및 비용 제한 (Anthropic에는 온도가 적용되지 않음 — 위 참고) |
+| 기본 배포 프로필 | 프로젝트에 프로필이 없을 때 CVE 트리아지 **및** 라이선스 위험 평가에 사용되는 맥락 — 사내 도구, 네트워크 서비스, 배포되는 소프트웨어는 의무가 크게 다릅니다 |
 | 프롬프트 오버라이드 | 키별 템플릿 수정 (`GET /api/settings/ai/prompts`) |
+
+**연결 테스트**는 토큰을 전혀 소비하지 않습니다: 완료 요청을 보내는 대신 프로바이더가 제공하는 모델 목록을 조회하므로(OpenAI/Gemini/Ollama는 `GET {base}/models`, Anthropic은 `GET /v1/models`), 인증 정보와 연결 가능 여부 확인이 무료이며 일일 호출 상한에도 반영되지 않습니다. 설정된 모델 ID가 계정이 접근 가능한 모델 목록에 없으면 테스트는 여전히 성공하지만 경고가 표시되어, 오타나 아직 받지 않은 로컬 모델을 다음 스캔이 아니라 즉시 알 수 있습니다.
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
 **내장 AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — [API 레퍼런스 — AI](API-Reference.md#ai) 참고.  
@@ -225,7 +274,7 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 
 AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(`GET /api/settings/ai/usage` — 이력이 쌓여도 조회 비용이 늘지 않도록 일별 집계 테이블에서 조회), 10건씩 페이지네이션되는 **최근 호출** 표를 함께 보여줍니다(`GET /api/settings/ai/usage/events`). 원본 호출 이벤트는 최근 **100건**만 보존되며 — 새 호출이 기록될 때마다 오래된 것부터 삭제(FIFO)됩니다 — 일별 합계와 7일 추이는 원본 이벤트 로그가 아닌 집계 테이블에서 나오므로 영향받지 않습니다.
 
-예상 비용은 실제 청구서가 **아니며**, 다음 프로바이더별(모델별이 아님) 단가로 계산한 대략적인 값입니다:
+예상 비용은 실제 청구서가 **아니며**, **모델별**로 각 모델의 공식 100만 토큰당 입력/출력 정가를 사용해 계산됩니다(예: `claude-opus-5`, `gpt-5.6-terra`, `gemini-3.1-pro`는 각각 다른 단가를 가지며, 같은 프로바이더 안에서 10배 비싼 모델을 더 이상 하나의 평균 단가로 뭉뚱그리지 않습니다). 캐시 입력·배치·롱컨텍스트 할인은 반영되지 않으므로 참고용으로만 사용하세요. 공식 정가가 없는 모델(커스텀 배포, 신규 출시 모델, 또는 **로컬** 프로바이더에서 실행되는 모든 모델)은 다음과 같은 프로바이더별 기본 단가로 대체됩니다:
 
 | 설정 키 | 기본값 (USD / 100만 토큰) |
 |---|---|
@@ -234,7 +283,7 @@ AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(
 | `oswl.ai.pricing.gemini-input-per-1m` / `gemini-output-per-1m` | `1.25` / `5.00` |
 | `oswl.ai.pricing.local-input-per-1m` / `local-output-per-1m` | `0` / `0` |
 
-실제 계약 단가가 위 기본값과 다르면 이 값들을 갱신하세요.
+실제 계약 단가가 위 기본값과 다르면 이 값들을 갱신하세요. **로컬** 프로바이더는 어떤 모델 이름을 보고하든 항상 설정된 단가(기본 `0`)로 추정됩니다 — 자체 호스팅 모델은 조회할 토큰당 비용 자체가 없기 때문입니다.
 
 ---
 
