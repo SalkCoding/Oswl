@@ -66,11 +66,6 @@ public class EmbeddedAiService {
      * obligation.
      */
     private static final String DEFAULT_MODEL_FILE = "qwen3-1.7b-q4_k_m.gguf";
-    private static final String DEFAULT_MODEL_URL =
-            "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf";
-    private static final String DEFAULT_MODEL_SHA256 =
-            "d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5";
-    private static final long DEFAULT_MODEL_SIZE_BYTES = 1_282_439_264L;
 
     private final String dirPath;
     private final int port;
@@ -88,6 +83,15 @@ public class EmbeddedAiService {
     private final String extraArgs;
     private final int startupTimeoutSeconds;
     private final AiPreferencesRepository preferencesRepository;
+
+    // ── G4: default-model source, made configurable so a self-hosted mirror (or an air-gapped
+    // pre-baked path) can replace the built-in GitHub Release asset without a code change.
+    // url/sha256/size-bytes are always a matched set — see the application.yaml comment. ──
+    private final String defaultModelUrl;
+    private final String defaultModelSha256;
+    private final long defaultModelSizeBytes;
+    /** Retried once if {@link #defaultModelUrl} fails; blank/equal to the primary disables the retry. */
+    private final String fallbackModelUrl;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
@@ -117,6 +121,10 @@ public class EmbeddedAiService {
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.cache-reuse:256}") int cacheReuse,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.extra-args:}") String extraArgs,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.startup-timeout-seconds:120}") int startupTimeoutSeconds,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-url:https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf}") String defaultModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-sha256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}") String defaultModelSha256,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-size-bytes:1282439264}") long defaultModelSizeBytes,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.fallback-model-url:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}") String fallbackModelUrl,
             AiPreferencesRepository preferencesRepository) {
         this.dirPath = dirPath;
         this.port = port;
@@ -127,6 +135,10 @@ public class EmbeddedAiService {
         this.flashAttn = flashAttn;
         this.cacheReuse = cacheReuse;
         this.extraArgs = extraArgs;
+        this.defaultModelUrl = defaultModelUrl;
+        this.defaultModelSha256 = defaultModelSha256;
+        this.defaultModelSizeBytes = defaultModelSizeBytes;
+        this.fallbackModelUrl = fallbackModelUrl;
         this.startupTimeoutSeconds = startupTimeoutSeconds;
         this.preferencesRepository = preferencesRepository;
     }
@@ -334,28 +346,58 @@ public class EmbeddedAiService {
         if (downloading) return;
         downloading = true;
         downloadedBytes = 0;
-        downloadTotalBytes = DEFAULT_MODEL_SIZE_BYTES;
+        downloadTotalBytes = defaultModelSizeBytes;
+        try {
+            attemptDownloadWithFallback();
+        } finally {
+            downloading = false;
+        }
+    }
+
+    /**
+     * G4: tries {@link #defaultModelUrl} first; if it fails for any reason (network error,
+     * non-200, or a checksum mismatch — a corrupted/tampered primary asset is exactly the case
+     * where falling back to the original upstream host is most valuable) and a different
+     * {@link #fallbackModelUrl} is configured, retries once against it. Both attempts verify
+     * against the same {@link #defaultModelSha256}, since the fallback is expected to be a
+     * byte-identical copy re-hosted elsewhere.
+     */
+    private void attemptDownloadWithFallback() {
         Path dir = resolveDir();
         Path dest = dir.resolve(DEFAULT_MODEL_FILE);
         Path partFile = dir.resolve(DEFAULT_MODEL_FILE + ".part");
+        boolean hasFallback = fallbackModelUrl != null && !fallbackModelUrl.isBlank()
+                && !fallbackModelUrl.equals(defaultModelUrl);
+        try {
+            attemptDownload(defaultModelUrl, dir, dest, partFile);
+        } catch (IllegalStateException primaryFailure) {
+            if (!hasFallback) throw primaryFailure;
+            log.warn("[EmbeddedAI] Default model download from primary URL failed ({}) — retrying fallback {}",
+                    primaryFailure.getMessage(), fallbackModelUrl);
+            downloadedBytes = 0;
+            attemptDownload(fallbackModelUrl, dir, dest, partFile);
+        }
+    }
+
+    private void attemptDownload(String url, Path dir, Path dest, Path partFile) {
         try {
             Files.createDirectories(dir);
             log.info("[EmbeddedAI] Downloading default model {} ({} MB) from {}",
-                    DEFAULT_MODEL_FILE, DEFAULT_MODEL_SIZE_BYTES / 1024 / 1024, DEFAULT_MODEL_URL);
+                    DEFAULT_MODEL_FILE, defaultModelSizeBytes / 1024 / 1024, url);
 
             HttpClient downloadClient = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(10))
                     .followRedirects(HttpClient.Redirect.NORMAL)
                     .build();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(DEFAULT_MODEL_URL))
+                    .uri(URI.create(url))
                     .timeout(Duration.ofMinutes(60))
                     .GET()
                     .build();
             HttpResponse<InputStream> response = downloadClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() != 200) {
                 throw new IllegalStateException(
-                        "Model download failed: HTTP " + response.statusCode() + " from " + DEFAULT_MODEL_URL);
+                        "Model download failed: HTTP " + response.statusCode() + " from " + url);
             }
             response.headers().firstValueAsLong("Content-Length")
                     .ifPresent(len -> downloadTotalBytes = len);
@@ -372,10 +414,10 @@ public class EmbeddedAiService {
             }
 
             String actualSha256 = HexFormat.of().formatHex(digest.digest());
-            if (!actualSha256.equalsIgnoreCase(DEFAULT_MODEL_SHA256)) {
+            if (!actualSha256.equalsIgnoreCase(defaultModelSha256)) {
                 Files.deleteIfExists(partFile);
                 throw new IllegalStateException("Downloaded model failed checksum verification "
-                        + "(expected " + DEFAULT_MODEL_SHA256 + ", got " + actualSha256 + ") — deleted, please retry.");
+                        + "(expected " + defaultModelSha256 + ", got " + actualSha256 + ") — deleted, please retry.");
             }
             Files.move(partFile, dest, StandardCopyOption.REPLACE_EXISTING);
             log.info("[EmbeddedAI] Default model downloaded and verified: {}", dest);
@@ -383,8 +425,21 @@ public class EmbeddedAiService {
             try { Files.deleteIfExists(partFile); } catch (IOException ignored) { /* best effort cleanup */ }
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             throw new IllegalStateException("Model download failed: " + e.getMessage(), e);
-        } finally {
-            downloading = false;
+        }
+    }
+
+    /**
+     * G5: async entry point for boot-time prefetch (see {@code EmbeddedAiBootstrapService}) —
+     * download-only, so a fresh boot never silently starts the sidecar or flips the active AI
+     * provider. Exceptions are swallowed (logged) since there is no HTTP caller here to report
+     * {@code lastError} to; a failed prefetch just means the user's next manual Start retries it.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void downloadDefaultModelAsync() {
+        try {
+            downloadDefaultModel();
+        } catch (Exception e) {
+            log.warn("[EmbeddedAI] Background default-model download failed: {}", e.getMessage());
         }
     }
 

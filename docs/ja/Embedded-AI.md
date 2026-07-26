@@ -6,7 +6,7 @@
 
 ## 動作方式
 
-* OsWL は**モデルディレクトリ**（既定 `./embedded-ai`）から `llama-server` を起動し、`/health` に応答するまで待機します。空のディレクトリで初めて Start をクリックした場合、まず既定の Qwen3 モデルをインターネット経由でダウンロードします（初回のみ、約 1.2 GB）— **閉域網（エアギャップ）**環境では、事前に `.gguf` ファイルを自分で配置してください（[要求事項とディレクトリ構成](#要求事項とディレクトリ構成)を参照）。
+* OsWL は**モデルディレクトリ**（既定 `./embedded-ai`）から `llama-server` を起動し、`/health` に応答するまで待機します。`.gguf` がまだない場合、起動直後にバックグラウンドで既定の Qwen3 モデルのダウンロードが自動的に始まります（初回のみ、約 1.2 GB）— そのため設定画面で **開始** をクリックする頃には、すでにダウンロードが完了しているか進行中であることが多くなります。`oswl.ai.embedded.auto-download-on-boot=false` にすると、以前どおり開始をクリックしたときだけダウンロードする動作に戻ります。**閉域網（エアギャップ）**環境（`oswl.airgapped.enabled=true`）では、このバックグラウンドダウンロードは一切実行されないため、事前に `.gguf` ファイルを自分で配置してください（[要求事項とディレクトリ構成](#要求事項とディレクトリ構成)を参照）。
 * サーバーは**localhost のみ**（`127.0.0.1`）にバインドされ、他のマシンから到達することはありません。
 * 起動に成功すると、OsWL はそのエンドポイントを **LOCAL** プロバイダーとして保存し有効化します（同時にアクティブにできるプロバイダーは 1 つだけなので、他にアクティブなプロバイダーがあれば無効化されます）。
 * 内蔵 AI を停止すると LOCAL プロバイダーも無効化されるため、AI 呼び出しが停止済みエンドポイントに対して失敗することはありません。
@@ -26,7 +26,15 @@ embedded-ai/
   qwen3-1.7b-q4_k_m.gguf        — 既定モデル（Apache 2.0）— 初回開始時に自動ダウンロード
 ```
 
-ディレクトリが空の状態で**開始**をクリックすると、Qwen3-1.7B（約 1.2 GB）がそのディレクトリに直接ダウンロードされ、SHA256 チェックサムが検証された後にサイドカーが起動します。カードにはダウンロードの進捗がリアルタイムで表示され、`java -jar app.jar` だけですべてが完結します — 別のスクリプトやビルド手順は不要です。Qwen3 は Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)参照）、これは安全です — ユーザーに代わって取得・同梱しても追加の再配布義務は発生しません。
+ディレクトリが空の場合、Qwen3-1.7B（約 1.2 GB）がそのディレクトリに直接ダウンロードされます —
+起動後に自動的に、またはまだ終わっていなければ **開始** をクリックした時点で — SHA256 チェック
+サムが検証された後にサイドカーが起動します。カードにはダウンロードの進捗がリアルタイムで表示され、
+`java -jar app.jar` だけですべてが完結します — 別のスクリプトやビルド手順は不要です。Qwen3 は
+Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)
+参照）、これは安全です — ユーザーに代わって取得・同梱しても追加の再配布義務は発生しません。モデルは
+既定で OsWL 自身の
+[GitHub Release アセット](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)から
+ダウンロードされ、到達できない場合は元の Hugging Face ホストへ自動的にフォールバックします。
 
 他の `.gguf` モデルも自分で追加して使えます — OsWL は既定の Qwen3 だけでなく、このディレクトリに直接置かれたすべての `.gguf` ファイルを認識します。再配布・共有する前に、そのモデル自体のライセンスを必ず確認してください — OsWL が同梱・自動取得するのは Qwen3 のみです。
 
@@ -41,7 +49,11 @@ embedded-ai/
 |---|---|---|---|
 | `oswl.ai.embedded.dir` | `OSWL_EMBEDDED_AI_DIR` | `embedded-ai` | モデルディレクトリ（作業ディレクトリからの相対パス） |
 | `oswl.ai.embedded.port` | `OSWL_EMBEDDED_AI_PORT` | `11435` | サイドカー用の localhost ポート |
-| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `4096` | `llama-server -c` に渡すコンテキストウィンドウ |
+| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | `llama-server -c` に渡すコンテキストウィンドウ |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL の `models-v1` GitHub Release アセット | 既定 Qwen3 モデルの一次ダウンロード元 |
+| `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | （THIRD_PARTY_LICENSES.md 参照） | 期待される SHA256 — URL と必ず同時に変更 |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | 元の Hugging Face URL | 一次 URL 失敗時に 1 回だけ再試行 |
+| `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 起動時にバックグラウンドで既定モデルを先読み；`oswl.airgapped.enabled=true` の場合は実行されない |
 
 ---
 
