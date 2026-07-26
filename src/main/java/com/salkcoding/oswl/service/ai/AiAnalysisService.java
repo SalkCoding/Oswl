@@ -42,6 +42,17 @@ public class AiAnalysisService {
     @Value("${oswl.ai.enrichment.batch-chunk-size:5}")
     private int batchChunkSize;
 
+    /**
+     * Retry budget for a batch chunk that comes back empty or fails to parse. Each retry
+     * splits the failing chunk in half and retries the halves independently (instead of
+     * resending the identical prompt — a truncated/parse-failed response is usually a budget
+     * problem, which an identical retry cannot fix) until this many split levels are spent or
+     * the chunk cannot be split further. Transport-level retries (429 backoff) are handled
+     * separately by OpenAiClient/AnthropicClient and are not affected by this setting.
+     */
+    @Value("${oswl.ai.enrichment.max-retries:1}")
+    private int maxRetries;
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /** Conservative chars-per-token ratio (CJK-worst-case) used only to size batches, never to bill usage. */
@@ -194,9 +205,8 @@ public class AiAnalysisService {
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.cve start — {} item(s), provider={}", items.size(), setting.getProvider());
         Map<String, AiStructuredSummary.ParsedEntry> merged = new LinkedHashMap<>();
-        for (List<CveSummaryRequest> chunk : chunkForOutputBudget(items)) {
-            String prompt = promptTemplates.batchCvePrompt(chunk, deploymentProfile);
-            merged.putAll(batchStructuredWithRetry(prompt, setting, chunk.size(), "CVE", "batch.cve"));
+        for (List<CveSummaryRequest> chunk : chunkForOutputBudget(items, "batch.cve")) {
+            merged.putAll(batchStructuredWithRetry(chunk, deploymentProfile, setting, "CVE", "batch.cve", maxRetries));
         }
         return merged;
     }
@@ -261,9 +271,8 @@ public class AiAnalysisService {
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.license start — {} item(s), provider={}", items.size(), setting.getProvider());
         Map<String, String> merged = new LinkedHashMap<>();
-        for (List<LicenseSummaryRequest> chunk : chunkForOutputBudget(items)) {
-            String prompt = promptTemplates.batchLicensePrompt(chunk, deploymentProfile);
-            merged.putAll(batchWithRetry(prompt, setting, chunk.size(), "license", "batch.license"));
+        for (List<LicenseSummaryRequest> chunk : chunkForOutputBudget(items, "batch.license")) {
+            merged.putAll(batchWithRetry(chunk, deploymentProfile, setting, "license", "batch.license", maxRetries));
         }
         return merged;
     }
@@ -273,14 +282,18 @@ public class AiAnalysisService {
      * whose worst-case JSON output would exceed 80% of {@code max_tokens} — the response gets
      * cut off mid-object well before that, so this keeps the array reliably parseable instead
      * of silently losing the whole batch to a truncated JSON tail.
+     *
+     * @param operation the max_tokens key this batch will actually be called with
+     *                  (see {@link AiPromptTemplateService#getMaxTokens(String)}) — the budget
+     *                  estimate must match the real ceiling, not the generic default.
      */
-    private <T> List<List<T>> chunkForOutputBudget(List<T> items) {
+    private <T> List<List<T>> chunkForOutputBudget(List<T> items, String operation) {
         int step = effectiveBatchChunkSize();
         List<List<T>> initial = new ArrayList<>();
         for (int i = 0; i < items.size(); i += step) {
             initial.add(items.subList(i, Math.min(i + step, items.size())));
         }
-        int maxTokens = promptTemplates.getMaxTokens();
+        int maxTokens = promptTemplates.getMaxTokens(operation);
         List<List<T>> result = new ArrayList<>();
         for (List<T> chunk : initial) {
             splitToFitBudget(chunk, maxTokens, result);
@@ -315,43 +328,66 @@ public class AiAnalysisService {
         splitToFitBudget(chunk.subList(mid, chunk.size()), maxTokens, out);
     }
 
-    private Map<String, String> batchWithRetry(String prompt, AiSetting setting, int itemCount,
-                                               String label, String operation) {
+    /**
+     * Runs one batch call and, on an empty or failed parse, retries by splitting the chunk in
+     * half rather than resending the identical prompt — a truncated/unparseable response is
+     * usually an output-budget problem (see C1), which an identical retry cannot fix.
+     * {@code retriesLeft} bounds the split recursion depth, not the raw request count: each
+     * split level can issue up to 2 requests (one per half), so a chunk that fails completely
+     * can cost more than {@code 1 + retriesLeft} requests in the worst case — traded
+     * deliberately for a much better chance of salvaging partial results.
+     * Transport-level retries (429 backoff) happen one layer down in OpenAiClient/AnthropicClient
+     * and are untouched by this budget.
+     */
+    private Map<String, String> batchWithRetry(List<LicenseSummaryRequest> chunk, String deploymentProfile,
+                                               AiSetting setting, String label, String operation, int retriesLeft) {
+        String prompt = promptTemplates.batchLicensePrompt(chunk, deploymentProfile, setting.getProvider());
+        Map<String, String> result;
         try {
-            Map<String, String> result = parseBatchDisplayResponse(delegate(prompt, setting, operation));
-            if (!result.isEmpty()) {
-                log.debug("[AI] {} parsed {} summary(ies)", operation, result.size());
-                return result;
-            }
-            log.warn("[AI] Batch {} summary empty ({} items) — retrying once", label, itemCount);
-            Map<String, String> retry = parseBatchDisplayResponse(delegate(prompt, setting, operation));
-            if (!retry.isEmpty()) {
-                log.debug("[AI] {} parsed {} summary(ies) on retry", operation, retry.size());
-            }
-            return retry;
+            result = parseBatchDisplayResponse(delegate(prompt, setting, operation));
         } catch (Exception e) {
-            log.warn("[AI] Batch {} summary failed: {} — retrying once", label, e.getMessage());
-            try {
-                return parseBatchDisplayResponse(delegate(prompt, setting, operation));
-            } catch (Exception retryEx) {
-                log.warn("[AI] Batch {} summary retry failed: {}", label, retryEx.getMessage());
-                return Map.of();
-            }
+            log.warn("[AI] Batch {} summary failed: {}", label, e.getMessage());
+            result = Map.of();
         }
+        if (!result.isEmpty()) {
+            log.debug("[AI] {} parsed {} summary(ies)", operation, result.size());
+            return result;
+        }
+        if (retriesLeft <= 0 || chunk.size() <= 1) {
+            return result;
+        }
+        log.warn("[AI] Batch {} summary empty ({} items) — splitting into halves and retrying", label, chunk.size());
+        int mid = chunk.size() / 2;
+        Map<String, String> merged = new LinkedHashMap<>();
+        merged.putAll(batchWithRetry(chunk.subList(0, mid), deploymentProfile, setting, label, operation, retriesLeft - 1));
+        merged.putAll(batchWithRetry(chunk.subList(mid, chunk.size()), deploymentProfile, setting, label, operation, retriesLeft - 1));
+        return merged;
     }
 
+    /** Same split-retry strategy as {@link #batchWithRetry} — see its Javadoc. */
     private Map<String, AiStructuredSummary.ParsedEntry> batchStructuredWithRetry(
-            String prompt, AiSetting setting, int itemCount, String label, String operation) {
+            List<CveSummaryRequest> chunk, String deploymentProfile, AiSetting setting,
+            String label, String operation, int retriesLeft) {
+        String prompt = promptTemplates.batchCvePrompt(chunk, deploymentProfile, setting.getProvider());
+        Map<String, AiStructuredSummary.ParsedEntry> result;
         try {
-            Map<String, AiStructuredSummary.ParsedEntry> result =
-                    parseBatchStructuredResponse(delegate(prompt, setting, operation));
-            if (!result.isEmpty()) return result;
-            log.warn("[AI] Batch {} structured empty ({} items) — retrying once", label, itemCount);
-            return parseBatchStructuredResponse(delegate(prompt, setting, operation));
+            result = parseBatchStructuredResponse(delegate(prompt, setting, operation));
         } catch (Exception e) {
             log.warn("[AI] Batch {} structured failed: {}", label, e.getMessage());
-            return Map.of();
+            result = Map.of();
         }
+        if (!result.isEmpty()) {
+            return result;
+        }
+        if (retriesLeft <= 0 || chunk.size() <= 1) {
+            return result;
+        }
+        log.warn("[AI] Batch {} structured empty ({} items) — splitting into halves and retrying", label, chunk.size());
+        int mid = chunk.size() / 2;
+        Map<String, AiStructuredSummary.ParsedEntry> merged = new LinkedHashMap<>();
+        merged.putAll(batchStructuredWithRetry(chunk.subList(0, mid), deploymentProfile, setting, label, operation, retriesLeft - 1));
+        merged.putAll(batchStructuredWithRetry(chunk.subList(mid, chunk.size()), deploymentProfile, setting, label, operation, retriesLeft - 1));
+        return merged;
     }
 
     private String delegate(String prompt, AiSetting setting, String operation) {

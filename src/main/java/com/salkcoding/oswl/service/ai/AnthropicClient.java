@@ -119,7 +119,7 @@ public class AnthropicClient implements AiAnalysisClient {
 
         Map<String, Object> body = Map.of(
                 "model", model,
-                "max_tokens", promptTemplates.getMaxTokens(),
+                "max_tokens", promptTemplates.getMaxTokens(op),
                 "system", promptTemplates.getSystemPrompt(Objects.requireNonNull(setting).getProvider()),
                 "messages", List.of(Map.of("role", "user", "content", userPrompt))
         );
@@ -145,9 +145,11 @@ public class AnthropicClient implements AiAnalysisClient {
                         callTrace.logAssistantMessage(log, PROVIDER_TAG, op, result, null);
                         log.debug("[AI][{}] Parsed result resultLen={}", PROVIDER_TAG, result != null ? result.length() : 0);
                         if (result != null && !result.isBlank()) return result;
-                        log.warn("[AI][{}] Empty result on attempt {}, {}", PROVIDER_TAG, attempt, attempt < 2 ? "retrying" : "giving up");
+                        log.warn("[AI][{}] Empty result on attempt {} — giving up (retry is AiAnalysisService's responsibility)", PROVIDER_TAG, attempt);
+                        return null;
                     }
                     log.warn("[AI][{}] Response body had no 'content' — keys={}", PROVIDER_TAG, response.getBody().keySet());
+                    return null;
                 }
             } catch (Exception e) {
                 long elapsed = System.currentTimeMillis() - start;
