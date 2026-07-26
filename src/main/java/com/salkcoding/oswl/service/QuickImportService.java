@@ -404,6 +404,9 @@ public class QuickImportService {
             return scanResultRepository.findById(current.getScanResultId())
                     .map(sr -> {
                         if (sr.getStatus() == ScanStatus.COMPLETED) {
+                            // The CVE/license data pipeline is done — the job is DONE even though
+                            // AI enrichment (aiStatus) may still be PENDING/RUNNING in the
+                            // background (D1: AI no longer blocks scan/job completion).
                             int count = current.getComponentCount() != null ? current.getComponentCount() : 0;
                             QuickImportJobStatus done = current.toBuilder()
                                     .phase(Phase.DONE)
@@ -413,6 +416,7 @@ public class QuickImportService {
                                     .percent(100)
                                     .queuePosition(null)
                                     .subPhase(null)
+                                    .aiStatus(sr.getAiStatus().name())
                                     .build();
                             jobs.put(jobId, done);
                             notifyJobUpdate(jobId);
@@ -443,7 +447,30 @@ public class QuickImportService {
                     })
                     .orElse(current);
         }
+
+        // Job already DONE, but the underlying scan may still be generating AI summaries in the
+        // background — re-check aiStatus on each poll until it reaches a terminal state, so the
+        // UI can flip "AI summary generating" -> done without the job itself changing phase again.
+        if (current.getPhase() == Phase.DONE && current.getScanResultId() != null
+                && !isTerminalAiStatus(current.getAiStatus())) {
+            return scanResultRepository.findById(current.getScanResultId())
+                    .map(sr -> {
+                        QuickImportJobStatus refreshed = current.toBuilder()
+                                .aiStatus(sr.getAiStatus().name())
+                                .build();
+                        jobs.put(jobId, refreshed);
+                        return refreshed;
+                    })
+                    .orElse(current);
+        }
         return current;
+    }
+
+    private static boolean isTerminalAiStatus(String aiStatus) {
+        return aiStatus == null
+                || aiStatus.equals("COMPLETED")
+                || aiStatus.equals("FAILED")
+                || aiStatus.equals("NOT_APPLICABLE");
     }
 
     private static int enrichingPercent(int enrichStepPercent) {

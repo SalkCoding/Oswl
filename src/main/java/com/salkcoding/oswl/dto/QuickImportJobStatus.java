@@ -77,4 +77,10 @@ public class QuickImportJobStatus {
 
     @Schema(description = "Epoch millis when the job left QUEUED and began running — the UI derives the ETA from this and percent")
     private final Long runningSinceEpochMs;
+
+    @Schema(description = "AI enrichment progress for the underlying scan — NOT_APPLICABLE, PENDING, RUNNING, " +
+            "COMPLETED, or FAILED. The job can reach DONE while this is still PENDING/RUNNING: the scan's " +
+            "CVE/license results are ready, AI summaries are still being generated in the background.",
+            example = "RUNNING")
+    private final String aiStatus;
 }

@@ -101,7 +101,11 @@
           filterVersion: 0,
           scanStatus: window.securityCenterData.scanStatus,
           latestScanId: window.securityCenterData.latestScanId,
+          currentScanId: window.securityCenterData.currentScanId,
+          aiStatus: window.securityCenterData.aiStatus,
+          aiPostureInsight: window.securityCenterData.securityPostureInsight,
           scanPollTimer: null,
+          aiPollTimer: null,
           rowVisible(el) {
               // Track filterVersion so that manual DOM attribute updates (ignored, deferred)
               // trigger re-evaluation of this function via filterVersion++.
@@ -201,7 +205,29 @@
                   if (d.status === 'COMPLETED' || d.status === 'FAILED') {
                       clearInterval(this.scanPollTimer);
                       this.scanPollTimer = null;
+                      // The CVE/license data pipeline just finished — reload once to show it.
+                      // AI summaries (aiStatus) may still be generating; startAiPolling() on the
+                      // freshly-reloaded page fills those in without a second reload.
                       if (d.status === 'COMPLETED') { location.reload(); }
+                  }
+              }, 2500);
+          },
+          // Polls AI enrichment progress for the scan being viewed. Only runs after the data
+          // pipeline is already COMPLETED (see init()) — never triggers a reload; the posture
+          // insight is filled in reactively via aiPostureInsight once aiStatus reaches COMPLETED.
+          startAiPolling() {
+              if (this.aiPollTimer || !this.currentScanId) return;
+              this.aiPollTimer = setInterval(async () => {
+                  const r = await fetch('/api/scan/' + this.currentScanId + '/status');
+                  if (!r.ok) return;
+                  const d = await r.json();
+                  this.aiStatus = d.aiStatus;
+                  if (d.securityPostureInsight) {
+                      this.aiPostureInsight = d.securityPostureInsight;
+                  }
+                  if (['COMPLETED', 'FAILED', 'NOT_APPLICABLE'].includes(d.aiStatus)) {
+                      clearInterval(this.aiPollTimer);
+                      this.aiPollTimer = null;
                   }
               }, 2500);
           },
@@ -344,6 +370,8 @@
           init() {
               if (['SCANNING', 'ANALYZING', 'PENDING'].includes(this.scanStatus)) {
                   this.startPolling();
+              } else if (['PENDING', 'RUNNING'].includes(this.aiStatus)) {
+                  this.startAiPolling();
               }
           }
       }"
@@ -355,6 +383,9 @@
     window.securityCenterData = {
         scanStatus:   /*[[${latestScanStatus}]]*/ 'NONE',
         latestScanId: /*[[${latestScanId}]]*/ null,
+        currentScanId: /*[[${currentScanId}]]*/ null,
+        aiStatus: /*[[${aiStatus}]]*/ 'NOT_APPLICABLE',
+        securityPostureInsight: /*[[${securityPostureInsight}]]*/ null,
         sortLabels: {
             risk:    /*[[#{securityCenter.sort.risk}]]*/ 'Risk (default)',
             name:    /*[[#{securityCenter.sort.name}]]*/ 'Name',
@@ -424,15 +455,28 @@
                         th:text="#{common.dismiss}">Dismiss</button>
             </div>
 
-            <!-- AI security posture insight -->
-            <div th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}"
+            <!-- AI security posture insight — x-show (not th:if) so a later poll can reveal it
+                 in place once aiStatus reaches COMPLETED, without a page reload. -->
+            <div x-show="aiPostureInsight" x-cloak
                  class="mb-[24px] flex flex-col gap-[12px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
                 <div class="flex items-center gap-[6px]">
                     <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
                     <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{riskTrend.ai.insight}">AI Insight</p>
                 </div>
                 <p class="text-[14px] text-[#272D30] tracking-[-0.15px] m-0 leading-relaxed"
-                   th:text="${securityPostureInsight}">AI posture insight</p>
+                   x-text="aiPostureInsight">AI posture insight</p>
+            </div>
+
+            <!-- AI insight generating skeleton — shown while the scan's data results are already
+                 visible but AI summaries are still running in the background (D1). -->
+            <div x-show="!aiPostureInsight && ['PENDING','RUNNING'].includes(aiStatus)" x-cloak
+                 class="mb-[24px] flex flex-col gap-[10px] p-[20px] rounded-[10px] bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] animate-pulse">
+                <div class="flex items-center gap-[6px]">
+                    <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0 opacity-40" alt="" aria-hidden="true">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-50)] tracking-[-0.16px] m-0" th:text="#{securityCenter.aiGenerating}">Generating AI summary…</p>
+                </div>
+                <div class="h-[14px] w-3/4 rounded bg-[var(--grayscale-15)]"></div>
+                <div class="h-[14px] w-1/2 rounded bg-[var(--grayscale-15)]"></div>
             </div>
 
             <!-- Risk stick graph -->

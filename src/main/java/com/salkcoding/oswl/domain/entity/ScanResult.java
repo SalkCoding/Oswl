@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.enums.AiEnrichmentStatus;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -49,6 +50,17 @@ public class ScanResult {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /**
+     * AI enrichment progress, tracked separately from {@link #status} — a scan reaches
+     * {@link ScanStatus#COMPLETED} as soon as its CVE/license data pipeline finishes; AI
+     * summaries continue in the background afterward instead of blocking that completion.
+     * Null on scans persisted before this column existed (or when AI was never configured) —
+     * always read through {@link #getAiStatus()}, which treats null as {@code NOT_APPLICABLE}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ai_status", length = 20)
+    private AiEnrichmentStatus aiStatus;
+
     /** AI-generated security risk trend insight (generated during enrichment) */
     @Column(name = "security_ai_insight", columnDefinition = "TEXT")
     private String securityAiInsight;
@@ -90,6 +102,31 @@ public class ScanResult {
 
     public void complete() {
         this.status = ScanStatus.COMPLETED;
+    }
+
+    /** Null-safe view of {@link #aiStatus} — a scan persisted before this column existed reads as {@code NOT_APPLICABLE}. */
+    public AiEnrichmentStatus getAiStatus() {
+        return aiStatus != null ? aiStatus : AiEnrichmentStatus.NOT_APPLICABLE;
+    }
+
+    public void markAiNotApplicable() {
+        this.aiStatus = AiEnrichmentStatus.NOT_APPLICABLE;
+    }
+
+    public void markAiPending() {
+        this.aiStatus = AiEnrichmentStatus.PENDING;
+    }
+
+    public void markAiRunning() {
+        this.aiStatus = AiEnrichmentStatus.RUNNING;
+    }
+
+    public void markAiCompleted() {
+        this.aiStatus = AiEnrichmentStatus.COMPLETED;
+    }
+
+    public void markAiFailed() {
+        this.aiStatus = AiEnrichmentStatus.FAILED;
     }
 
     public void updateAiInsights(String securityInsight, String licenseInsight) {
@@ -138,6 +175,7 @@ public class ScanResult {
         this.securityPostureInsight = null;
         this.versionDiffAiInsight = null;
         this.versionDiffFromScanId = null;
+        this.aiStatus = null;
     }
 }
 
