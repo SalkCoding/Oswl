@@ -40,7 +40,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 
 ### Spring Boot / Spring Framework
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-boot
 - **License:** Apache License, Version 2.0
 
@@ -58,7 +58,7 @@ You may obtain a copy of the License at
 
 ### Spring Security
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-security
 - **License:** Apache License, Version 2.0
 
@@ -72,7 +72,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Spring Data JPA
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-data-jpa
 - **License:** Apache License, Version 2.0
 
@@ -86,7 +86,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Hibernate ORM
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://hibernate.org/orm/
 - **License:** GNU Lesser General Public License, Version 2.1 (LGPL-2.1)
 
@@ -111,7 +111,7 @@ Lesser General Public License for more details.
 
 ### Thymeleaf
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://www.thymeleaf.org/
 - **License:** Apache License, Version 2.0
 
@@ -152,7 +152,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### CycloneDX Core (Java)
 
-- **Version:** 10.2.1
+- **Version:** 13.0.0
 - **Website:** https://github.com/CycloneDX/cyclonedx-core-java
 - **License:** Apache License, Version 2.0
 - **Used for:** Generating and validating CycloneDX 1.6 SBOM / VEX documents (v1.0.4).
@@ -167,7 +167,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### packageurl-java
 
-- **Version:** Managed by cyclonedx-core-java 10.2.1
+- **Version:** Managed by cyclonedx-core-java 13.0.0
 - **Website:** https://github.com/package-url/packageurl-java
 - **License:** MIT License
 - **Used for:** Parsing and building package-url (purl) component coordinates for SBOM export/import (v1.0.4).
@@ -184,7 +184,7 @@ in the Software without restriction, subject to the conditions of the MIT Licens
 
 ### Micrometer Prometheus Registry
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://micrometer.io/
 - **License:** Apache License, Version 2.0
 - **Used for:** Exposing application metrics at /actuator/prometheus (v1.0.4).
@@ -199,7 +199,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Flyway
 
-- **Version:** Managed by Spring Boot 4.0.5 (flyway-core, flyway-database-postgresql)
+- **Version:** Managed by Spring Boot 4.1.0 (flyway-core, flyway-database-postgresql)
 - **Website:** https://flywaydb.org/
 - **License:** Apache License, Version 2.0
 - **Used for:** Opt-in versioned database schema migrations (v1.0.4).
@@ -214,7 +214,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Spring Security OAuth2 Client
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-security
 - **License:** Apache License, Version 2.0
 - **Used for:** Optional OIDC single sign-on (Okta / Entra) login (v1.0.4).
@@ -229,7 +229,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Jackson
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://github.com/FasterXML/jackson
 - **License:** Apache License, Version 2.0
 
@@ -243,7 +243,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Logback Classic
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://logback.qos.ch/
 - **License:** Eclipse Public License 1.0 (EPL-1.0) **or** GNU Lesser General Public License 2.1 (LGPL-2.1) (dual-licensed; recipient may choose either)
 
@@ -264,7 +264,7 @@ License v2.1. You may choose either license.
 
 ### SLF4J API
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://www.slf4j.org/
 - **License:** MIT License
 
@@ -286,7 +286,7 @@ in all copies or substantial portions of the Software.
 
 ### GreenMail
 
-- **Version:** 2.1.3
+- **Version:** 2.1.11
 - **Website:** https://greenmail-mail-test.github.io/greenmail/
 - **License:** Apache License, Version 2.0
 
@@ -300,7 +300,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### H2 Database
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://www.h2database.com/
 - **License:** Eclipse Public License 2.0 (EPL-2.0) **or** Mozilla Public License 2.0 (MPL-2.0) (dual-licensed; recipient may choose either)
 
@@ -321,7 +321,7 @@ Public License v. 2.0 are satisfied: Mozilla Public License, v. 2.0.
 
 ### PostgreSQL JDBC Driver
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://jdbc.postgresql.org/
 - **License:** BSD 2-Clause License
 
@@ -356,7 +356,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ### Project Lombok
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://projectlombok.org/
 - **License:** MIT License
 - **Runtime artifact:** Not included — Lombok is a compile-time annotation processor (`compileOnly`/`annotationProcessor`) and generates no runtime bytecode in the distributed JAR.
@@ -383,7 +383,7 @@ These libraries are loaded at runtime from public CDNs and are not bundled insid
 
 ### Alpine.js
 
-- **Version:** 3.x
+- **Version:** 3.15.12
 - **Website:** https://alpinejs.dev/
 - **License:** MIT License
 
@@ -405,7 +405,7 @@ all copies or substantial portions of the Software.
 
 ### @alpinejs/collapse
 
-- **Version:** 3.x
+- **Version:** 3.15.12
 - **Website:** https://alpinejs.dev/plugins/collapse
 - **License:** MIT License
 
@@ -418,7 +418,7 @@ Copyright 2019-2024 Caleb Porzio and contributors.
 
 ### Chart.js
 
-- **Version:** 4.4.1
+- **Version:** 4.5.1
 - **Website:** https://www.chartjs.org/
 - **License:** MIT License
 
@@ -440,7 +440,7 @@ all copies or substantial portions of the Software.
 
 ### htmx
 
-- **Version:** 1.9.10
+- **Version:** 2.0.10
 - **Website:** https://htmx.org/
 - **License:** BSD Zero-Clause License (0BSD)
 
@@ -459,7 +459,7 @@ purpose with or without fee is hereby granted.
 
 ### Tailwind CSS
 
-- **Version:** 3.4.17 (Standalone CLI binary, not in runtime JAR)
+- **Version:** 3.4.19 (Standalone CLI binary, not in runtime JAR)
 - **Website:** https://tailwindcss.com/
 - **License:** MIT License
 
