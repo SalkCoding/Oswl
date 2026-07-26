@@ -32,6 +32,9 @@ public class AirgappedClientConfig {
     @Value("${oswl.client.deps-dev.read-timeout-ms:10000}")
     private long depsDevReadTimeoutMs;
 
+    @Value("${oswl.client.deps-dev.max-concurrent:24}")
+    private int depsDevMaxConcurrent;
+
     @Value("${oswl.client.osv.connect-timeout-ms:5000}")
     private long osvConnectTimeoutMs;
 
@@ -47,7 +50,8 @@ public class AirgappedClientConfig {
     @Bean
     public DepsDevClient depsDevClient() {
         return new DepsDevClient(snapshotService, airgapped,
-                Duration.ofMillis(depsDevConnectTimeoutMs), Duration.ofMillis(depsDevReadTimeoutMs));
+                Duration.ofMillis(depsDevConnectTimeoutMs), Duration.ofMillis(depsDevReadTimeoutMs),
+                depsDevMaxConcurrent);
     }
 
     @Bean

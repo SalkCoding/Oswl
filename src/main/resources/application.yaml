@@ -24,6 +24,14 @@ spring:
       hibernate:
         # Fetch LAZY associations/collections in batches instead of one-by-one (global N+1 mitigation)
         default_batch_fetch_size: 50
+        # JDBC batching of INSERT/UPDATE statements. NOTE: all entities use GenerationType.IDENTITY,
+        # so Hibernate still cannot batch INSERTs (the generated id is needed immediately) — this
+        # mainly batches UPDATEs. Moving PKs to sequences would unlock insert batching but is a
+        # migration-risky change tracked separately (roadmap A6).
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
   flyway:
     # Opt-in DB migrations (roadmap #13). Disabled by default so existing ddl-auto deploys are unaffected.
@@ -102,12 +110,19 @@ oswl:
     # SECURITY: this runs arbitrary repo code on the server — enable only when
     # every imported repository is trusted. Default: false (static manifest parse only).
     allow-build-exec: ${OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC:false}
+  cache:
+    # TTL for deps.dev version metadata (isLatestVersion / deprecated / latestVersion / scorecard)
+    # on cache-hit libraries. The full CVE/license TTL stays in Cache Settings (DEPS_DEV).
+    version-meta-ttl-seconds: ${OSWL_VERSION_META_TTL_SEC:86400}
   client:
     # HTTP timeouts for the deps.dev / OSV enrichment clients. Without these, a stalled
     # upstream call previously hung indefinitely and held a deps.dev concurrency permit forever.
     deps-dev:
       connect-timeout-ms: ${OSWL_DEPSDEV_CONNECT_TIMEOUT_MS:5000}
       read-timeout-ms: ${OSWL_DEPSDEV_READ_TIMEOUT_MS:10000}
+      # Max simultaneous HTTP requests to deps.dev. Raised from the old fixed 10 — if the
+      # upstream answers with 429 the client backs off and retries once.
+      max-concurrent: ${OSWL_DEPSDEV_MAX_CONCURRENT:24}
     osv:
       connect-timeout-ms: ${OSWL_OSV_CONNECT_TIMEOUT_MS:5000}
       # Generous — a 1,000-item querybatch against a slow connection legitimately takes a while.

@@ -101,9 +101,8 @@ class ScanIngestServiceTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(libraryRepository.findByNameAndVersionAndEcosystem("log4j", "2.14.0", "MAVEN"))
-                .thenReturn(Optional.of(library));
-        when(scanComponentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(libraryRepository.findByNameIn(any())).thenReturn(List.of(library));
+        when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ScanPayload.ComponentPayload compPayload = mock(ScanPayload.ComponentPayload.class);
         when(compPayload.getName()).thenReturn("log4j");
@@ -118,9 +117,10 @@ class ScanIngestServiceTest {
 
         scanIngestService.ingest(1L, payload);
 
-        ArgumentCaptor<ScanComponent> captor = ArgumentCaptor.forClass(ScanComponent.class);
-        verify(scanComponentRepository).save(captor.capture());
-        ScanComponent saved = captor.getValue();
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ScanComponent>> captor = ArgumentCaptor.forClass(List.class);
+        verify(scanComponentRepository).saveAll(captor.capture());
+        ScanComponent saved = captor.getValue().getFirst();
         assertThat(saved.getLibrary()).isEqualTo(library);
         assertThat(saved.getDependencyInfo()).isEqualTo("Direct (1)");
     }
@@ -129,17 +129,13 @@ class ScanIngestServiceTest {
     @DisplayName("Library가 없으면 새로 생성해서 저장한다")
     void ingest_createsLibrary_whenNotFound() {
         Project project = Project.builder().id(1L).name("P").build();
-        Library createdLibrary = Library.builder()
-                .name("newlib").version("1.0.0").ecosystem("NPM")
-                .licenseStatus(LicenseStatus.UNKNOWN).build();
 
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(libraryRepository.findByNameAndVersionAndEcosystem("newlib", "1.0.0", "NPM"))
-                .thenReturn(Optional.empty());
-        when(libraryRepository.save(any())).thenReturn(createdLibrary);
-        when(scanComponentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(libraryRepository.findByNameIn(any())).thenReturn(List.of());
+        when(libraryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ScanPayload.ComponentPayload compPayload = mock(ScanPayload.ComponentPayload.class);
         when(compPayload.getName()).thenReturn("newlib");
@@ -153,8 +149,8 @@ class ScanIngestServiceTest {
 
         scanIngestService.ingest(1L, payload);
 
-        verify(libraryRepository).save(any(Library.class));
-        verify(scanComponentRepository).save(any(ScanComponent.class));
+        verify(libraryRepository).saveAll(any());
+        verify(scanComponentRepository).saveAll(any());
     }
 
     @Test
@@ -167,9 +163,8 @@ class ScanIngestServiceTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(libraryRepository.findByNameAndVersionAndEcosystem("libA", "1", "MAVEN")).thenReturn(Optional.of(libA));
-        when(libraryRepository.findByNameAndVersionAndEcosystem("libB", "1", "MAVEN")).thenReturn(Optional.of(libB));
-        when(scanComponentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(libraryRepository.findByNameIn(any())).thenReturn(List.of(libA, libB));
+        when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ScanPayload.ComponentPayload comp1 = mock(ScanPayload.ComponentPayload.class);
         when(comp1.getName()).thenReturn("libA");
@@ -189,7 +184,10 @@ class ScanIngestServiceTest {
 
         scanIngestService.ingest(1L, payload);
 
-        verify(scanComponentRepository, times(2)).save(any(ScanComponent.class));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ScanComponent>> captor = ArgumentCaptor.forClass(List.class);
+        verify(scanComponentRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
     }
 
     @Test
@@ -222,10 +220,9 @@ class ScanIngestServiceTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(libraryRepository.findByNameAndVersionAndEcosystem("lib", "1.0", "MAVEN"))
-                .thenReturn(Optional.of(library));
-        when(scanComponentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(dependencyPathRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(libraryRepository.findByNameIn(any())).thenReturn(List.of(library));
+        when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(dependencyPathRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         // Build a node ref stub
         ScanPayload.DependencyNodeRef node = mock(ScanPayload.DependencyNodeRef.class);
@@ -245,6 +242,6 @@ class ScanIngestServiceTest {
 
         scanIngestService.ingest(1L, payload);
 
-        verify(dependencyPathRepository).save(any());
+        verify(dependencyPathRepository).saveAll(any());
     }
 }
