@@ -287,6 +287,58 @@ public class AiPromptTemplateService {
                 "threatDetails", nullToDash(threatDetails)));
     }
 
+    /**
+     * F2: posture + security-trend + license-trend + version-diff folded into one JSON call
+     * instead of 4 separate free-form ones. {@code hasHistory=false} (first scan for the
+     * project, no prior completed scan) renders the reduced posture-only schema — the trend/
+     * diff sections would otherwise ask the model to invent a "no change" narrative from
+     * nothing.
+     */
+    public String combinedInsightsPrompt(String projectName, AiEnrichmentContextBuilder.PostureContext posture,
+                                         boolean hasHistory, int secDelta, int licDelta, String recentVersions,
+                                         String secChangeDetails, String licChangeDetails,
+                                         String fromVersion, String toVersion,
+                                         int added, int removed, int updated, int newThreats, String threatDetails) {
+        if (!hasHistory) {
+            return render("insights.combined.postureOnly", vars(
+                    "projectName", projectName,
+                    "critical", posture.critical(),
+                    "high", posture.high(),
+                    "medium", posture.medium(),
+                    "low", posture.low(),
+                    "totalComponents", posture.totalComponents(),
+                    "patchableCount", posture.patchableCount(),
+                    "nonPatchableCount", posture.nonPatchableCount(),
+                    "directCriticalHigh", posture.directCriticalHigh(),
+                    "topIssues", posture.topIssues()));
+        }
+        return render("insights.combined.full", vars(
+                "projectName", projectName,
+                "critical", posture.critical(),
+                "high", posture.high(),
+                "medium", posture.medium(),
+                "low", posture.low(),
+                "totalComponents", posture.totalComponents(),
+                "patchableCount", posture.patchableCount(),
+                "nonPatchableCount", posture.nonPatchableCount(),
+                "directCriticalHigh", posture.directCriticalHigh(),
+                "topIssues", posture.topIssues(),
+                "recentVersions", recentVersions,
+                "securityDirection", direction(secDelta),
+                "securityDelta", abs(secDelta),
+                "secChangeDetails", nullToDash(secChangeDetails),
+                "licenseDirection", direction(licDelta),
+                "licenseDelta", abs(licDelta),
+                "licChangeDetails", nullToDash(licChangeDetails),
+                "fromVersion", fromVersion,
+                "toVersion", toVersion,
+                "added", added,
+                "removed", removed,
+                "updated", updated,
+                "newThreats", newThreats,
+                "threatDetails", nullToDash(threatDetails)));
+    }
+
     public String testConnection() {
         return require("test.connection");
     }

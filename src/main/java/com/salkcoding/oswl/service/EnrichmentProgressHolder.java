@@ -22,7 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class EnrichmentProgressHolder {
 
-    public static final int ENRICHMENT_STEPS = 5;
+    /** F2 folded posture/trend/diff into one combined-insights block, so 5 blocks became 3. */
+    public static final int ENRICHMENT_STEPS = 3;
 
     /** Data pipeline (deps.dev fetch) maps to 55–80 of the overall job progress. */
     private static final int DATA_PERCENT_BASE = 55;
@@ -39,9 +40,8 @@ public class EnrichmentProgressHolder {
     public enum EnrichmentSubPhase {
         CVE,
         LICENSE,
-        POSTURE,
-        TREND,
-        DIFF
+        /** F2: posture + security-trend + license-trend + version-diff folded into one call. */
+        INSIGHTS
     }
 
     public record Snapshot(
