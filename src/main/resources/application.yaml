@@ -179,6 +179,20 @@ oswl:
       # license-limit cannot produce a response that gets truncated mid-array and silently
       # drops the whole batch.
       batch-chunk-size: ${OSWL_AI_BATCH_CHUNK_SIZE:5}
+      # AiProvider.LOCAL batch calls use the leaner "*.header.local" prompt variant (3 output
+      # fields + a worked example instead of 4 fields + a 4-line priority rubric) — a small
+      # self-hosted model follows a simple schema far more reliably than the full one meant
+      # for larger cloud models.
+      local-simple-schema: ${OSWL_AI_LOCAL_SIMPLE_SCHEMA:true}
+      # Batch calls that come back empty (not a transport error/429 — those are the AI client's
+      # own concern) are retried by splitting the chunk in half and recursing, bounded by this
+      # many split levels, rather than resubmitting the identical prompt unchanged.
+      max-retries: ${OSWL_AI_MAX_RETRIES:1}
+      # The 5 independent AI enrichment blocks (CVE/license batch, posture, trend, version diff)
+      # run concurrently (B2) — this caps how many run at once, mainly to stay under cloud
+      # provider rate limits. A local llama-server benefits from --parallel (see embedded.*) up
+      # to this same count.
+      max-parallel-calls: ${OSWL_AI_MAX_PARALLEL_CALLS:3}
     debug:
       # Periodic DEBUG logs while waiting on the LLM (0 = disabled). Local profile may override.
       heartbeat-seconds: ${OSWL_AI_DEBUG_HEARTBEAT_SECONDS:0}
