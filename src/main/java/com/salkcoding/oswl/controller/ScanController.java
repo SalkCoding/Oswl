@@ -188,6 +188,9 @@ public class ScanController implements ScanControllerSpec {
                             .scanId(scan.getId())
                             .status(scan.getStatus().name())
                             .componentCount(count)
+                            .aiStatus(scan.getAiStatus().name())
+                            .securityPostureInsight(com.salkcoding.oswl.service.ai.AiResponseSanitizer
+                                    .sanitizePlainText(scan.getSecurityPostureInsight()))
                             .build());
                 })
                 .orElse(ResponseEntity.notFound().build());
