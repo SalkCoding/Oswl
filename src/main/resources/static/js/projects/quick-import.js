@@ -675,10 +675,13 @@ function quickImportPage() {
                 return this._localizedMessage(job);
             }
             if (phase === 'DONE') {
-                if (job.messageKey === 'importComplete') {
-                    return this._localizedMessage(job);
-                }
-                return _qi('phaseDone');
+                // D1: the job reaches DONE as soon as the CVE/license data pipeline finishes —
+                // AI summaries (aiStatus) may still be generating in the background.
+                const aiPending = job.aiStatus === 'PENDING' || job.aiStatus === 'RUNNING';
+                const base = job.messageKey === 'importComplete'
+                        ? this._localizedMessage(job)
+                        : _qi('phaseDone');
+                return aiPending ? base + ' ' + _qi('aiSummaryGenerating') : base;
             }
             const phaseLabels = {
                 QUEUED:    _qi('phaseQueued'),

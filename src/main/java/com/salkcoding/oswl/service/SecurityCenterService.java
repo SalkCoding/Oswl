@@ -211,6 +211,7 @@ public class SecurityCenterService {
                 .thenComparing(ComponentRowDto::getName, String.CASE_INSENSITIVE_ORDER));
         model.addAttribute("components", rows);
         model.addAttribute("securityPostureInsight", AiResponseSanitizer.sanitizePlainText(scan.getSecurityPostureInsight()));
+        model.addAttribute("aiStatus", scan.getAiStatus().name());
         model.addAttribute("expiredDeferralCount",
                 scanComponentRepository.countRecentlyExpiredDeferrals(
                         scan.getId(), java.time.LocalDateTime.now().minusDays(7)));
@@ -256,6 +257,8 @@ public class SecurityCenterService {
         model.addAttribute("licenseMedium", 0);
         model.addAttribute("licenseLow", 0);
         model.addAttribute("components", List.of());
+        model.addAttribute("securityPostureInsight", null);
+        model.addAttribute("aiStatus", com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.NOT_APPLICABLE.name());
     }
 
     private String patchabilityLabel(Patchability p) {
