@@ -151,9 +151,13 @@ Response:
 {
   "ecosystem": "MAVEN",
   "componentCount": 128,
-  "components": [ … ]
+  "components": [
+    { "name": "org.springframework:spring-core", "version": "6.1.4", "ecosystem": "MAVEN" }
+  ]
 }
 ```
+
+(`components` lists all 128 parsed entries — one shown above for brevity.)
 
 ### Step 2 — Submit scan
 
