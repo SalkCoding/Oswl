@@ -9,7 +9,7 @@ plugins {
 
 group = 'com.salkcoding'
 // x-release-please-start-version
-version = '1.0.3'
+version = '1.0.4'
 // x-release-please-end
 
 java {
@@ -203,7 +203,7 @@ jacocoTestReport {
 // ─────────────────────────────────────────────────────────────────────────────
 ext {
 	tailwindVersion = '3.4.19'
-	tailwindToolDir = file("${buildDir}/tools/tailwindcss-${tailwindVersion}")
+	tailwindToolDir = layout.buildDirectory.dir("tools/tailwindcss-${tailwindVersion}").get().asFile
 }
 
 static def tailwindBinaryName() {
@@ -230,7 +230,7 @@ tasks.register('downloadTailwindCli') {
 			tailwindToolDir.mkdirs()
 			def url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v${tailwindVersion}/${binName}"
 			logger.lifecycle("[tailwind] downloading ${url}")
-			new URL(url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+			URI.create(url).toURL().withInputStream { i -> target.withOutputStream { o -> o << i } }
 			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
 				target.setExecutable(true, false)
 			}
@@ -300,7 +300,7 @@ tasks.register('downloadVendorJs') {
 			def target = new File(vendorDir, f.name)
 			if (stale || !target.exists()) {
 				logger.lifecycle("[vendor-js] downloading ${f.url}")
-				new URL(f.url).withInputStream { i -> target.withOutputStream { o -> o << i } }
+				URI.create(f.url).toURL().withInputStream { i -> target.withOutputStream { o -> o << i } }
 			}
 		}
 		stampFile.text = stamp
