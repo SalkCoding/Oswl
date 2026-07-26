@@ -1,16 +1,29 @@
 package com.salkcoding.oswl.service.ai;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.entity.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.springframework.core.ParameterizedTypeReference;
 
 /**
@@ -29,12 +42,35 @@ public class OpenAiClient implements AiAnalysisClient {
     private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
     private static final String PROVIDER_TAG = "OpenAI";
 
+    /** Streaming connect timeout (C9) — same backstop as the non-streaming RestTemplate. */
+    private static final Duration STREAMING_CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    /**
+     * Total-exchange timeout for a streaming call (C9). Unlike the non-streaming read timeout
+     * (socket-idle based), the JDK {@link HttpClient} request timeout caps the WHOLE exchange,
+     * and a slow local model can legitimately stream tokens for minutes — so this is a
+     * deliberately generous hang backstop rather than a latency target.
+     */
+    private static final Duration STREAMING_REQUEST_TIMEOUT = Duration.ofMinutes(5);
+    private static final ObjectMapper STREAM_MAPPER = new ObjectMapper();
+
     private final AiPromptTemplateService promptTemplates;
     private final AiCallTrace callTrace;
     private final AiUsageRecorderService usageRecorder;
     private final OutboundUrlValidator outboundUrlValidator;
     private final RestTemplate restTemplate = AiRestTemplates.forCompletions();
     private final RestTemplate probeTemplate = AiRestTemplates.forProbe();
+    /** Streaming path only — RestTemplate buffers the whole body, so SSE needs the JDK client. */
+    private final HttpClient streamingHttpClient = HttpClient.newBuilder()
+            .connectTimeout(STREAMING_CONNECT_TIMEOUT)
+            .build();
+
+    /**
+     * D2: stream free-form AI calls (posture/trend/diff) token-by-token so Quick Import can show
+     * a live preview. Field-injected (not constructor) so plain-Mockito unit tests keep the
+     * Java default {@code false} — the non-streaming path they were written against.
+     */
+    @Value("${oswl.ai.streaming-enabled:true}")
+    private boolean streamingEnabled;
 
     // ── Called only within the package (delegated by AiAnalysisService) ───────────────
 
@@ -64,6 +100,27 @@ public class OpenAiClient implements AiAnalysisClient {
     }
 
     public String callWithSetting(String prompt, AiSetting setting, String operation, String resolvedApiKey) {
+        return call(prompt, setting, operation, resolvedApiKey);
+    }
+
+    /**
+     * Free-form variant with a live chunk sink (D2). Streams tokens over OpenAI-compatible SSE
+     * (llama.cpp uses the same format), pushing each delta to {@code chunkSink} as it arrives.
+     * Falls back to the plain non-streaming call when streaming is disabled, the endpoint
+     * rejects the streaming request, or the stream breaks mid-flight — the caller's contract
+     * (nullable String result) is unchanged either way. Batch/JSON callers should keep using
+     * the 4-arg overload: raw partial JSON is meaningless as a user-facing preview.
+     */
+    public String callWithSetting(String prompt, AiSetting setting, String operation, String resolvedApiKey,
+                                  Consumer<String> chunkSink) {
+        if (!streamingEnabled || chunkSink == null) {
+            return call(prompt, setting, operation, resolvedApiKey);
+        }
+        String streamed = callStreaming(prompt, setting, operation, resolvedApiKey, chunkSink);
+        if (streamed != null) {
+            return streamed;
+        }
+        log.warn("[AI][{}] Streaming unavailable (op={}) — falling back to non-streaming", PROVIDER_TAG, operation);
         return call(prompt, setting, operation, resolvedApiKey);
     }
 
@@ -107,6 +164,118 @@ public class OpenAiClient implements AiAnalysisClient {
         return completions.endsWith("/chat/completions")
                 ? completions.substring(0, completions.length() - "/chat/completions".length()) + "/models"
                 : completions;
+    }
+
+    // ── Streaming (D2) ────────────────────────────────────────────────────────
+
+    /**
+     * One streaming chat-completion call: {@code stream: true} + SSE parsing. Returns the full
+     * accumulated text, or {@code null} when the endpoint cannot stream / the call failed — the
+     * caller then falls back to the non-streaming path. Token usage is requested via
+     * {@code stream_options.include_usage} and recorded from the final chunk when the server
+     * supports it; otherwise usage recording is quietly skipped (no exception).
+     */
+    private String callStreaming(String userPrompt, AiSetting setting, String operation,
+                                 String resolvedApiKey, Consumer<String> chunkSink) {
+        String url   = resolveUrl(setting);
+        String model = resolveModel(setting);
+        boolean hasAuth = resolvedApiKey != null && !resolvedApiKey.isBlank();
+        String op = operation != null ? operation : "completion";
+
+        if (!hasAuth && DEFAULT_OPENAI_URL.equals(url)) {
+            return null; // the non-streaming fallback logs the missing-key warning
+        }
+
+        long start = System.currentTimeMillis();
+        StringBuilder result = new StringBuilder();
+        Map<String, Object> usage = null;
+        try {
+            Map<String, Object> body = Map.of(
+                    "model", model,
+                    "messages", List.of(
+                            Map.of("role", "system",
+                                   "content", promptTemplates.getSystemPrompt(setting.getProvider())),
+                            Map.of("role", "user", "content", userPrompt)
+                    ),
+                    "max_tokens", promptTemplates.getMaxTokens(op),
+                    "temperature", promptTemplates.getTemperature(),
+                    "stream", true,
+                    // Servers without stream_options support either ignore it or reject the
+                    // request — a reject surfaces as a non-2xx below and triggers the fallback.
+                    "stream_options", Map.of("include_usage", true)
+            );
+
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(STREAMING_REQUEST_TIMEOUT)
+                    .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                    .POST(HttpRequest.BodyPublishers.ofString(STREAM_MAPPER.writeValueAsString(body)));
+            if (hasAuth) {
+                requestBuilder.header("Authorization", "Bearer " + resolvedApiKey);
+            }
+
+            log.debug("[AI][{}] → stream url='{}' model='{}' auth={} promptLen={}",
+                    PROVIDER_TAG, url, model, hasAuth ? "Bearer" : "none", userPrompt.length());
+
+            HttpResponse<java.io.InputStream> response = streamingHttpClient.send(
+                    requestBuilder.build(), HttpResponse.BodyHandlers.ofInputStream());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("[AI][{}] Streaming request rejected (HTTP {}) op={} — will retry non-streaming",
+                        PROVIDER_TAG, response.statusCode(), op);
+                return null;
+            }
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.startsWith("data:")) continue;
+                    String payload = line.substring("data:".length()).trim();
+                    if (payload.isEmpty()) continue;
+                    if ("[DONE]".equals(payload)) break;
+                    JsonNode chunk = STREAM_MAPPER.readTree(payload);
+                    if (usage == null && chunk.hasNonNull("usage")) {
+                        usage = STREAM_MAPPER.convertValue(chunk.get("usage"), new TypeReference<>() {});
+                    }
+                    String delta = extractStreamDelta(chunk);
+                    if (delta != null && !delta.isEmpty()) {
+                        result.append(delta);
+                        chunkSink.accept(delta);
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("[AI][{}] Streaming call interrupted op={} — will retry non-streaming", PROVIDER_TAG, op);
+            return null;
+        } catch (Exception e) {
+            log.warn("[AI][{}] Streaming call failed after {}ms op={} — {}: {} (will retry non-streaming)",
+                    PROVIDER_TAG, System.currentTimeMillis() - start, op,
+                    e.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
+
+        if (usage != null) {
+            usageRecorder.recordFromOpenAiUsage(Map.of("usage", usage), setting.getProvider(), op, model);
+        } else {
+            // Server ignored include_usage — token usage is simply not recorded for this call.
+            log.debug("[AI][{}] Streaming response carried no usage chunk — usage not recorded (op={})",
+                    PROVIDER_TAG, op);
+        }
+        log.debug("[AI][{}] ← stream complete op={} elapsedMs={} resultLen={}",
+                PROVIDER_TAG, op, System.currentTimeMillis() - start, result.length());
+        String text = result.toString().strip();
+        return text.isEmpty() ? null : text;
+    }
+
+    /** Reads {@code choices[0].delta.content} from one streaming chunk; absent on the final usage chunk. */
+    private static String extractStreamDelta(JsonNode chunk) {
+        JsonNode choices = chunk.get("choices");
+        if (choices == null || !choices.isArray() || choices.isEmpty()) return null;
+        JsonNode delta = choices.get(0).get("delta");
+        if (delta == null) return null;
+        JsonNode content = delta.get("content");
+        return content != null && content.isTextual() ? content.asText() : null;
     }
 
     // ── Internal ─────────────────────────────────────────────────────────────────

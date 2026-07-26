@@ -8,6 +8,7 @@ import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.repository.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
+import com.salkcoding.oswl.service.EnrichmentProgressContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 @Slf4j
 @Service
@@ -103,7 +106,12 @@ public class AiAnalysisService {
 
     /** Plain-text delegate — unwraps JSON/fence noise smaller models add to prose answers. */
     private String delegatePlainText(String prompt, AiSetting setting, String operation) {
-        return AiResponseSanitizer.sanitizePlainText(delegate(prompt, setting, operation));
+        // D2: free-form (prose) calls stream token-by-token when the caller opened an
+        // enrichment preview scope; batch/JSON calls never stream (raw partial JSON is
+        // meaningless as a user-facing preview). Outside a scope the sink is null and the
+        // non-streaming path is used exactly as before.
+        return AiResponseSanitizer.sanitizePlainText(
+                delegate(prompt, setting, operation, null, EnrichmentProgressContext.currentPreviewSink()));
     }
 
     @Transactional(readOnly = true)
@@ -205,8 +213,11 @@ public class AiAnalysisService {
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.cve start — {} item(s), provider={}", items.size(), setting.getProvider());
         Map<String, AiStructuredSummary.ParsedEntry> merged = new LinkedHashMap<>();
+        int processed = 0;
         for (List<CveSummaryRequest> chunk : chunkForOutputBudget(items, "batch.cve")) {
             merged.putAll(batchStructuredWithRetry(chunk, deploymentProfile, setting, "CVE", "batch.cve", maxRetries));
+            processed += chunk.size();
+            reportBatchProgress(processed, items.size());
         }
         return merged;
     }
@@ -271,10 +282,21 @@ public class AiAnalysisService {
         if (setting == null || items.isEmpty()) return Map.of();
         log.debug("[AI] batch.license start — {} item(s), provider={}", items.size(), setting.getProvider());
         Map<String, String> merged = new LinkedHashMap<>();
+        int processed = 0;
         for (List<LicenseSummaryRequest> chunk : chunkForOutputBudget(items, "batch.license")) {
             merged.putAll(batchWithRetry(chunk, deploymentProfile, setting, "license", "batch.license", maxRetries));
+            processed += chunk.size();
+            reportBatchProgress(processed, items.size());
         }
         return merged;
+    }
+
+    /** D2: reports "N/M done" for batch chunks — only when the caller opened a progress scope. */
+    private void reportBatchProgress(int processed, int total) {
+        IntConsumer progress = EnrichmentProgressContext.currentBatchProgress();
+        if (progress != null) {
+            progress.accept(Math.min(processed, total));
+        }
     }
 
     /**
@@ -395,6 +417,11 @@ public class AiAnalysisService {
     }
 
     private String delegate(String prompt, AiSetting setting, String operation, String resolvedApiKeyOverride) {
+        return delegate(prompt, setting, operation, resolvedApiKeyOverride, null);
+    }
+
+    private String delegate(String prompt, AiSetting setting, String operation, String resolvedApiKeyOverride,
+                            Consumer<String> previewSink) {
         if (!usageLimiter.tryConsume(setting.getProvider())) {
             log.warn("[AI] Skipping {} — daily call cap reached for {}", operation, setting.getProvider());
             return null;
@@ -403,7 +430,12 @@ public class AiAnalysisService {
                 ? resolvedApiKeyOverride
                 : decryptApiKey(setting);
         return switch (setting.getProvider()) {
-            case OPENAI, LOCAL, GEMINI -> openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
+            // The streaming (5-arg) overload is only used when a preview sink is bound, so
+            // callers without a scope take the exact pre-D2 path. Anthropic has no streaming
+            // path (D2 scope is the OpenAI-compatible client) — previews are simply absent.
+            case OPENAI, LOCAL, GEMINI -> previewSink != null
+                    ? openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey, previewSink)
+                    : openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
             case ANTHROPIC             -> anthropicClient.callWithSetting(prompt, setting, operation, resolvedApiKey);
         };
     }

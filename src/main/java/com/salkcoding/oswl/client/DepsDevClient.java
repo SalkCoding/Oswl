@@ -3,6 +3,7 @@ package com.salkcoding.oswl.client;
 import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotAdvisory;
 import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVersion;
+import com.salkcoding.oswl.service.EnrichmentProgressContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -22,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -160,6 +163,17 @@ public class DepsDevClient {
      * component list, so a misalignment would attach licenses/CVEs to the wrong library.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
+        // D3: completion counts flow to the caller either explicitly (2-arg overload) or via
+        // the thread-scoped enrichment progress context — the 1-arg signature is kept because
+        // existing callers (and their mocks) depend on it.
+        return getVersionsBatch(components, EnrichmentProgressContext.currentFetchProgress());
+    }
+
+    /**
+     * Same as {@link #getVersionsBatch(List)}, additionally invoking {@code onProgress} with the
+     * running count of completed distinct-key fetches as each parallel call finishes (D3).
+     */
+    public List<VersionInfo> getVersionsBatch(List<ComponentKey> components, IntConsumer onProgress) {
         if (airgapped) {
             return getVersionsFromSnapshot(components);
         }
@@ -168,8 +182,17 @@ public class DepsDevClient {
             log.debug("[DepsDevClient] GetVersion batch dedupe: {} components → {} distinct keys",
                     components.size(), distinct.size());
         }
+        AtomicInteger completed = new AtomicInteger();
         List<CompletableFuture<VersionInfo>> futures = distinct.stream()
-                .map(key -> CompletableFuture.supplyAsync(() -> withPermit(() -> getVersion(key)), executor))
+                .map(key -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return withPermit(() -> getVersion(key));
+                    } finally {
+                        if (onProgress != null) {
+                            onProgress.accept(completed.incrementAndGet());
+                        }
+                    }
+                }, executor))
                 .toList();
 
         Map<ComponentKey, VersionInfo> resolved = new java.util.HashMap<>();
