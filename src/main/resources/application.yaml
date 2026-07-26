@@ -148,7 +148,24 @@ oswl:
       # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.
       dir: ${OSWL_EMBEDDED_AI_DIR:embedded-ai}
       port: ${OSWL_EMBEDDED_AI_PORT:11435}
-      context-size: ${OSWL_EMBEDDED_AI_CONTEXT:4096}
+      context-size: ${OSWL_EMBEDDED_AI_CONTEXT:8192}
+      # -1 = offload as many layers as the build supports (-ngl 999); 0 = CPU only;
+      # a positive number pins an explicit layer count (partial offload).
+      gpu-layers: ${OSWL_EMBEDDED_AI_GPU_LAYERS:-1}
+      # 0 = let llama.cpp auto-detect the thread count (no -t flag).
+      threads: ${OSWL_EMBEDDED_AI_THREADS:0}
+      # >1 enables --parallel N --cont-batching so concurrent AI calls aren't serialized
+      # on the server. context-size is the TOTAL context, divided across these slots —
+      # see the slotContext warning logged at startup if it drops below 2048.
+      parallel-slots: ${OSWL_EMBEDDED_AI_PARALLEL:4}
+      flash-attn: ${OSWL_EMBEDDED_AI_FLASH_ATTN:true}
+      # <=0 disables --cache-reuse.
+      cache-reuse: ${OSWL_EMBEDDED_AI_CACHE_REUSE:256}
+      # Space-separated extra llama-server CLI args, appended verbatim. SYSTEM_ADMIN-only
+      # server config — never sourced from request input.
+      extra-args: ${OSWL_EMBEDDED_AI_EXTRA_ARGS:}
+      # GPU model loading can take longer than the previous fixed 90s wait.
+      startup-timeout-seconds: ${OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC:120}
     prompts:
       # "auto" follows the server JVM/OS locale (Korean machine → Korean prompts). Set en/ko to force.
       locale: ${OSWL_AI_PROMPTS_LOCALE:auto}
