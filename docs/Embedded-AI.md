@@ -25,7 +25,6 @@ first time you click **Start** if none is present yet:
 embedded-ai/
   llama-server(.exe)            — llama.cpp server binary (you provide this)
   qwen3-1.7b-q4_k_m.gguf        — default model (Apache 2.0) — auto-downloaded on first Start
-  gemma-3-1b-it-Q4_K_M.gguf     — low-spec fallback (Gemma Terms of Use) — get this yourself
 ```
 
 Clicking **Start** with the directory empty downloads Qwen3-1.7B (~1.2 GB) straight into it,
@@ -35,11 +34,9 @@ script or build step needed. This is safe because Qwen3 is Apache 2.0 licensed (
 [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)) — bundling/fetching it
 on the user's behalf carries no extra redistribution obligation.
 
-Gemma is **never** auto-fetched: it's licensed under the
-[Gemma Terms of Use](https://ai.google.dev/gemma/terms), a custom license (not a standard
-open-source one) that imposes redistribution obligations on whoever hands out the weights.
-Download it yourself from Google/Hugging Face if you want it as a low-spec fallback — that
-way you accept those terms directly rather than OsWL redistributing it on your behalf.
+You can drop in any other `.gguf` model yourself — OsWL picks up every `.gguf` file placed
+directly in this directory, not just the default Qwen3 one. Check the model's own license
+before redistributing or sharing it further; only Qwen3 is bundled/auto-fetched by OsWL.
 
 | Item | Where OsWL looks |
 |---|---|
@@ -81,7 +78,7 @@ You are not limited to the two models above — any llama.cpp-compatible `.gguf`
 3. **Pick it** in the **Model** dropdown (the list is refreshed from the folder) and click **Save**.
 4. Click **Start** — the selected model is tried first. The model choice applies on the next start; switching models while running is not possible (the dropdown is disabled).
 
-The **Auto (preference order)** option tries, in order: the model saved in the dropdown → `qwen3…` → `gemma-3-1b…` → `gemma3…` → the first remaining `.gguf` file (alphabetical).
+The **Auto (preference order)** option tries, in order: the model saved in the dropdown → `qwen3…` → the first remaining `.gguf` file (alphabetical).
 
 > For CPU-only inference, small quantized models in the **1B–4B parameter** range (Q4_K_M or similar) are recommended. Larger models need more RAM and may fail the start timeout on slow machines. The context window is fixed by `OSWL_EMBEDDED_AI_CONTEXT` (default `4096`).
 
@@ -132,7 +129,7 @@ When OsWL ends up running a model that is **not** the first choice, the card sho
 | No model yet, and Start doesn't seem to do anything | Check for internet access — the default-model download needs it once. On an air-gapped machine, place a `.gguf` file directly inside the model folder yourself instead |
 | "Model download failed" / checksum mismatch | Network interrupted mid-download or a corrupted transfer — the partial file is deleted automatically; click **Start** again to retry |
 | `failed to open GGUF file` in the log | The folder in settings does not match where the model actually is — check the **Folder** field and that the file name matches the dropdown entry |
-| "did not become healthy within 90s" | Slow machine or oversized model — try a smaller quantization (e.g. `gemma-3-1b-it-Q4_K_M.gguf`) |
+| "did not become healthy within 90s" | Slow machine or oversized model — try a smaller quantization (e.g. a Q4_K_M `.gguf` in the 1B–2B parameter range) |
 | Port already in use | Another process (or a manually started `llama-server`) occupies the port — stop it or set `OSWL_EMBEDDED_AI_PORT`. A healthy server already listening on the port counts as "running" and is flagged `external` in the status response |
 | Clicking **Stop** doesn't turn the card off | The running server is `external` (not started by this OsWL instance) — stop the process yourself (or restart the machine/container it runs in), OsWL cannot terminate it |
 | "Folder not found or not a directory" on Save | Create the directory first; the save only accepts existing folders |

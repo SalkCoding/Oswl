@@ -128,7 +128,7 @@
                         x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
             </div>
         </div>
-        <p class="m-0 text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; low-spec fallback: Gemma 3 1B.</p>
+        <p class="m-0 text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; any other .gguf you add to the folder is also picked up.</p>
         <div class="text-[12px] text-[var(--grayscale-60)] leading-[1.6] flex flex-col gap-[6px]">
             <div class="flex items-center gap-[8px] flex-wrap">
                 <span class="font-medium" th:text="#{settings.ai.embedded.model}">Model:</span>
@@ -151,7 +151,7 @@
                 <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
             </p>
             <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && !embedded.downloading" x-cloak>
-                <span class="text-[var(--grayscale-60)]" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — clicking Start downloads the Qwen3-1.7B model automatically (~1.2 GB, one-time). Or place your own .gguf (e.g. gemma-3-1b-it-Q4_K_M.gguf) in the folder below.</span>
+                <span class="text-[var(--grayscale-60)]" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — clicking Start downloads the Qwen3-1.7B model automatically (~1.2 GB, one-time). Or place your own .gguf (e.g. qwen3-1.7b-q4_k_m.gguf) in the folder below.</span>
             </p>
             <div x-show="embedded.downloading" x-cloak class="flex flex-col gap-[4px]">
                 <div class="flex items-center justify-between text-[11px] text-[var(--grayscale-60)]">
