@@ -59,3 +59,8 @@ htmlReport
 /embedded-ai/
 .kimi
 .claude
+
+# Local-only planning/verification artifacts (never push)
+/PERFORMANCE-AND-OFFLINE-PLAN.md
+/ROADMAP.md
+/e6verify/
