@@ -18,6 +18,16 @@
             </div>
         </div>
 
+        <!-- Air-gapped definitions-as-of banner (E7): only rendered in offline mode with provenance -->
+        <div th:if="${airgappedDefinitionsAsOf != null}"
+             class="flex items-center gap-[10px] px-[16px] py-[12px] rounded-[10px] bg-[rgba(245,145,38,0.06)] border border-[rgba(245,145,38,0.3)]">
+            <svg class="w-[16px] h-[16px] text-[#91400D] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p class="text-[13px] text-[#91400D] tracking-[-0.13px] m-0 leading-[1.4]"
+               th:text="#{common.airgapped.definitionsAsOf(${airgappedDefinitionsAsOf})}">Analyzed with vulnerability definitions as of 2026-01-01.</p>
+        </div>
+
         <!-- Empty state -->
         <div th:if="${#lists.isEmpty(scanRows)}"
              class="bg-white border border-[var(--grayscale-15)] rounded-[12px] flex flex-col items-center justify-center gap-[12px] py-[80px]">
