@@ -85,6 +85,45 @@
         'Integration':      /*[[#{permission.auditGroup.integration}]]*/ 'Integration',
         'Administration':   /*[[#{permission.auditGroup.administration}]]*/ 'Administration'
     };
+    const _snapshotI18n = {
+        airgappedOn:        /*[[#{settings.admin.snapshot.airgapped.on}]]*/ 'Air-gapped mode active — served from this offline store',
+        airgappedOff:       /*[[#{settings.admin.snapshot.airgapped.off}]]*/ 'Live lookups (not air-gapped)',
+        exportButton:       /*[[#{settings.admin.snapshot.export.button}]]*/ 'Export Bundle',
+        exportDesc:         /*[[#{settings.admin.snapshot.export.desc}]]*/ "Build a snapshot bundle from this instance's own fetched data and download it as a zip. Run this on an online instance, then import the bundle on the air-gapped one.",
+        exportFailed:       /*[[#{settings.admin.snapshot.export.failed}]]*/ 'Failed to export snapshot bundle.',
+        freshnessCritical:  /*[[#{settings.admin.snapshot.freshness.critical}]]*/ 'Stale',
+        freshnessFresh:     /*[[#{settings.admin.snapshot.freshness.fresh}]]*/ 'Up to date',
+        freshnessNone:      /*[[#{settings.admin.snapshot.freshness.none}]]*/ 'No definitions imported yet',
+        freshnessWarn:      /*[[#{settings.admin.snapshot.freshness.warn}]]*/ 'Update recommended',
+        importButton:       /*[[#{settings.admin.snapshot.import.button}]]*/ 'Import',
+        importFailed:       /*[[#{settings.admin.snapshot.import.failed}]]*/ 'Failed to import snapshot bundle.',
+        importFromPathButton:  /*[[#{settings.admin.snapshot.import.fromPath.button}]]*/ 'Import from Path',
+        importFromPathPlaceholder: /*[[#{settings.admin.snapshot.import.fromPath.placeholder}]]*/ "Path relative to the server's configured import directory",
+        importFromPathToggle:  /*[[#{settings.admin.snapshot.import.fromPath.toggle}]]*/ 'Import from a path on the server instead',
+        importModeAuto:     /*[[#{settings.admin.snapshot.import.mode.auto}]]*/ 'Bundle default',
+        importModeMerge:    /*[[#{settings.admin.snapshot.import.mode.merge}]]*/ 'Merge (upsert, honors deletions)',
+        importModeReplace:  /*[[#{settings.admin.snapshot.import.mode.replace}]]*/ 'Replace (clear each source first)',
+        importSelectFile:   /*[[#{settings.admin.snapshot.import.selectFile}]]*/ 'Select a bundle (.zip)',
+        importSuccess:      /*[[#{settings.admin.snapshot.import.success}]]*/ 'Snapshot imported — {0} records across {1} source(s).',
+        infoBoxText:        /*[[#{settings.admin.snapshot.infoBox.text}]]*/ 'Import a bundle of vulnerability/threat-intel definitions (OSV, deps.dev, EPSS, CISA KEV) to serve lookups offline. Export one from an online instance first.',
+        originDerivedFromScan: /*[[#{settings.admin.snapshot.origin.derived-from-scan}]]*/ "Derived from this instance's own scans",
+        statusAsOf:         /*[[#{settings.admin.snapshot.statusCard.asOf}]]*/ 'As of',
+        statusBundleId:     /*[[#{settings.admin.snapshot.statusCard.bundleId}]]*/ 'Bundle',
+        statusBuiltAt:      /*[[#{settings.admin.snapshot.statusCard.builtAt}]]*/ 'Built',
+        statusNoData:       /*[[#{settings.admin.snapshot.statusCard.noData}]]*/ 'No snapshot bundle has been imported yet.',
+        statusTitle:        /*[[#{settings.admin.snapshot.statusCard.title}]]*/ 'Definition Status',
+        tableImportedAt:    /*[[#{settings.admin.snapshot.table.importedAt}]]*/ 'Imported',
+        tableOrigin:        /*[[#{settings.admin.snapshot.table.origin}]]*/ 'Origin',
+        tableRecords:       /*[[#{settings.admin.snapshot.table.records}]]*/ 'Records',
+        tableSource:        /*[[#{settings.admin.snapshot.table.source}]]*/ 'Source'
+    };
+    const _snapshotSourceLabels = {
+        'osv':               /*[[#{settings.admin.snapshot.source.osv}]]*/ 'OSV',
+        'depsdev-version':   /*[[#{settings.admin.snapshot.source.depsdevVersion}]]*/ 'deps.dev (versions)',
+        'depsdev-advisory':  /*[[#{settings.admin.snapshot.source.depsdevAdvisory}]]*/ 'deps.dev (advisories)',
+        'epss':              /*[[#{settings.admin.snapshot.source.epss}]]*/ 'FIRST.org EPSS',
+        'kev':               /*[[#{settings.admin.snapshot.source.kev}]]*/ 'CISA KEV'
+    };
     </script>
 
     <!-- Toast notification -->
@@ -124,6 +163,9 @@
         <button @click="subTab='audit'; closeSidebar(); loadAudit(0)"
                 :class="subTab==='audit' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                 class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.auditLog.heading}">Audit Log</button>
+        <button @click="subTab='snapshot'; closeSidebar(); loadSnapshotStatus()"
+                :class="subTab==='snapshot' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+                class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors" th:text="#{settings.admin.snapshot.heading}">Offline Snapshot</button>
     </div>
 
     <!-- ===================== USERS ===================== -->
@@ -895,6 +937,107 @@
         </div><!-- end table + footer wrapper -->
     </div>
 
+    <!-- ===================== SNAPSHOT (Offline VDB, E7) ===================== -->
+    <div x-show="subTab==='snapshot'" x-cloak class="flex flex-col gap-[12px]">
+        <!-- Info box -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
+            <img th:src="@{/icon/icon-info2.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
+            <span class="text-[13px] text-[var(--grayscale-70)]" x-text="_snapshotI18n.infoBoxText"></span>
+        </div>
+
+        <!-- Air-gapped mode indicator -->
+        <div class="rounded-[8px] px-[16px] py-[10px] flex items-center gap-[10px] border"
+             :class="snapshotAirgapped ? 'bg-[#e6faf5] border-[#00B9A3]' : 'bg-[var(--grayscale-5)] border-[var(--grayscale-20)]'">
+            <span class="w-[8px] h-[8px] rounded-full inline-block shrink-0" :class="snapshotAirgapped ? 'bg-[#00B9A3]' : 'bg-[var(--grayscale-40)]'"></span>
+            <span class="text-[13px] font-medium" :class="snapshotAirgapped ? 'text-[#00695c]' : 'text-[var(--grayscale-60)]'"
+                  x-text="snapshotAirgapped ? _snapshotI18n.airgappedOn : _snapshotI18n.airgappedOff"></span>
+        </div>
+
+        <!-- Definition status card -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] p-[16px] flex flex-col gap-[12px]">
+            <div class="flex items-center justify-between flex-wrap gap-[8px]">
+                <span class="text-[14px] font-bold text-[var(--grayscale-90)]" x-text="_snapshotI18n.statusTitle"></span>
+                <div class="flex items-center gap-[6px]" x-show="snapshotOldestAsOf">
+                    <span class="w-[8px] h-[8px] rounded-full inline-block shrink-0"
+                          :class="{'bg-[#00d761]': stalenessLevel()==='fresh', 'bg-[#f59e0b]': stalenessLevel()==='warn', 'bg-[#ef4444]': stalenessLevel()==='critical'}"></span>
+                    <span class="text-[12px] font-semibold"
+                          :class="{'text-[#00a34e]': stalenessLevel()==='fresh', 'text-[#b45309]': stalenessLevel()==='warn', 'text-[#b91c1c]': stalenessLevel()==='critical'}"
+                          x-text="stalenessLabel()"></span>
+                    <span class="text-[12px] text-[var(--grayscale-50)]">(<span x-text="_snapshotI18n.statusAsOf"></span> <span x-text="snapshotOldestAsOf"></span>)</span>
+                </div>
+            </div>
+            <div x-show="!snapshotOldestAsOf" class="text-[13px] text-[var(--grayscale-50)]" x-text="_snapshotI18n.statusNoData"></div>
+            <div x-show="snapshotOldestAsOf" class="overflow-x-auto">
+                <table class="w-full text-[12px]">
+                    <thead>
+                        <tr class="text-[var(--grayscale-50)] text-left border-b border-[var(--grayscale-10)]">
+                            <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.tableSource"></th>
+                            <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.tableRecords"></th>
+                            <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.statusAsOf"></th>
+                            <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.tableOrigin"></th>
+                            <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.tableImportedAt"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="s in snapshotSources" :key="s.source">
+                            <tr class="border-b border-[var(--grayscale-5)]">
+                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-90)]" x-text="_snapshotSourceLabels[s.source] || s.source"></td>
+                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-70)]" x-text="s.recordCount.toLocaleString()"></td>
+                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-70)]" x-text="s.sourceAsOf || '—'"></td>
+                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-70)]" x-text="s.origin==='derived-from-scan' ? _snapshotI18n.originDerivedFromScan : (s.origin || '—')"></td>
+                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-50)]" x-text="s.importedAt ? s.importedAt.replace('T',' ').slice(0,16) : '—'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Import / Export -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-[12px]">
+            <!-- Export -->
+            <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] p-[16px] flex flex-col gap-[10px]">
+                <span class="text-[13px] font-bold text-[var(--grayscale-90)]" x-text="_snapshotI18n.exportButton"></span>
+                <span class="text-[12px] text-[var(--grayscale-60)]" x-text="_snapshotI18n.exportDesc"></span>
+                <a href="/api/admin/snapshot/export"
+                   class="mt-auto inline-flex items-center justify-center gap-[6px] px-[14px] py-[9px] bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold rounded-[8px] transition-colors">
+                    <img th:src="@{/icon/icon-download.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                    <span x-text="_snapshotI18n.exportButton"></span>
+                </a>
+            </div>
+
+            <!-- Import -->
+            <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] p-[16px] flex flex-col gap-[10px]">
+                <span class="text-[13px] font-bold text-[var(--grayscale-90)]" x-text="_snapshotI18n.importButton"></span>
+                <input type="file" accept=".zip" @change="snapshotFile = $event.target.files[0] || null"
+                       class="text-[12px] text-[var(--grayscale-70)] file:mr-[8px] file:px-[10px] file:py-[6px] file:rounded-[6px] file:border-0 file:bg-[var(--grayscale-10)] file:text-[12px] file:cursor-pointer cursor-pointer"/>
+                <div class="flex items-center gap-[14px] text-[12px] text-[var(--grayscale-70)]">
+                    <label class="flex items-center gap-[4px] cursor-pointer">
+                        <input type="radio" value="" x-model="snapshotImportMode"/> <span x-text="_snapshotI18n.importModeAuto"></span>
+                    </label>
+                    <label class="flex items-center gap-[4px] cursor-pointer">
+                        <input type="radio" value="replace" x-model="snapshotImportMode"/> <span x-text="_snapshotI18n.importModeReplace"></span>
+                    </label>
+                    <label class="flex items-center gap-[4px] cursor-pointer">
+                        <input type="radio" value="merge" x-model="snapshotImportMode"/> <span x-text="_snapshotI18n.importModeMerge"></span>
+                    </label>
+                </div>
+                <button @click="importSnapshotFile()" :disabled="!snapshotFile || snapshotImporting"
+                        class="mt-auto px-[14px] py-[9px] bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-[8px] transition-colors"
+                        x-text="snapshotImporting ? '...' : _snapshotI18n.importButton"></button>
+                <button type="button" @click="snapshotShowPathImport = !snapshotShowPathImport"
+                        class="text-[11px] text-left text-[var(--secondary-100)] hover:underline" x-text="_snapshotI18n.importFromPathToggle"></button>
+                <div x-show="snapshotShowPathImport" x-cloak class="flex flex-col gap-[8px] pt-[6px] border-t border-[var(--grayscale-10)]">
+                    <input type="text" x-model="snapshotImportPath" :placeholder="_snapshotI18n.importFromPathPlaceholder"
+                           class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] focus:outline-none focus:border-[var(--primary-120)]"/>
+                    <button @click="importSnapshotFromPath()" :disabled="!snapshotImportPath || snapshotImporting"
+                            class="px-[14px] py-[8px] bg-transparent border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] disabled:opacity-40 disabled:cursor-not-allowed text-[var(--grayscale-80)] text-[12px] font-bold rounded-[8px] transition-colors"
+                            x-text="snapshotImporting ? '...' : _snapshotI18n.importFromPathButton"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ===================== UNIFIED SLIDEOUT (legacy — hidden, panels are now inline) ===================== -->
     <div x-show="false" class="fixed inset-0 z-50"
          x-transition:enter="transition-opacity ease-out duration-200"
@@ -1118,6 +1261,16 @@
             actionDropdownOpen: false,
             dateDropdownOpen: false,
             minPasswordLength: 8,
+            snapshotAirgapped: false,
+            snapshotSources: [],
+            snapshotOldestAsOf: null,
+            snapshotStalenessWarnDays: 7,
+            snapshotStalenessCriticalDays: 30,
+            snapshotFile: null,
+            snapshotImportMode: '',
+            snapshotImporting: false,
+            snapshotShowPathImport: false,
+            snapshotImportPath: '',
             actionGroups: [
                 { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT', 'AUTH.OTP_FAILURE', 'AUTH.OTP_RESEND', 'AUTH.TRUSTED_DEVICE', 'AUTH.PASSWORD_CHANGE'] },
                 { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE', 'USER.SELF_DELETE'] },
@@ -1425,6 +1578,76 @@
                     '90': _adminI18n.last90Days
                 };
                 return map[this.auditFilter.dateRange] ?? _adminI18n.last7Days;
+            },
+
+            // ── Snapshot (offline VDB, E7) ──
+            async loadSnapshotStatus() {
+                try {
+                    const r = await this.apiGet('/api/admin/snapshot');
+                    this.snapshotAirgapped = r.airgapped;
+                    this.snapshotSources = r.sources || [];
+                    this.snapshotOldestAsOf = r.oldestSourceAsOf || null;
+                    this.snapshotStalenessWarnDays = r.stalenessWarnDays;
+                    this.snapshotStalenessCriticalDays = r.stalenessCriticalDays;
+                } catch(e) {
+                    this.apiError = e.message || _adminI18n.loadDataFailed;
+                }
+            },
+            stalenessDays() {
+                if (!this.snapshotOldestAsOf) return null;
+                const asOf = new Date(this.snapshotOldestAsOf + 'T00:00:00');
+                return Math.floor((Date.now() - asOf.getTime()) / 86400000);
+            },
+            stalenessLevel() {
+                const days = this.stalenessDays();
+                if (days === null) return 'none';
+                if (days > this.snapshotStalenessCriticalDays) return 'critical';
+                if (days > this.snapshotStalenessWarnDays) return 'warn';
+                return 'fresh';
+            },
+            stalenessLabel() {
+                return { fresh: _snapshotI18n.freshnessFresh, warn: _snapshotI18n.freshnessWarn,
+                         critical: _snapshotI18n.freshnessCritical, none: _snapshotI18n.freshnessNone }[this.stalenessLevel()];
+            },
+            async importSnapshotFile() {
+                if (!this.snapshotFile) return;
+                this.snapshotImporting = true;
+                try {
+                    const form = new FormData();
+                    form.append('file', this.snapshotFile);
+                    const url = '/api/admin/snapshot/import' + (this.snapshotImportMode ? '?mode=' + this.snapshotImportMode : '');
+                    const r = await fetch(url, { method: 'POST', headers: { 'X-XSRF-TOKEN': this.csrf() }, body: form });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.showToast(_fetchErr(r, _snapshotI18n.importFailed)); return; }
+                    const result = await r.json();
+                    this.snapshotFile = null;
+                    this.showToast(_snapshotI18n.importSuccess.replace('{0}', result.totalRecords).replace('{1}', Object.keys(result.sources||{}).length));
+                    await this.loadSnapshotStatus();
+                } catch(e) {
+                    this.showToast(e.message || _snapshotI18n.importFailed);
+                } finally {
+                    this.snapshotImporting = false;
+                }
+            },
+            async importSnapshotFromPath() {
+                if (!this.snapshotImportPath) return;
+                this.snapshotImporting = true;
+                try {
+                    const r = await fetch('/api/admin/snapshot/import-from-path', {
+                        method: 'POST', headers: this.headers(),
+                        body: JSON.stringify({ path: this.snapshotImportPath, mode: this.snapshotImportMode || null })
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.showToast(_fetchErr(r, _snapshotI18n.importFailed)); return; }
+                    const result = await r.json();
+                    this.snapshotImportPath = '';
+                    this.showToast(_snapshotI18n.importSuccess.replace('{0}', result.totalRecords).replace('{1}', Object.keys(result.sources||{}).length));
+                    await this.loadSnapshotStatus();
+                } catch(e) {
+                    this.showToast(e.message || _snapshotI18n.importFailed);
+                } finally {
+                    this.snapshotImporting = false;
+                }
             }
         };
     }

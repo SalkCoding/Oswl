@@ -151,6 +151,15 @@ oswl:
     # Import a snapshot bundle first (POST /api/admin/snapshot/import, SYSTEM_ADMIN only);
     # components absent from the snapshot resolve as "no data" (empty results).
     enabled: ${OSWL_AIRGAPPED_ENABLED:false}
+    # E3: server-path import (POST /api/admin/snapshot/import-from-path) only accepts files
+    # under this directory — a realpath-verified whitelist (CloneRootPathGuard), since arbitrary
+    # server-path reads would otherwise be an admin-triggered file-read vulnerability. Blank
+    # disables the endpoint entirely (returns 400) — an operator must opt in to a specific path.
+    import-dir: ${OSWL_AIRGAPPED_IMPORT_DIR:}
+    # E7: definition-DB staleness thresholds, measured from the oldest per-source "as of" date
+    # across the imported snapshot (not builtAt/importedAt — see AirgappedSnapshotService).
+    staleness-warn-days: ${OSWL_AIRGAPPED_STALENESS_WARN_DAYS:7}
+    staleness-critical-days: ${OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS:30}
   gate:
     # PR / CI security-gate default thresholds (overridable per request).
     # fail-on-severity: gate fails on CVEs at this severity or higher (CRITICAL|HIGH|MEDIUM|LOW).
