@@ -94,8 +94,14 @@ public class AirgappedSnapshotService {
     public static final String SOURCE_DEPSDEV_ADVISORY = "depsdev-advisory";
     public static final String SOURCE_EPSS = "epss";
     public static final String SOURCE_KEV = "kev";
+    /** E6: components a wanted-list included but the {@code oswl-vdb} builder never resolved
+     * (upstream had no data, or a range couldn't be confidently evaluated) — never populated by
+     * this app's own {@link #exportBundle()}, only by bundles built via the CLI. Kept as an
+     * ordinary source (not folded into {@code osv}) so the existing per-source status/import-count
+     * plumbing (E1-E3) surfaces it without any bespoke wiring. */
+    public static final String SOURCE_UNRESOLVED = "unresolved";
     public static final List<String> SOURCES = List.of(
-            SOURCE_OSV, SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY, SOURCE_EPSS, SOURCE_KEV);
+            SOURCE_OSV, SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED);
 
     private static final String BUNDLE_FORMAT = "oswl-vdb";
     private static final int CURRENT_FORMAT_VERSION = 2;
@@ -116,7 +122,7 @@ public class AirgappedSnapshotService {
     private static final double MAX_COMPRESSION_RATIO = 100.0;
 
     private static final Set<String> KNOWN_DATA_FILES =
-            Set.of("osv.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl");
+            Set.of("osv.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl", "unresolved.jsonl");
 
     private final SnapshotEntryRepository snapshotEntryRepository;
     private final SnapshotMetaRepository snapshotMetaRepository;
@@ -411,6 +417,11 @@ public class AirgappedSnapshotService {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_KEV, mode);
                     for (String line : lines) ingestKevLine(line, buf);
                     counts.merge(SOURCE_KEV, buf.finish(), Integer::sum);
+                }
+                case "unresolved.jsonl" -> {
+                    SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_UNRESOLVED, mode);
+                    for (String line : lines) ingestOsvLine(line, buf); // same {ecosystem,name,version} shape, no "vulns" needed
+                    counts.merge(SOURCE_UNRESOLVED, buf.finish(), Integer::sum);
                 }
                 default -> { /* unreachable — filtered by KNOWN_DATA_FILES above */ }
             }

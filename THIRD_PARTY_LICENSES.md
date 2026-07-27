@@ -33,6 +33,10 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [Flyway](#flyway)                                                     | Apache 2.0             |
 | [Spring Security OAuth2 Client](#spring-security-oauth2-client)       | Apache 2.0             |
 | [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf)                                  | Apache 2.0             |
+| [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
+| [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
+| [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
+| [deps.dev](#depsdev)                                                  | Unclarified (data) / Apache 2.0 (client repo) |
 
 ---
 
@@ -501,6 +505,65 @@ Copyright Alibaba Cloud. Licensed under the Apache License, Version 2.0 (the "Li
 you may not use this file except in compliance with the License. You may obtain a copy
 of the License at https://www.apache.org/licenses/LICENSE-2.0
 ```
+
+---
+
+## External Data Sources (Vulnerability / Threat Intelligence Feeds)
+
+Unlike the libraries and models above, the entries below are **data, not code** — consumed live
+by `OsvClient`/`DepsDevClient`/`EpssClient`/`KevCatalogService` when air-gapped mode is off, and
+by the `oswl-vdb` builder CLI (E5, `com.salkcoding.oswl.vdb`) when constructing an offline
+snapshot bundle for air-gapped instances. None of this data is bundled in the git repository or
+build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
+
+### OSV (Open Source Vulnerabilities)
+
+- **Website:** https://osv.dev/ · bulk dumps: `https://storage.googleapis.com/osv-vulnerabilities/<ecosystem>/all.zip`
+- **License:** Varies by upstream advisory source, documented per-ecosystem at
+  https://google.github.io/osv.dev/data/. For the ecosystems OsWL supports: **npm, Maven,
+  RubyGems, NuGet** entries originate from the **GitHub Advisory Database (CC-BY 4.0)**; **PyPI**
+  additionally draws from the PyPI Advisory Database and the Python Software Foundation Database
+  (both **CC-BY 4.0**); **Go** from the Go Vulnerability Database (**CC-BY 4.0**); **crates.io**
+  from the RustSec Advisory Database (**CC0 1.0**, public domain).
+- **Used for:** Live per-component vulnerability lookups (`OsvClient`) and, in `oswl-vdb build`,
+  bulk re-indexing of the ecosystem `all.zip` dumps into `osv.jsonl` snapshot entries.
+- **Attribution:** CC-BY 4.0 requires attribution to the original source; this notice plus OSV's
+  own `id`/`aliases` fields preserved verbatim in every re-indexed entry satisfy that.
+
+### FIRST.org EPSS (Exploit Prediction Scoring System)
+
+- **Website:** https://www.first.org/epss/ · bulk scores: `https://epss.empiricalsecurity.com/epss_scores-current.csv.gz`
+- **License:** FIRST.org states EPSS scores are made "freely and openly accessible" via CSV and
+  API, with attribution requested where possible (https://www.first.org/epss/faq); this is
+  narrower than a formal open-data license — the underlying model/training data are explicitly
+  **not** shared per that FAQ, only the published per-CVE scores OsWL consumes.
+- **Used for:** Live per-CVE probability-of-exploitation scores (`EpssClient`) and, in
+  `oswl-vdb build`, the full bulk CSV.
+- **Attribution:** This notice + preserving FIRST.org as the named source satisfies the
+  attribution request.
+
+### CISA KEV (Known Exploited Vulnerabilities Catalog)
+
+- **Website:** https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+- **License:** **CC0 1.0** (public domain) — a work of the U.S. federal government, mirrored
+  under CC0 at https://github.com/cisagov/kev-data.
+- **Used for:** Live KEV-listed flagging (`KevCatalogService`) and, in `oswl-vdb build`, the full
+  bulk JSON feed.
+
+### deps.dev
+
+- **Website:** https://deps.dev/ · API: https://docs.deps.dev/api/v3/
+- **License:** **Not explicitly stated by Google for the returned data** — a community request
+  to clarify the data license (https://github.com/google/deps.dev/issues/15) was closed without
+  a stated resolution as of this writing. Use of the API itself is governed by the
+  [Google APIs Terms of Service](https://developers.google.com/terms). The deps.dev **client
+  repository's own code** (not the data) is Apache 2.0.
+- **Used for:** Live per-version license/advisory-key lookups and Scorecard scores
+  (`DepsDevClient`) and, in `oswl-vdb build`, targeted `GetVersion`/`GetAdvisory` calls against a
+  wanted-list (E6) — deps.dev has no bulk dump, so this is the only viable ingestion path (E5.2).
+- **Note:** Given the licensing ambiguity above, treat deps.dev-derived fields (`licenses`,
+  `advisoryKeys`, GHSA advisory title/CVSS) the same way the rest of this codebase already does —
+  as data used to power OsWL's own analysis output, not redistributed as a standalone dataset.
 
 ---
 
