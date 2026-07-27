@@ -308,3 +308,175 @@ tasks.register('downloadVendorJs') {
 }
 
 processResources.dependsOn 'downloadVendorJs'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// H2/H3: OSS notices / THIRD_PARTY_LICENSES.md version single-sourcing.
+// This is version-SYNC automation, not dependency-DISCOVERY — a newly added
+// library must be added to both maps below, or it is simply not tracked.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// slug -> "group:artifact" for every backend library tracked in THIRD_PARTY_LICENSES.md /
+// oss-notices.html. Frontend vendor JS (Alpine/htmx/Chart.js/Tailwind) isn't a Gradle
+// dependency — generateOssManifest reads those straight from the existing ext versions above.
+ext.trackedOssCoordinates = [
+	springBoot             : 'org.springframework.boot:spring-boot',
+	springSecurity         : 'org.springframework.security:spring-security-core',
+	springDataJpa          : 'org.springframework.data:spring-data-jpa',
+	hibernate              : 'org.hibernate.orm:hibernate-core',
+	thymeleaf              : 'org.thymeleaf:thymeleaf',
+	thymeleafSpringSecurity: 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6',
+	springdocOpenapi       : 'org.springdoc:springdoc-openapi-starter-webmvc-ui',
+	jackson                : 'com.fasterxml.jackson.core:jackson-databind',
+	logback                : 'ch.qos.logback:logback-classic',
+	slf4j                  : 'org.slf4j:slf4j-api',
+	greenmail              : 'com.icegreen:greenmail',
+	h2                     : 'com.h2database:h2',
+	postgresqlJdbc         : 'org.postgresql:postgresql',
+	lombok                 : 'org.projectlombok:lombok',
+	cyclonedx              : 'org.cyclonedx:cyclonedx-core-java',
+	packageurl             : 'com.github.package-url:packageurl-java',
+	micrometer             : 'io.micrometer:micrometer-registry-prometheus',
+	flyway                 : 'org.flywaydb:flyway-core',
+	springOauth2           : 'org.springframework.security:spring-security-oauth2-client',
+]
+
+tasks.register('generateOssManifest') {
+	description = 'Resolves runtime dependency versions and writes the single OSS version manifest ' +
+			'consumed by the /oss-notices page and the THIRD_PARTY_LICENSES.md sync task.'
+	group = 'documentation'
+	def outputFile = layout.buildDirectory.file('generated/oss-manifest/oss-versions.json')
+	outputs.file(outputFile)
+	doLast {
+		// compileClasspath also resolves compileOnly-only deps (e.g. lombok) that
+		// runtimeClasspath doesn't carry; runtimeClasspath wins where both resolve a coordinate,
+		// since that's the version actually shipped. Uses the resolution-result API (not the
+		// older resolvedConfiguration/LenientConfiguration, whose allModuleVersions accessor is
+		// gone on this project's Gradle version) so unresolved/optional dependencies are skipped
+		// rather than failing the whole task.
+		def fromConfig = { cfg ->
+			cfg.incoming.resolutionResult.allComponents.findAll { it.moduleVersion != null }.collectEntries {
+				["${it.moduleVersion.group}:${it.moduleVersion.name}".toString(), it.moduleVersion.version]
+			}
+		}
+		def resolved = fromConfig(configurations.compileClasspath) + fromConfig(configurations.runtimeClasspath)
+
+		def manifest = [:]
+		trackedOssCoordinates.each { slug, ga -> manifest[slug] = resolved[ga] ?: 'UNRESOLVED' }
+		// The Spring Boot plugin version itself isn't queryable through a stable public Gradle
+		// API — but "org.springframework.boot:spring-boot" is managed by that exact same
+		// BOM/plugin version, so its already-resolved value IS the Spring Boot version.
+		manifest.springBootBomVersion = manifest.springBoot
+
+		manifest.alpine = alpineVersion
+		manifest.alpineCollapse = alpineVersion
+		manifest.htmx = htmxVersion
+		manifest.chartjs = chartJsVersion
+		manifest.tailwind = tailwindVersion
+
+		def unresolved = manifest.findAll { k, v -> v == 'UNRESOLVED' }
+		if (unresolved) {
+			logger.warn("[generateOssManifest] Unresolved coordinates (check trackedOssCoordinates): ${unresolved.keySet()}")
+		}
+
+		def f = outputFile.get().asFile
+		f.parentFile.mkdirs()
+		f.text = groovy.json.JsonOutput.toJson(manifest)
+	}
+}
+
+processResources.dependsOn 'generateOssManifest'
+tasks.named('processResources') {
+	from(tasks.named('generateOssManifest'))
+}
+
+// ### section title in THIRD_PARTY_LICENSES.md -> which manifest key drives its **Version:**
+// line, and whether that line is a literal version or a "Managed by <project> X.Y.Z" phrase
+// (only the trailing version token is rewritten in the phrase case — see
+// syncThirdPartyLicenseVersions below). Sections not listed here (e.g. Qwen3-1.7B, which has
+// its own G3 redistribution-notice lifecycle) are left completely untouched.
+ext.thirdPartyVersionSections = [
+	'Spring Boot / Spring Framework'  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Spring Security'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Spring Data JPA'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Hibernate ORM'                   : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Thymeleaf'                       : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'springdoc-openapi'               : [key: 'springdocOpenapi', mode: 'literal'],
+	'CycloneDX Core (Java)'           : [key: 'cyclonedx', mode: 'literal'],
+	'packageurl-java'                 : [key: 'cyclonedx', mode: 'bomPhrase'],
+	'Micrometer Prometheus Registry'  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Flyway'                          : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Spring Security OAuth2 Client'   : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Jackson'                         : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Logback Classic'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'SLF4J API'                       : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'GreenMail'                       : [key: 'greenmail', mode: 'literal'],
+	'H2 Database'                     : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'PostgreSQL JDBC Driver'          : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Project Lombok'                  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Alpine.js'                       : [key: 'alpine', mode: 'literal'],
+	'@alpinejs/collapse'              : [key: 'alpineCollapse', mode: 'literal'],
+	'Chart.js'                        : [key: 'chartjs', mode: 'literal'],
+	'htmx'                            : [key: 'htmx', mode: 'literal'],
+	'Tailwind CSS'                    : [key: 'tailwind', mode: 'literal'],
+]
+
+tasks.register('syncThirdPartyLicenseVersions') {
+	description = 'Rewrites only the **Version:** lines in THIRD_PARTY_LICENSES.md from the OSS ' +
+			'manifest (H2/H3) — no other prose (license text, distribution policy) is touched.'
+	group = 'documentation'
+	dependsOn 'generateOssManifest'
+	doLast {
+		def manifestFile = layout.buildDirectory.file('generated/oss-manifest/oss-versions.json').get().asFile
+		def manifest = new groovy.json.JsonSlurper().parse(manifestFile)
+		def licenseFile = file('THIRD_PARTY_LICENSES.md')
+		def sectionHeaderPattern = ~/^###\s+(.+?)\s*$/
+		def versionLinePattern = ~/^(-\s*\*\*Version:\*\*\s*)(.+)$/
+
+		def currentSection = null
+		def changed = 0
+		def output = licenseFile.readLines('UTF-8').collect { line ->
+			def headerMatch = sectionHeaderPattern.matcher(line)
+			if (headerMatch.matches()) {
+				currentSection = headerMatch.group(1)
+				return line
+			}
+			def versionMatch = versionLinePattern.matcher(line)
+			if (!versionMatch.matches() || currentSection == null) {
+				return line
+			}
+			def spec = thirdPartyVersionSections[currentSection]
+			if (spec == null) {
+				return line // untracked section (e.g. Qwen3-1.7B) — never touched
+			}
+			def value = manifest[spec.key]
+			if (value == null || value == 'UNRESOLVED') {
+				logger.warn("[syncThirdPartyLicenseVersions] No resolved value for '${currentSection}' " +
+						"(manifest key '${spec.key}') — leaving its Version line unchanged")
+				return line
+			}
+			def prefix = versionMatch.group(1)
+			def rest = versionMatch.group(2)
+			def newRest
+			if (spec.mode == 'literal') {
+				// Preserve any trailing parenthetical note, e.g. "3.4.19 (Standalone CLI binary...)"
+				def noteMatch = (rest =~ /^(\S+)(\s*\(.*\))?$/)
+				def note = noteMatch.matches() ? (noteMatch.group(2) ?: '') : ''
+				newRest = "${value}${note}"
+			} else {
+				// "Managed by <project> X.Y.Z[...]" — replace only the first version-shaped token.
+				newRest = rest.replaceFirst(/[0-9][0-9A-Za-z.\-]*/, value)
+			}
+			if (newRest != rest) {
+				changed++
+				return "${prefix}${newRest}"
+			}
+			return line
+		}
+		if (changed > 0) {
+			licenseFile.text = output.join('\n') + '\n'
+			logger.lifecycle("[syncThirdPartyLicenseVersions] Updated ${changed} Version line(s) in THIRD_PARTY_LICENSES.md")
+		} else {
+			logger.lifecycle('[syncThirdPartyLicenseVersions] THIRD_PARTY_LICENSES.md versions already up to date')
+		}
+	}
+}
