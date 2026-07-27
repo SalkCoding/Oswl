@@ -20,10 +20,13 @@ import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.LicenseChoice;
 import org.cyclonedx.model.Metadata;
+import org.cyclonedx.model.Property;
 import org.cyclonedx.model.vulnerability.Vulnerability;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -47,6 +50,10 @@ public class SbomExportService {
     private final ScanResultRepository scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
     private final ProjectAccessService projectAccessService;
+    private final AirgappedSnapshotService airgappedSnapshotService;
+
+    @Value("${oswl.airgapped.enabled:false}")
+    private boolean airgapped;
 
     public enum Format { JSON, XML }
 
@@ -120,6 +127,23 @@ public class SbomExportService {
 
     // ── Bom assembly ─────────────────────────────────────────────────────
 
+    /**
+     * E7: in air-gapped mode, stamps the oldest snapshot {@code sourceAsOf} into
+     * {@code metadata.properties} as {@code oswl:definition-as-of} (ISO date), so a consumer
+     * can tell which upstream-data date the results were analyzed against. Applies to both
+     * SBOM and VEX exports. Adds nothing when not air-gapped or when no source has
+     * provenance yet, leaving the output byte-identical to the pre-E7 behavior.
+     */
+    private void addDefinitionAsOf(Metadata metadata) {
+        if (!airgapped) return;
+        LocalDate asOf = airgappedSnapshotService.oldestSourceAsOf();
+        if (asOf == null) return;
+        Property property = new Property();
+        property.setName("oswl:definition-as-of");
+        property.setValue(asOf.toString());
+        metadata.addProperty(property);
+    }
+
     private Bom buildBom(Project project, ScanResult scan, List<ScanComponent> scanComponents) {
         Bom bom = new Bom();
         bom.setSerialNumber("urn:uuid:" + UUID.randomUUID());
@@ -134,6 +158,7 @@ public class SbomExportService {
         }
         root.setBomRef("root-application");
         metadata.setComponent(root);
+        addDefinitionAsOf(metadata);
         bom.setMetadata(metadata);
 
         // One component per distinct library; one vulnerability per distinct vuln id
@@ -182,6 +207,7 @@ public class SbomExportService {
         }
         root.setBomRef("root-application");
         metadata.setComponent(root);
+        addDefinitionAsOf(metadata);
         bom.setMetadata(metadata);
 
         Map<String, Vulnerability> vulnById = new LinkedHashMap<>();

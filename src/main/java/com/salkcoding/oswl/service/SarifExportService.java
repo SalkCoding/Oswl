@@ -16,9 +16,11 @@ import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,10 @@ public class SarifExportService {
     private final ScanComponentRepository scanComponentRepository;
     private final LibraryRepository libraryRepository;
     private final ProjectAccessService projectAccessService;
+    private final AirgappedSnapshotService snapshotService;
+
+    @Value("${oswl.airgapped.enabled:false}")
+    private boolean airgapped;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -69,6 +75,16 @@ public class SarifExportService {
         sarif.put("version", "2.1.0");
         ArrayNode runs = sarif.putArray("runs");
         ObjectNode run = runs.addObject();
+
+        // E7: in air-gapped mode, stamp the run with the vulnerability-definition cutoff date
+        // (oldest sourceAsOf across imported snapshot sources) so exported reports carry the
+        // same "analyzed against definitions as of YYYY-MM-DD" provenance as the UI.
+        if (airgapped) {
+            LocalDate definitionAsOf = snapshotService.oldestSourceAsOf();
+            if (definitionAsOf != null) {
+                run.putObject("properties").put("definitionAsOf", definitionAsOf.toString());
+            }
+        }
 
         // tool.driver + rules
         ObjectNode driver = run.putObject("tool").putObject("driver");
