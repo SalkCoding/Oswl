@@ -25,4 +25,9 @@ public interface SnapshotEntryRepository extends JpaRepository<SnapshotEntry, Lo
     @Modifying
     @Query("delete from SnapshotEntry e where e.source = :source")
     void deleteBySource(@Param("source") String source);
+
+    /** E2: removes one key during a MERGE import — backs the {@code "_deleted": true} delta convention. */
+    @Modifying
+    @Query("delete from SnapshotEntry e where e.source = :source and e.entryKey = :entryKey")
+    void deleteBySourceAndEntryKey(@Param("source") String source, @Param("entryKey") String entryKey);
 }

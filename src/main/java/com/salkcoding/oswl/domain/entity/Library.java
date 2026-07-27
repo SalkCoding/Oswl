@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
@@ -51,6 +53,19 @@ public class Library {
     /** Default SPDX license expression returned by deps.dev */
     @Column(name = "license_name", length = 200)
     private String licenseName;
+
+    /**
+     * E4: the original per-license list deps.dev returned, before it was joined with
+     * {@code " AND "} into {@link #licenseName} for display. Preserved so an offline snapshot
+     * export (see {@code AirgappedSnapshotService}) can round-trip a multi-license package
+     * (e.g. {@code ["MIT", "Apache-2.0"]}) instead of re-splitting {@code licenseName} on
+     * {@code " AND "} — a heuristic that breaks if a license name itself ever contains that
+     * substring. Null on rows enriched before this column existed; callers needing the list
+     * fall back to splitting {@link #licenseName} for those legacy rows.
+     */
+    @Column(name = "license_expression_raw", columnDefinition = "TEXT")
+    @Convert(converter = StringListJsonConverter.class)
+    private List<String> licenseExpressionRaw;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "license_status", length = 20)
@@ -141,7 +156,13 @@ public class Library {
     // ── Mutation helpers ───────────────────────────────────────────
 
     public void updateLicense(String licenseName, LicenseStatus licenseStatus) {
+        updateLicense(licenseName, null, licenseStatus);
+    }
+
+    /** E4: also stores the pre-join per-license list (see {@link #licenseExpressionRaw}). */
+    public void updateLicense(String licenseName, List<String> licenseExpressionRaw, LicenseStatus licenseStatus) {
         this.licenseName = licenseName;
+        this.licenseExpressionRaw = licenseExpressionRaw;
         this.licenseStatus = licenseStatus;
     }
 
@@ -252,5 +273,33 @@ public class Library {
             return latestVersion;
         }
         return null;
+    }
+
+    /** Converts {@code List<String>} ↔ JSON array string for portable TEXT storage (see {@link DependencyPath}'s converter for the same pattern). */
+    @Converter
+    public static class StringListJsonConverter implements AttributeConverter<List<String>, String> {
+
+        private static final ObjectMapper MAPPER = new ObjectMapper();
+        private static final TypeReference<List<String>> TYPE_REF = new TypeReference<>() {};
+
+        @Override
+        public String convertToDatabaseColumn(List<String> values) {
+            if (values == null) return null;
+            try {
+                return MAPPER.writeValueAsString(values);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        @Override
+        public List<String> convertToEntityAttribute(String json) {
+            if (json == null || json.isBlank()) return null;
+            try {
+                return MAPPER.readValue(json, TYPE_REF);
+            } catch (Exception e) {
+                return null;
+            }
+        }
     }
 }
