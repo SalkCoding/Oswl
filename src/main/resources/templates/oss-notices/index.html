@@ -42,8 +42,9 @@
 
             <!-- Column headers -->
             <div class="grid items-center px-[24px] py-[11px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]"
-                 style="grid-template-columns: 1fr 240px 160px 36px;">
+                 style="grid-template-columns: 1fr 90px 240px 160px 36px;">
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.library}">Library</span>
+                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.version}">Version</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.license}">License</span>
                 <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.category}">Category</span>
                 <div></div>
@@ -52,11 +53,15 @@
             <!-- Rows -->
             <template x-for="lib in filteredLibraries" :key="lib.name">
                 <div class="grid items-center px-[24px] py-[14px] border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)] transition-colors group"
-                     style="grid-template-columns: 1fr 240px 160px 36px;">
+                     style="grid-template-columns: 1fr 90px 240px 160px 36px;">
                     <!-- Name + desc -->
                     <div class="flex flex-col gap-[2px] min-w-0 pr-[20px]">
                         <span class="font-semibold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" x-text="lib.name"></span>
                         <span class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.5] truncate" x-text="lib.description"></span>
+                    </div>
+                    <!-- Version -->
+                    <div class="pr-[10px]">
+                        <span class="text-[12px] text-[var(--grayscale-60)] font-mono tracking-[-0.12px] whitespace-nowrap" x-text="lib.version"></span>
                     </div>
                     <!-- License badge -->
                     <div>
@@ -115,30 +120,30 @@
     };
     function ossNotices() {
         const libs = [
-            { slug: 'springBoot', abbr: 'SB', color: '#5f8a2f', url: 'https://spring.io/projects/spring-boot', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springBoot.name}]]*/ '', description: /*[[#{ossNotices.lib.springBoot.description}]]*/ '' },
-            { slug: 'springSecurity', abbr: 'SS', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springSecurity.name}]]*/ '', description: /*[[#{ossNotices.lib.springSecurity.description}]]*/ '' },
-            { slug: 'springDataJpa', abbr: 'SJ', color: '#3d7a5e', url: 'https://spring.io/projects/spring-data-jpa', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springDataJpa.name}]]*/ '', description: /*[[#{ossNotices.lib.springDataJpa.description}]]*/ '' },
-            { slug: 'hibernate', abbr: 'HI', color: '#b8890a', url: 'https://hibernate.org/orm/', license: 'LGPL 2.1', licenseGroup: 'lgpl', categoryKey: 'backend', name: /*[[#{ossNotices.lib.hibernate.name}]]*/ '', description: /*[[#{ossNotices.lib.hibernate.description}]]*/ '' },
-            { slug: 'thymeleaf', abbr: 'TH', color: '#007a72', url: 'https://www.thymeleaf.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.thymeleaf.name}]]*/ '', description: /*[[#{ossNotices.lib.thymeleaf.description}]]*/ '' },
-            { slug: 'thymeleafSpringSecurity', abbr: 'TS', color: '#006060', url: 'https://github.com/thymeleaf/thymeleaf-extras-springsecurity', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.thymeleafSpringSecurity.name}]]*/ '', description: /*[[#{ossNotices.lib.thymeleafSpringSecurity.description}]]*/ '' },
-            { slug: 'springdocOpenapi', abbr: 'SO', color: '#5c35a8', url: 'https://springdoc.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springdocOpenapi.name}]]*/ '', description: /*[[#{ossNotices.lib.springdocOpenapi.description}]]*/ '' },
-            { slug: 'jackson', abbr: 'JA', color: '#c0392b', url: 'https://github.com/FasterXML/jackson', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.jackson.name}]]*/ '', description: /*[[#{ossNotices.lib.jackson.description}]]*/ '' },
-            { slug: 'logback', abbr: 'LB', color: '#5e6b70', url: 'https://logback.qos.ch/', license: 'EPL 1.0 / LGPL 2.1', licenseGroup: 'lgpl', categoryKey: 'backend', name: /*[[#{ossNotices.lib.logback.name}]]*/ '', description: /*[[#{ossNotices.lib.logback.description}]]*/ '' },
-            { slug: 'slf4j', abbr: 'SL', color: '#849197', url: 'https://www.slf4j.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', name: /*[[#{ossNotices.lib.slf4j.name}]]*/ '', description: /*[[#{ossNotices.lib.slf4j.description}]]*/ '' },
-            { slug: 'greenmail', abbr: 'GM', color: '#1a7a42', url: 'https://greenmail-mail-test.github.io/greenmail/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.greenmail.name}]]*/ '', description: /*[[#{ossNotices.lib.greenmail.description}]]*/ '' },
-            { slug: 'h2', abbr: 'H2', color: '#1565c0', url: 'https://h2database.com/', license: 'EPL 2.0 / MPL 2.0', licenseGroup: 'epl', categoryKey: 'backend', name: /*[[#{ossNotices.lib.h2.name}]]*/ '', description: /*[[#{ossNotices.lib.h2.description}]]*/ '' },
-            { slug: 'postgresqlJdbc', abbr: 'PG', color: '#336791', url: 'https://jdbc.postgresql.org/', license: 'BSD 2-Clause', licenseGroup: 'bsd', categoryKey: 'backend', name: /*[[#{ossNotices.lib.postgresqlJdbc.name}]]*/ '', description: /*[[#{ossNotices.lib.postgresqlJdbc.description}]]*/ '' },
-            { slug: 'lombok', abbr: 'LK', color: '#e91e63', url: 'https://projectlombok.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', name: /*[[#{ossNotices.lib.lombok.name}]]*/ '', description: /*[[#{ossNotices.lib.lombok.description}]]*/ '' },
-            { slug: 'alpine', abbr: 'AL', color: '#1c9ab1', url: 'https://alpinejs.dev/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.alpine.name}]]*/ '', description: /*[[#{ossNotices.lib.alpine.description}]]*/ '' },
-            { slug: 'alpineCollapse', abbr: 'AC', color: '#167a8d', url: 'https://alpinejs.dev/plugins/collapse', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.alpineCollapse.name}]]*/ '', description: /*[[#{ossNotices.lib.alpineCollapse.description}]]*/ '' },
-            { slug: 'chartjs', abbr: 'CH', color: '#c84b6e', url: 'https://www.chartjs.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.chartjs.name}]]*/ '', description: /*[[#{ossNotices.lib.chartjs.description}]]*/ '' },
-            { slug: 'htmx', abbr: 'HX', color: '#2c5282', url: 'https://htmx.org/', license: 'BSD 0-Clause', licenseGroup: 'bsd', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.htmx.name}]]*/ '', description: /*[[#{ossNotices.lib.htmx.description}]]*/ '' },
-            { slug: 'tailwind', abbr: 'TW', color: '#0ea5ca', url: 'https://tailwindcss.com/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', name: /*[[#{ossNotices.lib.tailwind.name}]]*/ '', description: /*[[#{ossNotices.lib.tailwind.description}]]*/ '' },
-            { slug: 'cyclonedx', abbr: 'CD', color: '#3b7ddd', url: 'https://github.com/CycloneDX/cyclonedx-core-java', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.cyclonedx.name}]]*/ '', description: /*[[#{ossNotices.lib.cyclonedx.description}]]*/ '' },
-            { slug: 'packageurl', abbr: 'PU', color: '#6b7f8c', url: 'https://github.com/package-url/packageurl-java', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', name: /*[[#{ossNotices.lib.packageurl.name}]]*/ '', description: /*[[#{ossNotices.lib.packageurl.description}]]*/ '' },
-            { slug: 'micrometer', abbr: 'MM', color: '#1a7f5a', url: 'https://micrometer.io/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.micrometer.name}]]*/ '', description: /*[[#{ossNotices.lib.micrometer.description}]]*/ '' },
-            { slug: 'flyway', abbr: 'FW', color: '#cc0000', url: 'https://flywaydb.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.flyway.name}]]*/ '', description: /*[[#{ossNotices.lib.flyway.description}]]*/ '' },
-            { slug: 'springOauth2', abbr: 'OA', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', name: /*[[#{ossNotices.lib.springOauth2.name}]]*/ '', description: /*[[#{ossNotices.lib.springOauth2.description}]]*/ '' },
+            { slug: 'springBoot', abbr: 'SB', color: '#5f8a2f', url: 'https://spring.io/projects/spring-boot', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springBoot']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springBoot.name}]]*/ '', description: /*[[#{ossNotices.lib.springBoot.description}]]*/ '' },
+            { slug: 'springSecurity', abbr: 'SS', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springSecurity']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springSecurity.name}]]*/ '', description: /*[[#{ossNotices.lib.springSecurity.description}]]*/ '' },
+            { slug: 'springDataJpa', abbr: 'SJ', color: '#3d7a5e', url: 'https://spring.io/projects/spring-data-jpa', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springDataJpa']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springDataJpa.name}]]*/ '', description: /*[[#{ossNotices.lib.springDataJpa.description}]]*/ '' },
+            { slug: 'hibernate', abbr: 'HI', color: '#b8890a', url: 'https://hibernate.org/orm/', license: 'LGPL 2.1', licenseGroup: 'lgpl', categoryKey: 'backend', version: /*[[${ossVersions['hibernate']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.hibernate.name}]]*/ '', description: /*[[#{ossNotices.lib.hibernate.description}]]*/ '' },
+            { slug: 'thymeleaf', abbr: 'TH', color: '#007a72', url: 'https://www.thymeleaf.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['thymeleaf']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.thymeleaf.name}]]*/ '', description: /*[[#{ossNotices.lib.thymeleaf.description}]]*/ '' },
+            { slug: 'thymeleafSpringSecurity', abbr: 'TS', color: '#006060', url: 'https://github.com/thymeleaf/thymeleaf-extras-springsecurity', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['thymeleafSpringSecurity']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.thymeleafSpringSecurity.name}]]*/ '', description: /*[[#{ossNotices.lib.thymeleafSpringSecurity.description}]]*/ '' },
+            { slug: 'springdocOpenapi', abbr: 'SO', color: '#5c35a8', url: 'https://springdoc.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springdocOpenapi']} ?: '-']]*/ '3.0.3', name: /*[[#{ossNotices.lib.springdocOpenapi.name}]]*/ '', description: /*[[#{ossNotices.lib.springdocOpenapi.description}]]*/ '' },
+            { slug: 'jackson', abbr: 'JA', color: '#c0392b', url: 'https://github.com/FasterXML/jackson', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['jackson']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.jackson.name}]]*/ '', description: /*[[#{ossNotices.lib.jackson.description}]]*/ '' },
+            { slug: 'logback', abbr: 'LB', color: '#5e6b70', url: 'https://logback.qos.ch/', license: 'EPL 1.0 / LGPL 2.1', licenseGroup: 'lgpl', categoryKey: 'backend', version: /*[[${ossVersions['logback']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.logback.name}]]*/ '', description: /*[[#{ossNotices.lib.logback.description}]]*/ '' },
+            { slug: 'slf4j', abbr: 'SL', color: '#849197', url: 'https://www.slf4j.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', version: /*[[${ossVersions['slf4j']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.slf4j.name}]]*/ '', description: /*[[#{ossNotices.lib.slf4j.description}]]*/ '' },
+            { slug: 'greenmail', abbr: 'GM', color: '#1a7a42', url: 'https://greenmail-mail-test.github.io/greenmail/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['greenmail']} ?: '-']]*/ '2.1.11', name: /*[[#{ossNotices.lib.greenmail.name}]]*/ '', description: /*[[#{ossNotices.lib.greenmail.description}]]*/ '' },
+            { slug: 'h2', abbr: 'H2', color: '#1565c0', url: 'https://h2database.com/', license: 'EPL 2.0 / MPL 2.0', licenseGroup: 'epl', categoryKey: 'backend', version: /*[[${ossVersions['h2']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.h2.name}]]*/ '', description: /*[[#{ossNotices.lib.h2.description}]]*/ '' },
+            { slug: 'postgresqlJdbc', abbr: 'PG', color: '#336791', url: 'https://jdbc.postgresql.org/', license: 'BSD 2-Clause', licenseGroup: 'bsd', categoryKey: 'backend', version: /*[[${ossVersions['postgresqlJdbc']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.postgresqlJdbc.name}]]*/ '', description: /*[[#{ossNotices.lib.postgresqlJdbc.description}]]*/ '' },
+            { slug: 'lombok', abbr: 'LK', color: '#e91e63', url: 'https://projectlombok.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', version: /*[[${ossVersions['lombok']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.lombok.name}]]*/ '', description: /*[[#{ossNotices.lib.lombok.description}]]*/ '' },
+            { slug: 'alpine', abbr: 'AL', color: '#1c9ab1', url: 'https://alpinejs.dev/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', version: /*[[${ossVersions['alpine']} ?: '-']]*/ '3.15.12', name: /*[[#{ossNotices.lib.alpine.name}]]*/ '', description: /*[[#{ossNotices.lib.alpine.description}]]*/ '' },
+            { slug: 'alpineCollapse', abbr: 'AC', color: '#167a8d', url: 'https://alpinejs.dev/plugins/collapse', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', version: /*[[${ossVersions['alpineCollapse']} ?: '-']]*/ '3.15.12', name: /*[[#{ossNotices.lib.alpineCollapse.name}]]*/ '', description: /*[[#{ossNotices.lib.alpineCollapse.description}]]*/ '' },
+            { slug: 'chartjs', abbr: 'CH', color: '#c84b6e', url: 'https://www.chartjs.org/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', version: /*[[${ossVersions['chartjs']} ?: '-']]*/ '4.5.1', name: /*[[#{ossNotices.lib.chartjs.name}]]*/ '', description: /*[[#{ossNotices.lib.chartjs.description}]]*/ '' },
+            { slug: 'htmx', abbr: 'HX', color: '#2c5282', url: 'https://htmx.org/', license: 'BSD 0-Clause', licenseGroup: 'bsd', categoryKey: 'frontend', version: /*[[${ossVersions['htmx']} ?: '-']]*/ '2.0.10', name: /*[[#{ossNotices.lib.htmx.name}]]*/ '', description: /*[[#{ossNotices.lib.htmx.description}]]*/ '' },
+            { slug: 'tailwind', abbr: 'TW', color: '#0ea5ca', url: 'https://tailwindcss.com/', license: 'MIT', licenseGroup: 'mit', categoryKey: 'frontend', version: /*[[${ossVersions['tailwind']} ?: '-']]*/ '3.4.19', name: /*[[#{ossNotices.lib.tailwind.name}]]*/ '', description: /*[[#{ossNotices.lib.tailwind.description}]]*/ '' },
+            { slug: 'cyclonedx', abbr: 'CD', color: '#3b7ddd', url: 'https://github.com/CycloneDX/cyclonedx-core-java', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['cyclonedx']} ?: '-']]*/ '13.0.0', name: /*[[#{ossNotices.lib.cyclonedx.name}]]*/ '', description: /*[[#{ossNotices.lib.cyclonedx.description}]]*/ '' },
+            { slug: 'packageurl', abbr: 'PU', color: '#6b7f8c', url: 'https://github.com/package-url/packageurl-java', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', version: /*[[${ossVersions['packageurl']} ?: '-']]*/ '13.0.0', name: /*[[#{ossNotices.lib.packageurl.name}]]*/ '', description: /*[[#{ossNotices.lib.packageurl.description}]]*/ '' },
+            { slug: 'micrometer', abbr: 'MM', color: '#1a7f5a', url: 'https://micrometer.io/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['micrometer']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.micrometer.name}]]*/ '', description: /*[[#{ossNotices.lib.micrometer.description}]]*/ '' },
+            { slug: 'flyway', abbr: 'FW', color: '#cc0000', url: 'https://flywaydb.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['flyway']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.flyway.name}]]*/ '', description: /*[[#{ossNotices.lib.flyway.description}]]*/ '' },
+            { slug: 'springOauth2', abbr: 'OA', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springOauth2']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springOauth2.name}]]*/ '', description: /*[[#{ossNotices.lib.springOauth2.description}]]*/ '' },
         ];
 
         const allFilters = [
@@ -164,11 +169,14 @@
 
             get filteredLibraries() {
                 const q = this.searchQuery.toLowerCase().trim();
-                return this.libraries.filter(lib => {
-                    const okFilter = this.activeFilter === 'all' || lib.licenseGroup === this.activeFilter;
-                    const okSearch = !q || lib.name.toLowerCase().includes(q) || lib.description.toLowerCase().includes(q) || lib.license.toLowerCase().includes(q);
-                    return okFilter && okSearch;
-                });
+                return this.libraries
+                    .filter(lib => {
+                        const okFilter = this.activeFilter === 'all' || lib.licenseGroup === this.activeFilter;
+                        const okSearch = !q || lib.name.toLowerCase().includes(q) || lib.description.toLowerCase().includes(q) || lib.license.toLowerCase().includes(q);
+                        return okFilter && okSearch;
+                    })
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
             },
 
             licenseBadgeClass(g) {
