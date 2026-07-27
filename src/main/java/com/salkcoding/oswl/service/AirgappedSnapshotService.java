@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -176,7 +177,10 @@ public class AirgappedSnapshotService {
         return normalizeEcosystem(ecosystem) + "|" + name.strip() + "|" + version.strip();
     }
 
-    private static String normalizeEcosystem(String ecosystem) {
+    /** Public so the {@code oswl-vdb} builder (E5) shares this exact normalization instead of a
+     * second, drift-prone copy — see the plan's explicit warning that a normalization mismatch
+     * between the builder and this class makes a bundle import silently unresolvable. */
+    public static String normalizeEcosystem(String ecosystem) {
         return switch (ecosystem.strip().toLowerCase(Locale.ROOT)) {
             case "maven"             -> "MAVEN";
             case "npm"               -> "NPM";
@@ -278,6 +282,32 @@ public class AirgappedSnapshotService {
                 .filter(java.util.Objects::nonNull)
                 .min(LocalDate::compareTo)
                 .orElse(null);
+    }
+
+    /**
+     * E6: streams every distinct (ecosystem, name, version) this instance has ever scanned, as
+     * JSONL, for an offline site to hand to the {@code oswl-vdb} builder (E5) so it can fetch
+     * exactly the components that matter instead of a full upstream mirror. Deliberately omits
+     * project names, repository URLs, and paths — see the E6 privacy note in
+     * PERFORMANCE-AND-OFFLINE-PLAN.md; only ecosystem/name/version leave the instance, and those
+     * are already what any upstream vulnerability API needs to look a component up.
+     */
+    @Transactional(readOnly = true)
+    public void streamWantedList(java.io.OutputStream out) throws IOException {
+        try (Stream<LibraryRepository.WantedComponentProjection> rows = libraryRepository.streamWantedComponents()) {
+            java.io.Writer writer = new java.io.BufferedWriter(new java.io.OutputStreamWriter(out, StandardCharsets.UTF_8));
+            java.util.Iterator<LibraryRepository.WantedComponentProjection> it = rows.iterator();
+            while (it.hasNext()) {
+                LibraryRepository.WantedComponentProjection p = it.next();
+                ObjectNode node = objectMapper.createObjectNode();
+                node.put("ecosystem", p.getEcosystem());
+                node.put("name", p.getName());
+                node.put("version", p.getVersion());
+                writer.write(objectMapper.writeValueAsString(node));
+                writer.write("\n");
+            }
+            writer.flush();
+        }
     }
 
     private Map<String, String> findPayloads(String source, Collection<String> keys) {
