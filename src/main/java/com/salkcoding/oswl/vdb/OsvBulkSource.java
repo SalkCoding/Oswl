@@ -48,7 +48,12 @@ final class OsvBulkSource {
         this.mapper = mapper;
     }
 
-    record Result(Map<String, List<SnapshotVuln>> vulnsByComponentKey, int unresolvedComponentCount,
+    /** {@code unresolvedKeys} (not just a count) so callers can tell resolved from unresolved
+     * components — a wanted key that's neither in {@code vulnsByComponentKey} nor
+     * {@code unresolvedKeys} was confirmed clean (its package never appeared in the ecosystem's
+     * full OSV dump, which — since the dump is complete — means OSV has no known vulnerability
+     * for it at all, not "we didn't check"). */
+    record Result(Map<String, List<SnapshotVuln>> vulnsByComponentKey, Set<String> unresolvedKeys,
                   Map<String, LocalDate> asOfByBucket) {}
 
     Result fetch(List<WantedComponent> wanted, Set<String> ecosystemFilter, HttpCache cache) throws Exception {
@@ -91,7 +96,7 @@ final class OsvBulkSource {
             }
             System.err.println("[oswl-vdb] OSV " + bucket + ": " + entriesScanned + " vuln entries scanned");
         }
-        return new Result(result, unresolvedKeys.size(), asOfByBucket);
+        return new Result(result, unresolvedKeys, asOfByBucket);
     }
 
     private void processVulnEntry(byte[] content, String ecosystem, Map<String, Set<String>> namesWanted,

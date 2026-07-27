@@ -5,17 +5,21 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Parsed {@code oswl-vdb build} arguments. See {@link VdbBuilderCli} for the full CLI surface and
- * for which options this first implementation does not (yet) support ({@code --mode delta},
- * {@code --since}, {@code --offline-sources} — see PERFORMANCE-AND-OFFLINE-PLAN.md E5's
- * implementation notes for why).
+ * Parsed {@code oswl-vdb build} arguments. See {@link VdbBuilderCli} for the full CLI surface.
+ *
+ * <p>{@code --offline-sources <dir>} builds entirely without network access, from a directory
+ * pre-populated by an earlier {@code --cache-dir} build run while online (see {@link HttpCache}).
+ * It only covers the bulk-dumpable sources (osv/epss/kev) — {@code depsdev} has no bulk dump at
+ * all (E5.2) and is always skipped when this flag is set, regardless of {@code --sources}.
  */
 public record VdbBuildOptions(
         Path out,
         Path wantedList,
         Set<String> sources,
         Set<String> ecosystems,
-        Path cacheDir
+        Path cacheDir,
+        Path since,
+        Path offlineSources
 ) {
     static final List<String> ALL_SOURCES = List.of("osv", "epss", "kev", "depsdev");
 
@@ -25,6 +29,9 @@ public record VdbBuildOptions(
         Set<String> sources = new java.util.LinkedHashSet<>(ALL_SOURCES);
         Set<String> ecosystems = null;
         Path cacheDir = null;
+        Path since = null;
+        Path offlineSources = null;
+        String mode = "full";
         for (int i = 0; i < args.size(); i++) {
             String a = args.get(i);
             String v = (i + 1 < args.size()) ? args.get(i + 1) : null;
@@ -42,15 +49,14 @@ public record VdbBuildOptions(
                 }
                 case "--cache-dir" -> { cacheDir = Path.of(require(v, "--cache-dir")); i++; }
                 case "--mode" -> {
-                    if (!"full".equalsIgnoreCase(v)) {
-                        throw new IllegalArgumentException(
-                                "--mode " + v + " is not supported yet — only 'full' is implemented "
-                                        + "(see E5's implementation notes in PERFORMANCE-AND-OFFLINE-PLAN.md)");
+                    mode = require(v, "--mode").strip().toLowerCase(java.util.Locale.ROOT);
+                    if (!mode.equals("full") && !mode.equals("delta")) {
+                        throw new IllegalArgumentException("--mode must be 'full' or 'delta', got '" + mode + "'");
                     }
                     i++;
                 }
-                case "--since", "--offline-sources" -> throw new IllegalArgumentException(
-                        a + " is not supported yet (see E5's implementation notes in PERFORMANCE-AND-OFFLINE-PLAN.md)");
+                case "--since" -> { since = Path.of(require(v, "--since")); i++; }
+                case "--offline-sources" -> { offlineSources = Path.of(require(v, "--offline-sources")); i++; }
                 default -> throw new IllegalArgumentException("Unknown option: " + a);
             }
         }
@@ -62,7 +68,18 @@ public record VdbBuildOptions(
                 throw new IllegalArgumentException("Unknown source '" + s + "' — expected one of " + ALL_SOURCES);
             }
         }
-        return new VdbBuildOptions(out, wanted, sources, ecosystems, cacheDir);
+        if (mode.equals("delta") && since == null) {
+            throw new IllegalArgumentException("--mode delta requires --since <previous-bundle.zip>");
+        }
+        if (since != null && mode.equals("full")) {
+            mode = "delta"; // --since implies delta even if --mode wasn't spelled out
+        }
+        Path finalSince = mode.equals("delta") ? since : null;
+        return new VdbBuildOptions(out, wanted, sources, ecosystems, cacheDir, finalSince, offlineSources);
+    }
+
+    boolean isDelta() {
+        return since != null;
     }
 
     private static String require(String v, String flag) {
