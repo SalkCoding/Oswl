@@ -6,6 +6,7 @@ import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.dto.ComplianceReportDto;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.ComplianceReportService;
 import com.salkcoding.oswl.service.ComponentDetailService;
 import com.salkcoding.oswl.service.ProjectAccessService;
@@ -16,6 +17,7 @@ import com.salkcoding.oswl.auth.service.AuditLogService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +43,10 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
     private final ProjectRepository projectRepository;
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
+    private final AirgappedSnapshotService airgappedSnapshotService;
+
+    @Value("${oswl.airgapped.enabled:false}")
+    private boolean airgapped;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
@@ -48,6 +54,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
                         Model model) {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.populateModel(projectId, scanId, model);
+        addDefinitionsAsOf(model);
         return "security-center/index";
     }
 
@@ -58,6 +65,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
                         Model model) {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.populateModel(projectId, scanId, model);
+        addDefinitionsAsOf(model);
         auditLogService.log("SECURITY_CENTER.PRINT", "PROJECT", projectId.toString(), null,
                 "scanId=" + (scanId != null ? scanId : "latest"));
         return "security-center/print";
@@ -99,8 +107,24 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
         ComplianceReportDto report = complianceReportService.build(projectId);
         model.addAttribute("report", report);
         model.addAttribute("projectId", projectId);
+        addDefinitionsAsOf(model);
         auditLogService.log("COMPLIANCE_REPORT.VIEW", "PROJECT", projectId.toString(), null, null);
         return "reports/compliance-report";
+    }
+
+    /**
+     * E7: in air-gapped mode, results were analyzed against snapshot definitions as of
+     * {@link AirgappedSnapshotService#oldestSourceAsOf()}; the pages/reports show that date so
+     * auditors can see how fresh the underlying data was. Not added outside air-gapped mode or
+     * when no source has provenance yet (attribute stays absent, templates render nothing).
+     */
+    private void addDefinitionsAsOf(Model model) {
+        if (airgapped) {
+            LocalDate asOf = airgappedSnapshotService.oldestSourceAsOf();
+            if (asOf != null) {
+                model.addAttribute("airgappedDefinitionsAsOf", asOf.toString());
+            }
+        }
     }
 
     @PatchMapping("/bulk-status")

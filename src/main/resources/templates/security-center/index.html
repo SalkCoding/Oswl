@@ -417,6 +417,16 @@
               class="text-[11px] text-[var(--primary-80)] font-mono"></span>
     </div>
 
+    <!-- Air-gapped definitions-as-of banner (E7): only rendered in offline mode with provenance -->
+    <div th:if="${airgappedDefinitionsAsOf != null}"
+         class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[10px] bg-[rgba(245,145,38,0.06)] border-b border-[rgba(245,145,38,0.3)] flex items-center gap-[10px]">
+        <svg class="w-[16px] h-[16px] text-[#91400D] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p class="text-[13px] text-[#91400D] font-medium tracking-[-0.13px] m-0"
+           th:text="#{common.airgapped.definitionsAsOf(${airgappedDefinitionsAsOf})}">Analyzed with vulnerability definitions as of 2026-01-01.</p>
+    </div>
+
     <main class="flex flex-col flex-1 min-h-0">
 
         <!-- Risk Graph Summary Row: 1행 2열 그리드 -->

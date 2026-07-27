@@ -62,6 +62,11 @@
         .meta-item + .meta-item { padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.08); }
         .meta-label { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.6px; }
         .meta-value { font-size: 13px; font-weight: 600; color: white; letter-spacing: -0.13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .airgapped-banner {
+            margin-top: 14px; padding: 8px 12px; border-radius: 6px;
+            background: rgba(245,145,38,0.12); border: 1px solid rgba(245,145,38,0.35);
+            font-size: 11px; font-weight: 500; color: #f5c98a; letter-spacing: -0.11px;
+        }
 
         .section { padding: 20px 32px; }
         .section + .section { border-top: 1px solid var(--grayscale-15); }
@@ -168,6 +173,8 @@
                 <span class="meta-value" th:text="${report.generatedAt()}">2026-07-22 20:00</span>
             </div>
         </div>
+        <div class="airgapped-banner" th:if="${airgappedDefinitionsAsOf != null}"
+             th:text="#{common.airgapped.definitionsAsOf(${airgappedDefinitionsAsOf})}">Analyzed with vulnerability definitions as of 2026-01-01.</div>
     </div>
 
     <!-- No scan -->
