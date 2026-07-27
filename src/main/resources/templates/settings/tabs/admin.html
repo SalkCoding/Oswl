@@ -116,6 +116,7 @@
         tableOrigin:        /*[[#{settings.admin.snapshot.table.origin}]]*/ 'Origin',
         tableRecords:       /*[[#{settings.admin.snapshot.table.records}]]*/ 'Records',
         tableSource:        /*[[#{settings.admin.snapshot.table.source}]]*/ 'Source',
+        unresolvedNote:     /*[[#{settings.admin.snapshot.unresolvedNote}]]*/ 'These components were requested (wanted-list) but the builder could not find or confidently evaluate upstream data for them — treat them as "no data", not "confirmed clean".',
         wantedButton:       /*[[#{settings.admin.snapshot.wanted.button}]]*/ 'Download wanted-list',
         wantedCliHint:      /*[[#{settings.admin.snapshot.wanted.cliHint}]]*/ 'On an internet-connected machine, run: ./gradlew vdbBuild --args="build --wanted wanted-list.jsonl --sources osv,epss,kev,depsdev --out bundle.zip", then upload the resulting bundle.zip above.',
         wantedDesc:         /*[[#{settings.admin.snapshot.wanted.desc}]]*/ 'Download the list of open-source ecosystems/names/versions this instance has scanned, then run the oswl-vdb builder on an internet-connected machine to fetch definitions for exactly those components.',
@@ -128,7 +129,8 @@
         'depsdev-version':   /*[[#{settings.admin.snapshot.source.depsdevVersion}]]*/ 'deps.dev (versions)',
         'depsdev-advisory':  /*[[#{settings.admin.snapshot.source.depsdevAdvisory}]]*/ 'deps.dev (advisories)',
         'epss':              /*[[#{settings.admin.snapshot.source.epss}]]*/ 'FIRST.org EPSS',
-        'kev':               /*[[#{settings.admin.snapshot.source.kev}]]*/ 'CISA KEV'
+        'kev':               /*[[#{settings.admin.snapshot.source.kev}]]*/ 'CISA KEV',
+        'unresolved':        /*[[#{settings.admin.snapshot.source.unresolved}]]*/ 'Unresolved (no upstream data)'
     };
     </script>
 
@@ -996,6 +998,11 @@
                         </template>
                     </tbody>
                 </table>
+            </div>
+            <div x-show="snapshotSources.some(s => s.source==='unresolved' && s.recordCount > 0)" x-cloak
+                 class="flex items-start gap-[8px] bg-[var(--grayscale-5)] rounded-[6px] px-[10px] py-[8px]">
+                <img th:src="@{/icon/icon-info2.svg}" class="w-[14px] h-[14px] mt-[1px] flex-shrink-0" alt="" aria-hidden="true">
+                <span class="text-[11px] text-[var(--grayscale-60)]" x-text="_snapshotI18n.unresolvedNote"></span>
             </div>
         </div>
 
