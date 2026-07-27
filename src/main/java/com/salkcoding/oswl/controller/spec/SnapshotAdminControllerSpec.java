@@ -69,6 +69,23 @@ public interface SnapshotAdminControllerSpec {
     })
     ResponseEntity<SnapshotImportResult> importFromPath(@RequestBody SnapshotImportFromPathRequest request);
 
+    @Operation(summary = "Export a wanted-list (E6)",
+        description = """
+            Streams one JSONL line per distinct (ecosystem, name, version) this instance has ever
+            scanned — `{"ecosystem":"NPM","name":"left-pad","version":"1.3.0"}` — for handing to the
+            `oswl-vdb build --wanted` CLI (E5) on an internet-connected machine, so it fetches only
+            the components this instance actually uses instead of a full upstream mirror.
+            Deliberately omits project names, repository URLs, and paths — only ecosystem/name/version
+            leave the instance. Streamed directly from the database (no full in-memory list) so this
+            stays cheap even for large instances.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "wanted-list.jsonl",
+            content = @Content(mediaType = "application/x-ndjson", schema = @Schema(type = "string", format = "binary")))
+    })
+    ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> wantedList();
+
     @Operation(summary = "Export an offline snapshot bundle",
         description = """
             Builds a v2 snapshot bundle from the vulnerability/threat-intel data this instance has

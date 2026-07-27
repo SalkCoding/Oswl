@@ -25,9 +25,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -134,6 +136,22 @@ public class SnapshotAdminController implements SnapshotAdminControllerSpec {
             kevCatalogService.refresh();
         }
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping(value = "/wanted-list", produces = "application/x-ndjson")
+    public ResponseEntity<StreamingResponseBody> wantedList() {
+        StreamingResponseBody body = out -> {
+            try {
+                snapshotService.streamWantedList(out);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
+        auditLogService.log("SNAPSHOT.WANTED_LIST_EXPORT", "SNAPSHOT", null, "wanted-list.jsonl", "");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"wanted-list.jsonl\"")
+                .contentType(MediaType.parseMediaType("application/x-ndjson"))
+                .body(body);
     }
 
     @GetMapping("/export")

@@ -115,7 +115,13 @@
         tableImportedAt:    /*[[#{settings.admin.snapshot.table.importedAt}]]*/ 'Imported',
         tableOrigin:        /*[[#{settings.admin.snapshot.table.origin}]]*/ 'Origin',
         tableRecords:       /*[[#{settings.admin.snapshot.table.records}]]*/ 'Records',
-        tableSource:        /*[[#{settings.admin.snapshot.table.source}]]*/ 'Source'
+        tableSource:        /*[[#{settings.admin.snapshot.table.source}]]*/ 'Source',
+        wantedButton:       /*[[#{settings.admin.snapshot.wanted.button}]]*/ 'Download wanted-list',
+        wantedCliHint:      /*[[#{settings.admin.snapshot.wanted.cliHint}]]*/ 'On an internet-connected machine, run: ./gradlew vdbBuild --args="build --wanted wanted-list.jsonl --sources osv,epss,kev,depsdev --out bundle.zip", then upload the resulting bundle.zip above.',
+        wantedDesc:         /*[[#{settings.admin.snapshot.wanted.desc}]]*/ 'Download the list of open-source ecosystems/names/versions this instance has scanned, then run the oswl-vdb builder on an internet-connected machine to fetch definitions for exactly those components.',
+        wantedFailed:       /*[[#{settings.admin.snapshot.wanted.failed}]]*/ 'Failed to export the wanted-list.',
+        wantedHeading:      /*[[#{settings.admin.snapshot.wanted.heading}]]*/ 'Build definitions for this instance (wanted-list)',
+        wantedPrivacyNote:  /*[[#{settings.admin.snapshot.wanted.privacyNote}]]*/ 'This file lists only ecosystem/name/version for components this instance has scanned — no project names, repository URLs, or file paths.'
     };
     const _snapshotSourceLabels = {
         'osv':               /*[[#{settings.admin.snapshot.source.osv}]]*/ 'OSV',
@@ -993,6 +999,24 @@
             </div>
         </div>
 
+        <!-- Wanted-list (E6) -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] p-[16px] flex flex-col gap-[8px]">
+            <span class="text-[13px] font-bold text-[var(--grayscale-90)]" x-text="_snapshotI18n.wantedHeading"></span>
+            <span class="text-[12px] text-[var(--grayscale-60)]" x-text="_snapshotI18n.wantedDesc"></span>
+            <div class="flex items-start gap-[8px] bg-[var(--grayscale-5)] rounded-[6px] px-[10px] py-[8px]">
+                <img th:src="@{/icon/icon-info2.svg}" class="w-[14px] h-[14px] mt-[1px] flex-shrink-0" alt="" aria-hidden="true">
+                <span class="text-[11px] text-[var(--grayscale-60)]" x-text="_snapshotI18n.wantedPrivacyNote"></span>
+            </div>
+            <div class="flex items-center gap-[10px] flex-wrap">
+                <a href="/api/admin/snapshot/wanted-list"
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[9px] bg-transparent border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-80)] text-[13px] font-bold rounded-[8px] transition-colors">
+                    <img th:src="@{/icon/icon-download.svg}" class="w-[14px] h-[14px]" alt="" aria-hidden="true">
+                    <span x-text="_snapshotI18n.wantedButton"></span>
+                </a>
+                <span class="text-[11px] font-mono text-[var(--grayscale-50)] flex-1 min-w-[200px]" x-text="_snapshotI18n.wantedCliHint"></span>
+            </div>
+        </div>
+
         <!-- Import / Export -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-[12px]">
             <!-- Export -->
@@ -1288,7 +1312,7 @@
                 { label: _auditGroupLabels['Security Center'],  items: ['SECURITY_CENTER.EXPORT', 'SECURITY_CENTER.PRINT', 'SBOM.EXPORT', 'VEX.EXPORT', 'SARIF.EXPORT', 'COMPLIANCE_REPORT.VIEW'] },
                 { label: _auditGroupLabels['Monitoring'],       items: ['MONITOR.NEW_CVE', 'MONITOR.ALERT_EMAIL', 'MONITOR.ALERT_ACK'] },
                 { label: _auditGroupLabels['Integration'],      items: ['JIRA.SETTINGS_UPDATE'] },
-                { label: _auditGroupLabels['Administration'],   items: ['ORG_DASHBOARD.VIEW', 'AUDIT_LOG.EXPORT', 'SNAPSHOT.IMPORT', 'SNAPSHOT.EXPORT'] },
+                { label: _auditGroupLabels['Administration'],   items: ['ORG_DASHBOARD.VIEW', 'AUDIT_LOG.EXPORT', 'SNAPSHOT.IMPORT', 'SNAPSHOT.EXPORT', 'SNAPSHOT.WANTED_LIST_EXPORT'] },
                 { label: 'System',                              items: ['SYSTEM.SETUP'] },
             ],
             get filteredAuditUsers() {
