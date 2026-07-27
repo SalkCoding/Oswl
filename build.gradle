@@ -480,3 +480,14 @@ tasks.register('syncThirdPartyLicenseVersions') {
 		}
 	}
 }
+
+tasks.register('vdbBuild', JavaExec) {
+	description = 'E5: runs the oswl-vdb CLI (build/verify/inspect offline vulnerability-DB bundles) — ' +
+			'see scripts/oswl-vdb/oswl-vdb.{sh,ps1} for thin wrapper scripts. ' +
+			'Example: ./gradlew vdbBuild --args="build --wanted wanted-list.jsonl --out bundle.zip"'
+	group = 'application'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'com.salkcoding.oswl.vdb.VdbBuilderCli'
+	// JavaExec's `args` property is natively --args-able from the Gradle CLI; with none given,
+	// VdbBuilderCli prints its own usage.
+}
