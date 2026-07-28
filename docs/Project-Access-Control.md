@@ -42,6 +42,8 @@ These call `assertCanViewProject` (or equivalent service checks) before returnin
 | API | `GET/POST /api/projects/{projectId}/keys`, `GET /api/vcs/branches?projectId=`, scan status poll |
 | Services | `ProjectService.getById`, `findAll`, trash operations filtered by accessible IDs |
 
+> **Admin surfaces are not project-scoped.** Offline snapshot administration (`/api/admin/snapshot/*` — status, bundle import/export, import-from-path, wanted list) is gated by the `SETTINGS_SNAPSHOT_MANAGE` permission or the `SYSTEM_ADMIN` role; project membership is never consulted for these endpoints.
+
 ## CLI scan authentication
 
 `POST /api/scan` requires:

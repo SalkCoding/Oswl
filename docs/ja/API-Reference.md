@@ -73,8 +73,9 @@ Authorization: Bearer oswl_<api_key>
 | `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — JSON ステータスを含む `job-update` イベント（フォールバック: ポーリング） |
 
 **ジョブフェーズ:** `QUEUED` → `CLONING` → `PARSING` → `SCANNING` → `ENRICHING` → `DONE` | `FAILED`。
-最大**2 件**のインポートが同時実行されます（`oswl.quick-import.max-concurrent`）。それ以降のジョブは FIFO キューで待機します（`queuePosition`）。
-`ENRICHING` 中は、レスポンスに `percent`、`subPhase`（`CVE`、`LICENSE`、`POSTURE`、`TREND`、`DIFF`）、`detailLines`、`aiPreviews` が含まれます。
+最大**3 件**のインポートが同時実行されます（`oswl.quick-import.max-concurrent`）。それ以降のジョブは FIFO キューで待機します（`queuePosition`）。
+`ENRICHING` 中は、レスポンスに `percent`、`subPhase`（`CVE`、`LICENSE`、`INSIGHTS`）、`detailLines`、`aiPreviews`、および deps.dev のキャッシュ判定統計（`cacheTotal`、`cacheHit`、`cacheToFetch`）が含まれます。
+別フィールド `aiStatus` はバックグラウンドの AI エンリッチメント状態（`NOT_APPLICABLE`、`PENDING`、`RUNNING`、`COMPLETED`、`FAILED`）を追跡します。ジョブが `DONE` になっても、`aiStatus` は `PENDING`/`RUNNING` のままになることがあります。
 
 ---
 
@@ -103,7 +104,7 @@ Authorization: Bearer oswl_<api_key>
 | `GET` | `/api/scan/manifest-rules` | API key | マニフェストファイルの収集ルール（`/scripts/manifest-rules.json` と同じ） |
 | `POST` | `/api/scan/parse` | API key | マニフェスト zip アーカイブの解析（CLI ステップ 1） |
 | `POST` | `/api/scan` | API key + 資格情報 | 依存関係スキャンの送信（CLI ステップ 2） |
-| `GET` | `/api/scan/{scanId}/status` | セッション | スキャン状態のポーリング |
+| `GET` | `/api/scan/{scanId}/status` | セッション | スキャン状態のポーリング — `status`、`componentCount`、およびスキャン完了とは独立した AI エンリッチメント状態 `aiStatus` と `securityPostureInsight` を返します |
 | `POST` | `/api/scan/gate` | API key | **v1.0.4** — PR / CI セキュリティゲート。`exitCode` を含む判定 |
 
 ---
@@ -225,11 +226,15 @@ Authorization: Bearer oswl_<api_key>
 
 ### オフラインスナップショット（v1.0.4）
 
+すべてのエンドポイントには `SYSTEM_ADMIN` ロール、または `SETTINGS_SNAPSHOT_MANAGE` 権限が必要です。
+
 | Method | Path | 説明 |
 |---|---|---|
-| `GET` | `/api/admin/snapshot` | バンドルの状態 |
-| `POST` | `/api/admin/snapshot/import` | スナップショットバンドルのインポート（multipart） |
-| `GET` | `/api/admin/snapshot/export` | スナップショットバンドルのエクスポート |
+| `GET` | `/api/admin/snapshot` | ストア状態 — air-gapped フラグと、ソース（`osv`、`depsdev-version`、`depsdev-advisory`、`epss`、`kev`）ごとのレコード数、`importedAt`、v2 由来（`bundleId`、`builtAt`、`sourceAsOf`、`origin`；v1 またはメタ情報のないバンドルからインポートしたソースは null）を返します。また、すべてのソースの中で最も古い `sourceAsOf` である `oldestSourceAsOf` と、定義の鮮度バッジに使用される設定値 `stalenessWarnDays`、`stalenessCriticalDays` を含みます |
+| `POST` | `/api/admin/snapshot/import` | スナップショットバンドルをインポート（JSONL ファイルの zip + `meta.json`）。`?mode=replace\|merge` でバンドル自身の `meta.json` モードをオーバーライドします：`replace`（デフォルト）は各ソースを書き込み前にクリアし、`merge` はキー単位で upsert し、`"_deleted":true` の tombstone を処理します。v2 チェックサムはストア変更前に検証され、不一致の場合はバンドル全体が拒否されます |
+| `POST` | `/api/admin/snapshot/import-from-path` | サーバーディスク上にあるバンドルをインポート（`{ "path", "mode" }`） — ブラウザアップロードが非実用的な大きなバンドル用です。`oswl.airgapped.import-dir` が未設定の場合は 400；`path` はそのディレクトリ配下に解決される必要があります |
+| `GET` | `/api/admin/snapshot/wanted-list` | このインスタンスの wanted-list を NDJSON（`application/x-ndjson`）でストリーミング — スキャン済みコンポーネントごとに `{"ecosystem","name","version"}` を 1 行ずつ、オンライン環境の `oswl-vdb build --wanted` 用です。プロジェクト名やリポジトリ URL はインスタンス外に出ません |
+| `GET` | `/api/admin/snapshot/export` | このインスタンスが取得済みのデータから v2 スナップショットバンドル（`application/zip`）を構築してエクスポートします；`meta.json` の `origin` は `derived-from-scan` になります。オンラインインスタンスで実行し、air-gapped インスタンスでインポートしてください |
 
 ### モニタリング（v1.0.4）
 

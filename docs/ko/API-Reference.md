@@ -75,8 +75,9 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — `job-update` 이벤트(JSON), 폴링 폴백 가능 |
 
 **단계:** `QUEUED` → `CLONING` → `PARSING` → `SCANNING` → `ENRICHING` → `DONE` | `FAILED`.  
-동시 **2건** 실행(`oswl.quick-import.max-concurrent`), 초과는 FIFO 큐(`queuePosition`).  
-`ENRICHING` 중 `percent`, `subPhase`, `detailLines`, `aiPreviews` 포함.
+동시 **3건** 실행(`oswl.quick-import.max-concurrent`), 초과는 FIFO 큐(`queuePosition`).  
+`ENRICHING` 중 `percent`, `subPhase`(`CVE`, `LICENSE`, `INSIGHTS`), `detailLines`, `aiPreviews`와 함께 deps.dev 캐시 판정 통계(`cacheTotal`, `cacheHit`, `cacheToFetch`)가 포함됩니다.  
+별도의 `aiStatus` 필드는 백그라운드 AI 보강 상태(`NOT_APPLICABLE`, `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`)를 추적합니다. 스캔이 `DONE`이 되어도 `aiStatus`는 여전히 `PENDING`/`RUNNING`일 수 있습니다.
 
 ---
 
@@ -105,7 +106,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/scan/manifest-rules` | API 키 | manifest 수집 규칙 (`/scripts/manifest-rules.json`과 동일) |
 | `POST` | `/api/scan/parse` | API 키 | manifest zip 파싱 (CLI 1단계) |
 | `POST` | `/api/scan` | API 키 + 자격증명 | 의존성 스캔 제출 (CLI 2단계) |
-| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 |
+| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 — `status`, `componentCount`와 별도의 AI 보강 상태 `aiStatus`(스캔 완료와 독립), `securityPostureInsight`를 반환 |
 | `POST` | `/api/scan/gate` | API 키 | **v1.0.4** — PR / CI 보안 게이트, `exitCode` 포함 판정 |
 
 ---
@@ -227,11 +228,15 @@ Authorization: Bearer oswl_<your_api_key>
 
 ### 오프라인 스냅샷 (v1.0.4)
 
+모든 엔드포인트는 `SYSTEM_ADMIN` 역할 또는 `SETTINGS_SNAPSHOT_MANAGE` 권한이 필요합니다.
+
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| `GET` | `/api/admin/snapshot` | 번들 상태 |
-| `POST` | `/api/admin/snapshot/import` | 스냅샷 번들 반입 (multipart) |
-| `GET` | `/api/admin/snapshot/export` | 스냅샷 번들 내보내기 |
+| `GET` | `/api/admin/snapshot` | 저장소 상태 — air-gapped 플래그와, 소스(`osv`, `depsdev-version`, `depsdev-advisory`, `epss`, `kev`)별 레코드 수, `importedAt`, v2 출처(`bundleId`, `builtAt`, `sourceAsOf`, `origin`; v1/메타 없는 번들에서 가져온 소스는 null)를 반환합니다. 또한 모든 소스 중 가장 오래된 `sourceAsOf`인 `oldestSourceAsOf`와 정의 최신성 배지에 사용되는 설정값 `stalenessWarnDays`, `stalenessCriticalDays`를 포함합니다 |
+| `POST` | `/api/admin/snapshot/import` | 스냅샷 번들 반입 (JSONL 파일들의 zip + `meta.json`). `?mode=replace\|merge`로 번들 자체 `meta.json` 모드를 오버라이드합니다: `replace`(기본)는 각 소스를 쓰기 전에 비우고, `merge`는 키 기준으로 upsert하며 `"_deleted":true` 묘비석을 처리합니다. v2 체크섬은 저장소 변경 전에 검증되며 불일치 시 전체 번들이 거부됩니다 |
+| `POST` | `/api/admin/snapshot/import-from-path` | 서버 디스크에 이미 있는 번들을 반입합니다 (`{ "path", "mode" }`) — 브라우저 업로드가 비실용적인 큰 번들용입니다. `oswl.airgapped.import-dir`이 설정되지 않으면 400; `path`는 해당 디렉터리 아래로 해석되어야 합니다 |
+| `GET` | `/api/admin/snapshot/wanted-list` | 이 인스턴스의 wanted-list를 NDJSON(`application/x-ndjson`)으로 스트리밍 — 스캔된 컴포넌트당 `{"ecosystem","name","version"}` 한 줄씩, 온라인 머신의 `oswl-vdb build --wanted`용입니다. 프로젝트명이나 저장소 URL은 인스턴스를 떠나지 않습니다 |
+| `GET` | `/api/admin/snapshot/export` | 이 인스턴스가 이미 가져온 데이터로부터 v2 스냅샷 번들(`application/zip`)을 만들어 납니다; `meta.json`의 `origin`은 `derived-from-scan`입니다. 온라인 인스턴스에서 실행한 뒤 air-gapped 인스턴스에서 반입하세요 |
 
 ### 모니터링 (v1.0.4)
 

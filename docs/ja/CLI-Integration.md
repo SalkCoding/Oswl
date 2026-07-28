@@ -205,7 +205,7 @@ Content-Type: application/json
   "scanId": 87,
   "projectId": 42,
   "version": "1.4.2",
-  "status": "PENDING",
+  "status": "SCANNING",
   "message": "Scan received successfully"
 }
 ```
@@ -217,10 +217,18 @@ GET /api/scan/{scanId}/status
 ```
 
 ```json
-{ "scanId": 87, "status": "COMPLETED", "componentCount": 128 }
+{
+  "scanId": 87,
+  "status": "COMPLETED",
+  "componentCount": 128,
+  "aiStatus": "RUNNING",
+  "securityPostureInsight": null
+}
 ```
 
 状態の流れ: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED`（または `FAILED`）
+
+`aiStatus`（**v1.0.4**）は AI エンリッチメントの進行を個別に追跡します: `NOT_APPLICABLE` → `PENDING` → `RUNNING` → `COMPLETED`（または `FAILED`）。CVE／ライセンス解析が終わり次第スキャンは `COMPLETED` になり、AI サマリーは完了をブロックせずバックグラウンドで生成され続けます（AI プロバイダー未設定の場合は `NOT_APPLICABLE`）。`securityPostureInsight` は `aiStatus` が `COMPLETED` になるまで `null` です。
 
 ---
 

@@ -17,6 +17,7 @@ CSRF 예외는 다음만 해당합니다.
 
 - `POST /api/scan`
 - `POST /api/scan/parse`
+- `POST /api/scan/gate` — CI에서 PR 게이트 평가(API 키 인증, 브라우저 세션 없음)
 - `GET /api/scan/ping`
 
 그 외 경로는 UI용 CSRF가 유지됩니다.
@@ -46,6 +47,8 @@ CSRF 예외는 다음만 해당합니다.
 ## 스캔 상태 조회(브라우저)
 
 `GET /api/scan/{scanId}/status` 는 **웹 세션**과 **프로젝트 멤버십**을 사용합니다.
+
+응답은 스캔 상태와 **AI 보강 상태(`aiStatus`)를 별도로** 추적합니다. AI 요약이 백그라운드에서 아직 `PENDING`/`RUNNING`인 동안에도 스캔은 `COMPLETED`가 될 수 있습니다. 스캔 완료를 AI 인사이트 준비 완료로 간주하지 말고 `aiStatus`를 폴링하세요.
 
 ---
 

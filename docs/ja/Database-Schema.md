@@ -28,9 +28,23 @@ OsWL はすべてのアプリケーションデータを PostgreSQL（`prod`）�
 | `libraries` | `homepage` | `varchar(500)` — プロジェクトのホームページ URL、nullable |
 | `libraries` | `source_repo_url` | `varchar(500)` — ソースリポジトリの URL、nullable |
 | `scan_results` | `ai_locale` | `varchar(16)` — スキャンを開始した担当者のロケール。AI Insight がその言語で応答するために使用 |
+| `scan_results` | `ai_status` | `varchar(20)` — AI エンリッチメントの進行状態（`NOT_APPLICABLE`/`PENDING`/`RUNNING`/`COMPLETED`/`FAILED`）。スキャンの `status` とは別に追跡し、データパイプラインが終わり次第スキャンを完了させる |
 | `ai_usage_events` | `branch` | `varchar(160)` — AI 使用量のブランチ帰属 |
+| `libraries` | `version_meta_fetched_at` | `timestamp` — deps.dev バージョンメタデータの最終更新日時。キャッシュヒットしたライブラリは `oswl.cache.version-meta-ttl-seconds`（既定 24 時間）以内なら GetVersion 呼び出しをスキップ |
+| `libraries` | `license_expression_raw` | `text` — deps.dev が返した結合前のライセンス一覧（JSON）。オフラインスナップショットのエクスポートでマルチライセンスパッケージをそのまま往復させるために保持 |
+| `libraries` | `ai_license_context_hash` | `varchar(64)` — AI ライセンス要約プロンプトを駆動するフィールドの SHA-256。再スキャンでハッシュが同じなら AI 呼び出しをスキップ |
+| `library_cves` | `ai_context_hash` | `varchar(64)` — CVE ごとの AI 要約に対する同様のコンテキストハッシュ応答キャッシュ |
 
-2 つの boolean カラムには特に SQL の既定値が設定されています。これにより `ddl-auto=update` がデータの入ったテーブルにも追加できます。既定値がないと、既存の行がある状態での `NOT NULL` カラム追加は失敗します。`description`／`homepage`／`source_repo_url` はエンリッチメント時（OpenSSF Scorecard を取得する際にすでに呼び出している同じ deps.dev プロジェクト API を使って）遅延的に埋められ、カラム追加より前にスキャンされたコンポーネントについては次回スキャンまで `null` のままです — Flyway 経路は `V3__component_metadata.sql` がカバーします。
+2 つの boolean カラムには特に SQL の既定値が設定されています。これにより `ddl-auto=update` がデータの入ったテーブルにも追加できます。既定値がないと、既存の行がある状態での `NOT NULL` カラム追加は失敗します。`description`／`homepage`／`source_repo_url` はエンリッチメント時（OpenSSF Scorecard を取得する際にすでに呼び出している同じ deps.dev プロジェクト API を使って）遅延的に埋められ、カラム追加より前にスキャンされたコンポーネントについては次回スキャンまで `null` のままです。その他の新規カラムはすべて nullable で冪等（`ADD COLUMN IF NOT EXISTS`）に追加されます。ハッシュ／ステータスが `null` の場合はキャッシュミスまたは `NOT_APPLICABLE` として扱われ、次回スキャンで埋められます。Flyway 経路は `V3__component_metadata.sql` から `V7__snapshot_v2_and_license_raw.sql` までがカバーします。
+
+### v1.0.4 で追加されたテーブル
+
+| テーブル | 目的 |
+|---|---|
+| `airgapped_snapshot_entries` | エアギャップ環境向けオフラインスナップショットストア — `(source, entry_key)` ごとに 1 行、JSON ペイロードを保持。ソース: `osv`、`depsdev-version`、`depsdev-advisory`、`epss`、`kev`、および `unresolved`（wanted-list に含まれていたが `oswl-vdb` ビルダーがアップストリームで解決できなかったコンポーネント） |
+| `airgapped_snapshot_meta` | ソースごとの管理情報: `record_count`、`imported_at` に加えて v2 バンドルのプロビナンス — `bundle_id`、`built_at`、`source_as_of`（鮮度 UI の基準となるアップストリームデータ自体の基準日）、`origin`、`format_version`（null = v1 バンドル） |
+
+`cve_alerts` と `jira_settings` も v1.0.4 で追加されています（`V2__v104_features.sql`）。カラム構成はマイグレーションスクリプトを参照してください。`airgapped_snapshot_*` テーブルは後述の `airgapped_snapshot.sql` で作成され、`V7` で拡張されます。
 
 ---
 
@@ -41,6 +55,7 @@ OsWL はすべてのアプリケーションデータを PostgreSQL（`prod`）�
 | `project_members.sql` | プロジェクト単位の ACL 用に `project_members` を作成 |
 | `instance_setup_lock.sql` | セットアップウィザードのロックテーブル |
 | `ai_enhancement.sql` | AI プリファレンスのカラム、`ai_daily_usage` テーブル |
+| `airgapped_snapshot.sql` | エアギャップ環境向けオフラインスナップショットストア（`airgapped_snapshot_entries`、`airgapped_snapshot_meta`） |
 | `schema_cleanup.sql` | **一度限り**のクリーンアップ: 未使用のテーブル／カラムを削除（下記参照） |
 
 任意の標準クライアント（`psql`、DBeaver、CI マイグレーションジョブ）で PostgreSQL に対して実行してください。スクリプトは可能な限り `IF EXISTS` / `IF NOT EXISTS` を使用します。
@@ -77,12 +92,15 @@ libraries (shared)
  ├── library_cves  (CVE link + severity, CWE, AI fields)
  └── license data via enrichment
 
+airgapped_snapshot_entries ── airgapped_snapshot_meta  (オフラインスナップショットストア)
+
 users, role_templates, audit_logs, cache_settings, vcs_connections, …
 ```
 
 - **プロジェクトカードのバージョン／最終スキャン** — `projects.version` ではなく、最新の `scan_results` 行から導出されます。
 - **エンリッチメントキャッシュ** — `cache_settings`（設定 → キャッシュ）。OSV/deps.dev の再取得 TTL を制御します。
 - **CWE** — OSV の `database_specific.cwe_ids` から `library_cves` に保存されます。
+- **オフラインスナップショットの鮮度** — `imported_at` ではなく `airgapped_snapshot_meta.source_as_of`（アップストリームの基準日）が基準です。
 
 ---
 

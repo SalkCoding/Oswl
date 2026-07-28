@@ -42,6 +42,8 @@ OsWL は**連携する 2 つのレイヤー**を使用します:
 | API | `GET/POST /api/projects/{projectId}/keys`、`GET /api/vcs/branches?projectId=`、スキャン状態ポーリング |
 | サービス | `ProjectService.getById`、`findAll`、アクセス可能な ID でフィルタリングされたゴミ箱操作 |
 
+> **管理画面はプロジェクト単位ではありません。** オフラインスナップショット管理（`/api/admin/snapshot/*` — ステータス、バンドルのインポート／エクスポート、サーバーパスからのインポート(import-from-path)、wanted リスト）は `SETTINGS_SNAPSHOT_MANAGE` 権限または `SYSTEM_ADMIN` ロールで制御され、これらのエンドポイントでプロジェクトメンバーシップが参照されることはありません。
+
 ## CLI スキャン認証
 
 `POST /api/scan` は次を要求します:

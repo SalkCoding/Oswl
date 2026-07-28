@@ -15,6 +15,8 @@ OsWL は、単一のマイクロサービスから製品ポートフォリオ全
 | [ユーザーガイド](User-Guide.md) | プロジェクトダッシュボード、スキャンカード、ゴミ箱、フィルター |
 | [Quick Import](Quick-Import.md) | GitHub / GitLab / Bitbucket の接続、ブランチのインポート |
 | [CLI 連携](CLI-Integration.md) | API キー、スキャンペイロード形式、パイプライン連携 |
+| [スキャン履歴](Scan-History.md) | プロジェクトごとのスキャン一覧 — ステータス、コンポーネント数、送信者 |
+| [内蔵 AI](Embedded-AI.md) | ローカル Qwen3 LLM サイドカー（llama.cpp）— クラウドアカウント不要 |
 | [セキュリティセンター](Security-Center.md) | CVE 一覧、深刻度の順位付け、状態更新、一括操作 |
 | [ライセンス分析](License-Analysis.md) | SPDX 検出、ポリシー項目、リスクバッジ |
 | [リスクトレンド](Risk-Trend.md) | 履歴グラフ、AI インサイト、スキャン上限 |
@@ -27,7 +29,6 @@ OsWL は、単一のマイクロサービスから製品ポートフォリオ全
 | [スキャン API セキュリティ](Scan-Api-Security.md) | CLI スキャン送信の保護概要 |
 | [API リファレンス](API-Reference.md) | REST エンドポイントの全一覧 |
 | [用語集](Glossary.md) | OsWL のすべての用語の定義 |
-| [内蔵 AI](Embedded-AI.md) | ローカル LLM サイドカー（llama.cpp）の設定と運用 |
 
 製品 UI 自体は日本語に完全対応しています（上部バーの言語切り替え、または `?lang=ja`）。他言語のドキュメントは[英語](../Home.md)と[韓国語](../ko/Home.md)でも利用できます。
 
@@ -47,7 +48,7 @@ OsWL は、単一のマイクロサービスから製品ポートフォリオ全
 * **Project** は最上位の単位で、通常はリポジトリ 1 つに対応します。
 * **Scan** はある時点の依存関係ツリー全体を記録します。
 * **Library** は全体で共有されるレコード（名前 + バージョン + エコシステム）で、CVE 情報は一度拡充されてすべてのプロジェクトから再利用されます。
-* **CVE** は deps.dev と OSV から取得し（OSV が提供する場合は CWE も含む）、ライセンス情報は deps.dev から取得します。
+* **CVE** は deps.dev と OSV から取得し（OSV が提供する場合は CWE も含む）、ライセンス情報は deps.dev から取得します。閉域網モードでは、インポートした脆弱性スナップショットから同じデータを取得します。
 
 ---
 
@@ -66,3 +67,5 @@ OsWL は、単一のマイクロサービスから製品ポートフォリオ全
 * **Swagger UI**（local プロファイルのみ）: `http://localhost:8080/swagger-ui.html`
 * **H2 コンソール**（local プロファイルのみ）: `http://localhost:8080/h2-console`
 * **課題報告**: [GitHub Issues](https://github.com/SalkCoding/Oswl/issues)
+
+本番環境では API ドキュメントと H2 コンソールは無効化されます。このドキュメントと[API リファレンス](API-Reference.md)を利用してください。
