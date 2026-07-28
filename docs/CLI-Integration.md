@@ -205,7 +205,7 @@ Content-Type: application/json
   "scanId": 87,
   "projectId": 42,
   "version": "1.4.2",
-  "status": "PENDING",
+  "status": "SCANNING",
   "message": "Scan received successfully"
 }
 ```
@@ -217,10 +217,18 @@ GET /api/scan/{scanId}/status
 ```
 
 ```json
-{ "scanId": 87, "status": "COMPLETED", "componentCount": 128 }
+{
+  "scanId": 87,
+  "status": "COMPLETED",
+  "componentCount": 128,
+  "aiStatus": "RUNNING",
+  "securityPostureInsight": null
+}
 ```
 
 Status flow: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (or `FAILED`)
+
+`aiStatus` (**v1.0.4**) tracks AI enrichment separately: `NOT_APPLICABLE` → `PENDING` → `RUNNING` → `COMPLETED` (or `FAILED`). A scan reaches `COMPLETED` as soon as CVE/license analysis finishes — AI summaries keep generating in the background instead of blocking completion (`NOT_APPLICABLE` when no AI provider is configured). `securityPostureInsight` stays `null` until `aiStatus` becomes `COMPLETED`.
 
 ---
 

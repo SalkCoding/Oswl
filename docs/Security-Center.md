@@ -98,6 +98,16 @@ See [What's New in v1.0.4](Whats-New-v1.0.4.md) for details.
 
 ---
 
+## Air-gapped Mode
+
+When OsWL is running in air-gapped (offline) mode, the Security Center index, the printable Security Report, and the Compliance Report show an **offline definitions** banner:
+
+> Offline mode — analyzed with vulnerability definitions as of 2026-07-24.
+
+The date is the oldest upstream source as-of date in the loaded offline snapshot (OSV, deps.dev advisories/versions, EPSS, CISA KEV). It is shown so auditors can see how fresh the underlying vulnerability data was at scan time. Freshness thresholds and snapshot import are managed from **Settings → Administration → Offline Snapshot**.
+
+---
+
 ## Component Detail
 
 Click any component name to open the **Component Detail** side panel, which shows:
@@ -123,12 +133,12 @@ When a component's deferral period expires (nightly scheduler), the deferral is 
 
 ## AI Security Insights
 
-If an AI provider is configured (**Settings → AI**), each completed scan generates a one-paragraph AI summary at the top of the Security Center:
+If an AI provider is configured (**Settings → AI**), scan enrichment generates free-text AI insights. Since v1.0.4, all scan-level insights are produced by a single combined AI call per scan:
 
-* **Security Posture Insight** — overall assessment of current CVE count and severity distribution
-* **Security Risk Trend Insight** — comparison with previous scan showing improvement or regression
+* **Security Posture Insight** — overall assessment of current CVE count and severity distribution, shown as a one-paragraph **AI Insight** summary at the top of the Security Center
+* **Security Risk Trend Insight** — comparison with the previous scan showing improvement or regression, shown on the [Risk Trend](Risk-Trend.md) page
 
-AI insights are generated once per scan and are not regenerated unless a new scan is submitted.
+Insights are generated once per scan. They are backfilled when an AI provider is first activated, regenerated for recent scans when the AI prompt language changes, and can be refreshed on demand from the License page.
 
 ---
 

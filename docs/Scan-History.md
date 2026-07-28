@@ -10,12 +10,13 @@ URL: `/projects/{id}/scan-history`
 
 | Column | Description |
 |---|---|
-| **Scan ID** | Internal numeric identifier |
-| **Version** | Project version string at scan time |
 | **Status** | PENDING / SCANNING / ANALYZING / COMPLETED / FAILED |
+| **Version** | Project version string at scan time. FAILED rows also show an abbreviated error message under the version |
+| **Scanned At** | Timestamp of scan submission (`yyyy-MM-dd HH:mm`) |
+| **Source** | How the version was imported — **Git** (GitHub Integration) or **CLI** (CLI scan tool); `-` if no import record exists |
 | **Components** | Total number of components detected |
-| **Submitted At** | Timestamp of scan submission |
-| **Submitted By** | User email (if authenticated CLI scan or Quick Import) |
+
+The page header also shows the total number of scans.
 
 ---
 
@@ -31,9 +32,19 @@ URL: `/projects/{id}/scan-history`
 
 ---
 
+## Air-Gapped Mode: Definitions Date
+
+When the server runs in offline (air-gapped) mode (`oswl.airgapped.enabled=true`), a banner appears at the top of the page:
+
+> Offline mode — analyzed with vulnerability definitions as of {date}.
+
+The date is the oldest definitions date among the imported offline snapshot sources, so auditors can see how fresh the underlying vulnerability data was at analysis time. The banner is hidden outside air-gapped mode or when no snapshot provenance is available.
+
+---
+
 ## Deleting a Scan
 
-Click the **Delete** icon on a scan row to permanently remove that scan record, including all its component data.
+Deletion is done from the version dropdown in the top bar: hover over a version entry, click the **Delete** (trash) icon that appears, then confirm. This requires the `SCAN_HISTORY_DELETE` permission (or the `SYSTEM_ADMIN` role) and permanently removes that scan record, including all its component data. The deletion is recorded in the audit log.
 
 > ⚠️ This action is irreversible. Deleting a scan also removes it from the Risk Trend chart.
 

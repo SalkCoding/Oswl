@@ -9,6 +9,9 @@ All terms used in OsWL — from security concepts to platform-specific vocabular
 **AI Insight**  
 An LLM-generated narrative summary produced during scan enrichment. OsWL generates three types per scan: *Security Posture Insight*, *Security Risk Trend Insight*, and *License Risk Trend Insight*. Each is a one-paragraph natural-language assessment. Requires an AI provider to be configured in Settings.
 
+**Air-gapped Mode**  
+Offline operation for networks without outbound internet. Set `OSWL_AIRGAPPED_ENABLED=true` (or `oswl.airgapped.enabled=true`) before startup. Vulnerability and threat-intel lookups (OSV, deps.dev, FIRST.org EPSS, CISA KEV) are served from the imported offline snapshot store instead of live APIs — no outbound HTTP is attempted. The embedded AI auto-download is also skipped in this mode. Components absent from the snapshot resolve as *no data* rather than *no vulnerabilities*. Import snapshot bundles via `POST /api/admin/snapshot/import` (System Admin). See [Administration — Offline snapshot bundles](Administration.md).
+
 **Audit Log**  
 An immutable chronological record of every significant action taken by users or the system (logins, scan submissions, CVE status changes, settings updates, etc.). Accessible to System Admins at Settings → Admin → Audit Logs.
 
@@ -48,6 +51,9 @@ A category identifier for vulnerability *types* (e.g. `CWE-79` Cross-site Script
 ---
 
 ## D
+
+**Definition As-of**  
+The upstream data's own freshness date for an imported offline snapshot source, recorded in `airgapped_snapshot_meta.source_as_of` from the bundle's `meta.json`. The Scan History and Security Center banners show the *oldest* `sourceAsOf` across all imported sources so auditors know how fresh the underlying vulnerability definitions were at analysis time. Settings → Admin → Offline Snapshot also shows a staleness badge against the configured thresholds (`OSWL_AIRGAPPED_STALENESS_WARN_DAYS`, default 7; `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`, default 30).
 
 **deps.dev**  
 Google's [Open Source Insights](https://deps.dev) API, which OsWL queries to obtain SPDX license identifiers, latest-version status, and deprecation notices for each scanned library.
@@ -157,6 +163,9 @@ A Google-hosted vulnerability database and API ([osv.dev](https://osv.dev)) focu
 **OTP (One-Time Password)**  
 A 6-digit code sent to a user's email address as the second factor in 2FA authentication. In the local development profile, OTP codes appear in the server log as `*** OTP CODE: NNNNNN ***`.
 
+**oswl-vdb**  
+The offline vulnerability-DB builder CLI (`scripts/oswl-vdb/oswl-vdb.{sh,ps1}`, also runnable as `./gradlew vdbBuild`). It builds a snapshot bundle from live upstream sources (OSV, deps.dev, FIRST.org EPSS, CISA KEV) on an internet-connected machine. Supports `--wanted` to scope to an exported wanted-list, `--mode delta --since` for incremental delta bundles, `--offline-sources` to build without network from a cached source directory, plus `verify` and `inspect` subcommands.
+
 ---
 
 ## P
@@ -254,6 +263,9 @@ A classification of a CVE's risk level based on CVSS score. OsWL uses: CRITICAL,
 **Single-Session Enforcement**  
 OsWL allows only one active session per user. A new login from a different browser/device invalidates the previous session.
 
+**Snapshot Bundle**  
+A zip file of JSONL files (`osv.jsonl`, `depsdev.jsonl`, `epss.jsonl`, `kev.jsonl`, optionally `unresolved.jsonl`) plus a `meta.json` describing format version, bundle provenance, per-source record counts, and per-source `asOf` dates. The v2 format is produced by `oswl-vdb` and consumed by `POST /api/admin/snapshot/import`. Import supports `replace` (clear each source first) and `merge` (upsert by key, honoring `"_deleted":true` tombstones).
+
 **SPDX (Software Package Data Exchange)**  
 An open standard for communicating software bill of materials (SBOM) information, including license identifiers. OsWL uses SPDX identifiers (e.g. `MIT`, `Apache-2.0`, `GPL-3.0-only`) to represent library licenses.
 
@@ -275,6 +287,13 @@ A browser that has been marked as trusted after a successful 2FA OTP verificatio
 
 ---
 
+## U
+
+**Unresolved**  
+A wanted-list component the `oswl-vdb` builder could not confidently resolve upstream — for example, an unparseable OSV affected range or a deps.dev lookup failure. These are written to `unresolved.jsonl` in the snapshot bundle and surfaced as a separate `unresolved` source in Settings → Admin → Offline Snapshot. Treat them as *no data*, not *confirmed clean*.
+
+---
+
 ## V
 
 **VCS (Version Control System)**  
@@ -290,6 +309,13 @@ A comparison of two scan results showing which components were added, removed, o
 A machine-readable statement of whether a product is actually affected by a vulnerability it contains. OsWL exports CycloneDX VEX from your triage decisions (v1.0.4): ignored findings become `not_affected`, deferred ones `in_triage`, fixed ones `resolved`.
 
 **Vulnerability**  → see *CVE*
+
+---
+
+## W
+
+**Wanted-list**  
+A JSONL export of every distinct `(ecosystem, name, version)` this OsWL instance has ever scanned, available at `GET /api/admin/snapshot/wanted-list` (System Admin). It contains only component coordinates — no project names, repository URLs, or file paths. Feed it to `oswl-vdb build --wanted` on an online machine so the builder fetches vulnerability definitions for exactly your dependencies instead of mirroring all upstream data.
 
 ---
 

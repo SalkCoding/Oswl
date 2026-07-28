@@ -30,6 +30,7 @@ A normal user usually needs **both A and B** to work on a project:
 - Configured under **Settings → Admin → Role Templates**.
 - Assigned to users when they are invited or edited.
 - Implemented as a set of **permissions** (e.g. `SCAN_SUBMIT`, `SECURITY_CENTER_VIEW`).
+- The permission catalog also covers **instance-admin capabilities** (e.g. `ORG_DASHBOARD_VIEW`, `AUDIT_LOG_EXPORT`, `SETTINGS_JIRA_MANAGE`, `SETTINGS_SNAPSHOT_MANAGE`, added in v1.0.4) so these tasks can be **delegated** to a role template instead of requiring a full system administrator.
 
 ### Built-in templates (first empty database)
 
@@ -77,6 +78,11 @@ Today, **feature access still follows Layer A (permissions)**. Project membershi
 - Can open **Settings → Admin** (users, role templates, audit log).
 - **Bypasses project membership** — can open any project ID for support.
 - Still uses the same login, 2FA, and session security as other users.
+- Many admin endpoints accept **either** the system-admin flag **or** a dedicated permission, e.g.:
+  - `/api/admin/snapshot/**` (offline snapshot status, bundle import/export, wanted-list export) → `SETTINGS_SNAPSHOT_MANAGE`
+  - `/api/settings/cache/**` (cache TTL and manual cache clear) → `SETTINGS_CACHE_MANAGE`
+  - audit-log export (`/api/admin/audit-logs/export`) → `AUDIT_LOG_EXPORT`
+  - User, role-template, and audit-log **view** management remain **system-admin-only**.
 
 Do not confuse with:
 

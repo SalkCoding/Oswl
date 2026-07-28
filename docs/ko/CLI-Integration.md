@@ -113,29 +113,6 @@ ScanIngestService → CVE·라이선스 비동기 보강 (OSV / deps.dev)
 | `GET` | `/api/projects/{projectId}/sarif` | 세션 / 키 | **v1.0.4** — SARIF 2.1.0 |
 | `POST` | `/api/sbom/import` | 세션 | **v1.0.4** — 외부 CycloneDX 파일 가져오기 |
 
-### 보안 게이트 (v1.0.4)
-
-`POST /api/scan/gate`는 프로젝트의 최신 스캔을 기준으로 임계값을 평가해 기계 판독 가능한 판정을 반환합니다. `exitCode`를 CI 잡의 종료 코드로 사용하세요(`0` 통과, `1` 실패).
-
-```bash
-verdict=$(curl -sS -X POST "$OSWL_URL/api/scan/gate"   -H "Authorization: Bearer $OSWL_API_KEY"   -H 'Content-Type: application/json'   -d '{"failOnSeverity":"HIGH","onlyNew":true}')
-
-echo "$verdict"
-exit "$(echo "$verdict" | jq -r .exitCode)"
-```
-
-서버 기본값(요청별 재정의 가능):
-
-| 필드 | 환경 변수 | 기본값 |
-|---|---|---|
-| `failOnSeverity` | `OSWL_GATE_FAIL_ON_SEVERITY` | `HIGH` |
-| `failOnKev` | `OSWL_GATE_FAIL_ON_KEV` | `true` |
-| `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
-| `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
-| `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
-
-`onlyNew`는 직전 완료 스캔을 베이스라인으로 비교하므로 기존 부채가 머지를 막지 않습니다. 요청에 GitHub 대상을 포함하면 판정이 Check Run과 PR 코멘트로도 게시됩니다.
-
 > CLI 엔드포인트는 `Authorization: Bearer` 헤더만으로 인증하며, 세션 쿠키나 CSRF 토큰은 필요 없습니다. `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`은 브라우저 CSRF 검사에서 제외되고, 그 외 경로는 기존 CSRF 보호가 유지됩니다. [Scan API 보안](Scan-Api-Security.md) 참고.
 
 ---
@@ -214,7 +191,7 @@ Content-Type: application/json
   "scanId": 87,
   "projectId": 42,
   "version": "1.4.2",
-  "status": "PENDING",
+  "status": "SCANNING",
   "message": "Scan received successfully"
 }
 ```
@@ -225,7 +202,44 @@ Content-Type: application/json
 GET /api/scan/{scanId}/status
 ```
 
+```json
+{
+  "scanId": 87,
+  "status": "COMPLETED",
+  "componentCount": 128,
+  "aiStatus": "RUNNING",
+  "securityPostureInsight": null
+}
+```
+
 상태: `PENDING` → `SCANNING` → `ANALYZING` → `COMPLETED` (또는 `FAILED`)
+
+`aiStatus`(**v1.0.4**)는 AI 보강 진행을 별도로 추적합니다: `NOT_APPLICABLE` → `PENDING` → `RUNNING` → `COMPLETED` (또는 `FAILED`). CVE·라이선스 분석이 끝나면 스캔은 바로 `COMPLETED`가 되며, AI 요약은 완료를 막지 않고 백그라운드에서 계속 생성됩니다(AI 프로바이더가 설정되지 않은 경우 `NOT_APPLICABLE`). `securityPostureInsight`는 `aiStatus`가 `COMPLETED`가 될 때까지 `null`입니다.
+
+---
+
+## 보안 게이트 (v1.0.4)
+
+`POST /api/scan/gate`는 프로젝트의 최신 스캔을 기준으로 임계값을 평가해 기계 판독 가능한 판정을 반환합니다. `exitCode`를 CI 잡의 종료 코드로 사용하세요(`0` 통과, `1` 실패).
+
+```bash
+verdict=$(curl -sS -X POST "$OSWL_URL/api/scan/gate"   -H "Authorization: Bearer $OSWL_API_KEY"   -H 'Content-Type: application/json'   -d '{"failOnSeverity":"HIGH","onlyNew":true}')
+
+echo "$verdict"
+exit "$(echo "$verdict" | jq -r .exitCode)"
+```
+
+서버 기본값(요청별 재정의 가능):
+
+| 필드 | 환경 변수 | 기본값 |
+|---|---|---|
+| `failOnSeverity` | `OSWL_GATE_FAIL_ON_SEVERITY` | `HIGH` |
+| `failOnKev` | `OSWL_GATE_FAIL_ON_KEV` | `true` |
+| `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
+| `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
+| `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+
+`onlyNew`는 직전 완료 스캔을 베이스라인으로 비교하므로 기존 부채가 머지를 막지 않습니다. 요청에 GitHub 대상을 포함하면 판정이 Check Run과 PR 코멘트로도 게시됩니다.
 
 ---
 
