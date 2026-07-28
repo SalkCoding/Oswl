@@ -51,18 +51,24 @@ CREATE TABLE IF NOT EXISTS jira_settings (
 );
 
 -- ── Air-gapped offline snapshot (#11) ──
-CREATE TABLE IF NOT EXISTS snapshot_meta (
-    id            BIGSERIAL PRIMARY KEY,
-    source        VARCHAR(40) NOT NULL,
+-- Table names must be airgapped_snapshot_* to match SnapshotMeta/SnapshotEntry. An earlier
+-- revision of this migration created them as snapshot_meta/snapshot_entries, which no entity
+-- maps to — that left the v2-format columns V7 adds (`ALTER TABLE airgapped_snapshot_meta ...`)
+-- pointing at a table no migration had created, so any deployment without a pre-existing
+-- ddl-auto schema failed at V7.
+-- The provenance columns (bundle_id/built_at/source_as_of/origin/format_version) are
+-- deliberately NOT here: V7 adds them, and this file must keep representing the pre-V7 shape.
+CREATE TABLE IF NOT EXISTS airgapped_snapshot_meta (
+    source        VARCHAR(20) NOT NULL,
     record_count  BIGINT      NOT NULL DEFAULT 0,
-    imported_at   TIMESTAMP,
-    CONSTRAINT uq_snapshot_meta_source UNIQUE (source)
+    imported_at   TIMESTAMP   NOT NULL,
+    CONSTRAINT pk_airgapped_snapshot_meta PRIMARY KEY (source)
 );
-CREATE TABLE IF NOT EXISTS snapshot_entries (
+CREATE TABLE IF NOT EXISTS airgapped_snapshot_entries (
     id          BIGSERIAL PRIMARY KEY,
-    source      VARCHAR(40)  NOT NULL,
+    source      VARCHAR(20)  NOT NULL,
     entry_key   VARCHAR(600) NOT NULL,
-    payload     TEXT,
-    CONSTRAINT uq_snapshot_entries_source_key UNIQUE (source, entry_key)
+    payload     TEXT         NOT NULL,
+    CONSTRAINT uq_snapshot_entry_source_key UNIQUE (source, entry_key)
 );
-CREATE INDEX IF NOT EXISTS idx_snapshot_entries_source_key ON snapshot_entries (source, entry_key);
+CREATE INDEX IF NOT EXISTS idx_snapshot_entries_source_key ON airgapped_snapshot_entries (source, entry_key);

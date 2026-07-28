@@ -10,7 +10,11 @@
 * サーバーは**localhost のみ**（`127.0.0.1`）にバインドされ、他のマシンから到達することはありません。
 * 起動に成功すると、OsWL はそのエンドポイントを **LOCAL** プロバイダーとして保存し有効化します（同時にアクティブにできるプロバイダーは 1 つだけなので、他にアクティブなプロバイダーがあれば無効化されます）。
 * 内蔵 AI を停止すると LOCAL プロバイダーも無効化されるため、AI 呼び出しが停止済みエンドポイントに対して失敗することはありません。
-* サーバーは推論を無効化した CPU 専用モード（`--reasoning-budget 0`）で動作し、Web UI は起動しません（`--no-webui`）。
+* サーバーは推論を無効化（`--reasoning-budget 0`）し、Web UI なし（`--no-webui`）で起動します。既定では GPU へのモデルレイヤーのオフロードも試みます（`-ngl 999`）— GPU での起動に失敗した場合（GPU 対応ビルドがない、VRAM 不足など）、OsWL は同じモデルを CPU のみで自動的に再試行してから、そのモデルをあきらめます。
+* 同時に来た AI 呼び出しは 1 件ずつキューイングされるのではなく並列に処理されます。サーバーは既定で `--parallel 4 --cont-batching`、フラッシュアテンション（`-fa`）、プレフィックスキャッシュの再利用（`--cache-reuse 256`）付きで起動し、OsWL 自身も独立した AI 呼び出しを並列に実行します（最大 `oswl.ai.enrichment.max-parallel-calls`、既定 `3`）。
+* LOCAL プロバイダーに送られるバッチプロンプトは、より単純化された JSON スキーマのバリアント（`oswl.ai.enrichment.local-simple-schema`、既定 `true`）を使用します — 小さなローカルモデルは、大規模なクラウドモデル向けの完全なスキーマよりも、単純な出力スキーマの方がはるかに確実に従います。
+* CVE とライセンスの要約は入力コンテキストのハッシュでキャッシュされるため、変更のないコンポーネントは次回のスキャンで再度問い合わせされません。
+* ポスチャー、セキュリティトレンド、ライセンストレンド、バージョン差分のインサイトは、4 回の個別呼び出しではなく単一の統合呼び出し（`insights.combined`）で生成され、固定オーバーヘッドを削減します。
 
 > 必要な権限: `SETTINGS_AI_MANAGE` またはシステム管理者 — 他の AI 設定と同じです。
 
@@ -32,9 +36,12 @@ embedded-ai/
 `java -jar app.jar` だけですべてが完結します — 別のスクリプトやビルド手順は不要です。Qwen3 は
 Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)
 参照）、これは安全です — ユーザーに代わって取得・同梱しても追加の再配布義務は発生しません。モデルは
-既定で OsWL 自身の
-[GitHub Release アセット](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)から
-ダウンロードされ、到達できない場合は元の Hugging Face ホストへ自動的にフォールバックします。
+既定で上流の [Hugging Face リポジトリ](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)から
+ダウンロードされます。サードパーティのホストに依存したくない場合は、
+`OSWL_EMBEDDED_DEFAULT_MODEL_URL` にバイト単位で同一の自己ホスティングミラーを指定してください。
+
+既定モデルの URL、SHA256、サイズの各設定は 1 つの組として扱ってください。URL だけを変更して
+SHA256 やサイズを合わせないと、すべてのダウンロードがチェックサム検証で失敗します。
 
 他の `.gguf` モデルも自分で追加して使えます — OsWL は既定の Qwen3 だけでなく、このディレクトリに直接置かれたすべての `.gguf` ファイルを認識します。再配布・共有する前に、そのモデル自体のライセンスを必ず確認してください — OsWL が同梱・自動取得するのは Qwen3 のみです。
 
@@ -49,10 +56,18 @@ Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PART
 |---|---|---|---|
 | `oswl.ai.embedded.dir` | `OSWL_EMBEDDED_AI_DIR` | `embedded-ai` | モデルディレクトリ（作業ディレクトリからの相対パス） |
 | `oswl.ai.embedded.port` | `OSWL_EMBEDDED_AI_PORT` | `11435` | サイドカー用の localhost ポート |
-| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | `llama-server -c` に渡すコンテキストウィンドウ |
-| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL の `models-v1` GitHub Release アセット | 既定 Qwen3 モデルの一次ダウンロード元 |
+| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | `llama-server -c` に渡すコンテキストウィンドウ — **総**コンテキストサイズで、並列スロット数に応じて分割されます |
+| `oswl.ai.embedded.gpu-layers` | `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | オフロードする GPU レイヤー数（`-ngl`）: `-1` はビルドが対応する最大数、`0` は CPU のみ、正の数を指定すると明示的なレイヤー数になります。GPU での起動に失敗した場合は同じモデルを CPU のみで自動的に再試行します |
+| `oswl.ai.embedded.threads` | `OSWL_EMBEDDED_AI_THREADS` | `0` | スレッド数（`-t`）；`0` は llama.cpp が自動検出 |
+| `oswl.ai.embedded.parallel-slots` | `OSWL_EMBEDDED_AI_PARALLEL` | `4` | `>1` の場合 `--parallel N --cont-batching` が付与され、サーバー側で AI 呼び出しが直列化されなくなります。各スロットには `context-size / N` が割り当てられ、2048 未満になると警告ログが出力されます |
+| `oswl.ai.embedded.flash-attn` | `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | フラッシュアテンション（`-fa`） |
+| `oswl.ai.embedded.cache-reuse` | `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | 呼び出し間でのプレフィックスキャッシュ再利用のための `--cache-reuse N`；`<=0` で無効化 |
+| `oswl.ai.embedded.extra-args` | `OSWL_EMBEDDED_AI_EXTRA_ARGS` | （空） | llama-server の CLI 追加引数をそのまま付加します — サーバー設定専用で、リクエスト入力からは決して取得されません |
+| `oswl.ai.embedded.startup-timeout-seconds` | `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | 各モデル候補が healthy になるまで、起動試行ごとに許容される時間（秒） |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | 上流の Hugging Face `ggml-org/Qwen3-1.7B-GGUF` アセット | 既定 Qwen3 モデルの一次ダウンロード元 |
 | `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | （THIRD_PARTY_LICENSES.md 参照） | 期待される SHA256 — URL と必ず同時に変更 |
-| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | 元の Hugging Face URL | 一次 URL 失敗時に 1 回だけ再試行 |
+| `oswl.ai.embedded.default-model-size-bytes` | `OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES` | `1282439264` | 想定サイズ（バイト）。ダウンロード進捗バーの初期表示に使用され、URL/SHA256 と同じ組として扱います |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | （空） | 一次 URL 失敗時に 1 回だけ再試行。一次を自己ホスティングミラーに変更する場合は、この値に上流 URL を指定してください |
 | `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 起動時にバックグラウンドで既定モデルを先読み；`oswl.airgapped.enabled=true` の場合は実行されない |
 
 ---
@@ -72,7 +87,7 @@ Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PART
 
 ## モデルの切り替え
 
-上記の 2 モデルに限定されません — llama.cpp 互換の `.gguf` であれば何でも使えます:
+既定のモデルだけに限定されません — llama.cpp 互換の `.gguf` であれば何でも使えます:
 
 1. 量子化された GGUF モデルを**ダウンロード**します（例: [Hugging Face](https://huggingface.co/models?library=gguf)）。
 2. `.gguf` ファイルをカードに表示されているモデルフォルダに**配置**します。
@@ -81,7 +96,7 @@ Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PART
 
 **自動（優先順位）** オプションは次の順で試行します: ドロップダウンに保存されたモデル → `qwen3…` → 残りの `.gguf` ファイルの中で最初のもの（アルファベット順）。
 
-> CPU 専用の推論では、**1B〜4B パラメータ**程度の小さな量子化モデル（Q4_K_M など）を推奨します。より大きなモデルはより多くの RAM を必要とし、遅いマシンでは起動タイムアウトに失敗することがあります。コンテキストウィンドウは `OSWL_EMBEDDED_AI_CONTEXT`（既定 `4096`）で固定されます。
+> CPU 専用の推論では、**1B〜4B パラメータ**程度の小さな量子化モデル（Q4_K_M など）を推奨します。より大きなモデルはより多くの RAM を必要とし、遅いマシンでは起動タイムアウトに失敗することがあります。コンテキストウィンドウは `OSWL_EMBEDDED_AI_CONTEXT`（既定 `8192`）で、並列スロット数に応じて分割されます — 既定の 4 スロットでは呼び出しごとに 2048 トークンのコンテキストになるため、呼び出しごとに長いコンテキストが必要な場合はコンテキストを増やすか `OSWL_EMBEDDED_AI_PARALLEL` を下げてください。
 
 ---
 
@@ -104,7 +119,7 @@ OsWL に別のディレクトリを指定する方法は 2 つあります:
 
 ## 自動フォールバック
 
-一度の開始クリックで複数のモデルが試行されることがあります。候補は順番に試されます — 要求／保存されたモデル → 内蔵の優先順位 → 残りの `.gguf` — 各候補には healthy になるまで最大 **90 秒**が与えられます。クラッシュまたはタイムアウトしたモデルはスキップされ、次の候補に進みます。
+一度の開始クリックで複数のモデルが試行されることがあります。候補は順番に試されます — 要求／保存されたモデル → 内蔵の優先順位 → 残りの `.gguf` — 各候補には起動試行ごとに最大 **120 秒**（`oswl.ai.embedded.startup-timeout-seconds`）が与えられ、healthy になる必要があります。GPU オフロードが有効な場合（既定）、GPU での起動に失敗した候補はまず CPU のみで再試行されます。それでもクラッシュまたはタイムアウトするモデルはスキップされ、次の候補に進みます。
 
 OsWL が最終的に**最初の選択ではない**モデルを実行することになった場合、カードのモデルセレクタの横にオレンジ色の **「フォールバックモデルで開始しました」** バッジが表示されます。これは通常、優先モデルの読み込みに失敗したことを意味します（大きすぎる、ダウンロードが壊れているなど）— **実行モデル**の行で実際に稼働しているモデルを確認できます。
 
@@ -130,7 +145,8 @@ OsWL が最終的に**最初の選択ではない**モデルを実行するこ�
 | モデルがまだなく、開始をクリックしても何も起きないように見える | インターネット接続を確認してください — 既定モデルのダウンロードには一度だけそれが必要です。閉域網環境では、`.gguf` ファイルをモデルフォルダに直接自分で配置してください |
 | "Model download failed" / チェックサム不一致 | ダウンロード中にネットワークが中断された、または転送が破損した — 不完全なファイルは自動的に削除されます。**開始**を再度クリックして再試行してください |
 | ログに `failed to open GGUF file` | 設定上のフォルダが実際のモデルの場所と一致していません — **フォルダ**フィールドと、ファイル名がドロップダウンの項目と一致しているか確認してください |
-| "did not become healthy within 90s" | マシンが遅い、またはモデルが大きすぎる — より小さい量子化（例: 1B〜2B パラメータ級の Q4_K_M `.gguf`）を試してください |
+| "did not become healthy within 120s" | マシンが遅い、またはモデルが大きすぎます — より小さい量子化（例: 1B〜2B パラメータ級の Q4_K_M `.gguf`）を試すか、`OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` を上げてください。`(GPU)` での失敗は自動的に CPU のみで再試行されるため、このメッセージが続く場合は CPU での再試行も失敗しています |
+| ログに `slotContext … is below 2048` という警告 | コンテキストサイズに対して並列スロット数が多すぎます — `OSWL_EMBEDDED_AI_CONTEXT` を上げるか `OSWL_EMBEDDED_AI_PARALLEL` を下げてください |
 | ポートがすでに使用中 | 別のプロセス（または手動で起動した `llama-server`）がポートを占有しています — それを停止するか `OSWL_EMBEDDED_AI_PORT` を設定してください。ポートですでに正常に待ち受けているサーバーは「実行中」とみなされ、ステータスレスポンスで `external` としてフラグが立ちます |
 | **停止**をクリックしてもカードがオフにならない | 実行中のサーバーが `external`（この OsWL インスタンスが起動したものではない）です — プロセスを自分で停止するか、それが動作しているマシン／コンテナを再起動してください。OsWL はそれを終了できません |
 | 保存時に "Folder not found or not a directory" | 先にディレクトリを作成してください。保存は既存のフォルダのみを受け付けます |
