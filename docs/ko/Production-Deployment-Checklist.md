@@ -21,7 +21,7 @@ OsWL을 인터넷에 공개하기 전에 확인할 한 페이지 목록입니다
 
 `.env.prod.example` → `.env.prod` 복사 후 모든 값 입력. `application-prod.yaml`에는 DB·암호화 **기본값 없음**.
 
-기동 시 누락 변수 등은 로그의 **`OSWL STARTUP WARNINGS`** 블록에 한 번에 출력됩니다. **`prod`에서 `OSWL_ENCRYPTION_KEY`가 없으면 기동 실패** — 출시 전 안정적인 키를 설정하세요.
+기동 시 누락 변수 등은 로그의 **`OSWL STARTUP WARNINGS`** 블록에 한 번에 출력됩니다. **`prod`에서 `OSWL_ENCRYPTION_KEY`가 없으면 기동 실패** — 출시 전 안정적인 키를 설정하세요. (`local` 프로파일은 개발 전용으로 임시 키를 사용할 수 있습니다.)
 
 ## 3. 네트워크 바인딩
 
@@ -81,6 +81,47 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 예외는 연속 모니터링입니다. `OSWL_MONITORING_ENABLED`가 기본 **`true`**(매일 03:00 OSV 재조회, `OSWL_MONITORING_CRON`)이며 프로젝트 멤버에게 메일을 발송하므로, 최초 기동 전에 SMTP 설정을 확인하거나 `false`로 끄세요.
 
+### 성능 튜닝 (v1.0.4)
+
+기본값은 운영 환경에서 안전합니다. 이유가 있을 때만 오버라이드하세요.
+
+| 변수 | 기본값 | 용도 |
+|---|---|---|
+| `OSWL_DEPSDEV_CONNECT_TIMEOUT_MS` / `OSWL_DEPSDEV_READ_TIMEOUT_MS` | `5000` / `10000` | deps.dev HTTP 타임아웃(이전에는 멈춘 호출이 전체 스캔을 정지시킬 수 있었음) |
+| `OSWL_DEPSDEV_MAX_CONCURRENT` | `24` | deps.dev 동시 요청 상한; HTTP 429 시 백오프 후 1회 재시도 |
+| `OSWL_OSV_CONNECT_TIMEOUT_MS` / `OSWL_OSV_READ_TIMEOUT_MS` | `5000` / `30000` | OSV HTTP 타임아웃(느린 연결에서 1,000개 항목 batch query는 정당히 시간이 걸림) |
+| `OSWL_VERSION_META_TTL_SEC` | `86400` | 캐시 히트 라이브러리의 deps.dev 버전 메타데이터 TTL |
+| `OSWL_CLONE_SPARSE_ENABLED` | `true` | Quick Import 클론은 blobless + sparse-checked-out; partial-clone 미지원 git 서버는 자동으로 전체 shallow 클론으로 폴백 |
+| `OSWL_AI_STREAMING_ENABLED` | `true` | 보안 태세/트렌드/버전 차이 등 자유 형식 AI 호출을 SSE로 스트리밍해 라이브 프리뷰 제공; 스트리밍을 거부하는 엔드포인트는 자동 폴백 |
+| `OSWL_AI_MAX_PARALLEL_CALLS` | `3` | 동시 AI 보강 호출 상한; 로컬 llama-server는 `--parallel`이 이 값까지 유리 |
+| `OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED` | `true` | Anthropic 시스템 프롬프트를 단기 캐시 브레이크포인트로 표시 |
+
+### 7.1 폐쇄망 / 오프라인 스냅샷 (v1.0.4)
+
+`OSWL_AIRGAPPED_ENABLED=true`로 설정하면 취약점·위협 인텔 조회(OSV, deps.dev, EPSS, CISA KEV)를 실시간 외부 API 대신 반입된 오프라인 스냅샷에서 처리합니다. 보강을 위한 아웃바운드 HTTP는 시도되지 않습니다.
+
+| 단계 | 조치 |
+|------|------|
+| 1. 번들 제작 | 인터넷에 연결된 머신에서 `oswl-vdb` 빌더를 실행합니다. 래퍼 스크립트: `scripts/oswl-vdb/oswl-vdb.sh`(Linux/macOS) 또는 `scripts/oswl-vdb/oswl-vdb.ps1`(Windows). 둘 다 `./gradlew vdbBuild --args="..."`를 호출합니다. |
+| 2. 번들 대상 선정 | 타깃 인스턴스가 실제로 스캔한 컴포넌트를 `GET /api/admin/snapshot/wanted-list`(SYSTEM_ADMIN)로 낸 뒤 `build --wanted wanted-list.jsonl`에 넘기세요. 빌더는 전체 업스트림 미러 대신 실제 사용 컴포넌트만 가져옵니다. |
+| 3. 번들 반입 | `POST /api/admin/snapshot/import?mode=replace|merge`(multipart `.zip`). 큰 번들은 `OSWL_AIRGAPPED_IMPORT_DIR` 화이트리스트 디렉터리를 설정한 뒤 `POST /api/admin/snapshot/import-from-path`에 `{"path":"bundle.zip","mode":"merge"}`로 요청하세요. |
+| 4. 모델 배치 (내장 AI 사용 시) | 폐쇄망 호스트는 자동 다운로드를 비활성화합니다. `.gguf` 파일을 `embedded-ai/`에 직접 넣거나 내부 미러를 운영하세요(§8 참고). |
+
+`oswl-vdb build` 옵션(`VdbBuilderCli` 참고):
+- `--sources osv,epss,kev,depsdev`(기본값 전체).
+- `--mode delta --since previous.zip`은 추가/변경 키만 쓰고 `"_deleted":true` 마커를 함께 씁니다.
+- `--offline-sources <dir>`은 이전 온라인 실행으로 채워진 캐시 디렉터리에서 네트워크 없이 빌드합니다(`osv`/`epss`/`kev`만 해당; deps.dev는 벌크 덤프가 없어 걸립니다).
+- `verify <bundle.zip>`과 `inspect <bundle.zip>`은 체크섬과 메타데이터를 확인합니다.
+
+반입 의미:
+- `replace`(기본값)은 해당 소스의 기존 데이터를 지우고 번들을 씁니다.
+- `merge`는 `(source, entry_key)` 기준으로 upsert하고 `"_deleted":true` 라인은 삭제로 처리합니다.
+- v2 번들은 `meta.json`에 기록된 파일별 SHA-256 체크섬을 검증하며, 불일치 시 전체 번들을 거부하고 기존 스토어를 변경하지 않습니다.
+
+정의 최신성(E7): `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`(기본값 `7`)와 `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`(기본값 `30`)는 반입된 스냅샷의 소스별 `sourceAsOf` 날짜 중 가장 오래된 값을 기준으로 관리 UI 배지를 결정합니다.
+
+번들이 50MB를 초과하면 `OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE`(기본값 각 `50MB`)를 조정해야 할 수 있습니다.
+
 ## 8. 내장 AI 모델 (선택, 온프레미스)
 
 **내장 AI**(설정 → AI → 로컬)를 클라우드 프로바이더 대신 또는 함께 쓸 계획일 때만 해당됩니다.
@@ -95,6 +136,24 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Gradle 태스크나 별도 스크립트가 필요 없습니다 — 다운로드는 시작 버튼을 처음 누를 때 앱
 자체에서 실행되므로, 단순히 `java -jar app.jar`로 배포해도 동작합니다.
+
+### 내장 AI 튜닝 (B1 / v1.0.4)
+
+기본값은 운영 환경에서 안전합니다. 측정된 이유가 있을 때만 오버라이드하세요.
+
+| 변수 | 기본값 | 용도 |
+|---|---|---|
+| `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | 전체 컨텍스트 크기(`-c`). `--parallel` 사용 시 슬롯 간에 나뉘며, 슬롯 컨텍스트가 2048 아래로 떨어지면 경고 로그가 출력됩니다. |
+| `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | `-ngl`: `-1`은 빌드가 지원하는 만큼 오프로드(`999` 전달), `0`은 CPU 전용, 양수는 명시적 레이어 수 |
+| `OSWL_EMBEDDED_AI_THREADS` | `0` | `-t`: `0`은 llama.cpp 자동 감지, 양수는 스레드 수 고정 |
+| `OSWL_EMBEDDED_AI_PARALLEL` | `4` | `--parallel N --cont-batching` 활성화; 1보다 크면 동시 AI 호출이 직렬화되지 않습니다. |
+| `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | `-fa`(flash attention) 추가 |
+| `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse` 토큰 수; `0` 이하면 비활성화 |
+| `OSWL_EMBEDDED_AI_EXTRA_ARGS` | (비어 있음) | `llama-server` CLI 인자를 공백으로 구분해 그대로 덧붙임(관리자 전용 설정, 요청 입력 아님) |
+| `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | `/health` 응답을 기다리는 시간(초). 시간 내 실패 시 CPU 전용 재시도 또는 다음 모델 후보로 넘어갑니다. |
+| `OSWL_EMBEDDED_DEFAULT_MODEL_URL` / `SHA256` / `SIZE_BYTES` | 업스트림 Hugging Face `ggml-org/Qwen3-1.7B-GGUF` | 기본 Qwen3-1.7B 다운로드용 매칭 세트; 자체 호스팅 미러 사용 시 셋 모두 오버라이드(바이트 단위로 동일한 재호스팅이면 URL만 변경) |
+| `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Hugging Face | 기본 URL 실패 시 1회 재시도; primary와 같거나 비워두면 재시도 비활성화 |
+| `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 부팅 시 기본 모델을 백그라운드로 미리 다운로드(다운로드만, 사이드카는 시작 안 함). **`OSWL_AIRGAPPED_ENABLED=true`이면 무시됩니다**. |
 
 ## 9. 데이터베이스 스키마 (업그레이드)
 

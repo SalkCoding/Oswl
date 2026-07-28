@@ -208,16 +208,21 @@ oswl:
       # G4: default-model-url/sha256/size-bytes are always a matched set — changing the URL
       # without updating the SHA256 to match makes every download fail checksum verification
       # (by design: this is the integrity check, not a bug to work around).
-      # Default points at OsWL's own GitHub Release asset (tag "models-v1", decided in G2) —
-      # a byte-identical re-host of ggml-org/Qwen3-1.7B-GGUF's Qwen3-1.7B-Q4_K_M.gguf, so first-run
-      # setup no longer depends on a third-party host. NOTE: this asset must be uploaded to that
-      # release tag before this default resolves — see PERFORMANCE-AND-OFFLINE-PLAN.md G2/G4.
-      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf}
+      #
+      # Points at the upstream ggml-org/Qwen3-1.7B-GGUF asset. G2 decided to self-host this on
+      # OsWL's own GitHub Release (tag "models-v1"), but that asset has not been uploaded yet and
+      # the URL 404s, so the self-hosted URL is NOT the default — a default that always fails and
+      # silently leans on a fallback is worse than pointing at the host that actually serves it.
+      # To switch to self-hosting once the asset is uploaded, verify it resolves and override:
+      #   OSWL_EMBEDDED_DEFAULT_MODEL_URL=https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf
+      # The SHA256 below is the upstream file's, so a byte-identical re-host needs no other change.
+      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}
       default-model-sha256: ${OSWL_EMBEDDED_DEFAULT_MODEL_SHA256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}
       default-model-size-bytes: ${OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES:1282439264}
-      # Retried once if the primary URL fails (network error / non-200) — the original
-      # upstream host, so a problem with OsWL's own release asset doesn't strand fresh installs.
-      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}
+      # Retried once if the primary URL fails (network error / non-200). Empty by default: with
+      # the primary already pointing upstream there is no second host to fall back to. Set this
+      # to the upstream URL when you override default-model-url with a self-hosted mirror.
+      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:}
       # G5: prefetches the default model in the background on boot (if none is present yet) so
       # a user who later visits Settings and clicks Start does not hit a surprise 1.2GB download.
       # Download-only — never starts the sidecar or changes the active AI provider on its own.

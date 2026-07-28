@@ -62,6 +62,35 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 
 ---
 
+## 組み込み AI モデル（初回起動）
+
+OsWL は組み込みの llama.cpp サイドカーを通じて、AI 機能を完全にオンプレミスで実行できます。初回起動時に `embedded-ai/` に `.gguf` モデルが存在しない場合、OsWL は既定の **Qwen3-1.7B** モデル（約 1.2 GB）のバックグラウンドダウンロードを自動で開始します:
+
+* 上流の Hugging Face リポジトリ（`ggml-org/Qwen3-1.7B-GGUF`）から取得し、SHA-256 で整合性を検証します。サードパーティのホストへの依存を避けたい場合は、`OSWL_EMBEDDED_DEFAULT_MODEL_URL` に自己ホスティングミラーを指定してください。
+* ダウンロードのみを行います — サイドカーの起動やアクティブな AI プロバイダーの変更は行いません。進行状況は **設定 → AI** に表示され、ファイルの準備ができたらそこで **開始** をクリックしてください。
+* `OSWL_EMBEDDED_AUTO_DOWNLOAD=false` で無効化できます。エアギャップモードではダウンロードは一切試行されません（後述）。
+
+`llama-server(.exe)` バイナリ本体のみ手動での手順です — [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases) からダウンロードし、`embedded-ai/`（または `PATH` 上）に配置してください。詳細は [組み込み AI](Embedded-AI.md) を参照してください。
+
+---
+
+## エアギャップ（オフライン）環境での起動
+
+外部インターネットへのアウトバウンド接続がないホストの場合:
+
+1. 起動前に `OSWL_AIRGAPPED_ENABLED=true` を設定します。脆弱性／脅威インテリの参照（OSV、deps.dev、EPSS、KEV）はインポート済みのオフラインスナップショットから提供され、アウトバウンド HTTP は一切試行されず、組み込みモデルの自動ダウンロードもスキップされます。
+2. インターネットに接続されたマシンでスナップショットバンドルをビルドします:
+
+   ```bash
+   scripts/oswl-vdb/oswl-vdb.sh build --wanted wanted-list.jsonl --out bundle.zip
+   ```
+
+   （Windows: `scripts/oswl-vdb/oswl-vdb.ps1`）バンドルを実際の依存関係に合わせるには、まず接続済みの OsWL インスタンスから wanted-list をエクスポートしてください: `GET /api/admin/snapshot/wanted-list`。
+3. `bundle.zip` をエアギャップホストに移し、システム管理者として `POST /api/admin/snapshot/import`（マルチパートアップロード）でインポートするか、`OSWL_AIRGAPPED_IMPORT_DIR` でディレクトリを許可リストに登録したうえで `POST /api/admin/snapshot/import-from-path` を使用してください。[管理 — オフラインスナップショットバンドル](Administration.md) を参照してください。
+4. 組み込み AI を使う場合は、自身で入手した `.gguf` モデルを `embedded-ai/` に配置してから **開始** をクリックしてください。
+
+---
+
 ## セットアップウィザード
 
 初回起動時（データベースが空の状態）は、すべてのリクエストが `http://localhost:8080/setup` にリダイレクトされます。
