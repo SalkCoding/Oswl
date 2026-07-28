@@ -190,7 +190,7 @@ OsWL は二要素認証やユーザー招待の OTP メール送信に SMTP を�
 
 **SIEM エクスポート（v1.0.4）** — `GET /api/admin/audit-logs/export?format=jsonl|cef` は、同じフィルタリング済みビューを SIEM に取り込み可能な形式（既定は JSON Lines、または ArcSight CEF）でストリーミングします。`AUDIT_LOG_EXPORT` 権限が必要で、エクスポート自体も `AUDIT_LOG.EXPORT` として記録されます。
 
-v1.0.4 のアクションコードはフィルター UI で **モニタリング**（`MONITOR.*`）、**連携**（`JIRA.SETTINGS_UPDATE`）、**管理**（`ORG_DASHBOARD.VIEW`、`AUDIT_LOG.EXPORT`、`SNAPSHOT.IMPORT` / `SNAPSHOT.EXPORT`）としてグループ化され、新しいエクスポート・ゲートのコード（`SBOM.EXPORT`、`VEX.EXPORT`、`SARIF.EXPORT`、`COMPLIANCE_REPORT.VIEW`、`GATE.EVALUATE`、`GATE.GITHUB_PUBLISH`、`PROJECT.BATCH_PR`、`SBOM.IMPORT`、`COMPONENT.JIRA_TICKET`）も併せて提供されます。
+v1.0.4 のアクションコードはフィルター UI で **モニタリング**（`MONITOR.*`）、**連携**（`JIRA.SETTINGS_UPDATE`）、**管理**（`ORG_DASHBOARD.VIEW`、`AUDIT_LOG.EXPORT`、`SNAPSHOT.IMPORT` / `SNAPSHOT.EXPORT` / `SNAPSHOT.WANTED_LIST_EXPORT`）、**キャッシュ**（`CACHE.UPDATE_TTL`、`CACHE.CLEAR`）としてグループ化され、新しいエクスポート・ゲートのコード（`SBOM.EXPORT`、`VEX.EXPORT`、`SARIF.EXPORT`、`COMPLIANCE_REPORT.VIEW`、`GATE.EVALUATE`、`GATE.GITHUB_PUBLISH`、`PROJECT.BATCH_PR`、`SBOM.IMPORT`、`COMPONENT.JIRA_TICKET`）も併せて提供されます。
 
 ### 保持期間
 
@@ -225,15 +225,58 @@ v1.0.4 のアクションコードはフィルター UI で **モニタリング
 
 ## オフラインスナップショットバンドル（v1.0.4）
 
-閉域網（エアギャップ）デプロイ（`OSWL_AIRGAPPED_ENABLED=true`）向けに、脆弱性・脅威インテリジェンスデータはライブ API ではなくインポート済みのスナップショットから提供されます。
+**設定 → 管理者 → オフラインスナップショット**
+
+閉域網（エアギャップ）デプロイ（`OSWL_AIRGAPPED_ENABLED=true`）向けに、脆弱性・脅威インテリジェンスデータ（OSV、deps.dev、FIRST.org EPSS、CISA KEV）はライブ API ではなくインポート済みのスナップショットから提供されます — 外部への HTTP 通信は一切試みられず、スナップショットに存在しないコンポーネントは「データなし」として表示されます。
+
+`SYSTEM_ADMIN` または `SETTINGS_SNAPSHOT_MANAGE` が必要です。[v1.0.4 の新機能](Whats-New-v1.0.4.md)を参照してください。
+
+バンドルは v2 フォーマットです: 各 JSONL ファイルのチェックサムが `meta.json` に記録され、ソースごとの来歴情報（`bundleId`、`builtAt`、`asOf`、`origin`）も保存されます。チェックサムが一致しない場合、データを書き込む前にインポートが拒否されます。
 
 | 操作 | エンドポイント |
 |---|---|
 | バンドルの状態 | `GET /api/admin/snapshot` |
-| インポート | `POST /api/admin/snapshot/import`（multipart） |
+| インポート（ファイルアップロード） | `POST /api/admin/snapshot/import`（multipart、任意で `?mode=replace\|merge`） |
+| インポート（サーバー上のパス） | `POST /api/admin/snapshot/import-from-path` |
 | エクスポート | `GET /api/admin/snapshot/export` |
+| ウォンテッドリスト | `GET /api/admin/snapshot/wanted-list` |
 
-`SYSTEM_ADMIN` または `SETTINGS_SNAPSHOT_MANAGE` が必要です。[v1.0.4 の新機能](Whats-New-v1.0.4.md)を参照してください。
+インポートはストリーミング処理され（アップロード全体をメモリにバッファリングしません）、`SNAPSHOT.IMPORT` として監査記録されます。エアギャップインスタンスでは、インポート直後にメモリ内の KEV カタログが再読み込みされ、新しいスナップショットが即座に適用されます。
+
+### 定義のステータスと鮮度（staleness）
+
+**定義ステータス（Definition Status）**カードには、ソースごとに 1 行が表示されます — `OSV`、`deps.dev (versions)`、`deps.dev (advisories)`、`FIRST.org EPSS`、`CISA KEV` — レコード数、アップストリームの**基準日（as-of）**、origin、インポート時刻とともに。タイトル横の鮮度バッジは（バンドルのビルド時刻やインポート時刻ではなく）**最も古い**ソースの基準日から計算されます:
+
+| バッジ | 意味 |
+|---|---|
+| 最新（緑） | 最も古い定義が `staleness-warn-days` 以内 |
+| 更新推奨（黄） | `staleness-warn-days` より古い |
+| 古い（赤） | `staleness-critical-days` より古い |
+
+| 設定キー | 環境変数 | 既定値 | 説明 |
+|---|---|---|---|
+| `oswl.airgapped.staleness-warn-days` | `OSWL_AIRGAPPED_STALENESS_WARN_DAYS` | `7` | 最も古い定義からこの日数を超えるとバッジが黄色になる |
+| `oswl.airgapped.staleness-critical-days` | `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS` | `30` | この日数を超えるとバッジが赤色になる |
+
+ビルダーがウォンテッドリスト経由で要求されたものの、アップストリームで見つけられなかった、または確信を持って評価できなかったコンポーネントがある場合、**未解決（アップストリームデータなし）**行が表示されます — これらのコンポーネントは「確認済みでクリーン」ではなく「データなし」として扱ってください。
+
+### インポートモード
+
+- **バンドルの既定** — 差分（デルタ）としてビルドされた v2 バンドルは merge としてインポートされ、それ以外は replace としてインポートされます。
+- **Replace** — バンドルに含まれる各ソースを書き込む前にクリアします。
+- **Merge** — キーで upsert し、削除マーカー（tombstone）を尊重するため、デルタバンドルで失効したエントリを削除することもできます。
+
+ファイルアップロードに加えて、**パスからインポート（Import from Path）**はサーバーのディスク上に既にあるバンドルを読み込みます。`oswl.airgapped.import-dir`（`OSWL_AIRGAPPED_IMPORT_DIR`）で設定したディレクトリ配下のファイルのみを受け付け、realpath チェックにより強制されます。値が空の場合、このエンドポイントは無効化されます。
+
+### このインスタンス向けの定義をビルドする（ウォンテッドリスト）
+
+**ウォンテッドリストをダウンロード**をクリックすると、このインスタンスがスキャンしたすべての一意な (ecosystem, name, version) の組み合わせが JSONL としてエクスポートされます。これにより、インターネットに接続されたマシン上の `oswl-vdb` ビルダーは、アップストリーム全体をミラーリングする代わりに、それらのコンポーネントだけの定義を取得できます。ファイルには ecosystem/name/version のみが含まれ — プロジェクト名、リポジトリ URL、ファイルパスは含まれません。インターネットに接続されたマシンで次を実行します:
+
+```bash
+scripts/oswl-vdb/oswl-vdb.sh build --wanted wanted-list.jsonl --sources osv,epss,kev,depsdev --out bundle.zip
+```
+
+（Windows では `oswl-vdb.ps1`）。その後、生成された `bundle.zip` をインポートカードでアップロードします。同じスクリプトは、インポート前にバンドルを確認するための `verify` と `inspect` サブコマンドも提供します。
 
 ---
 
@@ -253,7 +296,7 @@ CVE／ライセンス要約用の LLM プロバイダーとエンリッチメン
 
 各プロバイダーのモデル欄は自由入力コンボボックスです: ドロップダウンには現行モデルが提案として表示されますが、アカウントがアクセス可能な任意のモデル ID を直接入力できます。
 
-同じタブの**内蔵 AI（組み込みローカルモデル）**カードは、バンドルされた llama.cpp の `llama-server` サイドカー（CPU 専用、localhost 専用、API キー不要）を実行し、LOCAL プロバイダーとして登録します。カードには**モデルのドロップダウン**（フォルダ内の任意の `.gguf`、または自動優先順位）、**保存**付きの**フォルダの上書き**（永続化され、実行中に変更するとサイドカーが停止）、最初の選択が起動に失敗した場合に次に利用可能なモデルへ切り替える**自動フォールバック**があります。[内蔵 AI](Embedded-AI.md)を参照してください。
+同じタブの**内蔵 AI（組み込みローカルモデル）**カードは、バンドルされた llama.cpp の `llama-server` サイドカー（CPU 専用、localhost 専用、API キー不要）を実行し、LOCAL プロバイダーとして登録します。既定でバンドルされているモデルは**Qwen3 1.7B**（初回使用時にダウンロード）で、カードには**モデルのドロップダウン**（フォルダ内の任意の `.gguf`、または自動優先順位）、**保存**付きの**フォルダの上書き**（永続化され、実行中に変更するとサイドカーが停止）、最初の選択が起動に失敗した場合に次に利用可能なモデルへ切り替える**自動フォールバック**があります。[内蔵 AI](Embedded-AI.md)を参照してください。
 
 同時に**アクティブ**にできるプロバイダーは 1 つだけです。タブには次も表示されます:
 
@@ -271,6 +314,10 @@ CVE／ライセンス要約用の LLM プロバイダーとエンリッチメン
 **内蔵 AI:** `GET /api/settings/ai/embedded`、`POST .../embedded/start?model=`、`POST .../embedded/stop`、`PUT .../embedded/config` — [API リファレンス — AI](API-Reference.md#ai)を参照。
 **プロジェクトごと:** `PATCH /api/projects/{id}/deployment-profile`。
 **コンポーネント詳細:** CVE の AI 要約を再生成する `POST .../cves/{cveDbId}/ai-summarize`（`COMPONENT.CVE_AI_REGENERATE` として記録）。
+
+### AI 応答のキャッシュ（v1.0.4）
+
+CVE／ライセンスのバッチエンリッチメントは、各 `Cve` および `Library` 行に SHA-256 のコンテキストハッシュを保存します。次回のスキャン時、回答を左右する入力（severity、CVSS スコア／ベクター、修正バージョン、EPSS バケット、KEV ステータス、依存関係の種類、patchability、ライセンス名／ステータス、デプロイメントプロファイルなど）が変化していなければ、既存の AI 要約が再利用され、プロバイダーは再度呼び出されません。この動作は自動であり、AI 応答キャッシュをクリアする専用の管理画面はありません。コンポーネント詳細画面の **再生成** アクションを手動で実行すると、キャッシュを回避できます。
 
 ### 使用量とコストの追跡
 

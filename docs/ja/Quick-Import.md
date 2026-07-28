@@ -41,30 +41,55 @@ OsWL はトークンをプロバイダー API に対して即座に検証しま�
 
 ### 進捗と並行実行
 
-各インポートは独自の進捗カードを持つ非同期の**ジョブ**として実行されます:
+各インポートは、独自の進捗カードを持つ非同期の**ジョブ**として実行されます:
 
 | フェーズ | 説明 |
 |---|---|
 | `QUEUED` | ワーカースロットの空き待ち、または間もなく開始 |
-| `CLONING` | リポジトリをシャロークローン中 |
+| `CLONING` | リポジトリのクローン — 既定ではマニフェストファイルのみを取得する blobless sparse checkout で、フルのシャロークローンへのフォールバックもあります |
 | `PARSING` | エコシステムの検出と依存関係マニフェストの解析 |
 | `SCANNING` | プロジェクトを作成しスキャンペイロードを送信 |
-| `ENRICHING` | CVE／ライセンスのエンリッチメントと任意の AI 要約 |
-| `DONE` | インポート完了 — プロジェクトと API キーが利用可能 |
+| `ENRICHING` | CVE／ライセンスのデータパイプライン（deps.dev、OSV、脅威インテリジェンス） |
+| `DONE` | データパイプライン完了 — CVE／ライセンス結果は準備済み。AI 要約はバックグラウンドで生成中の場合があります |
 | `FAILED` | エラーまたはキャンセル — ジョブのメッセージを確認 |
 
-- 同時実行できるインポートは最大**2 件**です（`oswl.quick-import.max-concurrent`、既定 `2`）。それ以降のジョブはキュー（FIFO）に入り、`queuePosition` で待機順が確認できます。
+ジョブカードはフェーズに加えて、次のようなライブフィールドを公開します:
+
+| フィールド | 説明 |
+|---|---|
+| `percent` | 0〜100 の連続的な進捗率。帯域は `CLONING` 5–20、`PARSING` 20–40（マニフェスト N/M 件処理）、`SCANNING` 40–55、`ENRICHING` のデータ取得 55–80、AI ブロック 80–100 です。 |
+| `subPhase` | 現在のエンリッチメントブロック: `CVE`、`LICENSE`、`INSIGHTS`（ポスチャー・セキュリティ／ライセンストレンド・バージョン比較のインサイトは v1.0.4 で 1 回の統合呼び出しにまとめられました）。 |
+| `detailLines` | バッチ進捗やライブラリごとの検出サマリーなどのローリングログ行。 |
+| `aiPreviews` | 自由形式の AI 出力のローリングテール。v1.0.4 以降、統合インサイト呼び出しはストリーミングテキストではなく JSON を返すため、通常のスキャンではこのフィールドは埋まりません。 |
+| `aiStatus` | `NOT_APPLICABLE`、`PENDING`、`RUNNING`、`COMPLETED`、`FAILED` のいずれか。`aiStatus` がまだ `PENDING` や `RUNNING` の間でも、ジョブは `DONE` に到達することがあります。 |
+| `cacheTotal` / `cacheHit` / `cacheToFetch` | deps.dev のキャッシュ判定。少なくとも 1 件のコンポーネントがキャッシュから提供された場合、キャッシュヒットバッジとして表示されます。 |
+
+並行実行と配信:
+
+- 同時実行できるインポートは最大**3 件**です（`oswl.quick-import.max-concurrent`、既定 `3`）。それ以降のジョブはキュー（FIFO）に入り、`queuePosition` で待機順が確認できます。ユーザーごとにキューに入れられるジョブは最大**3 件**です（`oswl.quick-import.max-queued-per-user`、既定 `3`）。
 - 前のインポートの完了を待たずに**複数のインポート**を開始できます。
 - すでにキュー中または実行中のジョブがあるリポジトリに対してインポートを開始すると **409 Conflict** で拒否されます — 完了を待つか、先にキャンセルしてください。
-- 各ジョブカードには**キャンセル**ボタンがあります（`POST /api/quick-import/job/{jobId}/cancel`）: キュー中のジョブは即座に停止し、実行中のジョブは次のフェーズの境界で停止します（実行中の長いクローンはまず完了します）。キャンセルされたジョブは "canceled" メッセージ付きの `FAILED` として表示されます。
-- UI は **`GET /api/quick-import/job/{jobId}/stream`**（SSE イベント `job-update`）を購読し、必要に応じて `GET /api/quick-import/job/{jobId}` のポーリングにフォールバックします。
-- `ENRICHING` 中は、ジョブが `percent`（0〜100）、`subPhase`（`CVE`、`LICENSE`、`POSTURE`、`TREND`、`DIFF`）、`detailLines`、そして AI エンリッチメントが有効な場合は `aiPreviews` を公開します。
+- 各ジョブカードには**キャンセル**ボタンがあります（`POST /api/quick-import/job/{jobId}/cancel`）: キュー中のジョブは即座に停止し、実行中のジョブは次のフェーズの境界で停止します（実行中の長いクローンはまず完了します）。キャンセルされたジョブは "canceled" メッセージ付きの `FAILED` として表示されます。ジョブが `DONE` に到達した後も、実行中の AI エンリッチメントは独立して継続し、Quick Import ジョブのキャンセルによって停止されることはありません。
+- UI は **`GET /api/quick-import/job/{jobId}/stream`**（SSE イベント `job-update`）を購読し、必要に応じて `GET /api/quick-import/job/{jobId}` のポーリングにフォールバックします。進捗率が進まない限り、高頻度の更新は 500ms あたり 1 フレームの SSE に抑制されます。
+- スキャンが完了すると、フェーズごとの所要秒数（`clone`、`parse`、`ingest`、`depsdev`、`osv`、`threatintel`、`ai.*`、`cleanup`）をまとめた `[Timing]` INFO ログが 1 行出力されます。
 
-取り込み完了後、一時的なクローンディレクトリは削除されます。
+一時的なクローンディレクトリは、取り込み後に非同期削除のキューに入ります。
 
 ### CLI と共通のパーサー
 
-依存関係の検出とマニフェスト解析には **`DependencyManifestParserService`** を使用します — これは公式 CLI（`oswl scan`）と同じエンジンです。CLI は `GET /api/scan/manifest-rules`（静的コピー: `/scripts/manifest-rules.json`）に従って収集したマニフェストファイルの zip をアップロードし、Quick Import はリポジトリをシャロークローンして同じルールでツリーを走査します。[CLI 連携](CLI-Integration.md)を参照してください。
+依存関係の検出とマニフェスト解析には **`DependencyManifestParserService`** を使用します — これは公式 CLI（`oswl scan`）と同じエンジンです。CLI は `GET /api/scan/manifest-rules`（静的コピー: `/scripts/manifest-rules.json`）に従って収集したマニフェストファイルの zip をアップロードし、Quick Import はリポジトリをクローンして（既定では blobless sparse checkout）同じルールでツリーを走査します。[CLI 連携](CLI-Integration.md)を参照してください。
+
+### パフォーマンスに関する注意事項
+
+v1.0.4 で導入されたいくつかのパイプライン変更が、Quick Import の速度とリソース使用量に影響します。
+
+- **クローン**: 既定の blobless sparse checkout（`--filter=blob:none --sparse`）は、パーサーが必要とするマニフェストファイルのパターンのみを取得します。部分クローンに対応していないサーバー、またはビルドツール実行モード（`oswl.quick-import.allow-build-exec=true`）の場合は、フルのシャロークローンにフォールバックします。
+- **解析**: クローンされたツリーを正確に 1 回だけ走査してマニフェストインデックスを構築します — 従来のエコシステムごとの複数回の走査を置き換えます。
+- **クリーンアップ**: 一時クローンディレクトリは非同期に削除されるため、削除処理がフェーズ遷移をブロックしなくなりました。
+- **エンリッチメント用 HTTP クライアント**: deps.dev と OSV のクライアントは明示的な接続／読み取りタイムアウトを使用します。deps.dev のリクエストは固有の `(ecosystem, name, version)` で重複排除され、バージョンメタデータのキャッシュヒット時は独自の TTL で再取得をスキップし、並行数は `oswl.client.deps-dev.max-concurrent`（既定 `24`）で設定できます。
+- **取り込み（Ingest）**: ライブラリは一括クエリで解決され、チャンク単位で保存されます。CVE の脅威インテリジェンス更新はバッチ処理されます。
+- **AI**: 同一の CVE／ライセンスコンテキスト（深刻度、CVSS、修正バージョン、EPSS バケット、KEV ステータス、デプロイメントプロファイルなどからハッシュ化）は、以前の AI 要約を再利用します。ポスチャー、トレンド、差分のインサイトは 1 回の統合呼び出しで生成されます。
+- **エアギャップモード**: `oswl.airgapped.enabled=true` の場合、スキャン結果ページと SBOM／VEX／SARIF エクスポートに脆弱性定義の基準日バナーが表示されます。
 
 ---
 

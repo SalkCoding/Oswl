@@ -9,6 +9,9 @@ OsWL で使われるすべての用語 — セキュリティの概念からプ�
 **AI インサイト（AI Insight）**
 スキャンのエンリッチメント時に生成される LLM 生成のナラティブ要約。OsWL はスキャンごとに 3 種類を生成します: *セキュリティポスチャーインサイト*、*セキュリティリスクトレンドインサイト*、*ライセンスリスクトレンドインサイト*。それぞれ 1 段落の自然言語による評価です。設定で AI プロバイダーが構成されている必要があります。
 
+**エアギャップモード（Air-gapped Mode）**
+外向きインターネットがないネットワークで動作するモード。起動前に `OSWL_AIRGAPPED_ENABLED=true` を設定します。脆弱性・脅威インテリジェンスの参照（OSV、deps.dev、FIRST.org EPSS、CISA KEV）は、ライブ API ではなく取り込まれたオフラインスナップショット保存庫から提供され、外向きの HTTP は一切試行されません。組み込み AI の自動ダウンロードもスキップされます。スナップショットに含まれないコンポーネントは「脆弱性なし」ではなく**データなし**として扱われます。`POST /api/admin/snapshot/import` でバンドルをインポートします（システム管理者）。[管理 — オフラインスナップショットバンドル](Administration.md)を参照してください。
+
 **監査ログ（Audit Log）**
 ユーザーまたはシステムが行ったすべての重要な操作（ログイン、スキャン送信、CVE 状態の変更、設定の更新など）の不変な時系列記録。システム管理者は設定 → 管理者 → 監査ログからアクセスできます。
 
@@ -48,6 +51,9 @@ OWASP の SBOM 標準。OsWL は CycloneDX 1.6 の SBOM・VEX 文書をエクス
 ---
 
 ## D
+
+**定義基準日（Definition As-of）**
+取り込まれたオフラインスナップショットのソースごとの、上流データ自体の基準日。バンドルの `meta.json` の `sources.<source>.asOf` から `airgapped_snapshot_meta.source_as_of` に保存されます。スキャン履歴とセキュリティセンターの上部バナーには、すべてのソースの中で最も古い `sourceAsOf` が表示され、分析時の脆弱性定義がいつの時点のものか監査者が確認できます。設定 → 管理者 → オフラインスナップショットページには、`OSWL_AIRGAPPED_STALENESS_WARN_DAYS`（既定 7 日）と `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`（既定 30 日）の閾値に基づく鮮度バッジが表示されます。
 
 **deps.dev**
 OsWL が各スキャン対象ライブラリの SPDX ライセンス識別子、最新バージョン状態、非推奨通知を取得するために問い合わせる、Google の [Open Source Insights](https://deps.dev) API。
@@ -157,6 +163,9 @@ Apache Maven が管理する Java/JVM エコシステム。`groupId:artifactId` 
 **OTP（ワンタイムパスワード）**
 2FA 認証の第 2 要素として、ユーザーのメールアドレスに送信される 6 桁のコード。ローカル開発プロファイルでは、OTP コードはサーバーログに `*** OTP CODE: NNNNNN ***` として表示されます。
 
+**oswl-vdb**
+オフライン脆弱性 DB バンドルビルダー CLI（`scripts/oswl-vdb/oswl-vdb.{sh,ps1}`、または `./gradlew vdbBuild`）。インターネットに接続されたマシンで OSV・deps.dev・FIRST.org EPSS・CISA KEV などのライブアップストリームからスナップショットバンドルを生成します。`--wanted` で wanted-list をスコープに絞り、`--mode delta --since` で増分デルタバンドルを、`--offline-sources` でキャッシュされたソースディレクトリだけを使ってネットワークなしでビルドできます。`verify`・`inspect` サブコマンドでバンドルを検証・閲覧します。
+
 ---
 
 ## P
@@ -254,6 +263,9 @@ CVSS スコアに基づく CVE のリスクレベルの分類。OsWL が使用�
 **単一セッション強制（Single-Session Enforcement）**
 OsWL はユーザーごとに 1 つのアクティブなセッションのみを許可します。別のブラウザ／デバイスからの新しいログインは、以前のセッションを無効化します。
 
+**スナップショットバンドル（Snapshot Bundle）**
+`osv.jsonl`、`depsdev.jsonl`、`epss.jsonl`、`kev.jsonl`、必要に応じて `unresolved.jsonl`、およびそれらのメタデータを含む `meta.json` からなる zip ファイルです。`oswl-vdb` が生成する v2 形式で、`POST /api/admin/snapshot/import` でインポートします。`replace`（ソースごとにクリアして書き込み）と `merge`（キー単位で upsert、`"_deleted":true` の削除マーカーを尊重）の両モードをサポートします。
+
 **SPDX（Software Package Data Exchange）**
 ライセンス識別子を含む、SBOM 情報を伝達するためのオープン標準。OsWL は SPDX 識別子（例: `MIT`、`Apache-2.0`、`GPL-3.0-only`）を使ってライブラリのライセンスを表現します。
 
@@ -275,6 +287,13 @@ OsWL はユーザーごとに 1 つのアクティブなセッションのみを
 
 ---
 
+## U
+
+**未解決（Unresolved）**
+`oswl-vdb` ビルダーがアップストリームで確実に解決できなかった wanted-list コンポーネントです。例えば OSV の影響範囲を評価できない場合や deps.dev の参照に失敗した場合など。スナップショットバンドルの `unresolved.jsonl` に記録され、設定 → 管理者 → オフラインスナップショットで別の `unresolved` ソースとして表示されます。「脆弱性なし」ではなく**データなし**として扱います。
+
+---
+
 ## V
 
 **VCS（Version Control System）**
@@ -290,6 +309,13 @@ OsWL が VCS API に対して認証するために使用する、保存・暗号
 製品が実際に含んでいる脆弱性の影響を受けるかどうかを機械判読可能な形で示す文書。OsWL はトリアージ判断から CycloneDX VEX をエクスポートします（v1.0.4）: 無視した検出結果は `not_affected`、保留は `in_triage`、修正済みは `resolved` になります。
 
 **脆弱性（Vulnerability）** → *CVE* を参照
+
+---
+
+## W
+
+**Wanted-list**
+その OsWL インスタンスがこれまでスキャンしたすべての一意な `(ecosystem, name, version)` を JSONL でエクスポートしたリストです。`GET /api/admin/snapshot/wanted-list` でダウンロードでき（システム管理者）、エコシステム・名前・バージョンのみを含み、プロジェクト名・リポジトリ URL・ファイルパスは含みません。インターネットに接続されたマシンの `oswl-vdb build --wanted` に渡し、実際の依存関係に必要な定義だけを取得します。
 
 ---
 

@@ -20,19 +20,29 @@ OsWL은 **두 레이어**가 함께 동작합니다.
 - 멤버십 **ADMIN** — 프로젝트 생성자.
 - 멤버십 **MEMBER** — 기본값; 기능 허용은 전역 `Permission`이 결정.
 
+`projects.created_by_user_id`는 부트스트랩에 사용됩니다. 시작 시 생성자가 있고 멤버가 없는 프로젝트에는 생성자가 멤버십 **ADMIN**으로 추가됩니다.
+
 ## 적용 지점
 
 `ProjectAccessService`:
 
 | 메서드 | 용도 |
 |--------|------|
-| `assertCanViewProject` | 프로젝트 단위 화면·API, 거부 시 403 |
-| `assertCanSubmitScan` | CLI 스캔 제출 |
-| `accessibleProjectIds` | 목록·휴지통 필터 |
+| `assertCanViewProject(projectId)` | 프로젝트 단위 화면·읽기/쓰기 API, 거부 시 **403** |
+| `assertCanSubmitScan(projectId, userId)` | API 키 + 비밀번호 인증 이후의 CLI 스캔 수신 |
+| `accessibleProjectIds()` | 시스템 관리자가 아닌 사용자의 프로젝트 목록·휴지통 필터링 |
 
 ## 멤버십 검사가 있는 영역
 
-보안 센터, 라이선스(내보내기 포함), 컴포넌트 상세, 버전 비교, 리스크 트렌드, 스캔 기록, 프로젝트 API 키, VCS 브랜치 조회, 스캔 상태 폴링 등.
+다음 영역은 데이터를 반환하기 전에 `assertCanViewProject`(또는 동등한 서비스 검사)를 호출합니다:
+
+| 영역 | 예시 |
+|------|------|
+| 분석 UI | 보안 센터, 라이선스(내보내기 포함), 컴포넌트 상세, 버전 비교, 리스크 트렌드, 스캔 기록 |
+| API | `GET/POST /api/projects/{projectId}/keys`, `GET /api/vcs/branches?projectId=`, 스캔 상태 폴링 |
+| 서비스 | `ProjectService.getById`, `findAll`, 접근 가능한 ID로 필터링된 휴지통 작업 |
+
+> **관리자 기능은 프로젝트 단위가 아닙니다.** 오프라인 스냅샷 관리(`/api/admin/snapshot/*` — 상태 조회, 번들 가져오기/내보내기, 서버 경로 가져오기(import-from-path), wanted 리스트)는 `SETTINGS_SNAPSHOT_MANAGE` 권한 또는 `SYSTEM_ADMIN` 역할로 제어되며, 이 엔드포인트들은 프로젝트 멤버십을 검사하지 않습니다.
 
 ## CLI 스캔 인증
 
@@ -53,5 +63,4 @@ OsWL은 **두 레이어**가 함께 동작합니다.
 
 - [권한 레이어](Authorization-Layers.md)
 - [스캔 API 보안](Scan-Api-Security.md)
-- [CLI 연동](CLI-Integration.md)
 - [CLI 연동](CLI-Integration.md)
