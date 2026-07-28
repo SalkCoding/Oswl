@@ -150,8 +150,11 @@
             <p class="m-0" x-show="!embedded.binaryFound" x-cloak>
                 <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
             </p>
-            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && !embedded.downloading" x-cloak>
+            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && !embedded.downloading && !embedded.airgapped" x-cloak>
                 <span class="text-[var(--grayscale-60)]" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — clicking Start downloads the Qwen3-1.7B model automatically (~1.2 GB, one-time). Or place your own .gguf (e.g. qwen3-1.7b-q4_k_m.gguf) in the folder below.</span>
+            </p>
+            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && embedded.airgapped" x-cloak>
+                <span class="text-amber-600" th:text="#{settings.ai.embedded.modelMissingAirgapped}">No .gguf model yet. This host runs in air-gapped mode, so the model cannot be downloaded — copy a .gguf file (e.g. qwen3-1.7b-q4_k_m.gguf) into the folder below, then click Start.</span>
             </p>
             <div x-show="embedded.downloading" x-cloak class="flex flex-col gap-[4px]">
                 <div class="flex items-center justify-between text-[11px] text-[var(--grayscale-60)]">
@@ -815,7 +818,7 @@
             apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '', toastKind: 'success', _toastTimer: null,
             usageStats: null,
             usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
-            embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [], downloading: false, downloadedBytes: 0, downloadTotalBytes: 0 },
+            embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [], downloading: false, downloadedBytes: 0, downloadTotalBytes: 0, airgapped: false },
             embeddedBusy: false, embeddedError: null, _embeddedPollActive: false,
             embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
 

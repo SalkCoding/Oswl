@@ -1,6 +1,6 @@
 # Embedded AI
 
-Embedded AI lets OsWL run a local LLM out of the box — no cloud account, no API key, and **nothing leaves the machine**. It starts a bundled [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server` as a sidecar process and exposes an **OpenAI-compatible** endpoint (`http://127.0.0.1:<port>/v1`), which is registered as the **LOCAL** AI provider. CVE triage summaries and license insights then run entirely on your own CPU.
+Embedded AI lets OsWL run a local LLM out of the box — no cloud account, no API key, and **nothing leaves the machine**. It starts a bundled [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server` as a sidecar process and exposes an **OpenAI-compatible** endpoint (`http://127.0.0.1:<port>/v1`), which is registered as the **LOCAL** AI provider. CVE triage summaries and license insights then run entirely on this machine.
 
 ---
 
@@ -10,7 +10,11 @@ Embedded AI lets OsWL run a local LLM out of the box — no cloud account, no AP
 * The server binds **localhost only** (`127.0.0.1`) — it is never reachable from other machines.
 * On a successful start, OsWL saves the endpoint as the **LOCAL** provider and activates it (any other active provider is deactivated, as only one provider is active at a time).
 * Stopping Embedded AI also deactivates the LOCAL provider so AI calls do not fail against a dead endpoint.
-* The server runs CPU-only inference with reasoning disabled (`--reasoning-budget 0`) and no web UI (`--no-webui`).
+* The server launches with reasoning disabled (`--reasoning-budget` 0) and no web UI (`--no-webui`). By default it also tries to offload model layers to the GPU (`-ngl 999`) — if the GPU launch fails (no GPU build, not enough VRAM), OsWL automatically retries the same model CPU-only before giving up on it.
+* Concurrent AI calls are served in parallel instead of queuing one by one: the server starts with `--parallel 4 --cont-batching`, flash attention (`-fa`) and prefix-cache reuse (`--cache-reuse 256`) by default, and OsWL itself runs its independent AI calls concurrently (up to `oswl.ai.enrichment.max-parallel-calls`, default `3`).
+* Batch prompts sent to the LOCAL provider use a simplified JSON schema variant (`oswl.ai.enrichment.local-simple-schema`, default `true`) — a small local model follows a simple output schema much more reliably than the full one meant for larger cloud models.
+* CVE and license summaries are cached by a hash of the input context, so unchanged components are not re-asked on the next scan.
+* Posture, security-trend, license-trend, and version-diff insights are generated in a single combined call (`insights.combined`) instead of four separate calls, reducing fixed overhead.
 
 > Required permission: `SETTINGS_AI_MANAGE` or System Admin — same as the other AI settings.
 
@@ -34,9 +38,13 @@ download progress, and the whole thing runs from just `java -jar app.jar`, no se
 script or build step needed. This is safe because Qwen3 is Apache 2.0 licensed (see
 [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)) — bundling/fetching it
 on the user's behalf carries no extra redistribution obligation. The model is downloaded from
-OsWL's own [GitHub Release asset](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)
-by default, falling back automatically to the original upstream Hugging Face host if that's
-unreachable.
+the upstream [Hugging Face repository](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) by
+default; point `OSWL_EMBEDDED_DEFAULT_MODEL_URL` at a byte-identical self-hosted mirror if you
+would rather not depend on a third-party host.
+
+Treat the default-model URL, SHA256, and size settings as a matched set: if you override the
+URL, you must also update the SHA256 and size to match, or every download will fail checksum
+verification.
 
 You can drop in any other `.gguf` model yourself — OsWL picks up every `.gguf` file placed
 directly in this directory, not just the default Qwen3 one. Check the model's own license
@@ -53,10 +61,18 @@ Configuration defaults (a folder saved in the UI takes precedence over `dir`):
 |---|---|---|---|
 | `oswl.ai.embedded.dir` | `OSWL_EMBEDDED_AI_DIR` | `embedded-ai` | Model directory (relative to the working directory) |
 | `oswl.ai.embedded.port` | `OSWL_EMBEDDED_AI_PORT` | `11435` | localhost port for the sidecar |
-| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | Context window passed to `llama-server -c` |
-| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL's `models-v1` GitHub Release asset | Primary download source for the default Qwen3 model |
+| `oswl.ai.embedded.context-size` | `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | Context window passed to `llama-server -c` — the **total** context, divided across the parallel slots |
+| `oswl.ai.embedded.gpu-layers` | `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | GPU layers to offload (`-ngl`): `-1` = as many as the build supports, `0` = CPU only, a positive number pins an explicit layer count. A failed GPU start auto-retries the same model CPU-only |
+| `oswl.ai.embedded.threads` | `OSWL_EMBEDDED_AI_THREADS` | `0` | Thread count (`-t`); `0` = let llama.cpp auto-detect |
+| `oswl.ai.embedded.parallel-slots` | `OSWL_EMBEDDED_AI_PARALLEL` | `4` | `>1` adds `--parallel N --cont-batching` so concurrent AI calls aren't serialized on the server. Each slot gets `context-size / N` — a warning is logged when that drops below 2048 |
+| `oswl.ai.embedded.flash-attn` | `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | Flash attention (`-fa`) |
+| `oswl.ai.embedded.cache-reuse` | `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse N` for prefix-cache reuse across calls; `<=0` disables |
+| `oswl.ai.embedded.extra-args` | `OSWL_EMBEDDED_AI_EXTRA_ARGS` | (empty) | Extra llama-server CLI args, appended verbatim — server config only, never taken from request input |
+| `oswl.ai.embedded.startup-timeout-seconds` | `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | How long each model candidate gets per launch attempt to become healthy |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | Upstream Hugging Face `ggml-org/Qwen3-1.7B-GGUF` asset | Primary download source for the default Qwen3 model |
 | `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | (see THIRD_PARTY_LICENSES.md) | Expected SHA256 — always change together with the URL |
-| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Original Hugging Face URL | Retried once if the primary URL fails |
+| `oswl.ai.embedded.default-model-size-bytes` | `OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES` | `1282439264` | Expected size, used to pre-fill the download progress bar — part of the same matched set as URL/SHA256 |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | (empty) | Retried once if the primary URL fails; set this to the upstream URL when you override the primary with a self-hosted mirror |
 | `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | Prefetch the default model in the background on boot; never runs when `oswl.airgapped.enabled=true` |
 
 ---
@@ -79,7 +95,7 @@ The card also shows the folder in use, all detected `.gguf` files, and the last 
 
 ## Switching Models
 
-You are not limited to the two models above — any llama.cpp-compatible `.gguf` works:
+You are not limited to the default model — any llama.cpp-compatible `.gguf` works:
 
 1. **Download** a quantized GGUF model (e.g. from [Hugging Face](https://huggingface.co/models?library=gguf)).
 2. **Place** the `.gguf` file in the model folder shown on the card.
@@ -88,7 +104,7 @@ You are not limited to the two models above — any llama.cpp-compatible `.gguf`
 
 The **Auto (preference order)** option tries, in order: the model saved in the dropdown → `qwen3…` → the first remaining `.gguf` file (alphabetical).
 
-> For CPU-only inference, small quantized models in the **1B–4B parameter** range (Q4_K_M or similar) are recommended. Larger models need more RAM and may fail the start timeout on slow machines. The context window is fixed by `OSWL_EMBEDDED_AI_CONTEXT` (default `4096`).
+> For CPU-only inference, small quantized models in the **1B–4B parameter** range (Q4_K_M or similar) are recommended. Larger models need more RAM and may fail the start timeout on slow machines. The context window is `OSWL_EMBEDDED_AI_CONTEXT` (default `8192`) and is split across the parallel slots — with the default 4 slots each call gets 2048 tokens of context, so raise the context or lower `OSWL_EMBEDDED_AI_PARALLEL` if you need longer per-call contexts.
 
 ---
 
@@ -111,7 +127,7 @@ Rules enforced by `PUT /api/settings/ai/embedded/config`:
 
 ## Automatic Fallback
 
-A single start click can try several models. Candidates are attempted in order — the requested/saved model first, then the built-in preference order, then any remaining `.gguf` — and each candidate gets up to **90 seconds** to become healthy. A model that crashes or times out is skipped in favor of the next one.
+A single start click can try several models. Candidates are attempted in order — the requested/saved model first, then the built-in preference order, then any remaining `.gguf` — and each candidate gets up to **120 seconds** per launch attempt (`oswl.ai.embedded.startup-timeout-seconds`) to become healthy. With GPU offload enabled (the default), a candidate that fails its GPU launch is first retried CPU-only; a model that still crashes or times out is skipped in favor of the next one.
 
 When OsWL ends up running a model that is **not** the first choice, the card shows an amber **"Started with fallback model"** badge next to the model selector. This usually means the preferred model failed to load (too large, corrupted download) — the Active model line tells you what is actually running.
 
@@ -137,7 +153,8 @@ When OsWL ends up running a model that is **not** the first choice, the card sho
 | No model yet, and Start doesn't seem to do anything | Check for internet access — the default-model download needs it once. On an air-gapped machine, place a `.gguf` file directly inside the model folder yourself instead |
 | "Model download failed" / checksum mismatch | Network interrupted mid-download or a corrupted transfer — the partial file is deleted automatically; click **Start** again to retry |
 | `failed to open GGUF file` in the log | The folder in settings does not match where the model actually is — check the **Folder** field and that the file name matches the dropdown entry |
-| "did not become healthy within 90s" | Slow machine or oversized model — try a smaller quantization (e.g. a Q4_K_M `.gguf` in the 1B–2B parameter range) |
+| "did not become healthy within 120s" | Slow machine or oversized model — try a smaller quantization (e.g. a Q4_K_M `.gguf` in the 1B–2B parameter range), or raise `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC`. A `(GPU)` failure is retried CPU-only automatically, so this only persists when the CPU retry fails too |
+| `slotContext … is below 2048` warning in the log | Too many parallel slots for the context size — raise `OSWL_EMBEDDED_AI_CONTEXT` or lower `OSWL_EMBEDDED_AI_PARALLEL` |
 | Port already in use | Another process (or a manually started `llama-server`) occupies the port — stop it or set `OSWL_EMBEDDED_AI_PORT`. A healthy server already listening on the port counts as "running" and is flagged `external` in the status response |
 | Clicking **Stop** doesn't turn the card off | The running server is `external` (not started by this OsWL instance) — stop the process yourself (or restart the machine/container it runs in), OsWL cannot terminate it |
 | "Folder not found or not a directory" on Save | Create the directory first; the save only accepts existing folders |

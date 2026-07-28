@@ -81,6 +81,47 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 継続的モニタリングは例外です: `OSWL_MONITORING_ENABLED` は既定で **`true`**（毎日 03:00 の夜間 OSV 再問い合わせ、`OSWL_MONITORING_CRON`）です。プロジェクトメンバーにメールを送信するため、初回起動前に SMTP が設定済みであることを確認するか、`false` に設定してください。
 
+### パフォーマンス調整 (v1.0.4)
+
+既定値は本番環境で安全です。理由がある場合のみ上書きしてください。
+
+| 変数 | 既定値 | 用途 |
+|---|---|---|
+| `OSWL_DEPSDEV_CONNECT_TIMEOUT_MS` / `OSWL_DEPSDEV_READ_TIMEOUT_MS` | `5000` / `10000` | deps.dev HTTP タイムアウト（以前は停止した呼び出しがスキャン全体を止められることがあった） |
+| `OSWL_DEPSDEV_MAX_CONCURRENT` | `24` | deps.dev 同時リクエスト上限；HTTP 429 時はバックオフして 1 回再試行 |
+| `OSWL_OSV_CONNECT_TIMEOUT_MS` / `OSWL_OSV_READ_TIMEOUT_MS` | `5000` / `30000` | OSV HTTP タイムアウト（遅い接続で 1,000 件の batch query は正当に時間がかかる） |
+| `OSWL_VERSION_META_TTL_SEC` | `86400` | キャッシュヒット ライブラリの deps.dev バージョン メタデータ TTL |
+| `OSWL_CLONE_SPARSE_ENABLED` | `true` | Quick Import のクローンは blobless + sparse-checked-out；partial-clone 非対応の Git サーバーは自動で完全な shallow クローンにフォールバック |
+| `OSWL_AI_STREAMING_ENABLED` | `true` | セキュリティ態勢／トレンド／バージョン差分などの自由形式 AI 呼び出しを SSE でストリーミングしライブ プレビューを提供；ストリーミングを拒否するエンドポイントは自動フォールバック |
+| `OSWL_AI_MAX_PARALLEL_CALLS` | `3` | 同時 AI エンリッチメント呼び出しの上限；ローカル llama-server は `--parallel` がこの値まで有益 |
+| `OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED` | `true` | Anthropic システム プロンプトを短期キャッシュ ブレークポイントとしてマーク |
+
+### 7.1 閉域網 / オフライン スナップショット (v1.0.4)
+
+`OSWL_AIRGAPPED_ENABLED=true` に設定すると、脆弱性・脅威インテリジェンスの参照（OSV、deps.dev、EPSS、CISA KEV）がライブ外部 API ではなく、インポート済みのオフライン スナップショットから提供されます。エンリッチメント用の外向き HTTP は試行されません。
+
+| 手順 | 対応 |
+|------|------|
+| 1. バンドルの作成 | インターネットに接続されたマシンで `oswl-vdb` ビルダーを実行します。ラッパー スクリプト: `scripts/oswl-vdb/oswl-vdb.sh`（Linux/macOS）または `scripts/oswl-vdb/oswl-vdb.ps1`（Windows）。いずれも `./gradlew vdbBuild --args="..."` を呼び出します。 |
+| 2. バンドルの対象選定 | 対象インスタンスが実際にスキャンしているコンポーネントを `GET /api/admin/snapshot/wanted-list`（SYSTEM_ADMIN）でエクスポートし、`build --wanted wanted-list.jsonl` に渡します。ビルダーは完全なアップストリーム ミラーではなく、実際に使用するコンポーネントのみを取得します。 |
+| 3. バンドルのインポート | `POST /api/admin/snapshot/import?mode=replace|merge`（multipart `.zip`）。大きなバンドルでは `OSWL_AIRGAPPED_IMPORT_DIR` ホワイトリスト ディレクトリを設定したうえで、`POST /api/admin/snapshot/import-from-path` に `{"path":"bundle.zip","mode":"merge"}` を送信します。 |
+| 4. モデルの配置（内蔵 AI を使用する場合） | 閉域網ホストは自動ダウンロードを無効にします。`.gguf` ファイルを `embedded-ai/` に直接配置するか、内部ミラーを運用してください（§8 参照）。 |
+
+`oswl-vdb build` オプション（`VdbBuilderCli` 参照）:
+- `--sources osv,epss,kev,depsdev`（既定値はすべて）。
+- `--mode delta --since previous.zip` は追加・変更されたキーのみを書き、`"_deleted":true` マーカーも含めます。
+- `--offline-sources <dir>` は、以前のオンライン実行で事前に作成されたキャッシュ ディレクトリから、ネットワークなしでビルドします（`osv`/`epss`/`kev` のみ；deps.dev はバルク ダンプがないためスキップされます）。
+- `verify <bundle.zip>` と `inspect <bundle.zip>` はチェックサムとメタデータを確認します。
+
+インポートの意味:
+- `replace`（既定値）はそのソースの既存データを消去してバンドルを書き込みます。
+- `merge` は `(source, entry_key)` 単位で upsert し、`"_deleted":true` 行は削除として扱います。
+- v2 バンドルは `meta.json` に記録されたファイル単位の SHA-256 チェックサムを検証し、不一致の場合はバンドル全体を拒否し、既存ストアは変更しません。
+
+定義の鮮度（E7）: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`（既定値 `7`）と `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`（既定値 `30`）は、インポートされたスナップショットのソース別 `sourceAsOf` 日付のうち最も古い値を基準に管理 UI バッジを決定します。
+
+バンドルが 50MB を超える場合は、`OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE`（既定値はそれぞれ `50MB`）を調整する必要があるかもしれません。
+
 ## 8. 内蔵 AI モデル（任意、オンプレミス向け）
 
 クラウドプロバイダーの代わりに、またはそれに加えて**内蔵 AI**（設定 → AI → ローカル）を使う予定がある場合のみ関係します。
@@ -94,6 +135,24 @@ docker compose -f docker-compose.prod.yml up -d --build
 | ディレクトリ | 既定では JVM が起動する作業ディレクトリからの相対パス `./embedded-ai` — 別のパスにするには `OSWL_EMBEDDED_AI_DIR` を設定 |
 
 Gradle タスクや別のスクリプトは関与しません — ダウンロードは開始が初めてクリックされたときにアプリケーション自体の中で実行されるため、単純な `java -jar app.jar` によるデプロイでも動作します。
+
+### 内蔵 AI チューニング (B1 / v1.0.4)
+
+既定値は本番環境で安全です。測定された理由がある場合のみ上書きしてください。
+
+| 変数 | 既定値 | 用途 |
+|---|---|---|
+| `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | 総コンテキスト サイズ（`-c`）。`--parallel` 使用時はスロット間で分割され、スロット コンテキストが 2048 を下回ると警告ログが出力されます。 |
+| `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | `-ngl`: `-1` はビルドがサポートする限りオフロード（`999` を渡す）、`0` は CPU のみ、正の値は明示的なレイヤー数 |
+| `OSWL_EMBEDDED_AI_THREADS` | `0` | `-t`: `0` は llama.cpp の自動検出、正の値はスレッド数を固定 |
+| `OSWL_EMBEDDED_AI_PARALLEL` | `4` | `--parallel N --cont-batching` を有効化；1 より大きいと同時 AI 呼び出しが直列化されません |
+| `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | `-fa`（flash attention）を追加 |
+| `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse` トークン数；`0` 以下は無効化 |
+| `OSWL_EMBEDDED_AI_EXTRA_ARGS` | （空） | `llama-server` CLI 引数を空白区切りでそのまま追加（管理者専用設定、リクエスト入力ではない） |
+| `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | `/health` 応答を待つ秒数。時間内に失敗すると CPU のみでの再試行、または次のモデル候補に進みます。 |
+| `OSWL_EMBEDDED_DEFAULT_MODEL_URL` / `SHA256` / `SIZE_BYTES` | 上流の Hugging Face `ggml-org/Qwen3-1.7B-GGUF` | 既定 Qwen3-1.7B ダウンロード用のマッチング セット；自己ホスティング ミラーを使用する場合は 3 つすべてを上書き（バイト単位で同一の再ホストなら URL のみ変更） |
+| `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Hugging Face | 既定 URL が失敗した場合に 1 回再試行；primary と同じか空にすると再試行を無効化 |
+| `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 起動時に既定モデルをバックグラウンドでプリフェッチ（ダウンロードのみで、サイドカーは起動しません）。**`OSWL_AIRGAPPED_ENABLED=true` の場合は無視されます**。 |
 
 ## 9. データベーススキーマ（アップグレード）
 

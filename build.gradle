@@ -491,3 +491,11 @@ tasks.register('vdbBuild', JavaExec) {
 	// JavaExec's `args` property is natively --args-able from the Gradle CLI; with none given,
 	// VdbBuilderCli prints its own usage.
 }
+
+tasks.register('generateSchemaBaseline', JavaExec) {
+	description = 'Regenerates PostgreSQL DDL from the JPA entities (source material for a Flyway ' +
+			'baseline migration). Writes build/schema-baseline.sql; review before folding into db/migration.'
+	group = 'build'
+	classpath = sourceSets.main.runtimeClasspath + sourceSets.local.runtimeClasspath
+	mainClass = 'com.salkcoding.oswl.local.SchemaBaselineGenerator'
+}

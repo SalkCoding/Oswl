@@ -85,13 +85,18 @@ public class EmbeddedAiService {
     private final AiPreferencesRepository preferencesRepository;
 
     // ── G4: default-model source, made configurable so a self-hosted mirror (or an air-gapped
-    // pre-baked path) can replace the built-in GitHub Release asset without a code change.
+    // pre-baked path) can replace the upstream asset without a code change.
     // url/sha256/size-bytes are always a matched set — see the application.yaml comment. ──
     private final String defaultModelUrl;
     private final String defaultModelSha256;
     private final long defaultModelSizeBytes;
     /** Retried once if {@link #defaultModelUrl} fails; blank/equal to the primary disables the retry. */
     private final String fallbackModelUrl;
+    /**
+     * Air-gapped hosts must never reach out for the model — {@link #downloadDefaultModel()}
+     * refuses instead of failing on a network error the operator can't act on.
+     */
+    private final boolean airgapped;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
@@ -121,10 +126,11 @@ public class EmbeddedAiService {
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.cache-reuse:256}") int cacheReuse,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.extra-args:}") String extraArgs,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.startup-timeout-seconds:120}") int startupTimeoutSeconds,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-url:https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf}") String defaultModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-url:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}") String defaultModelUrl,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-sha256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}") String defaultModelSha256,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-size-bytes:1282439264}") long defaultModelSizeBytes,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.fallback-model-url:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}") String fallbackModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.fallback-model-url:}") String fallbackModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.airgapped.enabled:false}") boolean airgapped,
             AiPreferencesRepository preferencesRepository) {
         this.dirPath = dirPath;
         this.port = port;
@@ -139,6 +145,7 @@ public class EmbeddedAiService {
         this.defaultModelSha256 = defaultModelSha256;
         this.defaultModelSizeBytes = defaultModelSizeBytes;
         this.fallbackModelUrl = fallbackModelUrl;
+        this.airgapped = airgapped;
         this.startupTimeoutSeconds = startupTimeoutSeconds;
         this.preferencesRepository = preferencesRepository;
     }
@@ -166,6 +173,11 @@ public class EmbeddedAiService {
         boolean downloading;
         long downloadedBytes;
         long downloadTotalBytes;
+        /**
+         * True when {@code oswl.airgapped.enabled} is set — the UI then tells the operator to
+         * place a .gguf themselves instead of promising an automatic download that cannot happen.
+         */
+        boolean airgapped;
     }
 
     public String baseUrl() {
@@ -202,6 +214,7 @@ public class EmbeddedAiService {
                 .downloading(downloading)
                 .downloadedBytes(downloadedBytes)
                 .downloadTotalBytes(downloadTotalBytes)
+                .airgapped(airgapped)
                 .build();
     }
 
@@ -343,6 +356,16 @@ public class EmbeddedAiService {
      *         checksum mismatch (the partial/corrupt file is removed either way)
      */
     public void downloadDefaultModel() {
+        // Air-gapped installs have no route to the model host. Failing here with an explicit,
+        // actionable reason beats letting the HTTP call time out and surfacing a bare connect
+        // error the operator cannot act on — the fix is always "put the .gguf in the folder".
+        // Both entry points funnel through here (boot prefetch and the manual Start button),
+        // so this is the single choke point rather than a per-caller check.
+        if (airgapped) {
+            lastError = "Air-gapped mode is enabled, so the model cannot be downloaded. "
+                    + "Place a .gguf model file in " + resolveDir().toAbsolutePath() + " manually.";
+            throw new IllegalStateException(lastError);
+        }
         if (downloading) return;
         downloading = true;
         downloadedBytes = 0;
