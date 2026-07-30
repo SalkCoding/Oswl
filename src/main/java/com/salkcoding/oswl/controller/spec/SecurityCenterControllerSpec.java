@@ -34,7 +34,7 @@ public interface SecurityCenterControllerSpec {
     String index(
         @Parameter(description = "Project ID", example = "1", required = true)
         @PathVariable Long projectId,
-        @Parameter(description = "Specific scan ID to display; omit for latest", required = false)
+        @Parameter(description = "Specific scan ID to display; omit for latest")
         @RequestParam(required = false) Long scanId,
         Model model
     );
@@ -43,6 +43,12 @@ public interface SecurityCenterControllerSpec {
     String print(
         @PathVariable Long projectId,
         @RequestParam(required = false) Long scanId,
+        Model model
+    );
+
+    @Hidden
+    String complianceReport(
+        @PathVariable Long projectId,
         Model model
     );
 
@@ -78,7 +84,7 @@ public interface SecurityCenterControllerSpec {
     ResponseEntity<byte[]> export(
         @Parameter(description = "Project ID", example = "1", required = true)
         @PathVariable Long projectId,
-        @Parameter(description = "Specific scan ID to export; omit for latest", required = false)
+        @Parameter(description = "Specific scan ID to export; omit for latest")
         @RequestParam(required = false) Long scanId,
         @Parameter(description = "Export format — only `csv` is supported", example = "csv")
         @RequestParam(defaultValue = "csv") String format

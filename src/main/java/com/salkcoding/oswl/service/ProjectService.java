@@ -8,6 +8,7 @@ import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.dto.TrashProjectDto;
+import com.salkcoding.oswl.repository.CveAlertRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
@@ -35,6 +36,7 @@ public class ProjectService {
     private final ScanResultRepository scanResultRepository;
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
+    private final CveAlertRepository cveAlertRepository;
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> findAll() {
@@ -42,9 +44,26 @@ public class ProjectService {
         if (accessible.isEmpty()) {
             return List.of();
         }
+        java.util.Map<Long, Long> alertCounts = cveAlertRepository
+                .countUnacknowledgedByProjectIds(accessible).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
         return projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(accessible).stream()
-                .map(this::toSummary)
+                .map(p -> toSummary(p, alertCounts.getOrDefault(p.getId(), 0L)))
                 .collect(Collectors.toList());
+    }
+
+    /** Marks all open continuous-monitoring alerts of the project as seen (clears the card badge). */
+    @Transactional
+    public void acknowledgeCveAlerts(Long projectId) {
+        projectAccessService.assertCanViewProject(projectId);
+        int cleared = cveAlertRepository.acknowledgeAllForProject(projectId, java.time.LocalDateTime.now());
+        if (cleared > 0) {
+            Project project = projectRepository.findById(projectId).orElse(null);
+            auditLogService.log("MONITOR.ALERT_ACK", "PROJECT",
+                    projectId.toString(), project != null ? project.getName() : null,
+                    "cleared=" + cleared);
+        }
+        log.info("[Monitor] Acknowledged {} alert(s) for projectId={}", cleared, projectId);
     }
 
     @Transactional(readOnly = true)
@@ -221,7 +240,7 @@ public class ProjectService {
 
     private static final DateTimeFormatter IMPORT_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
-    private ProjectSummaryDto toSummary(Project project) {
+    private ProjectSummaryDto toSummary(Project project, long newCveAlerts) {
         String importedAt = project.getImportedAt() != null
                 ? project.getImportedAt().format(IMPORT_FMT)
                 : null;
@@ -251,6 +270,7 @@ public class ProjectService {
                     .importedAt(importedAt)
                     .projectUuid(project.getProjectUuid())
                     .scanStatus(null)
+                    .newCveAlerts(newCveAlerts)
                     .build();
         }
 
@@ -278,6 +298,7 @@ public class ProjectService {
                     .importedAt(importedAt)
                     .projectUuid(project.getProjectUuid())
                     .scanStatus(status.name())
+                    .newCveAlerts(newCveAlerts)
                     .build();
         }
 
@@ -293,6 +314,7 @@ public class ProjectService {
                 .importedAt(importedAt)
                 .projectUuid(project.getProjectUuid())
                 .scanStatus(status.name())
+                .newCveAlerts(newCveAlerts)
                 .build();
     }
 

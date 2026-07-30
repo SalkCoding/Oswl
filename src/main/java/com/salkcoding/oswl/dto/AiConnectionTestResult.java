@@ -13,6 +13,11 @@ public record AiConnectionTestResult(boolean success, String message, String hin
         return new AiConnectionTestResult(true, message, null);
     }
 
+    /** Reachable and authenticated, but something is worth flagging (e.g. unknown model id). */
+    public static AiConnectionTestResult okWithWarning(String message, String hint) {
+        return new AiConnectionTestResult(true, message, hint);
+    }
+
     public static AiConnectionTestResult fail(String message, String hint) {
         return new AiConnectionTestResult(false, message, hint);
     }

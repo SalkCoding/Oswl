@@ -102,6 +102,68 @@ public class MailService {
         }
     }
 
+    /** One newly detected vulnerability row rendered in the alert email. */
+    public record NewCveMailItem(
+            String vulnId,
+            String cveId,
+            String libraryName,
+            String libraryVersion,
+            String fixVersion) {}
+
+    /**
+     * Sends a "new vulnerabilities detected" alert to a project member.
+     * Unlike {@link #sendOtp}, this never throws — continuous monitoring must not abort
+     * its cycle because one email fails. Returns true when the email was actually sent.
+     */
+    public boolean sendNewCveAlert(String toAddress, String displayName,
+                                   String projectName, java.util.List<NewCveMailItem> items) {
+        SecuritySetting settings = securitySettingService.getOrCreate();
+
+        if (settings.getMailMode() == MailMode.DISABLED) {
+            log.warn("[Mail] Mail is DISABLED — new-CVE alert for project '{}' not sent to '{}'.",
+                    projectName, toAddress);
+            return false;
+        }
+        if (settings.getMailHost() == null || settings.getMailHost().isBlank()) {
+            log.warn("[Mail] SMTP host is not configured — new-CVE alert for project '{}' not sent to '{}'.",
+                    projectName, toAddress);
+            return false;
+        }
+
+        try {
+            JavaMailSenderImpl sender = buildSender(settings);
+            MimeMessage message = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            String fromAddress = settings.getMailSenderAddress() != null
+                    ? settings.getMailSenderAddress()
+                    : settings.getMailUsername();
+            String fromName = settings.getMailSenderName() != null
+                    ? settings.getMailSenderName()
+                    : "OsWL";
+
+            helper.setFrom(fromAddress, fromName);
+            helper.setTo(toAddress);
+            helper.setSubject("[OsWL] " + projectName + " — " + items.size()
+                    + " new vulnerabilit" + (items.size() == 1 ? "y" : "ies") + " detected");
+
+            Context ctx = new Context();
+            ctx.setVariable("name", (displayName != null && !displayName.isBlank()) ? displayName : "User");
+            ctx.setVariable("projectName", projectName);
+            ctx.setVariable("items", items);
+            ctx.setVariable("logoDataUri", logoDataUri);
+            helper.setText(templateEngine.process("mail/new-cve-alert", ctx), true);
+
+            sender.send(message);
+            log.info("[Mail] New-CVE alert ({} item(s), project '{}') sent to '{}'",
+                    items.size(), projectName, toAddress);
+            return true;
+        } catch (Exception e) {
+            log.error("[Mail] Failed to send new-CVE alert to '{}': {}", toAddress, e.getMessage());
+            return false;
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────
 
     private JavaMailSenderImpl buildSender(SecuritySetting s) {

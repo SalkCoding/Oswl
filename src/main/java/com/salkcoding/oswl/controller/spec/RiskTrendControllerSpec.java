@@ -22,6 +22,10 @@ public interface RiskTrendControllerSpec {
 
             Also exposes delta values (change from the previous scan) for the summary badges.
             Chart data is injected as `window.riskTrendData` for the Chart.js script.
+
+            Pass `scanId` to view the trend as of an earlier version: the chart window ends at that
+            scan and the AI insight shown is the one generated for it. Omitted (or unknown) `scanId`
+            falls back to the latest completed scan.
             Returns `404` when the project does not exist.
             """
     )
@@ -32,6 +36,8 @@ public interface RiskTrendControllerSpec {
     String index(
         @Parameter(description = "Project ID", example = "1", required = true)
         @PathVariable Long projectId,
+        @Parameter(description = "Completed scan to view; defaults to the latest", example = "42")
+        Long scanId,
         Model model
     );
 }

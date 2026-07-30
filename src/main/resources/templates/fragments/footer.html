@@ -25,6 +25,11 @@
                        th:classappend="${#locale.language == 'ko'} ? 'font-semibold text-[var(--grayscale-80)]' : 'text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)]'"
                        class="no-underline transition-colors"
                        th:text="#{footer.lang.ko}">KO</a>
+                    <span class="text-[var(--grayscale-25)]" aria-hidden="true">|</span>
+                    <a th:href="@{''(lang='ja')}"
+                       th:classappend="${#locale.language == 'ja'} ? 'font-semibold text-[var(--grayscale-80)]' : 'text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)]'"
+                       class="no-underline transition-colors"
+                       th:text="#{footer.lang.ja}">JA</a>
                 </nav>
             </div>
         </div>

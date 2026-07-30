@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.exception.InvalidRequestException;
@@ -80,10 +81,34 @@ public class AiPreferencesService {
         return levels.isEmpty() ? EnumSet.of(RiskLevel.CRITICAL, RiskLevel.HIGH) : levels;
     }
 
+    /** Effort selected in settings; {@link AiEffort#DEFAULT} means "send no effort parameter". */
+    public AiEffort getReasoningEffort() {
+        return getEffective().getReasoningEffort();
+    }
+
+    /** Whether provider/locale changes may regenerate insights for already-completed scans. */
+    public boolean isAutoBackfillInsights() {
+        return getEffective().isAutoBackfillInsights();
+    }
+
+    /**
+     * Backward-compatible overload — keeps the caller's current effort and auto-backfill choice.
+     */
     @Transactional
     public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities,
                             Double temperature, Integer maxTokens, int dailyCallCap,
                             String promptOverrides, DeploymentProfile defaultDeploymentProfile) {
+        AiPreferences current = getEffective();
+        return save(promptsLocale, cveLimit, licenseLimit, cveSeverities, temperature, maxTokens,
+                dailyCallCap, promptOverrides, defaultDeploymentProfile,
+                current.getReasoningEffort(), current.isAutoBackfillInsights());
+    }
+
+    @Transactional
+    public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities,
+                            Double temperature, Integer maxTokens, int dailyCallCap,
+                            String promptOverrides, DeploymentProfile defaultDeploymentProfile,
+                            AiEffort reasoningEffort, boolean autoBackfillInsights) {
         String locale = normalizeLocale(promptsLocale);
         int cve = clamp(cveLimit, 1, 50, defaultCveLimit);
         int lic = clamp(licenseLimit, 1, 50, defaultLicenseLimit);
@@ -97,11 +122,14 @@ public class AiPreferencesService {
 
         AiPreferences prefs = repository.findById(AiPreferences.SINGLETON_ID)
                 .orElseGet(this::defaultPreferences);
-        prefs.update(locale, cve, lic, severities, temp, tokens, cap, promptOverrides, profile);
+        AiEffort effort = reasoningEffort != null ? reasoningEffort : AiEffort.DEFAULT;
+        prefs.update(locale, cve, lic, severities, temp, tokens, cap, promptOverrides, profile,
+                effort, autoBackfillInsights);
         repository.save(prefs);
         promptTemplateService.reloadWithLocale(locale);
-        log.info("[AI] Preferences saved locale={} cveLimit={} licenseLimit={} cveSeverities={} dailyCap={}",
-                locale, cve, lic, severities, cap);
+        log.info("[AI] Preferences saved locale={} cveLimit={} licenseLimit={} cveSeverities={} dailyCap={}"
+                        + " effort={} autoBackfill={}",
+                locale, cve, lic, severities, cap, effort, autoBackfillInsights);
         return prefs;
     }
 
@@ -175,17 +203,21 @@ public class AiPreferencesService {
         return String.join(",", tokens);
     }
 
+    /** Prompt-template locales that ship with an overlay bundle (ai/prompts_&lt;locale&gt;.properties). */
+    private static final java.util.Set<String> SUPPORTED_PROMPT_LOCALES = java.util.Set.of("ko", "ja");
+
     private static String normalizeLocale(String locale) {
         if (locale == null || locale.isBlank()) return detectLocale();
         String value = locale.strip().toLowerCase();
-        // "auto" (the default) follows the server's JVM/OS locale so a Korean
-        // machine gets Korean AI prompts out of the box; anything else is en.
+        // "auto" (the default) follows the server's JVM/OS locale so a Korean or Japanese
+        // machine gets localized AI prompts out of the box; anything else is en.
         if ("auto".equals(value)) return detectLocale();
-        return "ko".equals(value) ? "ko" : "en";
+        return SUPPORTED_PROMPT_LOCALES.contains(value) ? value : "en";
     }
 
     private static String detectLocale() {
-        return "ko".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage()) ? "ko" : "en";
+        String lang = java.util.Locale.getDefault().getLanguage();
+        return SUPPORTED_PROMPT_LOCALES.contains(lang) ? lang : "en";
     }
 
     private static int clamp(int value, int min, int max, int fallback) {

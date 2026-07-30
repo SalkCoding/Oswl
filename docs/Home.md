@@ -10,10 +10,13 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 
 | Page | What you'll find |
 |---|---|
+| [What's New in v1.0.4](Whats-New-v1.0.4.md) | SBOM / VEX / SARIF export, CI gate, continuous monitoring, org dashboard, air-gapped mode |
 | [Getting Started](Getting-Started.md) | System requirements, installation, setup wizard, first login |
 | [User Guide](User-Guide.md) | Projects dashboard, scan cards, trash, filters |
 | [Quick Import](Quick-Import.md) | Connecting GitHub / GitLab / Bitbucket, branch import |
 | [CLI Integration](CLI-Integration.md) | API keys, scan payload format, pipeline integration |
+| [Scan History](Scan-History.md) | Per-project scan list — status, component count, submitter |
+| [Embedded AI](Embedded-AI.md) | Local Qwen3 LLM sidecar (llama.cpp) — no cloud account needed |
 | [Security Center](Security-Center.md) | CVE list, severity ranking, status updates, bulk actions |
 | [License Analysis](License-Analysis.md) | SPDX detection, policy entries, risk badges |
 | [Risk Trend](Risk-Trend.md) | Historical charts, AI insights, scan limit |
@@ -26,6 +29,8 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 | [Scan API security](Scan-Api-Security.md) | How CLI scan submission is protected |
 | [API Reference](API-Reference.md) | Full REST endpoint catalogue |
 | [Glossary](Glossary.md) | Definitions of all OsWL terms |
+
+> Korean documentation lives in [`docs/ko/`](ko/Home.md); Japanese documentation lives in [`docs/ja/`](ja/Home.md).
 
 ---
 
@@ -43,7 +48,7 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 * A **Project** is the top-level unit — usually one repository.
 * A **Scan** captures the full dependency tree at a point in time.
 * A **Library** is a globally-shared record (name + version + ecosystem) so CVE data is enriched once and reused across all projects.
-* **CVEs** are pulled from deps.dev and OSV (including CWE IDs when OSV provides them); license data from deps.dev.
+* **CVEs** are pulled from deps.dev and OSV (including CWE IDs when OSV provides them); license data from deps.dev. In air-gapped mode the same data comes from an imported vulnerability snapshot instead.
 
 ---
 

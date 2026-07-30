@@ -15,6 +15,8 @@ import org.springframework.security.access.expression.method.MethodSecurityExpre
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
@@ -56,8 +58,10 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        AccessDeniedHandler accessDeniedHandler = (request, response, accessDeniedException) -> {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+            org.springframework.beans.factory.ObjectProvider<org.springframework.security.oauth2.client.registration.ClientRegistrationRepository> clientRegistrations,
+            org.springframework.security.core.userdetails.UserDetailsService userDetailsService) {
+        AccessDeniedHandler accessDeniedHandler = (request, response, _) -> {
             String accept = request.getHeader("Accept");
             String uri = request.getRequestURI();
             if (uri.startsWith("/api/") || (accept != null && accept.contains("application/json"))) {
@@ -89,9 +93,12 @@ public class SecurityConfig {
                             // Documented CLI flow uploads manifests here; the API key still authenticates.
                             req -> "POST".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan/parse".equals(req.getRequestURI()),
+                            // CI/PR gate — API-key authenticated, called from CI (no browser session).
+                            req -> "POST".equalsIgnoreCase(req.getMethod())
+                                    && "/api/scan/gate".equals(req.getRequestURI()),
                             req -> "GET".equalsIgnoreCase(req.getMethod())
                                     && "/api/scan/ping".equals(req.getRequestURI())))
-            .headers(headers -> applySecurityHeaders(headers))
+            .headers(this::applySecurityHeaders)
             .sessionManagement(s -> s
                     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                     .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::newSession)
@@ -123,7 +130,7 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex
                     .accessDeniedHandler(accessDeniedHandler)
                     // Return 401 instead of 302 for REST API requests (Accept: application/json or /api/**)
-                    .authenticationEntryPoint((request, response, authException) -> {
+                    .authenticationEntryPoint((request, response, _) -> {
                         String accept = request.getHeader("Accept");
                         String uri = request.getRequestURI();
                         if (uri.startsWith("/api/") || (accept != null && accept.contains("application/json"))) {
@@ -139,6 +146,16 @@ public class SecurityConfig {
             .addFilterAfter(new MustChangePasswordFilter(),
                     SetupRedirectFilter.class);
 
+        // OIDC SSO (roadmap #13) — activated only when an OIDC provider is configured
+        // (spring.security.oauth2.client.registration.*). Default deploys have no registration
+        // bean, so nothing changes. SSO users are mapped to their existing OsWL account.
+        if (clientRegistrations.getIfAvailable() != null) {
+            http.oauth2Login(oauth -> oauth
+                    .loginPage("/login")
+                    .successHandler(new OidcLoginSuccessHandler(userDetailsService))
+                    .failureHandler(authenticationFailureHandler));
+        }
+
         return http.build();
     }
 
@@ -148,9 +165,9 @@ public class SecurityConfig {
         String frame = securityHeadersProperties.getFrameOptions();
         if (frame != null && !frame.equalsIgnoreCase("DISABLE")) {
             if (frame.equalsIgnoreCase("SAMEORIGIN")) {
-                headers.frameOptions(fo -> fo.sameOrigin());
+                headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin);
             } else {
-                headers.frameOptions(fo -> fo.deny());
+                headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny);
             }
         }
         if (securityHeadersProperties.isHstsEnabled()) {
@@ -177,12 +194,12 @@ public class SecurityConfig {
     @Bean
     @Profile("local")
     @Order(1)
-    public SecurityFilterChain localDevFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain localDevFilterChain(HttpSecurity http) {
         http
             .securityMatcher("/h2-console/**", "/data/**")
             .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-            .csrf(csrf -> csrf.disable())
-            .headers(headers -> headers.frameOptions(fo -> fo.sameOrigin()));
+            .csrf(AbstractHttpConfigurer::disable)
+            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin));
         return http.build();
     }
 }

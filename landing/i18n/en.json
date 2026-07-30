@@ -48,7 +48,16 @@
     "gitTag": "GitHub · GitLab · Bitbucket",
     "cliTitle": "CLI & CI/CD Pipeline Scanning",
     "cliDesc": "Integrate OsWL into any build pipeline with a single CLI command. Only parsed manifest metadata is uploaded — no source code leaves your build host. Bearer-token API keys per project or organization-wide.",
-    "cliTag": "Manifest-only upload"
+    "cliTag": "Manifest-only upload",
+    "sbomTitle": "CycloneDX SBOM & VEX",
+    "sbomDesc": "Export a CycloneDX 1.6 SBOM, a VEX document carrying your triage decisions, or a SARIF report for code-scanning dashboards. Import third-party CycloneDX files to scan components you don’t build yourself.",
+    "sbomTag": "CycloneDX 1.6 · VEX · SARIF 2.1.0",
+    "gateTitle": "Policy Gates for Pull Requests",
+    "gateDesc": "Define severity, license, and KEV thresholds per project, then let the gate pass or fail each scan. Results publish back to GitHub as a check run and PR comment, and new findings are compared against a baseline so existing debt never blocks a merge.",
+    "gateTag": "Baseline diff · GitHub check run",
+    "orgTitle": "Organization Dashboard",
+    "orgDesc": "One view across every project: KEV-listed and actively exploited CVEs first, EPSS exploit probability for ranking the rest, license warnings, and an audit-log export for your SIEM.",
+    "orgTag": "CISA KEV · EPSS · SIEM export"
   },
   "platform": {
     "label": "Live Platform",

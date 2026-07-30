@@ -113,6 +113,15 @@ public class ProjectController implements ProjectControllerSpec {
         return ResponseEntity.noContent().build();
     }
 
+    /** Clears the "new CVE" badge — marks all open monitoring alerts of the project as seen. */
+    @PostMapping("/{projectId}/cve-alerts/acknowledge")
+    @PreAuthorize("hasPermission(null, 'PROJECT_VIEW') or hasRole('SYSTEM_ADMIN')")
+    @ResponseBody
+    public ResponseEntity<Void> acknowledgeCveAlerts(@PathVariable Long projectId) {
+        projectService.acknowledgeCveAlerts(projectId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/cli-integration")
     public String cliIntegration() {
         return "redirect:/projects";

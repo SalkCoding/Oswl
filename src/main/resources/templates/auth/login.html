@@ -114,6 +114,18 @@
                            rounded-[8px] px-[14px] py-[9px] transition-colors"
                     th:text="#{auth.login.btn.signin}">Sign In</button>
         </form>
+
+        <!-- OIDC SSO (roadmap #13) — shown only when a provider is configured -->
+        <div th:if="${ssoEnabled}" class="w-full mt-[16px]">
+            <div class="flex items-center gap-[10px] mb-[14px]">
+                <span class="flex-1 h-px bg-[var(--grayscale-20)]"></span>
+                <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" th:text="#{auth.login.sso.or}">or</span>
+                <span class="flex-1 h-px bg-[var(--grayscale-20)]"></span>
+            </div>
+            <a href="/oauth2/authorization/oidc"
+               class="w-full flex items-center justify-center gap-[8px] bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] text-[var(--grayscale-90)] font-semibold text-[14px] tracking-[-0.14px] rounded-[8px] px-[14px] py-[9px] transition-colors no-underline"
+               th:text="#{auth.login.sso.btn}">Sign in with SSO</a>
+        </div>
     </div>
 </main>
 

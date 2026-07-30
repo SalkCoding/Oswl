@@ -4,6 +4,12 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
+  servlet:
+    multipart:
+      # SBOM archives and air-gapped snapshot bundles can be several MB.
+      max-file-size: ${OSWL_MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${OSWL_MULTIPART_MAX_REQUEST_SIZE:50MB}
+
   messages:
     basename: messages
     encoding: UTF-8
@@ -18,6 +24,23 @@ spring:
       hibernate:
         # Fetch LAZY associations/collections in batches instead of one-by-one (global N+1 mitigation)
         default_batch_fetch_size: 50
+        # JDBC batching of INSERT/UPDATE statements. NOTE: all entities use GenerationType.IDENTITY,
+        # so Hibernate still cannot batch INSERTs (the generated id is needed immediately) — this
+        # mainly batches UPDATEs. Moving PKs to sequences would unlock insert batching but is a
+        # migration-risky change tracked separately (roadmap A6).
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    # Opt-in DB migrations (roadmap #13). Disabled by default so existing ddl-auto deploys are unaffected.
+    # Enable in production (OSWL_FLYWAY_ENABLED=true) after generating a full baseline; existing schemas
+    # are baselined automatically, then versioned migrations under db/migration apply forward.
+    enabled: ${OSWL_FLYWAY_ENABLED:false}
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
 
 server:
   port: 8080
@@ -36,11 +59,21 @@ management:
     enabled-by-default: false
     web:
       exposure:
-        include: health
+        # health + Prometheus scrape endpoint. /actuator/** is admin-authenticated (SecurityConfig),
+        # so a scraper must present admin credentials — never exposed anonymously.
+        include: health,prometheus,info
   endpoint:
     health:
       enabled: true
       show-details: never
+    prometheus:
+      enabled: true
+    info:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 oswl:
   # Default timezone for time-sensitive features (e.g. AI usage tracking). Override with OSWL_TIMEZONE.
@@ -71,24 +104,130 @@ oswl:
     # Directory for temporary git clones during Quick Import.
     # Defaults to system temp directory if left blank.
     temp-dir: ${OSWL_CLONE_TEMP_DIR:}
+    # When true, Quick Import clones are blobless (--filter=blob:none) and sparse-checked-out
+    # to manifest files only (static parse path). Ignored when allow-build-exec=true, since
+    # mvnw/gradlew need the full source tree. Servers without partial-clone support fall back
+    # to a full shallow clone automatically.
+    sparse-enabled: ${OSWL_CLONE_SPARSE_ENABLED:true}
   quick-import:
     # When true, Quick Import may execute build tools from the cloned repository
     # (mvnw / gradlew / dotnet) for full transitive dependency resolution.
     # SECURITY: this runs arbitrary repo code on the server — enable only when
     # every imported repository is trusted. Default: false (static manifest parse only).
     allow-build-exec: ${OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC:false}
+  cache:
+    # TTL for deps.dev version metadata (isLatestVersion / deprecated / latestVersion / scorecard)
+    # on cache-hit libraries. The full CVE/license TTL stays in Cache Settings (DEPS_DEV).
+    version-meta-ttl-seconds: ${OSWL_VERSION_META_TTL_SEC:86400}
+  client:
+    # HTTP timeouts for the deps.dev / OSV enrichment clients. Without these, a stalled
+    # upstream call previously hung indefinitely and held a deps.dev concurrency permit forever.
+    deps-dev:
+      connect-timeout-ms: ${OSWL_DEPSDEV_CONNECT_TIMEOUT_MS:5000}
+      read-timeout-ms: ${OSWL_DEPSDEV_READ_TIMEOUT_MS:10000}
+      # Max simultaneous HTTP requests to deps.dev. Raised from the old fixed 10 — if the
+      # upstream answers with 429 the client backs off and retries once.
+      max-concurrent: ${OSWL_DEPSDEV_MAX_CONCURRENT:24}
+    osv:
+      connect-timeout-ms: ${OSWL_OSV_CONNECT_TIMEOUT_MS:5000}
+      # Generous — a 1,000-item querybatch against a slow connection legitimately takes a while.
+      read-timeout-ms: ${OSWL_OSV_READ_TIMEOUT_MS:30000}
   github:
     # Override to use GitHub Enterprise Server. E.g. https://github.example.com/api/v3
     api-base: ${OSWL_GITHUB_API_BASE:https://api.github.com}
   risk-trend:
     # Maximum number of recent scans shown in the risk trend chart
     limit: ${OSWL_RISK_TREND_LIMIT:10}
+  monitoring:
+    # Continuous monitoring: nightly OSV re-query of every project's latest completed scan.
+    # New vulnerabilities raise dashboard alerts and email project members.
+    enabled: ${OSWL_MONITORING_ENABLED:true}
+    # Spring cron expression (seconds minutes hours day month weekday). Default: 03:00 daily.
+    cron: ${OSWL_MONITORING_CRON:0 0 3 * * *}
+  airgapped:
+    # Air-gapped (offline snapshot) mode. When true, vulnerability/threat-intel lookups
+    # (OSV, deps.dev, FIRST.org EPSS, CISA KEV) are served from the imported offline
+    # snapshot store instead of live external APIs — no outbound HTTP is attempted.
+    # Import a snapshot bundle first (POST /api/admin/snapshot/import, SYSTEM_ADMIN only);
+    # components absent from the snapshot resolve as "no data" (empty results).
+    enabled: ${OSWL_AIRGAPPED_ENABLED:false}
+    # E3: server-path import (POST /api/admin/snapshot/import-from-path) only accepts files
+    # under this directory — a realpath-verified whitelist (CloneRootPathGuard), since arbitrary
+    # server-path reads would otherwise be an admin-triggered file-read vulnerability. Blank
+    # disables the endpoint entirely (returns 400) — an operator must opt in to a specific path.
+    import-dir: ${OSWL_AIRGAPPED_IMPORT_DIR:}
+    # E7: definition-DB staleness thresholds, measured from the oldest per-source "as of" date
+    # across the imported snapshot (not builtAt/importedAt — see AirgappedSnapshotService).
+    staleness-warn-days: ${OSWL_AIRGAPPED_STALENESS_WARN_DAYS:7}
+    staleness-critical-days: ${OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS:30}
+  gate:
+    # PR / CI security-gate default thresholds (overridable per request).
+    # fail-on-severity: gate fails on CVEs at this severity or higher (CRITICAL|HIGH|MEDIUM|LOW).
+    fail-on-severity: ${OSWL_GATE_FAIL_ON_SEVERITY:HIGH}
+    # fail-on-kev: gate fails on any CISA KEV-listed CVE.
+    fail-on-kev: ${OSWL_GATE_FAIL_ON_KEV:true}
+    # fail-on-epss: gate fails on CVEs with EPSS >= this value. Set negative to disable.
+    fail-on-epss: ${OSWL_GATE_FAIL_ON_EPSS:0.5}
+    # fail-on-license-violation: gate fails on RESTRICTED-license components.
+    fail-on-license-violation: ${OSWL_GATE_FAIL_ON_LICENSE_VIOLATION:true}
+    # only-new: gate considers only findings absent from the previous completed scan (baseline).
+    only-new: ${OSWL_GATE_ONLY_NEW:true}
   ai:
+    # D2: stream free-form AI calls (security posture / trend / version diff) token-by-token
+    # over OpenAI-compatible SSE so the Quick Import panel can show a live preview. Endpoints
+    # that reject streaming fall back to the plain non-streaming call automatically; batch
+    # (JSON) calls never stream. Disable to force the pre-D2 behavior everywhere.
+    streaming-enabled: ${OSWL_AI_STREAMING_ENABLED:true}
+    anthropic:
+      # F4: mark the (per-provider fixed) system prompt as an ephemeral cache breakpoint so
+      # repeat calls within Anthropic's cache TTL are billed as cache reads. Disable if a
+      # future Anthropic API/beta-header change makes this incompatible with the account.
+      prompt-caching-enabled: ${OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED:true}
     embedded:
       # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.
       dir: ${OSWL_EMBEDDED_AI_DIR:embedded-ai}
       port: ${OSWL_EMBEDDED_AI_PORT:11435}
-      context-size: ${OSWL_EMBEDDED_AI_CONTEXT:4096}
+      context-size: ${OSWL_EMBEDDED_AI_CONTEXT:8192}
+      # -1 = offload as many layers as the build supports (-ngl 999); 0 = CPU only;
+      # a positive number pins an explicit layer count (partial offload).
+      gpu-layers: ${OSWL_EMBEDDED_AI_GPU_LAYERS:-1}
+      # 0 = let llama.cpp auto-detect the thread count (no -t flag).
+      threads: ${OSWL_EMBEDDED_AI_THREADS:0}
+      # >1 enables --parallel N --cont-batching so concurrent AI calls aren't serialized
+      # on the server. context-size is the TOTAL context, divided across these slots —
+      # see the slotContext warning logged at startup if it drops below 2048.
+      parallel-slots: ${OSWL_EMBEDDED_AI_PARALLEL:4}
+      flash-attn: ${OSWL_EMBEDDED_AI_FLASH_ATTN:true}
+      # <=0 disables --cache-reuse.
+      cache-reuse: ${OSWL_EMBEDDED_AI_CACHE_REUSE:256}
+      # Space-separated extra llama-server CLI args, appended verbatim. SYSTEM_ADMIN-only
+      # server config — never sourced from request input.
+      extra-args: ${OSWL_EMBEDDED_AI_EXTRA_ARGS:}
+      # GPU model loading can take longer than the previous fixed 90s wait.
+      startup-timeout-seconds: ${OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC:120}
+      # G4: default-model-url/sha256/size-bytes are always a matched set — changing the URL
+      # without updating the SHA256 to match makes every download fail checksum verification
+      # (by design: this is the integrity check, not a bug to work around).
+      #
+      # Points at the upstream ggml-org/Qwen3-1.7B-GGUF asset. G2 decided to self-host this on
+      # OsWL's own GitHub Release (tag "models-v1"), but that asset has not been uploaded yet and
+      # the URL 404s, so the self-hosted URL is NOT the default — a default that always fails and
+      # silently leans on a fallback is worse than pointing at the host that actually serves it.
+      # To switch to self-hosting once the asset is uploaded, verify it resolves and override:
+      #   OSWL_EMBEDDED_DEFAULT_MODEL_URL=https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf
+      # The SHA256 below is the upstream file's, so a byte-identical re-host needs no other change.
+      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}
+      default-model-sha256: ${OSWL_EMBEDDED_DEFAULT_MODEL_SHA256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}
+      default-model-size-bytes: ${OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES:1282439264}
+      # Retried once if the primary URL fails (network error / non-200). Empty by default: with
+      # the primary already pointing upstream there is no second host to fall back to. Set this
+      # to the upstream URL when you override default-model-url with a self-hosted mirror.
+      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:}
+      # G5: prefetches the default model in the background on boot (if none is present yet) so
+      # a user who later visits Settings and clicks Start does not hit a surprise 1.2GB download.
+      # Download-only — never starts the sidecar or changes the active AI provider on its own.
+      # Never attempted in air-gapped mode regardless of this setting (oswl.airgapped.enabled).
+      auto-download-on-boot: ${OSWL_EMBEDDED_AUTO_DOWNLOAD:true}
     prompts:
       # "auto" follows the server JVM/OS locale (Korean machine → Korean prompts). Set en/ko to force.
       locale: ${OSWL_AI_PROMPTS_LOCALE:auto}
@@ -97,6 +236,25 @@ oswl:
       cve-limit: ${OSWL_AI_CVE_LIMIT:10}
       license-limit: ${OSWL_AI_LICENSE_LIMIT:8}
       daily-call-cap: ${OSWL_AI_DAILY_CALL_CAP:0}
+      # Batch CVE/license items are split into chunks of this size (further halved if the
+      # estimated JSON output would still exceed 80% of max_tokens) so a large cve-limit/
+      # license-limit cannot produce a response that gets truncated mid-array and silently
+      # drops the whole batch.
+      batch-chunk-size: ${OSWL_AI_BATCH_CHUNK_SIZE:5}
+      # AiProvider.LOCAL batch calls use the leaner "*.header.local" prompt variant (3 output
+      # fields + a worked example instead of 4 fields + a 4-line priority rubric) — a small
+      # self-hosted model follows a simple schema far more reliably than the full one meant
+      # for larger cloud models.
+      local-simple-schema: ${OSWL_AI_LOCAL_SIMPLE_SCHEMA:true}
+      # Batch calls that come back empty (not a transport error/429 — those are the AI client's
+      # own concern) are retried by splitting the chunk in half and recursing, bounded by this
+      # many split levels, rather than resubmitting the identical prompt unchanged.
+      max-retries: ${OSWL_AI_MAX_RETRIES:1}
+      # The 5 independent AI enrichment blocks (CVE/license batch, posture, trend, version diff)
+      # run concurrently (B2) — this caps how many run at once, mainly to stay under cloud
+      # provider rate limits. A local llama-server benefits from --parallel (see embedded.*) up
+      # to this same count.
+      max-parallel-calls: ${OSWL_AI_MAX_PARALLEL_CALLS:3}
     debug:
       # Periodic DEBUG logs while waiting on the LLM (0 = disabled). Local profile may override.
       heartbeat-seconds: ${OSWL_AI_DEBUG_HEARTBEAT_SECONDS:0}

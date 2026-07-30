@@ -17,6 +17,7 @@ CSRF 예외는 다음만 해당합니다.
 
 - `POST /api/scan`
 - `POST /api/scan/parse`
+- `POST /api/scan/gate` — CI에서 PR 게이트 평가(API 키 인증, 브라우저 세션 없음)
 - `GET /api/scan/ping`
 
 그 외 경로는 UI용 CSRF가 유지됩니다.
@@ -47,14 +48,18 @@ CSRF 예외는 다음만 해당합니다.
 
 `GET /api/scan/{scanId}/status` 는 **웹 세션**과 **프로젝트 멤버십**을 사용합니다.
 
+응답은 스캔 상태와 **AI 보강 상태(`aiStatus`)를 별도로** 추적합니다. AI 요약이 백그라운드에서 아직 `PENDING`/`RUNNING`인 동안에도 스캔은 `COMPLETED`가 될 수 있습니다. 스캔 완료를 AI 인사이트 준비 완료로 간주하지 말고 `aiStatus`를 폴링하세요.
+
 ---
 
 ## 운영 권장
 
-- **HTTPS** 필수.
+- **HTTPS** 필수(엔드투엔드, 프로덕션에서는 리버스 프록시 사용).
 - API 키·제출자 비밀번호는 운영 비밀로 관리, 유출 시 교체.
-- 감사 로그에서 스캔 인증 실패 모니터링.
-- CI 전용 계정에 `SCAN_SUBMIT` 및 프로젝트 멤버십 부여.
+- 사고 발생 후 스캔 인증 실패 관련 감사 로그 필터를 점검하세요.
+- `SCAN_SUBMIT` 권한과 프로젝트 멤버십을 가진 CI 전용 서비스 계정 사용을 권장합니다.
+
+제출자 비밀번호는 현재 JSON 본문으로 전송됩니다 — TLS를 사용하고 감사 이벤트를 모니터링하세요. 향후 릴리스에서 토큰 기반 CLI 인증이 추가될 수 있으니 릴리스 노트를 확인하세요.
 
 ---
 
@@ -63,3 +68,4 @@ CSRF 예외는 다음만 해당합니다.
 - [CLI 연동](CLI-Integration.md)
 - [권한 레이어](Authorization-Layers.md)
 - [프로젝트 접근 제어](Project-Access-Control.md)
+- [운영 배포 체크리스트](Production-Deployment-Checklist.md)

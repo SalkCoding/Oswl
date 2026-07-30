@@ -73,4 +73,22 @@ public class ComponentRowDto {
 
     @Schema(description = "Best fix version from CVE/OSV data; non-null when patchability is patchable", example = "2.17.0")
     private final String recommendedFixVersion;
+
+    @Schema(description = "Normalized dependency scope: runtime, test, dev, or provided", example = "runtime")
+    private final String scope;
+
+    @Schema(description = "True for production dependencies (scope runtime/compile); false for test/dev/provided", example = "true")
+    private final boolean runtimeScope;
+
+    @Schema(description = "OpenSSF Scorecard overall score (0.0–10.0) from deps.dev; null when unavailable", example = "7.4")
+    private final Double scorecardScore;
+
+    @Schema(description = "True when OSV flags this package version as malicious (MAL- advisory)", example = "false")
+    private final boolean malicious;
+
+    @Schema(description = "True when supply-chain heuristics flag this name as a possible typosquat / dependency-confusion package", example = "false")
+    private final boolean typosquatRisk;
+
+    @Schema(description = "Human-readable reason when typosquatRisk is true; null otherwise", example = "Name is 1 edit(s) away from popular package 'lodash' (possible typosquat)")
+    private final String typosquatReason;
 }
