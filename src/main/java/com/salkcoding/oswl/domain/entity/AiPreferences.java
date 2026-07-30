@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import jakarta.persistence.*;
 import lombok.*;
@@ -54,6 +55,20 @@ public class AiPreferences {
     @Column(name = "default_deployment_profile", nullable = false, length = 40)
     private DeploymentProfile defaultDeploymentProfile;
 
+    /** How hard the model reasons per call. Null on rows written before this column existed. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reasoning_effort", length = 20)
+    private AiEffort reasoningEffort;
+
+    /**
+     * Whether connecting a provider (or changing the prompt language) may regenerate insights for
+     * already-completed scans in the background. Off by default — otherwise a first-time setup, or
+     * every language switch, silently spends tokens re-running every recent scan. Null on rows
+     * written before this column existed and is read as false.
+     */
+    @Column(name = "auto_backfill_insights")
+    private Boolean autoBackfillInsights;
+
     /** Nullable override for the llama.cpp sidecar directory (falls back to oswl.ai.embedded.dir) */
     @Column(name = "embedded_dir", length = 512)
     private String embeddedDir;
@@ -79,9 +94,22 @@ public class AiPreferences {
                 .build();
     }
 
+    /** Null-safe view of {@link #reasoningEffort} — a row persisted before the column existed reads as DEFAULT. */
+    public AiEffort getReasoningEffort() {
+        return reasoningEffort != null ? reasoningEffort : AiEffort.DEFAULT;
+    }
+
+    /** Null-safe view of {@link #autoBackfillInsights} — absent means "do not auto-regenerate". */
+    public boolean isAutoBackfillInsights() {
+        return Boolean.TRUE.equals(autoBackfillInsights);
+    }
+
     public void update(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities,
                        Double temperature, Integer maxTokens, int dailyCallCap,
-                       String promptOverrides, DeploymentProfile defaultDeploymentProfile) {
+                       String promptOverrides, DeploymentProfile defaultDeploymentProfile,
+                       AiEffort reasoningEffort, boolean autoBackfillInsights) {
+        this.reasoningEffort = reasoningEffort != null ? reasoningEffort : AiEffort.DEFAULT;
+        this.autoBackfillInsights = autoBackfillInsights;
         this.promptsLocale = promptsLocale;
         this.cveLimit = cveLimit;
         this.licenseLimit = licenseLimit;

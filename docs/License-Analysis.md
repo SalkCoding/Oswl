@@ -75,6 +75,8 @@ If an AI provider is configured, each completed scan generates:
 * **License Risk Trend Insight** — narrative summary comparing license compliance against the previous scan.
 * **Per-library AI Summary** — a one-sentence compliance risk statement visible in the Component Detail panel.
 
+Both are generated with the project's [Deployment Profile](Glossary.md) in mind — the same license carries different obligations for an internal-only tool, a network service, and software distributed to customers, so the summary names the actual obligation triggered in that context rather than a generic description of the license family.
+
 ---
 
 ## Understanding Version Status

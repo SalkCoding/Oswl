@@ -1,21 +1,30 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotAdvisory;
+import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVersion;
+import com.salkcoding.oswl.service.EnrichmentProgressContext;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -26,25 +35,81 @@ import java.util.function.Supplier;
  *   GET /v3/advisories/{advisoryId}                                       → CVE details + CVSS score
  *
  * Since deps.dev has no batch endpoint, GetVersion calls are processed in parallel
- * through a virtual-thread executor (limited to 10 concurrent requests).
+ * through a virtual-thread executor (concurrency bounded by a configurable semaphore,
+ * default 24 simultaneous requests).
+ *
+ * Air-gapped mode: when constructed with a snapshot store and the air-gapped flag,
+ * lookups are answered from the offline snapshot instead of HTTP (components absent
+ * from the snapshot resolve as {@link #unresolved()}).
  */
 @Slf4j
-@Component
 public class DepsDevClient {
 
     private static final String BASE_URL = "https://api.deps.dev";
-    /** Max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
-    private static final int MAX_CONCURRENT_REQUESTS = 10;
+    /** Default max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
+    private static final int DEFAULT_MAX_CONCURRENT_REQUESTS = 24;
+    /** Base delay before the single retry after an HTTP 429 (doubles per attempt if more were allowed). */
+    private static final long RATE_LIMIT_BACKOFF_MS = 2_000;
+    /** Default timeouts used by the no-arg/2-arg constructors (unit tests, and any caller not wired through Spring config). */
+    private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(10);
+
+    /** Upper bound for the project / default-version caches (cleared wholesale when exceeded). */
+    private static final int SCORECARD_CACHE_MAX = 5_000;
+
+    /** Sentinel for a failed default-version lookup — ConcurrentHashMap forbids null values. */
+    private static final String DEFAULT_VERSION_MISS = "\u0000";
+
+    /** projectKey → project record, so one repo is fetched once per instance, not per component. */
+    private final java.util.concurrent.ConcurrentHashMap<String, ProjectInfo> projectCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** {@code ECOSYSTEM|name} → registry default version, so several versions of one package share a single package-listing call. */
+    private final java.util.concurrent.ConcurrentHashMap<String, String> defaultVersionCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     private final RestClient restClient;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
-    private final Semaphore requestPermits = new Semaphore(MAX_CONCURRENT_REQUESTS);
+    private final Semaphore requestPermits;
+    private final AirgappedSnapshotService snapshotService;
+    private final boolean airgapped;
 
+    /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public DepsDevClient() {
+        this(null, false);
+    }
+
+    public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped) {
+        this(snapshotService, airgapped, DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT);
+    }
+
+    public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped,
+                         Duration connectTimeout, Duration readTimeout) {
+        this(snapshotService, airgapped, connectTimeout, readTimeout, DEFAULT_MAX_CONCURRENT_REQUESTS);
+    }
+
+    /**
+     * @param connectTimeout max time to establish the TCP connection
+     * @param readTimeout    max time to wait for the response once connected — a stalled deps.dev
+     *                       call previously hung indefinitely, holding a {@link #requestPermits} slot forever
+     * @param maxConcurrent  max simultaneous HTTP requests to deps.dev (permit semaphore size)
+     */
+    public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped,
+                         Duration connectTimeout, Duration readTimeout, int maxConcurrent) {
+        this.snapshotService = snapshotService;
+        this.airgapped = airgapped && snapshotService != null;
+        this.requestPermits = new Semaphore(Math.max(1, maxConcurrent));
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeout);
+        requestFactory.setReadTimeout(readTimeout);
         this.restClient = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader("Accept", "application/json")
+                .requestFactory(requestFactory)
                 .build();
+        if (this.airgapped) {
+            log.info("[DepsDevClient] Air-gapped mode — deps.dev lookups served from the offline snapshot store, no outbound HTTP");
+        }
     }
 
     // ── DTO ────────────────────────────────────────────────────────────
@@ -57,7 +122,27 @@ public class DepsDevClient {
      */
     public record VersionInfo(List<String> licenses, List<String> advisoryKeys,
                               boolean isDefault, String deprecated, String latestVersion,
-                              boolean resolved) {}
+                              boolean resolved, Double scorecardScore,
+                              String description, String homepage, String sourceRepoUrl) {
+
+        /** Convenience for callers that only have the pre-metadata fields (e.g. snapshots). */
+        public VersionInfo(List<String> licenses, List<String> advisoryKeys,
+                           boolean isDefault, String deprecated, String latestVersion,
+                           boolean resolved, Double scorecardScore) {
+            this(licenses, advisoryKeys, isDefault, deprecated, latestVersion, resolved,
+                    scorecardScore, null, null, null);
+        }
+    }
+
+    /**
+     * The subset of a deps.dev {@code /v3/projects/{key}} record we keep: the Scorecard score
+     * plus the upstream identity fields that let the component detail page explain what the
+     * library actually is.
+     */
+    public record ProjectInfo(Double scorecardScore, String description,
+                              String homepage, String sourceRepoUrl) {
+        static final ProjectInfo EMPTY = new ProjectInfo(null, null, null, null);
+    }
 
     public record AdvisoryInfo(
             String ghsaId,
@@ -69,24 +154,57 @@ public class DepsDevClient {
     // ── Public API ───────────────────────────────────────────────────────
 
     /**
-     * Calls GetVersion in parallel for all components (up to 10 concurrent calls).
+     * Calls GetVersion in parallel for all components (concurrency bounded by the permit semaphore).
      * Returns a list aligned with the input list; null means the package lookup failed.
+     *
+     * Duplicate keys are fetched only once (A2): several ScanComponents often share the same
+     * (ecosystem, name, version), and previously each copy cost its own HTTP call. The returned
+     * list MUST keep the input's exact size and order — callers index-match it back to their
+     * component list, so a misalignment would attach licenses/CVEs to the wrong library.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
-        List<CompletableFuture<VersionInfo>> futures = components.stream()
-                .map(key -> CompletableFuture.supplyAsync(() -> withPermit(() -> getVersion(key)), executor))
+        // D3: completion counts flow to the caller either explicitly (2-arg overload) or via
+        // the thread-scoped enrichment progress context — the 1-arg signature is kept because
+        // existing callers (and their mocks) depend on it.
+        return getVersionsBatch(components, EnrichmentProgressContext.currentFetchProgress());
+    }
+
+    /**
+     * Same as {@link #getVersionsBatch(List)}, additionally invoking {@code onProgress} with the
+     * running count of completed distinct-key fetches as each parallel call finishes (D3).
+     */
+    public List<VersionInfo> getVersionsBatch(List<ComponentKey> components, IntConsumer onProgress) {
+        if (airgapped) {
+            return getVersionsFromSnapshot(components);
+        }
+        List<ComponentKey> distinct = new ArrayList<>(new LinkedHashSet<>(components));
+        if (distinct.size() < components.size()) {
+            log.debug("[DepsDevClient] GetVersion batch dedupe: {} components → {} distinct keys",
+                    components.size(), distinct.size());
+        }
+        AtomicInteger completed = new AtomicInteger();
+        List<CompletableFuture<VersionInfo>> futures = distinct.stream()
+                .map(key -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return withPermit(() -> getVersion(key));
+                    } finally {
+                        if (onProgress != null) {
+                            onProgress.accept(completed.incrementAndGet());
+                        }
+                    }
+                }, executor))
                 .toList();
 
-        List<VersionInfo> results = new ArrayList<>(components.size());
-        for (CompletableFuture<VersionInfo> f : futures) {
+        Map<ComponentKey, VersionInfo> resolved = new java.util.HashMap<>();
+        for (int i = 0; i < distinct.size(); i++) {
             try {
-                results.add(f.join());
+                resolved.put(distinct.get(i), futures.get(i).join());
             } catch (Exception e) {
                 log.warn("[DepsDevClient] getVersion failed: {}", e.getMessage());
-                results.add(null);
+                resolved.put(distinct.get(i), null);
             }
         }
-        return results;
+        return components.stream().map(resolved::get).toList();
     }
 
     /**
@@ -94,6 +212,9 @@ public class DepsDevClient {
      * Returns a list aligned with the input list; null means the lookup failed.
      */
     public List<AdvisoryInfo> getAdvisoriesBatch(List<String> ghsaIds) {
+        if (airgapped) {
+            return getAdvisoriesFromSnapshot(ghsaIds);
+        }
         List<CompletableFuture<AdvisoryInfo>> futures = ghsaIds.stream()
                 .map(id -> CompletableFuture.supplyAsync(() -> withPermit(() -> getAdvisory(id)), executor))
                 .toList();
@@ -110,13 +231,91 @@ public class DepsDevClient {
         return results;
     }
 
+    // ── Air-gapped (offline snapshot) ─────────────────────────────────────
+
+    /** Offline GetVersion: snapshot hit → resolved VersionInfo; miss → {@link #unresolved()}. */
+    private List<VersionInfo> getVersionsFromSnapshot(List<ComponentKey> components) {
+        List<String> keys = new ArrayList<>(components.size());
+        Set<String> distinctKeys = new LinkedHashSet<>();
+        for (ComponentKey key : components) {
+            String k = AirgappedSnapshotService.componentKey(key.ecosystem(), key.name(), key.version());
+            keys.add(k);
+            if (k != null) distinctKeys.add(k);
+        }
+        Map<String, SnapshotVersion> found = snapshotService.findVersions(distinctKeys);
+
+        List<VersionInfo> results = new ArrayList<>(components.size());
+        int hits = 0;
+        for (String key : keys) {
+            SnapshotVersion sv = key != null ? found.get(key) : null;
+            if (sv == null) {
+                results.add(unresolved());
+            } else {
+                hits++;
+                results.add(new VersionInfo(sv.licenses(), sv.advisoryKeys(), sv.isDefault(),
+                        sv.deprecated(), sv.latestVersion(), true, sv.scorecardScore()));
+            }
+        }
+        log.debug("[DepsDevClient] air-gapped GetVersion batch size={} snapshotHits={}", components.size(), hits);
+        return results;
+    }
+
+    /** Offline GetAdvisory: snapshot hit → AdvisoryInfo; miss → null (live failure semantics). */
+    private List<AdvisoryInfo> getAdvisoriesFromSnapshot(List<String> ghsaIds) {
+        Map<String, SnapshotAdvisory> found = snapshotService.findAdvisories(new LinkedHashSet<>(ghsaIds));
+        List<AdvisoryInfo> results = new ArrayList<>(ghsaIds.size());
+        int hits = 0;
+        for (String id : ghsaIds) {
+            SnapshotAdvisory sa = id != null ? found.get(id) : null;
+            if (sa == null) {
+                results.add(null);
+            } else {
+                hits++;
+                results.add(new AdvisoryInfo(sa.ghsaId(), sa.title(), sa.aliases(),
+                        sa.cvss3Score(), sa.cvss3Vector()));
+            }
+        }
+        log.debug("[DepsDevClient] air-gapped GetAdvisory batch size={} snapshotHits={}", ghsaIds.size(), hits);
+        return results;
+    }
+
     // ── Internal ─────────────────────────────────────────────────────────
 
     /**
      * Runs one deps.dev call under the concurrency permit, so a large batch cannot fire
      * hundreds of simultaneous HTTP requests. Returns {@code null} when interrupted.
+     *
+     * On HTTP 429 (rate limit — possible now that concurrency is configurable above the old
+     * fixed 10) the permit is released first, the thread backs off, and the call is retried
+     * once under a fresh permit. A retry that also fails resolves to {@code null}, matching the
+     * batch callers' existing failure semantics.
      */
     private <T> T withPermit(Supplier<T> call) {
+        try {
+            return callUnderPermit(call);
+        } catch (RestClientException e) {
+            if (!isRateLimited(e)) {
+                throw e;
+            }
+            log.debug("[DepsDevClient] 429 rate limit from deps.dev — backing off {}ms before a single retry",
+                    RATE_LIMIT_BACKOFF_MS);
+        }
+        // Sleep WITHOUT holding a permit so queued requests keep flowing.
+        try {
+            Thread.sleep(RATE_LIMIT_BACKOFF_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+        try {
+            return callUnderPermit(call);
+        } catch (RestClientException e) {
+            log.debug("[DepsDevClient] request still failing after 429 retry: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private <T> T callUnderPermit(Supplier<T> call) {
         try {
             requestPermits.acquire();
         } catch (InterruptedException e) {
@@ -128,6 +327,12 @@ public class DepsDevClient {
         } finally {
             requestPermits.release();
         }
+    }
+
+    /** deps.dev rate limiting surfaces as a RestClientException whose message carries the 429 status. */
+    private static boolean isRateLimited(RestClientException e) {
+        String message = e.getMessage();
+        return message != null && message.contains("429");
     }
 
     private VersionInfo getVersion(ComponentKey key) {
@@ -184,10 +389,17 @@ public class DepsDevClient {
                 }
             }
 
-            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={}",
-                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion);
-            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true);
+            ProjectInfo project = fetchProjectInfo(body);
+
+            log.debug("[DepsDevClient] GetVersion response {}:{} licenses={} advisoryKeys={} isDefault={} deprecated={} latestVersion={} scorecard={} hasDescription={}",
+                    key.name(), key.version(), licenses, advisoryKeys, isDefault, deprecated, latestVersion,
+                    project.scorecardScore(), project.description() != null);
+            return new VersionInfo(licenses, advisoryKeys, isDefault, deprecated, latestVersion, true,
+                    project.scorecardScore(), project.description(), project.homepage(), project.sourceRepoUrl());
         } catch (RestClientException e) {
+            if (isRateLimited(e)) {
+                throw e; // let withPermit release the permit, back off, and retry once
+            }
             log.debug("[DepsDevClient] GetVersion 404/error {}:{} - {}", key.name(), key.version(), e.getMessage());
             return unresolved();
         }
@@ -195,11 +407,94 @@ public class DepsDevClient {
 
     /** Placeholder when GetVersion failed — must not be written to Library version columns. */
     public static VersionInfo unresolved() {
-        return new VersionInfo(List.of(), List.of(), false, null, null, false);
+        return new VersionInfo(List.of(), List.of(), false, null, null, false, null);
     }
 
-    /** Reads registry default (latest stable) version from the package listing API. */
+    /**
+     * Reads the source-repo project record for a version: the OpenSSF Scorecard score plus the
+     * upstream description / homepage / repo URL. The version response links related projects;
+     * the SOURCE_REPO one is fetched with a single {@code GET /v3/projects/{projectKey}} call —
+     * the same call the Scorecard already required, so the identity metadata is free.
+     * Returns {@link ProjectInfo#EMPTY} when unavailable.
+     */
+    @SuppressWarnings("unchecked")
+    private ProjectInfo fetchProjectInfo(Map<String, Object> versionBody) {
+        String projectKey = extractSourceRepoProjectKey(versionBody);
+        if (projectKey == null) return ProjectInfo.EMPTY;
+        // Many libraries share one source repo (e.g. every spring-boot-starter-*), so the same
+        // project would otherwise be fetched once per component. EMPTY doubles as the
+        // negative-cache entry, since ConcurrentHashMap forbids null values.
+        ProjectInfo cached = projectCache.get(projectKey);
+        if (cached != null) return cached;
+
+        ProjectInfo resolved = ProjectInfo.EMPTY;
+        try {
+            String path = "/v3/projects/" + URLEncoder.encode(projectKey, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
+            Map<String, Object> body = restClient.get().uri(uri).retrieve().body(Map.class);
+            if (body != null) {
+                Double score = null;
+                if (body.get("scorecard") instanceof Map<?, ?> scMap
+                        && scMap.get("overallScore") instanceof Number n) {
+                    score = n.doubleValue();
+                }
+                resolved = new ProjectInfo(score,
+                        stringOrNull(body.get("description")),
+                        stringOrNull(body.get("homepage")),
+                        // projectKey is a bare host/path ("github.com/owner/repo"); make it linkable.
+                        "https://" + projectKey);
+            }
+        } catch (RestClientException e) {
+            log.debug("[DepsDevClient] Project fetch failed for {} - {}", projectKey, e.getMessage());
+            // negative-cache so one failure isn't retried per component
+        }
+        cacheProject(projectKey, resolved);
+        return resolved;
+    }
+
+    private static String stringOrNull(Object value) {
+        return (value instanceof String s && !s.isBlank()) ? s.strip() : null;
+    }
+
+    /** Stores a project lookup result, bounding the cache so a long-running instance cannot grow unboundedly. */
+    private void cacheProject(String projectKey, ProjectInfo info) {
+        if (projectCache.size() >= SCORECARD_CACHE_MAX) {
+            projectCache.clear();
+        }
+        projectCache.put(projectKey, info);
+    }
+
+    /** Finds the SOURCE_REPO related-project key (e.g. "github.com/owner/repo") from a version response. */
+    private static String extractSourceRepoProjectKey(Map<String, Object> versionBody) {
+        Object rpRaw = versionBody.get("relatedProjects");
+        if (!(rpRaw instanceof List<?> rpList)) return null;
+        String firstAny = null;
+        for (Object rp : rpList) {
+            if (!(rp instanceof Map<?, ?> rpMap)) continue;
+            Object pkRaw = rpMap.get("projectKey");
+            String id = (pkRaw instanceof Map<?, ?> pkMap && pkMap.get("id") instanceof String s) ? s : null;
+            if (id == null) continue;
+            if ("SOURCE_REPO".equals(rpMap.get("relationType"))) return id;
+            if (firstAny == null) firstAny = id;
+        }
+        return firstAny;
+    }
+
+    /**
+     * Reads registry default (latest stable) version from the package listing API.
+     * Cached per {@code ECOSYSTEM|name} (A2): several scanned versions of the same package
+     * would otherwise each trigger this listing call. Failures are negative-cached via the
+     * {@link #DEFAULT_VERSION_MISS} sentinel, since ConcurrentHashMap forbids null values.
+     */
     private String fetchDefaultVersionForPackage(String ecosystem, String name) {
+        String cacheKey = ecosystem.toUpperCase() + "|" + name;
+        String cached = defaultVersionCache.get(cacheKey);
+        if (cached != null) {
+            return DEFAULT_VERSION_MISS.equals(cached) ? null : cached;
+        }
+
+        String resolved = null;
         try {
             String encodedName = encodePackageName(ecosystem, name);
             String path = String.format("/v3/systems/%s/packages/%s",
@@ -211,32 +506,38 @@ public class DepsDevClient {
                     .uri(uri)
                     .retrieve()
                     .body(Map.class);
-            if (body == null) {
-                return null;
-            }
-            Object versionsRaw = body.get("versions");
-            if (!(versionsRaw instanceof List<?> versions)) {
-                return null;
-            }
-            for (Object entry : versions) {
-                if (!(entry instanceof Map<?, ?> verMap)) {
-                    continue;
-                }
-                if (!Boolean.TRUE.equals(verMap.get("isDefault"))) {
-                    continue;
-                }
-                Object vk = verMap.get("versionKey");
-                if (vk instanceof Map<?, ?> vkMap) {
-                    Object v = vkMap.get("version");
-                    if (v instanceof String vs && !vs.isBlank()) {
-                        return vs;
+            if (body != null && body.get("versions") instanceof List<?> versions) {
+                for (Object entry : versions) {
+                    if (!(entry instanceof Map<?, ?> verMap)) {
+                        continue;
+                    }
+                    if (!Boolean.TRUE.equals(verMap.get("isDefault"))) {
+                        continue;
+                    }
+                    Object vk = verMap.get("versionKey");
+                    if (vk instanceof Map<?, ?> vkMap) {
+                        Object v = vkMap.get("version");
+                        if (v instanceof String vs && !vs.isBlank()) {
+                            resolved = vs;
+                            break;
+                        }
                     }
                 }
             }
         } catch (RestClientException e) {
             log.debug("[DepsDevClient] Package listing failed {}:{} - {}", ecosystem, name, e.getMessage());
+            // negative-cache so one failure isn't retried per component
         }
-        return null;
+        cacheDefaultVersion(cacheKey, resolved);
+        return resolved;
+    }
+
+    /** Stores a default-version lookup result, bounding the cache so a long-running instance cannot grow unboundedly. */
+    private void cacheDefaultVersion(String cacheKey, String version) {
+        if (defaultVersionCache.size() >= SCORECARD_CACHE_MAX) {
+            defaultVersionCache.clear();
+        }
+        defaultVersionCache.put(cacheKey, version != null ? version : DEFAULT_VERSION_MISS);
     }
 
     private static String extractLatestVersionFromRelatedVersions(Map<String, Object> body) {
@@ -289,6 +590,9 @@ public class DepsDevClient {
                     ghsaId, result.title(), result.cvss3Score(), result.cvss3Vector(), result.aliases());
             return result;
         } catch (RestClientException e) {
+            if (isRateLimited(e)) {
+                throw e; // let withPermit release the permit, back off, and retry once
+            }
             log.debug("[DepsDevClient] GetAdvisory {} error - {}", ghsaId, e.getMessage());
             return null;
         }
@@ -299,8 +603,9 @@ public class DepsDevClient {
      * Maven: groupId:artifactId → groupId%3AartifactId
      * npm scope: @org/pkg → %40org%2Fpkg
      * Go: github.com/x/y → github.com%2Fx%2Fy
+     *
+     * Reads CVSS 3.x base score from GetAdvisory JSON (camelCase or snake_case).
      */
-    /** Reads CVSS 3.x base score from GetAdvisory JSON (camelCase or snake_case). */
     private static Double extractCvss3Score(Map<String, Object> body) {
         Object s = body.get("cvss3Score");
         if (s == null) s = body.get("cvss3_score");

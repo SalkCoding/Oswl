@@ -1,0 +1,104 @@
+package com.salkcoding.oswl.domain.entity;
+
+import com.salkcoding.oswl.domain.enums.RiskLevel;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
+
+/**
+ * A newly published vulnerability detected by the continuous monitoring scheduler
+ * for a component of a project's latest completed scan.
+ *
+ * One row per (project, library, vulnerability) — deduplicated so re-running the
+ * monitor never produces duplicate alerts. Cleared from the dashboard badge when
+ * acknowledged.
+ */
+@Entity
+@Table(name = "cve_alerts",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_cve_alerts_project_library_vuln",
+                columnNames = {"project_id", "library_id", "vuln_id"}
+        ),
+        indexes = @Index(name = "idx_cve_alerts_project_ack", columnList = "project_id, acknowledged"))
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Builder
+@AllArgsConstructor
+public class CveAlert {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "library_id", nullable = false)
+    private Library library;
+
+    /** Denormalized library coordinates so the alert stays readable without joins */
+    @Column(name = "library_name", nullable = false, length = 300)
+    private String libraryName;
+
+    @Column(name = "library_version", length = 100)
+    private String libraryVersion;
+
+    @Column(length = 20)
+    private String ecosystem;
+
+    /** Primary vulnerability identifier — OSV/GHSA id, or the CVE id when no OSV id exists */
+    @Column(name = "vuln_id", nullable = false, length = 40)
+    private String vulnId;
+
+    /** CVE identifier when known (e.g. "CVE-2026-12345") */
+    @Column(name = "cve_id", length = 30)
+    private String cveId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private RiskLevel severity;
+
+    @Column(columnDefinition = "TEXT")
+    private String summary;
+
+    @Column(name = "fix_version", length = 100)
+    private String fixVersion;
+
+    @CreationTimestamp
+    @Column(name = "detected_at", nullable = false, updatable = false)
+    private LocalDateTime detectedAt;
+
+    /** True once the alert email has been sent (or attempted with mail disabled) */
+    @Column(name = "notified", nullable = false)
+    @Builder.Default
+    private boolean notified = false;
+
+    @Column(name = "notified_at")
+    private LocalDateTime notifiedAt;
+
+    /** True once a user has seen/dismissed the alert — clears the dashboard badge */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean acknowledged = false;
+
+    @Column(name = "acknowledged_at")
+    private LocalDateTime acknowledgedAt;
+
+    // ── Mutation helpers ─────────────────────────────────────────────────
+
+    public void markNotified() {
+        this.notified = true;
+        this.notifiedAt = LocalDateTime.now();
+    }
+
+    public void acknowledge() {
+        if (!this.acknowledged) {
+            this.acknowledged = true;
+            this.acknowledgedAt = LocalDateTime.now();
+        }
+    }
+}

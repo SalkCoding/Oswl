@@ -52,7 +52,7 @@ class DepsDevClientTest {
     @DisplayName("VersionInfo: 레코드 필드를 올바르게 저장한다")
     void versionInfo_storesFields() {
         DepsDevClient.VersionInfo info = new DepsDevClient.VersionInfo(
-                List.of("Apache-2.0"), List.of("GHSA-1234"), true, null, "5.3.2", true);
+                List.of("Apache-2.0"), List.of("GHSA-1234"), true, null, "5.3.2", true, null);
 
         assertThat(info.licenses()).containsExactly("Apache-2.0");
         assertThat(info.advisoryKeys()).containsExactly("GHSA-1234");

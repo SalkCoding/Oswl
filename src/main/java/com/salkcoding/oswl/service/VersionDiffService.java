@@ -8,6 +8,7 @@ import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ScanResultRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiResponseSanitizer;
+import com.salkcoding.oswl.service.ai.AiLanguageContext;
 import com.salkcoding.oswl.service.ai.AiUsageContext;
 import com.salkcoding.oswl.util.VersionOrder;
 import lombok.RequiredArgsConstructor;
@@ -111,7 +112,9 @@ public class VersionDiffService {
                 && fromScan.getId().equals(toScan.getVersionDiffFromScanId())) {
             return AiResponseSanitizer.sanitizePlainText(toScan.getVersionDiffAiInsight());
         }
-        try (var ignored = AiUsageContext.scope(project.getName())) {
+        try (var ignored = AiUsageContext.scope(project.getName());
+             var ignoredLang = AiLanguageContext.scope(
+                     org.springframework.context.i18n.LocaleContextHolder.getLocale().getLanguage())) {
             return aiAnalysisService.summarizeVersionDiff(
                     project.getName(), fromVersion, toVersion,
                     diff.added(), diff.removed(), diff.updated(), diff.newThreats(),

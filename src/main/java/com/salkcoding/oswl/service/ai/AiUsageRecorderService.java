@@ -75,16 +75,29 @@ public class AiUsageRecorderService {
         record(provider, operation, modelName, prompt, completion);
     }
 
-    /** Parses Anthropic Messages API usage block. */
+    /**
+     * Parses Anthropic Messages API usage block. F4: {@code cache_creation_input_tokens}/
+     * {@code cache_read_input_tokens} are real prompt content Anthropic still processed (a
+     * cache read is billed at a discount, not for free) and are excluded from
+     * {@code input_tokens} by the API — folding them into the recorded prompt total keeps
+     * token/usage stats accurate. {@link AiModelPricing} already documents that its list
+     * prices ignore the cache discount, so cost is a conservative (slightly high) estimate
+     * whenever the cache is actually hit.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFromAnthropicUsage(Map<String, Object> body, AiProvider provider,
                                          String operation, String modelName) {
         if (body == null) return;
         Object usageObj = body.get("usage");
         if (!(usageObj instanceof Map<?, ?> usage)) return;
-        record(provider, operation, modelName,
-                intVal(usage.get("input_tokens")),
-                intVal(usage.get("output_tokens")));
+        int input = intVal(usage.get("input_tokens"));
+        int cacheCreation = intVal(usage.get("cache_creation_input_tokens"));
+        int cacheRead = intVal(usage.get("cache_read_input_tokens"));
+        if (cacheCreation > 0 || cacheRead > 0) {
+            log.debug("[AI][Anthropic][Cache] op={} model={} cacheCreation={} cacheRead={} freshInput={}",
+                    operation, modelName, cacheCreation, cacheRead, input);
+        }
+        record(provider, operation, modelName, input + cacheCreation + cacheRead, intVal(usage.get("output_tokens")));
     }
 
     private void record(AiProvider provider, String operation, String modelName,
@@ -93,7 +106,7 @@ public class AiUsageRecorderService {
         int prompt = Math.max(0, promptTokens);
         int completion = Math.max(0, completionTokens);
         int total = prompt + completion;
-        BigDecimal cost = estimateCost(provider, prompt, completion);
+        BigDecimal cost = estimateCost(provider, modelName, prompt, completion);
 
         LocalDate today = LocalDate.now(clock);
         eventRepository.save(AiUsageEvent.builder()
@@ -106,6 +119,7 @@ public class AiUsageRecorderService {
                 .estimatedCostUsd(cost)
                 .modelName(modelName)
                 .projectName(AiUsageContext.currentProject())
+                .branch(AiUsageContext.currentBranch())
                 .build());
         trimToMaxEvents();
         upsertDailyUsage(today, provider, prompt, completion, cost);
@@ -135,7 +149,23 @@ public class AiUsageRecorderService {
         dailyUsageRepository.save(daily);
     }
 
-    private BigDecimal estimateCost(AiProvider provider, int promptTokens, int completionTokens) {
+    /**
+     * Prefers the published per-model list price; a flat per-provider rate is only a fallback
+     * for models with no known price (custom deployments, self-hosted, newly released ids).
+     * Using one rate for a whole provider mis-estimates by an order of magnitude between that
+     * provider's cheapest and most expensive models.
+     */
+    private BigDecimal estimateCost(AiProvider provider, String modelName,
+                                    int promptTokens, int completionTokens) {
+        // A locally hosted model costs nothing to call regardless of what it is named, so the
+        // provider rate (0 by default) wins over any list price its id happens to collide with.
+        if (provider != AiProvider.LOCAL) {
+            var listPrice = AiModelPricing.estimate(modelName, promptTokens, completionTokens);
+            if (listPrice.isPresent()) {
+                return listPrice.get().setScale(6, RoundingMode.HALF_UP);
+            }
+        }
+
         double inRate;
         double outRate;
         switch (provider) {

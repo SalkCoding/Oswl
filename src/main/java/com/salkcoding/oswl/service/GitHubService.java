@@ -224,23 +224,68 @@ public class GitHubService {
         int prNumber = pr.path("number").asInt();
         String prUrl = pr.path("html_url").asText();
 
-        if (reviewers != null && !reviewers.isEmpty()) {
-            try {
-                String rvPayload = objectMapper.createObjectNode()
-                        .set("reviewers", objectMapper.valueToTree(reviewers))
-                        .toString();
-                postJson(token, apiBase + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber + "/requested_reviewers", rvPayload);
-            } catch (Exception e) {
-                log.warn("[GitHub] Failed to assign reviewers to PR #{}: {}", prNumber, e.getMessage());
-            }
-        }
+        String reviewerWarning = requestReviewers(token, owner, repo, prNumber, reviewers, apiBase);
 
         log.info("[GitHub] PR #{} created: {}", prNumber, prUrl);
-        return Map.of(
-                "prUrl", prUrl,
-                "prNumber", prNumber,
-                "manifestPath", patchInfo.filePath(),
-                "changePreview", patchInfo.libraryName() + " " + patchInfo.oldVersion() + " → " + patchInfo.newVersion());
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("prUrl", prUrl);
+        result.put("prNumber", prNumber);
+        result.put("manifestPath", patchInfo.filePath());
+        result.put("changePreview", patchInfo.libraryName() + " " + patchInfo.oldVersion() + " → " + patchInfo.newVersion());
+        if (reviewerWarning != null) {
+            result.put("reviewerWarning", reviewerWarning);
+        }
+        return result;
+    }
+
+    /**
+     * Requests review on an already-created PR.
+     *
+     * <p>GitHub splits this into two fields: individual logins go in {@code reviewers}, while
+     * organisation teams must go in {@code team_reviewers} — a team slug sent as a plain
+     * reviewer is rejected with a 422 and no review is requested. Entries containing a slash
+     * ({@code org/team}) are therefore routed to the team field.
+     *
+     * <p>Reviewer assignment is deliberately non-fatal: the branch, the commit and the PR are
+     * already created, and throwing here would leave the user thinking nothing happened. The
+     * failure is returned instead of swallowed, so the caller can tell the user the PR exists
+     * but the reviewer was not attached.
+     *
+     * @return null on success (or when there is nothing to do), otherwise a message to surface
+     */
+    private String requestReviewers(String token, String owner, String repo, int prNumber,
+                                    List<String> reviewers, String apiBase) {
+        if (reviewers == null || reviewers.isEmpty()) return null;
+
+        List<String> users = new java.util.ArrayList<>();
+        List<String> teams = new java.util.ArrayList<>();
+        for (String raw : reviewers) {
+            if (raw == null || raw.isBlank()) continue;
+            String entry = raw.strip();
+            if (entry.startsWith("@")) entry = entry.substring(1);
+            if (entry.contains("/")) {
+                // "org/team" — GitHub wants only the slug in team_reviewers.
+                teams.add(entry.substring(entry.indexOf('/') + 1));
+            } else {
+                users.add(entry);
+            }
+        }
+        if (users.isEmpty() && teams.isEmpty()) return null;
+
+        try {
+            var payload = objectMapper.createObjectNode();
+            if (!users.isEmpty()) payload.set("reviewers", objectMapper.valueToTree(users));
+            if (!teams.isEmpty()) payload.set("team_reviewers", objectMapper.valueToTree(teams));
+            postJson(token, apiBase + "/repos/" + owner + "/" + repo + "/pulls/" + prNumber
+                    + "/requested_reviewers", payload.toString());
+            log.info("[GitHub] Requested review on PR #{} — users={} teams={}", prNumber, users, teams);
+            return null;
+        } catch (Exception e) {
+            log.warn("[GitHub] Failed to assign reviewers to PR #{}: {}", prNumber, e.getMessage());
+            return "The pull request was created, but the reviewer could not be assigned: "
+                    + e.getMessage()
+                    + ". Check that the account exists, has access to the repository, and is not the PR author.";
+        }
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -519,6 +564,49 @@ public class GitHubService {
             log.error("[GitHub] {} failed for {}: {}", method, url, e.getMessage());
             throw new GitHubAuthException("Failed to call GitHub API");
         }
+    }
+
+    // ── PR gate: comment + check run ──────────────────────────────────────
+
+    /**
+     * Posts an issue/PR comment (pull requests share the issues comment endpoint).
+     * Returns the created comment's html_url.
+     */
+    public String postPrComment(String token, String owner, String repo, int prNumber,
+                                String body, String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/issues/" + prNumber + "/comments";
+        String payload = objectMapper.createObjectNode().put("body", body).toString();
+        JsonNode res = postJson(token, url, payload);
+        String htmlUrl = res.path("html_url").asText(null);
+        log.info("[GitHub] Posted PR gate comment to {}/{}#{}", owner, repo, prNumber);
+        return htmlUrl;
+    }
+
+    /**
+     * Creates a completed Check Run on the given head SHA.
+     * {@code conclusion} must be a GitHub value: success | failure | neutral | action_required.
+     * Returns the created check run's html_url.
+     */
+    public String createCheckRun(String token, String owner, String repo, String headSha,
+                                 String name, String conclusion, String title, String summary,
+                                 String serverUrl) {
+        String apiBase = resolveApiBase(serverUrl);
+        String url = apiBase + "/repos/" + owner + "/" + repo + "/check-runs";
+        var output = objectMapper.createObjectNode()
+                .put("title", title)
+                .put("summary", summary);
+        String payload = objectMapper.createObjectNode()
+                .put("name", name)
+                .put("head_sha", headSha)
+                .put("status", "completed")
+                .put("conclusion", conclusion)
+                .set("output", output)
+                .toString();
+        JsonNode res = postJson(token, url, payload);
+        String htmlUrl = res.path("html_url").asText(null);
+        log.info("[GitHub] Created check run '{}' ({}) on {}/{}@{}", name, conclusion, owner, repo, headSha);
+        return htmlUrl;
     }
 
     public static class GitHubAuthException extends RuntimeException {

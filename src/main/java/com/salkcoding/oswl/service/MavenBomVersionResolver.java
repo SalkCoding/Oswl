@@ -50,7 +50,7 @@ public class MavenBomVersionResolver {
     private static final Pattern KOTLIN_CONST_VAL = Pattern.compile(
             "const\\s+val\\s+(\\w+)\\s*=\\s*\"([^\"]+)\"");
     private static final Pattern GRADLE_DEP = Pattern.compile(
-            "(?:implementation|api|runtimeOnly|compileOnly|annotationProcessor|" +
+            "(implementation|api|runtimeOnly|compileOnly|annotationProcessor|" +
             "testImplementation|testRuntimeOnly|testCompileOnly|" +
             "kapt|ksp|developmentOnly|" +
             "(?:androidTest|debug|release)Implementation|" +
@@ -115,7 +115,8 @@ public class MavenBomVersionResolver {
             List<List<ScanPayload.DependencyNodeRef>> paths = enrichDependencyPaths(
                     c.getDependencyPaths(), index);
             result.add(ScanPayload.ComponentPayload.create(
-                    c.getName(), version, c.getEcosystem(), c.getDependencyInfo(), paths));
+                    c.getName(), version, c.getEcosystem(), c.getDependencyInfo(), paths)
+                    .withScope(c.getScope()));
         }
         if (resolved > 0) {
             log.info("[BOM] Resolved {} component version(s) in {}", resolved, projectDir.getFileName());
@@ -470,7 +471,7 @@ public class MavenBomVersionResolver {
             }
             if ("pom".equalsIgnoreCase(type) && "import".equalsIgnoreCase(scope)) {
                 mergeManagedVersionsFromPom(g, a, v, index, visited, depth);
-            } else if (!"pom".equalsIgnoreCase(type) || type == null) {
+            } else if (!"pom".equalsIgnoreCase(type)) {
                 put(index, g, a, v);
             }
         }
@@ -571,12 +572,8 @@ public class MavenBomVersionResolver {
     }
 
     private static String lookup(Map<String, String> index, String groupId, String artifactId) {
-        String v = index.get(groupId + ":" + artifactId);
-        if (v != null) {
-            return v;
-        }
+        return index.get(groupId + ":" + artifactId);
         // Spring Boot starters sometimes omit classifier; BOM lists base artifact only
-        return null;
     }
 
     private static void put(Map<String, String> index, String groupArtifact, String version) {
@@ -626,13 +623,15 @@ public class MavenBomVersionResolver {
                 String content = Files.readString(buildFile, StandardCharsets.UTF_8);
                 Matcher m = GRADLE_DEP.matcher(content);
                 while (m.find()) {
-                    String ga = m.group(1);
-                    String declared = m.group(2);
+                    String configuration = m.group(1);
+                    String ga = m.group(2);
+                    String declared = m.group(3);
                     String version = resolveVersion(declared, ga, index);
                     String key = ga + ":" + (version != null ? version : "");
                     if (seen.add(key)) {
                         comps.add(ScanPayload.ComponentPayload.create(
-                                ga, version, "MAVEN", "Gradle (declared + BOM)", List.of()));
+                                ga, version, "MAVEN", "Gradle (declared + BOM)", List.of())
+                                .withScope(gradleConfigScope(configuration)));
                     }
                 }
             } catch (Exception e) {
@@ -640,6 +639,15 @@ public class MavenBomVersionResolver {
             }
         }
         return comps;
+    }
+
+    /** Maps a Gradle configuration keyword to a dependency scope for noise-cut filtering. */
+    private static String gradleConfigScope(String configuration) {
+        if (configuration == null) return null;
+        String c = configuration.toLowerCase();
+        if (c.startsWith("test") || c.startsWith("androidtest")) return "test";
+        if (c.equals("developmentonly")) return "dev";
+        return null; // implementation/api/runtimeOnly/compileOnly/etc. → runtime
     }
 
     @FunctionalInterface

@@ -1,7 +1,7 @@
 <div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative"
      th:attr="data-project-id=${projectId}, data-component-id=${componentId}, data-scan-version=${projectVersion}"
-     x-data="{ modal: null, aiToast: null, _aiToastTimer: null }"
-     @oswl-ai-toast="aiToast = $event.detail.message; clearTimeout(_aiToastTimer); _aiToastTimer = setTimeout(() => aiToast = null, 5000)">
+     x-data="{ modal: null, aiToast: null, aiToastKind: 'error', _aiToastTimer: null }"
+     @oswl-ai-toast="aiToast = $event.detail.message; aiToastKind = $event.detail.kind || 'error'; clearTimeout(_aiToastTimer); _aiToastTimer = setTimeout(() => aiToast = null, aiToastKind === 'error' ? 5000 : 3000)">
 
     <!-- Modals i18n bundles -->
     <th:block th:replace="~{component-detail/fragments/defer-modal :: defer-i18n}"></th:block>
@@ -11,10 +11,28 @@
     <div th:replace="~{component-detail/fragments/apply-patch-modal :: apply-patch}"></div>
     <div th:replace="~{component-detail/fragments/defer-modal :: defer}"></div>
 
-    <!-- AI refresh error toast -->
+    <!-- Toast — shares the app-wide pill style used by the settings tabs and the project list,
+         so a Jira or AI failure here looks like every other notification instead of a one-off
+         red box. Dispatch with: $dispatch('oswl-ai-toast', { message, kind: 'error'|'success' }) -->
     <div x-show="aiToast" x-cloak
-         class="fixed bottom-[24px] left-1/2 -translate-x-1/2 z-[200] px-[18px] py-[12px] rounded-[10px] bg-[#e62727] shadow-lg max-w-[min(92vw,480px)]">
-        <span class="font-medium text-[14px] text-white tracking-[-0.14px] leading-[1.4]" x-text="aiToast"></span>
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[200] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" :style="aiToastKind === 'error' ? 'background: rgba(230,39,39,0.25);' : 'background: rgba(34,239,195,0.25);'"></div>
+            <svg x-show="aiToastKind !== 'error'" class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+            <svg x-show="aiToastKind === 'error'" class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#e62727" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] leading-[1.4] max-w-[420px]" x-text="aiToast"></span>
     </div>
 
     <!-- Header -->
@@ -49,6 +67,70 @@
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                       th:text="${projectsCount} + ' ' + (${projectsCount} == 1 ? #{common.project} : #{common.projects})">7 Projects</span>
             </span>
+            <!-- OpenSSF Scorecard (package health) — shown when deps.dev provides a score -->
+            <span th:if="${scorecardScore != null}"
+                  class="flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]"
+                  th:styleappend="${scorecardScore >= 7.0} ? 'background:rgba(0,215,97,0.08);border:1px solid rgba(0,215,97,0.25)'
+                                 : (${scorecardScore >= 4.0} ? 'background:rgba(245,189,38,0.08);border:1px solid rgba(245,189,38,0.3)'
+                                 : 'background:rgba(230,39,39,0.06);border:1px solid rgba(230,39,39,0.25)')"
+                  th:title="#{componentDetail.scorecard.tooltip}">
+                <span class="text-[11px] font-semibold tracking-[-0.11px]"
+                      th:styleappend="${scorecardScore >= 7.0} ? 'color:#00a049' : (${scorecardScore >= 4.0} ? 'color:#a9781a' : 'color:#e62727')"
+                      th:text="#{componentDetail.scorecard.label} + ' ' + ${#numbers.formatDecimal(scorecardScore, 1, 1)} + '/10'">Scorecard 7.4/10</span>
+            </span>
+            <!-- Malicious package (OSV MAL-) -->
+            <span th:if="${malicious}"
+                  class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px]"
+                  style="background:rgba(230,39,39,0.12);border:1px solid rgba(230,39,39,0.4)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e62727" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span class="text-[11px] font-bold text-[#e62727] tracking-[-0.11px]" th:text="#{componentDetail.malicious.label}">Malicious package</span>
+            </span>
+            <!-- Supply-chain heuristic: possible typosquat / dependency confusion (amber warning) -->
+            <span th:if="${typosquatRisk}"
+                  class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px]"
+                  style="background:rgba(245,189,38,0.12);border:1px solid rgba(245,189,38,0.4)"
+                  th:title="${typosquatReason} ?: #{componentDetail.typosquat.tooltip}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a9781a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span class="text-[11px] font-bold text-[#a9781a] tracking-[-0.11px]" th:text="#{componentDetail.typosquat.label}">Possible typosquat</span>
+            </span>
+            <!-- Jira issue link / create action (#10)
+                 The "create" state is an action, not a status, so it is styled as a solid Jira-blue
+                 button rather than another pale pill — previously it was visually indistinguishable
+                 from the read-only badges around it. The "created" state keeps the tinted-pill
+                 shape (it is a status) but gains the Jira glyph and an external-link cue. -->
+            <a th:if="${jiraIssueUrl != null}" th:href="${jiraIssueUrl}" target="_blank" rel="noopener"
+               class="flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px] no-underline transition-colors hover:bg-[rgba(0,82,204,0.14)]"
+               style="background:rgba(0,82,204,0.08);border:1px solid rgba(0,82,204,0.45)"
+               th:title="#{componentDetail.jira.openTooltip}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0052cc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span class="text-[11px] font-bold tracking-[-0.11px]" style="color:#0052cc"
+                      th:text="'Jira ' + ${jiraIssueKey}">Jira SEC-1</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0052cc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </a>
+            <button th:if="${jiraIssueUrl == null}" type="button"
+                    x-data="{ busy: false }"
+                    :disabled="busy"
+                    @click="busy = true; fetch('/projects/' + $el.closest('#component-detail-content').dataset.projectId + '/components/' + $el.closest('#component-detail-content').dataset.componentId + '/jira-ticket', { method:'POST', headers: oswlJsonHeaders() })
+                            .then(async r => { const b = await r.json().catch(()=>({})); if (r.ok && b.issueUrl) { window.location.reload(); } else { $dispatch('oswl-ai-toast', { message: b.error || $el.dataset.failed, kind: 'error' }); busy = false; } })
+                            .catch(() => { $dispatch('oswl-ai-toast', { message: $el.dataset.failed, kind: 'error' }); busy = false; })"
+                    class="flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px] text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait hover:bg-[#0747a6]"
+                    style="background:#0052cc;border:1px solid #0747a6"
+                    th:attr="data-label=#{componentDetail.jira.create}, data-busy-label=#{componentDetail.jira.creating}, data-failed=#{componentDetail.jira.failed}"
+                    th:title="#{componentDetail.jira.createTooltip}">
+                <svg x-show="!busy" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                <svg x-show="busy" x-cloak class="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                <span class="text-[11px] font-bold tracking-[-0.11px] whitespace-nowrap"
+                      x-text="busy ? $el.dataset.busyLabel : $el.dataset.label"
+                      th:attr="data-label=#{componentDetail.jira.create}, data-busy-label=#{componentDetail.jira.creating}">Create Jira Ticket</span>
+            </button>
             <!-- Patchability: when CVEs exist show patchability; when no CVEs show version health -->
             <span th:if="${hasVulnerabilities}"
                   th:class="${patchability == 'patchable'} ? 'bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]'
@@ -90,8 +172,17 @@
             </span>
         </div>
 
-        <div class="flex flex-wrap items-center gap-[12px]">
-            <p class="font-normal text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.label.securityIssues}">Security Issues</p>
+        <!-- Severity breakdown — separated from the component badges above by a rule, since the
+             two rows read as one undifferentiated wall of pills otherwise. The label is given a
+             fixed column so the counts line up under each other rather than floating mid-row. -->
+        <div class="flex flex-wrap items-center gap-x-[12px] gap-y-[8px] pt-[14px] border-t border-[var(--grayscale-15)]">
+            <p class="font-bold text-[11px] text-[var(--grayscale-60)] tracking-[0.4px] uppercase shrink-0 mr-[2px]"
+               th:text="#{componentDetail.label.securityIssues}">Security Issues</p>
+            <span th:if="${securityCritical + securityHigh + securityMedium + securityLow + securityUnscored == 0}"
+                  class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
+                <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.security.none}">None found</span>
+            </span>
             <span th:if="${securityCritical > 0}"
                   class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
@@ -338,7 +429,10 @@
                                           : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-30)]' : 'bg-[var(--risk-unknown)]')))"
                           class="w-[6px] h-[6px] rounded-full shrink-0"></span>
                     <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] shrink-0 w-[190px] truncate" th:text="${cve.id}" th:title="${cve.id}">CVE-2024-11053</p>
-                    <p class="flex-1 min-w-0 truncate text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="${cve.title}" th:title="${cve.title}">Vulnerability Title</p>
+                    <!-- Collapsed: single truncated line. Expanded: full title wraps so nothing is hidden. -->
+                    <p class="flex-1 min-w-0 text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]"
+                       :class="open ? 'whitespace-normal break-words' : 'truncate'"
+                       th:text="${cve.title}" th:title="${cve.title}">Vulnerability Title</p>
                     <span class="shrink-0 flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px] border"
                           th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
                                         : (${cve.severity == 'HIGH'} ? 'bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]'
@@ -375,15 +469,17 @@
                                 </button>
                             </div>
                         </div>
-                        <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.aiSummary}"></p>
+                        <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5] whitespace-pre-line break-words" th:text="${cve.aiSummary}"></p>
                         <p th:if="${cve.aiRecommendedAction}" class="text-[12px] text-[var(--grayscale-70)] tracking-[-0.12px] leading-[1.5]">
                             <span class="font-medium" th:text="#{componentDetail.cve.aiAction} + ':'">Action:</span>
                             <span th:text="${cve.aiRecommendedAction}"></span>
                         </p>
                     </div>
-                    <div th:if="${cve.aiSummary == null and cve.summary != null}" class="bg-[var(--grayscale-5)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
+                    <!-- Original advisory description — always shown when expanded. The AI summary above is a
+                         supplement, so the source text explaining *why* this is a vulnerability is never hidden. -->
+                    <div th:if="${cve.summary != null}" class="bg-[var(--grayscale-5)] rounded-[10px] p-[18px] flex flex-col gap-[8px]">
                         <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.cve.summary}">Summary</p>
-                        <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5]" th:text="${cve.summary}"></p>
+                        <p class="text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.5] whitespace-pre-line break-words" th:text="${cve.summary}"></p>
                     </div>
                     <div class="flex flex-wrap gap-x-[24px] gap-y-[8px] text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">
                         <span th:if="${cve.cweId}">
@@ -656,12 +752,43 @@
             <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.section.description}">Component Description</h2>
         </div>
 
-        <div class="flex flex-col gap-[8px] text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.6]">
-            <p>
-                <span class="font-medium" th:text="${componentName}">Component</span>
-                (<span th:text="${ecosystem}">MAVEN</span>, v<span th:text="${componentVersion}">-</span>)
-                <th:block th:text="#{componentDetail.desc.included}">is included in this project.</th:block>
+        <div class="flex flex-col gap-[12px] text-[13px] text-[var(--grayscale-90)] tracking-[-0.13px] leading-[1.6]">
+            <!-- What the library actually is, straight from the upstream project record.
+                 The license line that used to live here was removed: it is already a badge at
+                 the top of this panel, and repeating it crowded out the useful content. -->
+            <p th:if="${componentDescription != null}" th:text="${componentDescription}"
+               class="text-[var(--grayscale-90)]">A library that does X.</p>
+            <p th:if="${componentDescription == null}" class="text-[var(--grayscale-60)] italic"
+               th:text="#{componentDetail.desc.unavailable}">No project description is published upstream for this package. Re-scan after the next enrichment run, or follow the source link below.</p>
+
+            <!-- Where it comes from — the fastest way to judge an unfamiliar dependency. -->
+            <div th:if="${componentSourceRepoUrl != null or componentHomepage != null}"
+                 class="flex flex-wrap items-center gap-x-[16px] gap-y-[6px] text-[12px]">
+                <a th:if="${componentSourceRepoUrl != null}" th:href="${componentSourceRepoUrl}"
+                   target="_blank" rel="noopener noreferrer"
+                   class="flex items-center gap-[5px] text-[var(--primary-120)] hover:underline">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                    </svg>
+                    <span th:text="#{componentDetail.desc.sourceRepo}">Source repository</span>
+                </a>
+                <a th:if="${componentHomepage != null}" th:href="${componentHomepage}"
+                   target="_blank" rel="noopener noreferrer"
+                   class="flex items-center gap-[5px] text-[var(--primary-120)] hover:underline">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span th:text="#{componentDetail.desc.homepage}">Homepage</span>
+                </a>
+            </div>
+
+            <!-- How it is used *here* — ecosystem, version, and how many projects share it. -->
+            <p class="text-[12px] text-[var(--grayscale-60)]">
+                <span th:text="${ecosystem}">MAVEN</span> ·
+                <th:block th:text="#{componentDetail.desc.inUse(${componentVersion}, ${projectsCount})}">v2.2.0 in use across 7 projects</th:block>
             </p>
+
             <p th:if="${hasVulnerabilities}">
                 <th:block th:text="#{componentDetail.desc.hasVulnerabilities}">This version has known security vulnerabilities.</th:block>
                 <span th:if="${securityFixVersion != null}">
@@ -670,8 +797,6 @@
                 <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
             </p>
             <p th:if="${!hasVulnerabilities}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
-            <p><th:block th:text="#{componentDetail.desc.licenseLabel} + ': '">License: </th:block><span class="font-medium" th:text="${licenseName ?: 'Unknown'}">-</span>
-               (<span th:text="${licenseIsNonStandard} ? #{license.status.nonstandard} : #{|license.status.${#strings.toLowerCase(licenseRisk)}|}">-</span>).</p>
         </div>
     </section>
 

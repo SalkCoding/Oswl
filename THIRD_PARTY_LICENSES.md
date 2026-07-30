@@ -6,28 +6,37 @@ OsWL uses the following third-party libraries. This document lists each library,
 
 ## Table of Contents
 
-| Library | License |
-|---------|---------|
-| [Spring Boot / Spring Framework](#spring-boot--spring-framework) | Apache 2.0 |
-| [Spring Security](#spring-security) | Apache 2.0 |
-| [Spring Data JPA](#spring-data-jpa) | Apache 2.0 |
-| [Hibernate ORM](#hibernate-orm) | LGPL 2.1 |
-| [Thymeleaf](#thymeleaf) | Apache 2.0 |
-| [thymeleaf-extras-springsecurity6](#thymeleaf-extras-springsecurity6) | Apache 2.0 |
-| [springdoc-openapi](#springdoc-openapi) | Apache 2.0 |
-| [Jackson (Databind / Core / Annotations)](#jackson) | Apache 2.0 |
-| [Logback Classic](#logback-classic) | EPL 1.0 / LGPL 2.1 |
-| [SLF4J API](#slf4j-api) | MIT |
-| [GreenMail](#greenmail) | Apache 2.0 |
-| [H2 Database](#h2-database) | EPL 2.0 / MPL 2.0 |
-| [PostgreSQL JDBC Driver](#postgresql-jdbc-driver) | BSD 2-Clause |
-| [Project Lombok](#project-lombok) | MIT |
-| [Alpine.js](#alpinejs) | MIT |
-| [@alpinejs/collapse](#alpinjscollapse) | MIT |
-| [Chart.js](#chartjs) | MIT |
-| [htmx](#htmx) | BSD Zero-Clause (0BSD) |
-| [Tailwind CSS](#tailwind-css) | MIT |
-| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf) | Apache 2.0 |
+| Library                                                               | License                |
+|-----------------------------------------------------------------------|------------------------|
+| [Spring Boot / Spring Framework](#spring-boot--spring-framework)      | Apache 2.0             |
+| [Spring Security](#spring-security)                                   | Apache 2.0             |
+| [Spring Data JPA](#spring-data-jpa)                                   | Apache 2.0             |
+| [Hibernate ORM](#hibernate-orm)                                       | LGPL 2.1               |
+| [Thymeleaf](#thymeleaf)                                               | Apache 2.0             |
+| [thymeleaf-extras-springsecurity6](#thymeleaf-extras-springsecurity6) | Apache 2.0             |
+| [springdoc-openapi](#springdoc-openapi)                               | Apache 2.0             |
+| [Jackson (Databind / Core / Annotations)](#jackson)                   | Apache 2.0             |
+| [Logback Classic](#logback-classic)                                   | EPL 1.0 / LGPL 2.1     |
+| [SLF4J API](#slf4j-api)                                               | MIT                    |
+| [GreenMail](#greenmail)                                               | Apache 2.0             |
+| [H2 Database](#h2-database)                                           | EPL 2.0 / MPL 2.0      |
+| [PostgreSQL JDBC Driver](#postgresql-jdbc-driver)                     | BSD 2-Clause           |
+| [Project Lombok](#project-lombok)                                     | MIT                    |
+| [Alpine.js](#alpinejs)                                                | MIT                    |
+| [@alpinejs/collapse](#alpinejscollapse)                               | MIT                    |
+| [Chart.js](#chartjs)                                                  | MIT                    |
+| [htmx](#htmx)                                                         | BSD Zero-Clause (0BSD) |
+| [Tailwind CSS](#tailwind-css)                                         | MIT                    |
+| [CycloneDX Core (Java)](#cyclonedx-core-java)                         | Apache 2.0             |
+| [packageurl-java](#packageurl-java)                                   | MIT                    |
+| [Micrometer Prometheus Registry](#micrometer-prometheus-registry)     | Apache 2.0             |
+| [Flyway](#flyway)                                                     | Apache 2.0             |
+| [Spring Security OAuth2 Client](#spring-security-oauth2-client)       | Apache 2.0             |
+| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf)                                  | Apache 2.0             |
+| [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
+| [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
+| [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
+| [deps.dev](#depsdev)                                                  | Unclarified (data) / Apache 2.0 (client repo) |
 
 ---
 
@@ -35,7 +44,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 
 ### Spring Boot / Spring Framework
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-boot
 - **License:** Apache License, Version 2.0
 
@@ -53,7 +62,7 @@ You may obtain a copy of the License at
 
 ### Spring Security
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-security
 - **License:** Apache License, Version 2.0
 
@@ -67,7 +76,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Spring Data JPA
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-data-jpa
 - **License:** Apache License, Version 2.0
 
@@ -81,7 +90,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Hibernate ORM
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://hibernate.org/orm/
 - **License:** GNU Lesser General Public License, Version 2.1 (LGPL-2.1)
 
@@ -106,7 +115,7 @@ Lesser General Public License for more details.
 
 ### Thymeleaf
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://www.thymeleaf.org/
 - **License:** Apache License, Version 2.0
 
@@ -145,9 +154,86 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ---
 
+### CycloneDX Core (Java)
+
+- **Version:** 13.0.0
+- **Website:** https://github.com/CycloneDX/cyclonedx-core-java
+- **License:** Apache License, Version 2.0
+- **Used for:** Generating and validating CycloneDX 1.6 SBOM / VEX documents (v1.0.4).
+
+```
+Copyright (c) OWASP Foundation.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### packageurl-java
+
+- **Version:** Managed by cyclonedx-core-java 13.0.0
+- **Website:** https://github.com/package-url/packageurl-java
+- **License:** MIT License
+- **Used for:** Parsing and building package-url (purl) component coordinates for SBOM export/import (v1.0.4).
+
+```
+Copyright (c) The Package URL authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, subject to the conditions of the MIT License.
+```
+
+---
+
+### Micrometer Prometheus Registry
+
+- **Version:** Managed by Spring Boot 4.1.0
+- **Website:** https://micrometer.io/
+- **License:** Apache License, Version 2.0
+- **Used for:** Exposing application metrics at /actuator/prometheus (v1.0.4).
+
+```
+Copyright (c) VMware, Inc. / Broadcom.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### Flyway
+
+- **Version:** Managed by Spring Boot 4.1.0 (flyway-core, flyway-database-postgresql)
+- **Website:** https://flywaydb.org/
+- **License:** Apache License, Version 2.0
+- **Used for:** Opt-in versioned database schema migrations (v1.0.4).
+
+```
+Copyright (c) Red Gate Software Ltd.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### Spring Security OAuth2 Client
+
+- **Version:** Managed by Spring Boot 4.1.0
+- **Website:** https://spring.io/projects/spring-security
+- **License:** Apache License, Version 2.0
+- **Used for:** Optional OIDC single sign-on (Okta / Entra) login (v1.0.4).
+
+```
+Copyright 2002-2024 the original author or authors.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
 ### Jackson
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://github.com/FasterXML/jackson
 - **License:** Apache License, Version 2.0
 
@@ -161,7 +247,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### Logback Classic
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://logback.qos.ch/
 - **License:** Eclipse Public License 1.0 (EPL-1.0) **or** GNU Lesser General Public License 2.1 (LGPL-2.1) (dual-licensed; recipient may choose either)
 
@@ -182,7 +268,7 @@ License v2.1. You may choose either license.
 
 ### SLF4J API
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://www.slf4j.org/
 - **License:** MIT License
 
@@ -204,7 +290,7 @@ in all copies or substantial portions of the Software.
 
 ### GreenMail
 
-- **Version:** 2.1.3
+- **Version:** 2.1.11
 - **Website:** https://greenmail-mail-test.github.io/greenmail/
 - **License:** Apache License, Version 2.0
 
@@ -218,7 +304,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ### H2 Database
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://www.h2database.com/
 - **License:** Eclipse Public License 2.0 (EPL-2.0) **or** Mozilla Public License 2.0 (MPL-2.0) (dual-licensed; recipient may choose either)
 
@@ -239,7 +325,7 @@ Public License v. 2.0 are satisfied: Mozilla Public License, v. 2.0.
 
 ### PostgreSQL JDBC Driver
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://jdbc.postgresql.org/
 - **License:** BSD 2-Clause License
 
@@ -274,7 +360,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 ### Project Lombok
 
-- **Version:** Managed by Spring Boot 4.0.5
+- **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://projectlombok.org/
 - **License:** MIT License
 - **Runtime artifact:** Not included — Lombok is a compile-time annotation processor (`compileOnly`/`annotationProcessor`) and generates no runtime bytecode in the distributed JAR.
@@ -301,7 +387,7 @@ These libraries are loaded at runtime from public CDNs and are not bundled insid
 
 ### Alpine.js
 
-- **Version:** 3.x
+- **Version:** 3.15.12
 - **Website:** https://alpinejs.dev/
 - **License:** MIT License
 
@@ -323,7 +409,7 @@ all copies or substantial portions of the Software.
 
 ### @alpinejs/collapse
 
-- **Version:** 3.x
+- **Version:** 3.15.12
 - **Website:** https://alpinejs.dev/plugins/collapse
 - **License:** MIT License
 
@@ -336,7 +422,7 @@ Copyright 2019-2024 Caleb Porzio and contributors.
 
 ### Chart.js
 
-- **Version:** 4.4.1
+- **Version:** 4.5.1
 - **Website:** https://www.chartjs.org/
 - **License:** MIT License
 
@@ -358,7 +444,7 @@ all copies or substantial portions of the Software.
 
 ### htmx
 
-- **Version:** 1.9.10
+- **Version:** 2.0.10
 - **Website:** https://htmx.org/
 - **License:** BSD Zero-Clause License (0BSD)
 
@@ -377,7 +463,7 @@ purpose with or without fee is hereby granted.
 
 ### Tailwind CSS
 
-- **Version:** 3.4.17 (Standalone CLI binary, not in runtime JAR)
+- **Version:** 3.4.19 (Standalone CLI binary, not in runtime JAR)
 - **Website:** https://tailwindcss.com/
 - **License:** MIT License
 
@@ -411,7 +497,8 @@ may impose obligations beyond a copyright notice.
 - **Publisher:** Alibaba Cloud (Qwen team)
 - **Website:** https://github.com/QwenLM/Qwen3
 - **License:** Apache License, Version 2.0 — full text below under [Apache License 2.0 — Full Text](#apache-license-20--full-text)
-- **Distribution:** Not bundled in the git repository or build artifacts — OsWL downloads this file itself from the official `ggml-org/Qwen3-1.7B-GGUF` Hugging Face repository (over plain HTTPS, verifying its SHA256) the first time a user clicks **Start** on Embedded AI with no model present, storing it at `embedded-ai/qwen3-1.7b-q4_k_m.gguf`. Permissively licensed, so this auto-fetch carries no redistribution obligation beyond this notice. See [Embedded AI](docs/Embedded-AI.md).
+- **Distribution:** Not bundled in the git repository or build artifacts. OsWL downloads the official `ggml-org/Qwen3-1.7B-GGUF` file `Qwen3-1.7B-Q4_K_M.gguf` directly from Hugging Face (over plain HTTPS, verifying its SHA256 against the value below) the first time a user clicks **Start** on Embedded AI with no model present, or in the background shortly after boot (see [Embedded AI](docs/Embedded-AI.md)), storing it at `embedded-ai/qwen3-1.7b-q4_k_m.gguf`. Nothing is downloaded in air-gapped mode — those hosts place the file themselves. Operators may point `OSWL_EMBEDDED_DEFAULT_MODEL_URL` at a self-hosted byte-identical mirror instead; Apache 2.0 permits that redistribution, no modifications are made to the model weights beyond the upstream GGUF quantization already noted above, and this notice plus the included license text and upstream attribution satisfy its requirements. Permissively licensed, so mirroring and auto-fetching it carries no obligation beyond this notice.
+- **SHA256:** `d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5` — must always match `oswl.ai.embedded.default-model-sha256` (`EmbeddedAiService`'s default); if one changes without the other, downloads fail integrity verification.
 
 ```
 Copyright Alibaba Cloud. Licensed under the Apache License, Version 2.0 (the "License");
@@ -419,11 +506,64 @@ you may not use this file except in compliance with the License. You may obtain 
 of the License at https://www.apache.org/licenses/LICENSE-2.0
 ```
 
-### Gemma 3 1B (GGUF) — not bundled
+---
 
-- **Website:** https://ai.google.dev/gemma
-- **License:** [Gemma Terms of Use](https://ai.google.dev/gemma/terms) — a custom license, **not** an OSI-approved open-source license. It requires redistributors to pass a full copy of the terms and a Prohibited Use Policy notice to every downstream recipient, among other obligations that don't fit a standard third-party-notice format.
-- **Distribution:** **Not included** in OsWL's repository, build, or release artifacts. It is offered only as an optional low-spec fallback for Embedded AI — users who want it download it themselves directly from Google/Hugging Face and accept the Gemma Terms of Use in that transaction. See [Embedded AI](docs/Embedded-AI.md).
+## External Data Sources (Vulnerability / Threat Intelligence Feeds)
+
+Unlike the libraries and models above, the entries below are **data, not code** — consumed live
+by `OsvClient`/`DepsDevClient`/`EpssClient`/`KevCatalogService` when air-gapped mode is off, and
+by the `oswl-vdb` builder CLI (E5, `com.salkcoding.oswl.vdb`) when constructing an offline
+snapshot bundle for air-gapped instances. None of this data is bundled in the git repository or
+build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
+
+### OSV (Open Source Vulnerabilities)
+
+- **Website:** https://osv.dev/ · bulk dumps: `https://storage.googleapis.com/osv-vulnerabilities/<ecosystem>/all.zip`
+- **License:** Varies by upstream advisory source, documented per-ecosystem at
+  https://google.github.io/osv.dev/data/. For the ecosystems OsWL supports: **npm, Maven,
+  RubyGems, NuGet** entries originate from the **GitHub Advisory Database (CC-BY 4.0)**; **PyPI**
+  additionally draws from the PyPI Advisory Database and the Python Software Foundation Database
+  (both **CC-BY 4.0**); **Go** from the Go Vulnerability Database (**CC-BY 4.0**); **crates.io**
+  from the RustSec Advisory Database (**CC0 1.0**, public domain).
+- **Used for:** Live per-component vulnerability lookups (`OsvClient`) and, in `oswl-vdb build`,
+  bulk re-indexing of the ecosystem `all.zip` dumps into `osv.jsonl` snapshot entries.
+- **Attribution:** CC-BY 4.0 requires attribution to the original source; this notice plus OSV's
+  own `id`/`aliases` fields preserved verbatim in every re-indexed entry satisfy that.
+
+### FIRST.org EPSS (Exploit Prediction Scoring System)
+
+- **Website:** https://www.first.org/epss/ · bulk scores: `https://epss.empiricalsecurity.com/epss_scores-current.csv.gz`
+- **License:** FIRST.org states EPSS scores are made "freely and openly accessible" via CSV and
+  API, with attribution requested where possible (https://www.first.org/epss/faq); this is
+  narrower than a formal open-data license — the underlying model/training data are explicitly
+  **not** shared per that FAQ, only the published per-CVE scores OsWL consumes.
+- **Used for:** Live per-CVE probability-of-exploitation scores (`EpssClient`) and, in
+  `oswl-vdb build`, the full bulk CSV.
+- **Attribution:** This notice + preserving FIRST.org as the named source satisfies the
+  attribution request.
+
+### CISA KEV (Known Exploited Vulnerabilities Catalog)
+
+- **Website:** https://www.cisa.gov/known-exploited-vulnerabilities-catalog
+- **License:** **CC0 1.0** (public domain) — a work of the U.S. federal government, mirrored
+  under CC0 at https://github.com/cisagov/kev-data.
+- **Used for:** Live KEV-listed flagging (`KevCatalogService`) and, in `oswl-vdb build`, the full
+  bulk JSON feed.
+
+### deps.dev
+
+- **Website:** https://deps.dev/ · API: https://docs.deps.dev/api/v3/
+- **License:** **Not explicitly stated by Google for the returned data** — a community request
+  to clarify the data license (https://github.com/google/deps.dev/issues/15) was closed without
+  a stated resolution as of this writing. Use of the API itself is governed by the
+  [Google APIs Terms of Service](https://developers.google.com/terms). The deps.dev **client
+  repository's own code** (not the data) is Apache 2.0.
+- **Used for:** Live per-version license/advisory-key lookups and Scorecard scores
+  (`DepsDevClient`) and, in `oswl-vdb build`, targeted `GetVersion`/`GetAdvisory` calls against a
+  wanted-list (E6) — deps.dev has no bulk dump, so this is the only viable ingestion path (E5.2).
+- **Note:** Given the licensing ambiguity above, treat deps.dev-derived fields (`licenses`,
+  `advisoryKeys`, GHSA advisory title/CVSS) the same way the rest of this codebase already does —
+  as data used to power OsWL's own analysis output, not redistributed as a standalone dataset.
 
 ---
 

@@ -9,6 +9,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @Controller
 @RequestMapping("/projects/{projectId}/risk-trend")
@@ -20,9 +21,11 @@ public class RiskTrendController implements RiskTrendControllerSpec {
     private final ProjectAccessService projectAccessService;
 
     @GetMapping
-    public String index(@PathVariable Long projectId, Model model) {
+    public String index(@PathVariable Long projectId,
+                        @RequestParam(required = false) Long scanId,
+                        Model model) {
         projectAccessService.assertCanViewProject(projectId);
-        riskTrendService.populateModel(projectId, model);
+        riskTrendService.populateModel(projectId, scanId, model);
         return "risk-trend/index";
     }
 }

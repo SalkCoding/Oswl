@@ -27,6 +27,9 @@ public class EmbeddedAiProviderRegistrar {
         AiSetting setting = aiSettingRepository.findByProvider(AiProvider.LOCAL)
                 .orElseGet(() -> AiSetting.builder().provider(AiProvider.LOCAL).build());
         setting.update(null, modelName, baseUrl);
+        // Marks this LOCAL row as the built-in sidecar so the settings page can show it as the
+        // Embedded entry rather than as an external Ollama endpoint.
+        setting.markEmbeddedManaged(true);
         aiSettingRepository.findByActiveTrue()
                 .filter(s -> s.getProvider() != AiProvider.LOCAL)
                 .ifPresent(other -> {

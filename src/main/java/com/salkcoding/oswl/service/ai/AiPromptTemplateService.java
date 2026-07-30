@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,7 @@ import java.util.Properties;
  * Loads AI prompt templates from classpath resources and renders placeholders.
  *
  * <p>Default: {@code classpath:ai/prompts.properties}
- * Korean overlay: {@code classpath:ai/prompts_ko.properties} when {@code oswl.ai.prompts.locale=ko}
+ * Locale overlay: {@code classpath:ai/prompts_<locale>.properties} (e.g. {@code prompts_ko}, {@code prompts_ja})
  * Override path: {@code oswl.ai.prompts.location}
  */
 @Slf4j
@@ -33,7 +34,7 @@ import java.util.Properties;
 public class AiPromptTemplateService {
 
     private static final String DEFAULT_LOCATION = "classpath:ai/prompts.properties";
-    private static final String KO_OVERLAY = "classpath:ai/prompts_ko.properties";
+    private static final String OVERLAY_PATTERN = "classpath:ai/prompts_%s.properties";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -44,6 +45,25 @@ public class AiPromptTemplateService {
     private volatile String locale = "en";
 
     private Properties templates = new Properties();
+
+    /**
+     * When true, {@code AiProvider.LOCAL} batch calls use the leaner {@code .local} prompt
+     * variant (fewer fields, few-shot example) instead of the full schema meant for larger
+     * cloud models — a 1.7B-class model following a 4-field JSON schema with a 6-line priority
+     * rubric has a much higher chance of drifting from the schema than a cloud model does.
+     */
+    @Value("${oswl.ai.enrichment.local-simple-schema:true}")
+    private boolean localSimpleSchema;
+
+    /**
+     * F3: cloud providers (OPENAI/ANTHROPIC/GEMINI) get a pipe-delimited batch item format
+     * instead of repeating a full field label on every line — the labels alone cost ~17 tokens
+     * per item. LOCAL never uses this: C3 already pulls the opposite direction (smaller models
+     * need explicit labels to avoid mis-assigning fields), and local tokens are effectively
+     * free (self-hosted), so the accuracy risk is not worth the saving there.
+     */
+    @Value("${oswl.ai.enrichment.compact-batch-prompts:true}")
+    private boolean compactBatchPromptsEnabled;
 
     public AiPromptTemplateService(
             ResourceLoader resourceLoader,
@@ -67,14 +87,28 @@ public class AiPromptTemplateService {
 
     private void loadWithLocale(String activeLocale) {
         templates = loadFrom(resourceLoader.getResource(promptsLocation));
-        if ("ko".equalsIgnoreCase(activeLocale)) {
-            Resource ko = resourceLoader.getResource(KO_OVERLAY);
-            if (ko.exists()) {
-                overlay(loadFrom(ko));
-                log.info("[AI] Applied Korean prompt overlay from {}", ko);
+        // Any locale with a prompts_<locale>.properties overlay is supported (ko, ja, ...).
+        if (activeLocale != null && !activeLocale.isBlank() && !"en".equalsIgnoreCase(activeLocale)) {
+            String code = activeLocale.strip().toLowerCase(java.util.Locale.ROOT);
+            Resource overlay = resourceLoader.getResource(String.format(OVERLAY_PATTERN, code));
+            if (overlay.exists()) {
+                overlay(loadFrom(overlay));
+                log.info("[AI] Applied '{}' prompt overlay from {}", code, overlay);
+            } else {
+                log.debug("[AI] No prompt overlay for locale '{}' — using default templates", code);
             }
         }
         applyDbOverrides(readPreferences().getPromptOverrides());
+    }
+
+    /**
+     * Language directive appended to the system prompt so the model answers in the language of the
+     * person who triggered the scan ({@link AiLanguageContext}), independent of the globally
+     * configured template overlay. Returns an empty string when no request language is bound.
+     */
+    private String languageDirective() {
+        String lang = AiLanguageContext.currentLanguageName();
+        return lang == null ? "" : "\nAlways write every free-text answer in " + lang + ".";
     }
 
     private AiPreferences readPreferences() {
@@ -83,14 +117,14 @@ public class AiPromptTemplateService {
     }
 
     public String getSystemPrompt() {
-        return require("system.default");
+        return require("system.default") + languageDirective();
     }
 
     public String getSystemPrompt(AiProvider provider) {
         if (provider == null) return getSystemPrompt();
         String key = "system." + provider.name().toLowerCase();
         if (templates.containsKey(key)) {
-            return templates.getProperty(key);
+            return templates.getProperty(key) + languageDirective();
         }
         return getSystemPrompt();
     }
@@ -105,6 +139,75 @@ public class AiPromptTemplateService {
         Integer pref = readPreferences().getMaxTokens();
         if (pref != null) return pref;
         return (int) parseDouble(require("params.maxTokens"), 1200);
+    }
+
+    /**
+     * Reasoning effort selected in AI settings. {@link AiEffort#DEFAULT} means the clients send no
+     * effort parameter at all, which is what keeps older models and local runtimes working.
+     */
+    public AiEffort getReasoningEffort() {
+        return readPreferences().getReasoningEffort();
+    }
+
+    /**
+     * Operation budget with room for the model to think first.
+     *
+     * <p>{@code max_tokens} is a ceiling on the <em>whole</em> response, and on every current cloud
+     * model that includes the reasoning the model does before it writes anything. The per-operation
+     * budgets in {@code prompts.properties} (256 for a posture insight, 900 for combined insights)
+     * were sized against the embedded llama.cpp model, which runs with reasoning switched off —
+     * on OpenAI/Anthropic/Gemini the same 256 is spent reasoning and the answer comes back empty
+     * or truncated. That is why insights appeared for the embedded model but not for a configured
+     * cloud provider.
+     *
+     * <p>So a headroom allowance is added on top of the template budget whenever the model is
+     * likely to reason: any cloud provider, or any provider once the user has explicitly raised
+     * the effort level. Embedded/local at the default effort keeps the original tight budgets —
+     * a small local model given a large ceiling tends to ramble rather than stop.
+     *
+     * <p>The ceiling is not a target: a model that does not reason still stops at its own end of
+     * turn well before it, so the extra headroom costs nothing when it is not needed.
+     */
+    public int getMaxTokens(String operation, AiProvider provider) {
+        return getMaxTokens(operation) + reasoningHeadroom(provider, getReasoningEffort());
+    }
+
+    private static int reasoningHeadroom(AiProvider provider, AiEffort effort) {
+        boolean cloudReasoning = provider == AiProvider.OPENAI
+                || provider == AiProvider.ANTHROPIC
+                || provider == AiProvider.GEMINI;
+        if (!cloudReasoning && effort.isDefault()) {
+            return 0;
+        }
+        return switch (effort) {
+            case DEFAULT, LOW -> 1024;
+            case MEDIUM -> 2048;
+            case HIGH -> 4096;
+            case XHIGH -> 6144;
+            case MAX -> 8192;
+        };
+    }
+
+    /**
+     * Operation-specific max_tokens (e.g. {@code "batch.cve"}, {@code "security.posture"}).
+     * A short free-text insight and a 10-item batch JSON array need very different budgets —
+     * one generic value either truncates the batch or wastes headroom on the short prompts.
+     *
+     * <p>Priority: {@code params.maxTokens.<operation>} (if present) &gt; {@link #getMaxTokens()}
+     * (DB override, then {@code params.maxTokens}). An operation-specific key intentionally
+     * outranks the DB override — a batch operation's token floor must not be silently cut
+     * below what a truncation-free response requires just because the user set a smaller
+     * global default for the short free-text insights.
+     */
+    public int getMaxTokens(String operation) {
+        if (operation != null) {
+            String key = "params.maxTokens." + operation;
+            String value = templates.getProperty(key);
+            if (value != null) {
+                return (int) parseDouble(value, getMaxTokens());
+            }
+        }
+        return getMaxTokens();
     }
 
     private void applyDbOverrides(String jsonOverrides) {
@@ -232,29 +335,92 @@ public class AiPromptTemplateService {
                 "threatDetails", nullToDash(threatDetails)));
     }
 
+    /**
+     * F2: posture + security-trend + license-trend + version-diff folded into one JSON call
+     * instead of 4 separate free-form ones. {@code hasHistory=false} (first scan for the
+     * project, no prior completed scan) renders the reduced posture-only schema — the trend/
+     * diff sections would otherwise ask the model to invent a "no change" narrative from
+     * nothing.
+     */
+    public String combinedInsightsPrompt(String projectName, AiEnrichmentContextBuilder.PostureContext posture,
+                                         boolean hasHistory, int secDelta, int licDelta, String recentVersions,
+                                         String secChangeDetails, String licChangeDetails,
+                                         String fromVersion, String toVersion,
+                                         int added, int removed, int updated, int newThreats, String threatDetails) {
+        if (!hasHistory) {
+            return render("insights.combined.postureOnly", vars(
+                    "projectName", projectName,
+                    "critical", posture.critical(),
+                    "high", posture.high(),
+                    "medium", posture.medium(),
+                    "low", posture.low(),
+                    "totalComponents", posture.totalComponents(),
+                    "patchableCount", posture.patchableCount(),
+                    "nonPatchableCount", posture.nonPatchableCount(),
+                    "directCriticalHigh", posture.directCriticalHigh(),
+                    "topIssues", posture.topIssues()));
+        }
+        return render("insights.combined.full", vars(
+                "projectName", projectName,
+                "critical", posture.critical(),
+                "high", posture.high(),
+                "medium", posture.medium(),
+                "low", posture.low(),
+                "totalComponents", posture.totalComponents(),
+                "patchableCount", posture.patchableCount(),
+                "nonPatchableCount", posture.nonPatchableCount(),
+                "directCriticalHigh", posture.directCriticalHigh(),
+                "topIssues", posture.topIssues(),
+                "recentVersions", recentVersions,
+                "securityDirection", direction(secDelta),
+                "securityDelta", abs(secDelta),
+                "secChangeDetails", nullToDash(secChangeDetails),
+                "licenseDirection", direction(licDelta),
+                "licenseDelta", abs(licDelta),
+                "licChangeDetails", nullToDash(licChangeDetails),
+                "fromVersion", fromVersion,
+                "toVersion", toVersion,
+                "added", added,
+                "removed", removed,
+                "updated", updated,
+                "newThreats", newThreats,
+                "threatDetails", nullToDash(threatDetails)));
+    }
+
     public String testConnection() {
         return require("test.connection");
     }
 
     public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items, String deploymentProfile) {
-        String header = render("batch.cve.header", Map.of(
+        return batchCvePrompt(items, deploymentProfile, null);
+    }
+
+    public String batchCvePrompt(List<AiAnalysisService.CveSummaryRequest> items, String deploymentProfile,
+                                 AiProvider provider) {
+        boolean compact = useCompactBatchFormat(provider);
+        String header = render(compact ? "batch.cve.header.compact" : "batch.cve.header", provider, Map.of(
                 "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT"));
         StringBuilder sb = new StringBuilder(header);
+        String itemKey = compact ? "batch.cve.item.compact" : "batch.cve.item";
+        // F3: compact mode drops the trailing "-" for a missing field to blank ("||") — every
+        // char counts once the label is gone, and an empty field is still unambiguous in a
+        // fixed pipe-delimited position. The labeled format keeps "-" (unambiguous either way).
+        java.util.function.Function<String, String> missing = compact ? s -> s != null ? s : "" : AiEnrichmentContextBuilder::orDash;
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.CveSummaryRequest r = items.get(i);
-            sb.append(render("batch.cve.item", vars(
+            sb.append(render(itemKey, vars(
                     "index", i + 1,
                     "id", r.id(),
                     "component", r.component(),
                     "severity", r.severity(),
                     "cvssScore", formatCvss(r.cvssScore()),
-                    "epss", r.epssScore() != null ? String.format("%.3f", r.epssScore()) : "-",
+                    "epss", r.epssScore() != null ? String.format("%.3f", r.epssScore()) : (compact ? "" : "-"),
                     "kevListed", r.kevListed() ? "yes" : "no",
-                    "title", AiEnrichmentContextBuilder.orDash(r.title()),
-                    "osvSummary", AiEnrichmentContextBuilder.orDash(r.osvSummary()),
-                    "fixVersion", AiEnrichmentContextBuilder.orDash(r.fixVersion()),
-                    "cweId", AiEnrichmentContextBuilder.orDash(r.cweId()),
-                    "cvssVector", AiEnrichmentContextBuilder.orDash(r.cvssVector()),
+                    "title", missing.apply(r.title()),
+                    "osvSummary", missing.apply(r.osvSummary()),
+                    "fixVersion", missing.apply(r.fixVersion()),
+                    "cweId", missing.apply(r.cweId()),
+                    "cvssVector", missing.apply(r.cvssVector()),
                     "dependencyType", r.dependencyType(),
                     "patchability", r.patchability())));
             sb.append('\n');
@@ -262,28 +428,51 @@ public class AiPromptTemplateService {
         return sb.toString().stripTrailing();
     }
 
-    public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items) {
-        StringBuilder sb = new StringBuilder(require("batch.license.header"));
+    /** F3: pipe-delimited compact batch prompts are cloud-only (see {@link #compactBatchPromptsEnabled}). */
+    private boolean useCompactBatchFormat(AiProvider provider) {
+        return compactBatchPromptsEnabled && provider != null && provider != AiProvider.LOCAL;
+    }
+
+    public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
+                                     String deploymentProfile) {
+        return batchLicensePrompt(items, deploymentProfile, null);
+    }
+
+    public String batchLicensePrompt(List<AiAnalysisService.LicenseSummaryRequest> items,
+                                     String deploymentProfile, AiProvider provider) {
+        boolean compact = useCompactBatchFormat(provider);
+        StringBuilder sb = new StringBuilder(render(compact ? "batch.license.header.compact" : "batch.license.header",
+                provider, Map.of("deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT")));
+        String itemKey = compact ? "batch.license.item.compact" : "batch.license.item";
+        java.util.function.Function<String, String> missing = compact ? s -> s != null ? s : "" : AiEnrichmentContextBuilder::orDash;
         for (int i = 0; i < items.size(); i++) {
             AiAnalysisService.LicenseSummaryRequest r = items.get(i);
-            sb.append(render("batch.license.item", Map.of(
+            sb.append(render(itemKey, Map.of(
                     "index", i + 1,
                     "id", r.id(),
                     "licenseName", r.licenseName(),
                     "licenseStatus", r.licenseStatus(),
-                    "policyReason", AiEnrichmentContextBuilder.orDash(r.policyReason()),
+                    "policyReason", missing.apply(r.policyReason()),
                     "component", r.component(),
-                    "ecosystem", AiEnrichmentContextBuilder.orDash(r.ecosystem()),
+                    "ecosystem", missing.apply(r.ecosystem()),
                     "dependencyType", r.dependencyType(),
-                    "latestVersion", AiEnrichmentContextBuilder.orDash(r.latestVersion()))));
+                    "latestVersion", missing.apply(r.latestVersion()))));
             sb.append('\n');
         }
         return sb.toString().stripTrailing();
     }
 
     public String render(String key, Map<String, ?> vars) {
-        String template = require(key);
-        String result = template;
+        return render(key, null, vars);
+    }
+
+    /**
+     * Same as {@link #render(String, Map)}, but resolves {@code key + ".local"} first when
+     * {@code provider} is {@link AiProvider#LOCAL} and {@link #localSimpleSchema} is enabled —
+     * falling back to {@code key} when no {@code .local} variant is defined for it.
+     */
+    public String render(String key, AiProvider provider, Map<String, ?> vars) {
+        String result = requireForProvider(key, provider);
         for (Map.Entry<String, ?> entry : vars.entrySet()) {
             result = result.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
         }
@@ -291,6 +480,16 @@ public class AiPromptTemplateService {
             log.warn("[AI] Unresolved placeholders remain in prompt '{}'", key);
         }
         return result;
+    }
+
+    private String requireForProvider(String key, AiProvider provider) {
+        if (provider == AiProvider.LOCAL && localSimpleSchema) {
+            String localValue = templates.getProperty(key + ".local");
+            if (localValue != null) {
+                return localValue;
+            }
+        }
+        return require(key);
     }
 
     public Map<String, String> snapshot() {

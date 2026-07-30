@@ -22,7 +22,15 @@ public class SettingsTabAccess {
         List<TabSpec> tabs = new ArrayList<>();
         if (principal == null) return tabs;
 
-        if (principal.isSystemAdmin()) {
+        // The Administration tab hosts four panels with different owners: user management and
+        // role templates stay SYSTEM_ADMIN-only (enforced per-panel in the template and by each
+        // API), while the audit log and offline snapshot are delegatable. Without this, holders
+        // of AUDIT_LOG_VIEW / SETTINGS_SNAPSHOT_MANAGE could be granted those permissions but
+        // never reach the screen that uses them.
+        if (principal.isSystemAdmin()
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.AUDIT_LOG_VIEW)
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.AUDIT_LOG_EXPORT)
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_SNAPSHOT_MANAGE)) {
             tabs.add(new TabSpec("admin", "🔐", "settings.tab.admin"));
         }
         if (principal.isSystemAdmin()

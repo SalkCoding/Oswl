@@ -116,6 +116,14 @@
                 </div>
                 <div th:replace="~{fragments/topbar :: delete-account-modal}"></div>
             </div>
+            <!-- Org Dashboard (system admin only) -->
+            <a th:if="${#authorization.expression('hasPermission(null, ''ORG_DASHBOARD_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}" th:href="@{/org-dashboard}"
+               class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+                    <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+                </svg>
+                <span class="text-[16px] font-medium tracking-[-0.16px] whitespace-nowrap" th:text="#{topbar.nav.orgDashboard}">Org Dashboard</span>
+            </a>
             <!-- Settings -->
             <a th:unless="${pageLabel == 'Settings'}" th:href="@{/settings}"
                class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
@@ -140,23 +148,28 @@
         <!-- Topbar i18n bundle (used by scan delete handler) -->
         <th:block th:replace="~{fragments/topbar :: topbar-i18n}"></th:block>
 
-        <!-- Upper bar (logo + breadcrumb + version) -->
-        <div class="bg-[var(--background-dark)] flex items-center gap-[44px] pl-[60px] pr-[40px] py-[17px] h-[64px] shrink-0">
+        <!-- Upper bar (logo + breadcrumb + version).
+             relative + z-20 so the version dropdown panel is painted above the tab bar below it
+             instead of being clipped by it. -->
+        <div class="relative z-20 bg-[var(--background-dark)] flex items-center gap-[44px] pl-[60px] pr-[40px] py-[17px] h-[64px] shrink-0">
             <a th:href="@{/projects}" class="flex items-center gap-[12px] shrink-0">
                 <img th:src="@{/icon/icon-logo.svg}" class="w-[28px] h-[38px]" alt="OsWL" aria-hidden="true">
                 <h1 class="text-[var(--secondary-100)] font-extrabold text-[24px] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
             </a>
 
-            <div class="flex items-center gap-[24px]">
-                <a th:href="@{/projects}" class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors" th:text="#{topbar.projects}">Projects</a>
+            <!-- min-w-0 lets the project name truncate instead of pushing the version selector
+                 into the user info on the right; the selector itself never shrinks. -->
+            <div class="flex items-center gap-[24px] min-w-0">
+                <a th:href="@{/projects}" class="text-white/50 text-[18px] tracking-[-0.18px] hover:text-white transition-colors shrink-0" th:text="#{topbar.projects}">Projects</a>
                 <img th:src="@{/icon/icon-chevron-right.svg}" class="w-5 h-5 shrink-0" alt="" aria-hidden="true">
-                <span class="text-white font-bold text-[18px] tracking-[-0.18px] whitespace-nowrap"
+                <span class="text-white font-bold text-[18px] tracking-[-0.18px] truncate min-w-0 max-w-[320px]"
+                      th:title="${projectName}"
                       th:text="${projectName != null and !#strings.isEmpty(projectName)} ? ${projectName} : #{topbar.fallback.projectName}">Project Name</span>
                 <div th:unless="${activeTab == 'scan-history'}"
                      th:attr="data-project-id=${projectId}"
                      x-data="{ versionDropdownOpen: false }"
                      @click.outside="versionDropdownOpen = false"
-                     class="relative">
+                     class="relative shrink-0">
                     <button type="button"
                             @click="versionDropdownOpen = !versionDropdownOpen"
                             class="bg-white/15 border border-white/30 rounded-[4px] px-[12px] pt-[4px] pb-[3px] flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors min-w-[200px] justify-between"
@@ -170,19 +183,24 @@
                     <div x-show="versionDropdownOpen"
                          x-transition
                          style="display:none;"
-                         class="absolute right-0 top-[42px] z-20 w-[280px] rounded-[4px] border border-white/40 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.3)] p-[10px]">
-                        <div class="flex flex-col gap-[10px] max-h-[200px] overflow-y-auto pr-[2px]">
+                         class="absolute right-0 top-[42px] z-40 w-[280px] rounded-[4px] border border-white/40 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.3)] p-[10px]">
+                        <div class="flex flex-col gap-[10px] max-h-[260px] overflow-y-auto pr-[2px]">
 
                             <!-- No scans available -->
                             <span th:if="${#lists.isEmpty(scanVersions)}"
                                   class="text-white/40 text-[13px] text-center px-[8px] py-[8px]" th:text="#{topbar.noScanYet}">No scans yet</span>
 
                             <!-- One entry per completed scan -->
+                            <!-- shrink-0 is load-bearing: this is a flex column with a max height,
+                                 so without it the rows are compressed to fit instead of scrolling —
+                                 with more than ~4 versions every row got squashed and its text
+                                 clipped by the overflow-hidden below, which read as overlapping
+                                 rows. -->
                             <div th:each="v : ${scanVersions}"
                                  th:attr="data-scan-id=${v.scanId},data-scan-version=${v.version}"
                                  x-data="{ showDelete: false, confirming: false }"
                                  @mouseleave="if (!confirming) showDelete = false"
-                                 class="rounded-[4px] overflow-hidden">
+                                 class="shrink-0 rounded-[4px] overflow-hidden">
 
                                 <div x-show="!confirming"
                                      @mouseenter="showDelete = true"
@@ -265,6 +283,14 @@
                     </form>
                 </div>
             </div>
+            <!-- Org Dashboard (system admin only) -->
+            <a th:if="${#authorization.expression('hasPermission(null, ''ORG_DASHBOARD_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}" th:href="@{/org-dashboard}"
+               class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+                    <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+                </svg>
+                <span class="text-[16px] font-medium tracking-[-0.16px] whitespace-nowrap" th:text="#{topbar.nav.orgDashboard}">Org Dashboard</span>
+            </a>
             <!-- Settings link -->
             <a th:href="@{/settings}"
                class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
@@ -356,6 +382,14 @@
                 </form>
             </div>
         </div>
+        <!-- Org Dashboard (system admin only) -->
+        <a th:if="${#authorization.expression('hasPermission(null, ''ORG_DASHBOARD_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}" th:href="@{/org-dashboard}"
+           class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+                <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+            </svg>
+            <span class="text-[16px] font-medium tracking-[-0.16px] whitespace-nowrap" th:text="#{topbar.nav.orgDashboard}">Org Dashboard</span>
+        </a>
         <!-- Settings link -->
         <a th:href="@{/settings}"
            class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors no-underline">

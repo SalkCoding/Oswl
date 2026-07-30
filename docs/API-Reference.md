@@ -73,8 +73,9 @@ Requires `PROJECT_CREATE` (or System Admin). Session auth.
 | `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — event `job-update` with JSON status (fallback: poll) |
 
 **Job phases:** `QUEUED` → `CLONING` → `PARSING` → `SCANNING` → `ENRICHING` → `DONE` | `FAILED`.  
-Up to **two** imports run concurrently (`oswl.quick-import.max-concurrent`); additional jobs wait in a FIFO queue (`queuePosition`).  
-During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `POSTURE`, `TREND`, `DIFF`), `detailLines`, and `aiPreviews`.
+Up to **three** imports run concurrently (`oswl.quick-import.max-concurrent`); additional jobs wait in a FIFO queue (`queuePosition`).  
+During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `INSIGHTS`), `detailLines`, and `aiPreviews`, plus the deps.dev cache decision stats (`cacheTotal`, `cacheHit`, `cacheToFetch`).  
+The separate `aiStatus` field tracks background AI enrichment (`NOT_APPLICABLE`, `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`) — a job can reach `DONE` while `aiStatus` is still `PENDING`/`RUNNING`.
 
 ---
 
@@ -103,7 +104,8 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `GET` | `/api/scan/manifest-rules` | API key | Manifest file collection rules (same as `/scripts/manifest-rules.json`) |
 | `POST` | `/api/scan/parse` | API key | Parse a manifest zip archive (CLI step 1) |
 | `POST` | `/api/scan` | API key + credentials | Submit a dependency scan (CLI step 2) |
-| `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status |
+| `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status — returns `status`, `componentCount`, the separate AI enrichment state `aiStatus` (the scan completes independently of AI), and `securityPostureInsight` |
+| `POST` | `/api/scan/gate` | API key | **v1.0.4** — PR / CI security gate; verdict with `exitCode` |
 
 ---
 
@@ -114,6 +116,17 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | Security Center page |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | Bulk CVE status update |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | Download the CVE list as CSV (`?scanId=`, `?format=csv`) |
+| `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — Open one upgrade PR for all selected components |
+| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — Print-ready compliance report |
+
+### SBOM / VEX / SARIF (v1.0.4)
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/api/projects/{projectId}/sbom` | `SECURITY_CENTER_EXPORT` | CycloneDX 1.6 SBOM (`application/vnd.cyclonedx+json`) |
+| `GET` | `/api/projects/{projectId}/vex` | `SECURITY_CENTER_EXPORT` | CycloneDX VEX built from triage decisions |
+| `GET` | `/api/projects/{projectId}/sarif` | `SECURITY_CENTER_EXPORT` | SARIF 2.1.0 (`application/sarif+json`) |
+| `POST` | `/api/sbom/import` | `PROJECT_CREATE` | Import a third-party CycloneDX file (multipart) |
 
 ---
 
@@ -125,6 +138,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `POST` | `/projects/{id}/components/{compId}/cves/{cveDbId}/ai-summarize` | `SECURITY_CENTER_UPDATE_STATUS` | Regenerate AI triage for one CVE |
 | `POST` | `/projects/{id}/components/{compId}/defer` | `SECURITY_CENTER_UPDATE_STATUS` | Record remediation deferral |
 | `POST` | `/projects/{id}/components/{compId}/create-pr` | `SECURITY_CENTER_UPDATE_STATUS` | Open a VCS pull request with a dependency fix |
+| `POST` | `/projects/{id}/components/{compId}/jira-ticket` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — Create a Jira issue for this finding |
 
 ---
 
@@ -202,6 +216,34 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 |---|---|---|
 | `GET` | `/api/admin/audit-logs` | Paginated audit log |
 | `GET` | `/api/admin/audit-logs/export.csv` | Export as CSV |
+| `GET` | `/api/admin/audit-logs/export?format=jsonl\|cef` | **v1.0.4** — SIEM export (`AUDIT_LOG_EXPORT`) |
+
+### Organization Dashboard (v1.0.4)
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| `GET` | `/org-dashboard` | `ORG_DASHBOARD_VIEW` | Portfolio-wide posture, ranking, KEV and licence rollups |
+
+### Offline Snapshots (v1.0.4)
+
+All endpoints require the `SYSTEM_ADMIN` role (or the `SETTINGS_SNAPSHOT_MANAGE` permission).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/admin/snapshot` | Store status — air-gapped flag plus, per source (`osv`, `depsdev-version`, `depsdev-advisory`, `epss`, `kev`): record count, `importedAt`, and v2 provenance (`bundleId`, `builtAt`, `sourceAsOf`, `origin`; null for sources imported from v1/meta-less bundles). Also `oldestSourceAsOf` (oldest `sourceAsOf` across sources) and the configured staleness thresholds (`stalenessWarnDays`, `stalenessCriticalDays`) used by the definition-freshness badge |
+| `POST` | `/api/admin/snapshot/import` | Import a snapshot bundle (multipart zip of JSONL files + `meta.json`). `?mode=replace\|merge` overrides the bundle's own `meta.json` mode: `replace` (default) clears each source before writing; `merge` upserts by key and honors `"_deleted":true` tombstones. v2 checksums are verified before any store mutation — a mismatch rejects the whole bundle |
+| `POST` | `/api/admin/snapshot/import-from-path` | Import a bundle already on the server's disk (`{ "path", "mode" }`) — for large bundles where a browser upload is impractical. Disabled (400) unless `oswl.airgapped.import-dir` is set; `path` must resolve under that directory |
+| `GET` | `/api/admin/snapshot/wanted-list` | Stream this instance's wanted-list as NDJSON (`application/x-ndjson`) — one `{"ecosystem","name","version"}` line per distinct scanned component, for `oswl-vdb build --wanted` on an online machine. No project names or repository URLs leave the instance |
+| `GET` | `/api/admin/snapshot/export` | Export a v2 snapshot bundle (`application/zip`) built from this instance's already-fetched data; `meta.json` `origin` is `derived-from-scan`. Run on an online instance, then import the bundle on the air-gapped one |
+
+### Monitoring (v1.0.4)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/actuator/health` | Health check (admin-gated) |
+| `GET` | `/actuator/info` | Build / version info |
+| `GET` | `/actuator/prometheus` | Micrometer metrics for Prometheus |
+| `POST` | `/projects/{projectId}/cve-alerts/acknowledge` | Acknowledge new-CVE alerts (`SECURITY_CENTER_VIEW`) |
 
 ### Admin CLI Keys
 
@@ -231,7 +273,7 @@ During `ENRICHING`, responses include `percent`, `subPhase` (`CVE`, `LICENSE`, `
 | `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | Upsert provider credentials and/or preferences |
 | `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | Deactivate active provider (optional preference body) |
 | `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | Switch active provider |
-| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | Test provider connectivity (no persist) |
+| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | Test provider connectivity (no persist). Lists available models rather than sending a completion, so it costs no tokens and does not count against the daily call cap; response includes a warning `hint` if the configured model ID isn't in the returned catalogue |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | Editable prompt templates + overrides |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | Run built-in prompt regression fixtures |
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI usage stats — today's calls/tokens/estimated cost, daily cap, and the last 7 days, read from the daily aggregate table |

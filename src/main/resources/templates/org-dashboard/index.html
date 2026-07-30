@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/head :: head(#{orgDashboard.pageTitle})}"></head>
+<body class="bg-[var(--grayscale-5)] flex flex-col min-h-screen">
+
+    <header th:replace="~{fragments/topbar :: simple-topbar(#{orgDashboard.topbar.label})}"></header>
+
+    <main class="flex-1 w-full flex flex-col gap-[24px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[24px] md:py-[40px] pb-[80px]">
+
+        <!-- Posture totals -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-[16px] w-full">
+            <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
+                <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.summary.projects}">Projects</p>
+                <p class="font-bold text-[28px] text-[var(--grayscale-100)] tracking-[-0.28px] leading-[1.2] m-0"
+                   th:text="${totalProjects}">0</p>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0"
+                   th:text="#{orgDashboard.summary.scannedProjects(${scannedProjects}, ${totalProjects})}">0 of 0 projects scanned</p>
+            </div>
+            <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
+                <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.summary.vulnerabilities}">Vulnerabilities</p>
+                <p class="font-bold text-[28px] text-[var(--risk-critical)] tracking-[-0.28px] leading-[1.2] m-0"
+                   th:text="${totalVulnerabilities}">0</p>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0">
+                    <span class="text-[var(--risk-critical)] font-semibold" th:text="${securityCritical}">0</span>
+                    <span th:text="#{riskTrend.legend.critical}">Critical</span>
+                    <span class="mx-[4px]">·</span>
+                    <span class="text-[var(--risk-high)] font-semibold" th:text="${securityHigh}">0</span>
+                    <span th:text="#{riskTrend.legend.high}">High</span>
+                </p>
+            </div>
+            <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
+                <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0 flex items-center gap-[5px]">
+                    <span th:text="#{orgDashboard.summary.kevUnaddressed}">KEV Unaddressed</span>
+                    <!-- What is KEV? → CISA catalog -->
+                    <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener noreferrer"
+                       th:title="#{help.kev.tooltip}" th:aria-label="#{help.kev.tooltip}"
+                       class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-[var(--grayscale-30)] text-[10px] font-bold text-[var(--grayscale-50)] hover:text-[var(--primary-120)] hover:border-[var(--primary-120)] no-underline transition-colors shrink-0">?</a>
+                </p>
+                <p class="font-bold text-[28px] tracking-[-0.28px] leading-[1.2] m-0"
+                   th:classappend="${kevUnaddressed > 0} ? 'text-[var(--risk-critical)]' : 'text-[var(--grayscale-100)]'"
+                   th:text="${kevUnaddressed}">0</p>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0"
+                   th:text="#{orgDashboard.summary.kevTotal(${kevTotal})}">0 KEV-listed CVEs in total</p>
+            </div>
+            <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
+                <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.summary.licenseViolations}">License Violations</p>
+                <p class="font-bold text-[28px] tracking-[-0.28px] leading-[1.2] m-0"
+                   th:classappend="${licenseViolations > 0} ? 'text-[var(--risk-critical)]' : 'text-[var(--grayscale-100)]'"
+                   th:text="${licenseViolations}">0</p>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0"
+                   th:text="#{orgDashboard.summary.licenseWarnings(${licenseHigh})}">0 warnings</p>
+            </div>
+        </section>
+
+        <!-- Risk graphs (org-wide roll-up) -->
+        <section class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[24px] w-full">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-[24px] lg:gap-x-[60px] gap-y-[24px] w-full">
+                <div th:replace="~{fragments/risk-graph :: riskGraph(#{riskTrend.chart.security}, ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, #{riskTrend.legend.unscored})}"></div>
+                <div th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
+            </div>
+        </section>
+
+        <!-- Org-wide vulnerability trend -->
+        <section class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[24px] w-full flex flex-col gap-[20px]">
+            <p class="font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px] m-0" th:text="#{orgDashboard.trend.heading}">Org-wide Vulnerability Trend</p>
+            <div class="flex items-center gap-[24px] flex-wrap">
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#e62727]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.critical}">Critical</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#f47a29]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.high}">High</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#f5bd26]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.medium}">Medium</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#97a5ab]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.low}">Low</p>
+                </div>
+                <div class="flex gap-[8px] items-center">
+                    <span class="w-[8px] h-[8px] rounded-full bg-[#d0d9dd]"></span>
+                    <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.unscored}">Unscored</p>
+                </div>
+            </div>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="orgVulnTrendChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Worst-project ranking -->
+        <section class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[24px] w-full flex flex-col gap-[16px]">
+            <div class="flex flex-col gap-[4px]">
+                <p class="font-bold text-[18px] text-[var(--grayscale-100)] tracking-[-0.18px] m-0" th:text="#{orgDashboard.ranking.heading}">Worst Projects</p>
+                <p class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.ranking.subtitle}">Projects ranked by vulnerability severity (latest completed scan)</p>
+            </div>
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-[13px] min-w-[900px]">
+                    <thead>
+                        <tr class="text-left text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)]">
+                            <th class="px-[16px] py-[12px] font-bold w-[48px]" th:text="#{orgDashboard.ranking.rank}">#</th>
+                            <th class="px-[16px] py-[12px] font-bold" th:text="#{orgDashboard.ranking.project}">Project</th>
+                            <th class="px-[16px] py-[12px] font-bold whitespace-nowrap" th:text="#{orgDashboard.ranking.version}">Version</th>
+                            <th class="px-[16px] py-[12px] font-bold whitespace-nowrap" th:text="#{orgDashboard.ranking.lastScanned}">Last Scanned</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right" th:text="#{orgDashboard.ranking.critical}">Critical</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right" th:text="#{orgDashboard.ranking.high}">High</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right" th:text="#{orgDashboard.ranking.medium}">Medium</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right" th:text="#{orgDashboard.ranking.low}">Low</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right" th:text="#{orgDashboard.ranking.unscored}">Unscored</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right whitespace-nowrap" th:text="#{orgDashboard.ranking.licenseViolations}">License Violations</th>
+                            <th class="px-[16px] py-[12px] font-bold text-right" th:text="#{orgDashboard.ranking.kev}">KEV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="row, stat : ${projectRows}"
+                            class="border-b border-[var(--grayscale-10)] hover:bg-[var(--grayscale-5)] transition-colors">
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-60)]" th:text="${stat.count}">1</td>
+                            <td class="px-[16px] py-[12px]">
+                                <a th:href="@{|/projects/${row.id}/security-center|}"
+                                   class="font-semibold text-[var(--primary-120)] hover:underline no-underline"
+                                   th:text="${row.name}">Project</a>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]"
+                                th:text="${row.scanned ? row.version : '-'}">-</td>
+                            <td class="px-[16px] py-[12px] text-[var(--grayscale-70)] whitespace-nowrap">
+                                <span th:if="${row.scanned}" th:text="${row.lastScanned}">2026.05.01</span>
+                                <span th:unless="${row.scanned}" class="text-[var(--grayscale-40)]" th:text="#{orgDashboard.ranking.noScan}">No scan</span>
+                            </td>
+                            <td class="px-[16px] py-[12px] text-right font-semibold text-[var(--risk-critical)]" th:text="${row.securityCritical}">0</td>
+                            <td class="px-[16px] py-[12px] text-right text-[var(--risk-high)]" th:text="${row.securityHigh}">0</td>
+                            <td class="px-[16px] py-[12px] text-right text-[var(--risk-medium)]" th:text="${row.securityMedium}">0</td>
+                            <td class="px-[16px] py-[12px] text-right text-[var(--grayscale-80)]" th:text="${row.securityLow}">0</td>
+                            <td class="px-[16px] py-[12px] text-right text-[var(--grayscale-60)]" th:text="${row.securityUnscored}">0</td>
+                            <td class="px-[16px] py-[12px] text-right"
+                                th:classappend="${row.licenseViolations > 0} ? 'font-semibold text-[var(--risk-critical)]' : 'text-[var(--grayscale-80)]'"
+                                th:text="${row.licenseViolations}">0</td>
+                            <td class="px-[16px] py-[12px] text-right"
+                                th:classappend="${row.kevUnaddressed > 0} ? 'font-semibold text-[var(--risk-critical)]' : 'text-[var(--grayscale-80)]'"
+                                th:text="${row.kevUnaddressed}">0</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(projectRows)}">
+                            <td colspan="11" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]"
+                                th:text="#{orgDashboard.ranking.noProjects}">No projects yet.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script th:src="@{/js/vendor/chart.umd.min.js}"></script>
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+    window.orgDashboardData = {
+        labels: /*[[${chartLabels}]]*/ [],
+        critical: /*[[${chartSecCritical}]]*/ [],
+        high:     /*[[${chartSecHigh}]]*/ [],
+        medium:   /*[[${chartSecMedium}]]*/ [],
+        low:      /*[[${chartSecLow}]]*/ [],
+        unscored: /*[[${chartSecNone}]]*/ []
+    };
+    window.orgDashboardI18n = {
+        xAxis:   /*[[#{orgDashboard.trend.xAxis}]]*/ 'Week',
+        yAxis:   /*[[#{orgDashboard.trend.yAxis}]]*/ 'Issue Count',
+        noData:  /*[[#{orgDashboard.trend.noData}]]*/ 'No scan data yet',
+        noDataHint: /*[[#{orgDashboard.trend.noDataHint}]]*/ 'Run scans across projects to see the org-wide trend.',
+        chartLoadFailed: /*[[#{orgDashboard.trend.loadFailed}]]*/ 'Chart could not be loaded.',
+        critical: /*[[#{riskTrend.legend.critical}]]*/ 'Critical',
+        high:     /*[[#{riskTrend.legend.high}]]*/ 'High',
+        medium:   /*[[#{riskTrend.legend.medium}]]*/ 'Medium',
+        low:      /*[[#{riskTrend.legend.low}]]*/ 'Low',
+        unscored: /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored'
+    };
+    /*]]>*/
+    </script>
+    <script th:src="@{/js/org-dashboard/org-dashboard.js}"></script>
+
+    <footer th:replace="~{fragments/footer :: site-footer}"></footer>
+
+</body>
+</html>
