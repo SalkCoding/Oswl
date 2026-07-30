@@ -57,4 +57,12 @@ public class AiSettingUpdateRequest {
     @Schema(description = "Default deployment profile for projects without one",
             example = "COMMERCIAL_PRODUCT")
     private String     defaultDeploymentProfile;
+
+    @Schema(description = "Reasoning effort per call; DEFAULT sends no effort parameter",
+            example = "MEDIUM", allowableValues = {"DEFAULT", "LOW", "MEDIUM", "HIGH", "XHIGH", "MAX"})
+    private String     reasoningEffort;
+
+    @Schema(description = "Allow provider/language changes to regenerate insights for existing scans",
+            example = "false")
+    private Boolean    autoBackfillInsights;
 }

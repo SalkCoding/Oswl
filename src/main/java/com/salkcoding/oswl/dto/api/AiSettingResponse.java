@@ -48,4 +48,24 @@ public class AiSettingResponse {
     private final Integer    dailyCallCap;
     private final String     promptOverrides;
     private final String     defaultDeploymentProfile;
+
+    @Schema(description = "Reasoning effort per call; DEFAULT means no effort parameter is sent",
+            example = "MEDIUM")
+    private final String     reasoningEffort;
+
+    @Schema(description = "Whether provider/language changes may regenerate insights for existing scans",
+            example = "false")
+    private final Boolean    autoBackfillInsights;
+
+    /**
+     * Which entry in the provider list is actually serving AI calls right now.
+     *
+     * <p>Distinct from {@code provider} because Embedded AI registers itself as the LOCAL provider:
+     * with only {@code provider} the settings page could not tell "built-in model" apart from
+     * "external Ollama endpoint", and both appeared selected.
+     */
+    @Schema(description = "Active provider entry: OFF, OPENAI, ANTHROPIC, GEMINI, LOCAL or EMBEDDED",
+            example = "EMBEDDED",
+            allowableValues = {"OFF", "OPENAI", "ANTHROPIC", "GEMINI", "LOCAL", "EMBEDDED"})
+    private final String     activeProviderKind;
 }

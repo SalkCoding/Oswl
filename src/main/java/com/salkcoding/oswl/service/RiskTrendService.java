@@ -32,19 +32,29 @@ public class RiskTrendService {
     private final ScanResultRepository scanResultRepository;
     private final LibraryRepository    libraryRepository;
 
+    /**
+     * @param scanId the scan the user selected in the version dropdown; null means "latest".
+     *               The trend is drawn up to and including that scan (older versions to its left),
+     *               so picking an older version shows the project as it looked back then rather
+     *               than silently re-rendering the latest scan.
+     */
     @Transactional(readOnly = true)
-    public void populateModel(Long projectId, Model model) {
+    public void populateModel(Long projectId, Long scanId, Model model) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
         model.addAttribute("projectId", projectId);
         model.addAttribute("projectName", project.getName());
 
-        List<ScanResult> scansDesc = new ArrayList<>(scanResultRepository.findRecentCompleted(projectId, trendLimit));
-        VersionOrder.sortDesc(scansDesc);
-
         List<ScanResult> allScans = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
         VersionOrder.sortDesc(allScans);
+
+        ScanResult selected = allScans.stream()
+                .filter(s -> s.getId().equals(scanId))
+                .findFirst()
+                .orElse(allScans.isEmpty() ? null : allScans.getFirst());
+        Long activeScanId = selected != null ? selected.getId() : null;
+
         List<VersionSummaryDto> scanVersions = allScans.stream()
                 .map(s -> VersionSummaryDto.builder()
                         .scanId(s.getId())
@@ -52,11 +62,29 @@ public class RiskTrendService {
                                 : s.getScannedAt().toLocalDate().toString().replace("-", "."))
                         .scannedAt(s.getScannedAt() != null
                                 ? s.getScannedAt().toLocalDate().toString().replace("-", ".") : "-")
-                        .current(false)
+                        .current(s.getId().equals(activeScanId))
                         .build())
                 .toList();
         model.addAttribute("scanVersions", scanVersions);
-        model.addAttribute("currentScanId", null);
+        model.addAttribute("currentScanId", activeScanId);
+
+        // Trend window. Viewing the latest scan (the default) keeps the original indexed
+        // "most recent N" query; only an explicit older selection needs the window re-sliced
+        // out of the already-loaded full list so the chart ends at that version.
+        List<ScanResult> scansDesc = new ArrayList<>();
+        boolean viewingLatest = selected == null || selected.getId().equals(allScans.getFirst().getId());
+        if (viewingLatest) {
+            scansDesc.addAll(scanResultRepository.findRecentCompleted(projectId, trendLimit));
+            VersionOrder.sortDesc(scansDesc);
+        } else {
+            boolean reached = false;
+            for (ScanResult s : allScans) {
+                if (!reached && !s.getId().equals(activeScanId)) continue;
+                reached = true;
+                scansDesc.add(s);
+                if (scansDesc.size() >= Math.max(1, trendLimit)) break;
+            }
+        }
 
         if (scansDesc.isEmpty()) {
             addEmptyChartData(model);
@@ -65,6 +93,11 @@ public class RiskTrendService {
 
         ScanResult latest = scansDesc.getFirst();
         model.addAttribute("projectVersion", latest.getVersion() != null ? latest.getVersion() : "-");
+        // Labels the insight card: "AI Insight (v1.0.1)" plus the date it was produced, so an
+        // insight from an older version is never mistaken for the current one.
+        model.addAttribute("insightVersion", latest.getVersion());
+        model.addAttribute("insightGeneratedAt", latest.getScannedAt() != null
+                ? latest.getScannedAt().toLocalDate().toString() : null);
 
         List<ScanResult> scansAsc = new ArrayList<>(scansDesc);
         Collections.reverse(scansAsc);
@@ -166,6 +199,8 @@ public class RiskTrendService {
 
     private void addEmptyChartData(Model model) {
         model.addAttribute("projectVersion",         "-");
+        model.addAttribute("insightVersion",        null);
+        model.addAttribute("insightGeneratedAt",    null);
         model.addAttribute("securityIssues",           0);
         model.addAttribute("securityDelta",            0);
         model.addAttribute("licenseIssues",            0);

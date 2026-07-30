@@ -104,6 +104,7 @@
           currentScanId: window.securityCenterData.currentScanId,
           aiStatus: window.securityCenterData.aiStatus,
           aiPostureInsight: window.securityCenterData.securityPostureInsight,
+          aiRetrying: false,
           scanPollTimer: null,
           aiPollTimer: null,
           rowVisible(el) {
@@ -221,15 +222,55 @@
                   const r = await fetch('/api/scan/' + this.currentScanId + '/status');
                   if (!r.ok) return;
                   const d = await r.json();
-                  this.aiStatus = d.aiStatus;
                   if (d.securityPostureInsight) {
                       this.aiPostureInsight = d.securityPostureInsight;
                   }
                   if (['COMPLETED', 'FAILED', 'NOT_APPLICABLE'].includes(d.aiStatus)) {
                       clearInterval(this.aiPollTimer);
                       this.aiPollTimer = null;
+                      // One more read a moment later: the insight and the status are written in
+                      // two separate transactions, so a poll can land between them and see
+                      // COMPLETED with the insight column still empty. Without this the card
+                      // would claim nothing was produced for an insight that did arrive.
+                      if (!this.aiPostureInsight) {
+                          setTimeout(() => this.refetchAiInsight(), 1500);
+                      }
                   }
+                  // Assigned last so the generating card is only torn down once the insight
+                  // that goes in its place has been read.
+                  this.aiStatus = d.aiStatus;
               }, 2500);
+          },
+          // Single non-looping read of the current scan's insight.
+          async refetchAiInsight() {
+              try {
+                  const r = await fetch('/api/scan/' + this.currentScanId + '/status');
+                  if (!r.ok) return;
+                  const d = await r.json();
+                  if (d.securityPostureInsight) this.aiPostureInsight = d.securityPostureInsight;
+                  this.aiStatus = d.aiStatus;
+              } catch (e) { /* leave the empty state in place */ }
+          },
+          // Re-runs insight generation for the scan being viewed.
+          async retryAiInsight() {
+              if (!this.currentScanId) return;
+              this.aiRetrying = true;
+              try {
+                  const projectId = document.body.dataset.projectId;
+                  const r = await fetch('/projects/' + projectId + '/security-center/refresh-insights?scanId='
+                                        + this.currentScanId, { method: 'POST', headers: oswlJsonHeaders() });
+                  const d = await r.json().catch(() => ({}));
+                  if (!r.ok || !d.success) {
+                      alert(d.message || window.securityCenterData.i18n.actionFailed);
+                      return;
+                  }
+                  await this.refetchAiInsight();
+                  if (!this.aiPostureInsight) alert(window.securityCenterData.i18n.aiRetryEmpty);
+              } catch (e) {
+                  alert(window.securityCenterData.i18n.actionFailed);
+              } finally {
+                  this.aiRetrying = false;
+              }
           },
           applySort(mode) {
               this.sortMode = mode;
@@ -395,7 +436,10 @@
             actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.',
             batchPrPrompt: /*[[#{securityCenter.batchPr.prompt}]]*/ 'Base branch for the upgrade PRs:',
             batchPrNone: /*[[#{securityCenter.batchPr.none}]]*/ 'No patchable components found.',
-            batchPrResult: /*[[#{securityCenter.batchPr.result}]]*/ 'Batch PRs: {0} created, {1} failed (of {2} candidates).'
+            batchPrResult: /*[[#{securityCenter.batchPr.result}]]*/ 'Batch PRs: {0} created, {1} failed (of {2} candidates).',
+            aiRetry: /*[[#{securityCenter.aiRetry}]]*/ 'Generate now',
+            aiRetrying: /*[[#{securityCenter.aiRetrying}]]*/ 'Generating…',
+            aiRetryEmpty: /*[[#{securityCenter.aiRetryEmpty}]]*/ 'The AI provider returned nothing for this scan. Check Settings → AI (daily cap, model, and token limit) and try again.'
         }
     };
     </script>
@@ -487,6 +531,21 @@
                 </div>
                 <div class="h-[14px] w-3/4 rounded bg-[var(--grayscale-15)]"></div>
                 <div class="h-[14px] w-1/2 rounded bg-[var(--grayscale-15)]"></div>
+            </div>
+
+            <!-- Enrichment finished but produced no posture insight. Without this the skeleton
+                 above simply vanished and nothing replaced it, which read as "the insight was
+                 generated and then lost" — the AI had answered, but the answer was empty (a
+                 truncated reasoning block, a failed insight sub-task, or the daily cap). Say so
+                 and offer a retry instead of silently rendering nothing. -->
+            <div x-show="!aiPostureInsight && ['COMPLETED','FAILED'].includes(aiStatus)" x-cloak
+                 class="mb-[24px] flex items-center gap-[12px] flex-wrap p-[20px] rounded-[10px] bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)]">
+                <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0 opacity-40" alt="" aria-hidden="true">
+                <p class="flex-1 min-w-[240px] text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0 leading-[1.4]"
+                   th:text="#{securityCenter.aiUnavailable}">No AI insight was produced for this scan.</p>
+                <button type="button" @click="retryAiInsight()" :disabled="aiRetrying"
+                        class="shrink-0 text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] border border-[var(--grayscale-20)] bg-white hover:bg-[var(--grayscale-10)] text-[var(--grayscale-80)] transition-colors cursor-pointer disabled:opacity-40"
+                        x-text="aiRetrying ? window.securityCenterData.i18n.aiRetrying : window.securityCenterData.i18n.aiRetry"></button>
             </div>
 
             <!-- Risk stick graph -->
