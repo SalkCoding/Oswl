@@ -92,7 +92,7 @@ public class ScanIngestService {
         scanResult.startScanning();
         scanResultRepository.save(scanResult);
 
-        // Save ScanComponents — resolve all Library rows with one bulk query first (A6)
+        // Save ScanComponents — resolve all Library rows with one bulk query first
         if (payload.getComponents() != null && !payload.getComponents().isEmpty()) {
             Map<LibraryKey, Library> librariesByKey = resolveLibraries(payload.getComponents());
 

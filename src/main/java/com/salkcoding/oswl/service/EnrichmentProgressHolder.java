@@ -84,8 +84,8 @@ public class EnrichmentProgressHolder {
     }
 
     /**
-     * D4: records the cache decision (total / cacheHit / toFetch) so the job status can show a
-     * cache badge, and seeds the data-phase progress total (D3). With nothing to fetch the data
+     * Records the cache decision (total / cacheHit / toFetch) so the job status can show a
+     * cache badge, and seeds the data-phase progress total. With nothing to fetch the data
      * phase is effectively instant, so the percent jumps straight to the AI band base.
      */
     public void recordCacheStats(Long scanResultId, int total, int cacheHit, int toFetch) {

@@ -16,7 +16,7 @@ import java.time.Instant;
  * multi-hundred-MB OSV dumps. Entries older than {@link #MAX_AGE} are treated as stale and
  * re-fetched; with no {@code --cache-dir}, every call goes straight to the network.
  *
- * <p>{@code --offline-sources <dir>} (E5) uses this same class in {@code offlineOnly} mode: the
+ * <p>{@code --offline-sources <dir>} uses this same class in {@code offlineOnly} mode: the
  * directory is treated exactly like a cache dir except a miss is a hard error instead of a
  * network fallback — the whole point is a build that never touches the network. The expected
  * filenames are this class's own cache-key convention, e.g. {@code osv-npm-all.zip},

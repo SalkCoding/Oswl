@@ -27,8 +27,8 @@ public class DeferExpiryScheduler {
 
     /**
      * Runs every day at midnight to clear deferrals whose expiry date has passed.
-     * {@code @SchedulerLock} (roadmap S1) is a no-op unless {@code oswl.scheduler-lock.enabled=true}
-     * (see {@link SchedulerLockConfig}) — a single instance behaves exactly as before S1.
+     * {@code @SchedulerLock} is a no-op unless {@code oswl.scheduler-lock.enabled=true}
+     * (see {@link SchedulerLockConfig}) — a single instance is unaffected.
      */
     @Scheduled(cron = "0 0 0 * * *")
     @SchedulerLock(name = "DeferExpiryScheduler_expireOverdueDeferrals",

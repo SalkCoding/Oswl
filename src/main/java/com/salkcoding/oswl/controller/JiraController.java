@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * Jira integration (roadmap #10): admin settings + per-component ticket creation.
+ * Jira integration: admin settings + per-component ticket creation.
  */
 @Hidden
 @RestController

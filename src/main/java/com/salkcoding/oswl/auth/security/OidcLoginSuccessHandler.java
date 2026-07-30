@@ -20,7 +20,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import java.io.IOException;
 
 /**
- * OIDC SSO (roadmap #13) success handler. After the IdP (Okta / Entra / any OIDC provider)
+ * OIDC SSO success handler. After the IdP (Okta / Entra / any OIDC provider)
  * authenticates the user, this maps the verified email claim onto the existing OsWL user and
  * replaces the security context with the standard {@link OswlUserPrincipal} — so every existing
  * authorization rule (roles, permissions, single-session) behaves exactly as with form login.

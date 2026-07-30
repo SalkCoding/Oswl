@@ -111,7 +111,7 @@ public final class VdbBuilderCli {
             System.err.println("[oswl-vdb] --offline-sources " + opts.offlineSources()
                     + " — no network calls will be made; only osv/epss/kev are covered");
             if (effectiveSources.contains("depsdev")) {
-                System.err.println("[oswl-vdb] WARNING: deps.dev has no bulk dump (E5.2), so it cannot be built "
+                System.err.println("[oswl-vdb] WARNING: deps.dev has no bulk dump, so it cannot be built "
                         + "offline — skipping depsdev despite --sources including it.");
                 effectiveSources = new java.util.LinkedHashSet<>(effectiveSources);
                 effectiveSources.remove("depsdev");
@@ -126,7 +126,7 @@ public final class VdbBuilderCli {
         if (effectiveSources.contains("osv")) {
             if (wanted.isEmpty()) {
                 System.err.println("[oswl-vdb] WARNING: --sources includes osv but no --wanted was given — "
-                        + "OSV bulk dumps are vuln-indexed, not component-indexed (E5.3); without a wanted-list "
+                        + "OSV bulk dumps are vuln-indexed, not component-indexed; without a wanted-list "
                         + "there is no safe way to re-index them without a combinatorial explosion. Skipping osv.");
             } else {
                 try {
@@ -150,7 +150,7 @@ public final class VdbBuilderCli {
         if (effectiveSources.contains("depsdev")) {
             if (wanted.isEmpty()) {
                 System.err.println("[oswl-vdb] WARNING: --sources includes depsdev but no --wanted was given — "
-                        + "deps.dev has no bulk dump (E5.2), only a per-package API. Skipping depsdev.");
+                        + "deps.dev has no bulk dump, only a per-package API. Skipping depsdev.");
             } else {
                 try {
                     DepsDevSource.Result r = new DepsDevSource(mapper).fetch(wanted);

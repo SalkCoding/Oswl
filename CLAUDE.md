@@ -28,16 +28,25 @@ OsWL is an in-house SCA (Software Composition Analysis) platform for tracking an
     ├── aop/             # Cross-cutting concerns (audit logging)
     ├── auth/            # Auth module — config, controller, dto, entity, enums, repo, security, service, web
     ├── client/          # External API clients (OSV, deps.dev, GitHub…)
+    ├── config/          # App-wide config beans (air-gapped client, startup warnings)
     ├── controller/      # Business controllers
     │   └── spec/        # Controller spec interfaces (all springdoc annotations here)
     ├── domain/entity/   # JPA entities
     ├── domain/enums/
-    ├── dto/  exception/  repository/  scheduler/  service/  web/
+    ├── dto/  exception/  license/  logging/  repository/  security/  service/  util/  vdb/
+    ├── scheduler/       # @Scheduled jobs + SchedulerLockConfig (ShedLock, opt-in cluster lock)
+    ├── web/
+    │   ├── config/      # MVC config
+    │   ├── filter/      # Servlet filters (e.g. request/user MDC logging correlation)
+    │   └── interceptor/
     resources/
     ├── application.yaml / application-local.yaml / application-prod.yaml
+    ├── logback-spring.xml   # Console always; prod adds a rotating file (plain or JSON)
+    ├── db/migration/        # Flyway (opt-in) — db/*.sql are the matching ddl-auto reference scripts
     ├── static/{css,js,img,icon,graphic,scripts}/
-    └── templates/{auth, projects, security-center, component-detail, license,
-                   risk-trend, scan-history, settings, error, fragments}/
+    └── templates/{auth, component-detail, error, fragments, license, mail, org-dashboard,
+                   oss-notices, projects, reports, risk-trend, scan-history, security-center,
+                   settings, version-diff}/
 
 ---
 
@@ -83,6 +92,7 @@ OsWL is an in-house SCA (Software Composition Analysis) platform for tracking an
 - **Dependencies:** Add to `build.gradle` (backend) or use CDN/webjars (frontend).
 - **Error pages:** `error/{401,403,404,500,503}.html` — use `_owl-error.html` fragment (shared owl illustration).
 - **Log tone:** Business events → INFO/WARN/ERROR; details → `log.debug`.
+- **No internal tracking codes in comments/docs:** Never leave internal planning labels — roadmap/sprint/ticket-style codes like `S1`, `B7`, `A2`, `roadmap #13`, `H2/H3`, `E5.2`, `week 7` — in code comments, commit-adjacent doc prose, or `docs/*.md`. They mean nothing to a reader without the planning doc that produced them, and that doc isn't part of the shipped project. Explain the *reason* for the code in plain language instead. Real version numbers (e.g. `v1.0.4`, "added in v1.0.4") are fine to keep — they're meaningful on their own once released. (Internal planning docs like a working `ROADMAP.md` are themselves exempt — this rule is about what leaks out of them into permanent files.)
 
 ## Test Code Policy
 

@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * Development-only scratch verifier ({@code src/local/java} — not in the production bootJar)
- * for the roadmap #16 supply-chain heuristics.
+ * for the supply-chain heuristics.
  *
  * <p>Run after {@code ./gradlew compileJava compileLocalJava processResources}:
  * <pre>

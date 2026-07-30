@@ -137,10 +137,10 @@ public class QuickImportService {
      */
     private final java.util.Set<String> canceledJobs = ConcurrentHashMap.newKeySet();
 
-    /** scanResultId → jobId, so enrichment progress events can find the owning job for SSE pushes (D3). */
+    /** scanResultId → jobId, so enrichment progress events can find the owning job for SSE pushes. */
     private final ConcurrentHashMap<Long, String> jobIdByScanResultId = new ConcurrentHashMap<>();
     /**
-     * Per-job SSE throttle for high-frequency progress updates (D3): [lastSentAtMs, lastSentPercent].
+     * Per-job SSE throttle for high-frequency progress updates: [lastSentAtMs, lastSentPercent].
      * Phase transitions always notify immediately (via {@link #patchJob}); only the continuous
      * in-phase progress path is throttled to one frame per 500ms unless the percent advanced.
      */
@@ -1183,7 +1183,7 @@ public class QuickImportService {
 
     /**
      * Applies a status patch WITHOUT emitting an SSE frame — used by the throttled progress
-     * path (D3), which decides on its own cadence when to push.
+     * path, which decides on its own cadence when to push.
      */
     private void patchJobQuiet(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
         if (canceledJobs.contains(jobId)) {
@@ -1255,7 +1255,7 @@ public class QuickImportService {
     }
 
     /**
-     * Phase-entry percents (D3). Each phase owns a band that in-phase progress signals fill:
+     * Phase-entry percents. Each phase owns a band that in-phase progress signals fill:
      * CLONING 5–20, PARSING 20–40 (manifests N/M), SCANNING 40–55, ENRICHING 55–100
      * (data fetch 55–80 via EnrichmentProgressHolder, AI blocks 80–100).
      */

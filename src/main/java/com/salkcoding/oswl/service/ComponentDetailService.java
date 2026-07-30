@@ -237,7 +237,7 @@ public class ComponentDetailService {
         model.addAttribute("typosquatRisk", lib.isTyposquatRisk());
         model.addAttribute("typosquatReason", lib.getTyposquatReason());
 
-        // Jira integration (#10): existing linked issue, if any
+        // Jira integration: existing linked issue, if any
         model.addAttribute("jiraIssueKey", sc.getJiraIssueKey());
         model.addAttribute("jiraIssueUrl", sc.getJiraIssueUrl());
 

@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Supply-chain name heuristics (roadmap #16): typosquat similarity and lightweight
+ * Supply-chain name heuristics: typosquat similarity and lightweight
  * dependency-confusion detection. Kept separate from {@link VulnerabilityEnrichmentService}
  * so the enrichment pipeline stays slim — everything here is pure in-memory string matching
  * (no network, no DB), cheap enough to re-run on every scan.

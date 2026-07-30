@@ -13,10 +13,10 @@ import java.util.Map;
 
 /**
  * Serves the public /oss-notices page. Not an API — a plain view controller, so springdoc/
- * controller-spec annotations (rule C3) do not apply here.
+ * controller-spec annotations do not apply here.
  *
- * <p>H4: reads the OSS version manifest generated at build time by the {@code generateOssManifest}
- * Gradle task (H2) so the page always shows the versions build.gradle actually resolved, instead
+ * <p>Reads the OSS version manifest generated at build time by the {@code generateOssManifest}
+ * Gradle task so the page always shows the versions build.gradle actually resolved, instead
  * of hand-maintained literals.
  */
 @Slf4j

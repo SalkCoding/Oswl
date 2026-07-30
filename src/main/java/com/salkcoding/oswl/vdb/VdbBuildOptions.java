@@ -10,7 +10,7 @@ import java.util.Set;
  * <p>{@code --offline-sources <dir>} builds entirely without network access, from a directory
  * pre-populated by an earlier {@code --cache-dir} build run while online (see {@link HttpCache}).
  * It only covers the bulk-dumpable sources (osv/epss/kev) — {@code depsdev} has no bulk dump at
- * all (E5.2) and is always skipped when this flag is set, regardless of {@code --sources}.
+ * all and is always skipped when this flag is set, regardless of {@code --sources}.
  */
 public record VdbBuildOptions(
         Path out,

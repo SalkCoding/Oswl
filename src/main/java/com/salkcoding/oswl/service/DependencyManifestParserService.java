@@ -467,7 +467,7 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * Single-walk manifest index over the clone tree (A3). Built once per
+     * Single-walk manifest index over the clone tree. Built once per
      * {@link #parseDependencies} call; all per-ecosystem manifest lookups read
      * from it instead of re-walking the tree.
      *

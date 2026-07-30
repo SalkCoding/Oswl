@@ -176,7 +176,7 @@ public class AiAnalysisService {
      * fields present, others missing) still returns those fields — the caller (block 3 of
      * {@code VulnerabilityEnrichmentService.enrichWithAiBody}) persists whichever insights
      * came back and leaves the rest untouched, same "partial success is still success"
-     * philosophy as the CVE/license batch chunking (C1).
+     * philosophy as the CVE/license batch chunking.
      */
     @Transactional(readOnly = true)
     public CombinedInsights generateCombinedInsights(String projectName,

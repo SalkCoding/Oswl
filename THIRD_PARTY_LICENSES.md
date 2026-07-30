@@ -238,7 +238,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 - **Version:** Managed by Spring Boot 4.1.0
 - **Website:** https://spring.io/projects/spring-session
 - **License:** Apache License, Version 2.0
-- **Used for:** Cluster-wide HTTP session storage in PostgreSQL, so a multi-instance deployment behind a load balancer keeps users logged in across instances and survives a single instance restarting (roadmap S1).
+- **Used for:** Cluster-wide HTTP session storage in PostgreSQL, so a multi-instance deployment behind a load balancer keeps users logged in across instances and survives a single instance restarting.
 
 ```
 Copyright 2014-2024 the original author or authors.
@@ -253,7 +253,7 @@ Licensed under the Apache License, Version 2.0 (the "License").
 - **Version:** 7.7.0 (shedlock-spring, shedlock-provider-jdbc-template)
 - **Website:** https://github.com/lukas-krecan/ShedLock
 - **License:** Apache License, Version 2.0
-- **Used for:** Cluster-wide lock ensuring each `@Scheduled` job (nightly monitoring, deferral expiry, trash cleanup) runs on exactly one instance even when OsWL is deployed with multiple instances (roadmap S1).
+- **Used for:** Cluster-wide lock ensuring each `@Scheduled` job (nightly monitoring, deferral expiry, trash cleanup) runs on exactly one instance even when OsWL is deployed with multiple instances.
 
 ```
 Copyright 2009-2024 the original author(s)
@@ -544,7 +544,7 @@ of the License at https://www.apache.org/licenses/LICENSE-2.0
 
 Unlike the libraries and models above, the entries below are **data, not code** — consumed live
 by `OsvClient`/`DepsDevClient`/`EpssClient`/`KevCatalogService` when air-gapped mode is off, and
-by the `oswl-vdb` builder CLI (E5, `com.salkcoding.oswl.vdb`) when constructing an offline
+by the `oswl-vdb` builder CLI (`com.salkcoding.oswl.vdb`) when constructing an offline
 snapshot bundle for air-gapped instances. None of this data is bundled in the git repository or
 build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
 
@@ -599,7 +599,11 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
   **client repository's own code** (not the data) is Apache 2.0.
 - **Used for:** Live per-version license/advisory-key lookups and Scorecard scores
   (`DepsDevClient`) and, in `oswl-vdb build`, targeted `GetVersion`/`GetAdvisory` calls against a
-  wanted-list (E6) — deps.dev has no bulk dump, so this is the only viable ingestion path (E5.2).
+  wanted-list — deps.dev has no bulk dump, so this is the only viable ingestion path.
+- **Note:** Given the licensing ambiguity above, treat deps.dev-derived fields (`licenses`,
+  `advisoryKeys`, GHSA advisory title/CVSS) the same way the rest of this codebase already does —
+  as data used to power OsWL's own analysis output, not redistributed as a standalone dataset.
+  wanted-list — deps.dev has no bulk dump, so this is the only viable ingestion path.
 - **Attribution:** This notice + the OSV/GHSA attribution above satisfies CC-BY 4.0 for the
   generated and advisory data. deps.dev-derived fields are used to power OsWL's own analysis
   output, not redistributed as a standalone dataset.

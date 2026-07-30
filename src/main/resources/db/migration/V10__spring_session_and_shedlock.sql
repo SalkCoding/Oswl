@@ -1,4 +1,4 @@
--- Horizontal scaling / HA (roadmap S1): cluster-wide HTTP session storage (Spring Session JDBC)
+-- Horizontal scaling / HA: cluster-wide HTTP session storage (Spring Session JDBC)
 -- and a lock table for @Scheduled jobs (ShedLock), so a multi-instance deployment behind a load
 -- balancer keeps users logged in on failover and never runs the nightly monitoring / defer-expiry /
 -- trash-cleanup jobs more than once per cycle. Both are opt-in — see OSWL_SESSION_STORE_TYPE and

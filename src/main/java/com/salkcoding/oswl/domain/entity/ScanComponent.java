@@ -93,7 +93,7 @@ public class ScanComponent {
     @Column(name = "reviewed_by_name", length = 100)
     private String reviewedByName;
 
-    /** Jira issue key created for this component's vulnerabilities (roadmap #10); null = none. */
+    /** Jira issue key created for this component's vulnerabilities; null = none. */
     @Column(name = "jira_issue_key", length = 50)
     private String jiraIssueKey;
 

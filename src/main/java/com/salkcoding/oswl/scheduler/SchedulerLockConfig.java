@@ -10,12 +10,12 @@ import org.springframework.context.annotation.Configuration;
 import javax.sql.DataSource;
 
 /**
- * Horizontal scaling / HA (roadmap S1): cluster-wide dedup for {@code @Scheduled} jobs via
- * ShedLock, so a multi-instance deployment doesn't run the nightly monitoring / defer-expiry /
- * trash-cleanup jobs once per instance. Disabled by default (single-instance behavior, unchanged
- * from pre-S1) — enable with {@code OSWL_SCHEDULER_LOCK_ENABLED=true} only alongside a
- * multi-instance deployment, and only once the {@code shedlock} table exists
- * (db/migration/V10 or db/spring_session_and_shedlock.sql).
+ * Horizontal scaling / HA: cluster-wide dedup for {@code @Scheduled} jobs via ShedLock, so a
+ * multi-instance deployment doesn't run the nightly monitoring / defer-expiry / trash-cleanup
+ * jobs once per instance. Disabled by default (single-instance behavior is unaffected) — enable
+ * with {@code OSWL_SCHEDULER_LOCK_ENABLED=true} only alongside a multi-instance deployment, and
+ * only once the {@code shedlock} table exists (db/migration/V10 or
+ * db/spring_session_and_shedlock.sql).
  */
 @Configuration
 @ConditionalOnProperty(prefix = "oswl.scheduler-lock", name = "enabled", havingValue = "true")
