@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
@@ -190,20 +191,21 @@ public class OpenAiClient implements AiAnalysisClient {
         StringBuilder result = new StringBuilder();
         Map<String, Object> usage = null;
         try {
-            Map<String, Object> body = Map.of(
+            Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of(
                     "model", model,
                     "messages", List.of(
                             Map.of("role", "system",
                                    "content", promptTemplates.getSystemPrompt(setting.getProvider())),
                             Map.of("role", "user", "content", userPrompt)
                     ),
-                    "max_tokens", promptTemplates.getMaxTokens(op),
+                    "max_tokens", promptTemplates.getMaxTokens(op, providerOf(setting)),
                     "temperature", promptTemplates.getTemperature(),
                     "stream", true,
                     // Servers without stream_options support either ignore it or reject the
                     // request — a reject surfaces as a non-2xx below and triggers the fallback.
                     "stream_options", Map.of("include_usage", true)
-            );
+            ));
+            applyReasoningEffort(body);
 
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -304,16 +306,17 @@ public class OpenAiClient implements AiAnalysisClient {
             headers.setBearerAuth(resolvedApiKey);
         }
 
-        Map<String, Object> body = Map.of(
+        Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of(
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system",
                                "content", promptTemplates.getSystemPrompt(setting.getProvider())),
                         Map.of("role", "user", "content", userPrompt)
                 ),
-                "max_tokens", promptTemplates.getMaxTokens(op),
+                "max_tokens", promptTemplates.getMaxTokens(op, providerOf(setting)),
                 "temperature", promptTemplates.getTemperature()
-        );
+        ));
+        applyReasoningEffort(body);
 
         long start = System.currentTimeMillis();
         for (int attempt = 1; attempt <= 2; attempt++) {
@@ -359,6 +362,24 @@ public class OpenAiClient implements AiAnalysisClient {
             }
         }
         return null;
+    }
+
+    /** Provider of the setting in play; OPENAI when a caller supplied none (schema-less prompts). */
+    private static AiProvider providerOf(AiSetting setting) {
+        return setting != null && setting.getProvider() != null ? setting.getProvider() : AiProvider.OPENAI;
+    }
+
+    /**
+     * Adds {@code reasoning_effort} when the user picked an effort level in AI settings.
+     * Left out entirely on {@link AiEffort#DEFAULT} — non-reasoning models and older
+     * OpenAI-compatible runtimes reject unknown sampling fields, so opting in is a choice.
+     * Anthropic is not routed through this client; it uses {@code output_config.effort}.
+     */
+    private void applyReasoningEffort(Map<String, Object> body) {
+        String effort = promptTemplates.getReasoningEffort().openAiValue();
+        if (effort != null) {
+            body.put("reasoning_effort", effort);
+        }
     }
 
     /**

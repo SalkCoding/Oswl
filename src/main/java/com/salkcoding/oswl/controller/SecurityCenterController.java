@@ -12,12 +12,15 @@ import com.salkcoding.oswl.service.ComponentDetailService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.SecurityCenterService;
 import com.salkcoding.oswl.service.VcsAuthTokenService;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +47,8 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
     private final AirgappedSnapshotService airgappedSnapshotService;
+    private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
+    private final MessageSource messageSource;
 
     @Value("${oswl.airgapped.enabled:false}")
     private boolean airgapped;
@@ -135,6 +140,29 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.bulkUpdateStatus(projectId, req);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Regenerates the scan-level AI insights for one scan. The Security Center card offers this
+     * when enrichment finished without producing a posture insight — previously the "generating…"
+     * placeholder simply disappeared and left nothing behind, with no way to retry short of
+     * re-running the whole scan.
+     */
+    @PostMapping("/refresh-insights")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> refreshInsights(@PathVariable Long projectId,
+                                                               @RequestParam Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
+        boolean ok = vulnerabilityEnrichmentService.refreshScanInsights(projectId, scanId);
+        if (!ok) {
+            String message = messageSource.getMessage("license.ai.refreshFailed", null,
+                    "AI provider is not configured or insight generation failed.",
+                    LocaleContextHolder.getLocale());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", message));
+        }
+        auditLogService.log("SECURITY_CENTER.REFRESH_AI_INSIGHT", "SCAN", scanId.toString(),
+                "projectId=" + projectId, null);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/export")

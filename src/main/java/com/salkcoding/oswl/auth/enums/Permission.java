@@ -8,6 +8,10 @@ import lombok.RequiredArgsConstructor;
 public enum Permission {
     PROJECT_VIEW("View Projects"),
     PROJECT_CREATE("Create Projects"),
+    // Checked by ProjectContextController#updateDeploymentProfile. It was missing from this enum,
+    // so no role template could grant it and only SYSTEM_ADMIN could change a project's
+    // deployment profile.
+    PROJECT_UPDATE("Update Project Settings"),
     PROJECT_DELETE("Soft Delete Projects"),
     PROJECT_RESTORE("Restore Projects"),
     PROJECT_PERMANENT_DELETE("Permanently Delete Projects"),

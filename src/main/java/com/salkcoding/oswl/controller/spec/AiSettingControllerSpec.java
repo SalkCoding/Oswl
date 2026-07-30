@@ -239,6 +239,22 @@ public interface AiSettingControllerSpec {
             @RequestParam(required = false) String model
     );
 
+    @Operation(summary = "Regenerate AI insights for existing scans",
+            description = """
+                Kicks off a background pass over recent completed scans and (re)generates their
+                scan-level AI insights. This is the manual counterpart to the `autoBackfillInsights`
+                preference, which is off by default so connecting a provider or switching the prompt
+                language never spends tokens on existing scans without being asked.
+                `force=false` fills in only scans that have no insight yet; `force=true` re-runs scans
+                that already have one (use after a language or model change). Every scan in scope
+                costs one provider call, so the UI confirms before calling this.
+                """)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Backfill started in the background", content = @Content),
+            @ApiResponse(responseCode = "400", description = "No AI provider is configured", content = @Content)
+    })
+    ResponseEntity<Map<String, Object>> backfillInsights(boolean force);
+
     @Operation(summary = "Stop embedded AI",
             description = "Stops the llama.cpp sidecar and deactivates the LOCAL provider.")
     @ApiResponses({

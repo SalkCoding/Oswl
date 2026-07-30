@@ -52,7 +52,7 @@ class RiskTrendServiceTest {
     void populateModel_throwsException_whenProjectNotFound() {
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> riskTrendService.populateModel(99L, new ConcurrentModel()))
+        assertThatThrownBy(() -> riskTrendService.populateModel(99L, null, new ConcurrentModel()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("99");
     }
@@ -66,7 +66,7 @@ class RiskTrendServiceTest {
         when(scanResultRepository.findCompletedByProjectId(1L)).thenReturn(List.of());
 
         Model model = new ConcurrentModel();
-        riskTrendService.populateModel(1L, model);
+        riskTrendService.populateModel(1L, null, model);
 
         assertThat(model.getAttribute("projectName")).isEqualTo("TestProject");
         assertThat(model.getAttribute("securityIssues")).isEqualTo(0);
@@ -101,7 +101,7 @@ class RiskTrendServiceTest {
         when(libraryRepository.findByScanResultIdWithCves(10L)).thenReturn(List.of(lib));
 
         Model model = new ConcurrentModel();
-        riskTrendService.populateModel(1L, model);
+        riskTrendService.populateModel(1L, null, model);
 
         assertThat(model.getAttribute("projectVersion")).isEqualTo("1.0");
         assertThat(model.getAttribute("securityIssues")).isEqualTo(2); // critical + high
@@ -147,7 +147,7 @@ class RiskTrendServiceTest {
         when(libraryRepository.findByScanResultIdWithCves(1L)).thenReturn(List.of(lib1)); // older has 1 issue
 
         Model model = new ConcurrentModel();
-        riskTrendService.populateModel(1L, model);
+        riskTrendService.populateModel(1L, null, model);
 
         // newer=2 issues, older=1 issue → securityDelta=+1
         assertThat(model.getAttribute("securityDelta")).isEqualTo(1);

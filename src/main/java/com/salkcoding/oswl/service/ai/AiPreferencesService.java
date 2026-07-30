@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.exception.InvalidRequestException;
@@ -80,10 +81,34 @@ public class AiPreferencesService {
         return levels.isEmpty() ? EnumSet.of(RiskLevel.CRITICAL, RiskLevel.HIGH) : levels;
     }
 
+    /** Effort selected in settings; {@link AiEffort#DEFAULT} means "send no effort parameter". */
+    public AiEffort getReasoningEffort() {
+        return getEffective().getReasoningEffort();
+    }
+
+    /** Whether provider/locale changes may regenerate insights for already-completed scans. */
+    public boolean isAutoBackfillInsights() {
+        return getEffective().isAutoBackfillInsights();
+    }
+
+    /**
+     * Backward-compatible overload — keeps the caller's current effort and auto-backfill choice.
+     */
     @Transactional
     public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities,
                             Double temperature, Integer maxTokens, int dailyCallCap,
                             String promptOverrides, DeploymentProfile defaultDeploymentProfile) {
+        AiPreferences current = getEffective();
+        return save(promptsLocale, cveLimit, licenseLimit, cveSeverities, temperature, maxTokens,
+                dailyCallCap, promptOverrides, defaultDeploymentProfile,
+                current.getReasoningEffort(), current.isAutoBackfillInsights());
+    }
+
+    @Transactional
+    public AiPreferences save(String promptsLocale, int cveLimit, int licenseLimit, String cveSeverities,
+                            Double temperature, Integer maxTokens, int dailyCallCap,
+                            String promptOverrides, DeploymentProfile defaultDeploymentProfile,
+                            AiEffort reasoningEffort, boolean autoBackfillInsights) {
         String locale = normalizeLocale(promptsLocale);
         int cve = clamp(cveLimit, 1, 50, defaultCveLimit);
         int lic = clamp(licenseLimit, 1, 50, defaultLicenseLimit);
@@ -97,11 +122,14 @@ public class AiPreferencesService {
 
         AiPreferences prefs = repository.findById(AiPreferences.SINGLETON_ID)
                 .orElseGet(this::defaultPreferences);
-        prefs.update(locale, cve, lic, severities, temp, tokens, cap, promptOverrides, profile);
+        AiEffort effort = reasoningEffort != null ? reasoningEffort : AiEffort.DEFAULT;
+        prefs.update(locale, cve, lic, severities, temp, tokens, cap, promptOverrides, profile,
+                effort, autoBackfillInsights);
         repository.save(prefs);
         promptTemplateService.reloadWithLocale(locale);
-        log.info("[AI] Preferences saved locale={} cveLimit={} licenseLimit={} cveSeverities={} dailyCap={}",
-                locale, cve, lic, severities, cap);
+        log.info("[AI] Preferences saved locale={} cveLimit={} licenseLimit={} cveSeverities={} dailyCap={}"
+                        + " effort={} autoBackfill={}",
+                locale, cve, lic, severities, cap, effort, autoBackfillInsights);
         return prefs;
     }
 

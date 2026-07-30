@@ -58,6 +58,17 @@ public class AiSetting {
     @Builder.Default
     private boolean active = false;
 
+    /**
+     * True when this LOCAL row is the built-in llama.cpp sidecar rather than a user-configured
+     * endpoint. Embedded AI publishes itself as the LOCAL provider, so without this flag the
+     * settings page cannot tell "built-in model" from "external Ollama" — both showed as LOCAL and
+     * appeared selected at once. Recorded on the row instead of asking the sidecar process, so the
+     * distinction survives a restart with the sidecar stopped. Null on rows written before this
+     * column existed and is read as false.
+     */
+    @Column(name = "embedded_managed")
+    private Boolean embeddedManaged;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -65,6 +76,15 @@ public class AiSetting {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /** Null-safe view of {@link #embeddedManaged} — absent means a user-configured endpoint. */
+    public boolean isEmbeddedManaged() {
+        return Boolean.TRUE.equals(embeddedManaged);
+    }
+
+    public void markEmbeddedManaged(boolean embeddedManaged) {
+        this.embeddedManaged = embeddedManaged;
+    }
 
     public void update(String apiKey, String modelName, String baseUrl) {
         if (apiKey != null) this.apiKey = apiKey;
