@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Throwaway sanity check for roadmap item 7 (composer.lock / conan.lock parsing).
+ * Throwaway sanity check for composer.lock / conan.lock parsing.
  * Not part of the build or test suite — compiled and run manually, then deleted.
  */
 public final class LockParserSanityCheck {

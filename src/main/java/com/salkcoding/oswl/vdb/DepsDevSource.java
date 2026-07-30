@@ -23,8 +23,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * deps.dev version + advisory lookups, targeted at a wanted-list (E6) — deps.dev has no bulk dump
- * (E5.2), so unlike OSV/EPSS/KEV this source is skipped entirely without {@code --wanted}.
+ * deps.dev version + advisory lookups, targeted at a wanted-list — deps.dev has no bulk dump,
+ * so unlike OSV/EPSS/KEV this source is skipped entirely without {@code --wanted}.
  * GetVersion/GetAdvisory shapes and the package-name percent-encoding rules mirror the live
  * {@code DepsDevClient} exactly (kept independent here so this plain-Java CLI has no dependency on
  * the Spring-managed client).

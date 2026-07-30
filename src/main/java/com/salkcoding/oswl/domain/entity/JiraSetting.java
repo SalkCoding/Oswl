@@ -7,7 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 /**
- * Single-row Jira integration settings (roadmap #10).
+ * Single-row Jira integration settings.
  * When enabled, triage actions can create Jira issues for a component's vulnerabilities.
  * The API token is stored AES-256-GCM encrypted (same as VCS tokens / mail password).
  */

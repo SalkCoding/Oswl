@@ -28,8 +28,8 @@ public class ContinuousMonitoringScheduler {
 
     /**
      * Runs every night (default 03:00) after the deferral-expiry scheduler.
-     * {@code @SchedulerLock} (roadmap S1) is a no-op unless {@code oswl.scheduler-lock.enabled=true}
-     * (see {@link SchedulerLockConfig}) — a single instance behaves exactly as before S1.
+     * {@code @SchedulerLock} is a no-op unless {@code oswl.scheduler-lock.enabled=true}
+     * (see {@link SchedulerLockConfig}) — a single instance is unaffected.
      */
     @Scheduled(cron = "${oswl.monitoring.cron:0 0 3 * * *}")
     @SchedulerLock(name = "ContinuousMonitoringScheduler_runNightlyMonitoring",

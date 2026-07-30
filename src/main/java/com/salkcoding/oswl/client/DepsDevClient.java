@@ -157,13 +157,13 @@ public class DepsDevClient {
      * Calls GetVersion in parallel for all components (concurrency bounded by the permit semaphore).
      * Returns a list aligned with the input list; null means the package lookup failed.
      *
-     * Duplicate keys are fetched only once (A2): several ScanComponents often share the same
+     * Duplicate keys are fetched only once: several ScanComponents often share the same
      * (ecosystem, name, version), and previously each copy cost its own HTTP call. The returned
      * list MUST keep the input's exact size and order — callers index-match it back to their
      * component list, so a misalignment would attach licenses/CVEs to the wrong library.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
-        // D3: completion counts flow to the caller either explicitly (2-arg overload) or via
+        // Completion counts flow to the caller either explicitly (2-arg overload) or via
         // the thread-scoped enrichment progress context — the 1-arg signature is kept because
         // existing callers (and their mocks) depend on it.
         return getVersionsBatch(components, EnrichmentProgressContext.currentFetchProgress());
@@ -171,7 +171,7 @@ public class DepsDevClient {
 
     /**
      * Same as {@link #getVersionsBatch(List)}, additionally invoking {@code onProgress} with the
-     * running count of completed distinct-key fetches as each parallel call finishes (D3).
+     * running count of completed distinct-key fetches as each parallel call finishes.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components, IntConsumer onProgress) {
         if (airgapped) {
@@ -483,7 +483,7 @@ public class DepsDevClient {
 
     /**
      * Reads registry default (latest stable) version from the package listing API.
-     * Cached per {@code ECOSYSTEM|name} (A2): several scanned versions of the same package
+     * Cached per {@code ECOSYSTEM|name}: several scanned versions of the same package
      * would otherwise each trigger this listing call. Failures are negative-cached via the
      * {@link #DEFAULT_VERSION_MISS} sentinel, since ConcurrentHashMap forbids null values.
      */

@@ -5,7 +5,7 @@
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
 
-# ── OIDC SSO (roadmap #13) — uncomment and fill in to enable Okta / Entra / any OIDC provider ──
+# ── OIDC SSO — uncomment and fill in to enable Okta / Entra / any OIDC provider ──
 # When configured, a "Sign in with SSO" option appears on /login; the verified email is mapped to
 # an existing OsWL user (provisioning-gated). Leaving this out keeps email + OTP as the only login.
 # spring:

@@ -21,9 +21,9 @@ public interface SnapshotAdminControllerSpec {
 
     @Operation(summary = "Snapshot store status",
         description = "Returns the air-gapped flag and, per source (osv, depsdev-version, depsdev-advisory, epss, kev), " +
-            "the number of stored records, when they were last imported, and (E1, when the source bundle carried v2 " +
+            "the number of stored records, when they were last imported, and (when the source bundle carried v2 " +
             "provenance) its bundleId/builtAt/sourceAsOf/origin — null for a source last imported from a v1 or meta-less bundle. " +
-            "Also returns (E7) the oldest sourceAsOf across all sources and the configured staleness-warn/critical-day " +
+            "Also returns the oldest sourceAsOf across all sources and the configured staleness-warn/critical-day " +
             "thresholds, so the admin UI can render the definition-freshness badge without hardcoding them.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Store status",
@@ -37,7 +37,7 @@ public interface SnapshotAdminControllerSpec {
             plus a `meta.json` — see the Offline VDB docs for the v2 schema) and updates the store contents for
             every source present in the bundle. `mode=replace` (default when the bundle carries no `meta.json`
             `mode` either) clears each source before writing; `mode=merge` upserts by key and honors a `"_deleted":true`
-            line as a delete (E2). A v2 bundle's checksums are verified before any store mutation — a mismatch
+            line as a delete. A v2 bundle's checksums are verified before any store mutation — a mismatch
             rejects the whole bundle and leaves the existing store untouched.
             With `oswl.airgapped.enabled=true`, OSV/deps.dev/EPSS/KEV lookups are then served
             from this store instead of live external APIs.
@@ -69,11 +69,11 @@ public interface SnapshotAdminControllerSpec {
     })
     ResponseEntity<SnapshotImportResult> importFromPath(@RequestBody SnapshotImportFromPathRequest request);
 
-    @Operation(summary = "Export a wanted-list (E6)",
+    @Operation(summary = "Export a wanted-list",
         description = """
             Streams one JSONL line per distinct (ecosystem, name, version) this instance has ever
             scanned — `{"ecosystem":"NPM","name":"left-pad","version":"1.3.0"}` — for handing to the
-            `oswl-vdb build --wanted` CLI (E5) on an internet-connected machine, so it fetches only
+            `oswl-vdb build --wanted` CLI on an internet-connected machine, so it fetches only
             the components this instance actually uses instead of a full upstream mirror.
             Deliberately omits project names, repository URLs, and paths — only ecosystem/name/version
             leave the instance. Streamed directly from the database (no full in-memory list) so this

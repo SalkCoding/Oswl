@@ -24,8 +24,8 @@ public class TrashCleanupScheduler {
     private final ProjectRepository projectRepository;
 
     /**
-     * {@code @SchedulerLock} (roadmap S1) is a no-op unless {@code oswl.scheduler-lock.enabled=true}
-     * (see {@link SchedulerLockConfig}) — a single instance behaves exactly as before S1.
+     * {@code @SchedulerLock} is a no-op unless {@code oswl.scheduler-lock.enabled=true}
+     * (see {@link SchedulerLockConfig}) — a single instance is unaffected.
      */
     @Scheduled(cron = "0 0 2 * * *")
     @SchedulerLock(name = "TrashCleanupScheduler_purgeExpiredTrash",

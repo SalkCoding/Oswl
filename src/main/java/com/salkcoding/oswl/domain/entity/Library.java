@@ -113,7 +113,7 @@ public class Library {
      * SHA-256 (hex) of the fields that drive the AI license summary prompt (licenseName,
      * licenseStatus, policyReason, ecosystem, dependencyType, latestVersion, deploymentProfile —
      * see {@code VulnerabilityEnrichmentService.licenseContextHash()}). Mirrors
-     * {@code Cve.aiContextHash} (F1) — null on every pre-existing row, always a cache miss.
+     * {@code Cve.aiContextHash} — null on every pre-existing row, always a cache miss.
      */
     @Column(name = "ai_license_context_hash", length = 64)
     private String aiLicenseContextHash;

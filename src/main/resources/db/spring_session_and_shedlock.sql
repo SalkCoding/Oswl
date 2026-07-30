@@ -1,5 +1,5 @@
 -- Run once when upgrading production (ddl-auto=validate). Same shapes as
--- db/migration/V10__spring_session_and_shedlock.sql (roadmap S1) — apply this file OR run the
+-- db/migration/V10__spring_session_and_shedlock.sql — apply this file OR run the
 -- Flyway migration, not both. Only needed when opting into multi-instance deployment
 -- (OSWL_SESSION_STORE_TYPE=jdbc and/or OSWL_SCHEDULER_LOCK_ENABLED=true).
 

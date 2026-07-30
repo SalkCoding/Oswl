@@ -52,7 +52,7 @@ import java.util.zip.ZipOutputStream;
  * ({@code OsvClient}, {@code DepsDevClient}, {@code EpssClient}, {@code KevCatalogService}).
  *
  * <p>A bundle is a zip of JSONL files, one per source, plus a {@code meta.json} describing
- * provenance (E1). {@code meta.json}'s {@code formatVersion}:
+ * provenance. {@code meta.json}'s {@code formatVersion}:
  * <ul>
  *   <li>{@code 2} (current) — {@code bundleId}/{@code mode}/{@code builtAt}/{@code sources[].asOf}/
  *       {@code sources[].origin}/{@code files[].sha256} are read and enforced (checksum mismatch
@@ -72,7 +72,7 @@ import java.util.zip.ZipOutputStream;
  *   <li>{@code epss.jsonl} — {@code {"cveId":"CVE-..","score":0.42}}</li>
  *   <li>{@code kev.jsonl} — {@code {"cveId":"CVE-.."}}</li>
  * </ul>
- * A line in any file may carry {@code "_deleted":true} (E2) — in {@link ImportMode#MERGE} this
+ * A line in any file may carry {@code "_deleted":true} — in {@link ImportMode#MERGE} this
  * removes the key instead of upserting it; in {@link ImportMode#REPLACE} it is simply skipped
  * (REPLACE already clears the source first, so there is nothing to delete).
  *
@@ -183,9 +183,9 @@ public class AirgappedSnapshotService {
         return normalizeEcosystem(ecosystem) + "|" + name.strip() + "|" + version.strip();
     }
 
-    /** Public so the {@code oswl-vdb} builder (E5) shares this exact normalization instead of a
-     * second, drift-prone copy — see the plan's explicit warning that a normalization mismatch
-     * between the builder and this class makes a bundle import silently unresolvable. */
+    /** Public so the {@code oswl-vdb} builder shares this exact normalization instead of a
+     * second, drift-prone copy — a normalization mismatch between the builder and this class
+     * makes a bundle import silently unresolvable. */
     public static String normalizeEcosystem(String ecosystem) {
         return switch (ecosystem.strip().toLowerCase(Locale.ROOT)) {
             case "maven"             -> "MAVEN";
@@ -291,11 +291,10 @@ public class AirgappedSnapshotService {
     }
 
     /**
-     * E6: streams every distinct (ecosystem, name, version) this instance has ever scanned, as
-     * JSONL, for an offline site to hand to the {@code oswl-vdb} builder (E5) so it can fetch
+     * Streams every distinct (ecosystem, name, version) this instance has ever scanned, as
+     * JSONL, for an offline site to hand to the {@code oswl-vdb} builder so it can fetch
      * exactly the components that matter instead of a full upstream mirror. Deliberately omits
-     * project names, repository URLs, and paths — see the E6 privacy note in
-     * PERFORMANCE-AND-OFFLINE-PLAN.md; only ecosystem/name/version leave the instance, and those
+     * project names, repository URLs, and paths — only ecosystem/name/version leave the instance, and those
      * are already what any upstream vulnerability API needs to look a component up.
      */
     @Transactional(readOnly = true)

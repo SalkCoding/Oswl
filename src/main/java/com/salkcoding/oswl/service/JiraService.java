@@ -28,7 +28,7 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * Jira issue-tracker integration (roadmap #10). Creates a Jira issue for a component's
+ * Jira issue-tracker integration. Creates a Jira issue for a component's
  * vulnerabilities from the triage screen and stores the issue key/URL on the component.
  *
  * Uses the Jira REST v3 issue-create endpoint with Basic auth (email + API token); the

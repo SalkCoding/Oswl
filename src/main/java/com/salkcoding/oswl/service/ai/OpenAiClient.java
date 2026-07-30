@@ -43,10 +43,10 @@ public class OpenAiClient implements AiAnalysisClient {
     private static final String DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
     private static final String PROVIDER_TAG = "OpenAI";
 
-    /** Streaming connect timeout (C9) — same backstop as the non-streaming RestTemplate. */
+    /** Streaming connect timeout — same backstop as the non-streaming RestTemplate. */
     private static final Duration STREAMING_CONNECT_TIMEOUT = Duration.ofSeconds(10);
     /**
-     * Total-exchange timeout for a streaming call (C9). Unlike the non-streaming read timeout
+     * Total-exchange timeout for a streaming call. Unlike the non-streaming read timeout
      * (socket-idle based), the JDK {@link HttpClient} request timeout caps the WHOLE exchange,
      * and a slow local model can legitimately stream tokens for minutes — so this is a
      * deliberately generous hang backstop rather than a latency target.
@@ -105,7 +105,7 @@ public class OpenAiClient implements AiAnalysisClient {
     }
 
     /**
-     * Free-form variant with a live chunk sink (D2). Streams tokens over OpenAI-compatible SSE
+     * Free-form variant with a live chunk sink. Streams tokens over OpenAI-compatible SSE
      * (llama.cpp uses the same format), pushing each delta to {@code chunkSink} as it arrives.
      * Falls back to the plain non-streaming call when streaming is disabled, the endpoint
      * rejects the streaming request, or the stream breaks mid-flight — the caller's contract
@@ -167,7 +167,7 @@ public class OpenAiClient implements AiAnalysisClient {
                 : completions;
     }
 
-    // ── Streaming (D2) ────────────────────────────────────────────────────────
+    // ── Streaming ────────────────────────────────────────────────────────
 
     /**
      * One streaming chat-completion call: {@code stream: true} + SSE parsing. Returns the full

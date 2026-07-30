@@ -40,7 +40,7 @@ import java.util.List;
  *
  * GET  /api/admin/snapshot              — air-gapped flag + per-source store status
  * POST /api/admin/snapshot/import       — upload a snapshot bundle (zip of JSONL files)
- * POST /api/admin/snapshot/import-from-path — import a bundle already on the server's disk (E3)
+ * POST /api/admin/snapshot/import-from-path — import a bundle already on the server's disk
  * GET  /api/admin/snapshot/export       — download a snapshot bundle built from this
  *                                         instance's fetched data (run on an online instance)
  */

@@ -19,9 +19,9 @@ public final class EnrichmentProgressContext {
 
     /**
      * @param scanResultId  scan this progress belongs to
-     * @param previewSink   receives raw AI text deltas for the live Quick Import preview (D2)
-     * @param fetchProgress receives the running count of completed deps.dev fetches (D3 data phase)
-     * @param batchProgress receives the running count of processed AI batch items (D2 detail lines)
+     * @param previewSink   receives raw AI text deltas for the live Quick Import preview
+     * @param fetchProgress receives the running count of completed deps.dev fetches (data phase)
+     * @param batchProgress receives the running count of processed AI batch items (detail lines)
      */
     public record Frame(Long scanResultId,
                         Consumer<String> previewSink,
