@@ -32,6 +32,8 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [Micrometer Prometheus Registry](#micrometer-prometheus-registry)     | Apache 2.0             |
 | [Flyway](#flyway)                                                     | Apache 2.0             |
 | [Spring Security OAuth2 Client](#spring-security-oauth2-client)       | Apache 2.0             |
+| [Spring Session JDBC](#spring-session-jdbc)                           | Apache 2.0             |
+| [ShedLock](#shedlock)                                                 | Apache 2.0             |
 | [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf)                                  | Apache 2.0             |
 | [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
 | [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
@@ -225,6 +227,36 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ```
 Copyright 2002-2024 the original author or authors.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### Spring Session JDBC
+
+- **Version:** Managed by Spring Boot 4.1.0
+- **Website:** https://spring.io/projects/spring-session
+- **License:** Apache License, Version 2.0
+- **Used for:** Cluster-wide HTTP session storage in PostgreSQL, so a multi-instance deployment behind a load balancer keeps users logged in across instances and survives a single instance restarting (roadmap S1).
+
+```
+Copyright 2014-2024 the original author or authors.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### ShedLock
+
+- **Version:** 7.7.0 (shedlock-spring, shedlock-provider-jdbc-template)
+- **Website:** https://github.com/lukas-krecan/ShedLock
+- **License:** Apache License, Version 2.0
+- **Used for:** Cluster-wide lock ensuring each `@Scheduled` job (nightly monitoring, deferral expiry, trash cleanup) runs on exactly one instance even when OsWL is deployed with multiple instances (roadmap S1).
+
+```
+Copyright 2009-2024 the original author(s)
 
 Licensed under the Apache License, Version 2.0 (the "License").
 ```
@@ -577,7 +609,7 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
 ## Apache License 2.0 — Full Text
 
 The following libraries and models are licensed under the Apache License, Version 2.0:
-Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Qwen3-1.7B.
+Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Spring Session JDBC, ShedLock, Qwen3-1.7B.
 
 ```
                                  Apache License

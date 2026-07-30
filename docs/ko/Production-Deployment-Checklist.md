@@ -194,6 +194,10 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 （Flyway 사용자: 새로운 `libraries` 컬럼 3개는 `V3__component_metadata.sql`에서 처리됩니다. [데이터베이스 스키마](Database-Schema.md) 참고.）
 
+### v1.0.5: Spring Session / ShedLock 테이블 (옵트인, 로드맵 S1)
+
+**다중 인스턴스** 배포로 전환할 때만 필요합니다(§12 참고). `spring_session`, `spring_session_attributes`, `shedlock`이 추가됩니다. Flyway 사용자는 `db/migration/V10__spring_session_and_shedlock.sql`에서, 수동 스크립트 사용자는 `db/spring_session_and_shedlock.sql`을 실행하면 됩니다. 단일 인스턴스 배포라면 완전히 건너뛰어도 됩니다 — `OSWL_SESSION_STORE_TYPE=jdbc` 및/또는 `OSWL_SCHEDULER_LOCK_ENABLED=true`를 설정하기 전까지는 이 테이블을 아무도 참조하지 않습니다.
+
 ## 10. 배포 후 스모크 테스트
 
 1. HTTPS 리버스 프록시로만 UI 접근.
@@ -208,6 +212,35 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 - PostgreSQL 백업, `OSWL_ENCRYPTION_KEY`는 시크릿 매니저에 보관(분실 시 VCS 토큰 복호 불가).
 - 유출 시 API 키·SMTP 자격 증명 교체.
 - `local`로 돌리면 안 되는 이미지에 `SPRING_PROFILES_ACTIVE=local` 넣지 않기.
+
+## 12. 다중 인스턴스 배포 (수평 확장 / HA, 로드맵 S1)
+
+OsWL은 기본적으로 **단일 인스턴스**로 동작합니다 — 인메모리 HTTP 세션과 인스턴스별 `@Scheduled` 작업이죠. 컨테이너/프로세스 1개일 때는 이걸로 충분하지만, 로드밸런서 뒤에 두 번째 인스턴스를 두면 문제가 생깁니다: 사용자 세션이 로그인했던 인스턴스에 고정되고, 야간 모니터링/유예 만료/휴지통 정리 작업이 클러스터당 1회가 아니라 **인스턴스마다** 실행됩니다. 이 절은 동일한 PostgreSQL DB를 바라보는 **인스턴스 2대 이상**을 배포할 때만 해당됩니다.
+
+**1. 스키마부터 적용하세요.** 아래 기능을 켠 인스턴스를 기동하기 전에 `spring_session`, `spring_session_attributes`, `shedlock`이 존재하는지 먼저 확인하세요(§9, "v1.0.5: Spring Session / ShedLock 테이블"). 테이블이 없는 상태에서 아래 환경변수부터 배포하면 첫 요청/스케줄 시점에 모든 인스턴스가 죽습니다.
+
+**2. 환경 변수:**
+
+| 변수 | 용도 |
+|------|------|
+| `OSWL_SESSION_STORE_TYPE=jdbc` | HTTP 세션을 Tomcat 인메모리 저장에서 PostgreSQL(`spring_session`)로 옮깁니다. 로그인 상태와 단일세션 강제(`maximumSessions(1)`)가 인스턴스별이 아니라 클러스터 전체에서 동작합니다. |
+| `OSWL_SCHEDULER_LOCK_ENABLED=true` | 스케줄 작업 3종(`ContinuousMonitoringScheduler`, `DeferExpiryScheduler`, `TrashCleanupScheduler`)을 클러스터 전역 락(ShedLock, `shedlock` 테이블 기반)으로 감싸서 사이클당 한 인스턴스에서만 실행되도록 합니다. |
+
+실제 다중 인스턴스 배포에서는 둘 다 함께 설정하세요 — 하나만 켜면 나머지 한쪽 공백이 그대로 남습니다.
+
+**3. 로드밸런서:** nginx, ALB 등 일반적인 L7 LB면 됩니다 — `OSWL_SESSION_STORE_TYPE=jdbc`를 설정하면 세션 상태가 인스턴스 메모리가 아니라 PostgreSQL에 중앙화되므로 **스티키 세션이 필요 없습니다.**
+
+**4. 단, 스캔 진행률 폴링은 예외입니다.** Quick Import/스캔 보강 중 표시되는 실시간 진행률(`EnrichmentProgressHolder`, `ScanStatusEmitterRegistry`)은 여전히 인스턴스별 인메모리 상태이며 DB에 저장되지 않습니다. 권장 방법: 로드밸런서 라우팅을 **활성 스캔이 진행되는 동안만** 스티키하게(예: 세션 기준 쿠키 어피니티) 설정해, 진행률 폴링 요청이 실제로 스캔을 실행 중인 인스턴스로 되돌아가도록 하세요. 스캔 진행률을 DB로 옮기고 UI를 순수 폴링 방식으로 바꾸는 대안은 더 큰 변경이라 별도로 추적하며, 지금은 스티키 라우팅이 실용적인 기본값입니다.
+
+**5. 롤링 배포 순서:**
+   1. 대기 중인 DB 마이그레이션을 먼저 적용하세요(구버전 앱 코드가 새 스키마를 견뎌야 하므로 — `db/migration`은 이 원칙대로 추가 전용으로 작성됩니다).
+   2. 인스턴스를 한 번에 하나씩 순차적으로 교체하고(전체 동시 교체 금지), 다음으로 넘어가기 전에 새 인스턴스가 준비성 검사를 통과할 때까지 기다리세요.
+   3. `OSWL_SESSION_STORE_TYPE=jdbc`를 설정하면 세션이 인스턴스 메모리가 아니라 PostgreSQL에 있으므로, 롤링 재시작으로 사용자가 로그아웃되지 않습니다.
+
+**6. 정상 동작 확인:**
+   - 인스턴스 A에 로그인한 뒤, LB가 인스턴스 B로 라우팅하는 후속 요청을 보내도 인증이 유지되는지(`/login`으로 리다이렉트되지 않는지) 확인합니다.
+   - 인스턴스 A를 내려도 세션(및 단일세션 강제)이 인스턴스 B에서 계속 동작하는지 확인합니다.
+   - 야간 작업 실행 후 두 인스턴스의 로그를 확인해, 해당 작업의 로그 라인이 두 곳이 아니라 정확히 한 인스턴스에서만 나타나는지 확인합니다.
 
 ---
 
