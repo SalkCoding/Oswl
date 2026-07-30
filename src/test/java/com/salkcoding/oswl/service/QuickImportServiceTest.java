@@ -44,6 +44,7 @@ class QuickImportServiceTest {
     @Mock BitbucketCloudClient        bitbucketCloudClient;
     @Mock com.salkcoding.oswl.service.git.GitCloneExecutor gitCloneExecutor;
     @Mock com.salkcoding.oswl.auth.service.AuditLogService auditLogService;
+    @Mock ScanTimingRecorder scanTimingRecorder;
     @InjectMocks QuickImportService quickImportService;
 
     @org.junit.jupiter.api.BeforeEach

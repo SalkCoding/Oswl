@@ -5,6 +5,23 @@
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
 
+# ── OIDC SSO (roadmap #13) — uncomment and fill in to enable Okta / Entra / any OIDC provider ──
+# When configured, a "Sign in with SSO" option appears on /login; the verified email is mapped to
+# an existing OsWL user (provisioning-gated). Leaving this out keeps email + OTP as the only login.
+# spring:
+#   security:
+#     oauth2:
+#       client:
+#         registration:
+#           oidc:
+#             client-id: ${OSWL_OIDC_CLIENT_ID}
+#             client-secret: ${OSWL_OIDC_CLIENT_SECRET}
+#             scope: openid,email,profile
+#             client-name: SSO
+#         provider:
+#           oidc:
+#             issuer-uri: ${OSWL_OIDC_ISSUER_URI}   # e.g. https://your-tenant.okta.com or https://login.microsoftonline.com/<tenant>/v2.0
+
 springdoc:
   api-docs:
     enabled: false
@@ -16,11 +33,20 @@ management:
     enabled-by-default: false
     web:
       exposure:
-        include: health
+        # /actuator/** is admin-authenticated (SecurityConfig) — scrapers must present admin credentials.
+        include: health,prometheus,info
   endpoint:
     health:
       enabled: true
       show-details: never
+    prometheus:
+      enabled: true
+    info:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 oswl:
   security:

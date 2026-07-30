@@ -5,6 +5,7 @@ import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.enums.AiEnrichmentStatus;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.api.ScanParseResponse;
 import com.salkcoding.oswl.dto.api.ScanResponse;
@@ -200,6 +201,7 @@ class ScanControllerTest {
         ScanResult scanResult = mock(ScanResult.class);
         when(scanResult.getId()).thenReturn(10L);
         when(scanResult.getStatus()).thenReturn(ScanStatus.COMPLETED);
+        when(scanResult.getAiStatus()).thenReturn(AiEnrichmentStatus.NOT_APPLICABLE);
         when(scanResult.getProject()).thenReturn(project);
         when(scanResultRepository.findById(10L)).thenReturn(java.util.Optional.of(scanResult));
         when(scanComponentRepository.countByScanResultId(10L)).thenReturn(5L);

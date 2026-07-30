@@ -75,8 +75,9 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/quick-import/job/{jobId}/stream` | **SSE** — `job-update` 이벤트(JSON), 폴링 폴백 가능 |
 
 **단계:** `QUEUED` → `CLONING` → `PARSING` → `SCANNING` → `ENRICHING` → `DONE` | `FAILED`.  
-동시 **2건** 실행(`oswl.quick-import.max-concurrent`), 초과는 FIFO 큐(`queuePosition`).  
-`ENRICHING` 중 `percent`, `subPhase`, `detailLines`, `aiPreviews` 포함.
+동시 **3건** 실행(`oswl.quick-import.max-concurrent`), 초과는 FIFO 큐(`queuePosition`).  
+`ENRICHING` 중 `percent`, `subPhase`(`CVE`, `LICENSE`, `INSIGHTS`), `detailLines`, `aiPreviews`와 함께 deps.dev 캐시 판정 통계(`cacheTotal`, `cacheHit`, `cacheToFetch`)가 포함됩니다.  
+별도의 `aiStatus` 필드는 백그라운드 AI 보강 상태(`NOT_APPLICABLE`, `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`)를 추적합니다. 스캔이 `DONE`이 되어도 `aiStatus`는 여전히 `PENDING`/`RUNNING`일 수 있습니다.
 
 ---
 
@@ -105,7 +106,8 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/scan/manifest-rules` | API 키 | manifest 수집 규칙 (`/scripts/manifest-rules.json`과 동일) |
 | `POST` | `/api/scan/parse` | API 키 | manifest zip 파싱 (CLI 1단계) |
 | `POST` | `/api/scan` | API 키 + 자격증명 | 의존성 스캔 제출 (CLI 2단계) |
-| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 |
+| `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 — `status`, `componentCount`와 별도의 AI 보강 상태 `aiStatus`(스캔 완료와 독립), `securityPostureInsight`를 반환 |
+| `POST` | `/api/scan/gate` | API 키 | **v1.0.4** — PR / CI 보안 게이트, `exitCode` 포함 판정 |
 
 ---
 
@@ -116,6 +118,17 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/projects/{id}/security-center` | `SECURITY_CENTER_VIEW` | 보안 센터 페이지 |
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | CVE 상태 일괄 업데이트 |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | CVE 목록 CSV 다운로드 (`?scanId=`, `?format=csv`) |
+| `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — 선택 컴포넌트 일괄 업그레이드 PR 생성 |
+| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — 인쇄용 컴플라이언스 리포트 |
+
+### SBOM / VEX / SARIF (v1.0.4)
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/api/projects/{projectId}/sbom` | `SECURITY_CENTER_EXPORT` | CycloneDX 1.6 SBOM (`application/vnd.cyclonedx+json`) |
+| `GET` | `/api/projects/{projectId}/vex` | `SECURITY_CENTER_EXPORT` | 트리아지 판단 기반 CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | `SECURITY_CENTER_EXPORT` | SARIF 2.1.0 (`application/sarif+json`) |
+| `POST` | `/api/sbom/import` | `PROJECT_CREATE` | 외부 CycloneDX 파일 가져오기 (multipart) |
 
 ---
 
@@ -127,6 +140,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `POST` | `/projects/{id}/components/{compId}/cves/{cveDbId}/ai-summarize` | `SECURITY_CENTER_UPDATE_STATUS` | CVE AI 트리아지 재생성 |
 | `POST` | `/projects/{id}/components/{compId}/defer` | `SECURITY_CENTER_UPDATE_STATUS` | 조치 연기 기록 |
 | `POST` | `/projects/{id}/components/{compId}/create-pr` | `SECURITY_CENTER_UPDATE_STATUS` | 의존성 수정 PR 생성 |
+| `POST` | `/projects/{id}/components/{compId}/jira-ticket` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — 해당 항목으로 Jira 이슈 생성 |
 
 ---
 
@@ -204,6 +218,34 @@ Authorization: Bearer oswl_<your_api_key>
 |---|---|---|
 | `GET` | `/api/admin/audit-logs` | 페이지네이션 감사 로그 |
 | `GET` | `/api/admin/audit-logs/export.csv` | CSV로 내보내기 |
+| `GET` | `/api/admin/audit-logs/export?format=jsonl\|cef` | **v1.0.4** — SIEM 내보내기 (`AUDIT_LOG_EXPORT`) |
+
+### 조직 대시보드 (v1.0.4)
+
+| 메서드 | 경로 | 필요 권한 | 설명 |
+|---|---|---|---|
+| `GET` | `/org-dashboard` | `ORG_DASHBOARD_VIEW` | 전사 포스처·랭킹·KEV·라이선스 롤업 |
+
+### 오프라인 스냅샷 (v1.0.4)
+
+모든 엔드포인트는 `SYSTEM_ADMIN` 역할 또는 `SETTINGS_SNAPSHOT_MANAGE` 권한이 필요합니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/api/admin/snapshot` | 저장소 상태 — air-gapped 플래그와, 소스(`osv`, `depsdev-version`, `depsdev-advisory`, `epss`, `kev`)별 레코드 수, `importedAt`, v2 출처(`bundleId`, `builtAt`, `sourceAsOf`, `origin`; v1/메타 없는 번들에서 가져온 소스는 null)를 반환합니다. 또한 모든 소스 중 가장 오래된 `sourceAsOf`인 `oldestSourceAsOf`와 정의 최신성 배지에 사용되는 설정값 `stalenessWarnDays`, `stalenessCriticalDays`를 포함합니다 |
+| `POST` | `/api/admin/snapshot/import` | 스냅샷 번들 반입 (JSONL 파일들의 zip + `meta.json`). `?mode=replace\|merge`로 번들 자체 `meta.json` 모드를 오버라이드합니다: `replace`(기본)는 각 소스를 쓰기 전에 비우고, `merge`는 키 기준으로 upsert하며 `"_deleted":true` 묘비석을 처리합니다. v2 체크섬은 저장소 변경 전에 검증되며 불일치 시 전체 번들이 거부됩니다 |
+| `POST` | `/api/admin/snapshot/import-from-path` | 서버 디스크에 이미 있는 번들을 반입합니다 (`{ "path", "mode" }`) — 브라우저 업로드가 비실용적인 큰 번들용입니다. `oswl.airgapped.import-dir`이 설정되지 않으면 400; `path`는 해당 디렉터리 아래로 해석되어야 합니다 |
+| `GET` | `/api/admin/snapshot/wanted-list` | 이 인스턴스의 wanted-list를 NDJSON(`application/x-ndjson`)으로 스트리밍 — 스캔된 컴포넌트당 `{"ecosystem","name","version"}` 한 줄씩, 온라인 머신의 `oswl-vdb build --wanted`용입니다. 프로젝트명이나 저장소 URL은 인스턴스를 떠나지 않습니다 |
+| `GET` | `/api/admin/snapshot/export` | 이 인스턴스가 이미 가져온 데이터로부터 v2 스냅샷 번들(`application/zip`)을 만들어 납니다; `meta.json`의 `origin`은 `derived-from-scan`입니다. 온라인 인스턴스에서 실행한 뒤 air-gapped 인스턴스에서 반입하세요 |
+
+### 모니터링 (v1.0.4)
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/actuator/health` | 헬스 체크 (관리자 권한) |
+| `GET` | `/actuator/info` | 빌드·버전 정보 |
+| `GET` | `/actuator/prometheus` | Prometheus용 micrometer 메트릭 |
+| `POST` | `/projects/{projectId}/cve-alerts/acknowledge` | 신규 CVE 알림 확인 처리 (`SECURITY_CENTER_VIEW`) |
 
 ### 관리자 CLI 키
 
@@ -233,7 +275,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `PUT` | `/api/settings/ai` | `SETTINGS_AI_MANAGE` | 제공업체 자격증명 및/또는 기본값 저장 |
 | `PUT` | `/api/settings/ai/deactivate` | `SETTINGS_AI_MANAGE` | 활성 제공업체 비활성화 |
 | `PUT` | `/api/settings/ai/activate/{provider}` | `SETTINGS_AI_MANAGE` | 제공업체 전환 |
-| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함) |
+| `POST` | `/api/settings/ai/test-connection` | `SETTINGS_AI_MANAGE` | 연결 테스트(저장 안 함). 완료 요청 대신 사용 가능한 모델 목록을 조회하므로 토큰이 소비되지 않고 일일 호출 상한에도 반영되지 않습니다. 설정된 모델 ID가 조회된 목록에 없으면 응답에 경고 `hint`가 포함됩니다 |
 | `GET` | `/api/settings/ai/prompts` | `SETTINGS_AI_MANAGE` | 편집 가능 프롬프트 + 오버라이드 |
 | `POST` | `/api/settings/ai/golden-test` | `SETTINGS_AI_MANAGE` | 골든 프롬프트 회귀 테스트 실행 |
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 — 오늘 호출 수/토큰/예상 비용, 일일 상한, 최근 7일 집계(일별 집계 테이블에서 조회) |

@@ -10,10 +10,13 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 
 | 페이지 | 내용 |
 |---|---|
+| [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) | SBOM / VEX / SARIF 내보내기, CI 게이트, 연속 모니터링, 조직 대시보드, 폐쇄망 모드 |
 | [시작하기](Getting-Started.md) | 시스템 요구사항, 설치, 설정 마법사, 첫 로그인 |
 | [사용자 가이드](User-Guide.md) | 프로젝트 대시보드, 스캔 카드, 휴지통, 필터 |
 | [Quick Import](Quick-Import.md) | GitHub / GitLab / Bitbucket 연결, 브랜치 임포트 |
 | [CLI 연동](CLI-Integration.md) | API 키, 스캔 페이로드 형식, 파이프라인 연동 |
+| [스캔 이력](Scan-History.md) | 프로젝트별 스캔 목록 — 상태, 컴포넌트 수, 제출자 |
+| [임베디드 AI](Embedded-AI.md) | 로컬 Qwen3 LLM 사이드카(llama.cpp) — 클라우드 계정 불필요 |
 | [보안 센터](Security-Center.md) | CVE 목록, 심각도 순위, 상태 업데이트, 일괄 작업 |
 | [라이선스 분석](License-Analysis.md) | SPDX 감지, 정책 항목, 리스크 배지 |
 | [리스크 트렌드](Risk-Trend.md) | 히스토리 차트, AI 인사이트, 스캔 한도 |
@@ -26,6 +29,8 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 | [스캔 API 보안](Scan-Api-Security.md) | CLI 스캔 제출 보호 개요 |
 | [API 레퍼런스](API-Reference.md) | 전체 REST 엔드포인트 목록 |
 | [용어사전](Glossary.md) | OsWL 모든 용어 정의 |
+
+> 영어 문서는 [`docs/`](../Home.md)에, 일본어 문서는 [`docs/ja/`](../ja/Home.md)에 있습니다.
 
 ---
 
@@ -43,7 +48,7 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 * **Project**는 최상위 단위 — 보통 저장소 하나에 해당합니다.
 * **Scan**은 특정 시점의 전체 의존성 트리를 캡처합니다.
 * **Library**는 전역 공유 레코드(이름 + 버전 + 에코시스템)로, CVE 데이터는 한 번 보강되어 모든 프로젝트에서 재사용됩니다.
-* **CVE** 데이터는 deps.dev와 OSV에서(OSV가 제공 시 CWE 포함), 라이선스 데이터는 deps.dev에서 가져옵니다.
+* **CVE** 데이터는 deps.dev와 OSV에서(OSV가 제공 시 CWE 포함), 라이선스 데이터는 deps.dev에서 가져옵니다. 폐쇄망 모드에서는 임포트된 취약점 스냅샷에서 동일한 데이터를 가져옵니다.
 
 ---
 
@@ -62,3 +67,5 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 * **Swagger UI** (로컬 프로파일만): `http://localhost:8080/swagger-ui.html`
 * **H2 콘솔** (로컬 프로파일만): `http://localhost:8080/h2-console`
 * **이슈**: [GitHub Issues](https://github.com/SalkCoding/Oswl/issues)
+
+운영 환경에서는 API 문서와 H2 콘솔이 비활성화됩니다. 이 문서와 [API 레퍼런스](API-Reference.md)를 참고하세요.

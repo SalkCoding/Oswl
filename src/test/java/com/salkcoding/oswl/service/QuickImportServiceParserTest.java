@@ -129,10 +129,19 @@ class QuickImportServiceParserTest {
 
         List<ScanPayload.ComponentPayload> comps = invokeMavenPom(dir.resolve("pom.xml"), dir);
 
-        assertThat(comps).hasSize(1); // test scope skipped
-        assertThat(comps.getFirst().getName()).isEqualTo("org.springframework:spring-core");
-        assertThat(comps.getFirst().getVersion()).isEqualTo("6.1.0");
-        assertThat(comps.getFirst().getEcosystem()).isEqualTo("MAVEN");
+        // Non-runtime scopes are tagged (not dropped) so the UI can badge and default-filter them.
+        assertThat(comps).hasSize(2);
+        ScanPayload.ComponentPayload springCore = comps.stream()
+                .filter(c -> "org.springframework:spring-core".equals(c.getName()))
+                .findFirst().orElseThrow();
+        assertThat(springCore.getVersion()).isEqualTo("6.1.0");
+        assertThat(springCore.getEcosystem()).isEqualTo("MAVEN");
+        assertThat(springCore.getScope()).isNull(); // compile/runtime → no scope tag
+
+        ScanPayload.ComponentPayload junit = comps.stream()
+                .filter(c -> "junit:junit".equals(c.getName()))
+                .findFirst().orElseThrow();
+        assertThat(junit.getScope()).isEqualTo("test");
     }
 
     @Test
@@ -709,7 +718,7 @@ class QuickImportServiceParserTest {
         Method m = QuickImportService.class.getDeclaredMethod("parseRepoUrl", String.class, List.class);
         m.setAccessible(true);
 
-        Object result = m.invoke(quickImportService, (Object) null, List.of());
+        Object result = m.invoke(quickImportService, null, List.of());
 
         assertThat(result).isNull();
     }

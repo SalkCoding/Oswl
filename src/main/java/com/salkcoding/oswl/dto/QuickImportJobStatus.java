@@ -63,6 +63,15 @@ public class QuickImportJobStatus {
     @Schema(description = "Latest AI preview lines from enrichment")
     private final List<String> aiPreviews;
 
+    @Schema(description = "Total components evaluated in the deps.dev cache decision (D4)", example = "1204")
+    private final Integer cacheTotal;
+
+    @Schema(description = "Components served from the dependency cache without a refetch (D4)", example = "1180")
+    private final Integer cacheHit;
+
+    @Schema(description = "Components that required a fresh deps.dev fetch (D4)", example = "24")
+    private final Integer cacheToFetch;
+
     @Schema(description = "Number of imports currently executing")
     private final Integer activeSlotsUsed;
 
@@ -77,4 +86,10 @@ public class QuickImportJobStatus {
 
     @Schema(description = "Epoch millis when the job left QUEUED and began running — the UI derives the ETA from this and percent")
     private final Long runningSinceEpochMs;
+
+    @Schema(description = "AI enrichment progress for the underlying scan — NOT_APPLICABLE, PENDING, RUNNING, " +
+            "COMPLETED, or FAILED. The job can reach DONE while this is still PENDING/RUNNING: the scan's " +
+            "CVE/license results are ready, AI summaries are still being generated in the background.",
+            example = "RUNNING")
+    private final String aiStatus;
 }

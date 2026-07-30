@@ -3,10 +3,20 @@ $ErrorActionPreference = 'Stop'
 $RequiredMajor = 25
 
 function Get-JavaMajor {
+    # `java -version` prints to stderr. In Windows PowerShell 5.1 `2>&1` wraps each stderr line
+    # in an ErrorRecord, and with $ErrorActionPreference = 'Stop' that surfaces as a terminating
+    # NativeCommandError *before* the version string can be read — so a perfectly good JDK was
+    # reported as "not installed". Relax the preference for this one call and stringify the
+    # records before matching.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
-        $verLine = (java -version 2>&1 | Select-Object -First 1) -as [string]
+        $verLine = (& java -version 2>&1 | ForEach-Object { $_.ToString() } | Select-Object -First 1)
         if ($verLine -match '"(\d+)') { return [int]$Matches[1] }
-    } catch { }
+    } catch {
+    } finally {
+        $ErrorActionPreference = $previous
+    }
     return 0
 }
 

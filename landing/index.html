@@ -591,6 +591,33 @@
                 <p class="feature-desc" data-i18n="features.cliDesc">Integrate OsWL into any build pipeline with a single CLI command. Only parsed manifest metadata is uploaded &mdash; no source code leaves your build host. Bearer-token API keys per project or organization-wide.</p>
                 <span class="feature-tag" data-i18n="features.cliTag">Manifest-only upload</span>
             </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.sbomTitle">CycloneDX SBOM &amp; VEX</div>
+                <p class="feature-desc" data-i18n="features.sbomDesc">Export a CycloneDX 1.6 SBOM, a VEX document carrying your triage decisions, or a SARIF report for code-scanning dashboards. Import third-party CycloneDX files to scan components you don&rsquo;t build yourself.</p>
+                <span class="feature-tag" data-i18n="features.sbomTag">CycloneDX 1.6 &middot; VEX &middot; SARIF 2.1.0</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.gateTitle">Policy Gates for Pull Requests</div>
+                <p class="feature-desc" data-i18n="features.gateDesc">Define severity, license, and KEV thresholds per project, then let the gate pass or fail each scan. Results publish back to GitHub as a check run and PR comment, and new findings are compared against a baseline so existing debt never blocks a merge.</p>
+                <span class="feature-tag" data-i18n="features.gateTag">Baseline diff &middot; GitHub check run</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.orgTitle">Organization Dashboard</div>
+                <p class="feature-desc" data-i18n="features.orgDesc">One view across every project: KEV-listed and actively exploited CVEs first, EPSS exploit probability for ranking the rest, license warnings, and an audit-log export for your SIEM.</p>
+                <span class="feature-tag" data-i18n="features.orgTag">CISA KEV &middot; EPSS &middot; SIEM export</span>
+            </div>
         </div>
     </div>
 </section>
@@ -794,6 +821,8 @@
                 <button type="button" class="lang-btn" data-set-lang="en">EN</button>
                 <span class="lang-sep" aria-hidden="true">|</span>
                 <button type="button" class="lang-btn" data-set-lang="ko">KO</button>
+                <span class="lang-sep" aria-hidden="true">|</span>
+                <button type="button" class="lang-btn" data-set-lang="ja">JA</button>
             </span>
         </div>
     </div>

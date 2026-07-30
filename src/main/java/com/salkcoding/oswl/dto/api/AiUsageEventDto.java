@@ -19,4 +19,5 @@ public class AiUsageEventDto {
     private final BigDecimal estimatedCostUsd;
     private final String modelName;
     private final String projectName;
+    private final String branch;
 }

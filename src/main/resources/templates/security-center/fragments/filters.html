@@ -12,6 +12,21 @@
 
     <div class="flex flex-col gap-[12px] p-[14px] w-full overflow-y-auto flex-1 min-h-0" style="overscroll-behavior: contain;">
 
+        <!-- Dependency Scope Filter (noise cut) -->
+        <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
+            <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.scope}">Dependency Scope</p>
+            <label class="flex gap-[8px] items-center cursor-pointer relative">
+                <input type="checkbox" x-model="filters.hideNonRuntime" class="sr-only">
+                <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                     :class="filters.hideNonRuntime ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                         :class="filters.hideNonRuntime ? 'opacity-100' : 'opacity-0'"
+                         class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </div>
+                <span class="text-[13px] text-black" th:text="#{securityCenter.filter.hideTestDev}">Hide test/dev dependencies</span>
+            </label>
+        </div>
+
         <!-- Review Filter -->
         <div class="bg-white border border-[#dbe4e7] flex flex-col gap-[8px] p-[14px] rounded-[8px] w-full">
             <p class="font-semibold text-[14px] text-black w-full" th:text="#{securityCenter.filter.reviewStatus}">Review Status</p>

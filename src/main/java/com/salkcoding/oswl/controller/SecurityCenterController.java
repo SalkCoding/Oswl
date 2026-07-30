@@ -1,21 +1,37 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.SecurityCenterControllerSpec;
+import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
+import com.salkcoding.oswl.dto.ComplianceReportDto;
+import com.salkcoding.oswl.dto.CreatePrRequest;
+import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.ComplianceReportService;
+import com.salkcoding.oswl.service.ComponentDetailService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.SecurityCenterService;
+import com.salkcoding.oswl.service.VcsAuthTokenService;
+import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.AuditLogService;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/projects/{projectId}/security-center")
@@ -24,8 +40,18 @@ import java.time.LocalDate;
 public class SecurityCenterController implements SecurityCenterControllerSpec {
 
     private final SecurityCenterService securityCenterService;
+    private final ComplianceReportService complianceReportService;
+    private final ComponentDetailService componentDetailService;
+    private final VcsAuthTokenService vcsAuthTokenService;
+    private final ProjectRepository projectRepository;
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
+    private final AirgappedSnapshotService airgappedSnapshotService;
+    private final VulnerabilityEnrichmentService vulnerabilityEnrichmentService;
+    private final MessageSource messageSource;
+
+    @Value("${oswl.airgapped.enabled:false}")
+    private boolean airgapped;
 
     @GetMapping
     public String index(@PathVariable Long projectId,
@@ -33,6 +59,7 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
                         Model model) {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.populateModel(projectId, scanId, model);
+        addDefinitionsAsOf(model);
         return "security-center/index";
     }
 
@@ -43,9 +70,66 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
                         Model model) {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.populateModel(projectId, scanId, model);
+        addDefinitionsAsOf(model);
         auditLogService.log("SECURITY_CENTER.PRINT", "PROJECT", projectId.toString(), null,
                 "scanId=" + (scanId != null ? scanId : "latest"));
         return "security-center/print";
+    }
+
+    /**
+     * Batch upgrade PRs (Renovate-lite): one PR per patchable component of the latest scan.
+     * Partial failures are tolerated — the response reports each component's outcome.
+     */
+    @PostMapping("/batch-pr")
+    @ResponseBody
+    @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_UPDATE_STATUS') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<Map<String, Object>> batchPr(@PathVariable Long projectId,
+                                                       @RequestBody CreatePrRequest req,
+                                                       HttpSession session,
+                                                       @AuthenticationPrincipal OswlUserPrincipal principal) {
+        projectAccessService.assertCanViewProject(projectId);
+        Long userId = principal != null ? principal.getUserId() : null;
+        String githubOwner = projectRepository.findById(projectId)
+                .map(Project::getGithubRepo)
+                .filter(r -> r.contains("/"))
+                .map(r -> r.split("/", 2)[0])
+                .orElse(null);
+        String githubToken = vcsAuthTokenService.resolveGithubToken(session, userId, githubOwner);
+        try {
+            Map<String, Object> result = componentDetailService.createBatchPullRequests(
+                    projectId, req.getTargetBranch(), userId, githubToken);
+            return ResponseEntity.ok(result);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** Printable CRA / ISMS-P compliance report for the latest completed scan. */
+    @GetMapping("/compliance-report")
+    @PreAuthorize("hasPermission(null, 'SECURITY_CENTER_EXPORT') or hasRole('SYSTEM_ADMIN')")
+    public String complianceReport(@PathVariable Long projectId, Model model) {
+        projectAccessService.assertCanViewProject(projectId);
+        ComplianceReportDto report = complianceReportService.build(projectId);
+        model.addAttribute("report", report);
+        model.addAttribute("projectId", projectId);
+        addDefinitionsAsOf(model);
+        auditLogService.log("COMPLIANCE_REPORT.VIEW", "PROJECT", projectId.toString(), null, null);
+        return "reports/compliance-report";
+    }
+
+    /**
+     * E7: in air-gapped mode, results were analyzed against snapshot definitions as of
+     * {@link AirgappedSnapshotService#oldestSourceAsOf()}; the pages/reports show that date so
+     * auditors can see how fresh the underlying data was. Not added outside air-gapped mode or
+     * when no source has provenance yet (attribute stays absent, templates render nothing).
+     */
+    private void addDefinitionsAsOf(Model model) {
+        if (airgapped) {
+            LocalDate asOf = airgappedSnapshotService.oldestSourceAsOf();
+            if (asOf != null) {
+                model.addAttribute("airgappedDefinitionsAsOf", asOf.toString());
+            }
+        }
     }
 
     @PatchMapping("/bulk-status")
@@ -56,6 +140,29 @@ public class SecurityCenterController implements SecurityCenterControllerSpec {
         projectAccessService.assertCanViewProject(projectId);
         securityCenterService.bulkUpdateStatus(projectId, req);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Regenerates the scan-level AI insights for one scan. The Security Center card offers this
+     * when enrichment finished without producing a posture insight — previously the "generating…"
+     * placeholder simply disappeared and left nothing behind, with no way to retry short of
+     * re-running the whole scan.
+     */
+    @PostMapping("/refresh-insights")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> refreshInsights(@PathVariable Long projectId,
+                                                               @RequestParam Long scanId) {
+        projectAccessService.assertCanViewProject(projectId);
+        boolean ok = vulnerabilityEnrichmentService.refreshScanInsights(projectId, scanId);
+        if (!ok) {
+            String message = messageSource.getMessage("license.ai.refreshFailed", null,
+                    "AI provider is not configured or insight generation failed.",
+                    LocaleContextHolder.getLocale());
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", message));
+        }
+        auditLogService.log("SECURITY_CENTER.REFRESH_AI_INSIGHT", "SCAN", scanId.toString(),
+                "projectId=" + projectId, null);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/export")

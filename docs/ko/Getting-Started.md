@@ -62,6 +62,35 @@ export OSWL_ENCRYPTION_KEY=$(openssl rand -base64 32)
 
 ---
 
+## 임베디드 AI 모델 (최초 실행)
+
+OsWL은 임베디드 llama.cpp 사이드카를 통해 AI 기능을 완전한 온프레미스로 실행할 수 있습니다. 최초 기동 시 `embedded-ai/`에 `.gguf` 모델이 없으면, OsWL이 기본 **Qwen3-1.7B** 모델(~1.2GB)을 백그라운드에서 자동으로 다운로드합니다:
+
+* 업스트림 Hugging Face 저장소(`ggml-org/Qwen3-1.7B-GGUF`)에서 받으며 SHA-256 무결성을 검증합니다. 서드파티 호스트 의존을 피하려면 `OSWL_EMBEDDED_DEFAULT_MODEL_URL`을 자체 호스팅 미러로 지정하세요.
+* 다운로드만 수행합니다 — 사이드카를 시작하거나 활성 AI 프로바이더를 변경하지 않습니다. 진행률은 **설정 → AI**에서 확인할 수 있으며, 파일이 준비되면 거기서 **시작**을 누르세요.
+* `OSWL_EMBEDDED_AUTO_DOWNLOAD=false`로 끌 수 있습니다. 에어갭 모드에서는 다운로드를 시도하지 않습니다(아래 참조).
+
+`llama-server(.exe)` 바이너리만 수동 단계입니다 — [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)에서 받아 `embedded-ai/`(또는 `PATH`)에 두세요. 자세한 내용은 [임베디드 AI](Embedded-AI.md)를 참조하세요.
+
+---
+
+## 에어갭(오프라인) 환경에서 시작하기
+
+아웃바운드 인터넷 접속이 없는 호스트의 경우:
+
+1. 기동 전 `OSWL_AIRGAPPED_ENABLED=true`를 설정합니다. 취약점/위협 인텔 조회(OSV, deps.dev, EPSS, KEV)는 import된 오프라인 스냅샷에서 제공되며 아웃바운드 HTTP를 시도하지 않고, 임베디드 모델 자동 다운로드도 건너뜁니다.
+2. 인터넷에 연결된 머신에서 스냅샷 번들을 빌드합니다:
+
+   ```bash
+   scripts/oswl-vdb/oswl-vdb.sh build --wanted wanted-list.jsonl --out bundle.zip
+   ```
+
+   (Windows: `scripts/oswl-vdb/oswl-vdb.ps1`.) 번들을 실제 의존성에 맞추려면, 먼저 연결된 OsWL 인스턴스에서 wanted-list를 내보내세요: `GET /api/admin/snapshot/wanted-list`.
+3. `bundle.zip`을 에어갭 호스트로 옮겨 시스템 관리자 권한으로 `POST /api/admin/snapshot/import`(멀티파트 업로드)로 import하거나, `OSWL_AIRGAPPED_IMPORT_DIR`로 디렉터리를 허용 목록에 등록한 뒤 `POST /api/admin/snapshot/import-from-path`를 사용하세요. [관리 — 오프라인 스냅샷 번들](Administration.md)을 참조하세요.
+4. 임베디드 AI를 쓰려면 직접 구한 `.gguf` 모델을 `embedded-ai/`에 넣은 뒤 **시작**을 누르세요.
+
+---
+
 ## 설정 마법사
 
 최초 실행 시(빈 데이터베이스), OsWL은 모든 요청을 `http://localhost:8080/setup`으로 리다이렉트합니다.
@@ -115,7 +144,7 @@ GET http://localhost:8080/data/test-api-key
 ## 접근 제어 (권장)
 
 * [권한 레이어](Authorization-Layers.md) — 역할 템플릿 vs 프로젝트 멤버십
-* [운영 배포 체크리스트](../Production-Deployment-Checklist.md)
+* [운영 배포 체크리스트](Production-Deployment-Checklist.md) — `prod`로 실서비스 전환 전에
 
 ## 다음 단계
 

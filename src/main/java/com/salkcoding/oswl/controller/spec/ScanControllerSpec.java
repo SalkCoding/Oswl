@@ -163,4 +163,33 @@ public interface ScanControllerSpec {
         @Parameter(description = "Scan result ID", example = "42", required = true)
         @PathVariable Long scanId
     );
+
+    @Operation(
+        summary = "Evaluate the PR / CI security gate",
+        description = """
+            Evaluates the project's scan against the configured security-gate policy
+            (severity, CISA KEV, EPSS, and license-violation thresholds) and returns a
+            machine-readable verdict. The project is taken from the API key.
+
+            **CI contract:** `exitCode` is `0` when `passed` is true and `1` otherwise —
+            map it directly to the CI job's process exit code. By default only findings
+            absent from the previous completed scan (the baseline) count, and
+            deferred/ignored components are treated as accepted exceptions.
+
+            When a `github` block is supplied, the ready-made Markdown verdict is posted as a
+            pull-request comment (`prNumber`) and/or a Check Run (`headSha`) using the
+            caller-supplied GitHub token — which is never stored.
+            """,
+        security = @SecurityRequirement(name = "BearerAuth")
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Gate evaluated — see `passed` / `exitCode`",
+            content = @Content(schema = @Schema(implementation = com.salkcoding.oswl.dto.gate.GateResultDto.class))),
+        @ApiResponse(responseCode = "401", description = "Missing or invalid API key", content = @Content),
+        @ApiResponse(responseCode = "409", description = "Project has no completed scan to gate on", content = @Content)
+    })
+    ResponseEntity<com.salkcoding.oswl.dto.gate.GateResultDto> gate(
+        @RequestBody(required = false) com.salkcoding.oswl.dto.gate.GateRequest request,
+        HttpServletRequest httpRequest
+    );
 }

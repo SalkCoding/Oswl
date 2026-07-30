@@ -74,6 +74,16 @@ public class Cve {
     @Column(name = "ai_recommended_action", columnDefinition = "TEXT")
     private String aiRecommendedAction;
 
+    /**
+     * SHA-256 (hex) of the fields that actually drive the AI triage prompt (severity, cvss,
+     * fixVersion, cwe, vector, dependencyType, patchability, epss bucket, kev, deploymentProfile
+     * — see {@code VulnerabilityEnrichmentService.cveContextHash()}). When a re-scan computes the
+     * same hash and {@link #aiSummary} is already present, the batch call is skipped entirely
+     * (F1) — null on every pre-existing row, which is simply always a cache miss.
+     */
+    @Column(name = "ai_context_hash", length = 64)
+    private String aiContextHash;
+
     /** EPSS exploit probability (0.0–1.0), optional */
     @Column(name = "epss_score")
     private Double epssScore;
@@ -98,10 +108,9 @@ public class Cve {
         this.aiRecommendedAction = recommendedAction;
     }
 
-    public void clearAiTriage() {
-        this.aiSummary = null;
-        this.aiPriority = null;
-        this.aiRecommendedAction = null;
+    /** F1: records the context hash the current {@link #aiSummary} was generated for. */
+    public void setAiContextHash(String hash) {
+        this.aiContextHash = hash;
     }
 
     public void setThreatIntel(Double epssScore, boolean kevListed) {

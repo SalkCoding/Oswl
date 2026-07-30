@@ -95,19 +95,29 @@
               nonPatchable: false,
               patchDeprecated: false,
               patchOutdated: false,
-              patchUpToDate: false
+              patchUpToDate: false,
+              hideNonRuntime: true
           },
           filterVersion: 0,
           scanStatus: window.securityCenterData.scanStatus,
           latestScanId: window.securityCenterData.latestScanId,
+          currentScanId: window.securityCenterData.currentScanId,
+          aiStatus: window.securityCenterData.aiStatus,
+          aiPostureInsight: window.securityCenterData.securityPostureInsight,
+          aiRetrying: false,
           scanPollTimer: null,
+          aiPollTimer: null,
           rowVisible(el) {
               // Track filterVersion so that manual DOM attribute updates (ignored, deferred)
               // trigger re-evaluation of this function via filterVersion++.
               void this.filterVersion;
               const f = this.filters;
               const q = this.searchQuery.trim().toLowerCase();
-              const anyFilter = Object.values(f).some(v => v);
+
+              // Noise cut: hide test/dev/provided components unless the toggle is off.
+              if (f.hideNonRuntime && el.dataset.runtimeScope === 'false') return false;
+
+              const anyFilter = Object.entries(f).some(([k, v]) => v && k !== 'hideNonRuntime');
               if (!anyFilter && !q) return true;
 
               if (q) {
@@ -196,9 +206,71 @@
                   if (d.status === 'COMPLETED' || d.status === 'FAILED') {
                       clearInterval(this.scanPollTimer);
                       this.scanPollTimer = null;
+                      // The CVE/license data pipeline just finished — reload once to show it.
+                      // AI summaries (aiStatus) may still be generating; startAiPolling() on the
+                      // freshly-reloaded page fills those in without a second reload.
                       if (d.status === 'COMPLETED') { location.reload(); }
                   }
               }, 2500);
+          },
+          // Polls AI enrichment progress for the scan being viewed. Only runs after the data
+          // pipeline is already COMPLETED (see init()) — never triggers a reload; the posture
+          // insight is filled in reactively via aiPostureInsight once aiStatus reaches COMPLETED.
+          startAiPolling() {
+              if (this.aiPollTimer || !this.currentScanId) return;
+              this.aiPollTimer = setInterval(async () => {
+                  const r = await fetch('/api/scan/' + this.currentScanId + '/status');
+                  if (!r.ok) return;
+                  const d = await r.json();
+                  if (d.securityPostureInsight) {
+                      this.aiPostureInsight = d.securityPostureInsight;
+                  }
+                  if (['COMPLETED', 'FAILED', 'NOT_APPLICABLE'].includes(d.aiStatus)) {
+                      clearInterval(this.aiPollTimer);
+                      this.aiPollTimer = null;
+                      // One more read a moment later: the insight and the status are written in
+                      // two separate transactions, so a poll can land between them and see
+                      // COMPLETED with the insight column still empty. Without this the card
+                      // would claim nothing was produced for an insight that did arrive.
+                      if (!this.aiPostureInsight) {
+                          setTimeout(() => this.refetchAiInsight(), 1500);
+                      }
+                  }
+                  // Assigned last so the generating card is only torn down once the insight
+                  // that goes in its place has been read.
+                  this.aiStatus = d.aiStatus;
+              }, 2500);
+          },
+          // Single non-looping read of the current scan's insight.
+          async refetchAiInsight() {
+              try {
+                  const r = await fetch('/api/scan/' + this.currentScanId + '/status');
+                  if (!r.ok) return;
+                  const d = await r.json();
+                  if (d.securityPostureInsight) this.aiPostureInsight = d.securityPostureInsight;
+                  this.aiStatus = d.aiStatus;
+              } catch (e) { /* leave the empty state in place */ }
+          },
+          // Re-runs insight generation for the scan being viewed.
+          async retryAiInsight() {
+              if (!this.currentScanId) return;
+              this.aiRetrying = true;
+              try {
+                  const projectId = document.body.dataset.projectId;
+                  const r = await fetch('/projects/' + projectId + '/security-center/refresh-insights?scanId='
+                                        + this.currentScanId, { method: 'POST', headers: oswlJsonHeaders() });
+                  const d = await r.json().catch(() => ({}));
+                  if (!r.ok || !d.success) {
+                      alert(d.message || window.securityCenterData.i18n.actionFailed);
+                      return;
+                  }
+                  await this.refetchAiInsight();
+                  if (!this.aiPostureInsight) alert(window.securityCenterData.i18n.aiRetryEmpty);
+              } catch (e) {
+                  alert(window.securityCenterData.i18n.actionFailed);
+              } finally {
+                  this.aiRetrying = false;
+              }
           },
           applySort(mode) {
               this.sortMode = mode;
@@ -274,6 +346,25 @@
                   }).catch(onFailure);
               }
           },
+          async batchUpgradePrs() {
+              const projectId = document.body.dataset.projectId;
+              const i18n = window.securityCenterData.i18n || {};
+              const branch = prompt(i18n.batchPrPrompt || 'Base branch for the upgrade PRs:', 'main');
+              if (!branch || !branch.trim()) return;
+              try {
+                  const r = await fetch('/projects/' + projectId + '/security-center/batch-pr', {
+                      method: 'POST', headers: oswlJsonHeaders(),
+                      body: JSON.stringify({ targetBranch: branch.trim() })
+                  });
+                  const body = await r.json().catch(() => ({}));
+                  if (!r.ok) { alert(body.error || (i18n.actionFailed || 'Failed.')); return; }
+                  if (body.candidates === 0) { alert(i18n.batchPrNone || 'No patchable components found.'); return; }
+                  const tmpl = i18n.batchPrResult || 'Batch PRs: {0} created, {1} failed (of {2} candidates).';
+                  alert(tmpl.replace('{0}', body.created).replace('{1}', body.failed).replace('{2}', body.candidates));
+              } catch (e) {
+                  alert((window.securityCenterData.i18n || {}).actionFailed || 'Failed.');
+              }
+          },
           exportAs(format) {
               this.exportOpen = false;
               const projectId = document.body.dataset.projectId;
@@ -282,6 +373,22 @@
                   const scanId = new URLSearchParams(window.location.search).get('scanId');
                   if (scanId) url += '?scanId=' + scanId;
                   window.open(url, '_blank');
+                  return;
+              }
+              if (format === 'sbom') {
+                  window.location.href = '/api/projects/' + projectId + '/sbom?format=json';
+                  return;
+              }
+              if (format === 'vex') {
+                  window.location.href = '/api/projects/' + projectId + '/vex?format=json';
+                  return;
+              }
+              if (format === 'sarif') {
+                  window.location.href = '/api/projects/' + projectId + '/sarif';
+                  return;
+              }
+              if (format === 'compliance') {
+                  window.open('/projects/' + projectId + '/security-center/compliance-report', '_blank');
                   return;
               }
               // CSV download
@@ -304,6 +411,8 @@
           init() {
               if (['SCANNING', 'ANALYZING', 'PENDING'].includes(this.scanStatus)) {
                   this.startPolling();
+              } else if (['PENDING', 'RUNNING'].includes(this.aiStatus)) {
+                  this.startAiPolling();
               }
           }
       }"
@@ -315,13 +424,22 @@
     window.securityCenterData = {
         scanStatus:   /*[[${latestScanStatus}]]*/ 'NONE',
         latestScanId: /*[[${latestScanId}]]*/ null,
+        currentScanId: /*[[${currentScanId}]]*/ null,
+        aiStatus: /*[[${aiStatus}]]*/ 'NOT_APPLICABLE',
+        securityPostureInsight: /*[[${securityPostureInsight}]]*/ null,
         sortLabels: {
             risk:    /*[[#{securityCenter.sort.risk}]]*/ 'Risk (default)',
             name:    /*[[#{securityCenter.sort.name}]]*/ 'Name',
             license: /*[[#{securityCenter.sort.license}]]*/ 'License risk'
         },
         i18n: {
-            actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.'
+            actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.',
+            batchPrPrompt: /*[[#{securityCenter.batchPr.prompt}]]*/ 'Base branch for the upgrade PRs:',
+            batchPrNone: /*[[#{securityCenter.batchPr.none}]]*/ 'No patchable components found.',
+            batchPrResult: /*[[#{securityCenter.batchPr.result}]]*/ 'Batch PRs: {0} created, {1} failed (of {2} candidates).',
+            aiRetry: /*[[#{securityCenter.aiRetry}]]*/ 'Generate now',
+            aiRetrying: /*[[#{securityCenter.aiRetrying}]]*/ 'Generating…',
+            aiRetryEmpty: /*[[#{securityCenter.aiRetryEmpty}]]*/ 'The AI provider returned nothing for this scan. Check Settings → AI (daily cap, model, and token limit) and try again.'
         }
     };
     </script>
@@ -341,6 +459,16 @@
         </p>
         <span x-text="'(' + scanStatus.toLowerCase() + ')'"
               class="text-[11px] text-[var(--primary-80)] font-mono"></span>
+    </div>
+
+    <!-- Air-gapped definitions-as-of banner (E7): only rendered in offline mode with provenance -->
+    <div th:if="${airgappedDefinitionsAsOf != null}"
+         class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[10px] bg-[rgba(245,145,38,0.06)] border-b border-[rgba(245,145,38,0.3)] flex items-center gap-[10px]">
+        <svg class="w-[16px] h-[16px] text-[#91400D] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p class="text-[13px] text-[#91400D] font-medium tracking-[-0.13px] m-0"
+           th:text="#{common.airgapped.definitionsAsOf(${airgappedDefinitionsAsOf})}">Analyzed with vulnerability definitions as of 2026-01-01.</p>
     </div>
 
     <main class="flex flex-col flex-1 min-h-0">
@@ -381,15 +509,43 @@
                         th:text="#{common.dismiss}">Dismiss</button>
             </div>
 
-            <!-- AI security posture insight -->
-            <div th:if="${securityPostureInsight != null and !#strings.isEmpty(securityPostureInsight)}"
+            <!-- AI security posture insight — x-show (not th:if) so a later poll can reveal it
+                 in place once aiStatus reaches COMPLETED, without a page reload. -->
+            <div x-show="aiPostureInsight" x-cloak
                  class="mb-[24px] flex flex-col gap-[12px] p-[20px] rounded-[10px] bg-[rgba(51,209,183,0.06)] border border-[rgba(51,209,183,0.4)]">
                 <div class="flex items-center gap-[6px]">
                     <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
                     <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] m-0" th:text="#{riskTrend.ai.insight}">AI Insight</p>
                 </div>
                 <p class="text-[14px] text-[#272D30] tracking-[-0.15px] m-0 leading-relaxed"
-                   th:text="${securityPostureInsight}">AI posture insight</p>
+                   x-text="aiPostureInsight">AI posture insight</p>
+            </div>
+
+            <!-- AI insight generating skeleton — shown while the scan's data results are already
+                 visible but AI summaries are still running in the background (D1). -->
+            <div x-show="!aiPostureInsight && ['PENDING','RUNNING'].includes(aiStatus)" x-cloak
+                 class="mb-[24px] flex flex-col gap-[10px] p-[20px] rounded-[10px] bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] animate-pulse">
+                <div class="flex items-center gap-[6px]">
+                    <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0 opacity-40" alt="" aria-hidden="true">
+                    <p class="font-bold text-[16px] text-[var(--grayscale-50)] tracking-[-0.16px] m-0" th:text="#{securityCenter.aiGenerating}">Generating AI summary…</p>
+                </div>
+                <div class="h-[14px] w-3/4 rounded bg-[var(--grayscale-15)]"></div>
+                <div class="h-[14px] w-1/2 rounded bg-[var(--grayscale-15)]"></div>
+            </div>
+
+            <!-- Enrichment finished but produced no posture insight. Without this the skeleton
+                 above simply vanished and nothing replaced it, which read as "the insight was
+                 generated and then lost" — the AI had answered, but the answer was empty (a
+                 truncated reasoning block, a failed insight sub-task, or the daily cap). Say so
+                 and offer a retry instead of silently rendering nothing. -->
+            <div x-show="!aiPostureInsight && ['COMPLETED','FAILED'].includes(aiStatus)" x-cloak
+                 class="mb-[24px] flex items-center gap-[12px] flex-wrap p-[20px] rounded-[10px] bg-[var(--grayscale-5)] border border-dashed border-[var(--grayscale-20)]">
+                <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0 opacity-40" alt="" aria-hidden="true">
+                <p class="flex-1 min-w-[240px] text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] m-0 leading-[1.4]"
+                   th:text="#{securityCenter.aiUnavailable}">No AI insight was produced for this scan.</p>
+                <button type="button" @click="retryAiInsight()" :disabled="aiRetrying"
+                        class="shrink-0 text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] border border-[var(--grayscale-20)] bg-white hover:bg-[var(--grayscale-10)] text-[var(--grayscale-80)] transition-colors cursor-pointer disabled:opacity-40"
+                        x-text="aiRetrying ? window.securityCenterData.i18n.aiRetrying : window.securityCenterData.i18n.aiRetry"></button>
             </div>
 
             <!-- Risk stick graph -->

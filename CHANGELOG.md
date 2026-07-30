@@ -2,7 +2,7 @@
 
 ## [1.0.3](https://github.com/SalkCoding/Oswl/releases/tag/v1.0.3) (2026-07-19)
 
-User-feedback release — applies the remaining findings from the 5-person usability test (한백·항민·종원·영하·세현).
+User-feedback release — applies the remaining findings from the 5-person usability test
 
 ### Bug Fixes
 

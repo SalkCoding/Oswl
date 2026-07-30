@@ -62,6 +62,35 @@ The application starts on port **8080** by default.
 
 ---
 
+## Embedded AI Model (first run)
+
+OsWL can run its AI features fully on-premise through an embedded llama.cpp sidecar. On first boot, if no `.gguf` model exists in `embedded-ai/`, OsWL starts a background download of the default **Qwen3-1.7B** model (~1.2 GB):
+
+* Downloaded from the upstream Hugging Face repository (`ggml-org/Qwen3-1.7B-GGUF`), with SHA-256 integrity verification; point `OSWL_EMBEDDED_DEFAULT_MODEL_URL` at a self-hosted mirror to avoid depending on a third-party host.
+* Download-only — it never starts the sidecar or changes the active AI provider on its own. Progress appears in **Settings → AI**; click **Start** there once the file is ready.
+* Opt out with `OSWL_EMBEDDED_AUTO_DOWNLOAD=false`. In air-gapped mode the download is never attempted (see below).
+
+The `llama-server(.exe)` binary itself is the one manual step — download it from the [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases) and place it in `embedded-ai/` (or on `PATH`). See [Embedded AI](Embedded-AI.md) for details.
+
+---
+
+## Air-Gapped (Offline) Startup
+
+For hosts without outbound internet access:
+
+1. Set `OSWL_AIRGAPPED_ENABLED=true` before startup. Vulnerability / threat-intel lookups (OSV, deps.dev, EPSS, KEV) are then served from an imported offline snapshot — no outbound HTTP is attempted, and the embedded-model auto-download is skipped.
+2. On an internet-connected machine, build a snapshot bundle:
+
+   ```bash
+   scripts/oswl-vdb/oswl-vdb.sh build --wanted wanted-list.jsonl --out bundle.zip
+   ```
+
+   (Windows: `scripts/oswl-vdb/oswl-vdb.ps1`.) To target the bundle at your actual dependencies, first export a wanted-list from a connected OsWL instance: `GET /api/admin/snapshot/wanted-list`.
+3. Transfer `bundle.zip` to the air-gapped host and import it as a System Admin via `POST /api/admin/snapshot/import` (multipart upload), or whitelist a directory with `OSWL_AIRGAPPED_IMPORT_DIR` and use `POST /api/admin/snapshot/import-from-path`. See [Administration — Offline snapshot bundles](Administration.md).
+4. For embedded AI, place a `.gguf` model you obtained yourself into `embedded-ai/` before clicking **Start**.
+
+---
+
 ## Setup Wizard
 
 On the very first startup (empty database), OsWL redirects every request to `http://localhost:8080/setup`.

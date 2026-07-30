@@ -17,6 +17,7 @@ OsWL therefore **exempts only** these paths from CSRF checks:
 
 - `POST /api/scan` — submit scan payload  
 - `POST /api/scan/parse` — parse manifest archive (CLI step 1)  
+- `POST /api/scan/gate` — evaluate the PR gate from CI (API-key authenticated, no browser session)  
 - `GET /api/scan/ping` — verify API key  
 
 All other routes keep normal CSRF protection for the UI.
@@ -47,6 +48,8 @@ See [Authorization layers](Authorization-Layers.md) for how role templates diffe
 ## Scan status polling (browser)
 
 `GET /api/scan/{scanId}/status` uses the **web session** and **project membership** — not the API-key-only path. It remains behind normal login and CSRF rules.
+
+The response tracks scan status and **AI enrichment (`aiStatus`) separately**: a scan can reach `COMPLETED` while AI summaries are still `PENDING`/`RUNNING` in the background. Do not treat a completed scan status as proof that AI insights are ready — poll `aiStatus` for that.
 
 ---
 
