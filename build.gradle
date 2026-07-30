@@ -61,6 +61,13 @@ dependencies {
 	// Flyway DB migrations (prod-profile gated) — roadmap #13
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	// Horizontal scaling / HA (roadmap S1): cluster-wide HTTP sessions so a multi-instance
+	// deployment behind a load balancer doesn't drop auth on failover.
+	implementation 'org.springframework.session:spring-session-jdbc'
+	// Cluster-wide dedup for @Scheduled jobs (roadmap S1) — without this, 2 instances would
+	// each run the nightly monitoring/defer-expiry/trash-cleanup jobs independently.
+	implementation 'net.javacrumbs.shedlock:shedlock-spring:7.7.0'
+	implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0'
 
     compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -338,6 +345,8 @@ ext.trackedOssCoordinates = [
 	micrometer             : 'io.micrometer:micrometer-registry-prometheus',
 	flyway                 : 'org.flywaydb:flyway-core',
 	springOauth2           : 'org.springframework.security:spring-security-oauth2-client',
+	springSessionJdbc      : 'org.springframework.session:spring-session-jdbc',
+	shedlock               : 'net.javacrumbs.shedlock:shedlock-spring',
 ]
 
 tasks.register('generateOssManifest') {
@@ -406,6 +415,8 @@ ext.thirdPartyVersionSections = [
 	'Micrometer Prometheus Registry'  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Flyway'                          : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Spring Security OAuth2 Client'   : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Spring Session JDBC'             : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'ShedLock'                        : [key: 'shedlock', mode: 'literal'],
 	'Jackson'                         : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Logback Classic'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'SLF4J API'                       : [key: 'springBootBomVersion', mode: 'bomPhrase'],

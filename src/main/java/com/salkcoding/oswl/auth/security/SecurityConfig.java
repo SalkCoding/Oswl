@@ -22,6 +22,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
+import org.springframework.session.security.SpringSessionBackedSessionRegistry;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -45,8 +48,21 @@ public class SecurityConfig {
     private final TwoFaAuthenticationSuccessHandler twoFaAuthenticationSuccessHandler;
     private final OswlSessionExpiredStrategy oswlSessionExpiredStrategy;
 
+    /**
+     * Horizontal scaling / HA (roadmap S1): when {@code spring.session.store-type=jdbc} is active,
+     * a {@link FindByIndexNameSessionRepository} bean is auto-configured and single-session
+     * enforcement must see the whole cluster's sessions, not just this instance's in-memory ones —
+     * otherwise {@code maximumSessions(1)} would only be enforced per-instance and a user could hold
+     * one live session per instance behind the load balancer. Falls back to the pre-S1 in-memory
+     * registry when no such bean exists (default: single instance, in-memory Tomcat session).
+     */
     @Bean
-    public SessionRegistry sessionRegistry() {
+    public SessionRegistry sessionRegistry(
+            org.springframework.beans.factory.ObjectProvider<FindByIndexNameSessionRepository<? extends Session>> sessionRepositoryProvider) {
+        FindByIndexNameSessionRepository<? extends Session> sessionRepository = sessionRepositoryProvider.getIfAvailable();
+        if (sessionRepository != null) {
+            return new SpringSessionBackedSessionRegistry<>(sessionRepository);
+        }
         return new SessionRegistryImpl();
     }
 
@@ -60,7 +76,8 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
             org.springframework.beans.factory.ObjectProvider<org.springframework.security.oauth2.client.registration.ClientRegistrationRepository> clientRegistrations,
-            org.springframework.security.core.userdetails.UserDetailsService userDetailsService) {
+            org.springframework.security.core.userdetails.UserDetailsService userDetailsService,
+            SessionRegistry sessionRegistry) {
         AccessDeniedHandler accessDeniedHandler = (request, response, _) -> {
             String accept = request.getHeader("Accept");
             String uri = request.getRequestURI();
@@ -105,7 +122,7 @@ public class SecurityConfig {
                     .maximumSessions(1)
                         .maxSessionsPreventsLogin(false)
                         .expiredSessionStrategy(oswlSessionExpiredStrategy)
-                        .sessionRegistry(sessionRegistry()))
+                        .sessionRegistry(sessionRegistry))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()

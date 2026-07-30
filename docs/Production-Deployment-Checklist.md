@@ -195,6 +195,10 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 (Flyway users: `V3__component_metadata.sql` covers the three new `libraries` columns; see [Database Schema](Database-Schema.md).)
 
+### v1.0.5: Spring Session / ShedLock tables (opt-in, roadmap S1)
+
+Only needed if you're moving to a **multi-instance** deployment (see §12). Adds `spring_session`, `spring_session_attributes`, and `shedlock`. Flyway users get this from `db/migration/V10__spring_session_and_shedlock.sql`; manual-script users run `db/spring_session_and_shedlock.sql`. A single-instance deployment can skip this entirely — nothing reads these tables until you set `OSWL_SESSION_STORE_TYPE=jdbc` and/or `OSWL_SCHEDULER_LOCK_ENABLED=true`.
+
 ## 10. Post-deploy smoke test
 
 1. Open UI via HTTPS reverse proxy only.
@@ -209,6 +213,35 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 - Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens).
 - Rotate API keys and SMTP credentials on compromise.
 - Keep `SPRING_PROFILES_ACTIVE` out of images that should never run as `local`.
+
+## 12. Multi-instance deployment (horizontal scaling / HA, roadmap S1)
+
+By default OsWL runs as a **single instance** — an in-memory HTTP session and per-instance `@Scheduled` jobs. That's correct for a single container/process, but it does not survive a second instance behind a load balancer: a user's session would be pinned to whichever instance served their login, and the nightly monitoring / defer-expiry / trash-cleanup jobs would each run once *per instance* instead of once per cluster. This section is only relevant once you deploy **2+ instances against the same PostgreSQL database**.
+
+**1. Run the schema first.** Before starting any instance with these features on, make sure `spring_session`, `spring_session_attributes`, and `shedlock` exist (§9, "v1.0.5: Spring Session / ShedLock tables"). Rolling out the env vars below before the tables exist will crash every instance on the first request/job tick.
+
+**2. Environment variables:**
+
+| Variable | Purpose |
+|----------|---------|
+| `OSWL_SESSION_STORE_TYPE=jdbc` | Moves HTTP sessions from in-memory Tomcat storage to PostgreSQL (`spring_session`). Login state and single-session enforcement (`maximumSessions(1)`) then work across the whole cluster instead of per-instance. |
+| `OSWL_SCHEDULER_LOCK_ENABLED=true` | Wraps the 3 scheduled jobs (`ContinuousMonitoringScheduler`, `DeferExpiryScheduler`, `TrashCleanupScheduler`) in a cluster-wide lock (ShedLock, backed by the `shedlock` table) so only one instance runs each job per cycle. |
+
+Set both together for a real multi-instance deployment — enabling only one leaves the other gap open.
+
+**3. Load balancer:** any standard L7 LB (nginx, ALB, etc.) works — **no sticky sessions required** once `OSWL_SESSION_STORE_TYPE=jdbc` is set, since session state is centralized in PostgreSQL rather than instance memory.
+
+**4. Scan-progress polling is the one exception.** `EnrichmentProgressHolder` and `ScanStatusEmitterRegistry` (the live progress shown during Quick Import / scan enrichment) are still in-memory per instance, not backed by the DB. Recommended: keep the load balancer's routing **sticky for the duration of an active scan** (e.g. cookie-based affinity scoped to the session), so progress-polling requests land back on the instance that's actually running the scan. The alternative — moving scan progress into the DB and switching the UI to pure polling — is a larger change tracked separately; sticky routing is the pragmatic default for now.
+
+**5. Rolling deploy order:**
+   1. Apply any pending DB migration first (old app code must tolerate the new schema — additive-only migrations, which is what `db/migration` follows).
+   2. Roll instances one at a time (not all at once), waiting for each new instance to pass its readiness check before moving to the next.
+   3. Because sessions live in PostgreSQL (not instance memory) once `OSWL_SESSION_STORE_TYPE=jdbc` is set, a rolling restart no longer logs users out.
+
+**6. Verifying it worked:**
+   - Log in against instance A, then send a subsequent request that the LB routes to instance B — it should stay authenticated (not redirected to `/login`).
+   - Stop instance A — the session (and single-session enforcement) should keep working from instance B.
+   - Check scheduler logs across both instances after a nightly job fires — the job's log lines should appear on exactly one instance, not both.
 
 ---
 

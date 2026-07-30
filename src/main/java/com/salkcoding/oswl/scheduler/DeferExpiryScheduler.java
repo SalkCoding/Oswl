@@ -5,6 +5,7 @@ import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,8 +25,14 @@ public class DeferExpiryScheduler {
     private final ScanComponentRepository scanComponentRepository;
     private final AuditLogService auditLogService;
 
-    /** Runs every day at midnight to clear deferrals whose expiry date has passed. */
+    /**
+     * Runs every day at midnight to clear deferrals whose expiry date has passed.
+     * {@code @SchedulerLock} (roadmap S1) is a no-op unless {@code oswl.scheduler-lock.enabled=true}
+     * (see {@link SchedulerLockConfig}) — a single instance behaves exactly as before S1.
+     */
     @Scheduled(cron = "0 0 0 * * *")
+    @SchedulerLock(name = "DeferExpiryScheduler_expireOverdueDeferrals",
+            lockAtLeastFor = "PT1M", lockAtMostFor = "PT10M")
     @Transactional
     public void expireOverdueDeferrals() {
         List<ScanComponent> expired = scanComponentRepository.findExpiredDeferrals(LocalDateTime.now());
