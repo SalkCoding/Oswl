@@ -54,17 +54,17 @@ dependencies {
 	// CycloneDX SBOM export/import (spec 1.6)
 	implementation 'org.cyclonedx:cyclonedx-core-java:13.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	// Prometheus scrape endpoint (/actuator/prometheus) — roadmap #13 ops foundation
+	// Prometheus scrape endpoint (/actuator/prometheus)
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 	// OIDC SSO (Okta / Entra) — optional, activated only when a provider is configured
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
-	// Flyway DB migrations (prod-profile gated) — roadmap #13
+	// Flyway DB migrations (prod-profile gated)
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
-	// Horizontal scaling / HA (roadmap S1): cluster-wide HTTP sessions so a multi-instance
+	// Horizontal scaling / HA: cluster-wide HTTP sessions so a multi-instance
 	// deployment behind a load balancer doesn't drop auth on failover.
 	implementation 'org.springframework.session:spring-session-jdbc'
-	// Cluster-wide dedup for @Scheduled jobs (roadmap S1) — without this, 2 instances would
+	// Cluster-wide dedup for @Scheduled jobs — without this, 2 instances would
 	// each run the nightly monitoring/defer-expiry/trash-cleanup jobs independently.
 	implementation 'net.javacrumbs.shedlock:shedlock-spring:7.7.0'
 	implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0'
@@ -192,6 +192,7 @@ jacocoTestReport {
 				'**/web/interceptor/**',
 				'**/aop/**',
 				'**/scheduler/**',
+				'**/logging/**',
 				'**/domain/**',
 				'**/spec/**',
 			])
@@ -317,7 +318,7 @@ tasks.register('downloadVendorJs') {
 processResources.dependsOn 'downloadVendorJs'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// H2/H3: OSS notices / THIRD_PARTY_LICENSES.md version single-sourcing.
+// OSS notices / THIRD_PARTY_LICENSES.md version single-sourcing.
 // This is version-SYNC automation, not dependency-DISCOVERY — a newly added
 // library must be added to both maps below, or it is simply not tracked.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -402,7 +403,7 @@ tasks.named('processResources') {
 // line, and whether that line is a literal version or a "Managed by <project> X.Y.Z" phrase
 // (only the trailing version token is rewritten in the phrase case — see
 // syncThirdPartyLicenseVersions below). Sections not listed here (e.g. Qwen3-1.7B, which has
-// its own G3 redistribution-notice lifecycle) are left completely untouched.
+// its own redistribution-notice lifecycle) are left completely untouched.
 ext.thirdPartyVersionSections = [
 	'Spring Boot / Spring Framework'  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Spring Security'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
@@ -433,7 +434,7 @@ ext.thirdPartyVersionSections = [
 
 tasks.register('syncThirdPartyLicenseVersions') {
 	description = 'Rewrites only the **Version:** lines in THIRD_PARTY_LICENSES.md from the OSS ' +
-			'manifest (H2/H3) — no other prose (license text, distribution policy) is touched.'
+			'manifest — no other prose (license text, distribution policy) is touched.'
 	group = 'documentation'
 	dependsOn 'generateOssManifest'
 	doLast {
@@ -493,7 +494,7 @@ tasks.register('syncThirdPartyLicenseVersions') {
 }
 
 tasks.register('vdbBuild', JavaExec) {
-	description = 'E5: runs the oswl-vdb CLI (build/verify/inspect offline vulnerability-DB bundles) — ' +
+	description = 'Runs the oswl-vdb CLI (build/verify/inspect offline vulnerability-DB bundles) — ' +
 			'see scripts/oswl-vdb/oswl-vdb.{sh,ps1} for thin wrapper scripts. ' +
 			'Example: ./gradlew vdbBuild --args="build --wanted wanted-list.jsonl --out bundle.zip"'
 	group = 'application'

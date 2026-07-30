@@ -49,12 +49,12 @@ public class SecurityConfig {
     private final OswlSessionExpiredStrategy oswlSessionExpiredStrategy;
 
     /**
-     * Horizontal scaling / HA (roadmap S1): when {@code spring.session.store-type=jdbc} is active,
-     * a {@link FindByIndexNameSessionRepository} bean is auto-configured and single-session
+     * Horizontal scaling / HA: when {@code spring.session.store-type=jdbc} is active, a
+     * {@link FindByIndexNameSessionRepository} bean is auto-configured and single-session
      * enforcement must see the whole cluster's sessions, not just this instance's in-memory ones —
      * otherwise {@code maximumSessions(1)} would only be enforced per-instance and a user could hold
-     * one live session per instance behind the load balancer. Falls back to the pre-S1 in-memory
-     * registry when no such bean exists (default: single instance, in-memory Tomcat session).
+     * one live session per instance behind the load balancer. Falls back to the in-memory registry
+     * when no such bean exists (default: single instance, in-memory Tomcat session).
      */
     @Bean
     public SessionRegistry sessionRegistry(
@@ -161,9 +161,13 @@ public class SecurityConfig {
             .addFilterBefore(new SetupRedirectFilter(userRepository, setupLockRepository),
                     UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(new MustChangePasswordFilter(),
-                    SetupRedirectFilter.class);
+                    SetupRedirectFilter.class)
+            // After SecurityContextHolderFilter so the session-backed Authentication (if any) is
+            // already resolved when this filter reads it for the userId MDC value.
+            .addFilterAfter(new com.salkcoding.oswl.web.filter.RequestContextLoggingFilter(),
+                    org.springframework.security.web.context.SecurityContextHolderFilter.class);
 
-        // OIDC SSO (roadmap #13) — activated only when an OIDC provider is configured
+        // OIDC SSO — activated only when an OIDC provider is configured
         // (spring.security.oauth2.client.registration.*). Default deploys have no registration
         // bean, so nothing changes. SSO users are mapped to their existing OsWL account.
         if (clientRegistrations.getIfAvailable() != null) {

@@ -45,6 +45,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 
+`docker-compose.prod.yml` caps both the container's own stdout/stderr (docker `json-file` driver, 100MB × 10 files) and the app's own rotating file log (mounted to the `oswl-logs-prod` volume) — see §5 for the latter.
+
 ## 5. Logging and observability
 
 | Check | Action |
@@ -54,6 +56,17 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 | Actuator | **`health`, `info`, `prometheus`** exposed (v1.0.4); everything else disabled (`enabled-by-default: false`) |
 | Metrics scrape | Point Prometheus at `/actuator/prometheus` — the scraper must present admin credentials |
 | Actuator auth | Requires **SYSTEM_ADMIN** session (not public) |
+
+### Log rotation and request correlation
+
+`local`/`test` are console-only, unchanged from before S2. In `prod`, `logback-spring.xml` additionally writes a rolling file log:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OSWL_LOG_DIR` | `./logs` (docker: `/var/log/oswl`, see §4) | Directory for `oswl.log`. Rotates at 100MB or daily, keeps 30 files, caps total at 5GB. |
+| `OSWL_LOG_JSON` | `false` | `true` switches the file (not the console) to one JSON object per line — point a log shipper at it for SIEM ingestion. |
+
+Every request is stamped with a `requestId` (also returned as the `X-Request-Id` response header) and, once authenticated, `userId` — both appear in every log line for that request via MDC (`[req=...] [user=...]` in plain-text mode, top-level fields in JSON mode), so a support ticket referencing one request can be traced across the whole log without grepping by timestamp.
 
 ## 6. Security features enabled in prod
 
@@ -118,7 +131,7 @@ Import semantics:
 - `merge` upserts by `(source, entry_key)` and honors `"_deleted":true` lines as deletes.
 - v2 bundles are SHA-256-checksummed per file in `meta.json`; a mismatch rejects the whole bundle and leaves the existing store untouched.
 
-Definition freshness (E7): `OSWL_AIRGAPPED_STALENESS_WARN_DAYS` (default `7`) and `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS` (default `30`) drive the admin UI badge, measured from the oldest per-source `sourceAsOf` date across imported snapshots.
+Definition freshness: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS` (default `7`) and `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS` (default `30`) drive the admin UI badge, measured from the oldest per-source `sourceAsOf` date across imported snapshots.
 
 Snapshot uploads may need `OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE` (default `50MB` each) if your bundle is larger.
 
@@ -195,7 +208,7 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 (Flyway users: `V3__component_metadata.sql` covers the three new `libraries` columns; see [Database Schema](Database-Schema.md).)
 
-### v1.0.5: Spring Session / ShedLock tables (opt-in, roadmap S1)
+### v1.0.5: Spring Session / ShedLock tables (opt-in)
 
 Only needed if you're moving to a **multi-instance** deployment (see §12). Adds `spring_session`, `spring_session_attributes`, and `shedlock`. Flyway users get this from `db/migration/V10__spring_session_and_shedlock.sql`; manual-script users run `db/spring_session_and_shedlock.sql`. A single-instance deployment can skip this entirely — nothing reads these tables until you set `OSWL_SESSION_STORE_TYPE=jdbc` and/or `OSWL_SCHEDULER_LOCK_ENABLED=true`.
 
@@ -210,11 +223,11 @@ Only needed if you're moving to a **multi-instance** deployment (see §12). Adds
 
 ## 11. Operations
 
-- Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens).
+- Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens) — see [Backup and restore](Backup-And-Restore) for the full procedure and a restore-rehearsal script.
 - Rotate API keys and SMTP credentials on compromise.
 - Keep `SPRING_PROFILES_ACTIVE` out of images that should never run as `local`.
 
-## 12. Multi-instance deployment (horizontal scaling / HA, roadmap S1)
+## 12. Multi-instance deployment (horizontal scaling / HA)
 
 By default OsWL runs as a **single instance** — an in-memory HTTP session and per-instance `@Scheduled` jobs. That's correct for a single container/process, but it does not survive a second instance behind a load balancer: a user's session would be pinned to whichever instance served their login, and the nightly monitoring / defer-expiry / trash-cleanup jobs would each run once *per instance* instead of once per cluster. This section is only relevant once you deploy **2+ instances against the same PostgreSQL database**.
 
