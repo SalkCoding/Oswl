@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -138,6 +139,53 @@ public class AiPromptTemplateService {
         Integer pref = readPreferences().getMaxTokens();
         if (pref != null) return pref;
         return (int) parseDouble(require("params.maxTokens"), 1200);
+    }
+
+    /**
+     * Reasoning effort selected in AI settings. {@link AiEffort#DEFAULT} means the clients send no
+     * effort parameter at all, which is what keeps older models and local runtimes working.
+     */
+    public AiEffort getReasoningEffort() {
+        return readPreferences().getReasoningEffort();
+    }
+
+    /**
+     * Operation budget with room for the model to think first.
+     *
+     * <p>{@code max_tokens} is a ceiling on the <em>whole</em> response, and on every current cloud
+     * model that includes the reasoning the model does before it writes anything. The per-operation
+     * budgets in {@code prompts.properties} (256 for a posture insight, 900 for combined insights)
+     * were sized against the embedded llama.cpp model, which runs with reasoning switched off —
+     * on OpenAI/Anthropic/Gemini the same 256 is spent reasoning and the answer comes back empty
+     * or truncated. That is why insights appeared for the embedded model but not for a configured
+     * cloud provider.
+     *
+     * <p>So a headroom allowance is added on top of the template budget whenever the model is
+     * likely to reason: any cloud provider, or any provider once the user has explicitly raised
+     * the effort level. Embedded/local at the default effort keeps the original tight budgets —
+     * a small local model given a large ceiling tends to ramble rather than stop.
+     *
+     * <p>The ceiling is not a target: a model that does not reason still stops at its own end of
+     * turn well before it, so the extra headroom costs nothing when it is not needed.
+     */
+    public int getMaxTokens(String operation, AiProvider provider) {
+        return getMaxTokens(operation) + reasoningHeadroom(provider, getReasoningEffort());
+    }
+
+    private static int reasoningHeadroom(AiProvider provider, AiEffort effort) {
+        boolean cloudReasoning = provider == AiProvider.OPENAI
+                || provider == AiProvider.ANTHROPIC
+                || provider == AiProvider.GEMINI;
+        if (!cloudReasoning && effort.isDefault()) {
+            return 0;
+        }
+        return switch (effort) {
+            case DEFAULT, LOW -> 1024;
+            case MEDIUM -> 2048;
+            case HIGH -> 4096;
+            case XHIGH -> 6144;
+            case MAX -> 8192;
+        };
     }
 
     /**

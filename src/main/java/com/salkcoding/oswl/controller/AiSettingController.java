@@ -6,6 +6,7 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.controller.spec.AiSettingControllerSpec;
 import com.salkcoding.oswl.domain.entity.AiPreferences;
 import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.dto.api.AiPromptsResponse;
@@ -137,6 +138,9 @@ public class AiSettingController implements AiSettingControllerSpec {
             validateAiBaseUrl(request.getProvider(), request.getBaseUrl());
         }
         setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
+        // Saving a provider from the settings form always means a user-configured endpoint — the
+        // embedded sidecar is registered through EmbeddedAiProviderRegistrar, never through here.
+        setting.markEmbeddedManaged(false);
 
         boolean activating = Boolean.TRUE.equals(request.getActivate());
         if (activating) {
@@ -152,14 +156,47 @@ public class AiSettingController implements AiSettingControllerSpec {
                 setting.getProvider().name(), setting.getProvider().name(),
                 setting.getModelName());
         auditPreferencesIfChanged(before, prefs);
-        boolean localeChanged = !Objects.equals(before.getPromptsLocale(), prefs.getPromptsLocale());
-        if (localeChanged && aiSettingRepository.findByActiveTrue().isPresent()) {
-            // Existing insights were generated in the previous language — regenerate them
-            runAfterCommit(vulnerabilityEnrichmentService::regenerateRecentInsightsAsync);
-        } else if (activating) {
-            runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
+        // Regenerating insights for already-completed scans costs real tokens per scan, so it only
+        // happens when the user opted in (Scan Enrichment → "Regenerate insights automatically").
+        // Without the opt-in, connecting a provider or switching the prompt language changes nothing
+        // retroactively — new scans get insights, and existing ones are refreshed on demand via
+        // POST /backfill.
+        if (prefs.isAutoBackfillInsights()) {
+            boolean localeChanged = !Objects.equals(before.getPromptsLocale(), prefs.getPromptsLocale());
+            if (localeChanged && aiSettingRepository.findByActiveTrue().isPresent()) {
+                // Existing insights were generated in the previous language — regenerate them
+                runAfterCommit(vulnerabilityEnrichmentService::regenerateRecentInsightsAsync);
+            } else if (activating) {
+                runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
+            }
         }
         return ResponseEntity.ok(toResponse(setting, prefs));
+    }
+
+    /**
+     * Explicitly regenerates scan-level AI insights for recent completed scans. This is the manual
+     * counterpart to the auto-backfill preference: the UI asks for confirmation first, because every
+     * scan in scope costs a provider call.
+     *
+     * @param force when true, re-runs scans that already have insights (e.g. after a language or
+     *              model change); otherwise only scans missing insights are filled in
+     */
+    @PostMapping("/backfill")
+    public ResponseEntity<Map<String, Object>> backfillInsights(
+            @RequestParam(defaultValue = "false") boolean force) {
+        if (!aiAnalysisService.isAiConfigured()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", msg("settings.ai.backfill.noProvider")));
+        }
+        if (force) {
+            vulnerabilityEnrichmentService.regenerateRecentInsightsAsync();
+        } else {
+            vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+        }
+        auditLogService.log("AI_SETTING.BACKFILL", "AI_SETTING", "insights", "insights",
+                "force=" + force);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @PutMapping("/deactivate")
@@ -191,8 +228,11 @@ public class AiSettingController implements AiSettingControllerSpec {
         deactivateOtherActiveSettings(setting);
         auditLogService.log("AI_SETTING.ACTIVATE", "AI_SETTING",
                 provider.name(), provider.name(), setting.getModelName());
-        runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
-        return ResponseEntity.ok(toResponse(setting, aiPreferencesService.getEffective()));
+        AiPreferences prefs = aiPreferencesService.getEffective();
+        if (prefs.isAutoBackfillInsights()) {
+            runAfterCommit(vulnerabilityEnrichmentService::backfillMissingInsightsAsync);
+        }
+        return ResponseEntity.ok(toResponse(setting, prefs));
     }
 
     /**
@@ -264,7 +304,9 @@ public class AiSettingController implements AiSettingControllerSpec {
                 embeddedAiService.modelName(), embeddedAiService.baseUrl());
         auditLogService.log("AI_SETTING.EMBEDDED_START", "AI_SETTING",
                 AiProvider.LOCAL.name(), AiProvider.LOCAL.name(), embeddedAiService.modelName());
-        vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+        if (aiPreferencesService.isAutoBackfillInsights()) {
+            vulnerabilityEnrichmentService.backfillMissingInsightsAsync();
+        }
 
         Map<String, Object> body = embeddedStatusBody();
         body.put("success", true);
@@ -455,8 +497,14 @@ public class AiSettingController implements AiSettingControllerSpec {
         DeploymentProfile profile = request.getDefaultDeploymentProfile() != null
                 ? DeploymentProfile.valueOf(request.getDefaultDeploymentProfile().strip())
                 : current.getDefaultDeploymentProfile();
+        AiEffort effort = request.getReasoningEffort() != null
+                ? AiEffort.parse(request.getReasoningEffort())
+                : current.getReasoningEffort();
+        boolean autoBackfill = request.getAutoBackfillInsights() != null
+                ? request.getAutoBackfillInsights()
+                : current.isAutoBackfillInsights();
         return aiPreferencesService.save(locale, cveLimit, licenseLimit, cveSeverities,
-                temperature, maxTokens, dailyCap, overrides, profile);
+                temperature, maxTokens, dailyCap, overrides, profile, effort, autoBackfill);
     }
 
     private void validateAiBaseUrl(AiProvider provider, String baseUrl) {
@@ -476,7 +524,9 @@ public class AiSettingController implements AiSettingControllerSpec {
                 || request.getMaxTokens() != null
                 || request.getDailyCallCap() != null
                 || request.getPromptOverrides() != null
-                || request.getDefaultDeploymentProfile() != null;
+                || request.getDefaultDeploymentProfile() != null
+                || request.getReasoningEffort() != null
+                || request.getAutoBackfillInsights() != null;
     }
 
     private void auditPreferencesIfChanged(AiPreferences before, AiPreferences after) {
@@ -488,7 +538,9 @@ public class AiSettingController implements AiSettingControllerSpec {
                 && Objects.equals(before.getMaxTokens(), after.getMaxTokens())
                 && before.getDailyCallCap() == after.getDailyCallCap()
                 && Objects.equals(before.getPromptOverrides(), after.getPromptOverrides())
-                && before.getDefaultDeploymentProfile() == after.getDefaultDeploymentProfile()) {
+                && before.getDefaultDeploymentProfile() == after.getDefaultDeploymentProfile()
+                && before.getReasoningEffort() == after.getReasoningEffort()
+                && before.isAutoBackfillInsights() == after.isAutoBackfillInsights()) {
             return;
         }
         auditLogService.log("AI_SETTING.PREFERENCES_UPDATE", "AI_SETTING",
@@ -506,7 +558,21 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .build();
     }
 
-    private static AiSettingResponse.AiSettingResponseBuilder baseResponse(AiPreferences prefs) {
+    /**
+     * Resolves which provider-list entry is live. Embedded AI publishes itself as the LOCAL
+     * provider, so LOCAL alone is ambiguous — the row carries {@code embeddedManaged} to say which
+     * one it is. Read from the row rather than from the sidecar process so the answer is stable
+     * across restarts and when the sidecar is stopped (the UI reports running/stopped separately).
+     */
+    private String resolveActiveProviderKind() {
+        return aiSettingRepository.findByActiveTrue()
+                .map(s -> s.getProvider() == AiProvider.LOCAL && s.isEmbeddedManaged()
+                        ? "EMBEDDED"
+                        : s.getProvider().name())
+                .orElse("OFF");
+    }
+
+    private AiSettingResponse.AiSettingResponseBuilder baseResponse(AiPreferences prefs) {
         return AiSettingResponse.builder()
                 .promptsLocale(prefs.getPromptsLocale())
                 .cveLimit(prefs.getCveLimit())
@@ -516,6 +582,9 @@ public class AiSettingController implements AiSettingControllerSpec {
                 .maxTokens(prefs.getMaxTokens())
                 .dailyCallCap(prefs.getDailyCallCap())
                 .promptOverrides(prefs.getPromptOverrides())
+                .reasoningEffort(prefs.getReasoningEffort().name())
+                .autoBackfillInsights(prefs.isAutoBackfillInsights())
+                .activeProviderKind(resolveActiveProviderKind())
                 .defaultDeploymentProfile(prefs.getDefaultDeploymentProfile() != null
                         ? prefs.getDefaultDeploymentProfile().name() : null);
     }

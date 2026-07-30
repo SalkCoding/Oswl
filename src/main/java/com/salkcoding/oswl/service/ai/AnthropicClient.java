@@ -138,12 +138,19 @@ public class AnthropicClient implements AiAnalysisClient {
                 ? List.of(Map.of("type", "text", "text", systemPrompt,
                         "cache_control", Map.of("type", "ephemeral")))
                 : systemPrompt;
-        Map<String, Object> body = Map.of(
+        Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of(
                 "model", model,
-                "max_tokens", promptTemplates.getMaxTokens(op),
+                "max_tokens", promptTemplates.getMaxTokens(op, AiProvider.ANTHROPIC),
                 "system", systemField,
                 "messages", List.of(Map.of("role", "user", "content", userPrompt))
-        );
+        ));
+        // Effort lives under output_config on the Messages API (not a top-level field, and not the
+        // removed thinking.budget_tokens). Omitted entirely on DEFAULT: models older than the 4.5
+        // family reject the parameter, so opting in has to be the user's choice.
+        String effort = promptTemplates.getReasoningEffort().anthropicValue();
+        if (effort != null) {
+            body.put("output_config", Map.of("effort", effort));
+        }
 
         long start = System.currentTimeMillis();
         for (int attempt = 1; attempt <= 2; attempt++) {
@@ -161,7 +168,7 @@ public class AnthropicClient implements AiAnalysisClient {
                     logAnthropicContentBlocks(op, response.getBody());
                     var content = (List<?>) response.getBody().get("content");
                     if (content != null && !content.isEmpty()) {
-                        String result = (String) ((Map<?, ?>) content.getFirst()).get("text");
+                        String result = extractText(content);
                         if (result != null) result = result.strip();
                         callTrace.logAssistantMessage(log, PROVIDER_TAG, op, result, null);
                         log.debug("[AI][{}] Parsed result resultLen={}", PROVIDER_TAG, result != null ? result.length() : 0);
@@ -189,6 +196,30 @@ public class AnthropicClient implements AiAnalysisClient {
             }
         }
         return null;
+    }
+
+    /**
+     * Returns the answer text from the {@code content} block list.
+     *
+     * <p>Reading {@code content[0].text} is not safe: when the model reasons (which higher effort
+     * levels make likely), block 0 is a {@code thinking} block whose {@code text} is null — the
+     * call then looked like an empty response and the insight silently never appeared, even though
+     * the API had answered. Pick the first {@code text} block instead, and concatenate the rest so
+     * a split answer is not truncated.
+     */
+    private static String extractText(List<?> content) {
+        StringBuilder sb = new StringBuilder();
+        for (Object block : content) {
+            if (!(block instanceof Map<?, ?> map)) continue;
+            Object type = map.get("type");
+            if (type != null && !"text".equals(type.toString())) continue;
+            Object text = map.get("text");
+            if (text instanceof String s && !s.isBlank()) {
+                if (!sb.isEmpty()) sb.append('\n');
+                sb.append(s);
+            }
+        }
+        return sb.isEmpty() ? null : sb.toString();
     }
 
     private void logAnthropicContentBlocks(String operation, Map<String, Object> body) {

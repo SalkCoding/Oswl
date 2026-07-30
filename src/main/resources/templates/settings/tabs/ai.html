@@ -42,10 +42,14 @@
                     </div>
                     <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
                         <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.tokens}">Tokens</p>
-                        <p class="font-bold text-[16px] text-[var(--grayscale-100)]">
-                            <span x-text="usageStats.todayPromptTokens"></span> /
-                            <span x-text="usageStats.todayCompletionTokens"></span> /
-                            <span x-text="usageStats.todayTotalTokens"></span>
+                        <!-- Abbreviated (12.3K / 1.2M); the exact counts stay available on hover. -->
+                        <p class="font-bold text-[16px] text-[var(--grayscale-100)]"
+                           :title="exactTokens(usageStats.todayPromptTokens) + ' / '
+                                 + exactTokens(usageStats.todayCompletionTokens) + ' / '
+                                 + exactTokens(usageStats.todayTotalTokens)">
+                            <span x-text="fmtTokens(usageStats.todayPromptTokens)"></span> /
+                            <span x-text="fmtTokens(usageStats.todayCompletionTokens)"></span> /
+                            <span x-text="fmtTokens(usageStats.todayTotalTokens)"></span>
                         </p>
                     </div>
                     <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
@@ -70,7 +74,7 @@
                                         <td class="py-[6px] pr-[8px] font-medium" x-text="ev.operation"></td>
                                         <td class="py-[6px] pr-[8px]" x-text="ev.provider"></td>
                                         <td class="py-[6px] pr-[8px] font-mono" x-text="ev.modelName || '-'"></td>
-                                        <td class="py-[6px] pr-[8px]" x-text="ev.totalTokens"></td>
+                                        <td class="py-[6px] pr-[8px]" :title="exactTokens(ev.totalTokens)" x-text="fmtTokens(ev.totalTokens)"></td>
                                         <td class="py-[6px]" x-text="Number(ev.estimatedCostUsd || 0).toFixed(4)"></td>
                                     </tr>
                                 </template>
@@ -103,82 +107,6 @@
         </template>
     </div>
 
-    <!-- Embedded AI Card (built-in llama.cpp local model — standalone, not a provider radio) -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[24px] flex flex-col gap-[12px]">
-        <div class="flex items-center justify-between gap-[10px] flex-wrap">
-            <div class="flex items-center gap-[10px]">
-                <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3] m-0" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</h3>
-                <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[12px] text-emerald-600 font-semibold">
-                    <span class="w-[6px] h-[6px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
-                </span>
-                <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[12px] text-[var(--grayscale-50)] font-semibold">
-                    <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
-                </span>
-            </div>
-            <div class="flex items-center gap-[8px]">
-                <button type="button" x-show="!embedded.running"
-                        @click="startEmbedded()"
-                        :disabled="embeddedBusy || !embedded.binaryFound"
-                        class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] transition-colors cursor-pointer"
-                        x-text="embeddedButtonLabel()"></button>
-                <button type="button" x-show="embedded.running" x-cloak
-                        @click="stopEmbedded()"
-                        :disabled="embeddedBusy"
-                        class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[13px] font-semibold px-[14px] py-[7px] rounded-[7px] transition-colors cursor-pointer"
-                        x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
-            </div>
-        </div>
-        <p class="m-0 text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine (CPU-only, no API key, nothing leaves your machine). Preferred model: Qwen3 1.7B; any other .gguf you add to the folder is also picked up.</p>
-        <div class="text-[12px] text-[var(--grayscale-60)] leading-[1.6] flex flex-col gap-[6px]">
-            <div class="flex items-center gap-[8px] flex-wrap">
-                <span class="font-medium" th:text="#{settings.ai.embedded.model}">Model:</span>
-                <select x-model="embeddedModel" :disabled="embedded.running || embeddedBusy"
-                        class="border border-[var(--grayscale-20)] rounded-[6px] text-[12px] px-[8px] py-[4px] bg-white text-black font-mono disabled:opacity-40">
-                    <option value="" th:text="#{settings.ai.embedded.modelAuto}">Auto (preference order)</option>
-                    <template x-for="m in embedded.availableModels" :key="m">
-                        <option :value="m" x-text="m"></option>
-                    </template>
-                </select>
-                <span x-show="embedded.fallbackUsed" x-cloak
-                      class="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-[5px] px-[6px] py-[2px]"
-                      th:text="#{settings.ai.embedded.fallbackUsed}">Started with fallback model</span>
-            </div>
-            <p class="m-0" x-show="embedded.activeModel" x-cloak>
-                <span class="font-medium" th:text="#{settings.ai.embedded.activeModel}">Active:</span>
-                <span class="font-mono" x-text="embedded.activeModel"></span>
-            </p>
-            <p class="m-0" x-show="!embedded.binaryFound" x-cloak>
-                <span class="text-amber-600" th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found. Download it from the llama.cpp releases page and place it in the folder below.</span>
-            </p>
-            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && !embedded.downloading && !embedded.airgapped" x-cloak>
-                <span class="text-[var(--grayscale-60)]" th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — clicking Start downloads the Qwen3-1.7B model automatically (~1.2 GB, one-time). Or place your own .gguf (e.g. qwen3-1.7b-q4_k_m.gguf) in the folder below.</span>
-            </p>
-            <p class="m-0" x-show="embedded.binaryFound && !embedded.modelFile && embedded.airgapped" x-cloak>
-                <span class="text-amber-600" th:text="#{settings.ai.embedded.modelMissingAirgapped}">No .gguf model yet. This host runs in air-gapped mode, so the model cannot be downloaded — copy a .gguf file (e.g. qwen3-1.7b-q4_k_m.gguf) into the folder below, then click Start.</span>
-            </p>
-            <div x-show="embedded.downloading" x-cloak class="flex flex-col gap-[4px]">
-                <div class="flex items-center justify-between text-[11px] text-[var(--grayscale-60)]">
-                    <span x-text="_aiI18n.embeddedDownloading.replace('{0}', embeddedDownloadPercent())"></span>
-                    <span x-text="embeddedDownloadMB().done + ' / ' + embeddedDownloadMB().total + ' MB'"></span>
-                </div>
-                <div class="w-full h-[6px] bg-[var(--grayscale-10)] rounded-full overflow-hidden">
-                    <div class="h-full bg-[#00A093] transition-all duration-300" :style="'width: ' + embeddedDownloadPercent() + '%'"></div>
-                </div>
-            </div>
-            <div class="flex items-center gap-[8px] flex-wrap">
-                <span class="font-medium shrink-0" th:text="#{settings.ai.embedded.folder}">Folder:</span>
-                <input type="text" x-model="embeddedDirInput" :disabled="embeddedSaving"
-                       class="flex-1 min-w-[200px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] px-[8px] py-[4px] font-mono disabled:opacity-40"
-                       placeholder="./embedded-ai"/>
-                <button type="button" @click="saveEmbeddedConfig()" :disabled="embeddedSaving"
-                        class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[12px] font-semibold px-[12px] py-[5px] rounded-[6px] transition-colors cursor-pointer disabled:opacity-40"
-                        x-text="embeddedSaving ? _aiI18n.embeddedConfigSaving : _aiI18n.embeddedConfigSave"></button>
-            </div>
-        </div>
-        <p x-show="embedded.lastError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.5] break-all" x-text="embedded.lastError"></p>
-        <p x-show="embeddedError" x-cloak class="m-0 text-[12px] text-red-600 leading-[1.5]" x-text="embeddedError"></p>
-    </div>
-
     <!-- Provider Card -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
@@ -189,7 +117,13 @@
         <label class="flex gap-[8px] items-center cursor-pointer" @click="mode='off'">
             <input type="radio" name="aiMode" value="off" x-model="mode" class="sr-only"/>
             <img :src="mode==='off' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
-            <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.disabled}">Do not use AI</span>
+            <span class="flex items-center gap-[8px] flex-wrap">
+                <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.disabled}">Do not use AI</span>
+                <span x-show="activeProviderKind==='OFF'" x-cloak
+                      class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                    <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
+                </span>
+            </span>
         </label>
 
         <!-- ── Option 2: OpenAI (GPT) ── -->
@@ -197,7 +131,13 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='OPENAI'">
                 <img :src="mode==='OPENAI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.openai}">OpenAI (GPT)</span>
+                    <span class="flex items-center gap-[8px] flex-wrap">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.openai}">OpenAI (GPT)</span>
+                        <span x-show="activeProviderKind==='OPENAI'" x-cloak
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
+                        </span>
+                    </span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.openai.description}">Use OpenAI GPT models with an API key. Also compatible with Azure OpenAI and custom endpoints.</span>
                 </div>
             </div>
@@ -257,7 +197,13 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='ANTHROPIC'">
                 <img :src="mode==='ANTHROPIC' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic}">Anthropic (Claude)</span>
+                    <span class="flex items-center gap-[8px] flex-wrap">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic}">Anthropic (Claude)</span>
+                        <span x-show="activeProviderKind==='ANTHROPIC'" x-cloak
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
+                        </span>
+                    </span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic.description}">Use Anthropic's Claude models via API key. Supports claude-opus, claude-sonnet, and claude-haiku families.</span>
                 </div>
             </div>
@@ -310,7 +256,13 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='GEMINI'">
                 <img :src="mode==='GEMINI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.gemini}">Google (Gemini)</span>
+                    <span class="flex items-center gap-[8px] flex-wrap">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.gemini}">Google (Gemini)</span>
+                        <span x-show="activeProviderKind==='GEMINI'" x-cloak
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
+                        </span>
+                    </span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.gemini.description}">Use Google's Gemini models via API key from Google AI Studio or Vertex AI.</span>
                 </div>
             </div>
@@ -363,7 +315,13 @@
             <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
                 <img :src="mode==='LOCAL' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.local}">Local / Ollama</span>
+                    <span class="flex items-center gap-[8px] flex-wrap">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.local}">Local / Ollama</span>
+                        <span x-show="activeProviderKind==='LOCAL'" x-cloak
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
+                        </span>
+                    </span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.provider.local.description}">Use a locally running Ollama instance or any OpenAI-compatible local LLM. No API key required.</span>
                 </div>
             </div>
@@ -414,42 +372,142 @@
             </div>
         </div>
 
-        <!-- ── Inline test result ──
-             The banner at the top of the card is far off-screen by the time the user reaches
-             these buttons, so the outcome of Test Connection is repeated right where it was
-             triggered. Warnings (reachable but the model id looks wrong) get amber, hard
-             failures red. -->
-        <div x-show="testResult" x-cloak
-             class="rounded-[8px] px-[16px] py-[12px] flex items-start gap-[10px] text-[13px] leading-[1.5]"
-             :class="testResult && testResult.success
-                 ? (testResult.hint ? 'bg-amber-50 border border-amber-200' : 'bg-emerald-50 border border-emerald-200')
-                 : 'bg-red-50 border border-red-200'">
-            <svg class="w-[16px] h-[16px] shrink-0 mt-[2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
-                 :class="testResult && testResult.success
-                     ? (testResult.hint ? 'text-amber-600' : 'text-emerald-600')
-                     : 'text-red-600'">
-                <template x-if="testResult && testResult.success && !testResult.hint">
-                    <polyline points="20 6 9 17 4 12"/>
-                </template>
-                <template x-if="testResult && (!testResult.success || testResult.hint)">
-                    <g><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></g>
-                </template>
-            </svg>
-            <div class="flex flex-col gap-[4px] min-w-0">
-                <p class="font-medium m-0"
-                   :class="testResult && testResult.success
-                       ? (testResult.hint ? 'text-amber-900' : 'text-emerald-900')
-                       : 'text-red-800'"
-                   x-text="testResult && testResult.message"></p>
-                <p x-show="testResult && testResult.hint" x-cloak class="m-0"
-                   :class="testResult && testResult.success ? 'text-amber-800' : 'text-red-700'"
-                   x-text="testResult && testResult.hint"></p>
+        <!-- ── Option 6: Embedded AI (built-in llama.cpp sidecar) ──
+             Folded into the provider list rather than sitting in its own card above it: it is one
+             of the choices, and as a separate card it was impossible to tell whether it or the
+             selected radio was actually serving requests. It registers itself as the LOCAL
+             provider, so "active" is resolved server-side (activeProviderKind) rather than
+             guessed from the radio state. -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='EMBEDDED'">
+                <img :src="mode==='EMBEDDED' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="flex items-center gap-[8px] flex-wrap">
+                        <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</span>
+                        <span x-show="activeProviderKind==='EMBEDDED'" x-cloak
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
+                        </span>
+                        <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                            <span class="w-[5px] h-[5px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
+                        </span>
+                        <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-50)] font-semibold">
+                            <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
+                        </span>
+                    </span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.embedded.description}">Runs a bundled llama.cpp server on this machine. No API key, nothing leaves your machine.</span>
+                </div>
+            </div>
+            <!-- Embedded Fields -->
+            <div x-show="mode==='EMBEDDED'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.embedded.model}">Model</span>
+                    <div class="flex-1 max-w-[400px] flex items-center gap-[8px] flex-wrap">
+                        <select x-model="embeddedModel" :disabled="embedded.running || embeddedBusy"
+                                class="flex-1 min-w-[180px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] font-mono disabled:opacity-40">
+                            <option value="" th:text="#{settings.ai.embedded.modelAuto}">Auto (preference order)</option>
+                            <template x-for="m in embedded.availableModels" :key="m">
+                                <option :value="m" x-text="m"></option>
+                            </template>
+                        </select>
+                        <span x-show="embedded.fallbackUsed" x-cloak
+                              class="inline-flex items-center text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-[5px] px-[6px] py-[2px]"
+                              th:text="#{settings.ai.embedded.fallbackUsed}">Started with fallback model</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]" x-show="embedded.activeModel" x-cloak>
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.embedded.activeModel}">Active</span>
+                    <span class="text-[13px] font-mono text-[var(--grayscale-90)]" x-text="embedded.activeModel"></span>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.embedded.folder}">Folder</span>
+                    <div class="flex-1 max-w-[400px] flex items-center gap-[8px]">
+                        <input type="text" x-model="embeddedDirInput" :disabled="embeddedSaving"
+                               class="flex-1 min-w-0 bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] font-mono text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)] disabled:opacity-40"
+                               placeholder="./embedded-ai"/>
+                        <button type="button" @click="saveEmbeddedConfig()" :disabled="embeddedSaving"
+                                class="shrink-0 bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[12px] font-semibold px-[12px] py-[7px] rounded-[7px] transition-colors cursor-pointer disabled:opacity-40"
+                                x-text="embeddedSaving ? _aiI18n.embeddedConfigSaving : _aiI18n.embeddedConfigSave"></button>
+                    </div>
+                </div>
+
+                <!-- Status notes -->
+                <div class="flex flex-col gap-[6px] pl-[126px] max-w-[526px] text-[12px] leading-[1.5]">
+                    <p class="m-0 text-amber-600" x-show="!embedded.binaryFound" x-cloak
+                       th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found.</p>
+                    <p class="m-0 text-[var(--grayscale-50)]" x-show="embedded.binaryFound &amp;&amp; !embedded.modelFile &amp;&amp; !embedded.downloading &amp;&amp; !embedded.airgapped" x-cloak
+                       th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — Start downloads it automatically.</p>
+                    <p class="m-0 text-amber-600" x-show="embedded.binaryFound &amp;&amp; !embedded.modelFile &amp;&amp; embedded.airgapped" x-cloak
+                       th:text="#{settings.ai.embedded.modelMissingAirgapped}">No .gguf model yet, and this host is air-gapped.</p>
+                    <div x-show="embedded.downloading" x-cloak class="flex flex-col gap-[4px]">
+                        <div class="flex items-center justify-between text-[11px] text-[var(--grayscale-60)]">
+                            <span x-text="_aiI18n.embeddedDownloading.replace('{0}', embeddedDownloadPercent())"></span>
+                            <span x-text="embeddedDownloadMB().done + ' / ' + embeddedDownloadMB().total + ' MB'"></span>
+                        </div>
+                        <div class="w-full h-[6px] bg-[var(--grayscale-10)] rounded-full overflow-hidden">
+                            <div class="h-full bg-[#00A093] transition-all duration-300" :style="'width: ' + embeddedDownloadPercent() + '%'"></div>
+                        </div>
+                    </div>
+                    <p x-show="embedded.lastError" x-cloak class="m-0 text-red-600 break-all" x-text="embedded.lastError"></p>
+                    <p x-show="embeddedError" x-cloak class="m-0 text-red-600" x-text="embeddedError"></p>
+                </div>
+
+                <!-- Start/Stop is this option's own save: it launches the sidecar and makes it the
+                     active provider, so the card-level Save button is hidden for EMBEDDED. -->
+                <div class="flex items-center gap-[8px] pl-[126px]">
+                    <button type="button" x-show="!embedded.running"
+                            @click="startEmbedded()"
+                            :disabled="embeddedBusy || !embedded.binaryFound"
+                            class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer"
+                            x-text="embeddedButtonLabel()"></button>
+                    <button type="button" x-show="embedded.running" x-cloak
+                            @click="stopEmbedded()"
+                            :disabled="embeddedBusy"
+                            class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-70)] text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer"
+                            x-text="embeddedBusy ? _aiI18n.embeddedStopping : _aiI18n.embeddedStop"></button>
+                </div>
             </div>
         </div>
 
-        <!-- ── Provider actions ── -->
-        <div class="flex gap-[12px] items-center justify-end mt-[10px]">
+        <!-- ── Reasoning effort ──
+             A provider-level knob, not an enrichment one: it changes what every request sends and
+             the value differs per provider, so it belongs next to the provider choice. -->
+        <div class="flex flex-col gap-[14px] pt-[8px] border-t border-[var(--grayscale-10)]"
+             x-show="mode !== 'off'" x-cloak>
+            <div class="flex items-center gap-[16px] pt-[16px]">
+                <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.effort}">Reasoning effort</span>
+                <div class="relative flex-1 max-w-[400px]" @click.away="effortDropdownOpen=false">
+                    <button type="button" @click="effortDropdownOpen=!effortDropdownOpen"
+                            class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] transition-colors cursor-pointer"
+                            :class="effortDropdownOpen ? 'border-[var(--primary-120)]' : ''">
+                        <span x-text="effortLabel()"></span>
+                        <img src="/icon/icon-triangle-down.svg" :class="effortDropdownOpen ? 'rotate-180' : ''"
+                             class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
+                    </button>
+                    <div x-show="effortDropdownOpen" x-cloak
+                         class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
+                        <template x-for="opt in effortOptions" :key="opt.value">
+                            <button type="button"
+                                    @click="preferences.reasoningEffort=opt.value; effortDropdownOpen=false"
+                                    class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
+                                    :class="preferences.reasoningEffort===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    x-text="opt.label"></button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.effort}">Higher effort means the model reasons longer before answering.</p>
+            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px] font-mono" x-text="effortWireHint()"></p>
+        </div>
+
+        <!-- The Test Connection outcome is reported by the toast only. An inline copy used to be
+             repeated here as well, which meant every test produced two identical notices. -->
+
+        <!-- ── Provider actions ──
+             Hidden for Embedded AI: its Start/Stop button is both the save and the health check
+             (starting the sidecar registers it as the active provider and waits for it to answer),
+             so a second Save here would be a no-op the user could not interpret. -->
+        <div class="flex gap-[12px] items-center justify-end mt-[10px]" x-show="mode !== 'EMBEDDED'" x-cloak>
             <button type="button"
                     @click="testConnection()"
                     :disabled="testing || mode==='off'"
@@ -473,10 +531,80 @@
 
     </div>
 
-    <!-- Scan Enrichment Card -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
-        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.heading}">Scan Enrichment</h3>
+    <!-- Scan Enrichment — split into one card per concern. As a single card it ran to
+         seven unrelated sections and one Save button at the very bottom. -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.scope.heading}">What AI summarises</h3>
+        <!-- CVE summaries -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.title}">CVE AI summaries</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.description}">During each scan, OsWL picks the most severe CVEs and sends them to AI for a plain-language triage note. CVEs outside the selected severities keep the OSV database summary only.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-start gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.cveSeverities}">Severities</span>
+                    <div class="flex flex-wrap gap-[8px] flex-1 max-w-[400px]">
+                        <template x-for="level in ['CRITICAL','HIGH','MEDIUM','LOW']" :key="level">
+                            <button type="button"
+                                    @click="toggleCveSeverity(level, !preferences.cveSeverities.includes(level))"
+                                    class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
+                                    :class="preferences.cveSeverities.includes(level)
+                                        ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
+                                        : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
+                                    x-text="level"></button>
+                        </template>
+                    </div>
+                </div>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.cveLimit}">Max per scan</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="1" max="50" x-model.number="preferences.cveLimit"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.cveLimit}">Caps API cost: if a scan has more matching CVEs, only the top N by severity are summarized (1–50).</p>
+            </div>
+        </div>
+        <!-- License summaries -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.title}">License AI summaries</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.description}">Components with Restricted, Caution, or Unknown license status can receive a short AI compliance note on the component detail page.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.licenseLimit}">Max per scan</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="1" max="50" x-model.number="preferences.licenseLimit"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
+            </div>
+        </div>
+        <!-- Each card saves the whole enrichment payload; the button is repeated per card
+             so an edit is never stranded behind a save further down the page. -->
+        <div class="flex gap-[12px] items-center justify-end">
+            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
+            </button>
+        </div>
+    </div>
 
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.context.heading}">Language and deployment context</h3>
         <!-- Prompt language -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start">
@@ -515,102 +643,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- CVE summaries -->
-        <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start">
-                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.title}">CVE AI summaries</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.cve.description}">During each scan, OsWL picks the most severe CVEs and sends them to AI for a plain-language triage note. CVEs outside the selected severities keep the OSV database summary only.</span>
-                </div>
-            </div>
-            <div class="flex flex-col gap-[14px] pl-[28px]">
-                <div class="flex items-start gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0 pt-[8px]" th:text="#{settings.ai.label.cveSeverities}">Severities</span>
-                    <div class="flex flex-wrap gap-[8px] flex-1 max-w-[400px]">
-                        <template x-for="level in ['CRITICAL','HIGH','MEDIUM','LOW']" :key="level">
-                            <button type="button"
-                                    @click="toggleCveSeverity(level, !preferences.cveSeverities.includes(level))"
-                                    class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
-                                    :class="preferences.cveSeverities.includes(level)
-                                        ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
-                                        : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
-                                    x-text="level"></button>
-                        </template>
-                    </div>
-                </div>
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.cveLimit}">Max per scan</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="1" max="50" x-model.number="preferences.cveLimit"
-                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                    </div>
-                </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.cveLimit}">Caps API cost: if a scan has more matching CVEs, only the top N by severity are summarized (1–50).</p>
-            </div>
-        </div>
-
-        <!-- License summaries -->
-        <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start">
-                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.title}">License AI summaries</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.license.description}">Components with Restricted, Caution, or Unknown license status can receive a short AI compliance note on the component detail page.</span>
-                </div>
-            </div>
-            <div class="flex flex-col gap-[14px] pl-[28px]">
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.licenseLimit}">Max per scan</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="1" max="50" x-model.number="preferences.licenseLimit"
-                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                    </div>
-                </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
-            </div>
-        </div>
-
-        <!-- Model parameters -->
-        <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start">
-                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.title}">Model parameters</span>
-                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.description}">Temperature and token limits for LLM calls. Leave blank to use template defaults.</span>
-                </div>
-            </div>
-            <div class="flex flex-col gap-[14px] pl-[28px]">
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature"
-                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                    </div>
-                </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.temperature}">Lower means more repeatable, factual output; higher means more varied wording. Triage notes read best at 0.1–0.3 (0–2).</p>
-                <!-- Anthropic's current models reject sampling parameters outright, so the client
-                     never sends this value for them — say so rather than let it look applied. -->
-                <p x-show="mode === 'ANTHROPIC'" x-cloak
-                   class="text-[12px] text-amber-700 tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]"
-                   th:text="#{settings.ai.hint.temperature.anthropic}">Not used by Anthropic — current Claude models reject a temperature setting, so response style is steered by the prompt instead.</p>
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens"
-                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                    </div>
-                </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>
-                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" x-model.number="preferences.dailyCallCap"
-                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
-                    </div>
-                </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
-            </div>
-        </div>
-
         <!-- Default deployment context -->
         <div class="flex flex-col gap-[14px] pl-[28px]">
             <div class="flex items-center gap-[16px]">
@@ -636,12 +668,85 @@
                 </div>
             </div>
         </div>
+        <!-- Each card saves the whole enrichment payload; the button is repeated per card
+             so an edit is never stranded behind a save further down the page. -->
+        <div class="flex gap-[12px] items-center justify-end">
+            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
+            </button>
+        </div>
+    </div>
 
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.heading}">Model parameters</h3>
+        <!-- Model parameters -->
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.model.description}">Temperature and token limits for LLM calls. Leave blank to use template defaults.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.temperature}">Lower means more repeatable, factual output; higher means more varied wording. Triage notes read best at 0.1–0.3 (0–2).</p>
+                <!-- Anthropic's current models reject sampling parameters outright, so the client
+                     never sends this value for them — say so rather than let it look applied. -->
+                <p x-show="mode === 'ANTHROPIC'" x-cloak
+                   class="text-[12px] text-amber-700 tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]"
+                   th:text="#{settings.ai.hint.temperature.anthropic}">Not used by Anthropic — current Claude models reject a temperature setting, so response style is steered by the prompt instead.</p>
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
+                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" x-model.number="preferences.dailyCallCap"
+                               class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
+            </div>
+        </div>
+
+        <!-- Each card saves the whole enrichment payload; the button is repeated per card
+             so an edit is never stranded behind a save further down the page. -->
+        <div class="flex gap-[12px] items-center justify-end">
+            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
+                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.heading}">Prompt templates</h3>
         <!-- Prompt templates -->
         <div class="flex flex-col gap-[24px]">
             <div class="flex gap-[8px] items-start">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
-                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.title}">Prompt templates</span>
                     <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.description}">Preview and override key prompts (saved with AI settings; no restart required).</span>
                 </div>
             </div>
@@ -675,13 +780,11 @@
                 </div>
             </div>
         </div>
-
-        <!-- ── Enrichment actions ── -->
-        <div class="flex gap-[12px] items-center justify-end mt-[10px]">
-            <button type="button"
-                    @click="saveEnrichment()"
-                    :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+        <!-- Each card saves the whole enrichment payload; the button is repeated per card
+             so an edit is never stranded behind a save further down the page. -->
+        <div class="flex gap-[12px] items-center justify-end">
+            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
+                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/>
@@ -690,6 +793,64 @@
                 <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
                       x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
             </button>
+        </div>
+    </div>
+
+    <!-- Existing scans - opt-in regeneration, in its own card matching the others.
+         Without the opt-in, connecting a provider or switching the prompt language kicked off a
+         background pass over every recent scan, spending tokens the user never asked for. -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.backfill.title}">Existing scans</h3>
+
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.label.autoBackfill}">Regenerate automatically after a provider or language change</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.enrichment.backfill.description}">New scans always get AI insights. Scans that already finished are left untouched unless you ask for them here.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <!-- Same pill control as the CVE severity selector, so this reads as part of the
+                     page rather than a raw browser checkbox. -->
+                <div class="flex items-center gap-[16px]">
+                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.autoBackfillShort}">Automatic</span>
+                    <div class="flex gap-[8px] flex-1 max-w-[400px]">
+                        <button type="button" @click="preferences.autoBackfillInsights = false"
+                                class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
+                                :class="!preferences.autoBackfillInsights
+                                    ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
+                                    : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
+                                th:text="#{settings.ai.autoBackfill.off}">Off</button>
+                        <button type="button" @click="preferences.autoBackfillInsights = true"
+                                class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
+                                :class="preferences.autoBackfillInsights
+                                    ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
+                                    : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
+                                th:text="#{settings.ai.autoBackfill.on}">On</button>
+                    </div>
+                </div>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.autoBackfill}">Off by default. When on, saving a provider or a new prompt language re-runs the AI for recent scans in the background, which costs one API call per scan.</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-[24px]">
+            <div class="flex gap-[8px] items-start">
+                <div class="flex flex-col gap-[8px] flex-1 min-w-0">
+                    <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.enrichment.backfill.runTitle}">Run now</span>
+                    <span class="font-normal text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px] leading-[1.3]" th:text="#{settings.ai.hint.backfillButtons}">Fill in missing only touches scans without an insight; Regenerate all re-runs recent scans that already have one.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-[14px] pl-[28px]">
+                <div class="flex items-center gap-[10px] flex-wrap">
+                    <button type="button" @click="runBackfill(false)" :disabled="backfilling || mode==='off'"
+                            class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer disabled:opacity-40"
+                            x-text="backfilling ? _aiI18n.backfillRunning : _aiI18n.backfillMissing"></button>
+                    <button type="button" @click="runBackfill(true)" :disabled="backfilling || mode==='off'"
+                            class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-80)] text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer disabled:opacity-40"
+                            x-text="backfilling ? _aiI18n.backfillRunning : _aiI18n.backfillAll"></button>
+                </div>
+                <p x-show="mode==='off'" x-cloak class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] max-w-[526px]" th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</p>
+            </div>
         </div>
     </div>
 
@@ -751,6 +912,22 @@
         embeddedStarted: /*[[#{settings.ai.embedded.msg.started}]]*/ 'Embedded AI is running and set as the active LOCAL provider.',
         embeddedStopped: /*[[#{settings.ai.embedded.msg.stopped}]]*/ 'Embedded AI stopped.',
         embeddedFailed: /*[[#{settings.ai.embedded.error.failed}]]*/ 'Failed to start Embedded AI.',
+        effortDefault:  /*[[#{settings.ai.effort.default}]]*/ 'Provider default',
+        effortLow:      /*[[#{settings.ai.effort.low}]]*/ 'Low — fastest, cheapest',
+        effortMedium:   /*[[#{settings.ai.effort.medium}]]*/ 'Medium',
+        effortHigh:     /*[[#{settings.ai.effort.high}]]*/ 'High',
+        effortXhigh:    /*[[#{settings.ai.effort.xhigh}]]*/ 'Very high (Anthropic only)',
+        effortMax:      /*[[#{settings.ai.effort.max}]]*/ 'Max — most detailed, most tokens',
+        effortWireNone: /*[[#{settings.ai.effort.wire.none}]]*/ 'Sent as: nothing — the provider decides.',
+        effortWireOpenai:    /*[[#{settings.ai.effort.wire.openai}]]*/ 'Sent as: reasoning_effort="{0}"',
+        effortWireAnthropic: /*[[#{settings.ai.effort.wire.anthropic}]]*/ 'Sent as: output_config.effort="{0}"',
+        backfillMissing: /*[[#{settings.ai.backfill.btn.missing}]]*/ 'Fill in missing insights',
+        backfillAll:     /*[[#{settings.ai.backfill.btn.all}]]*/ 'Regenerate all',
+        backfillRunning: /*[[#{settings.ai.backfill.btn.running}]]*/ 'Starting…',
+        backfillStarted: /*[[#{settings.ai.backfill.msg.started}]]*/ 'Regenerating insights in the background. Reload the project pages in a minute.',
+        backfillFailed:  /*[[#{settings.ai.backfill.error.failed}]]*/ 'Could not start the regeneration.',
+        backfillConfirmMissing: /*[[#{settings.ai.backfill.confirm.missing}]]*/ 'Generate insights for recent scans that do not have one yet? This calls the AI provider once per scan.',
+        backfillConfirmAll:     /*[[#{settings.ai.backfill.confirm.all}]]*/ 'Regenerate insights for ALL recent scans, replacing the existing ones? This calls the AI provider once per scan.',
         embeddedConfigSave: /*[[#{settings.ai.embedded.config.save}]]*/ 'Save',
         embeddedConfigSaving: /*[[#{settings.ai.embedded.config.saving}]]*/ 'Saving…',
         embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.'
@@ -760,7 +937,13 @@
     <script>
     function aiTab() {
         return {
-            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL'
+            // Which radio is selected. 'EMBEDDED' is a UI-only value: on the wire the embedded
+            // sidecar is the LOCAL provider, told apart by its base URL (see activeProviderKind).
+            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL' | 'EMBEDDED'
+            // Server's answer to "which one is actually serving calls right now" — the radio only
+            // reflects what the user is looking at, which is why an active provider and a running
+            // embedded model used to look identical.
+            activeProviderKind: 'OFF',
             forms: {
                 OPENAI:    { apiKey: '', modelName: 'gpt-5.6-terra',   baseUrl: '' },
                 ANTHROPIC: { apiKey: '', modelName: 'claude-opus-5',   baseUrl: '' },
@@ -799,12 +982,34 @@
             preferences: {
                 promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'],
                 temperature: null, maxTokens: null, dailyCallCap: 0,
-                defaultDeploymentProfile: 'COMMERCIAL_PRODUCT'
+                defaultDeploymentProfile: 'COMMERCIAL_PRODUCT',
+                reasoningEffort: 'DEFAULT', autoBackfillInsights: false
             },
             promptKeys: [], promptOverrides: {}, promptEditKey: 'system.default', promptEditText: '',
             localeDropdownOpen: false,
             deploymentDropdownOpen: false,
+            effortDropdownOpen: false,
             promptKeyDropdownOpen: false,
+            backfilling: false,
+            effortOptions: [
+                { value: 'DEFAULT', label: _aiI18n.effortDefault },
+                { value: 'LOW',     label: _aiI18n.effortLow },
+                { value: 'MEDIUM',  label: _aiI18n.effortMedium },
+                { value: 'HIGH',    label: _aiI18n.effortHigh },
+                { value: 'XHIGH',   label: _aiI18n.effortXhigh },
+                { value: 'MAX',     label: _aiI18n.effortMax }
+            ],
+            // Mirror of AiEffort (Java): what each provider actually receives. XHIGH/MAX exist only
+            // on Anthropic's output_config.effort — everywhere else reasoning_effort tops out at
+            // "high", so those two levels are sent as "high" rather than being rejected.
+            effortWire: {
+                DEFAULT: { openai: null,     anthropic: null },
+                LOW:     { openai: 'low',    anthropic: 'low' },
+                MEDIUM:  { openai: 'medium', anthropic: 'medium' },
+                HIGH:    { openai: 'high',   anthropic: 'high' },
+                XHIGH:   { openai: 'high',   anthropic: 'xhigh' },
+                MAX:     { openai: 'high',   anthropic: 'max' }
+            },
             deploymentOptions: [
                 { value: 'COMMERCIAL_PRODUCT',      label: _aiI18n.deployCommercial },
                 { value: 'SAAS',                    label: _aiI18n.deploySaas },
@@ -812,15 +1017,31 @@
                 { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
             ],
             savingProvider: false, savingEnrichment: false, testing: false,
-            // Last Test Connection outcome, rendered inline next to the button:
-            // { success: bool, message: string, hint: string|null }.
-            testResult: null,
             apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '', toastKind: 'success', _toastTimer: null,
             usageStats: null,
             usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
             embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [], downloading: false, downloadedBytes: 0, downloadTotalBytes: 0, airgapped: false },
             embeddedBusy: false, embeddedError: null, _embeddedPollActive: false,
             embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
+
+            /**
+             * Token counts run into the millions on a busy instance, where a raw 12847362 is
+             * unreadable. Below 1000 the exact number is still the most useful thing to show.
+             * One decimal is kept only when it carries information (1.2K, but 15K not 15.0K).
+             */
+            fmtTokens(value) {
+                const n = Number(value) || 0;
+                if (n < 1000) return String(n);
+                const [scaled, unit] = n < 1000000 ? [n / 1000, 'K'] : [n / 1000000, 'M'];
+                // 3 significant digits: 9.87K, 98.7K, 987K
+                const decimals = scaled < 10 ? 2 : (scaled < 100 ? 1 : 0);
+                return scaled.toFixed(decimals).replace(/\.?0+$/, '') + unit;
+            },
+
+            /** Full count with thousands separators — used as the title of an abbreviated value. */
+            exactTokens(value) {
+                return (Number(value) || 0).toLocaleString();
+            },
 
             localeLabel() {
                 if (this.preferences.promptsLocale === 'ko') return _aiI18n.localeKo;
@@ -832,21 +1053,68 @@
                 return opt ? opt.label : this.preferences.defaultDeploymentProfile;
             },
 
+            effortLabel() {
+                const opt = this.effortOptions.find(o => o.value === this.preferences.reasoningEffort);
+                return opt ? opt.label : _aiI18n.effortDefault;
+            },
+
+            /** One line naming the exact request field and value the selected provider will receive. */
+            effortWireHint() {
+                const wire = this.effortWire[this.preferences.reasoningEffort] || this.effortWire.DEFAULT;
+                const isAnthropic = this.mode === 'ANTHROPIC';
+                const value = isAnthropic ? wire.anthropic : wire.openai;
+                if (!value) return _aiI18n.effortWireNone;
+                return isAnthropic
+                    ? _aiI18n.effortWireAnthropic.replace('{0}', value)
+                    : _aiI18n.effortWireOpenai.replace('{0}', value);
+            },
+
+            /**
+             * Regenerates scan-level insights on demand. Confirmed first because each scan in
+             * scope is a paid provider call — this is the whole reason the automatic version is
+             * opt-in.
+             */
+            async runBackfill(force) {
+                const question = force ? _aiI18n.backfillConfirmAll : _aiI18n.backfillConfirmMissing;
+                if (!window.confirm(question)) return;
+                this.backfilling = true;
+                try {
+                    const r = await fetch('/api/settings/ai/backfill?force=' + (force ? 'true' : 'false'), {
+                        method: 'POST',
+                        headers: this.headers()
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok || !data.success) {
+                        this.showToast(data.message || _aiI18n.backfillFailed, 'error');
+                        return;
+                    }
+                    this.showToast(_aiI18n.backfillStarted);
+                } catch (e) {
+                    this.showToast(_aiI18n.backfillFailed, 'error');
+                } finally {
+                    this.backfilling = false;
+                }
+            },
+
             csrf() {
                 return window.OswlCsrf ? window.OswlCsrf.token() : '';
             },
 
             async init() {
-                // A result from the previously selected provider would be misleading once the
-                // user switches — drop it as soon as the selection changes.
-                this.$watch('mode', () => { this.testResult = null; });
+                // A stale error from the previously selected provider would be misleading once
+                // the user switches — clear it as soon as the selection changes.
+                this.$watch('mode', () => { this.apiError = null; this.apiErrorHint = null; });
                 try {
                     const r = await fetch('/api/settings/ai');
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.loadFailed); return; }
                     const data = await r.json();
+                    if (data.activeProviderKind) this.activeProviderKind = data.activeProviderKind;
                     if (data && data.active && data.provider) {
-                        this.mode = data.provider;
+                        // Land on the entry that is actually live — for a running embedded model
+                        // that is the Embedded option, not the Local/Ollama one it borrows.
+                        this.mode = this.activeProviderKind === 'EMBEDDED' ? 'EMBEDDED' : data.provider;
                         const f = this.forms[data.provider];
                         if (f) {
                             if (data.baseUrl)   f.baseUrl   = data.baseUrl;
@@ -865,6 +1133,8 @@
                     if (data.defaultDeploymentProfile) {
                         this.preferences.defaultDeploymentProfile = data.defaultDeploymentProfile;
                     }
+                    if (data.reasoningEffort) this.preferences.reasoningEffort = data.reasoningEffort;
+                    this.preferences.autoBackfillInsights = !!data.autoBackfillInsights;
                     await this.loadPrompts();
                     await this.loadUsageStats();
                     await this.loadUsageEvents(0);
@@ -926,7 +1196,10 @@
 
             _applyEmbeddedStartResult(data) {
                 if (data.success && data.running) {
-                    this.mode = 'LOCAL';
+                    // Stay on (and light up) the Embedded entry. It previously jumped the radio to
+                    // Local/Ollama, which is where the "which one is on?" confusion came from.
+                    this.mode = 'EMBEDDED';
+                    this.activeProviderKind = 'EMBEDDED';
                     if (data.baseUrl) this.forms.LOCAL.baseUrl = data.baseUrl;
                     if (data.activeModel) this.forms.LOCAL.modelName = data.activeModel.replace(/\.gguf$/i, '');
                     this.showToast(_aiI18n.embeddedStarted);
@@ -1026,6 +1299,9 @@
                     });
                     if (r.ok) {
                         this.embedded = await r.json();
+                        // Stopping the sidecar deactivates the LOCAL provider server-side, so
+                        // nothing is serving calls until another entry is saved.
+                        this.activeProviderKind = 'OFF';
                         this.showToast(_aiI18n.embeddedStopped);
                     }
                 } catch (e) { /* keep state */ } finally {
@@ -1123,11 +1399,16 @@
                     maxTokens:     this.preferences.maxTokens,
                     dailyCallCap:  Number(this.preferences.dailyCallCap) || 0,
                     defaultDeploymentProfile: this.preferences.defaultDeploymentProfile || 'COMMERCIAL_PRODUCT',
+                    reasoningEffort: this.preferences.reasoningEffort || 'DEFAULT',
+                    autoBackfillInsights: !!this.preferences.autoBackfillInsights,
                     promptOverrides: Object.keys(overrides).length ? JSON.stringify(overrides) : null
                 };
             },
 
             async saveProvider() {
+                // Embedded AI has no Save: its Start button both activates it and health-checks
+                // the sidecar. The button is hidden for that mode; this is the belt-and-braces.
+                if (this.mode === 'EMBEDDED') return;
                 this.savingProvider = true; this.apiError = null; this.apiErrorHint = null;
                 try {
                     if (this.mode === 'off') {
@@ -1137,6 +1418,7 @@
                         });
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
+                        this.activeProviderKind = 'OFF';
                         this.showToast(this.embedded.running
                             ? _aiI18n.disabled + ' ' + _aiI18n.activatedEmbeddedStillRunning
                             : _aiI18n.disabled);
@@ -1157,11 +1439,12 @@
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
+                    this.activeProviderKind = this.mode;
                     let msg = _aiI18n.activated.replace('{0}', this.providerLabel(this.mode));
-                    // Starting Embedded AI switches mode to LOCAL, but the sidecar process itself
-                    // is a separate on/off control — switching to a *different* provider here does
-                    // not stop it. Make that explicit so "both look active" doesn't happen silently.
-                    if (this.mode !== 'LOCAL' && this.embedded.running) {
+                    // The sidecar process is a separate on/off control — saving a different
+                    // provider does not stop it. Say so, otherwise it keeps consuming memory
+                    // while nothing routes to it.
+                    if (this.embedded.running) {
                         msg += ' ' + _aiI18n.activatedEmbeddedStillRunning;
                     }
                     this.showToast(msg);
@@ -1198,11 +1481,12 @@
             },
 
             async testConnection() {
-                if (this.mode === 'off') return;
+                // Embedded AI is health-checked by Start itself, and has no API key or
+                // endpoint form to probe.
+                if (this.mode === 'off' || this.mode === 'EMBEDDED') return;
                 this.testing = true;
                 this.apiError = null;
                 this.apiErrorHint = null;
-                this.testResult = null;
                 try {
                     const f = this.forms[this.mode];
                     const body = {
@@ -1218,25 +1502,24 @@
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     const data = await r.json();
-                    // Always record the outcome inline, next to the button that produced it.
-                    // A success may still carry a hint (e.g. the model id was not in the
-                    // provider's catalogue), which renders as a warning rather than an error.
-                    this.testResult = {
-                        success: !!(r.ok && data.success),
-                        message: data.message || (r.ok && data.success ? _aiI18n.testOk : _aiI18n.testFailed),
-                        hint: data.hint || null
-                    };
-                    if (this.testResult.success) {
-                        this.showToast(this.testResult.message, this.testResult.hint ? 'error' : 'success');
+                    // The toast is the only notice. A success may still carry a hint (e.g. the
+                    // model id was not in the provider's catalogue) — that is a warning, not an
+                    // error, so it is toasted rather than left on the page. Hard failures keep the
+                    // top banner too, because it is the only place long provider diagnostics fit.
+                    const success = !!(r.ok && data.success);
+                    const message = data.message
+                        || (success ? _aiI18n.testOk : _aiI18n.testFailed);
+                    if (success) {
+                        this.showToast(data.hint ? message + ' — ' + data.hint : message,
+                                       data.hint ? 'error' : 'success');
                     } else {
-                        this.apiError = this.testResult.message;
-                        this.apiErrorHint = this.testResult.hint;
-                        this.showToast(this.apiError, 'error');
+                        this.apiError = message;
+                        this.apiErrorHint = data.hint || null;
+                        this.showToast(message, 'error');
                     }
                 } catch (e) {
                     this.apiError = _aiI18n.testFailed;
                     this.apiErrorHint = e.message;
-                    this.testResult = { success: false, message: this.apiError, hint: e.message };
                     this.showToast(this.apiError, 'error');
                 } finally {
                     this.testing = false;

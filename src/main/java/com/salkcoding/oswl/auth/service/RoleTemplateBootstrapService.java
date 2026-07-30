@@ -25,6 +25,7 @@ public class RoleTemplateBootstrapService {
                 EnumSet.of(
                         Permission.PROJECT_VIEW,
                         Permission.PROJECT_CREATE,
+                        Permission.PROJECT_UPDATE,
                         Permission.SCAN_SUBMIT,
                         Permission.SCAN_VIEW,
                         Permission.SCAN_HISTORY_VIEW,

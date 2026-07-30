@@ -60,7 +60,6 @@ htmlReport
 .kimi
 .claude
 
-# Local-only planning/verification artifacts (never push)
-/PERFORMANCE-AND-OFFLINE-PLAN.md
+# Local-only planning/verification artifacts
 /ROADMAP.md
 /e6verify/
