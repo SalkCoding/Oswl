@@ -11,6 +11,12 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     volumes:
       - db-data-prod:/var/lib/postgresql/data
+    # Cap container log growth (docker itself, not the app's own file log below).
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
 
   app:
     build: .
@@ -30,11 +36,25 @@ services:
       SPRING_MAIL_PASSWORD: "${SMTP_PASS}"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      # Rotating file log inside the container, mounted to a named volume below so
+      # it survives container recreation. OSWL_LOG_JSON opt-in via .env.prod (default false).
+      OSWL_LOG_DIR: "/var/log/oswl"
+      OSWL_LOG_JSON: "${OSWL_LOG_JSON:-false}"
+    volumes:
+      - oswl-logs-prod:/var/log/oswl
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
       - db
     restart: unless-stopped
+    # Cap container stdout/stderr log growth (separate from the OSWL_LOG_DIR file
+    # log above — this is docker's own capture of the process's console output).
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
 
 volumes:
   db-data-prod:
+  oswl-logs-prod:

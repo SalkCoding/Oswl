@@ -27,14 +27,14 @@ spring:
         # JDBC batching of INSERT/UPDATE statements. NOTE: all entities use GenerationType.IDENTITY,
         # so Hibernate still cannot batch INSERTs (the generated id is needed immediately) — this
         # mainly batches UPDATEs. Moving PKs to sequences would unlock insert batching but is a
-        # migration-risky change tracked separately (roadmap A6).
+        # migration-risky change tracked separately as a backlog item.
         jdbc:
           batch_size: 50
         order_inserts: true
         order_updates: true
 
   flyway:
-    # Opt-in DB migrations (roadmap #13). Disabled by default so existing ddl-auto deploys are unaffected.
+    # Opt-in DB migrations. Disabled by default so existing ddl-auto deploys are unaffected.
     # Enable in production (OSWL_FLYWAY_ENABLED=true) after generating a full baseline; existing schemas
     # are baselined automatically, then versioned migrations under db/migration apply forward.
     enabled: ${OSWL_FLYWAY_ENABLED:false}
@@ -43,7 +43,7 @@ spring:
     locations: classpath:db/migration
 
   session:
-    # Horizontal scaling / HA (roadmap S1). "none" (default) keeps the pre-S1 behavior — an
+    # Horizontal scaling / HA. "none" (default) keeps the single-instance behavior — an
     # in-memory Tomcat session, fine for a single instance. Set to "jdbc" (OSWL_SESSION_STORE_TYPE=jdbc)
     # only when running multiple instances behind a load balancer against the same PostgreSQL DB —
     # requires the spring_session/spring_session_attributes tables (db/migration/V10 or
@@ -157,8 +157,8 @@ oswl:
     # Spring cron expression (seconds minutes hours day month weekday). Default: 03:00 daily.
     cron: ${OSWL_MONITORING_CRON:0 0 3 * * *}
   scheduler-lock:
-    # Horizontal scaling / HA (roadmap S1). Disabled by default (single-instance behavior:
-    # every @Scheduled job runs locally, same as before S1). Enable (OSWL_SCHEDULER_LOCK_ENABLED=true)
+    # Horizontal scaling / HA. Disabled by default (single-instance behavior:
+    # every @Scheduled job runs locally). Enable (OSWL_SCHEDULER_LOCK_ENABLED=true)
     # only alongside a multi-instance deployment, so the nightly monitoring / defer-expiry /
     # trash-cleanup jobs run exactly once per cycle cluster-wide instead of once per instance.
     # Requires the shedlock table (db/migration/V10 or db/spring_session_and_shedlock.sql).
@@ -270,7 +270,7 @@ oswl:
       # many split levels, rather than resubmitting the identical prompt unchanged.
       max-retries: ${OSWL_AI_MAX_RETRIES:1}
       # The 5 independent AI enrichment blocks (CVE/license batch, posture, trend, version diff)
-      # run concurrently (B2) — this caps how many run at once, mainly to stay under cloud
+      # run concurrently — this caps how many run at once, mainly to stay under cloud
       # provider rate limits. A local llama-server benefits from --parallel (see embedded.*) up
       # to this same count.
       max-parallel-calls: ${OSWL_AI_MAX_PARALLEL_CALLS:3}
@@ -292,5 +292,7 @@ oswl:
     # Audit log records older than this many months are automatically deleted
     retention-months: ${OSWL_AUDIT_RETENTION_MONTHS:6}
 
-# Logs: stdout/stderr only (no logback file appender). Rotate via container/process manager if needed.
+# Logging: see logback-spring.xml. local/test are console-only. prod additionally writes a
+# rotating file under OSWL_LOG_DIR (default ./logs) — OSWL_LOG_JSON=true switches it to
+# structured JSON for SIEM ingestion.
 

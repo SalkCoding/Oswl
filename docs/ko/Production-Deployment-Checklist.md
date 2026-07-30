@@ -45,6 +45,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 로그 확인: 누락 env 배너 없음, PostgreSQL 연결, H2/Swagger URL 없음.
 
+`docker-compose.prod.yml`은 컨테이너 자체의 stdout/stderr(docker `json-file` 드라이버, 100MB × 10개)와 앱의 자체 회전 파일 로그(`oswl-logs-prod` 볼륨에 마운트) 둘 다 상한을 둡니다 — 후자는 §5 참고.
+
 ## 5. 로깅 및 관측
 
 | 확인 | 조치 |
@@ -54,6 +56,17 @@ docker compose -f docker-compose.prod.yml up -d --build
 | Actuator | **`health`, `info`, `prometheus`** 노출 (v1.0.4), 그 외 비활성 (`enabled-by-default: false`) |
 | 메트릭 스크랩 | Prometheus를 `/actuator/prometheus`로 지정 — 스크래퍼도 관리자 인증 필요 |
 | Actuator 인증 | **SYSTEM_ADMIN** 세션 필요 (공개 아님) |
+
+### 로그 로테이션 및 요청 상관관계
+
+`local`/`test`는 S2 이전과 동일하게 콘솔 전용입니다. `prod`에서는 `logback-spring.xml`이 회전 파일 로그를 추가로 기록합니다:
+
+| 변수 | 기본값 | 용도 |
+|------|--------|------|
+| `OSWL_LOG_DIR` | `./logs` (도커: `/var/log/oswl`, §4 참고) | `oswl.log` 저장 디렉터리. 100MB 또는 하루 단위로 회전, 최대 30개 파일 보관, 전체 5GB 상한. |
+| `OSWL_LOG_JSON` | `false` | `true`로 설정하면 파일(콘솔 아님)이 한 줄당 JSON 오브젝트 하나로 바뀝니다 — 로그 수집기를 여기에 연결해 SIEM으로 보내세요. |
+
+모든 요청에는 `requestId`가 찍히고(응답 헤더 `X-Request-Id`로도 반환), 인증된 요청이라면 `userId`도 함께 찍힙니다 — 둘 다 MDC를 통해 해당 요청의 모든 로그 라인에 나타나므로(평문 모드는 `[req=...] [user=...]`, JSON 모드는 최상위 필드), 특정 요청을 언급하는 지원 티켓을 타임스탬프로 grep하지 않고도 로그 전체에서 추적할 수 있습니다.
 
 ## 6. 운영에서 활성화되는 보안
 
@@ -118,7 +131,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - `merge`는 `(source, entry_key)` 기준으로 upsert하고 `"_deleted":true` 라인은 삭제로 처리합니다.
 - v2 번들은 `meta.json`에 기록된 파일별 SHA-256 체크섬을 검증하며, 불일치 시 전체 번들을 거부하고 기존 스토어를 변경하지 않습니다.
 
-정의 최신성(E7): `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`(기본값 `7`)와 `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`(기본값 `30`)는 반입된 스냅샷의 소스별 `sourceAsOf` 날짜 중 가장 오래된 값을 기준으로 관리 UI 배지를 결정합니다.
+정의 최신성: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`(기본값 `7`)와 `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`(기본값 `30`)는 반입된 스냅샷의 소스별 `sourceAsOf` 날짜 중 가장 오래된 값을 기준으로 관리 UI 배지를 결정합니다.
 
 번들이 50MB를 초과하면 `OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE`(기본값 각 `50MB`)를 조정해야 할 수 있습니다.
 
@@ -194,7 +207,7 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 （Flyway 사용자: 새로운 `libraries` 컬럼 3개는 `V3__component_metadata.sql`에서 처리됩니다. [데이터베이스 스키마](Database-Schema.md) 참고.）
 
-### v1.0.5: Spring Session / ShedLock 테이블 (옵트인, 로드맵 S1)
+### v1.0.5: Spring Session / ShedLock 테이블 (옵트인)
 
 **다중 인스턴스** 배포로 전환할 때만 필요합니다(§12 참고). `spring_session`, `spring_session_attributes`, `shedlock`이 추가됩니다. Flyway 사용자는 `db/migration/V10__spring_session_and_shedlock.sql`에서, 수동 스크립트 사용자는 `db/spring_session_and_shedlock.sql`을 실행하면 됩니다. 단일 인스턴스 배포라면 완전히 건너뛰어도 됩니다 — `OSWL_SESSION_STORE_TYPE=jdbc` 및/또는 `OSWL_SCHEDULER_LOCK_ENABLED=true`를 설정하기 전까지는 이 테이블을 아무도 참조하지 않습니다.
 
@@ -209,11 +222,11 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 ## 11. 운영
 
-- PostgreSQL 백업, `OSWL_ENCRYPTION_KEY`는 시크릿 매니저에 보관(분실 시 VCS 토큰 복호 불가).
+- PostgreSQL 백업, `OSWL_ENCRYPTION_KEY`는 시크릿 매니저에 보관(분실 시 VCS 토큰 복호 불가) — 전체 절차와 복구 리허설 스크립트는 [백업 및 복구](Backup-And-Restore) 참고.
 - 유출 시 API 키·SMTP 자격 증명 교체.
 - `local`로 돌리면 안 되는 이미지에 `SPRING_PROFILES_ACTIVE=local` 넣지 않기.
 
-## 12. 다중 인스턴스 배포 (수평 확장 / HA, 로드맵 S1)
+## 12. 다중 인스턴스 배포 (수평 확장 / HA)
 
 OsWL은 기본적으로 **단일 인스턴스**로 동작합니다 — 인메모리 HTTP 세션과 인스턴스별 `@Scheduled` 작업이죠. 컨테이너/프로세스 1개일 때는 이걸로 충분하지만, 로드밸런서 뒤에 두 번째 인스턴스를 두면 문제가 생깁니다: 사용자 세션이 로그인했던 인스턴스에 고정되고, 야간 모니터링/유예 만료/휴지통 정리 작업이 클러스터당 1회가 아니라 **인스턴스마다** 실행됩니다. 이 절은 동일한 PostgreSQL DB를 바라보는 **인스턴스 2대 이상**을 배포할 때만 해당됩니다.
 

@@ -45,6 +45,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ログを確認: 変数不足の警告がない、PostgreSQL に接続済み、H2 や Swagger の URL がない。
 
+`docker-compose.prod.yml` は、コンテナ自体の stdout/stderr（docker の `json-file` ドライバ、100MB × 10 ファイル）と、アプリ自身のローテーションファイルログ（`oswl-logs-prod` ボリュームにマウント）の両方に上限を設けています — 後者は §5 を参照。
+
 ## 5. ロギングと可観測性
 
 | チェック | 対応 |
@@ -54,6 +56,17 @@ docker compose -f docker-compose.prod.yml up -d --build
 | Actuator | **`health`、`info`、`prometheus`** を公開（v1.0.4）。それ以外はすべて無効（`enabled-by-default: false`） |
 | メトリクス収集 | Prometheus を `/actuator/prometheus` に向ける — スクレイパーは管理者資格情報を提示する必要あり |
 | Actuator 認証 | **SYSTEM_ADMIN** セッションが必要（公開ではない） |
+
+### ログローテーションとリクエスト相関
+
+`local`／`test` は S2 以前と同じくコンソール出力のみです。`prod` では `logback-spring.xml` がローテーションするファイルログを追加で書き出します:
+
+| 変数 | 既定値 | 用途 |
+|------|--------|------|
+| `OSWL_LOG_DIR` | `./logs`（docker では `/var/log/oswl`、§4 参照） | `oswl.log` の保存先。100MB または日次でローテーションし、最大 30 ファイル保持、合計 5GB を上限とします。 |
+| `OSWL_LOG_JSON` | `false` | `true` にすると、ファイル（コンソールではない）が 1 行 1 JSON オブジェクトの形式に切り替わります — ログシッパーをこれに向けて SIEM に取り込んでください。 |
+
+すべてのリクエストには `requestId` が付与され（レスポンスヘッダー `X-Request-Id` としても返されます）、認証済みであれば `userId` も付与されます — どちらも MDC 経由でそのリクエストのすべてのログ行に現れるため（プレーンテキストモードでは `[req=...] [user=...]`、JSON モードではトップレベルのフィールド）、あるリクエストを指すサポートチケットを、タイムスタンプで grep することなくログ全体から追跡できます。
 
 ## 6. 本番で有効なセキュリティ機能
 
@@ -118,7 +131,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - `merge` は `(source, entry_key)` 単位で upsert し、`"_deleted":true` 行は削除として扱います。
 - v2 バンドルは `meta.json` に記録されたファイル単位の SHA-256 チェックサムを検証し、不一致の場合はバンドル全体を拒否し、既存ストアは変更しません。
 
-定義の鮮度（E7）: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`（既定値 `7`）と `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`（既定値 `30`）は、インポートされたスナップショットのソース別 `sourceAsOf` 日付のうち最も古い値を基準に管理 UI バッジを決定します。
+定義の鮮度: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`（既定値 `7`）と `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`（既定値 `30`）は、インポートされたスナップショットのソース別 `sourceAsOf` 日付のうち最も古い値を基準に管理 UI バッジを決定します。
 
 バンドルが 50MB を超える場合は、`OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE`（既定値はそれぞれ `50MB`）を調整する必要があるかもしれません。
 
@@ -193,7 +206,7 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 （Flyway ユーザー: 新しい 3 つの `libraries` カラムは `V3__component_metadata.sql` でカバーされています。[データベーススキーマ](Database-Schema.md)を参照。）
 
-### v1.0.5: Spring Session / ShedLock テーブル（オプトイン、ロードマップ S1）
+### v1.0.5: Spring Session / ShedLock テーブル（オプトイン）
 
 **マルチインスタンス**構成に移行する場合にのみ必要です（§12 参照）。`spring_session`、`spring_session_attributes`、`shedlock` を追加します。Flyway ユーザーは `db/migration/V10__spring_session_and_shedlock.sql` から、手動スクリプトのユーザーは `db/spring_session_and_shedlock.sql` を実行してください。シングルインスタンス構成であれば完全にスキップできます — `OSWL_SESSION_STORE_TYPE=jdbc` や `OSWL_SCHEDULER_LOCK_ENABLED=true` を設定するまで、これらのテーブルは誰にも参照されません。
 
@@ -208,11 +221,11 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 ## 11. 運用
 
-- PostgreSQL をバックアップし、`OSWL_ENCRYPTION_KEY` をシークレットマネージャーに保管する（紛失すると VCS トークンが読めなくなります）。
+- PostgreSQL をバックアップし、`OSWL_ENCRYPTION_KEY` をシークレットマネージャーに保管する（紛失すると VCS トークンが読めなくなります） — 手順全体と復旧リハーサル用スクリプトは [バックアップと復旧](Backup-And-Restore) を参照。
 - 侵害があった場合は API キーと SMTP 認証情報をローテーションする。
 - `local` として実行されるべきでないイメージから `SPRING_PROFILES_ACTIVE` を除外しておく。
 
-## 12. マルチインスタンス配備（水平スケーリング / HA、ロードマップ S1）
+## 12. マルチインスタンス配備（水平スケーリング / HA）
 
 OsWL は既定では**シングルインスタンス**として動作します — インメモリの HTTP セッションと、インスタンスごとの `@Scheduled` ジョブです。コンテナ／プロセスが 1 つならこれで問題ありませんが、ロードバランサーの背後に 2 つ目のインスタンスを置くと崩れます。ユーザーのセッションはログインしたインスタンスに固定され、夜間モニタリング／猶予期限切れ／ごみ箱クリーンアップの各ジョブは、クラスタ全体で 1 回ではなく**インスタンスごと**に実行されてしまいます。この節は、同じ PostgreSQL データベースに対して **2 台以上のインスタンス**を配備する場合にのみ関係します。
 

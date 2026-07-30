@@ -22,6 +22,7 @@
 * [Authorization layers](Authorization-Layers)
 * [Project access control](Project-Access-Control)
 * [Production deployment](Production-Deployment-Checklist)
+* [Backup and restore](Backup-And-Restore)
 * [Database schema](Database-Schema)
 * [Scan API security](Scan-Api-Security)
 
