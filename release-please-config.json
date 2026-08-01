@@ -7,7 +7,8 @@
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         "build.gradle"
-      ]
+      ],
+      "release-as": "1.0.4"
     }
   }
 }
