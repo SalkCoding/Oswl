@@ -86,10 +86,10 @@
     "altProjects": "OsWL Projects Dashboard — multi-project risk overview",
     "altLicense": "OsWL License Analysis — copyleft and compliance risk tracking",
     "altRisk": "OsWL Risk Trend — scan-over-scan security posture",
-    "srcSc": "/img/screenshots/security-center.png",
-    "srcProjects": "/img/screenshots/projects.png",
-    "srcLicense": "/img/screenshots/license.png",
-    "srcRisk": "/img/screenshots/risk-trend.png"
+    "srcSc": "img/screenshots/security-center.png",
+    "srcProjects": "img/screenshots/projects.png",
+    "srcLicense": "img/screenshots/license.png",
+    "srcRisk": "img/screenshots/risk-trend.png"
   },
   "vuln": {
     "label": "Vulnerability Intelligence",
