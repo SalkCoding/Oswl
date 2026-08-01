@@ -99,6 +99,47 @@
             </div>
         </div>
 
+        <!-- External Data Sources -->
+        <div class="flex flex-col gap-[10px]">
+            <div class="flex flex-col gap-[2px]">
+                <h2 class="text-[15px] font-bold text-[var(--grayscale-100)] tracking-[-0.15px] m-0" th:text="#{ossNotices.dataSources.title}">External Data Sources</h2>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0 leading-[1.6]" th:text="#{ossNotices.dataSources.subtitle}">OsWL enriches component data live from these public feeds — data, not bundled code. Full attribution detail for each is in THIRD_PARTY_LICENSES.md.</p>
+            </div>
+
+            <div class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
+                <div class="grid items-center px-[24px] py-[11px] border-b border-[var(--grayscale-10)] bg-[var(--grayscale-5)]"
+                     style="grid-template-columns: 1fr 230px 2fr 36px;">
+                    <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.source}">Source</span>
+                    <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.license}">License</span>
+                    <span class="text-[11px] font-semibold text-[var(--grayscale-50)] tracking-[0.5px] uppercase" th:text="#{ossNotices.col.usedFor}">Used For</span>
+                    <div></div>
+                </div>
+
+                <template x-for="src in dataSources" :key="src.slug">
+                    <div class="grid items-start px-[24px] py-[14px] border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)] transition-colors group"
+                         style="grid-template-columns: 1fr 230px 2fr 36px;">
+                        <span class="font-semibold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] pr-[10px]" x-text="src.name"></span>
+                        <div class="pr-[14px]">
+                            <span class="inline-flex items-center gap-[7px] px-[10px] py-[4px] rounded-[40px] text-[11px] font-medium tracking-[-0.11px] border border-solid whitespace-normal text-left"
+                                  :class="licenseBadgeClass(src.licenseGroup)">
+                                <span class="w-[6px] h-[6px] rounded-full shrink-0" :class="licenseDotClass(src.licenseGroup)"></span>
+                                <span x-text="src.license"></span>
+                            </span>
+                        </div>
+                        <span class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.5] pr-[10px]" x-text="src.usedFor"></span>
+                        <a :href="src.url" target="_blank" rel="noopener noreferrer"
+                           class="self-center flex items-center justify-center w-[28px] h-[28px] rounded-[6px] text-[var(--grayscale-30)] hover:text-[var(--primary-100)] hover:bg-[rgba(0,176,160,0.08)] transition-all opacity-0 group-hover:opacity-100">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                        </a>
+                    </div>
+                </template>
+            </div>
+        </div>
+
         <!-- Footer note -->
         <div class="flex items-start gap-[10px] px-[20px] py-[14px] bg-[rgba(0,176,160,0.04)] border border-[rgba(0,176,160,0.15)] rounded-[10px] mb-[8px]">
             <svg class="shrink-0 mt-[1px]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary-100)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -146,6 +187,14 @@
             { slug: 'springOauth2', abbr: 'OA', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springOauth2']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springOauth2.name}]]*/ '', description: /*[[#{ossNotices.lib.springOauth2.description}]]*/ '' },
         ];
 
+        const dataSources = [
+            { slug: 'osv', url: 'https://osv.dev/', license: /*[[#{ossNotices.data.osv.license}]]*/ 'CC-BY 4.0 / CC0 1.0 (varies)', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.osv.name}]]*/ '', usedFor: /*[[#{ossNotices.data.osv.usedFor}]]*/ '' },
+            { slug: 'ghsa', url: 'https://github.com/github/advisory-database', license: /*[[#{ossNotices.data.ghsa.license}]]*/ 'CC-BY 4.0', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.ghsa.name}]]*/ '', usedFor: /*[[#{ossNotices.data.ghsa.usedFor}]]*/ '' },
+            { slug: 'epss', url: 'https://www.first.org/epss/', license: /*[[#{ossNotices.data.epss.license}]]*/ 'Free access, attribution requested', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.epss.name}]]*/ '', usedFor: /*[[#{ossNotices.data.epss.usedFor}]]*/ '' },
+            { slug: 'kev', url: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog', license: /*[[#{ossNotices.data.kev.license}]]*/ 'CC0 1.0 (Public Domain)', licenseGroup: 'cc0', name: /*[[#{ossNotices.data.kev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.kev.usedFor}]]*/ '' },
+            { slug: 'depsdev', url: 'https://deps.dev/', license: /*[[#{ossNotices.data.depsdev.license}]]*/ 'CC-BY 4.0 (generated data)', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.depsdev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.depsdev.usedFor}]]*/ '' },
+        ];
+
         const allFilters = [
             { key:'all',    label: _ossI18n.filterAll },
             { key:'apache', label: _ossI18n.filterApache },
@@ -157,6 +206,7 @@
 
         return {
             libraries: libs,
+            dataSources: dataSources,
             activeFilter: 'all',
             searchQuery: '',
 
@@ -184,14 +234,17 @@
                          mit:   'bg-[rgba(0,215,97,0.06)] border-[rgba(0,215,97,0.22)] text-[#007a32]',
                          lgpl:  'bg-[rgba(245,189,38,0.06)] border-[rgba(245,189,38,0.3)] text-[#8a6500]',
                          bsd:   'bg-[rgba(0,101,156,0.06)] border-[rgba(0,101,156,0.22)] text-[var(--copy-info)]',
-                         epl:   'bg-[rgba(126,87,194,0.06)] border-[rgba(126,87,194,0.22)] text-[#5c35a8]' }[g]
+                         epl:   'bg-[rgba(126,87,194,0.06)] border-[rgba(126,87,194,0.22)] text-[#5c35a8]',
+                         ccby:  'bg-[rgba(0,101,156,0.06)] border-[rgba(0,101,156,0.22)] text-[var(--copy-info)]',
+                         cc0:   'bg-[rgba(0,215,97,0.06)] border-[rgba(0,215,97,0.22)] text-[#007a32]' }[g]
                     || 'bg-[var(--grayscale-5)] border-[var(--grayscale-20)] text-[var(--grayscale-60)]';
             },
 
             licenseDotClass(g) {
                 return { apache:'bg-[var(--primary-100)]', mit:'bg-[var(--semantic-patchable)]',
                          lgpl:'bg-[var(--risk-medium)]',   bsd:'bg-[var(--copy-info)]',
-                         epl:'bg-[#7e57c2]' }[g] || 'bg-[var(--grayscale-40)]';
+                         epl:'bg-[#7e57c2]', ccby:'bg-[var(--copy-info)]',
+                         cc0:'bg-[var(--semantic-patchable)]' }[g] || 'bg-[var(--grayscale-40)]';
             },
 
             init() {}
