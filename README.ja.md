@@ -199,21 +199,25 @@ Library  (プロジェクト間で共有 — group:artifact@version)
 
 ## ドキュメント
 
-日本語ドキュメントは [`docs/ja/`](docs/ja/) フォルダで確認できます。英語ドキュメントは [`docs/`](docs/) フォルダおよび [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki)（`main` への push 時に `docs/` から自動同期）で提供されています。
+日本語ドキュメントは [`docs/ja/`](docs/ja/) フォルダで確認できます。英語ドキュメントは [`docs/`](docs/) フォルダ、韓国語ドキュメントは [`docs/ko/`](docs/ko/) フォルダ、および [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki)（`main` への push 時に `docs/` から自動同期）で提供されています。
 
 | ページ | 説明 |
 |---|---|
 | [ホーム](docs/ja/Home.md) | プラットフォーム概要とナビゲーションガイド |
+| [v1.0.4 の新機能](docs/ja/Whats-New-v1.0.4.md) | リリースのハイライト — SBOM/VEX/SARIF エクスポート、CI/CD ゲート、継続的モニタリング、組織ダッシュボード、サプライチェーンヒューリスティック、エアギャップモード |
 | [はじめに](docs/ja/Getting-Started.md) | インストール、セットアップウィザード、最初のプロジェクト |
 | [ユーザーガイド](docs/ja/User-Guide.md) | ダッシュボードの日常的な使い方 |
 | [Quick Import](docs/ja/Quick-Import.md) | GitHub / GitLab / Bitbucket からのプロジェクトインポート |
 | [CLI 連携](docs/ja/CLI-Integration.md) | ビルドパイプラインからのスキャン送信 |
+| [内蔵 AI](docs/ja/Embedded-AI.md) | クラウドアカウントや API キーなしでローカル LLM により CVE トリアージ・ライセンスインサイトを実行 |
 | [セキュリティセンター](docs/ja/Security-Center.md) | 脆弱性（CVE）の管理 |
 | [ライセンス分析](docs/ja/License-Analysis.md) | ライセンスコンプライアンスとポリシー管理 |
 | [リスク傾向](docs/ja/Risk-Trend.md) | 過去のリスクチャートの読み方 |
 | [バージョン比較](docs/ja/Version-Diff.md) | 2 つのスキャン結果の比較 |
+| [スキャン履歴](docs/ja/Scan-History.md) | プロジェクトに送信されたすべてのスキャンを順に確認 |
 | [管理](docs/ja/Administration.md) | ユーザー、ロール、監査ログ、セキュリティ設定 |
 | [権限レイヤー](docs/ja/Authorization-Layers.md) | ロールテンプレート vs プロジェクトメンバーシップ |
+| [プロジェクトアクセス制御](docs/ja/Project-Access-Control.md) | プロジェクト単位の権限判定に関する技術参考資料 |
 | [本番デプロイ](docs/ja/Production-Deployment-Checklist.md) | 本番環境チェックリスト |
 | [データベーススキーマ](docs/ja/Database-Schema.md) | `ddl-auto` 戦略と SQL マイグレーション |
 | [スキャン API セキュリティ](docs/ja/Scan-Api-Security.md) | CLI スキャンの認証と監査ログ |

@@ -199,21 +199,25 @@ Interactive Swagger UI is available in the **`local` profile** at `http://localh
 
 ## Documentation
 
-Full documentation is available in the [`docs/`](docs/) folder and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (auto-synced from `docs/` on push to `main`). Korean docs live in [`docs/ko/`](docs/ko/).
+Full documentation is available in the [`docs/`](docs/) folder and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (auto-synced from `docs/` on push to `main`). Korean docs live in [`docs/ko/`](docs/ko/), Japanese docs in [`docs/ja/`](docs/ja/).
 
 | Page | Description |
 |---|---|
 | [Home](docs/Home.md) | Platform overview and navigation guide |
+| [What's New in v1.0.4](docs/Whats-New-v1.0.4.md) | Release highlights — SBOM/VEX/SARIF exports, CI/CD gate, continuous monitoring, org dashboard, supply-chain heuristics, air-gapped mode |
 | [Getting Started](docs/Getting-Started.md) | Installation, setup wizard, first project |
 | [User Guide](docs/User-Guide.md) | Day-to-day usage of the dashboard |
 | [Quick Import](docs/Quick-Import.md) | Importing projects from GitHub / GitLab / Bitbucket |
 | [CLI Integration](docs/CLI-Integration.md) | Submitting scans from build pipelines |
+| [Embedded AI](docs/Embedded-AI.md) | Running CVE triage and license insights on a local LLM — no cloud account or API key |
 | [Security Center](docs/Security-Center.md) | Managing vulnerabilities (CVEs) |
 | [License Analysis](docs/License-Analysis.md) | License compliance and policy management |
 | [Risk Trend](docs/Risk-Trend.md) | Interpreting historical risk charts |
 | [Version Diff](docs/Version-Diff.md) | Comparing two scan results |
+| [Scan History](docs/Scan-History.md) | Reviewing every scan submitted for a project, in order |
 | [Administration](docs/Administration.md) | Users, roles, audit logs, security settings |
 | [Authorization layers](docs/Authorization-Layers.md) | Role templates vs project membership |
+| [Project access control](docs/Project-Access-Control.md) | Technical reference for how project-level permissions are resolved |
 | [Production deployment](docs/Production-Deployment-Checklist.md) | Production checklist |
 | [Database schema](docs/Database-Schema.md) | `ddl-auto` strategy and SQL migrations |
 | [Scan API security](docs/Scan-Api-Security.md) | CLI scan auth and audit logging |
