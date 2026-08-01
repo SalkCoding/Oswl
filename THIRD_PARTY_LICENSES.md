@@ -36,7 +36,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
 | [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
 | [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
-| [deps.dev](#depsdev)                                                  | Unclarified (data) / Apache 2.0 (client repo) |
+| [deps.dev](#depsdev)                                                  | CC-BY 4.0 (generated data) / Apache 2.0 (client repo) |
 
 ---
 
@@ -552,18 +552,25 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
 
 ### deps.dev
 
-- **Website:** https://deps.dev/ · API: https://docs.deps.dev/api/v3/
-- **License:** **Not explicitly stated by Google for the returned data** — a community request
-  to clarify the data license (https://github.com/google/deps.dev/issues/15) was closed without
-  a stated resolution as of this writing. Use of the API itself is governed by the
-  [Google APIs Terms of Service](https://developers.google.com/terms). The deps.dev **client
-  repository's own code** (not the data) is Apache 2.0.
+- **Website:** https://deps.dev/ · API: https://docs.deps.dev/api/v3/ · source:
+  https://github.com/google/deps.dev
+- **License:** The deps.dev README states: *"deps.dev generates additional data, including
+  resolved dependencies, advisory statistics, associations between entities, etc. This generated
+  data is available under a **CC-BY 4.0** license."* This covers the derived fields OsWL consumes
+  (`licenses`, `advisoryKeys`, resolved version/dependency data). Advisory content itself
+  (GHSA title/CVSS surfaced via `GetAdvisory`) originates from OSV/GHSA and is independently
+  CC-BY 4.0 per the OSV entry above. The raw registry fields deps.dev merely aggregates (not
+  generates) have no independently stated license and inherit whatever terms the origin registry
+  applies. Access to the API itself is governed by the
+  [Google APIs Terms of Service](https://developers.google.com/terms), which explicitly permits
+  caching: *"Clients are expressly permitted to cache data served by the API."* The deps.dev
+  **client repository's own code** (not the data) is Apache 2.0.
 - **Used for:** Live per-version license/advisory-key lookups and Scorecard scores
   (`DepsDevClient`) and, in `oswl-vdb build`, targeted `GetVersion`/`GetAdvisory` calls against a
   wanted-list (E6) — deps.dev has no bulk dump, so this is the only viable ingestion path (E5.2).
-- **Note:** Given the licensing ambiguity above, treat deps.dev-derived fields (`licenses`,
-  `advisoryKeys`, GHSA advisory title/CVSS) the same way the rest of this codebase already does —
-  as data used to power OsWL's own analysis output, not redistributed as a standalone dataset.
+- **Attribution:** This notice + the OSV/GHSA attribution above satisfies CC-BY 4.0 for the
+  generated and advisory data. deps.dev-derived fields are used to power OsWL's own analysis
+  output, not redistributed as a standalone dataset.
 
 ---
 
