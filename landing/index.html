@@ -509,7 +509,7 @@
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
-            <div class="stat-value">7</div>
+            <div class="stat-value">9</div>
             <div class="stat-label" data-i18n="stats.ecosystemsLabel">Package Ecosystems</div>
         </div>
         <div class="stat-divider"></div>
@@ -543,7 +543,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.cveTitle">CVE Vulnerability Tracking</div>
-                <p class="feature-desc" data-i18n="features.cveDesc">On-demand enrichment from deps.dev and OSV. Every component is cross-referenced against CVSS 3.x scores and patch availability.</p>
+                <p class="feature-desc" data-i18n="features.cveDesc">On-demand enrichment from deps.dev and OSV. Every component is cross-referenced against CVSS 3.x scores and patch availability, and a reminder banner surfaces when a deferred component's grace period expires.</p>
                 <span class="feature-tag" data-i18n="features.cveTag">deps.dev &middot; OSV &middot; GHSA</span>
             </div>
 
@@ -571,7 +571,7 @@
                 </div>
                 <div class="feature-title" data-i18n="features.transitiveTitle">Transitive Dependency Traversal</div>
                 <p class="feature-desc" data-i18n="features.transitiveDesc">Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath analysis traces both direct and transitive exposure across every supported manifest.</p>
-                <span class="feature-tag" data-i18n="features.transitiveTag">Maven &middot; npm &middot; PyPI &middot; Go &middot; Cargo &middot; NuGet &middot; RubyGems</span>
+                <span class="feature-tag" data-i18n="features.transitiveTag">Maven &middot; npm &middot; PyPI &middot; Go &middot; Cargo &middot; NuGet &middot; RubyGems &middot; Composer &middot; Conan</span>
             </div>
 
             <div class="feature-card">
@@ -579,7 +579,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.gitTitle">Git-Native Repository Integration</div>
-                <p class="feature-desc" data-i18n="features.gitDesc">Connect GitHub, GitLab, or Bitbucket via Personal Access Token. Branch-aware imports, per-version snapshots, and per-project scan history out of the box.</p>
+                <p class="feature-desc" data-i18n="features.gitDesc">Connect GitHub, GitLab, or Bitbucket via Personal Access Token. Quick Import queues bulk repository imports with a cancel button for jobs still running, and every scan keeps branch-aware snapshots and per-project history out of the box.</p>
                 <span class="feature-tag" data-i18n="features.gitTag">GitHub &middot; GitLab &middot; Bitbucket</span>
             </div>
 
@@ -606,7 +606,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.gateTitle">Policy Gates for Pull Requests</div>
-                <p class="feature-desc" data-i18n="features.gateDesc">Define severity, license, and KEV thresholds per project, then let the gate pass or fail each scan. Results publish back to GitHub as a check run and PR comment, and new findings are compared against a baseline so existing debt never blocks a merge.</p>
+                <p class="feature-desc" data-i18n="features.gateDesc">Define severity, license, and KEV thresholds per project, then let the gate pass or fail each scan. Results publish back to GitHub as a check run and PR comment, new findings are compared against a baseline so existing debt never blocks a merge, and any finding can be escalated to a linked Jira issue.</p>
                 <span class="feature-tag" data-i18n="features.gateTag">Baseline diff &middot; GitHub check run</span>
             </div>
 
@@ -617,6 +617,51 @@
                 <div class="feature-title" data-i18n="features.orgTitle">Organization Dashboard</div>
                 <p class="feature-desc" data-i18n="features.orgDesc">One view across every project: KEV-listed and actively exploited CVEs first, EPSS exploit probability for ranking the rest, license warnings, and an audit-log export for your SIEM.</p>
                 <span class="feature-tag" data-i18n="features.orgTag">CISA KEV &middot; EPSS &middot; SIEM export</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.embeddedAiTitle">Embedded, Offline AI Insights</div>
+                <p class="feature-desc" data-i18n="features.embeddedAiDesc">A built-in llama.cpp sidecar starts and stops from Settings, running Qwen3 1.7B Q4_K_M locally (Gemma 3 1B on low-spec hardware) &mdash; CPU-only, no API key, and nothing leaves the host. Insights honor your chosen reasoning effort and are tracked in the same usage log as every cloud provider.</p>
+                <span class="feature-tag" data-i18n="features.embeddedAiTag">llama.cpp &middot; CPU-only &middot; Zero internet</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="12" x2="2" y2="12"/><path stroke-linecap="round" stroke-linejoin="round" d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.airgappedTitle">Air-Gapped &amp; Offline-Ready</div>
+                <p class="feature-desc" data-i18n="features.airgappedDesc">Import versioned OSV, deps.dev, EPSS, and KEV snapshot bundles &mdash; checksummed and provenance-stamped &mdash; to keep vulnerability intelligence current with zero outbound internet access. A wanted-list export tells you exactly which components the next bundle needs to cover, and every finding shows its data-as-of date.</p>
+                <span class="feature-tag" data-i18n="features.airgappedTag">Checksum &middot; Provenance &middot; Wanted-list export</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.remediationTitle">One-Click Remediation PRs</div>
+                <p class="feature-desc" data-i18n="features.remediationDesc">Bump a vulnerable dependency straight from the Security Center &mdash; OsWL opens a version-bump PR or MR against GitHub, GitLab, or Bitbucket, with reviewers and a change summary attached. Run it in batch to open one PR per patchable component across an entire scan in a single action.</p>
+                <span class="feature-tag" data-i18n="features.remediationTag">GitHub &middot; GitLab &middot; Bitbucket &middot; Batch upgrade</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.supplyChainTitle">Supply-Chain Attack Detection</div>
+                <p class="feature-desc" data-i18n="features.supplyChainDesc">Every resolved package name is screened for typosquatting &mdash; edit-distance and confusable-character matching against a per-ecosystem popular-package list &mdash; plus lightweight dependency-confusion signals like internal-looking names resolved from a public registry. Flagged packages surface as a verify-origin warning, never a silent block.</p>
+                <span class="feature-tag" data-i18n="features.supplyChainTag">Typosquat detection &middot; Dependency confusion</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                </div>
+                <div class="feature-title" data-i18n="features.ssoTitle">Enterprise SSO via OIDC</div>
+                <p class="feature-desc" data-i18n="features.ssoDesc">Sign in through Okta, Entra ID, or any OpenID Connect provider &mdash; SSO activates automatically once an OIDC client is configured. Logins skip the email OTP step since the identity provider already authenticated the user, while every existing role and permission rule still applies.</p>
+                <span class="feature-tag" data-i18n="features.ssoTag">Okta &middot; Entra ID &middot; Any OIDC provider</span>
             </div>
         </div>
     </div>
@@ -636,16 +681,16 @@
             <button class="tab-btn" onclick="showTab('risk',this)" data-i18n="platform.tabRisk">Risk Trend</button>
         </div>
         <div class="screenshot-frame active" id="tab-sc">
-            <img src="/img/screenshots/security-center.png" data-i18n-attr="alt:platform.altSc" alt="OsWL Security Center &mdash; CVE triage with CVSS scores">
+            <img src="/img/screenshots/security-center.png" data-i18n-attr="alt:platform.altSc;src:platform.srcSc" alt="OsWL Security Center &mdash; CVE triage with CVSS scores">
         </div>
         <div class="screenshot-frame" id="tab-projects">
-            <img src="/img/screenshots/projects.png" data-i18n-attr="alt:platform.altProjects" alt="OsWL Projects Dashboard &mdash; multi-project risk overview">
+            <img src="/img/screenshots/projects.png" data-i18n-attr="alt:platform.altProjects;src:platform.srcProjects" alt="OsWL Projects Dashboard &mdash; multi-project risk overview">
         </div>
         <div class="screenshot-frame" id="tab-license">
-            <img src="/img/screenshots/license.png" data-i18n-attr="alt:platform.altLicense" alt="OsWL License Analysis &mdash; copyleft and compliance risk tracking">
+            <img src="/img/screenshots/license.png" data-i18n-attr="alt:platform.altLicense;src:platform.srcLicense" alt="OsWL License Analysis &mdash; copyleft and compliance risk tracking">
         </div>
         <div class="screenshot-frame" id="tab-risk">
-            <img src="/img/screenshots/risk-trend.png" data-i18n-attr="alt:platform.altRisk" alt="OsWL Risk Trend &mdash; scan-over-scan security posture">
+            <img src="/img/screenshots/risk-trend.png" data-i18n-attr="alt:platform.altRisk;src:platform.srcRisk" alt="OsWL Risk Trend &mdash; scan-over-scan security posture">
         </div>
     </div>
 </section>
