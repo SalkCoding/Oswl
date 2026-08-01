@@ -11,7 +11,7 @@ Track CVE vulnerabilities and license risks across all your software components.
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
-**English** | [한국어](README.ko.md)
+**English** | [한국어](README.ko.md) | [日本語](README.ja.md)
 
 </div>
 
