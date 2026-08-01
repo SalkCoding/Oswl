@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-supported-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
-[English](README.md) | **한국어**
+[English](README.md) | **한국어** | [日本語](README.ja.md)
 
 </div>
 
