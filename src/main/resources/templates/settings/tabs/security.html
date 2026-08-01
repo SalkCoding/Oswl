@@ -199,18 +199,20 @@
 
             <!-- Email OTP details when mail is configured -->
             <div x-show="twoFaMode==='EMAIL_OTP' && mailMode === 'SMTP'" x-cloak
-                 class="ml-[28px] bg-[var(--grayscale-5)] rounded-[8px] px-[16px] py-[12px] flex flex-col gap-[6px] text-[13px] text-[var(--grayscale-70)]">
+                 class="ml-[28px] bg-[var(--grayscale-5)] rounded-[8px] px-[16px] py-[12px] flex flex-col gap-[6px] text-[13px] text-[var(--grayscale-70)] [&_strong]:font-semibold [&_strong]:text-[var(--grayscale-90)]">
+                <!-- The emphasised value is wrapped in <strong> inside each message so translators
+                     control word order; styling comes from the [&_strong] rules on this container. -->
                 <div class="flex items-center gap-[6px]">
                     <svg class="text-[var(--primary-100)] shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Code valid for <strong class="text-[var(--grayscale-90)]">5 minutes</strong>
+                    <span th:utext="#{settings.security.twoFa.otpHint.validity}">Code valid for <strong>5 minutes</strong></span>
                 </div>
                 <div class="flex items-center gap-[6px]">
                     <svg class="text-[var(--primary-100)] shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Max <strong class="text-[var(--grayscale-90)]">3 resend attempts</strong> per 10 minutes
+                    <span th:utext="#{settings.security.twoFa.otpHint.resend}">Max <strong>3 resend attempts</strong> per 10 minutes</span>
                 </div>
                 <div class="flex items-center gap-[6px]">
                     <svg class="text-[var(--primary-100)] shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Trusted devices skip OTP for <strong class="text-[var(--grayscale-90)]">30 days</strong>
+                    <span th:utext="#{settings.security.twoFa.otpHint.trustedDevice}">Trusted devices skip OTP for <strong>30 days</strong></span>
                 </div>
             </div>
         </div>

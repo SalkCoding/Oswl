@@ -62,8 +62,8 @@
 | 템플릿 | 용도 |
 |--------|------|
 | **Admin** | 권한 전체 |
-| **Developer** | 스캔·분석·조치, 라이선스 보기/보내기, VCS·CLI 키 |
-| **Viewer** | 읽기 전용·보내기 |
+| **Developer** | 스캔·분석·조치, 라이선스 조회/내보내기, VCS·CLI 키 |
+| **Viewer** | 읽기 전용·내보내기 가능 |
 
 역할 템플릿(레이어 A)과 프로젝트 멤버십(레이어 B)은 별개입니다. [권한 레이어](Authorization-Layers.md) 참고.
 
@@ -94,6 +94,13 @@
 | `SETTINGS_CLI_KEY_MANAGE` | 프로젝트 CLI API 키 관리 |
 | `SETTINGS_CACHE_MANAGE` | 캐시 설정 관리 |
 | `SETTINGS_SECURITY_MANAGE` | SMTP 및 2FA 설정 구성 |
+| `ORG_DASHBOARD_VIEW` | **v1.0.4** — 조직 대시보드(`/org-dashboard`) 조회 |
+| `AUDIT_LOG_VIEW` | **v1.0.4** — 감사 로그 조회 |
+| `AUDIT_LOG_EXPORT` | **v1.0.4** — SIEM 적재용 감사 로그 내보내기 |
+| `SETTINGS_JIRA_MANAGE` | **v1.0.4** — Jira 연동 관리 |
+| `SETTINGS_SNAPSHOT_MANAGE` | **v1.0.4** — 오프라인 스냅샷 번들 관리 |
+
+> v1.0.4의 5개 권한은 기존 역할 템플릿에 자동 추가되지 **않으므로** 미부여 상태로 시작합니다. 필요한 역할에만 명시적으로 부여하세요 — 특히 `AUDIT_LOG_EXPORT`는 감사 기록을 플랫폼 외부로 내보내는 권한입니다.
 
 ### 템플릿 생성
 
@@ -164,7 +171,7 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 |---|---|
 | **타임스탬프** | 이벤트 발생 시각 |
 | **행위자** | 사용자 이메일 또는 `SYSTEM` |
-| **작업** | 이벤트 코드 (예: `SCAN.INGEST`, `USER.LOGIN`, `CVE.STATUS_UPDATE`) |
+| **작업** | 이벤트 코드 (예: `SCAN.INGEST`, `AUTH.LOGIN_SUCCESS`, `LICENSE.EXPORT`) |
 | **리소스 유형** | 영향받은 엔티티 (PROJECT, SCAN, USER, …) |
 | **리소스 ID** | 영향받은 엔티티의 ID |
 | **상세** | 추가 컨텍스트 (새 값, 버전 문자열 등) |
@@ -179,6 +186,10 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 
 **CSV 내보내기**를 클릭하면 현재 필터링된 뷰를 CSV 파일로 다운로드합니다.
 
+**SIEM 내보내기 (v1.0.4)** — `GET /api/admin/audit-logs/export?format=jsonl|cef`는 동일한 필터 결과를 SIEM에 바로 적재 가능한 포맷(기본 JSON Lines, 또는 ArcSight CEF)으로 스트리밍합니다. `AUDIT_LOG_EXPORT` 권한이 필요하며, 내보내기 행위 자체가 `AUDIT_LOG.EXPORT`로 기록됩니다.
+
+v1.0.4의 작업 코드는 필터 UI에서 **모니터링**(`MONITOR.*`), **연동**(`JIRA.SETTINGS_UPDATE`), **관리**(`ORG_DASHBOARD.VIEW`, `AUDIT_LOG.EXPORT`, `SNAPSHOT.IMPORT` / `SNAPSHOT.EXPORT` / `SNAPSHOT.WANTED_LIST_EXPORT`), **캐시**(`CACHE.UPDATE_TTL`, `CACHE.CLEAR`)로 그룹화되며, 신규 내보내기·게이트 코드(`SBOM.EXPORT`, `VEX.EXPORT`, `SARIF.EXPORT`, `COMPLIANCE_REPORT.VIEW`, `GATE.EVALUATE`, `GATE.GITHUB_PUBLISH`, `PROJECT.BATCH_PR`, `SBOM.IMPORT`, `COMPONENT.JIRA_TICKET`)도 함께 제공됩니다.
+
 ### 보존 기간
 
 설정된 보존 기간보다 오래된 감사 레코드는 예약 작업에 의해 자동 삭제됩니다.
@@ -187,6 +198,83 @@ OsWL은 이중 인증 OTP 이메일 및 사용자 초대 발송에 SMTP를 사�
 |---|---|---|
 | `OSWL_AUDIT_RETENTION_MONTHS` | `6` | 이 기간(월)보다 오래된 레코드 자동 삭제 |
 | `OSWL_AUDIT_MAX_PAGE_SIZE` | `200` | API 페이지당 최대 레코드 수 |
+
+---
+
+## 조직 대시보드 (v1.0.4)
+
+`/org-dashboard`는 모든 프로젝트를 하나의 포트폴리오 화면으로 롤업합니다 — 심각도 총계, 최악 프로젝트 랭킹, KEV 등재 CVE 수, 라이선스 경고.
+
+`ORG_DASHBOARD_VIEW`(또는 `SYSTEM_ADMIN`)가 필요합니다. 권한이 부여되면 프로젝트 목록·프로젝트 상세·버전 비교 화면 상단 바에 진입점이 표시됩니다.
+
+---
+
+## 모니터링 엔드포인트 (v1.0.4)
+
+| 엔드포인트 | 용도 |
+|---|---|
+| `/actuator/health` | 헬스 체크 |
+| `/actuator/info` | 빌드·버전 정보 |
+| `/actuator/prometheus` | Prometheus 스크랩용 micrometer 메트릭 |
+
+세 엔드포인트 모두 관리자 권한이 필요합니다. Prometheus 스크랩 설정은 `application-prod.yaml`의 `management` 블록에 있습니다.
+
+---
+
+## 오프라인 스냅샷 번들 (v1.0.4)
+
+**설정 → 관리자 → 오프라인 스냅샷**
+
+폐쇄망(에어갭) 배포(`OSWL_AIRGAPPED_ENABLED=true`)에서는 취약점·위협 인텔 데이터(OSV, deps.dev, FIRST.org EPSS, CISA KEV)가 라이브 API 대신 반입된 스냅샷에서 제공됩니다 — 외부로 나가는 HTTP 요청은 전혀 시도되지 않으며, 스냅샷에 없는 컴포넌트는 "데이터 없음"으로 표시됩니다.
+
+`SYSTEM_ADMIN` 또는 `SETTINGS_SNAPSHOT_MANAGE` 권한이 필요합니다. [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) 참고.
+
+번들은 v2 포맷입니다: 각 JSONL 파일의 체크섬이 `meta.json`에 기록되며, 소스별 출처 정보(`bundleId`, `builtAt`, `asOf`, `origin`)도 함께 저장됩니다. 체크섬이 일치하지 않으면 어떤 데이터도 기록하지 않고 반입을 거부합니다.
+
+| 작업 | 엔드포인트 |
+|---|---|
+| 번들 상태 | `GET /api/admin/snapshot` |
+| 반입 (파일 업로드) | `POST /api/admin/snapshot/import` (multipart, 선택적으로 `?mode=replace\|merge`) |
+| 반입 (서버 경로) | `POST /api/admin/snapshot/import-from-path` |
+| 내보내기 | `GET /api/admin/snapshot/export` |
+| 원하는 목록(wanted-list) | `GET /api/admin/snapshot/wanted-list` |
+
+반입은 스트리밍 방식으로 처리되며(업로드 전체를 메모리에 버퍼링하지 않음) `SNAPSHOT.IMPORT`로 감사 기록됩니다. 에어갭 인스턴스에서는 반입 직후 메모리 내 KEV 카탈로그가 다시 로드되어 새 스냅샷이 즉시 적용됩니다.
+
+### 정의 상태 및 신선도(staleness)
+
+**정의 상태(Definition Status)** 카드는 소스별로 한 행씩 나열합니다 — `OSV`, `deps.dev (versions)`, `deps.dev (advisories)`, `FIRST.org EPSS`, `CISA KEV` — 레코드 수, 업스트림 **기준일(as-of)**, origin, 반입 시각과 함께. 제목 옆의 신선도 배지는 (번들 빌드 시각이나 반입 시각이 아니라) **가장 오래된** 소스의 기준일을 기준으로 계산됩니다:
+
+| 배지 | 의미 |
+|---|---|
+| 최신 (녹색) | 가장 오래된 정의가 `staleness-warn-days` 이내 |
+| 업데이트 권장 (황색) | `staleness-warn-days`보다 오래됨 |
+| 오래됨 (적색) | `staleness-critical-days`보다 오래됨 |
+
+| 설정 키 | 환경 변수 | 기본값 | 설명 |
+|---|---|---|---|
+| `oswl.airgapped.staleness-warn-days` | `OSWL_AIRGAPPED_STALENESS_WARN_DAYS` | `7` | 가장 오래된 정의 기준 이 일수를 넘으면 배지가 황색으로 전환 |
+| `oswl.airgapped.staleness-critical-days` | `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS` | `30` | 이 일수를 넘으면 배지가 적색으로 전환 |
+
+빌더가 원하는 목록(wanted-list)을 통해 요청받았지만 업스트림에서 찾지 못했거나 확실하게 평가하지 못한 컴포넌트가 있으면 **미해결 (업스트림 데이터 없음)** 행이 표시됩니다 — 이런 컴포넌트는 "확인된 안전"이 아니라 "데이터 없음"으로 취급하세요.
+
+### 반입 모드
+
+- **번들 기본값** — 델타로 빌드된 v2 번들은 merge로 반입되고, 그 외에는 replace로 반입됩니다.
+- **Replace** — 번들에 포함된 각 소스를 먼저 비운 후 기록합니다.
+- **Merge** — 키 기준으로 upsert하며 삭제 마커(tombstone)를 존중하므로, 델타 번들로 폐기된 항목을 제거할 수도 있습니다.
+
+파일 업로드 외에도 **경로에서 반입(Import from Path)**은 서버 디스크에 이미 있는 번들을 읽습니다. `oswl.airgapped.import-dir`(`OSWL_AIRGAPPED_IMPORT_DIR`)로 지정한 디렉터리 아래의 파일만 허용하며 realpath 검증으로 강제됩니다. 값이 비어 있으면 이 엔드포인트 자체가 비활성화됩니다.
+
+### 이 인스턴스를 위한 정의 빌드하기 (원하는 목록)
+
+**원하는 목록 다운로드**를 클릭하면 이 인스턴스가 스캔한 모든 고유 (ecosystem, name, version) 조합을 JSONL로 내보내므로, 인터넷에 연결된 머신에서 `oswl-vdb` 빌더가 전체 업스트림을 미러링하는 대신 정확히 그 컴포넌트들의 정의만 가져올 수 있습니다. 파일에는 ecosystem/name/version만 포함되며 — 프로젝트 이름, 저장소 URL, 파일 경로는 포함되지 않습니다. 인터넷에 연결된 머신에서 다음을 실행하세요:
+
+```bash
+scripts/oswl-vdb/oswl-vdb.sh build --wanted wanted-list.jsonl --sources osv,epss,kev,depsdev --out bundle.zip
+```
+
+(Windows에서는 `oswl-vdb.ps1`), 이후 생성된 `bundle.zip`을 반입 카드에서 업로드하세요. 같은 스크립트는 반입 전 번들을 확인하기 위한 `verify`, `inspect` 하위 명령도 제공합니다.
 
 ---
 
@@ -199,33 +287,41 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 | 제공업체 | 참고사항 |
 |---|---|
 | **비활성화** | AI 인사이트 생성 안 함 |
-| **OpenAI** | API 키 + 모델 (예: `gpt-4o-mini`) |
-| **Anthropic** | API 키 + 모델 |
-| **Gemini** | API 키 (+ 필요 시 OpenAI 호환 base URL) |
-| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama) — 또는 아래 내장 AI 사이드카 |
+| **OpenAI** | API 키 + 모델 (예: `gpt-5.6-terra`) |
+| **Anthropic** | API 키 + 모델 (예: `claude-opus-5`). `temperature` 오버라이드는 적용되지 않습니다 — 최신 Claude 모델은 샘플링 파라미터를 거부하므로, 응답 스타일은 프롬프트로 조정됩니다 |
+| **Gemini** | API 키 (+ 필요 시 OpenAI 호환 base URL, 예: `gemini-3.1-pro`) |
+| **로컬** | OpenAI 호환 엔드포인트 (예: Ollama — 드롭다운에 `qwen3`, `gemma3`, `deepseek-r1` 등 인기 모델 태그가 제안됨) — 또는 아래 내장 AI 사이드카 |
 
-같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
+각 프로바이더의 모델 입력란은 자유 입력 콤보박스입니다: 드롭다운에는 현재 모델이 제안으로 표시되지만, 계정에서 접근 가능한 어떤 모델 ID든 직접 입력할 수 있습니다.
+
+같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 기본으로 번들되는 모델은 **Qwen3 1.7B**(최초 사용 시 다운로드)이며, 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
 
 활성 제공업체는 **하나**만 둘 수 있습니다. 탭에서 추가로 설정할 수 있는 항목:
 
 | 설정 | 용도 |
 |---|---|
-| 프롬프트 로케일 (`en` / `ko`) | `prompts.properties` vs 한국어 오버레이 |
+| 프롬프트 로케일 (`en` / `ko` / `ja`) | `prompts.properties` vs 한국어·일본어 오버레이 |
 | CVE/라이선스 배치 한도·심각도 | 스캔당 AI 호출 상한 |
-| 온도 / max tokens / 일일 호출 상한 | LLM 동작 및 비용 제한 |
-| 기본 배포 프로필 | 프로젝트 프로필이 없을 때 CVE 트리아지 맥락 |
+| 온도 / max tokens / 일일 호출 상한 | LLM 동작 및 비용 제한 (Anthropic에는 온도가 적용되지 않음 — 위 참고) |
+| 기본 배포 프로필 | 프로젝트에 프로필이 없을 때 CVE 트리아지 **및** 라이선스 위험 평가에 사용되는 맥락 — 사내 도구, 네트워크 서비스, 배포되는 소프트웨어는 의무가 크게 다릅니다 |
 | 프롬프트 오버라이드 | 키별 템플릿 수정 (`GET /api/settings/ai/prompts`) |
+
+**연결 테스트**는 토큰을 전혀 소비하지 않습니다: 완료 요청을 보내는 대신 프로바이더가 제공하는 모델 목록을 조회하므로(OpenAI/Gemini/Ollama는 `GET {base}/models`, Anthropic은 `GET /v1/models`), 인증 정보와 연결 가능 여부 확인이 무료이며 일일 호출 상한에도 반영되지 않습니다. 설정된 모델 ID가 계정이 접근 가능한 모델 목록에 없으면 테스트는 여전히 성공하지만 경고가 표시되어, 오타나 아직 받지 않은 로컬 모델을 다음 스캔이 아니라 즉시 알 수 있습니다.
 
 **API:** `GET|PUT /api/settings/ai`, `POST /api/settings/ai/test-connection`, `POST /api/settings/ai/golden-test`.  
 **내장 AI:** `GET /api/settings/ai/embedded`, `POST .../embedded/start?model=`, `POST .../embedded/stop`, `PUT .../embedded/config` — [API 레퍼런스 — AI](API-Reference.md#ai) 참고.  
 **프로젝트별:** `PATCH /api/projects/{id}/deployment-profile`.  
 **컴포넌트 상세:** `POST .../cves/{cveDbId}/ai-summarize`로 CVE AI 요약 새로고침 (`COMPONENT.CVE_AI_REGENERATE` 감사 로그).
 
+### AI 응답 캐싱 (v1.0.4)
+
+CVE/라이선스 배치 보강은 각 `Cve`와 `Library` 행에 SHA-256 컨텍스트 해시를 저장합니다. 다음 스캔 때 답변을 결정하는 입력(severity, CVSS 점수/벡터, 수정 버전, EPSS 버킷, KEV 여부, 의존 유형, patchability, 라이선스 이름/상태, 배포 프로필 등)이 변하지 않으면 기존 AI 요약을 재사용하고 프로바이더를 다시 호출하지 않습니다. 이 동작은 자동이며 별도의 관리 UI나 클리어 API는 없습니다. 컴포넌트 상세 화면의 **재생성** 버튼은 캐시를 우회합니다.
+
 ### 사용량 및 비용 추적
 
 AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(`GET /api/settings/ai/usage` — 이력이 쌓여도 조회 비용이 늘지 않도록 일별 집계 테이블에서 조회), 10건씩 페이지네이션되는 **최근 호출** 표를 함께 보여줍니다(`GET /api/settings/ai/usage/events`). 원본 호출 이벤트는 최근 **100건**만 보존되며 — 새 호출이 기록될 때마다 오래된 것부터 삭제(FIFO)됩니다 — 일별 합계와 7일 추이는 원본 이벤트 로그가 아닌 집계 테이블에서 나오므로 영향받지 않습니다.
 
-예상 비용은 실제 청구서가 **아니며**, 다음 프로바이더별(모델별이 아님) 단가로 계산한 대략적인 값입니다:
+예상 비용은 실제 청구서가 **아니며**, **모델별**로 각 모델의 공식 100만 토큰당 입력/출력 정가를 사용해 계산됩니다(예: `claude-opus-5`, `gpt-5.6-terra`, `gemini-3.1-pro`는 각각 다른 단가를 가지며, 같은 프로바이더 안에서 10배 비싼 모델을 더 이상 하나의 평균 단가로 뭉뚱그리지 않습니다). 캐시 입력·배치·롱컨텍스트 할인은 반영되지 않으므로 참고용으로만 사용하세요. 공식 정가가 없는 모델(커스텀 배포, 신규 출시 모델, 또는 **로컬** 프로바이더에서 실행되는 모든 모델)은 다음과 같은 프로바이더별 기본 단가로 대체됩니다:
 
 | 설정 키 | 기본값 (USD / 100만 토큰) |
 |---|---|
@@ -234,7 +330,7 @@ AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(
 | `oswl.ai.pricing.gemini-input-per-1m` / `gemini-output-per-1m` | `1.25` / `5.00` |
 | `oswl.ai.pricing.local-input-per-1m` / `local-output-per-1m` | `0` / `0` |
 
-실제 계약 단가가 위 기본값과 다르면 이 값들을 갱신하세요.
+실제 계약 단가가 위 기본값과 다르면 이 값들을 갱신하세요. **로컬** 프로바이더는 어떤 모델 이름을 보고하든 항상 설정된 단가(기본 `0`)로 추정됩니다 — 자체 호스팅 모델은 조회할 토큰당 비용 자체가 없기 때문입니다.
 
 ---
 
@@ -253,7 +349,7 @@ AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(
 |---|---|---|
 | **조회** | `GET /api/settings/cache` | 키별 TTL, 마지막 클리어 사용자·시각 |
 | **TTL 변경** | `PUT /api/settings/cache` | `cacheKey` + `ttlSeconds` (UI: 항상 새로고침 / 사용자 지정 / 영구) |
-| **클리어** | `POST /api/settings/cache/clear?cacheKey=…` | 클리어 시각 이전에 fetch된 라이브러리는 다음 스캔에서 stale 처리 |
+| **클리어** | `POST /api/settings/cache/clear?cacheKey=…` | 클리어 시각 이전에 fetch된 라이브러리는 다음 스캔에서 stale 처리. `cacheKey=ALL`로 모든 등록된 캐시를 한 번에 클리어할 수 있습니다. |
 
 변경 사항은 `CACHE.UPDATE_TTL`, `CACHE.CLEAR`로 감사 로그에 기록됩니다.
 

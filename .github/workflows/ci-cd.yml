@@ -39,6 +39,16 @@ jobs:
       - name: Build, test, and verify production JAR
         run: ./gradlew --no-daemon clean test bootJar verifyProdJar
 
+      - name: Verify THIRD_PARTY_LICENSES.md version sync (H3)
+        # Catches a build.gradle dependency bump whose THIRD_PARTY_LICENSES.md **Version:**
+        # lines were never re-synced (./gradlew syncThirdPartyLicenseVersions). This workflow
+        # is push-triggered on main only (no PR trigger configured), so this catches drift
+        # that already landed on main rather than blocking it pre-merge — still useful as a
+        # release-please gate: a broken doc sync fails the build before release-please runs.
+        run: |
+          ./gradlew --no-daemon syncThirdPartyLicenseVersions
+          git diff --exit-code THIRD_PARTY_LICENSES.md
+
   release-please:
     name: Version & Release
     needs: build

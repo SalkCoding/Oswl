@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.enums.AiEnrichmentStatus;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -32,6 +33,14 @@ public class ScanResult {
     @Column(length = 50)
     private String version;
 
+    /**
+     * UI locale of the user who triggered this scan (e.g. "ko", "ja"). AI enrichment runs
+     * asynchronously and loses the request locale, so it is captured here and re-bound so
+     * AI insights come back in the requester's language. Null = use the configured default.
+     */
+    @Column(name = "ai_locale", length = 16)
+    private String aiLocale;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -40,6 +49,17 @@ public class ScanResult {
     /** Error message, etc., when AI analysis fails */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
+
+    /**
+     * AI enrichment progress, tracked separately from {@link #status} — a scan reaches
+     * {@link ScanStatus#COMPLETED} as soon as its CVE/license data pipeline finishes; AI
+     * summaries continue in the background afterward instead of blocking that completion.
+     * Null on scans persisted before this column existed (or when AI was never configured) —
+     * always read through {@link #getAiStatus()}, which treats null as {@code NOT_APPLICABLE}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ai_status", length = 20)
+    private AiEnrichmentStatus aiStatus;
 
     /** AI-generated security risk trend insight (generated during enrichment) */
     @Column(name = "security_ai_insight", columnDefinition = "TEXT")
@@ -84,6 +104,31 @@ public class ScanResult {
         this.status = ScanStatus.COMPLETED;
     }
 
+    /** Null-safe view of {@link #aiStatus} — a scan persisted before this column existed reads as {@code NOT_APPLICABLE}. */
+    public AiEnrichmentStatus getAiStatus() {
+        return aiStatus != null ? aiStatus : AiEnrichmentStatus.NOT_APPLICABLE;
+    }
+
+    public void markAiNotApplicable() {
+        this.aiStatus = AiEnrichmentStatus.NOT_APPLICABLE;
+    }
+
+    public void markAiPending() {
+        this.aiStatus = AiEnrichmentStatus.PENDING;
+    }
+
+    public void markAiRunning() {
+        this.aiStatus = AiEnrichmentStatus.RUNNING;
+    }
+
+    public void markAiCompleted() {
+        this.aiStatus = AiEnrichmentStatus.COMPLETED;
+    }
+
+    public void markAiFailed() {
+        this.aiStatus = AiEnrichmentStatus.FAILED;
+    }
+
     public void updateAiInsights(String securityInsight, String licenseInsight) {
         this.securityAiInsight = securityInsight;
         this.licenseAiInsight  = licenseInsight;
@@ -100,6 +145,11 @@ public class ScanResult {
 
     public void startAnalyzing() {
         this.status = ScanStatus.ANALYZING;
+    }
+
+    /** Captures the requesting user's UI locale so async AI enrichment can answer in that language. */
+    public void recordAiLocale(String locale) {
+        this.aiLocale = (locale != null && !locale.isBlank()) ? locale.strip() : null;
     }
 
     public void startScanning() {
@@ -125,5 +175,8 @@ public class ScanResult {
         this.securityPostureInsight = null;
         this.versionDiffAiInsight = null;
         this.versionDiffFromScanId = null;
+        this.aiStatus = null;
     }
 }
+
+

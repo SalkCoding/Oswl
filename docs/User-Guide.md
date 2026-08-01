@@ -44,6 +44,10 @@ There are two ways to register a project:
 1. **Quick Import** — connect a VCS account and pick a repository/branch. See [Quick Import](Quick-Import.md).
 2. **CLI Push** — create a project with an API key, then push scan payloads from your build pipeline. See [CLI Integration](CLI-Integration.md).
 
+### Quick Import progress
+
+While a Quick Import is running, the progress card shows a continuous percentage and an estimated time remaining. During enrichment you may see per-component detail lines (for example, CVE counts). Once there are real deps.dev cache hits, a badge such as "1,204 components total — 1,180 served instantly from cache" appears; it stays hidden on the very first scan where nothing is cached yet. The job reaches **Done** as soon as the CVE and license data pipeline finishes — AI summaries may still be generating in the background.
+
 ---
 
 ## Trash
@@ -74,6 +78,28 @@ Once inside a project, the sidebar provides access to:
 
 ---
 
+## AI Summaries
+
+When AI is enabled, OsWL generates security posture, trend, and license-risk summaries **after** the scan data is ready. This means a scan completes and the Security Center becomes usable before the AI summaries finish. While AI is running, the Security Center shows a "Generating AI summary…" skeleton; the final insight appears without a page reload once it is ready. If AI is not configured, no skeleton is shown and the scan results are unaffected.
+
+OsWL caches AI summaries using a context hash of the inputs, so unchanged components across rescans do not trigger new AI calls. You can still regenerate a single component's summary manually from the Component Detail panel.
+
+---
+
+## Offline (Air-Gapped) Mode
+
+Administrators can run OsWL in air-gapped mode (`oswl.airgapped.enabled=true`). In this mode, vulnerability and threat-intelligence lookups (OSV, deps.dev, EPSS, CISA KEV) are served from an imported offline snapshot instead of live external APIs; no outbound HTTP is attempted.
+
+Use **Administration → Offline Snapshot** to import a bundle, export the current store, or see per-source record counts and freshness. The freshness badge is based on the oldest upstream "as of" date across the imported sources, not the import time. Scans and exports analyzed from offline definitions carry an "Analyzed with vulnerability definitions as of YYYY-MM-DD" note. For setup details, see [Administration](Administration.md).
+
+---
+
+## Embedded AI Model
+
+OsWL's built-in local AI runs a llama.cpp sidecar and defaults to the **Qwen3 1.7B** GGUF model. On first boot, OsWL prefetches the default model in the background (configurable with `oswl.ai.embedded.auto-download-on-boot`; disabled in air-gapped mode) so that enabling embedded AI in Settings is faster. The default download uses OsWL's own GitHub Release asset with a fallback to the original Hugging Face repository, and every download is verified against a SHA-256 checksum. You can also place any compatible `.gguf` file in the configured embedded-AI directory. See [Embedded AI](Embedded-AI.md) for installation and troubleshooting.
+
+---
+
 ## Component Detail
 
 Click any component (library) in the Security Center or License view to open the **Component Detail** panel.
@@ -81,12 +107,15 @@ Click any component (library) in the Security Center or License view to open the
 It shows:
 
 * Full name, version, and ecosystem
-* CVE list with CVSS score, description, and fix version
+* A **project description**, homepage, and source repository link pulled from the upstream deps.dev project record — populated during enrichment at no extra API cost, since the same call already fetches the OpenSSF Scorecard
+* CVE list with CVSS score, description, and fix version, visually grouped under a **Security Issues** heading separate from the license/version badges above it
 * License name and compliance status
 * AI-generated license risk summary (if AI is configured)
 * Patchability status (Patchable / Non-Patchable / Unknown)
 * Latest available version and deprecation notice (from deps.dev)
 * Dependency path (how the component is pulled in)
+
+If no upstream description is published for a package, the panel says so explicitly and points to the source-repo link instead of showing nothing.
 
 ---
 

@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 import java.security.DigestInputStream;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,8 +40,9 @@ import java.util.stream.Stream;
  *   embedded-ai/
  *     llama-server(.exe)     — llama.cpp server binary (or on PATH)
  *     qwen3-1.7b-q4_k_m.gguf — preferred model
- *     gemma-3-1b-it-Q4_K_M.gguf — low-spec fallback
  * </pre>
+ * Any other {@code .gguf} file dropped in this directory is picked up too — see
+ * {@link #MODEL_PREFERENCE}.
  * The started server exposes an OpenAI-compatible endpoint at
  * {@code http://127.0.0.1:port/v1}, which is registered as the LOCAL provider.
  */
@@ -48,29 +50,53 @@ import java.util.stream.Stream;
 @Service
 public class EmbeddedAiService {
 
-    /** Model filename fragments in preference order (first match wins). */
-    private static final List<String> MODEL_PREFERENCE = List.of("qwen3", "gemma-3-1b", "gemma3");
+    /**
+     * Model filename fragment preferred when the sidecar directory has more than one
+     * {@code .gguf} — any other file the user drops in is still picked up as a fallback
+     * candidate by {@code startCandidates()}/{@code pickPreferredModel()}, this list only
+     * orders preference among what's present.
+     */
+    private static final List<String> MODEL_PREFERENCE = List.of("qwen3");
 
     /**
      * Default model auto-fetched when the sidecar directory has no .gguf at all, so a fresh
      * on-premise install works out of the box with just {@code java -jar app.jar} — no
      * separate download step or build tooling required. Apache 2.0 licensed (see
      * THIRD_PARTY_LICENSES.md), so bundling/auto-fetching it carries no extra redistribution
-     * obligation. Gemma is intentionally never auto-fetched: it's under the Gemma Terms of
-     * Use (not a standard OSS license, imposes obligations on whoever redistributes the
-     * weights) — users who want it download it themselves, see docs/Embedded-AI.md.
+     * obligation.
      */
     private static final String DEFAULT_MODEL_FILE = "qwen3-1.7b-q4_k_m.gguf";
-    private static final String DEFAULT_MODEL_URL =
-            "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf";
-    private static final String DEFAULT_MODEL_SHA256 =
-            "d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5";
-    private static final long DEFAULT_MODEL_SIZE_BYTES = 1_282_439_264L;
 
     private final String dirPath;
     private final int port;
     private final int contextSize;
+    /** -1 = offload as many layers as the build supports (passed as {@code -ngl 999}); 0 = CPU only. */
+    private final int gpuLayers;
+    /** 0 = let llama.cpp auto-detect thread count (no {@code -t} flag). */
+    private final int threads;
+    /** &gt;1 enables {@code --parallel N --cont-batching} so concurrent AI calls aren't serialized on the server. */
+    private final int parallelSlots;
+    private final boolean flashAttn;
+    /** &lt;=0 disables the {@code --cache-reuse} flag. */
+    private final int cacheReuse;
+    /** Space-separated extra CLI args appended verbatim (SYSTEM_ADMIN-only server config, not user input). */
+    private final String extraArgs;
+    private final int startupTimeoutSeconds;
     private final AiPreferencesRepository preferencesRepository;
+
+    // ── G4: default-model source, made configurable so a self-hosted mirror (or an air-gapped
+    // pre-baked path) can replace the upstream asset without a code change.
+    // url/sha256/size-bytes are always a matched set — see the application.yaml comment. ──
+    private final String defaultModelUrl;
+    private final String defaultModelSha256;
+    private final long defaultModelSizeBytes;
+    /** Retried once if {@link #defaultModelUrl} fails; blank/equal to the primary disables the retry. */
+    private final String fallbackModelUrl;
+    /**
+     * Air-gapped hosts must never reach out for the model — {@link #downloadDefaultModel()}
+     * refuses instead of failing on a network error the operator can't act on.
+     */
+    private final boolean airgapped;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
@@ -92,11 +118,35 @@ public class EmbeddedAiService {
     public EmbeddedAiService(
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.dir:embedded-ai}") String dirPath,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.port:11435}") int port,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.context-size:4096}") int contextSize,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.context-size:8192}") int contextSize,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.gpu-layers:-1}") int gpuLayers,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.threads:0}") int threads,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.parallel-slots:4}") int parallelSlots,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.flash-attn:true}") boolean flashAttn,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.cache-reuse:256}") int cacheReuse,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.extra-args:}") String extraArgs,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.startup-timeout-seconds:120}") int startupTimeoutSeconds,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-url:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}") String defaultModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-sha256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}") String defaultModelSha256,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-size-bytes:1282439264}") long defaultModelSizeBytes,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.fallback-model-url:}") String fallbackModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.airgapped.enabled:false}") boolean airgapped,
             AiPreferencesRepository preferencesRepository) {
         this.dirPath = dirPath;
         this.port = port;
         this.contextSize = contextSize;
+        this.gpuLayers = gpuLayers;
+        this.threads = threads;
+        this.parallelSlots = parallelSlots;
+        this.flashAttn = flashAttn;
+        this.cacheReuse = cacheReuse;
+        this.extraArgs = extraArgs;
+        this.defaultModelUrl = defaultModelUrl;
+        this.defaultModelSha256 = defaultModelSha256;
+        this.defaultModelSizeBytes = defaultModelSizeBytes;
+        this.fallbackModelUrl = fallbackModelUrl;
+        this.airgapped = airgapped;
+        this.startupTimeoutSeconds = startupTimeoutSeconds;
         this.preferencesRepository = preferencesRepository;
     }
 
@@ -123,6 +173,11 @@ public class EmbeddedAiService {
         boolean downloading;
         long downloadedBytes;
         long downloadTotalBytes;
+        /**
+         * True when {@code oswl.airgapped.enabled} is set — the UI then tells the operator to
+         * place a .gguf themselves instead of promising an automatic download that cannot happen.
+         */
+        boolean airgapped;
     }
 
     public String baseUrl() {
@@ -159,6 +214,7 @@ public class EmbeddedAiService {
                 .downloading(downloading)
                 .downloadedBytes(downloadedBytes)
                 .downloadTotalBytes(downloadTotalBytes)
+                .airgapped(airgapped)
                 .build();
     }
 
@@ -212,7 +268,7 @@ public class EmbeddedAiService {
         if (candidates.isEmpty()) {
             throw new IllegalStateException(
                     "No .gguf model found in " + resolveDir().toAbsolutePath()
-                            + ". Expected qwen3-1.7b-q4_k_m.gguf (or gemma-3-1b-it-Q4_K_M.gguf).");
+                            + ". Expected qwen3-1.7b-q4_k_m.gguf (or any other .gguf file).");
         }
 
         lastError = null;
@@ -220,40 +276,72 @@ public class EmbeddedAiService {
         Path firstChoice = candidates.get(0);
         for (Path model : candidates) {
             String name = model.getFileName().toString();
-            try {
-                launch(binary, model);
-            } catch (IOException e) {
-                lastError = "Failed to launch llama-server with " + name + ": " + e.getMessage();
-                log.warn("[EmbeddedAI] {} — trying next model", lastError);
-                continue;
-            }
-            if (waitUntilHealthy(Duration.ofSeconds(90))) {
+
+            // GPU offload first (if configured); a launch or health-check failure falls back
+            // to a CPU-only retry of the *same* model before moving on to the next candidate —
+            // VRAM exhaustion shouldn't cost us a model we'd otherwise run fine on CPU.
+            if (tryLaunchModel(binary, model, name, gpuLayers != 0)) {
                 activeModelFile = name;
                 fallbackUsed = !model.equals(firstChoice);
                 lastError = null;
-                log.info("[EmbeddedAI] llama-server healthy at {} model={}{}",
-                        baseUrl(), name, fallbackUsed ? " (fallback)" : "");
                 return;
             }
             if (stopRequested) {
-                // stop() was pressed during the health wait — do not fall through to the
-                // next candidate and relaunch a server the user just asked to stop.
                 activeModelFile = null;
                 lastError = "Start cancelled: llama-server was stopped while starting up.";
                 throw new IllegalStateException(lastError);
             }
-            Process p = process;
-            String reason = p != null && p.isAlive()
-                    ? "llama-server did not become healthy within 90s with " + name + "."
-                    : "llama-server exited early with " + name + ".";
-            killProcess();
-            String tail = logTail();
-            lastError = tail.isEmpty() ? reason : reason + " Log: " + tail;
-            log.warn("[EmbeddedAI] {} — trying next model", reason);
+            if (gpuLayers != 0) {
+                log.warn("[EmbeddedAI] GPU-accelerated start failed for {} — retrying CPU-only", name);
+                if (tryLaunchModel(binary, model, name, false)) {
+                    activeModelFile = name;
+                    fallbackUsed = !model.equals(firstChoice);
+                    lastError = null;
+                    return;
+                }
+                if (stopRequested) {
+                    activeModelFile = null;
+                    lastError = "Start cancelled: llama-server was stopped while starting up.";
+                    throw new IllegalStateException(lastError);
+                }
+            }
+            log.warn("[EmbeddedAI] {} — trying next model", lastError);
         }
         activeModelFile = null;
         throw new IllegalStateException(lastError != null ? lastError
                 : "llama-server could not start with any available model.");
+    }
+
+    /**
+     * One launch + health-wait attempt for a single model. Returns {@code false} (with
+     * {@link #lastError} set) on any failure — launch error, health-check timeout, or an
+     * early exit — instead of throwing, so {@link #start(String)} can decide whether to
+     * retry (CPU fallback, next model) or give up.
+     */
+    private boolean tryLaunchModel(Path binary, Path model, String name, boolean useGpu) {
+        try {
+            launch(binary, model, useGpu);
+        } catch (IOException e) {
+            lastError = "Failed to launch llama-server with " + name
+                    + (useGpu ? " (GPU)" : " (CPU)") + ": " + e.getMessage();
+            return false;
+        }
+        if (waitUntilHealthy(Duration.ofSeconds(startupTimeoutSeconds))) {
+            log.info("[EmbeddedAI] llama-server healthy at {} model={} gpu={}", baseUrl(), name, useGpu);
+            return true;
+        }
+        if (stopRequested) {
+            return false;
+        }
+        Process p = process;
+        String reason = p != null && p.isAlive()
+                ? "llama-server did not become healthy within " + startupTimeoutSeconds + "s with " + name
+                        + (useGpu ? " (GPU)" : " (CPU)") + "."
+                : "llama-server exited early with " + name + (useGpu ? " (GPU)" : " (CPU)") + ".";
+        killProcess();
+        String tail = logTail();
+        lastError = tail.isEmpty() ? reason : reason + " Log: " + tail;
+        return false;
     }
 
     /**
@@ -268,31 +356,71 @@ public class EmbeddedAiService {
      *         checksum mismatch (the partial/corrupt file is removed either way)
      */
     public void downloadDefaultModel() {
+        // Air-gapped installs have no route to the model host. Failing here with an explicit,
+        // actionable reason beats letting the HTTP call time out and surfacing a bare connect
+        // error the operator cannot act on — the fix is always "put the .gguf in the folder".
+        // Both entry points funnel through here (boot prefetch and the manual Start button),
+        // so this is the single choke point rather than a per-caller check.
+        if (airgapped) {
+            lastError = "Air-gapped mode is enabled, so the model cannot be downloaded. "
+                    + "Place a .gguf model file in " + resolveDir().toAbsolutePath() + " manually.";
+            throw new IllegalStateException(lastError);
+        }
         if (downloading) return;
         downloading = true;
         downloadedBytes = 0;
-        downloadTotalBytes = DEFAULT_MODEL_SIZE_BYTES;
+        downloadTotalBytes = defaultModelSizeBytes;
+        try {
+            attemptDownloadWithFallback();
+        } finally {
+            downloading = false;
+        }
+    }
+
+    /**
+     * G4: tries {@link #defaultModelUrl} first; if it fails for any reason (network error,
+     * non-200, or a checksum mismatch — a corrupted/tampered primary asset is exactly the case
+     * where falling back to the original upstream host is most valuable) and a different
+     * {@link #fallbackModelUrl} is configured, retries once against it. Both attempts verify
+     * against the same {@link #defaultModelSha256}, since the fallback is expected to be a
+     * byte-identical copy re-hosted elsewhere.
+     */
+    private void attemptDownloadWithFallback() {
         Path dir = resolveDir();
         Path dest = dir.resolve(DEFAULT_MODEL_FILE);
         Path partFile = dir.resolve(DEFAULT_MODEL_FILE + ".part");
+        boolean hasFallback = fallbackModelUrl != null && !fallbackModelUrl.isBlank()
+                && !fallbackModelUrl.equals(defaultModelUrl);
+        try {
+            attemptDownload(defaultModelUrl, dir, dest, partFile);
+        } catch (IllegalStateException primaryFailure) {
+            if (!hasFallback) throw primaryFailure;
+            log.warn("[EmbeddedAI] Default model download from primary URL failed ({}) — retrying fallback {}",
+                    primaryFailure.getMessage(), fallbackModelUrl);
+            downloadedBytes = 0;
+            attemptDownload(fallbackModelUrl, dir, dest, partFile);
+        }
+    }
+
+    private void attemptDownload(String url, Path dir, Path dest, Path partFile) {
         try {
             Files.createDirectories(dir);
             log.info("[EmbeddedAI] Downloading default model {} ({} MB) from {}",
-                    DEFAULT_MODEL_FILE, DEFAULT_MODEL_SIZE_BYTES / 1024 / 1024, DEFAULT_MODEL_URL);
+                    DEFAULT_MODEL_FILE, defaultModelSizeBytes / 1024 / 1024, url);
 
             HttpClient downloadClient = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(10))
                     .followRedirects(HttpClient.Redirect.NORMAL)
                     .build();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(DEFAULT_MODEL_URL))
+                    .uri(URI.create(url))
                     .timeout(Duration.ofMinutes(60))
                     .GET()
                     .build();
             HttpResponse<InputStream> response = downloadClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() != 200) {
                 throw new IllegalStateException(
-                        "Model download failed: HTTP " + response.statusCode() + " from " + DEFAULT_MODEL_URL);
+                        "Model download failed: HTTP " + response.statusCode() + " from " + url);
             }
             response.headers().firstValueAsLong("Content-Length")
                     .ifPresent(len -> downloadTotalBytes = len);
@@ -309,10 +437,10 @@ public class EmbeddedAiService {
             }
 
             String actualSha256 = HexFormat.of().formatHex(digest.digest());
-            if (!actualSha256.equalsIgnoreCase(DEFAULT_MODEL_SHA256)) {
+            if (!actualSha256.equalsIgnoreCase(defaultModelSha256)) {
                 Files.deleteIfExists(partFile);
                 throw new IllegalStateException("Downloaded model failed checksum verification "
-                        + "(expected " + DEFAULT_MODEL_SHA256 + ", got " + actualSha256 + ") — deleted, please retry.");
+                        + "(expected " + defaultModelSha256 + ", got " + actualSha256 + ") — deleted, please retry.");
             }
             Files.move(partFile, dest, StandardCopyOption.REPLACE_EXISTING);
             log.info("[EmbeddedAI] Default model downloaded and verified: {}", dest);
@@ -320,8 +448,21 @@ public class EmbeddedAiService {
             try { Files.deleteIfExists(partFile); } catch (IOException ignored) { /* best effort cleanup */ }
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             throw new IllegalStateException("Model download failed: " + e.getMessage(), e);
-        } finally {
-            downloading = false;
+        }
+    }
+
+    /**
+     * G5: async entry point for boot-time prefetch (see {@code EmbeddedAiBootstrapService}) —
+     * download-only, so a fresh boot never silently starts the sidecar or flips the active AI
+     * provider. Exceptions are swallowed (logged) since there is no HTTP caller here to report
+     * {@code lastError} to; a failed prefetch just means the user's next manual Start retries it.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void downloadDefaultModelAsync() {
+        try {
+            downloadDefaultModel();
+        } catch (Exception e) {
+            log.warn("[EmbeddedAI] Background default-model download failed: {}", e.getMessage());
         }
     }
 
@@ -336,25 +477,91 @@ public class EmbeddedAiService {
     /**
      * Launches llama-server for one model candidate. Binary, model and log paths are
      * absolute-normalized because the child process CWD is the sidecar directory.
+     *
+     * @param useGpu when {@code false}, {@code -ngl} is omitted regardless of the configured
+     *               {@code gpu-layers} — used for the CPU-only retry after a GPU start failure
      */
-    private void launch(Path binary, Path model) throws IOException {
+    private void launch(Path binary, Path model, boolean useGpu) throws IOException {
         Path logFile = resolveDir().resolve("llama-server.log").toAbsolutePath().normalize();
-        ProcessBuilder pb = new ProcessBuilder(
-                binary.toAbsolutePath().normalize().toString(),
-                "-m", model.toAbsolutePath().normalize().toString(),
-                "--host", "127.0.0.1",
-                "--port", String.valueOf(port),
-                "-c", String.valueOf(contextSize),
-                // Thinking models (Qwen3) burn max_tokens on reasoning_content and
-                // return empty content for short completions — disable reasoning.
-                "--reasoning-budget", "0",
-                "--no-webui")
+
+        List<String> cmd = new ArrayList<>();
+        cmd.add(binary.toAbsolutePath().normalize().toString());
+        cmd.add("-m");
+        cmd.add(model.toAbsolutePath().normalize().toString());
+        cmd.add("--host");
+        cmd.add("127.0.0.1");
+        cmd.add("--port");
+        cmd.add(String.valueOf(port));
+        cmd.add("-c");
+        cmd.add(String.valueOf(contextSize));
+        // Thinking models (Qwen3) burn max_tokens on reasoning_content and
+        // return empty content for short completions — disable reasoning.
+        cmd.add("--reasoning-budget");
+        cmd.add("0");
+        cmd.add("--no-webui");
+
+        if (useGpu && gpuLayers != 0) {
+            cmd.add("-ngl");
+            cmd.add(gpuLayers < 0 ? "999" : String.valueOf(gpuLayers));
+        }
+        if (threads > 0) {
+            cmd.add("-t");
+            cmd.add(String.valueOf(threads));
+        }
+        if (parallelSlots > 1) {
+            cmd.add("--parallel");
+            cmd.add(String.valueOf(parallelSlots));
+            cmd.add("--cont-batching");
+            logSlotContextWarningIfNeeded();
+        }
+        if (flashAttn) {
+            cmd.add("-fa");
+        }
+        if (cacheReuse > 0) {
+            cmd.add("--cache-reuse");
+            cmd.add(String.valueOf(cacheReuse));
+        }
+        for (String arg : splitExtraArgs()) {
+            cmd.add(arg);
+        }
+
+        ProcessBuilder pb = new ProcessBuilder(cmd)
                 .directory(resolveDir().toFile())
                 .redirectErrorStream(true)
                 .redirectOutput(logFile.toFile());
         process = pb.start();
-        log.info("[EmbeddedAI] Started llama-server pid={} model={} port={}",
-                process.pid(), model.getFileName(), port);
+        log.info("[EmbeddedAI] Started llama-server pid={} model={} port={} gpu={} ngl={} parallel={} threads={} flashAttn={} cacheReuse={}",
+                process.pid(), model.getFileName(), port, useGpu,
+                useGpu && gpuLayers != 0 ? (gpuLayers < 0 ? "999(auto)" : String.valueOf(gpuLayers)) : "off",
+                parallelSlots, threads > 0 ? String.valueOf(threads) : "auto", flashAttn, cacheReuse);
+    }
+
+    /** Non-empty, whitespace-split tokens from {@link #extraArgs} (empty list when unset). */
+    private List<String> splitExtraArgs() {
+        if (extraArgs == null || extraArgs.isBlank()) {
+            return List.of();
+        }
+        List<String> tokens = new ArrayList<>();
+        for (String token : extraArgs.trim().split("\\s+")) {
+            if (!token.isBlank()) {
+                tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    /**
+     * {@code --parallel N} divides the total {@code -c} context across N slots — a
+     * misconfigured combination (large parallel count, small context) silently starves each
+     * slot. Warn loudly rather than let it surface later as truncated/garbled completions.
+     */
+    private void logSlotContextWarningIfNeeded() {
+        int slotContext = contextSize / parallelSlots;
+        log.info("[EmbeddedAI] slotContext={} (contextSize={} / parallel={})", slotContext, contextSize, parallelSlots);
+        if (slotContext < 2048) {
+            log.warn("[EmbeddedAI] slotContext={} is below 2048 — raise oswl.ai.embedded.context-size or "
+                    + "lower oswl.ai.embedded.parallel-slots", slotContext);
+        }
     }
 
     public synchronized void stop() {

@@ -14,10 +14,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Reading the audit log is delegatable via {@code AUDIT_LOG_VIEW}. It used to be
+ * SYSTEM_ADMIN-only, which made that permission grantable but inert — its sibling
+ * {@code AdminAuditExportController} already honoured {@code AUDIT_LOG_EXPORT}, so the same
+ * role template could export the log but not open it.
+ */
 @RestController
 @RequestMapping("/api/admin/audit-logs")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('SYSTEM_ADMIN')")
+@PreAuthorize("hasPermission(null, 'AUDIT_LOG_VIEW') or hasRole('SYSTEM_ADMIN')")
 public class AdminAuditLogController implements AdminAuditLogControllerSpec {
 
     private final AuditLogService auditLogService;

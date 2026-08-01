@@ -184,6 +184,12 @@ public class SecurityCenterService {
                     .deprecated(lib.getDeprecated())
                     .latestVersion(lib.getLatestVersion())
                     .recommendedFixVersion(lib.bestFixVersion())
+                    .scope(sc != null ? sc.displayScope() : "runtime")
+                    .runtimeScope(sc == null || sc.isRuntimeScope())
+                    .scorecardScore(lib.getScorecardScore())
+                    .malicious(lib.isMalicious())
+                    .typosquatRisk(lib.isTyposquatRisk())
+                    .typosquatReason(lib.getTyposquatReason())
                     .build());
         }
 
@@ -205,6 +211,7 @@ public class SecurityCenterService {
                 .thenComparing(ComponentRowDto::getName, String.CASE_INSENSITIVE_ORDER));
         model.addAttribute("components", rows);
         model.addAttribute("securityPostureInsight", AiResponseSanitizer.sanitizePlainText(scan.getSecurityPostureInsight()));
+        model.addAttribute("aiStatus", scan.getAiStatus().name());
         model.addAttribute("expiredDeferralCount",
                 scanComponentRepository.countRecentlyExpiredDeferrals(
                         scan.getId(), java.time.LocalDateTime.now().minusDays(7)));
@@ -250,6 +257,8 @@ public class SecurityCenterService {
         model.addAttribute("licenseMedium", 0);
         model.addAttribute("licenseLow", 0);
         model.addAttribute("components", List.of());
+        model.addAttribute("securityPostureInsight", null);
+        model.addAttribute("aiStatus", com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.NOT_APPLICABLE.name());
     }
 
     private String patchabilityLabel(Patchability p) {
@@ -295,6 +304,7 @@ public class SecurityCenterService {
             sb.append(csvEscape(lib.getName())).append(',')
               .append(csvEscape(lib.getVersion() != null ? lib.getVersion() : "")).append(',')
               .append(csvEscape(lib.getEcosystem() != null ? lib.getEcosystem() : "")).append(',')
+              .append(csvEscape(sc.displayScope())).append(',')
               .append(c).append(',').append(h).append(',').append(m).append(',').append(l).append(',').append(n).append(',')
               .append(csvEscape(patchabilityLabel(lib.computePatchability()))).append(',')
               .append(csvEscape(lib.getLicenseName() != null ? lib.getLicenseName() : "")).append(',')
@@ -314,7 +324,7 @@ public class SecurityCenterService {
     }
 
     private String csvHeader() {
-        return "Component Name,Version,Ecosystem,Critical CVEs,High CVEs,Medium CVEs,Low CVEs,Unscored CVEs,Patchability,License,License Status,Reviewed,Ignored,Deferred,Deferral Reason";
+        return "Component Name,Version,Ecosystem,Scope,Critical CVEs,High CVEs,Medium CVEs,Low CVEs,Unscored CVEs,Patchability,License,License Status,Reviewed,Ignored,Deferred,Deferral Reason";
     }
 
     private String csvEscape(String val) {

@@ -74,10 +74,10 @@ public class ScanPayload {
 
         /**
          * Package ecosystem — must match deps.dev system values.
-         * Examples: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS
+         * Examples: MAVEN, NPM, PYPI, GO, CARGO, NUGET, RUBYGEMS, COMPOSER, CONAN
          */
         @Schema(description = "Package ecosystem (required)", example = "MAVEN",
-                allowableValues = {"MAVEN", "NPM", "PYPI", "GO", "CARGO", "NUGET", "RUBYGEMS"})
+                allowableValues = {"MAVEN", "NPM", "PYPI", "GO", "CARGO", "NUGET", "RUBYGEMS", "COMPOSER", "CONAN"})
         @NotBlank
         private String ecosystem;
 
@@ -101,6 +101,13 @@ public class ScanPayload {
         @Schema(description = "Dependency path trees — each inner list is one path from root to this library")
         private List<List<DependencyNodeRef>> dependencyPaths;
 
+        /**
+         * Dependency scope for noise reduction: {@code runtime} (or null), {@code test}, {@code dev},
+         * {@code provided}. Non-runtime scopes are badged and hidden by the default Security Center filter.
+         */
+        @Schema(description = "Dependency scope — runtime (default/null), test, dev, or provided", example = "test")
+        private String scope;
+
         /** Programmatic factory — avoids reflection when building payloads inside the service layer. */
         public static ComponentPayload create(String name, String version, String ecosystem,
                                               String dependencyInfo,
@@ -112,6 +119,12 @@ public class ScanPayload {
             c.dependencyInfo  = dependencyInfo;
             c.dependencyPaths = dependencyPaths;
             return c;
+        }
+
+        /** Fluent scope tag — returns this instance for inline use in parsers. */
+        public ComponentPayload withScope(String scope) {
+            this.scope = (scope != null && !scope.isBlank()) ? scope.toLowerCase() : null;
+            return this;
         }
     }
 

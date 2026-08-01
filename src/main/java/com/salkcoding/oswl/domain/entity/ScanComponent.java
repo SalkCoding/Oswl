@@ -46,6 +46,13 @@ public class ScanComponent {
     @Column(name = "dependency_info", length = 300)
     private String dependencyInfo;
 
+    /**
+     * Dependency scope for noise reduction: null/"runtime"/"compile" = production;
+     * "test", "dev", "provided", "system" = non-runtime (badged, hidden by default filter).
+     */
+    @Column(name = "scope", length = 20)
+    private String scope;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean reviewed = false;
@@ -85,6 +92,14 @@ public class ScanComponent {
     /** Display name of the user who last marked this component as reviewed; null = not reviewed */
     @Column(name = "reviewed_by_name", length = 100)
     private String reviewedByName;
+
+    /** Jira issue key created for this component's vulnerabilities (roadmap #10); null = none. */
+    @Column(name = "jira_issue_key", length = 50)
+    private String jiraIssueKey;
+
+    /** Browsable URL of the linked Jira issue; null = none. */
+    @Column(name = "jira_issue_url", length = 500)
+    private String jiraIssueUrl;
 
     /**
      * Full dependency path tree from the root to this library.
@@ -148,6 +163,25 @@ public class ScanComponent {
 
     public boolean isDeferred() {
         return deferredAt != null;
+    }
+
+    public void linkJiraIssue(String issueKey, String issueUrl) {
+        this.jiraIssueKey = issueKey;
+        this.jiraIssueUrl = issueUrl;
+    }
+
+    /** True for production dependencies — scope null, "runtime", "compile", or "import". */
+    public boolean isRuntimeScope() {
+        if (scope == null || scope.isBlank()) return true;
+        return switch (scope.toLowerCase()) {
+            case "runtime", "compile", "import" -> true;
+            default -> false;
+        };
+    }
+
+    /** Normalized display scope: "runtime" when null/blank, else the stored lowercase value. */
+    public String displayScope() {
+        return (scope == null || scope.isBlank()) ? "runtime" : scope.toLowerCase();
     }
 
     // ── Convenience delegates to Library ─────────────────────────────────

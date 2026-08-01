@@ -32,10 +32,10 @@ class RiskTrendControllerTest {
     void index_returnsRiskTrendView_andDelegatesToService() {
         Model model = new ConcurrentModel();
 
-        String view = controller.index(1L, model);
+        String view = controller.index(1L, null, model);
 
         assertThat(view).isEqualTo("risk-trend/index");
-        verify(riskTrendService).populateModel(1L, model);
+        verify(riskTrendService).populateModel(1L, null, model);
     }
 
     @Test
@@ -43,9 +43,9 @@ class RiskTrendControllerTest {
     void index_differentProjectId_delegatesCorrectly() {
         Model model = new ConcurrentModel();
 
-        String view = controller.index(42L, model);
+        String view = controller.index(42L, null, model);
 
         assertThat(view).isEqualTo("risk-trend/index");
-        verify(riskTrendService).populateModel(42L, model);
+        verify(riskTrendService).populateModel(42L, null, model);
     }
 }

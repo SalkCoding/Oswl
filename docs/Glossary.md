@@ -9,6 +9,9 @@ All terms used in OsWL — from security concepts to platform-specific vocabular
 **AI Insight**  
 An LLM-generated narrative summary produced during scan enrichment. OsWL generates three types per scan: *Security Posture Insight*, *Security Risk Trend Insight*, and *License Risk Trend Insight*. Each is a one-paragraph natural-language assessment. Requires an AI provider to be configured in Settings.
 
+**Air-gapped Mode**  
+Offline operation for networks without outbound internet. Set `OSWL_AIRGAPPED_ENABLED=true` (or `oswl.airgapped.enabled=true`) before startup. Vulnerability and threat-intel lookups (OSV, deps.dev, FIRST.org EPSS, CISA KEV) are served from the imported offline snapshot store instead of live APIs — no outbound HTTP is attempted. The embedded AI auto-download is also skipped in this mode. Components absent from the snapshot resolve as *no data* rather than *no vulnerabilities*. Import snapshot bundles via `POST /api/admin/snapshot/import` (System Admin). See [Administration — Offline snapshot bundles](Administration.md).
+
 **Audit Log**  
 An immutable chronological record of every significant action taken by users or the system (logins, scan submissions, CVE status changes, settings updates, etc.). Accessible to System Admins at Settings → Admin → Audit Logs.
 
@@ -39,6 +42,9 @@ The industry-standard framework for rating the severity of security vulnerabilit
 | 0.1 – 3.9 | LOW |
 | 0.0 | NONE |
 
+**CycloneDX**  
+An OWASP SBOM standard. OsWL exports CycloneDX 1.6 SBOM and VEX documents, and imports third-party CycloneDX files (v1.0.4). See [What's New in v1.0.4](Whats-New-v1.0.4.md).
+
 **CWE (Common Weakness Enumeration)**  
 A category identifier for vulnerability *types* (e.g. `CWE-79` Cross-site Scripting). OsWL stores the first CWE from OSV `database_specific.cwe_ids` on each `library_cves` row and displays it in Component Detail.
 
@@ -46,11 +52,17 @@ A category identifier for vulnerability *types* (e.g. `CWE-79` Cross-site Script
 
 ## D
 
+**Definition As-of**  
+The upstream data's own freshness date for an imported offline snapshot source, recorded in `airgapped_snapshot_meta.source_as_of` from the bundle's `meta.json`. The Scan History and Security Center banners show the *oldest* `sourceAsOf` across all imported sources so auditors know how fresh the underlying vulnerability definitions were at analysis time. Settings → Admin → Offline Snapshot also shows a staleness badge against the configured thresholds (`OSWL_AIRGAPPED_STALENESS_WARN_DAYS`, default 7; `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`, default 30).
+
 **deps.dev**  
 Google's [Open Source Insights](https://deps.dev) API, which OsWL queries to obtain SPDX license identifiers, latest-version status, and deprecation notices for each scanned library.
 
 **Dependency Path**  
 The chain of packages from the root project to a given library. A library may be reachable via multiple paths (direct and/or transitive). OsWL records and displays all resolved paths per component.
+
+**Deployment Profile**  
+How the scanned product is actually deployed — `SAAS`, `INTERNAL_TOOL`, `ON_PREMISE_DISTRIBUTION`, or `COMMERCIAL_PRODUCT` (the default). Steers AI triage and license-risk emphasis: the same CVE or copyleft license carries very different exposure for an internal-only tool than for software shipped to customers. Set per project (`PATCH /api/projects/{id}/deployment-profile`) or falls back to the **default deployment profile** in AI Settings.
 
 **Direct Dependency**  
 A library explicitly declared in the project's manifest (e.g. `pom.xml`, `package.json`). Contrast with *Transitive Dependency*.
@@ -60,7 +72,10 @@ A library explicitly declared in the project's manifest (e.g. `pom.xml`, `packag
 ## E
 
 **Ecosystem**  
-The package management system a library belongs to. OsWL supports: `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS`.
+The package management system a library belongs to. OsWL supports: `MAVEN`, `NPM`, `PYPI`, `GO`, `CARGO`, `NUGET`, `RUBYGEMS`, and — since v1.0.4 — `COMPOSER` (PHP, `composer.lock`) and `CONAN` (C/C++, `conan.lock`).
+
+**EPSS (Exploit Prediction Scoring System)**  
+A FIRST.org score (0–1) estimating the probability that a vulnerability will be exploited in the next 30 days. Added in v1.0.4 and used to rank findings that are not on the KEV catalogue. Configurable as a gate threshold via `OSWL_GATE_FAIL_ON_EPSS`.
 
 **Enrichment**  
 The asynchronous post-processing phase after a scan is ingested. OsWL queries OSV and deps.dev to populate CVE data, CVSS scores, CWE IDs (from OSV), fix versions, license names, and version status for every detected library. Refetch behaviour is controlled by **Settings → Cache** (`cache_settings` table).
@@ -81,6 +96,13 @@ A CVE triage status indicating that the vulnerability has been confirmed as not 
 
 **GO**  
 The Go programming language module ecosystem. Packages identified by import paths like `github.com/gin-gonic/gin`.
+
+---
+
+## K
+
+**KEV (Known Exploited Vulnerabilities)**  
+CISA's catalogue of vulnerabilities with confirmed in-the-wild exploitation. OsWL flags KEV-listed CVEs first (v1.0.4), because *actually being exploited* is a stronger triage signal than a high CVSS score. Can fail the CI gate via `OSWL_GATE_FAIL_ON_KEV`.
 
 ---
 
@@ -108,6 +130,9 @@ The compliance status assigned to a library's license after policy evaluation:
 ---
 
 ## M
+
+**Malicious Package**  
+A package version that OSV flags with a `MAL-`-prefixed advisory ID — meaning it was published specifically to compromise consumers (not an ordinary vulnerability in otherwise-legitimate code). OsWL promotes these to `CRITICAL` severity automatically and shows a red **Malicious** badge on Component Detail and in the Security Center list.
 
 **MAVEN**  
 The Java/JVM ecosystem managed by Apache Maven. Packages identified as `groupId:artifactId`.
@@ -138,6 +163,9 @@ A Google-hosted vulnerability database and API ([osv.dev](https://osv.dev)) focu
 **OTP (One-Time Password)**  
 A 6-digit code sent to a user's email address as the second factor in 2FA authentication. In the local development profile, OTP codes appear in the server log as `*** OTP CODE: NNNNNN ***`.
 
+**oswl-vdb**  
+The offline vulnerability-DB builder CLI (`scripts/oswl-vdb/oswl-vdb.{sh,ps1}`, also runnable as `./gradlew vdbBuild`). It builds a snapshot bundle from live upstream sources (OSV, deps.dev, FIRST.org EPSS, CISA KEV) on an internet-connected machine. Supports `--wanted` to scope to an exported wanted-list, `--mode delta --since` for incremental delta bundles, `--offline-sources` to build without network from a cached source directory, plus `verify` and `inspect` subcommands.
+
 ---
 
 ## P
@@ -150,6 +178,9 @@ A derived property indicating whether a fix is available for the vulnerabilities
 | `PATCHABLE` | At least one CVE has a known `fixVersion` |
 | `NON_PATCHABLE` | CVEs exist but none have a documented fix |
 | `UNKNOWN` | No CVEs, or enrichment not yet complete |
+
+**purl (package URL)**  
+A standard coordinate string for a package, e.g. `pkg:maven/org.springframework/spring-core@6.1.0`. OsWL emits purls in SBOM / VEX / SARIF exports and reads them when importing an SBOM (v1.0.4).
 
 **PAT (Personal Access Token)**  
 A secret token generated by a VCS provider (GitHub, GitLab, Bitbucket) that grants API access on behalf of a user account. Used by OsWL for Quick Import and repository browsing.
@@ -198,6 +229,15 @@ The Ruby package ecosystem managed by the `gem` tool. Packages published to [rub
 
 ## S
 
+**SARIF (Static Analysis Results Interchange Format)**  
+An OASIS standard for tool findings, version 2.1.0. OsWL's SARIF export (v1.0.4) is schema-compatible with `github/codeql-action/upload-sarif`, so results appear in the GitHub Security tab.
+
+**SBOM (Software Bill of Materials)**  
+A machine-readable inventory of every component in a build. OsWL produces SPDX (licence-focused) and CycloneDX 1.6 (v1.0.4) SBOMs, and can import CycloneDX files from other tools.
+
+**Scorecard (OpenSSF)**  
+A 0–10 project-health score from deps.dev covering maintenance, review practices, and build security. Shown on Component Detail (v1.0.4) so an unmaintained-but-not-yet-vulnerable dependency is visible early.
+
 **SCA (Software Composition Analysis)**  
 The practice of identifying and assessing OSS components used in a software project — particularly for security vulnerabilities and license compliance. OsWL is an SCA platform.
 
@@ -223,6 +263,9 @@ A classification of a CVE's risk level based on CVSS score. OsWL uses: CRITICAL,
 **Single-Session Enforcement**  
 OsWL allows only one active session per user. A new login from a different browser/device invalidates the previous session.
 
+**Snapshot Bundle**  
+A zip file of JSONL files (`osv.jsonl`, `depsdev.jsonl`, `epss.jsonl`, `kev.jsonl`, optionally `unresolved.jsonl`) plus a `meta.json` describing format version, bundle provenance, per-source record counts, and per-source `asOf` dates. The v2 format is produced by `oswl-vdb` and consumed by `POST /api/admin/snapshot/import`. Import supports `replace` (clear each source first) and `merge` (upsert by key, honoring `"_deleted":true` tombstones).
+
 **SPDX (Software Package Data Exchange)**  
 An open standard for communicating software bill of materials (SBOM) information, including license identifiers. OsWL uses SPDX identifiers (e.g. `MIT`, `Apache-2.0`, `GPL-3.0-only`) to represent library licenses.
 
@@ -233,11 +276,21 @@ A standardized short string identifying a specific software license. Examples: `
 
 ## T
 
+**Typosquatting**  
+A supply-chain attack that publishes a package whose name is a near-miss of a popular one (`expres` for `express`). OsWL flags candidates using Levenshtein distance against a popular-package list (v1.0.4) and shows a badge on Component Detail.
+
 **Transitive Dependency**  
 A library that is not directly declared in the project's manifest but is pulled in as a dependency of a direct dependency (or deeper). Contrast with *Direct Dependency*.
 
 **Trusted Device**  
 A browser that has been marked as trusted after a successful 2FA OTP verification. Trusted devices skip the OTP step for subsequent logins within the configured trust period (default: 30 days).
+
+---
+
+## U
+
+**Unresolved**  
+A wanted-list component the `oswl-vdb` builder could not confidently resolve upstream — for example, an unparseable OSV affected range or a deps.dev lookup failure. These are written to `unresolved.jsonl` in the snapshot bundle and surfaced as a separate `unresolved` source in Settings → Admin → Offline Snapshot. Treat them as *no data*, not *confirmed clean*.
 
 ---
 
@@ -252,7 +305,17 @@ A stored, encrypted PAT + provider configuration that OsWL uses to authenticate 
 **Version Diff**  
 A comparison of two scan results showing which components were added, removed, or changed between versions.
 
+**VEX (Vulnerability Exploitability eXchange)**  
+A machine-readable statement of whether a product is actually affected by a vulnerability it contains. OsWL exports CycloneDX VEX from your triage decisions (v1.0.4): ignored findings become `not_affected`, deferred ones `in_triage`, fixed ones `resolved`.
+
 **Vulnerability**  → see *CVE*
+
+---
+
+## W
+
+**Wanted-list**  
+A JSONL export of every distinct `(ecosystem, name, version)` this OsWL instance has ever scanned, available at `GET /api/admin/snapshot/wanted-list` (System Admin). It contains only component coordinates — no project names, repository URLs, or file paths. Feed it to `oswl-vdb build --wanted` on an online machine so the builder fetches vulnerability definitions for exactly your dependencies instead of mirroring all upstream data.
 
 ---
 

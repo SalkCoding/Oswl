@@ -9,6 +9,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -40,6 +41,31 @@ public class AiConnectionDiagnostics {
 
     public AiConnectionTestResult success() {
         return AiConnectionTestResult.ok(msg("settings.ai.msg.testOk"));
+    }
+
+    /**
+     * Success, plus a non-blocking warning when the configured model is absent from the
+     * catalogue the provider just returned — a typo'd or unpulled model id otherwise only
+     * surfaces later, on the first real enrichment run.
+     *
+     * <p>An empty catalogue is treated as "cannot tell": some OpenAI-compatible local runtimes
+     * do not implement {@code /models} meaningfully, and a false warning is worse than none.
+     */
+    public AiConnectionTestResult successFor(AiSetting setting, List<String> availableModels) {
+        String configured = setting.getModelName();
+        if (availableModels == null || availableModels.isEmpty() || isBlank(configured)) {
+            return success();
+        }
+        boolean known = availableModels.stream()
+                .anyMatch(id -> id.equalsIgnoreCase(configured.strip())
+                        // Ollama reports "llama3.3:latest" for a model configured as "llama3.3".
+                        || id.regionMatches(true, 0, configured.strip() + ":", 0, configured.strip().length() + 1));
+        if (known) {
+            return success();
+        }
+        return AiConnectionTestResult.okWithWarning(
+                msg("settings.ai.test.modelUnknown", configured),
+                msg("settings.ai.test.modelUnknown.hint", configured));
     }
 
     public AiConnectionTestResult dailyCapReached() {

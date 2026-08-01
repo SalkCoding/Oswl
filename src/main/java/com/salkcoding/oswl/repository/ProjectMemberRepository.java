@@ -21,6 +21,10 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
 
     long countByProjectId(Long projectId);
 
+    /** All member user ids of a project (continuous-monitoring alert recipients) */
+    @Query("SELECT pm.userId FROM ProjectMember pm WHERE pm.project.id = :projectId")
+    List<Long> findUserIdsByProjectId(@Param("projectId") Long projectId);
+
     @Query("SELECT pm.project.id FROM ProjectMember pm WHERE pm.project.id IN :projectIds AND pm.userId = :userId")
     List<Long> findAccessibleProjectIds(@Param("projectIds") Collection<Long> projectIds,
                                         @Param("userId") Long userId);

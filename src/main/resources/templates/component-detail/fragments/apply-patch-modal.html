@@ -78,6 +78,7 @@ function resolvePatchError(raw) {
         prErrorHint: null,
         prDone: false,
         prUrl: null,
+        reviewerWarning: null,
         manifestPath: null,
         changePreview: null,
 
@@ -90,6 +91,7 @@ function resolvePatchError(raw) {
             this.prErrorHint = null;
             this.prDone = false;
             this.prUrl = null;
+            this.reviewerWarning = null;
             this.manifestPath = null;
             this.changePreview = null;
         },
@@ -109,9 +111,15 @@ function resolvePatchError(raw) {
             const prDesc = document.getElementById('pr-description-text');
             const description = prDesc ? prDesc.value : '';
             try {
+                // Accept several reviewers separated by commas or spaces. Previously the whole
+                // field was sent as a single login, so a two-name entry became one bogus
+                // reviewer that the provider rejected, and the rejection was never shown.
+                // (No double quotes in this comment: it sits inside an x-data attribute.)
                 const reviewerInput = document.getElementById('pr-reviewer-input');
                 const reviewerVal   = reviewerInput ? reviewerInput.value.trim() : '';
-                const reviewers     = reviewerVal ? [reviewerVal.replace(/^@/, '')] : [];
+                const reviewers     = reviewerVal
+                    ? reviewerVal.split(/[,\s]+/).map(s => s.replace(/^@/, '').trim()).filter(Boolean)
+                    : [];
 
                 const r = await fetch('/projects/' + projectId + '/components/' + componentId + '/create-pr', {
                     method: 'POST',
@@ -128,6 +136,9 @@ function resolvePatchError(raw) {
                     this.prUrl  = data.prUrl;
                     this.manifestPath = data.manifestPath || null;
                     this.changePreview = data.changePreview || null;
+                    // The PR itself succeeded but the reviewer may not have been attached;
+                    // that used to be swallowed into a server-side log line only.
+                    this.reviewerWarning = data.reviewerWarning || null;
                 } else {
                     const resolved = resolvePatchError(data.error || _patchI18n.errorFailed.replace('{0}', r.status));
                     this.prError = resolved.message;
@@ -272,6 +283,15 @@ function resolvePatchError(raw) {
             <!-- Success feedback -->
             <div x-show="prDone" x-cloak class="w-full bg-green-50 border border-green-200 rounded-[8px] px-[16px] py-[14px] flex flex-col gap-[10px]">
                 <p class="m-0 text-[13px] font-semibold text-green-700 text-center" th:text="#{componentDetail.patch.success.created}">PR/MR created!</p>
+
+                <!-- Partial success: the PR exists but review could not be requested. -->
+                <div x-show="reviewerWarning" x-cloak
+                     class="flex items-start gap-[8px] rounded-[6px] bg-amber-50 border border-amber-200 px-[12px] py-[9px]">
+                    <svg class="w-[14px] h-[14px] shrink-0 mt-[2px] text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <p class="m-0 text-[12px] text-amber-900 leading-[1.45]" x-text="reviewerWarning"></p>
+                </div>
 
                 <!-- Prominent PR link -->
                 <a :href="prUrl" target="_blank" rel="noopener"

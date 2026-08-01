@@ -8,6 +8,10 @@ import lombok.RequiredArgsConstructor;
 public enum Permission {
     PROJECT_VIEW("View Projects"),
     PROJECT_CREATE("Create Projects"),
+    // Checked by ProjectContextController#updateDeploymentProfile. It was missing from this enum,
+    // so no role template could grant it and only SYSTEM_ADMIN could change a project's
+    // deployment profile.
+    PROJECT_UPDATE("Update Project Settings"),
     PROJECT_DELETE("Soft Delete Projects"),
     PROJECT_RESTORE("Restore Projects"),
     PROJECT_PERMANENT_DELETE("Permanently Delete Projects"),
@@ -33,7 +37,14 @@ public enum Permission {
     SETTINGS_VCS_MANAGE("Manage VCS Connections"),
     SETTINGS_CLI_KEY_MANAGE("Manage CLI API Keys"),
     SETTINGS_CACHE_MANAGE("Manage Cache Settings"),
-    SETTINGS_SECURITY_MANAGE("Manage Security Settings");
+    SETTINGS_SECURITY_MANAGE("Manage Security Settings"),
+
+    // ── v1.0.4 capabilities — delegatable instead of SYSTEM_ADMIN-only ──
+    ORG_DASHBOARD_VIEW("View Organization Dashboard"),
+    AUDIT_LOG_VIEW("View Audit Log"),
+    AUDIT_LOG_EXPORT("Export Audit Log (SIEM)"),
+    SETTINGS_JIRA_MANAGE("Manage Jira Integration"),
+    SETTINGS_SNAPSHOT_MANAGE("Manage Offline Snapshot Bundles");
 
     private final String description;
 }
