@@ -86,10 +86,10 @@
     "altProjects": "OsWL 프로젝트 대시보드 — 다중 프로젝트 리스크 개요",
     "altLicense": "OsWL 라이선스 분석 — 카피레프트 및 컴플라이언스 리스크 추적",
     "altRisk": "OsWL 리스크 트렌드 — 스캔 간 보안 상태",
-    "srcSc": "/img/screenshots/security-center-ko.png",
-    "srcProjects": "/img/screenshots/projects-ko.png",
-    "srcLicense": "/img/screenshots/license-ko.png",
-    "srcRisk": "/img/screenshots/risk-trend-ko.png"
+    "srcSc": "img/screenshots/security-center-ko.png",
+    "srcProjects": "img/screenshots/projects-ko.png",
+    "srcLicense": "img/screenshots/license-ko.png",
+    "srcRisk": "img/screenshots/risk-trend-ko.png"
   },
   "vuln": {
     "label": "취약점 인텔리전스",

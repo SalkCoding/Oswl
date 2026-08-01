@@ -86,10 +86,10 @@
     "altProjects": "OsWL プロジェクトダッシュボード — 複数プロジェクトのリスク概要",
     "altLicense": "OsWL ライセンス分析 — コピーレフトとコンプライアンスリスクの追跡",
     "altRisk": "OsWL リスク傾向 — スキャン間のセキュリティ状態",
-    "srcSc": "/img/screenshots/security-center-ja.png",
-    "srcProjects": "/img/screenshots/projects-ja.png",
-    "srcLicense": "/img/screenshots/license-ja.png",
-    "srcRisk": "/img/screenshots/risk-trend-ja.png"
+    "srcSc": "img/screenshots/security-center-ja.png",
+    "srcProjects": "img/screenshots/projects-ja.png",
+    "srcLicense": "img/screenshots/license-ja.png",
+    "srcRisk": "img/screenshots/risk-trend-ja.png"
   },
   "vuln": {
     "label": "脆弱性インテリジェンス",
