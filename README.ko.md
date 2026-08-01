@@ -199,22 +199,25 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ## 문서
 
-한국어 문서는 [`docs/ko/`](docs/ko/) 폴더에서 확인할 수 있습니다. 영문 문서는 [`docs/`](docs/) 및 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (`main` push 시 `docs/`에서 자동 동기화)에서 제공됩니다.
+한국어 문서는 [`docs/ko/`](docs/ko/) 폴더에서 확인할 수 있습니다. 영문 문서는 [`docs/`](docs/), 일본어 문서는 [`docs/ja/`](docs/ja/)에서, 그리고 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (`main` push 시 `docs/`에서 자동 동기화)에서도 제공됩니다.
 
 | 페이지 | 설명 |
 |---|---|
 | [홈](docs/ko/Home.md) | 플랫폼 개요 및 탐색 가이드 |
+| [v1.0.4 새로운 기능](docs/ko/Whats-New-v1.0.4.md) | 릴리스 하이라이트 — SBOM/VEX/SARIF 내보내기, CI/CD 게이트, 연속 모니터링, 조직 대시보드, 공급망 휴리스틱, 폐쇄망 모드 |
 | [시작하기](docs/ko/Getting-Started.md) | 설치, 설정 마법사, 첫 번째 프로젝트 |
 | [사용자 가이드](docs/ko/User-Guide.md) | 대시보드 일상적 사용법 |
 | [Quick Import](docs/ko/Quick-Import.md) | GitHub / GitLab / Bitbucket에서 프로젝트 임포트 |
 | [CLI 연동](docs/ko/CLI-Integration.md) | 빌드 파이프라인에서 스캔 제출 |
+| [내장 AI](docs/ko/Embedded-AI.md) | 클라우드 계정이나 API 키 없이 로컬 LLM으로 CVE 트리아지·라이선스 인사이트 실행 |
 | [보안 센터](docs/ko/Security-Center.md) | 취약점(CVE) 관리 |
 | [라이선스 분석](docs/ko/License-Analysis.md) | 라이선스 컴플라이언스 및 정책 관리 |
 | [리스크 트렌드](docs/ko/Risk-Trend.md) | 히스토리 리스크 차트 해석 |
 | [버전 비교](docs/ko/Version-Diff.md) | 두 스캔 결과 비교 |
-| [스캔 히스토리](docs/ko/Scan-History.md) | 스캔 기록 관리 |
+| [스캔 히스토리](docs/ko/Scan-History.md) | 프로젝트에 제출된 모든 스캔을 순서대로 확인 |
 | [관리](docs/ko/Administration.md) | 사용자, 역할, 감사 로그, 보안 설정 |
 | [권한 레이어](docs/ko/Authorization-Layers.md) | 역할 템플릿 vs 프로젝트 멤버십 |
+| [프로젝트 접근 제어](docs/ko/Project-Access-Control.md) | 프로젝트 단위 권한이 어떻게 판정되는지에 대한 기술 참고 문서 |
 | [운영 배포](docs/ko/Production-Deployment-Checklist.md) | 운영 체크리스트 |
 | [데이터베이스 스키마](docs/ko/Database-Schema.md) | `ddl-auto` 전략 및 SQL 마이그레이션 |
 | [스캔 API 보안](docs/ko/Scan-Api-Security.md) | CLI 스캔 인증 및 감사 로그 |
