@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.domain.enums.Reachability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.dto.gate.GateResultDto;
 import com.salkcoding.oswl.dto.gate.GateResultDto.Thresholds;
@@ -57,6 +58,8 @@ public class GatePolicyService {
     private boolean defaultFailOnLicenseViolation;
     @Value("${oswl.gate.only-new:true}")
     private boolean defaultOnlyNew;
+    @Value("${oswl.gate.only-reachable:false}")
+    private boolean defaultOnlyReachable;
 
     /** Per-request overrides; null fields fall back to the configured defaults. */
     public record GateOptions(
@@ -65,9 +68,10 @@ public class GatePolicyService {
             Boolean failOnKev,
             Double failOnEpss,
             Boolean failOnLicenseViolation,
-            Boolean onlyNew) {
+            Boolean onlyNew,
+            Boolean onlyReachable) {
         public static GateOptions defaults() {
-            return new GateOptions(null, null, null, null, null, null);
+            return new GateOptions(null, null, null, null, null, null, null);
         }
     }
 
@@ -83,6 +87,7 @@ public class GatePolicyService {
         boolean failOnLicense = options.failOnLicenseViolation() != null
                 ? options.failOnLicenseViolation() : defaultFailOnLicenseViolation;
         boolean onlyNew = options.onlyNew() != null ? options.onlyNew() : defaultOnlyNew;
+        boolean onlyReachable = options.onlyReachable() != null ? options.onlyReachable() : defaultOnlyReachable;
 
         Thresholds thresholds = new Thresholds(
                 failOnSeverity.name(), failOnKev, failOnEpss >= 0 ? failOnEpss : null, failOnLicense);
@@ -124,28 +129,36 @@ public class GatePolicyService {
             Library lib = sc.getLibrary();
             String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
 
-            for (Cve cve : lib.getCves()) {
-                if (cve.getSeverity() == null) continue;
-                String vulnId = cve.getCveId() != null ? cve.getCveId() : cve.getGhsaId();
-                if (vulnId == null) continue;
-                boolean isNew = !baselineVulnKeys.contains(coord + "|" + vulnId);
-                if (onlyNew && !isNew) continue;
-                evaluated++;
-                if (isNew) newVulnCount++;
+            // "Only reachable" is a noise-cut for CVE findings only (license violations don't
+            // depend on whether vulnerable code is called). Components never analyzed for
+            // reachability (non-Java, or Java without a configured bytecode root) stay UNKNOWN
+            // and are excluded here — this option is opt-in and Java-only by design (ROADMAP A2).
+            boolean reachabilityGatePasses = !onlyReachable || sc.getReachability() == Reachability.REACHABLE;
 
-                List<String> reasons = new ArrayList<>();
-                boolean sevFail = cve.getSeverity().ordinal() <= failOnSeverity.ordinal()
-                        && cve.getSeverity() != RiskLevel.NONE;
-                if (sevFail) reasons.add("severity " + cve.getSeverity() + " ≥ " + failOnSeverity.name());
-                if (failOnKev && Boolean.TRUE.equals(cve.getKevListed())) reasons.add("CISA KEV listed");
-                if (failOnEpss >= 0 && cve.getEpssScore() != null && cve.getEpssScore() >= failOnEpss) {
-                    reasons.add(String.format("EPSS %.3f ≥ %.3f", cve.getEpssScore(), failOnEpss));
-                }
-                if (!reasons.isEmpty()) {
-                    violations.add(new Violation(
-                            "CVE", vulnId, coord, cve.getSeverity().name(),
-                            cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()),
-                            String.join("; ", reasons), isNew));
+            if (reachabilityGatePasses) {
+                for (Cve cve : lib.getCves()) {
+                    if (cve.getSeverity() == null) continue;
+                    String vulnId = cve.getCveId() != null ? cve.getCveId() : cve.getGhsaId();
+                    if (vulnId == null) continue;
+                    boolean isNew = !baselineVulnKeys.contains(coord + "|" + vulnId);
+                    if (onlyNew && !isNew) continue;
+                    evaluated++;
+                    if (isNew) newVulnCount++;
+
+                    List<String> reasons = new ArrayList<>();
+                    boolean sevFail = cve.getSeverity().ordinal() <= failOnSeverity.ordinal()
+                            && cve.getSeverity() != RiskLevel.NONE;
+                    if (sevFail) reasons.add("severity " + cve.getSeverity() + " ≥ " + failOnSeverity.name());
+                    if (failOnKev && Boolean.TRUE.equals(cve.getKevListed())) reasons.add("CISA KEV listed");
+                    if (failOnEpss >= 0 && cve.getEpssScore() != null && cve.getEpssScore() >= failOnEpss) {
+                        reasons.add(String.format("EPSS %.3f ≥ %.3f", cve.getEpssScore(), failOnEpss));
+                    }
+                    if (!reasons.isEmpty()) {
+                        violations.add(new Violation(
+                                "CVE", vulnId, coord, cve.getSeverity().name(),
+                                cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()),
+                                String.join("; ", reasons), isNew));
+                    }
                 }
             }
 
@@ -175,15 +188,15 @@ public class GatePolicyService {
         String scanVersion = scan.getVersion() != null ? scan.getVersion() : "-";
         String summary = buildSummary(passed, violations, onlyNew);
         String comment = buildComment(project.getName(), scanVersion, baselineVersion,
-                passed, thresholds, onlyNew, violations, summary);
+                passed, thresholds, onlyNew, onlyReachable, violations, summary);
 
-        log.info("[Gate] projectId={} scanId={} passed={} violations={} evaluated={} newVulns={}",
-                projectId, scan.getId(), passed, violations.size(), evaluated, newVulnCount);
+        log.info("[Gate] projectId={} scanId={} passed={} violations={} evaluated={} newVulns={} onlyReachable={}",
+                projectId, scan.getId(), passed, violations.size(), evaluated, newVulnCount, onlyReachable);
 
         return new GateResultDto(
                 passed, passed ? 0 : 1,
                 project.getName(), scan.getId(), scanVersion, baselineVersion,
-                onlyNew, thresholds, evaluated, newVulnCount, violations,
+                onlyNew, onlyReachable, thresholds, evaluated, newVulnCount, violations,
                 summary, comment, null);
     }
 
@@ -240,7 +253,7 @@ public class GatePolicyService {
     }
 
     private String buildComment(String projectName, String scanVersion, String baselineVersion,
-                                boolean passed, Thresholds t, boolean onlyNew,
+                                boolean passed, Thresholds t, boolean onlyNew, boolean onlyReachable,
                                 List<Violation> violations, String summary) {
         StringBuilder md = new StringBuilder();
         md.append(passed ? "## ✅ OsWL Security Gate — Passed\n\n" : "## ❌ OsWL Security Gate — Failed\n\n");
@@ -253,6 +266,7 @@ public class GatePolicyService {
         if (t.failOnKev()) md.append(", KEV-listed");
         if (t.failOnEpss() != null) md.append(String.format(", EPSS ≥ %.2f", t.failOnEpss()));
         if (t.failOnLicenseViolation()) md.append(", license violations");
+        if (onlyReachable) md.append(", reachable CVEs only (bytecode call-graph, Java)");
         md.append("\n\n");
 
         if (!violations.isEmpty()) {

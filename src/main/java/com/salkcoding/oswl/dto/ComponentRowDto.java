@@ -84,6 +84,10 @@ public class ComponentRowDto {
     @Schema(description = "True for production dependencies (scope runtime/compile); false for test/dev/provided", example = "true")
     private final boolean runtimeScope;
 
+    @Schema(description = "Bytecode call-graph reachability result", example = "REACHABLE",
+            allowableValues = {"REACHABLE", "NOT_REACHABLE", "UNKNOWN"})
+    private final String reachability;
+
     @Schema(description = "OpenSSF Scorecard overall score (0.0–10.0) from deps.dev; null when unavailable", example = "7.4")
     private final Double scorecardScore;
 

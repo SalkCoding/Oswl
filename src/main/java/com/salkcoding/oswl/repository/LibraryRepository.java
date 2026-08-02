@@ -24,6 +24,12 @@ public interface LibraryRepository extends JpaRepository<Library, Long> {
     Optional<Library> findByNameAndVersionAndEcosystem(String name, String version, String ecosystem);
 
     /**
+     * A8: name-level lookup used when inferring/storing a CPE match for C/C++ components.
+     * The result set is small in practice (one name may exist in a few ecosystems/versions).
+     */
+    List<Library> findByName(String name);
+
+    /**
      * E6: streamed (not `List`) so a wanted-list export doesn't hold every library in memory —
      * caller must run this inside a read-only transaction and close the stream.
      */

@@ -35,7 +35,8 @@ public class PrGateService {
                 request != null ? request.failOnKev() : null,
                 request != null ? request.failOnEpss() : null,
                 request != null ? request.failOnLicenseViolation() : null,
-                request != null ? request.onlyNew() : null);
+                request != null ? request.onlyNew() : null,
+                request != null ? request.onlyReachable() : null);
 
         GateResultDto result = gatePolicyService.evaluate(projectId, options);
 
@@ -95,7 +96,7 @@ public class PrGateService {
         GitHubResult ghResult = new GitHubResult(commentPosted, commentUrl, checkRunPosted, checkRunUrl, error);
         return new GateResultDto(
                 result.passed(), result.exitCode(), result.projectName(), result.scanId(),
-                result.scanVersion(), result.baselineVersion(), result.onlyNew(),
+                result.scanVersion(), result.baselineVersion(), result.onlyNew(), result.onlyReachable(),
                 result.thresholds(), result.evaluatedCount(), result.newVulnerabilityCount(),
                 result.violations(), result.summary(), result.commentMarkdown(), ghResult);
     }

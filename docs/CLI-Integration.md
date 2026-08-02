@@ -252,8 +252,9 @@ Server-side defaults (all overridable per request):
 | `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
 | `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
 | `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+| `onlyReachable` | `OSWL_GATE_ONLY_REACHABLE` | `false` |
 
-`onlyNew` compares against the previous completed scan as a baseline, so pre-existing debt never blocks a merge. Supply a GitHub target in the request and the verdict is also posted as a Check Run and PR comment.
+`onlyNew` compares against the previous completed scan as a baseline, so pre-existing debt never blocks a merge. `onlyReachable` (**v1.0.5**) additionally requires bytecode call-graph analysis to have found the vulnerable library actually referenced by the project — a further noise cut on top of severity/KEV/EPSS. It only applies to Java/Gradle components with a configured bytecode root (`oswl.reachability.bytecode-root`); everything else is UNKNOWN and never blocks under this option, so leave it off unless your projects are Java. Supply a GitHub target in the request and the verdict is also posted as a Check Run and PR comment.
 
 ---
 

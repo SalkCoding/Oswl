@@ -40,6 +40,9 @@ repositories {
 }
 
 dependencies {
+	// Bytecode call-graph analysis (ROADMAP A2)
+	implementation 'org.ow2.asm:asm:9.7'
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'

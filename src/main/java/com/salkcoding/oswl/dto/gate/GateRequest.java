@@ -22,6 +22,10 @@ public record GateRequest(
         Boolean failOnLicenseViolation,
         @Schema(description = "Consider only findings absent from the previous completed scan", example = "true")
         Boolean onlyNew,
+        @Schema(description = "Fail only on CVEs whose library is reachable per bytecode call-graph analysis " +
+                "(Java only; non-Java components and unanalyzed Java components are never blocking under this option)",
+                example = "false")
+        Boolean onlyReachable,
         @Schema(description = "Optional GitHub target — when present, the result is posted as a PR comment and/or Check Run")
         GitHubTarget github
 ) {

@@ -82,6 +82,9 @@
               ignored: false,
               nonIgnored: true,
               deferred: false,
+              reachable: false,
+              notReachable: false,
+              unknownReachability: false,
               secCritical: false,
               secHigh: false,
               secMedium: false,
@@ -143,6 +146,16 @@
                   const matchIgnored    = f.ignored    &&  ign  && !isDef;
                   const matchNonIgnored = f.nonIgnored && !ign  && !isDef;
                   if (!matchDeferred && !matchIgnored && !matchNonIgnored) return false;
+              }
+
+              // Reachability filters — OR'd together when any is active.
+              const anyReachability = f.reachable || f.notReachable || f.unknownReachability;
+              if (anyReachability) {
+                  const r = el.dataset.reachability || 'UNKNOWN';
+                  const matchReachable = f.reachable && r === 'REACHABLE';
+                  const matchNotReachable = f.notReachable && r === 'NOT_REACHABLE';
+                  const matchUnknown = f.unknownReachability && r === 'UNKNOWN';
+                  if (!matchReachable && !matchNotReachable && !matchUnknown) return false;
               }
 
               // Security severity filters — if any active, row must match at least one active

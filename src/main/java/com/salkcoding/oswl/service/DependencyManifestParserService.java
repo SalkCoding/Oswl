@@ -72,7 +72,8 @@ public class DependencyManifestParserService {
      * there would silently report "no vulnerabilities" for the whole ecosystem.
      */
     public static final Set<String> EMITTED_ECOSYSTEMS = Set.of(
-            "MAVEN", "NPM", "PYPI", "GO", "CARGO", "NUGET", "RUBYGEMS", "COMPOSER", "CONAN");
+            "MAVEN", "NPM", "PYPI", "GO", "CARGO", "NUGET", "RUBYGEMS", "COMPOSER",
+            "CONAN", "VCPKG", "SUBMODULE", "VENDORED");
 
     public record ParseResult(String ecosystem, List<ScanPayload.ComponentPayload> components) {}
 
@@ -321,6 +322,39 @@ public class DependencyManifestParserService {
                 mergeComponents(allComps, seen, conanComps, "CONAN");
             }
             report.accept(List.of(lock));
+        }
+
+        // ── C/C++: vcpkg.json ─────────────────────────────────────────────────
+        for (Path vcpkg : indexByNames(index, "vcpkg.json", "vcpkg-configuration.json")) {
+            String fn = vcpkg.getFileName().toString();
+            List<ScanPayload.ComponentPayload> vcpkgComps = "vcpkg.json".equals(fn)
+                    ? parseVcpkgJson(vcpkg.getParent(), repoName)
+                    : parseVcpkgConfigurationJson(vcpkg.getParent(), repoName);
+            if (vcpkgComps != null && !vcpkgComps.isEmpty()) {
+                if (!ecosystems.contains("VCPKG")) ecosystems.add("VCPKG");
+                mergeComponents(allComps, seen, vcpkgComps, "VCPKG");
+            }
+            report.accept(List.of(vcpkg));
+        }
+
+        // ── C/C++: git submodules (.gitmodules + git ls-tree pinned SHA) ───────
+        for (Path gitmodules : indexByNames(index, ".gitmodules")) {
+            List<ScanPayload.ComponentPayload> subComps = parseGitSubmodules(gitmodules.getParent(), repoName);
+            if (subComps != null && !subComps.isEmpty()) {
+                if (!ecosystems.contains("SUBMODULE")) ecosystems.add("SUBMODULE");
+                mergeComponents(allComps, seen, subComps, "SUBMODULE");
+            }
+            report.accept(List.of(gitmodules));
+        }
+
+        // ── C/C++: vendored dependencies in CMakeLists.txt ──────────────────────
+        for (Path cmake : indexByNames(index, "CMakeLists.txt")) {
+            List<ScanPayload.ComponentPayload> vendoredComps = parseCMakeLists(cmake.getParent(), repoName);
+            if (vendoredComps != null && !vendoredComps.isEmpty()) {
+                if (!ecosystems.contains("VENDORED")) ecosystems.add("VENDORED");
+                mergeComponents(allComps, seen, vendoredComps, "VENDORED");
+            }
+            report.accept(List.of(cmake));
         }
 
         if (allComps.isEmpty()) {
@@ -1854,6 +1888,266 @@ public class DependencyManifestParserService {
     private static boolean isConanLockJson(JsonNode root) {
         return root.has("graph_lock")
                 || (root.path("requires").isArray() && root.has("version"));
+    }
+
+    // ── C/C++ manifest parsers ─────────────────────────────────────────────
+
+    /**
+     * Parses {@code vcpkg.json} manifest dependencies. Dependency entries may be plain names,
+     * objects with a {@code name} and optional {@code version>=} constraint, or feature objects.
+     * Only the declared name and best-effort version are emitted (vcpkg.json is not a lock file).
+     */
+    private List<ScanPayload.ComponentPayload> parseVcpkgJson(Path dir, String repoName) {
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("vcpkg.json").toFile());
+            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            Set<String> seen = new LinkedHashSet<>();
+            JsonNode deps = root.path("dependencies");
+            if (deps.isArray()) {
+                for (JsonNode dep : deps) {
+                    String name = null;
+                    String version = null;
+                    if (dep.isTextual()) {
+                        name = dep.asText(null);
+                    } else if (dep.isObject()) {
+                        name = dep.path("name").asText(null);
+                        if (dep.has("version>=")) {
+                            version = dep.path("version>=").asText(null);
+                        } else if (dep.has("version")) {
+                            version = dep.path("version").asText(null);
+                        } else if (dep.has("baseline")) {
+                            version = dep.path("baseline").asText(null);
+                        }
+                    }
+                    if (name == null || name.isBlank()) continue;
+                    name = name.trim();
+                    version = (version != null && !version.isBlank()) ? version.trim() : null;
+                    if (seen.add(name + ":" + (version != null ? version : ""))) {
+                        comps.add(buildComponent(name, version, "VCPKG"));
+                    }
+                }
+            }
+            log.info("[DependencyParser][vcpkg] Parsed {} components from vcpkg.json in '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[DependencyParser][vcpkg] Failed to parse vcpkg.json for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Parses {@code vcpkg-configuration.json}. The file mainly describes registries, but it can
+     * contain named registry packages with versions. Best-effort parse: any object with both
+     * {@code name} and a version-ish field is emitted.
+     */
+    private List<ScanPayload.ComponentPayload> parseVcpkgConfigurationJson(Path dir, String repoName) {
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("vcpkg-configuration.json").toFile());
+            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            Set<String> seen = new LinkedHashSet<>();
+            extractVcpkgRegistryPackages(root, seen, comps);
+            log.info("[DependencyParser][vcpkg] Parsed {} components from vcpkg-configuration.json in '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[DependencyParser][vcpkg] Failed to parse vcpkg-configuration.json for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private void extractVcpkgRegistryPackages(JsonNode node, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
+        if (node == null || node.isMissingNode()) return;
+        if (node.isArray()) {
+            for (JsonNode item : node) {
+                extractVcpkgRegistryPackage(item, seen, comps);
+                extractVcpkgRegistryPackages(item, seen, comps);
+            }
+        } else if (node.isObject()) {
+            extractVcpkgRegistryPackage(node, seen, comps);
+            node.fields().forEachRemaining(e -> extractVcpkgRegistryPackages(e.getValue(), seen, comps));
+        }
+    }
+
+    private void extractVcpkgRegistryPackage(JsonNode obj, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
+        if (!obj.isObject()) return;
+        String name = obj.path("name").asText(null);
+        if (name == null || name.isBlank()) return;
+        String version = null;
+        for (String key : new String[]{"version", "baseline", "version>="}) {
+            if (obj.has(key)) {
+                version = obj.path(key).asText(null);
+                if (version != null && !version.isBlank()) break;
+            }
+        }
+        String v = (version != null && !version.isBlank()) ? version.trim() : null;
+        if (seen.add(name + ":" + (v != null ? v : ""))) {
+            comps.add(buildComponent(name, v, "VCPKG"));
+        }
+    }
+
+    /**
+     * Parses {@code .gitmodules}: for each submodule runs {@code git ls-tree HEAD <path>}
+     * to capture the pinned commit SHA. Submodules whose SHA cannot be resolved are skipped.
+     */
+    private List<ScanPayload.ComponentPayload> parseGitSubmodules(Path dir, String repoName) {
+        Path gitmodules = dir.resolve(".gitmodules");
+        if (!Files.isRegularFile(gitmodules)) return List.of();
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        try {
+            List<String> lines = Files.readAllLines(gitmodules, StandardCharsets.UTF_8);
+            String currentName = null;
+            String currentPath = null;
+            Pattern sectionP = Pattern.compile("^\\s*\\[submodule\\s+\"([^\"]+)\"\\s*]\\s*$");
+            Pattern propP = Pattern.compile("^\\s*(\\w+)\\s*=\\s*(.+?)\\s*$");
+            for (String raw : lines) {
+                Matcher sm = sectionP.matcher(raw);
+                if (sm.matches()) {
+                    flushSubmodule(dir, repoName, currentName, currentPath, seen, comps);
+                    currentName = sm.group(1);
+                    currentPath = null;
+                    continue;
+                }
+                Matcher pm = propP.matcher(raw);
+                if (pm.matches() && currentName != null) {
+                    String key = pm.group(1);
+                    String val = pm.group(2);
+                    if ("path".equals(key)) currentPath = val;
+                }
+            }
+            flushSubmodule(dir, repoName, currentName, currentPath, seen, comps);
+            log.info("[DependencyParser][GitSubmodule] Parsed {} components from .gitmodules in '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[DependencyParser][GitSubmodule] Failed to parse .gitmodules for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private void flushSubmodule(Path dir, String repoName, String name, String path,
+                                Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
+        if (name == null || name.isBlank()) return;
+        String sha = resolveSubmoduleSha(dir, path);
+        if (sha == null || sha.isBlank()) {
+            log.debug("[DependencyParser][GitSubmodule] Skipping '{}' in '{}' — no pinned SHA", name, repoName);
+            return;
+        }
+        if (seen.add(name + ":" + sha)) {
+            comps.add(buildComponent(name, sha, "SUBMODULE"));
+        }
+    }
+
+    private String resolveSubmoduleSha(Path dir, String path) {
+        if (path == null || path.isBlank()) return null;
+        try {
+            List<String> cmd = List.of("git", "ls-tree", "HEAD", path);
+            ProcessBuilder pb = new ProcessBuilder(cmd).directory(dir.toFile()).redirectErrorStream(true);
+            ProcessOutput result = runProcess(pb, 30, TimeUnit.SECONDS, StandardCharsets.UTF_8);
+            if (result.exitCode() != 0 || result.output().isBlank()) return null;
+            // Output format: <mode> commit <sha> <tab> <path>
+            for (String line : result.output().split("\\r?\\n")) {
+                String[] parts = line.trim().split("\\s+");
+                if (parts.length >= 3 && "commit".equals(parts[1])) {
+                    return parts[2];
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("[DependencyParser][GitSubmodule] git ls-tree failed for '{}': {}", path, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Parses {@code CMakeLists.txt} for {@code FetchContent_Declare} and {@code ExternalProject_Add}
+     * declarations that pin a dependency via {@code GIT_REPOSITORY + GIT_TAG} or {@code URL}.
+     * The dependency name is taken from the declaration identifier or the repository/archive basename.
+     */
+    private List<ScanPayload.ComponentPayload> parseCMakeLists(Path dir, String repoName) {
+        Path cmake = dir.resolve("CMakeLists.txt");
+        if (!Files.isRegularFile(cmake)) return List.of();
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        try {
+            String content = Files.readString(cmake, StandardCharsets.UTF_8);
+            // Normalize line continuations and remove CMake comments
+            content = content.replaceAll("\\\\\\r?\\n", " ");
+            content = content.replaceAll("#[^\\n]*", " ");
+            parseCMakeCommand(content, "FetchContent_Declare", seen, comps);
+            parseCMakeCommand(content, "ExternalProject_Add", seen, comps);
+            log.info("[DependencyParser][CMake] Parsed {} components from CMakeLists.txt in '{}'", comps.size(), repoName);
+            return comps;
+        } catch (Exception e) {
+            log.warn("[DependencyParser][CMake] Failed to parse CMakeLists.txt for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private void parseCMakeCommand(String content, String command, Set<String> seen,
+                                   List<ScanPayload.ComponentPayload> comps) {
+        // Match command(ident ... ) allowing nested parentheses one level deep.
+        Pattern cmdP = Pattern.compile(
+                "\\b" + Pattern.quote(command) + "\\s*\\(\\s*([A-Za-z0-9_\\-]+)\\s+((?:[^()]|\\([^()]*\\))*)\\)",
+                Pattern.CASE_INSENSITIVE);
+        Matcher m = cmdP.matcher(content);
+        while (m.find()) {
+            String ident = m.group(1);
+            String body = m.group(2);
+            String gitRepo = extractCMakeQuotedArg(body, "GIT_REPOSITORY");
+            String gitTag = extractCMakeQuotedArg(body, "GIT_TAG");
+            String url = extractCMakeQuotedArg(body, "URL");
+            String name = cmakeBasenameFromUrl(gitRepo != null ? gitRepo : url);
+            if (name == null) name = ident;
+            String version = null;
+            if (gitTag != null && !gitTag.isBlank()) {
+                version = normalizeGitTag(gitTag);
+            } else if (url != null && !url.isBlank()) {
+                version = versionFromArchiveUrl(url);
+            }
+            if (version == null || version.isBlank()) continue;
+            if (seen.add(name + ":" + version)) {
+                comps.add(buildComponent(name, version, "VENDORED"));
+            }
+        }
+    }
+
+    private String extractCMakeQuotedArg(String body, String key) {
+        Pattern p = Pattern.compile(
+                "\\b" + Pattern.quote(key) + "\\s+\"([^\"]*)\"",
+                Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(body);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private String cmakeBasenameFromUrl(String url) {
+        if (url == null || url.isBlank()) return null;
+        String trimmed = url.replaceAll("\\.git$", "");
+        int slash = trimmed.lastIndexOf('/');
+        if (slash < 0) return trimmed;
+        String base = trimmed.substring(slash + 1);
+        return base.isBlank() ? null : base;
+    }
+
+    private String normalizeGitTag(String tag) {
+        if (tag == null) return null;
+        String t = tag.trim();
+        if (t.startsWith("v") && t.length() > 1 && Character.isDigit(t.charAt(1))) {
+            return t.substring(1);
+        }
+        return t;
+    }
+
+    private String versionFromArchiveUrl(String url) {
+        if (url == null || url.isBlank()) return null;
+        String base = cmakeBasenameFromUrl(url);
+        if (base == null) return null;
+        // Strip common archive suffixes and look for a version tail: name-1.2.3.tar.gz
+        String withoutExt = base.replaceAll("\\.(tar\\.gz|tar\\.bz2|tar\\.xz|zip|tgz|tbz2|txz)$", "");
+        int dash = withoutExt.lastIndexOf('-');
+        if (dash > 0 && dash < withoutExt.length() - 1) {
+            String candidate = withoutExt.substring(dash + 1);
+            if (candidate.matches("[0-9].*")) return candidate;
+        }
+        return null;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
