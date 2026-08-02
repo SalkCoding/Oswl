@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.notification;
 
 import com.salkcoding.oswl.domain.enums.WebhookProvider;
 import jakarta.persistence.*;

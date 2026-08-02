@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ProjectMember;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.project.ProjectMember;
 import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
 import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.repository.ProjectMemberRepository;

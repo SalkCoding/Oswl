@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.scheduler;
 
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

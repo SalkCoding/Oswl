@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.enums.VcsProvider;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ProjectVersion;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.project.ProjectVersion;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
@@ -334,7 +334,7 @@ public class ProjectService {
                 .build();
     }
 
-    private int[] aggregateSecurity(com.salkcoding.oswl.domain.entity.ScanResult scan) {
+    private int[] aggregateSecurity(com.salkcoding.oswl.domain.entity.scan.ScanResult scan) {
         int critical = 0, high = 0, medium = 0, low = 0, none = 0;
         for (var comp : scan.getComponents()) {
             for (var cve : comp.getLibrary().getCves()) {
@@ -352,7 +352,7 @@ public class ProjectService {
         return new int[]{critical, high, medium, low, none};
     }
 
-    private int[] aggregateLicense(com.salkcoding.oswl.domain.entity.ScanResult scan) {
+    private int[] aggregateLicense(com.salkcoding.oswl.domain.entity.scan.ScanResult scan) {
         int critical = 0, high = 0, unknown = 0, low = 0;
         for (var comp : scan.getComponents()) {
             switch (comp.getLibrary().getLicenseStatus()) {

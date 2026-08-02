@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service.notification;
 
-import com.salkcoding.oswl.domain.entity.WebhookDelivery;
+import com.salkcoding.oswl.domain.entity.notification.WebhookDelivery;
 import com.salkcoding.oswl.domain.enums.WebhookDeliveryStatus;
 import com.salkcoding.oswl.domain.enums.WebhookEventType;
 import com.salkcoding.oswl.repository.WebhookDeliveryRepository;

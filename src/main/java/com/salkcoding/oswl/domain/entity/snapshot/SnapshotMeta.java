@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.snapshot;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

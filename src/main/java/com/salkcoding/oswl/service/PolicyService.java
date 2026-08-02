@@ -2,11 +2,11 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.aop.Auditable;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.Organization;
-import com.salkcoding.oswl.domain.entity.Policy;
-import com.salkcoding.oswl.domain.entity.PolicyException;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.Team;
+import com.salkcoding.oswl.domain.entity.org.Organization;
+import com.salkcoding.oswl.domain.entity.policy.Policy;
+import com.salkcoding.oswl.domain.entity.policy.PolicyException;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.org.Team;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionStatus;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionTargetType;
 import com.salkcoding.oswl.domain.enums.PolicyScopeType;

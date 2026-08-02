@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.util;
 
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 
 import java.util.Comparator;
 import java.util.List;

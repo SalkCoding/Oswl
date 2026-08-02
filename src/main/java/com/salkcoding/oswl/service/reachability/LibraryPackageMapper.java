@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service.reachability;
 
-import com.salkcoding.oswl.domain.entity.ScanComponent;
+import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;

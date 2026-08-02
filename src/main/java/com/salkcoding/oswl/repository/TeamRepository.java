@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.Team;
+import com.salkcoding.oswl.domain.entity.org.Team;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

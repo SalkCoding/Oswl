@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.org;
 
 import jakarta.persistence.*;
 import lombok.*;

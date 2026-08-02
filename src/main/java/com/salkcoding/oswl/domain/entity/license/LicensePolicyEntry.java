@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.license;
 
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import jakarta.persistence.*;

@@ -2,7 +2,7 @@ package com.salkcoding.oswl.service;
 
 
 
-import com.salkcoding.oswl.domain.entity.LicensePolicyEntry;
+import com.salkcoding.oswl.domain.entity.license.LicensePolicyEntry;
 
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 

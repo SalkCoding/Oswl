@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.ApiKey;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import com.salkcoding.oswl.exception.ConflictException;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
 import lombok.RequiredArgsConstructor;

@@ -3,7 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.demo.DemoImportCatalog;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.ProjectMemberRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;

@@ -1,5 +1,6 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.scan;
 
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.Reachability;
 import jakarta.persistence.*;
 import lombok.*;

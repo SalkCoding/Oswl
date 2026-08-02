@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ApiKey;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.ApiKeyScope;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ApiKeyRepository;

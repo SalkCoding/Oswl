@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.org;
 
 import com.salkcoding.oswl.domain.enums.TeamMemberRole;
 import jakarta.persistence.*;

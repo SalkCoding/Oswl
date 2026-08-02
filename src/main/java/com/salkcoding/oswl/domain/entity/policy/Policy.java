@@ -1,5 +1,8 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.policy;
 
+import com.salkcoding.oswl.domain.entity.org.Organization;
+import com.salkcoding.oswl.domain.entity.org.Team;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.PolicyScopeType;
 import jakarta.persistence.*;
 import lombok.*;

@@ -1,5 +1,6 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.scan;
 
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.AiEnrichmentStatus;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import jakarta.persistence.*;

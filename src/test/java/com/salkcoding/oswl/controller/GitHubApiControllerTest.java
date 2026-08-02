@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.controller;
 
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.github.GitHubAccountDto;
 import com.salkcoding.oswl.dto.github.GitHubImportRequest;
 import com.salkcoding.oswl.dto.github.GitHubRepoDto;

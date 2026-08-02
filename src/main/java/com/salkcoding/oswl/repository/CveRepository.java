@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.Cve;
+import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

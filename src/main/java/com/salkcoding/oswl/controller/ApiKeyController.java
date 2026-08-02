@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.ApiKeyControllerSpec;
-import com.salkcoding.oswl.domain.entity.ApiKey;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.ApiKeyResponse;

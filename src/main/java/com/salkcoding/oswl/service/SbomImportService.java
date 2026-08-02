@@ -2,8 +2,8 @@ package com.salkcoding.oswl.service;
 
 import com.github.packageurl.PackageURL;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.dto.scan.ScanPayload.ComponentPayload;
 import com.salkcoding.oswl.exception.InvalidRequestException;

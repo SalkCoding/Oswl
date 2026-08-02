@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.web.interceptor;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ApiKey;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import com.salkcoding.oswl.domain.enums.ApiKeyScope;
 import com.salkcoding.oswl.security.ClientIpResolver;
 import com.salkcoding.oswl.service.ApiKeyService;

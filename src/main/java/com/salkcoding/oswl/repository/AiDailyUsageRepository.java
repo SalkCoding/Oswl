@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.AiDailyUsage;
+import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiUsageDailyTotalsDto;
 import com.salkcoding.oswl.dto.api.AiUsageSumsDto;

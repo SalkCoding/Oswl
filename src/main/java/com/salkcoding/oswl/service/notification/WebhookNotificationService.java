@@ -1,9 +1,9 @@
 package com.salkcoding.oswl.service.notification;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.CveAlert;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.WebhookSetting;
+import com.salkcoding.oswl.domain.entity.vulnerability.CveAlert;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.notification.WebhookSetting;
 import com.salkcoding.oswl.domain.enums.WebhookEventType;
 import com.salkcoding.oswl.dto.gate.GateResultDto;
 import com.salkcoding.oswl.service.WebhookSettingService;

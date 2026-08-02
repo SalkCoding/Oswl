@@ -1,6 +1,9 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.project;
 
 import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
+import com.salkcoding.oswl.domain.entity.org.Team;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import jakarta.persistence.*;
 import lombok.*;

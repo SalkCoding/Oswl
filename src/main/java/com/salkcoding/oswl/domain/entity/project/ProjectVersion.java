@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.project;
 
 import com.salkcoding.oswl.domain.enums.ImportSource;
 import jakarta.persistence.*;
