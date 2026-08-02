@@ -27,4 +27,14 @@ public class ProjectContextController implements ProjectContextControllerSpec {
         projectService.updateDeploymentProfile(projectId, request.deploymentProfile());
         return ResponseEntity.ok(Map.of("deploymentProfile", request.deploymentProfile().name()));
     }
+
+    @PatchMapping("/tags")
+    @PreAuthorize("hasPermission(null, 'PROJECT_UPDATE') or hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<Map<String, String>> updateTags(
+            @PathVariable Long projectId,
+            @RequestBody TagsRequest request) {
+        projectAccessService.assertCanViewProject(projectId);
+        projectService.updateTags(projectId, request.tags());
+        return ResponseEntity.ok(Map.of("tags", request.tags() != null ? request.tags() : ""));
+    }
 }

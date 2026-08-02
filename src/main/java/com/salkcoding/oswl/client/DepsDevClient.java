@@ -46,6 +46,20 @@ import java.util.function.Supplier;
 public class DepsDevClient {
 
     private static final String BASE_URL = "https://api.deps.dev";
+    /**
+     * The only systems deps.dev supports (per its public docs). Anything else — notably
+     * COMPOSER and CONAN, which deps.dev does not cover at all — is skipped before any
+     * HTTP call, so an unsupported ecosystem resolves as {@link #unresolved()} instead of
+     * flooding the logs with 404s.
+     */
+    public static final Set<String> SUPPORTED_SYSTEMS =
+            Set.of("GO", "RUBYGEMS", "NPM", "CARGO", "MAVEN", "PYPI", "NUGET");
+
+    /** True when deps.dev has a system for this ecosystem tag (case-insensitive). */
+    public static boolean isSupportedSystem(String ecosystem) {
+        return ecosystem != null
+                && SUPPORTED_SYSTEMS.contains(ecosystem.strip().toUpperCase(java.util.Locale.ROOT));
+    }
     /** Default max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
     private static final int DEFAULT_MAX_CONCURRENT_REQUESTS = 24;
     /** Base delay before the single retry after an HTTP 429 (doubles per attempt if more were allowed). */
@@ -337,6 +351,13 @@ public class DepsDevClient {
 
     private VersionInfo getVersion(ComponentKey key) {
         try {
+            if (!isSupportedSystem(key.ecosystem())) {
+                // Not a failure — deps.dev simply has no data for this ecosystem (e.g. COMPOSER,
+                // CONAN). Skip the call entirely instead of logging a 404 per component.
+                log.debug("[DepsDevClient] Skipping GetVersion {}:{} — ecosystem '{}' is not supported by deps.dev",
+                        key.name(), key.version(), key.ecosystem());
+                return unresolved();
+            }
             if (key.version() == null || key.version().isBlank()) {
                 log.debug("[DepsDevClient] Skipping GetVersion {}:{} — version is null/blank", key.name(), key.version());
                 return unresolved();

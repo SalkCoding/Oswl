@@ -177,6 +177,9 @@ public class SecurityCenterService {
                     .securityMedium(m)
                     .securityLow(l)
                     .securityUnscored(n)
+                    // fetchedAt stays null when the enrichment pipeline could not query this
+                    // library at all (unmapped ecosystem) — the UI must not read zero CVEs as "clean".
+                    .vulnerabilitiesAnalyzed(lib.getFetchedAt() != null)
                     .patchability(patchabilityLabel(lib.computePatchability()))
                     .licenseStatus(lib.getLicenseStatus().name())
                     .licenseName(lib.getLicenseName())

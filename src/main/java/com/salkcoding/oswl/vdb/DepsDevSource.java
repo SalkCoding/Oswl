@@ -56,18 +56,31 @@ final class DepsDevSource {
     record AdvisoryRecord(String ghsaId, String title, List<String> aliases,
                            Double cvss3Score, String cvss3Vector) {}
 
-    record Result(List<VersionRecord> versions, List<AdvisoryRecord> advisories, int failedVersionLookups) {}
+    record Result(List<VersionRecord> versions, List<AdvisoryRecord> advisories, int failedVersionLookups,
+                  Map<String, Integer> skippedUnsupportedSystems) {}
 
-    /** systems deps.dev actually supports; anything else in the wanted-list is silently skipped here. */
+    /**
+     * Systems deps.dev actually supports; anything else in the wanted-list is skipped here, and
+     * the skip is counted per system in {@link Result#skippedUnsupportedSystems()} so the reason
+     * ("deps.dev has no data for this system") can be recorded in the bundle's meta.json instead
+     * of the components silently missing from depsdev.jsonl.
+     */
     private static final Set<String> SUPPORTED = Set.of("MAVEN", "NPM", "PYPI", "GO", "NUGET", "CARGO", "RUBYGEMS");
 
     Result fetch(List<WantedComponent> wanted) {
-        List<WantedComponent> targets = wanted.stream()
-                .filter(w -> SUPPORTED.contains(w.ecosystem().toUpperCase(java.util.Locale.ROOT)))
-                .toList();
+        Map<String, Integer> skippedBySystem = new LinkedHashMap<>();
+        List<WantedComponent> targets = new ArrayList<>();
+        for (WantedComponent w : wanted) {
+            String system = w.ecosystem().toUpperCase(java.util.Locale.ROOT);
+            if (SUPPORTED.contains(system)) {
+                targets.add(w);
+            } else {
+                skippedBySystem.merge(system, 1, Integer::sum);
+            }
+        }
         System.err.println("[oswl-vdb] deps.dev: querying GetVersion for " + targets.size()
                 + " components (of " + wanted.size() + " wanted, " + (wanted.size() - targets.size())
-                + " on an unsupported deps.dev system)");
+                + " on an unsupported deps.dev system" + (skippedBySystem.isEmpty() ? "" : ": " + skippedBySystem) + ")");
 
         ExecutorService pool = Executors.newFixedThreadPool(CONCURRENCY);
         List<Future<VersionRecord>> futures = new ArrayList<>(targets.size());
@@ -105,7 +118,7 @@ final class DepsDevSource {
                     // one bad advisory id must not fail the whole build
                 }
             }
-            return new Result(versions, advisories, failed);
+            return new Result(versions, advisories, failed, skippedBySystem);
         } finally {
             pool.shutdown();
         }

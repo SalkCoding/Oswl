@@ -25,7 +25,13 @@ import java.util.UUID;
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_projects_github_repo",
                 columnNames = {"github_repo"}
-        ))
+        ),
+        indexes = {
+                // Project list, trash, and auto-cleanup queries all filter on deleted_at.
+                @Index(name = "idx_projects_deleted_at", columnList = "deleted_at"),
+                // Team-scoped listing + team detail view.
+                @Index(name = "idx_projects_team_id", columnList = "team_id")
+        })  
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder
@@ -85,6 +91,19 @@ public class Project {
     @Column(name = "deployment_profile", length = 40)
     private DeploymentProfile deploymentProfile;
 
+    /**
+     * The team that owns this project. Membership of this team grants access to the project
+     * (combined with direct {@link ProjectMember} rows by OR in {@code ProjectAccessService}).
+     * Existing projects are folded into the "Default" team by the schema migration.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private Team team;
+
+    /** Free-form comma-separated labels for filtering on the project list (e.g. "backend,pci"). */
+    @Column(name = "tags", length = 500)
+    private String tags;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -138,5 +157,31 @@ public class Project {
 
     public void updateDeploymentProfile(DeploymentProfile profile) {
         this.deploymentProfile = profile;
+    }
+
+    public void assignTeam(Team team) {
+        this.team = team;
+    }
+
+    public void updateTags(String tags) {
+        this.tags = tags;
+    }
+
+    /**
+     * Tags as a normalized list (trimmed, blanks dropped) for display and filtering.
+     * The raw comma-separated form stays in {@link #tags}.
+     */
+    public List<String> tagList() {
+        if (tags == null || tags.isBlank()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (String tag : tags.split(",")) {
+            String trimmed = tag.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return result;
     }
 }

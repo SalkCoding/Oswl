@@ -352,7 +352,9 @@
                         <div class="comp-dep" th:if="${comp.dependencyInfo != null}" th:text="${comp.dependencyInfo}">Direct (1)</div>
                     </td>
                     <td>
-                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0}" class="cve-none">—</span>
+                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and comp.vulnerabilitiesAnalyzed}" class="cve-none">—</span>
+                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and !comp.vulnerabilitiesAnalyzed}"
+                              class="cve-none" th:title="#{securityCenter.table.notAnalyzedTooltip}" th:text="#{securityCenter.table.notAnalyzed}">Not analyzed</span>
                         <div class="cve-badges" th:unless="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0}">
                             <span class="cve-badge c" th:if="${comp.securityCritical > 0}" th:text="${comp.securityCritical}"></span>
                             <span class="cve-badge h" th:if="${comp.securityHigh > 0}"     th:text="${comp.securityHigh}"></span>

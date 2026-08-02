@@ -7,6 +7,7 @@ import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
 import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.repository.ProjectMemberRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -14,11 +15,22 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Project-scoped access control. System administrators bypass membership checks.
- * All other users must be listed in {@code project_members} for the target project.
+ * Single entry point for project-scoped access control.
+ *
+ * Resolution order (first match wins, all grants are OR-ed):
+ * <ol>
+ *   <li>SYSTEM_ADMIN — bypasses every membership check.</li>
+ *   <li>Team role — the user is a {@code team_members} row of the team that owns the project.</li>
+ *   <li>Project membership — the user has a direct {@code project_members} row.</li>
+ * </ol>
+ * Team grants and direct project memberships are additive, so pre-hierarchy
+ * {@code project_members} rows keep granting exactly the same access as before.
  */
 @Slf4j
 @Service
@@ -27,6 +39,7 @@ public class ProjectAccessService {
 
     private final ProjectMemberRepository projectMemberRepository;
     private final ProjectRepository projectRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     @Transactional(readOnly = true)
     public boolean canViewProject(Long projectId) {
@@ -37,7 +50,15 @@ public class ProjectAccessService {
         if (principal.isSystemAdmin()) {
             return true;
         }
-        return projectMemberRepository.existsByProjectIdAndUserId(projectId, principal.getUserId());
+        return hasProjectAccess(projectId, principal.getUserId());
+    }
+
+    /** Team grant OR direct project membership for the given user. */
+    private boolean hasProjectAccess(Long projectId, Long userId) {
+        if (teamMemberRepository.existsTeamGrantForProject(projectId, userId)) {
+            return true;
+        }
+        return projectMemberRepository.existsByProjectIdAndUserId(projectId, userId);
     }
 
     @Transactional(readOnly = true)
@@ -58,7 +79,7 @@ public class ProjectAccessService {
         if (current != null && current.isSystemAdmin()) {
             return;
         }
-        if (!projectMemberRepository.existsByProjectIdAndUserId(projectId, userId)) {
+        if (!hasProjectAccess(projectId, userId)) {
             log.warn("[ProjectACL] Denied scan submit projectId={} userId={}", projectId, userId);
             throw new ForbiddenException("You do not have access to submit scans for this project.");
         }
@@ -75,7 +96,11 @@ public class ProjectAccessService {
                     .map(Project::getId)
                     .toList();
         }
-        return projectMemberRepository.findProjectIdsByUserId(principal.getUserId());
+        // Direct project memberships ∪ projects owned by any team the user belongs to.
+        Set<Long> ids = new LinkedHashSet<>(
+                projectMemberRepository.findProjectIdsByUserId(principal.getUserId()));
+        ids.addAll(projectRepository.findProjectIdsByTeamMembership(principal.getUserId()));
+        return new ArrayList<>(ids);
     }
 
     @Transactional

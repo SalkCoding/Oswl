@@ -14,7 +14,15 @@ import java.util.List;
  * Tracks CLI version, scan time, and status (PENDING → COMPLETED, etc.).
  */
 @Entity
-@Table(name = "scan_results")
+@Table(name = "scan_results", indexes = {
+        // History/trend queries: ScanResultRepository.findCompletedByProjectId, findRecentCompleted
+        @Index(name = "idx_scan_results_project_status_scanned", columnList = "project_id, status, scanned_at"),
+        // Status polling banner + scan history page: findLatestByProjectId, findAllByProjectIdOrderByScannedAtDesc
+        // (the composite above cannot serve project_id-only scans ordered by scanned_at across mixed statuses)
+        @Index(name = "idx_scan_results_project_scanned", columnList = "project_id, scanned_at"),
+        // AI insight backfill: findTop15ByStatusOrderByScannedAtDesc
+        @Index(name = "idx_scan_results_status_scanned", columnList = "status, scanned_at")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Builder

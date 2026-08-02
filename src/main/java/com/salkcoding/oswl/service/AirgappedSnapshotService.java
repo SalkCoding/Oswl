@@ -195,6 +195,8 @@ public class AirgappedSnapshotService {
             case "crates.io", "cargo" -> "CARGO";
             case "nuget"             -> "NUGET";
             case "rubygems"          -> "RUBYGEMS";
+            case "packagist", "composer"   -> "COMPOSER";
+            case "conancenter", "conan"    -> "CONAN";
             default                  -> ecosystem.strip().toUpperCase(Locale.ROOT);
         };
     }

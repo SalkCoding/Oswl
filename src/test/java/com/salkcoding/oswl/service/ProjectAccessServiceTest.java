@@ -5,6 +5,7 @@ import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.repository.ProjectMemberRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.TeamMemberRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ class ProjectAccessServiceTest {
 
     @Mock ProjectMemberRepository projectMemberRepository;
     @Mock ProjectRepository projectRepository;
+    @Mock TeamMemberRepository teamMemberRepository;
 
     @InjectMocks ProjectAccessService projectAccessService;
 

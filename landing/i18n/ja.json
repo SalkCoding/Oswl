@@ -42,7 +42,7 @@
     "riskTag": "バージョン間の差分",
     "transitiveTitle": "推移的依存関係の探索",
     "transitiveDesc": "依存グラフの奥に潜む脆弱性を発見します。DependencyPath 解析により、対応するすべてのマニフェストで直接・推移的な影響範囲を追跡します。",
-    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer · Conan",
+    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer (+ Conan インベントリのみ)"
     "gitTitle": "Git ネイティブなリポジトリ連携",
     "gitDesc": "Personal Access Token で GitHub、GitLab、Bitbucket に接続します。Quick Import は大量インポートをキューイングし進行中のジョブをキャンセルでき、ブランチ単位のインポート、バージョンごとのスナップショット、プロジェクト別スキャン履歴を標準で備えています。",
     "gitTag": "GitHub · GitLab · Bitbucket",

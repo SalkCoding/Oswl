@@ -44,7 +44,10 @@ public enum Permission {
     AUDIT_LOG_VIEW("View Audit Log"),
     AUDIT_LOG_EXPORT("Export Audit Log (SIEM)"),
     SETTINGS_JIRA_MANAGE("Manage Jira Integration"),
-    SETTINGS_SNAPSHOT_MANAGE("Manage Offline Snapshot Bundles");
+    SETTINGS_SNAPSHOT_MANAGE("Manage Offline Snapshot Bundles"),
+
+    // ── Organization structure — team hierarchy and membership management ──
+    TEAM_MANAGE("Manage Teams");
 
     private final String description;
 }

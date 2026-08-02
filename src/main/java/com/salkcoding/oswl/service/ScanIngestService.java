@@ -198,6 +198,22 @@ public class ScanIngestService {
                 resolved.put(new LibraryKey(library.getName(), library.getVersion(), library.getEcosystem()), library);
             }
         }
+
+        // Manifest-declared licenses (composer.lock's license field): deps.dev does not cover
+        // these ecosystems, so without this the license column would stay empty forever.
+        // Never overwrite a license deps.dev already supplied — only fill blank ones.
+        for (Map.Entry<LibraryKey, ScanPayload.ComponentPayload> e : distinctByKey.entrySet()) {
+            List<String> manifestLicenses = e.getValue().getLicenses();
+            if (manifestLicenses == null || manifestLicenses.isEmpty()) {
+                continue;
+            }
+            Library library = resolved.get(e.getKey());
+            if (library == null || (library.getLicenseName() != null && !library.getLicenseName().isBlank())) {
+                continue;
+            }
+            library.updateLicense(String.join(" AND ", manifestLicenses), manifestLicenses, LicenseStatus.UNKNOWN);
+            libraryRepository.save(library);
+        }
         return resolved;
     }
 

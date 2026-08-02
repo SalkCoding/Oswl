@@ -37,6 +37,7 @@ public class ProjectService {
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
     private final CveAlertRepository cveAlertRepository;
+    private final TeamService teamService;
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> findAll() {
@@ -91,6 +92,7 @@ public class ProjectService {
         Project project = Project.builder()
                 .name(name)
                 .createdByUserId(creatorId)
+                .team(teamService.findDefaultTeam())
                 .build();
         Project saved = projectRepository.save(project);
         if (creatorId != null) {
@@ -121,7 +123,8 @@ public class ProjectService {
         boolean isNewProject = projectRepository.findByGithubRepo(repoKey).isEmpty();
         Project project = projectRepository.findByGithubRepo(repoKey)
                 .orElseGet(() -> projectRepository.save(
-                        Project.builder().name(repoKey).createdByUserId(createdByUserId).build()
+                        Project.builder().name(repoKey).createdByUserId(createdByUserId)
+                                .team(teamService.findDefaultTeam()).build()
                 ));
 
         // 2. Create branch-level version row on first import of this branch
@@ -245,6 +248,10 @@ public class ProjectService {
                 ? project.getImportedAt().format(IMPORT_FMT)
                 : null;
 
+        Long teamId = project.getTeam() != null ? project.getTeam().getId() : null;
+        String teamName = project.getTeam() != null ? project.getTeam().getName() : null;
+        java.util.List<String> tags = project.tagList();
+
         // Build the display string: "owner/repo#latestBranch" when available
         String githubDisplayRepo = project.getGithubRepo() != null
                 ? project.getGithubRepo()
@@ -271,6 +278,9 @@ public class ProjectService {
                     .projectUuid(project.getProjectUuid())
                     .scanStatus(null)
                     .newCveAlerts(newCveAlerts)
+                    .teamId(teamId)
+                    .teamName(teamName)
+                    .tags(tags)
                     .build();
         }
 
@@ -299,6 +309,9 @@ public class ProjectService {
                     .projectUuid(project.getProjectUuid())
                     .scanStatus(status.name())
                     .newCveAlerts(newCveAlerts)
+                    .teamId(teamId)
+                    .teamName(teamName)
+                    .tags(tags)
                     .build();
         }
 
@@ -315,6 +328,9 @@ public class ProjectService {
                 .projectUuid(project.getProjectUuid())
                 .scanStatus(status.name())
                 .newCveAlerts(newCveAlerts)
+                .teamId(teamId)
+                .teamName(teamName)
+                .tags(tags)
                 .build();
     }
 
@@ -357,6 +373,27 @@ public class ProjectService {
         projectRepository.save(project);
         auditLogService.log("PROJECT.DEPLOYMENT_PROFILE", "PROJECT",
                 String.valueOf(projectId), project.getName(), profile.name());
+    }
+
+    /**
+     * Replaces the project's free-form tag labels (comma-separated, max 500 chars stored).
+     * Tags are display/filter metadata only — they do not affect access control.
+     */
+    @Transactional
+    public void updateTags(Long projectId, String tags) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        String normalized = tags == null ? null : tags.trim();
+        if (normalized != null && normalized.isEmpty()) {
+            normalized = null;
+        }
+        if (normalized != null && normalized.length() > 500) {
+            throw new IllegalArgumentException("Tags must not exceed 500 characters.");
+        }
+        project.updateTags(normalized);
+        projectRepository.save(project);
+        auditLogService.log("PROJECT.TAGS_UPDATE", "PROJECT",
+                String.valueOf(projectId), project.getName(), normalized);
     }
 
     private static final DateTimeFormatter DELETED_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd");
