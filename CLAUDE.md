@@ -92,6 +92,7 @@ OsWL is an in-house SCA (Software Composition Analysis) platform for tracking an
 - **Dependencies:** Add to `build.gradle` (backend) or use CDN/webjars (frontend).
 - **Error pages:** `error/{401,403,404,500,503}.html` — use `_owl-error.html` fragment (shared owl illustration).
 - **Log tone:** Business events → INFO/WARN/ERROR; details → `log.debug`.
+- **Commit messages:** Conventional-commit type prefix only — `feat:`, `fix:`, `docs:`, `chore:`, etc. **No parenthetical scope** (`fix(security):`, `docs(readme):`). Put the scope in the description text itself instead (e.g. `fix: harden PolicyService YAML import and GitOps clone`, not `fix(security): harden PolicyService...`).
 - **No internal tracking codes in comments/docs:** Never leave internal planning labels — roadmap/sprint/ticket-style codes like `S1`, `B7`, `A2`, `roadmap #13`, `H2/H3`, `E5.2`, `week 7` — in code comments, commit-adjacent doc prose, or `docs/*.md`. They mean nothing to a reader without the planning doc that produced them, and that doc isn't part of the shipped project. Explain the *reason* for the code in plain language instead. Real version numbers (e.g. `v1.0.4`, "added in v1.0.4") are fine to keep — they're meaningful on their own once released. (Internal planning docs like a working `ROADMAP.md` are themselves exempt — this rule is about what leaks out of them into permanent files.)
 
 ## Test Code Policy

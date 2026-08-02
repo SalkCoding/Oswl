@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ProjectVersion;
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.project.ProjectVersion;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.dto.ScanHistoryRowDto;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.ProjectVersionRepository;

@@ -2,7 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.controller.spec.ScanControllerSpec;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.dto.api.PingResponse;

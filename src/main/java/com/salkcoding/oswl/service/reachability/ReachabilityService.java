@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.reachability;
 
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ScanComponent;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.enums.Reachability;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

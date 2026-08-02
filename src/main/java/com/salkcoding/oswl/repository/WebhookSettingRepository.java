@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.WebhookSetting;
+import com.salkcoding.oswl.domain.entity.notification.WebhookSetting;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

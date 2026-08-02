@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.Team;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.org.Team;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

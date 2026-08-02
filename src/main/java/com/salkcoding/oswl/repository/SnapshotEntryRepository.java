@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.SnapshotEntry;
+import com.salkcoding.oswl.domain.entity.snapshot.SnapshotEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

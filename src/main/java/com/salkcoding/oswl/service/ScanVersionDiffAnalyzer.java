@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.ScanComponent;
+import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.dto.VersionDiffRowDto;
 import com.salkcoding.oswl.dto.VersionDiffRowDto.ChangeType;

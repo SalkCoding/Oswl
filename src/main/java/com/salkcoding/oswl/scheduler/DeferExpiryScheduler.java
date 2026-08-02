@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.scheduler;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ScanComponent;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.repository.ScanComponentRepository;
 import com.salkcoding.oswl.service.notification.WebhookNotificationService;
 import lombok.RequiredArgsConstructor;

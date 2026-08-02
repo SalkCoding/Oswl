@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ApiKey;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.api.AdminCliKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.GlobalApiKeyResponse;

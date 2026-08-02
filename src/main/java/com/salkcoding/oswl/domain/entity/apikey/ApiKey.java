@@ -1,5 +1,6 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.apikey;
 
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.ApiKeyScope;
 import jakarta.persistence.*;
 import lombok.*;

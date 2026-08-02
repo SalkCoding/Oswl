@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.Library;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

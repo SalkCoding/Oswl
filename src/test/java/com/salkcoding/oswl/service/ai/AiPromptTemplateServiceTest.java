@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
 import com.salkcoding.oswl.repository.AiPreferencesRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

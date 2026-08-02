@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;

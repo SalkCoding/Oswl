@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.scheduler;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.PolicyException;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.policy.PolicyException;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionStatus;
 import com.salkcoding.oswl.repository.PolicyExceptionRepository;
 import com.salkcoding.oswl.service.notification.WebhookNotificationService;

@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.ai;
 
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import jakarta.persistence.*;

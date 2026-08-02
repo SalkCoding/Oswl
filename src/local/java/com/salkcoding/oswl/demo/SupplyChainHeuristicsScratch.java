@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.demo;
 
-import com.salkcoding.oswl.domain.entity.Library;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.service.SupplyChainHeuristicsService;
 
 import java.util.ArrayList;

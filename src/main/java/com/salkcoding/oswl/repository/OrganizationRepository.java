@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.Organization;
+import com.salkcoding.oswl.domain.entity.org.Organization;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

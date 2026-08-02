@@ -2,7 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.repository.AiSettingRepository;

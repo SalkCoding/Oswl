@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.ApiKey;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 
 /**
  * Result of issuing a CLI API key — plain token is available only in this object.

@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiDailyUsage;
-import com.salkcoding.oswl.domain.entity.AiUsageEvent;
+import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
+import com.salkcoding.oswl.domain.entity.ai.AiUsageEvent;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.repository.AiDailyUsageRepository;
 import com.salkcoding.oswl.repository.AiUsageEventRepository;

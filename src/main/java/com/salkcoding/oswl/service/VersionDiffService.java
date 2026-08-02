@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.dto.VersionDiffRowDto;
 import com.salkcoding.oswl.dto.VersionSummaryDto;
 import com.salkcoding.oswl.repository.ProjectRepository;

@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.PolicyException;
+import com.salkcoding.oswl.domain.entity.policy.PolicyException;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

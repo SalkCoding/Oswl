@@ -1,11 +1,11 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.Cve;
-import com.salkcoding.oswl.domain.entity.Library;
-import com.salkcoding.oswl.domain.entity.PolicyException;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ScanComponent;
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
+import com.salkcoding.oswl.domain.entity.policy.PolicyException;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionTargetType;
 import com.salkcoding.oswl.domain.enums.Reachability;

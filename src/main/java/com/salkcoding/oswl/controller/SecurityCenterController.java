@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.SecurityCenterControllerSpec;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.dto.ComplianceReportDto;
 import com.salkcoding.oswl.dto.CreatePrRequest;

@@ -5,7 +5,7 @@ import com.salkcoding.oswl.controller.spec.ComponentDetailControllerSpec;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.CveDto;
 import com.salkcoding.oswl.dto.DeferralRequest;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.service.ComponentDetailService;
 import com.salkcoding.oswl.service.ProjectAccessService;

@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
 import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.RiskLevel;

@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.domain.entity.ApiKey;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.exception.ConflictException;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
 import org.junit.jupiter.api.DisplayName;

@@ -83,6 +83,7 @@ OsWL is an in-house SCA (Software Composition Analysis) platform for tracking an
 - **Dependencies:** Add to `build.gradle` (backend) or use CDN/webjars (frontend).
 - **Error pages:** `error/{401,403,404,500,503}.html` — use `_owl-error.html` fragment (shared owl illustration).
 - **Log tone:** Business events → INFO/WARN/ERROR; details → `log.debug`.
+- **Commit messages:** Conventional-commit type prefix only — `feat:`, `fix:`, `docs:`, `chore:`, etc. **No parenthetical scope** (`fix(security):`, `docs(readme):`). Put the scope in the description text itself instead (e.g. `fix: harden PolicyService YAML import and GitOps clone`, not `fix(security): harden PolicyService...`).
 
 ## Test Code Policy
 

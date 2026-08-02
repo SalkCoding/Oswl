@@ -1,5 +1,6 @@
-package com.salkcoding.oswl.domain.entity;
+package com.salkcoding.oswl.domain.entity.policy;
 
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionStatus;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionTargetType;
 import jakarta.persistence.*;

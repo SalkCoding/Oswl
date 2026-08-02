@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.WebhookSettingControllerSpec;
-import com.salkcoding.oswl.domain.entity.WebhookDelivery;
-import com.salkcoding.oswl.domain.entity.WebhookSetting;
+import com.salkcoding.oswl.domain.entity.notification.WebhookDelivery;
+import com.salkcoding.oswl.domain.entity.notification.WebhookSetting;
 import com.salkcoding.oswl.domain.enums.WebhookDeliveryStatus;
 import com.salkcoding.oswl.domain.enums.WebhookEventType;
 import com.salkcoding.oswl.dto.api.WebhookDeliveryDto;
