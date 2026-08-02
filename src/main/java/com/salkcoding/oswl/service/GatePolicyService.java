@@ -128,6 +128,7 @@ public class GatePolicyService {
                 : List.of();
         Set<String> baselineVulnKeys = collectVulnKeys(baselineComponents);
         Set<String> baselineLicenseKeys = collectLicenseViolationKeys(baselineComponents);
+        Set<String> baselineMaliciousKeys = collectMaliciousKeys(baselineComponents);
 
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
 
@@ -140,6 +141,19 @@ public class GatePolicyService {
             if (sc.isDeferred() || sc.isIgnored()) continue;
             Library lib = sc.getLibrary();
             String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
+
+            // Confirmed-malicious packages (OSV MAL- advisories, ROADMAP A6) block unconditionally —
+            // severity/KEV/EPSS thresholds and onlyNew/onlyReachable do not apply. The only release
+            // valve is an approved policy exception (waiver).
+            if (lib.isMalicious()
+                    && !isWaived(activeExceptions, PolicyExceptionTargetType.MALICIOUS, null, coord)) {
+                boolean isNew = !baselineMaliciousKeys.contains(coord + "|MALICIOUS");
+                evaluated++;
+                if (isNew) newVulnCount++;
+                violations.add(new Violation(
+                        "MALICIOUS", lib.getName(), coord, "CRITICAL", null, false,
+                        "package confirmed malicious (OSV MAL- advisory)", isNew));
+            }
 
             // "Only reachable" is a noise-cut for CVE findings only (license violations don't
             // depend on whether vulnerable code is called). Components never analyzed for
@@ -241,9 +255,22 @@ public class GatePolicyService {
         return keys;
     }
 
+    private Set<String> collectMaliciousKeys(List<ScanComponent> components) {
+        Set<String> keys = new HashSet<>();
+        for (ScanComponent sc : components) {
+            Library lib = sc.getLibrary();
+            if (lib.isMalicious()) {
+                String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
+                keys.add(coord + "|MALICIOUS");
+            }
+        }
+        return keys;
+    }
+
     // ── Formatting ───────────────────────────────────────────────────────
 
     private static int violationRank(Violation v) {
+        if ("MALICIOUS".equals(v.type())) return -1;
         if ("LICENSE".equals(v.type())) return 5;
         return switch (v.severity()) {
             case "CRITICAL" -> 0;
@@ -260,9 +287,11 @@ public class GatePolicyService {
                     ? "Security gate passed — no new blocking vulnerabilities or license violations."
                     : "Security gate passed — no blocking vulnerabilities or license violations.";
         }
+        long mal = violations.stream().filter(v -> "MALICIOUS".equals(v.type())).count();
         long cve = violations.stream().filter(v -> "CVE".equals(v.type())).count();
         long lic = violations.stream().filter(v -> "LICENSE".equals(v.type())).count();
-        return "Security gate failed — " + cve + " vulnerability finding(s) and "
+        String malPart = mal > 0 ? mal + " confirmed-malicious package(s), " : "";
+        return "Security gate failed — " + malPart + cve + " vulnerability finding(s) and "
                 + lic + " license violation(s) breach the policy.";
     }
 

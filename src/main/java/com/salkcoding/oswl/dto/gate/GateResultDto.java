@@ -36,7 +36,7 @@ public record GateResultDto(
 
     /** One reason the gate would fail (or a notable finding when the gate passes). */
     public record Violation(
-            String type,          // CVE | LICENSE
+            String type,          // CVE | LICENSE | MALICIOUS
             String id,            // CVE/GHSA id, or license name
             String component,     // name@version
             String severity,      // CVE severity or LICENSE status

@@ -256,6 +256,8 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 
 `onlyNew` は直前の完了スキャンをベースラインとして比較するため、既存の技術的負債がマージを妨げることはありません。`onlyReachable`(**v1.0.5**)はさらに、バイトコード呼び出しグラフ解析で脆弱なライブラリが実際に参照されていることが確認された場合のみブロックする追加のノイズ削減オプションです。`oswl.reachability.bytecode-root` が設定された Java/Gradle コンポーネントにのみ適用され、それ以外はすべて UNKNOWN のままこのオプションではブロックされないため、Java プロジェクトでない限り無効のままにしてください。リクエストに GitHub の対象を指定すると、判定結果は Check Run と PR コメントとしても投稿されます。
 
+確定的に悪性と判定されたパッケージ(OSV `MAL-` アドバイザリ)は、上記のすべてのしきい値および `onlyNew`/`onlyReachable` に関係なく常にブロックされます — 解除する唯一の方法は承認済みのポリシー例外(waiver、**v1.0.5**、`/api/policies/exceptions` 参照)です。
+
 ---
 
 ## GitHub Actions の例

@@ -242,6 +242,8 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 
 `onlyNew`는 직전 완료 스캔을 베이스라인으로 비교하므로 기존 부채가 머지를 막지 않습니다. `onlyReachable`(**v1.0.5**)은 여기에 더해 바이트코드 호출 그래프 분석으로 취약 라이브러리가 실제로 참조되는 것이 확인된 경우에만 차단하도록 하는 추가 노이즈 컷입니다. `oswl.reachability.bytecode-root`가 설정된 Java/Gradle 컴포넌트에만 적용되며, 그 외에는 전부 UNKNOWN으로 남아 이 옵션으로는 절대 차단되지 않으므로 Java 프로젝트가 아니라면 꺼둘 것을 권장합니다. 요청에 GitHub 대상을 포함하면 판정이 Check Run과 PR 코멘트로도 게시됩니다.
 
+확정 악성 패키지(OSV `MAL-` 어드바이저리)는 위의 모든 임계값 및 `onlyNew`/`onlyReachable`과 무관하게 항상 차단됩니다 — 유일한 해제 방법은 승인된 정책 예외(waiver, **v1.0.5**, `/api/policies/exceptions` 참고)뿐입니다.
+
 ---
 
 ## GitHub Actions 예시
