@@ -13,6 +13,7 @@ import com.salkcoding.oswl.domain.entity.DependencyPath;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
+import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.CreatePrRequest;
 import com.salkcoding.oswl.dto.CveDto;
@@ -30,6 +31,8 @@ import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiStructuredSummary;
 import com.salkcoding.oswl.service.ai.AiLanguageContext;
 import com.salkcoding.oswl.service.ai.AiUsageContext;
+import com.salkcoding.oswl.service.cvss.CvssV3Calculator;
+import com.salkcoding.oswl.service.cvss.EnvironmentalRequirementMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
@@ -148,6 +151,8 @@ public class ComponentDetailService {
                 .epssScore(cve.getEpssScore())
                 .kevListed(cve.getKevListed())
                 .cveDbId(cve.getId())
+                .environmentalScore(computeEnvironmentalScore(
+                        cve.getCvss3Vector(), project.getDeploymentProfile(), sc.isRuntimeScope()))
                 .build();
     }
 
@@ -278,9 +283,26 @@ public class ComponentDetailService {
                         .epssScore(c.getEpssScore())
                         .kevListed(c.getKevListed())
                         .cveDbId(c.getId())
+                        .environmentalScore(computeEnvironmentalScore(
+                                c.getCvss3Vector(), project.getDeploymentProfile(), sc.isRuntimeScope()))
                         .build())
                 .collect(Collectors.toList());
         model.addAttribute("cves", cveDtos);
+    }
+
+    /**
+     * CVSS v3.0/v3.1 Environmental score for one CVE (ROADMAP A5) — {@code null} when the CVE
+     * has no CVSS v3 vector (e.g. CVSS v4.0, or no CVSS data at all; see {@link CvssV3Calculator}
+     * for why v4.0 isn't scored).
+     */
+    private Double computeEnvironmentalScore(String cvss3Vector, DeploymentProfile deploymentProfile,
+                                             boolean runtimeScope) {
+        if (cvss3Vector == null || cvss3Vector.isBlank()) {
+            return null;
+        }
+        var req = EnvironmentalRequirementMapper.resolve(deploymentProfile, runtimeScope);
+        return CvssV3Calculator.environmentalScore(
+                cvss3Vector, req.confidentiality(), req.integrity(), req.availability());
     }
 
     private String patchabilityLabel(com.salkcoding.oswl.domain.enums.Patchability p) {
