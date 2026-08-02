@@ -357,6 +357,16 @@ public class DependencyManifestParserService {
             report.accept(List.of(cmake));
         }
 
+        // ── Container: explicitly version-pinned OS packages in Dockerfile ──────
+        for (Path dockerfile : indexByNames(index, "Dockerfile")) {
+            List<ScanPayload.ComponentPayload> osComps = parseDockerfile(dockerfile, repoName);
+            if (osComps != null && !osComps.isEmpty()) {
+                if (!ecosystems.contains("OS_PACKAGE")) ecosystems.add("OS_PACKAGE");
+                mergeComponents(allComps, seen, osComps, "OS_PACKAGE");
+            }
+            report.accept(List.of(dockerfile));
+        }
+
         if (allComps.isEmpty()) {
             log.warn("[DependencyParser] No recognized manifests in '{}' — empty component list.", repoName);
             return new ParseResult("UNKNOWN", List.of());
@@ -2107,6 +2117,21 @@ public class DependencyManifestParserService {
             if (seen.add(name + ":" + version)) {
                 comps.add(buildComponent(name, version, "VENDORED"));
             }
+        }
+    }
+
+    /**
+     * ROADMAP A3: OS-package inventory from a Dockerfile's base image + explicitly
+     * version-pinned {@code apt-get install}/{@code apk add} packages.
+     * See {@link com.salkcoding.oswl.service.container.DockerfileParser} for scope.
+     */
+    private List<ScanPayload.ComponentPayload> parseDockerfile(Path dockerfile, String repoName) {
+        try {
+            String content = Files.readString(dockerfile, StandardCharsets.UTF_8);
+            return new com.salkcoding.oswl.service.container.DockerfileParser().parse(content, repoName);
+        } catch (Exception e) {
+            log.warn("[DependencyParser][Dockerfile] Failed to parse Dockerfile for '{}': {}", repoName, e.getMessage());
+            return null;
         }
     }
 
