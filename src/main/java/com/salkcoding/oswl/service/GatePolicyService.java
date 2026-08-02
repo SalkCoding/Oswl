@@ -2,10 +2,12 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.Library;
+import com.salkcoding.oswl.domain.entity.PolicyException;
 import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.domain.enums.PolicyExceptionTargetType;
 import com.salkcoding.oswl.domain.enums.Reachability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.dto.gate.GateResultDto;
@@ -34,9 +36,11 @@ import java.util.Set;
  * Reuses the existing enrichment data (severity, KEV, EPSS, license policy status) and
  * the previous completed scan as the baseline for "new vulnerability" detection — no new
  * scanning or persistence. Deferred/ignored components are treated as accepted exceptions
- * and never fail the gate.
+ * and never fail the gate, and so are findings covered by an approved, unexpired
+ * {@link PolicyException} (ROADMAP A7).
  *
- * Thresholds come from {@code oswl.gate.*} and can be overridden per request.
+ * Threshold resolution order is request override → {@link PolicyService} org/team/project
+ * policy hierarchy → {@code oswl.gate.*} instance defaults.
  */
 @Slf4j
 @Service
@@ -47,6 +51,7 @@ public class GatePolicyService {
     private final ScanResultRepository scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
     private final LibraryRepository libraryRepository;
+    private final PolicyService policyService;
 
     @Value("${oswl.gate.fail-on-severity:HIGH}")
     private String defaultFailOnSeverity;
@@ -80,14 +85,21 @@ public class GatePolicyService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        RiskLevel failOnSeverity = parseSeverity(
-                options.failOnSeverity() != null ? options.failOnSeverity() : defaultFailOnSeverity);
-        boolean failOnKev = options.failOnKev() != null ? options.failOnKev() : defaultFailOnKev;
-        double failOnEpss = options.failOnEpss() != null ? options.failOnEpss() : defaultFailOnEpss;
-        boolean failOnLicense = options.failOnLicenseViolation() != null
-                ? options.failOnLicenseViolation() : defaultFailOnLicenseViolation;
-        boolean onlyNew = options.onlyNew() != null ? options.onlyNew() : defaultOnlyNew;
-        boolean onlyReachable = options.onlyReachable() != null ? options.onlyReachable() : defaultOnlyReachable;
+        // Tier 2 of the resolution order — org/team/project policy hierarchy (ROADMAP A7).
+        // Fields the hierarchy leaves null (no policy row, or policy exists but doesn't set
+        // that field) fall through to the oswl.gate.* instance defaults below.
+        GateOptions policyOptions = policyService.resolveGateOptions(projectId);
+
+        RiskLevel failOnSeverity = parseSeverity(firstNonNull(
+                options.failOnSeverity(), policyOptions.failOnSeverity(), defaultFailOnSeverity));
+        boolean failOnKev = firstNonNull(options.failOnKev(), policyOptions.failOnKev(), defaultFailOnKev);
+        double failOnEpss = firstNonNull(options.failOnEpss(), policyOptions.failOnEpss(), defaultFailOnEpss);
+        boolean failOnLicense = firstNonNull(options.failOnLicenseViolation(),
+                policyOptions.failOnLicenseViolation(), defaultFailOnLicenseViolation);
+        boolean onlyNew = firstNonNull(options.onlyNew(), policyOptions.onlyNew(), defaultOnlyNew);
+        boolean onlyReachable = firstNonNull(options.onlyReachable(), policyOptions.onlyReachable(), defaultOnlyReachable);
+
+        List<PolicyException> activeExceptions = policyService.findActiveExceptions(projectId);
 
         Thresholds thresholds = new Thresholds(
                 failOnSeverity.name(), failOnKev, failOnEpss >= 0 ? failOnEpss : null, failOnLicense);
@@ -142,6 +154,7 @@ public class GatePolicyService {
                     if (vulnId == null) continue;
                     boolean isNew = !baselineVulnKeys.contains(coord + "|" + vulnId);
                     if (onlyNew && !isNew) continue;
+                    if (isWaived(activeExceptions, PolicyExceptionTargetType.CVE, vulnId, coord)) continue;
                     evaluated++;
                     if (isNew) newVulnCount++;
 
@@ -166,7 +179,8 @@ public class GatePolicyService {
             if (failOnLicense && lib.getLicenseStatus() == LicenseStatus.RESTRICTED) {
                 String licKey = coord + "|LICENSE";
                 boolean isNew = !baselineLicenseKeys.contains(licKey);
-                if (!onlyNew || isNew) {
+                boolean waived = isWaived(activeExceptions, PolicyExceptionTargetType.LICENSE, null, coord);
+                if ((!onlyNew || isNew) && !waived) {
                     evaluated++;
                     if (isNew) newVulnCount++;
                     violations.add(new Violation(
@@ -295,5 +309,40 @@ public class GatePolicyService {
         } catch (Exception e) {
             return RiskLevel.HIGH;
         }
+    }
+
+    // ── Waivers (ROADMAP A7) ────────────────────────────────────────────
+
+    /**
+     * True when an active, approved exception covers this finding: an {@code ALL}-scoped
+     * exception matches every finding on its target project; a {@code CVE}/{@code LICENSE}
+     * exception matches only that finding type. A {@code componentCoordinate} narrows either
+     * to a single component; a {@code targetId} (on non-{@code ALL} exceptions) narrows further
+     * to a single CVE/GHSA id.
+     */
+    private boolean isWaived(List<PolicyException> exceptions, PolicyExceptionTargetType findingType,
+                             String findingId, String coord) {
+        for (PolicyException ex : exceptions) {
+            if (ex.getTargetType() != PolicyExceptionTargetType.ALL && ex.getTargetType() != findingType) continue;
+            if (ex.getComponentCoordinate() != null && !ex.getComponentCoordinate().equals(coord)) continue;
+            if (ex.getTargetType() != PolicyExceptionTargetType.ALL
+                    && ex.getTargetId() != null && !ex.getTargetId().equals(findingId)) continue;
+            return true;
+        }
+        return false;
+    }
+
+    // ── Tiered default resolution ────────────────────────────────────────
+
+    private static String firstNonNull(String request, String policy, String instanceDefault) {
+        return request != null ? request : policy != null ? policy : instanceDefault;
+    }
+
+    private static boolean firstNonNull(Boolean request, Boolean policy, boolean instanceDefault) {
+        return request != null ? request : policy != null ? policy : instanceDefault;
+    }
+
+    private static double firstNonNull(Double request, Double policy, double instanceDefault) {
+        return request != null ? request : policy != null ? policy : instanceDefault;
     }
 }
