@@ -11,11 +11,13 @@ import com.salkcoding.oswl.domain.enums.PolicyExceptionStatus;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionTargetType;
 import com.salkcoding.oswl.domain.enums.PolicyScopeType;
 import com.salkcoding.oswl.dto.policy.*;
+import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.repository.OrganizationRepository;
 import com.salkcoding.oswl.repository.PolicyExceptionRepository;
 import com.salkcoding.oswl.repository.PolicyRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
 import com.salkcoding.oswl.repository.TeamRepository;
+import com.salkcoding.oswl.security.OutboundUrlValidator;
 import com.salkcoding.oswl.service.GatePolicyService.GateOptions;
 import com.salkcoding.oswl.service.git.GitCloneCredentials;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
@@ -23,7 +25,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,8 +54,18 @@ public class PolicyService {
     private final ProjectRepository projectRepository;
     private final AuditLogService auditLogService;
     private final GitCloneExecutor gitCloneExecutor;
+    private final OutboundUrlValidator outboundUrlValidator;
 
     private static final String YAML_GATE_KEY = "gate";
+
+    /**
+     * Loader for user-supplied policy YAML (import + GitOps sync). {@code SafeConstructor}
+     * restricts deserialization to plain Java types (Map/List/String/Number/Boolean/Date) —
+     * the default {@link Yaml} constructor allows YAML type tags to instantiate arbitrary
+     * classes on the classpath, which is a known remote-code-execution vector for
+     * attacker-controlled YAML.
+     */
+    private static final Yaml SAFE_YAML = new Yaml(new SafeConstructor(new LoaderOptions()));
 
     // ── CRUD ─────────────────────────────────────────────────────────────
 
@@ -178,7 +192,7 @@ public class PolicyService {
     @Auditable(action = "POLICY.IMPORT", targetType = "POLICY",
                targetIdExpr = "'bulk'", targetNameExpr = "'YAML import'")
     public List<PolicyDto> importFromYaml(String yaml) {
-        Object parsed = new Yaml().load(yaml);
+        Object parsed = SAFE_YAML.load(yaml);
         if (!(parsed instanceof Map<?, ?> map)) {
             throw new IllegalArgumentException("YAML must contain a map.");
         }
@@ -206,6 +220,14 @@ public class PolicyService {
         if (request.repositoryUrl() == null || request.repositoryUrl().isBlank()) {
             throw new IllegalArgumentException("Repository URL is required.");
         }
+        // SSRF guard: repositoryUrl is attacker-controllable (any project member with
+        // POLICY_MANAGE can trigger this), so it must go through the same loopback/private-
+        // network/cloud-metadata block as every other user-supplied outbound URL in the app.
+        try {
+            outboundUrlValidator.validateHttpUrl(request.repositoryUrl());
+        } catch (OutboundUrlBlockedException e) {
+            throw new IllegalArgumentException(e.getMessage());
+        }
         Path tempDir = createTempDir();
         try {
             GitCloneCredentials creds = (request.accessToken() != null && !request.accessToken().isBlank())
@@ -218,7 +240,7 @@ public class PolicyService {
                 throw new IllegalArgumentException("Repository does not contain .oswl/policy.yaml");
             }
             String yaml = Files.readString(policyFile);
-            PolicyDto imported = importSingle(new Yaml().load(yaml));
+            PolicyDto imported = importSingle(SAFE_YAML.load(yaml));
             PolicyRequest projectScoped = new PolicyRequest(
                     PolicyScopeType.PROJECT, project.getId(), imported.getName(), imported.getDescription(),
                     imported.isLocked(), imported.isEnabled(), imported.getFailOnSeverity(),
