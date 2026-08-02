@@ -6,5 +6,6 @@ package com.salkcoding.oswl.domain.enums;
 public enum PolicyExceptionTargetType {
     CVE,
     LICENSE,
+    MALICIOUS,
     ALL
 }
