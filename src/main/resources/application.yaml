@@ -90,6 +90,9 @@ management:
 oswl:
   # Default timezone for time-sensitive features (e.g. AI usage tracking). Override with OSWL_TIMEZONE.
   timezone: ${OSWL_TIMEZONE:Asia/Seoul}
+  # Public URL used for deep links in outbound notifications (Slack/Teams webhooks).
+  # Example: https://oswl.company.com. Leave empty to omit deep links.
+  public-url: ${OSWL_PUBLIC_URL:}
   security:
     # When true, OSWL_TD is always sent with Secure (HTTPS-only). Otherwise Secure follows request.isSecure().
     trusted-device-cookie-secure: ${OSWL_TRUSTED_DEVICE_COOKIE_SECURE:false}

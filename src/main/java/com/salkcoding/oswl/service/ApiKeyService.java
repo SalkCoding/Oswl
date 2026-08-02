@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.ApiKey;
 import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.enums.ApiKeyScope;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.ApiKeyRepository;
 import com.salkcoding.oswl.repository.ProjectRepository;
@@ -56,6 +57,7 @@ public class ApiKeyService {
 
         ApiKey apiKey = ApiKey.builder()
                 .project(project)
+                .scope(ApiKeyScope.PROJECT)
                 .tokenPrefix(tokenPrefix)
                 .tokenHash(tokenHash)
                 .label(label)
@@ -71,11 +73,76 @@ public class ApiKeyService {
         return new IssuedApiKey(saved, plainToken);
     }
 
+    /**
+     * Issues a dedicated SCIM provisioning token. Unlike project keys, this token is not
+     * bound to a project and is rejected by the normal CLI scan API.
+     */
+    @Transactional
+    public IssuedApiKey issueScimToken(String label, LocalDateTime expiresAt) {
+        String plainToken = null;
+        String tokenPrefix = null;
+        String tokenHash = null;
+
+        for (int attempt = 0; attempt < PREFIX_COLLISION_RETRIES; attempt++) {
+            plainToken = generateToken();
+            tokenPrefix = ApiKeyTokenSupport.extractPrefix(plainToken);
+            if (apiKeyRepository.findByTokenPrefix(tokenPrefix).isEmpty()) {
+                tokenHash = passwordEncoder.encode(plainToken);
+                break;
+            }
+            log.warn("[ApiKey] Token prefix collision on attempt {} — regenerating", attempt + 1);
+        }
+        if (tokenHash == null) {
+            throw new IllegalStateException("Could not generate a unique API key prefix");
+        }
+
+        ApiKey apiKey = ApiKey.builder()
+                .scope(ApiKeyScope.SCIM)
+                .tokenPrefix(tokenPrefix)
+                .tokenHash(tokenHash)
+                .label(label)
+                .expiresAt(expiresAt)
+                .build();
+
+        ApiKey saved = apiKeyRepository.save(apiKey);
+        log.info("[ApiKey] Issued SCIM token label={} keyId={}", label, saved.getId());
+        auditLogService.log("SCIM_KEY.CREATE", "SCIM_KEY",
+                saved.getId().toString(),
+                label != null ? label : "-",
+                "scope=SCIM");
+        return new IssuedApiKey(saved, plainToken);
+    }
+
     @Transactional
     public ApiKey validateAndRecord(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) {
             throw new UnauthorizedException("API key is invalid.");
         }
+        ApiKey key = validateRawToken(rawToken);
+        if (key.getScope() != ApiKeyScope.PROJECT) {
+            throw new UnauthorizedException("API key scope is not valid for this endpoint.");
+        }
+        key.recordUsage();
+        return key;
+    }
+
+    /**
+     * Validates a raw token and returns the key when the scope matches the expected one.
+     * Caller must record usage if desired.
+     */
+    @Transactional
+    public ApiKey validateScopedToken(String rawToken, ApiKeyScope expectedScope) {
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new UnauthorizedException("API key is invalid.");
+        }
+        ApiKey key = validateRawToken(rawToken);
+        if (key.getScope() != expectedScope) {
+            throw new UnauthorizedException("API key scope is not valid for this endpoint.");
+        }
+        return key;
+    }
+
+    private ApiKey validateRawToken(String rawToken) {
         String prefix = ApiKeyTokenSupport.extractPrefix(rawToken.strip());
         ApiKey key = apiKeyRepository.findByTokenPrefix(prefix)
                 .orElseThrow(() -> new UnauthorizedException("API key is invalid."));
@@ -87,8 +154,6 @@ public class ApiKeyService {
         if (!key.isValid()) {
             throw new UnauthorizedException("API key has been revoked or expired.");
         }
-
-        key.recordUsage();
         return key;
     }
 
@@ -96,7 +161,7 @@ public class ApiKeyService {
     public void revoke(Long keyId, Long projectId) {
         ApiKey key = apiKeyRepository.findById(keyId)
                 .orElseThrow(() -> new IllegalArgumentException("ApiKey not found: " + keyId));
-        if (!key.getProject().getId().equals(projectId)) {
+        if (key.getProject() == null || !key.getProject().getId().equals(projectId)) {
             throw new IllegalArgumentException("Key does not belong to project " + projectId + ".");
         }
         key.revoke();

@@ -22,6 +22,30 @@ server:
 #           oidc:
 #             issuer-uri: ${OSWL_OIDC_ISSUER_URI}   # e.g. https://your-tenant.okta.com or https://login.microsoftonline.com/<tenant>/v2.0
 
+# ── SAML 2.0 SSO — uncomment and fill in to enable Okta / Entra ID / AD FS ──
+# When configured, a "Sign in with SSO" option appears on /login; the verified email is mapped
+# to an existing OsWL user, or a disabled account is auto-provisioned for SCIM activation.
+# SP metadata is exposed at /saml2/service-provider-metadata/{registrationId}.
+# spring:
+#   security:
+#     saml2:
+#       relyingparty:
+#         registration:
+#           oswl:
+#             signing.credentials:
+#               - private-key-location: ${OSWL_SAML_SP_PRIVATE_KEY}
+#                 certificate-location: ${OSWL_SAML_SP_CERTIFICATE}
+#             identityprovider:
+#               metadata-uri: ${OSWL_SAML_IDP_METADATA_URL}   # e.g. https://your-tenant.okta.com/app/your-app/sso/saml/metadata
+#               verification.credentials:
+#                 - certificate-location: ${OSWL_SAML_IDP_CERTIFICATE}
+
+# ── SCIM 2.0 provisioning ──
+# Groups pushed by the IdP map to either Team (default) or RoleTemplate.
+# oswl:
+#   scim:
+#     group-mapping: TEAM   # TEAM | ROLE_TEMPLATE
+
 springdoc:
   api-docs:
     enabled: false

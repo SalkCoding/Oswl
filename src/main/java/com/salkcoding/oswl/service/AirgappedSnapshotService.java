@@ -7,6 +7,7 @@ import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.Library;
 import com.salkcoding.oswl.domain.entity.SnapshotEntry;
 import com.salkcoding.oswl.domain.entity.SnapshotMeta;
+import com.salkcoding.oswl.domain.enums.CveSource;
 import com.salkcoding.oswl.exception.InvalidRequestException;
 import com.salkcoding.oswl.repository.LibraryRepository;
 import com.salkcoding.oswl.repository.SnapshotEntryRepository;
@@ -92,6 +93,8 @@ public class AirgappedSnapshotService {
     public static final String SOURCE_OSV = "osv";
     public static final String SOURCE_DEPSDEV_VERSION = "depsdev-version";
     public static final String SOURCE_DEPSDEV_ADVISORY = "depsdev-advisory";
+    public static final String SOURCE_GITHUB_ADVISORY = "github-advisory";
+    public static final String SOURCE_NVD = "nvd";
     public static final String SOURCE_EPSS = "epss";
     public static final String SOURCE_KEV = "kev";
     /** E6: components a wanted-list included but the {@code oswl-vdb} builder never resolved
@@ -101,7 +104,8 @@ public class AirgappedSnapshotService {
      * plumbing (E1-E3) surfaces it without any bespoke wiring. */
     public static final String SOURCE_UNRESOLVED = "unresolved";
     public static final List<String> SOURCES = List.of(
-            SOURCE_OSV, SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED);
+            SOURCE_OSV, SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY, SOURCE_GITHUB_ADVISORY,
+            SOURCE_NVD, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED);
 
     private static final String BUNDLE_FORMAT = "oswl-vdb";
     private static final int CURRENT_FORMAT_VERSION = 2;
@@ -122,7 +126,8 @@ public class AirgappedSnapshotService {
     private static final double MAX_COMPRESSION_RATIO = 100.0;
 
     private static final Set<String> KNOWN_DATA_FILES =
-            Set.of("osv.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl", "unresolved.jsonl");
+            Set.of("osv.jsonl", "depsdev.jsonl", "github-advisory.jsonl", "nvd.jsonl",
+                    "epss.jsonl", "kev.jsonl", "unresolved.jsonl");
 
     private final SnapshotEntryRepository snapshotEntryRepository;
     private final SnapshotMetaRepository snapshotMetaRepository;
@@ -132,8 +137,17 @@ public class AirgappedSnapshotService {
 
     // ── DTO ──────────────────────────────────────────────────────────────
 
-    /** OSV vulnerability entry (mirrors {@code OsvClient.OsvVuln}). */
-    public record SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId) {}
+    /**
+     * Vulnerability entry stored per component. Originally modelled on {@code OsvClient.OsvVuln},
+     * now also carries severity/CVSS/confidence so it can represent GitHub Advisory and
+     * NVD matches in the same offline JSON array.
+     */
+    public record SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
+                                String severity, Double cvssScore, String cvss3Vector, String matchConfidence) {
+        public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId) {
+            this(osvId, cveId, summary, fixVersion, cweId, null, null, null, null);
+        }
+    }
 
     /** deps.dev GetVersion result (mirrors {@code DepsDevClient.VersionInfo}, always resolved). */
     public record SnapshotVersion(List<String> licenses, List<String> advisoryKeys, boolean isDefault,
@@ -231,6 +245,30 @@ public class AirgappedSnapshotService {
     @Transactional(readOnly = true)
     public Map<String, SnapshotAdvisory> findAdvisories(Collection<String> ghsaIds) {
         return parsePayloads(SOURCE_DEPSDEV_ADVISORY, ghsaIds, SnapshotAdvisory.class);
+    }
+
+    /** GitHub Advisory vulnerabilities keyed by component key. */
+    @Transactional(readOnly = true)
+    public Map<String, List<SnapshotVuln>> findGitHubAdvisoryVulns(Collection<String> componentKeys) {
+        return parseVulnLists(SOURCE_GITHUB_ADVISORY, componentKeys);
+    }
+
+    /** NVD CPE-matched vulnerabilities keyed by component key. */
+    @Transactional(readOnly = true)
+    public Map<String, List<SnapshotVuln>> findNvdVulns(Collection<String> componentKeys) {
+        return parseVulnLists(SOURCE_NVD, componentKeys);
+    }
+
+    private Map<String, List<SnapshotVuln>> parseVulnLists(String source, Collection<String> keys) {
+        Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
+        findPayloads(source, keys).forEach((key, payload) -> {
+            try {
+                result.put(key, objectMapper.readValue(payload, new TypeReference<>() {}));
+            } catch (Exception e) {
+                log.warn("[Snapshot] Skipping corrupt {} entry key={}: {}", source, key, e.getMessage());
+            }
+        });
+        return result;
     }
 
     /** EPSS scores keyed by uppercase CVE id; absent ids are simply omitted (live API semantics). */
@@ -384,7 +422,7 @@ public class AirgappedSnapshotService {
         }
         if (rawFiles.isEmpty()) {
             throw new InvalidRequestException(
-                    "Snapshot bundle contains no data files (expected osv.jsonl, depsdev.jsonl, epss.jsonl or kev.jsonl)");
+                    "Snapshot bundle contains no data files (expected osv.jsonl, depsdev.jsonl, github-advisory.jsonl, nvd.jsonl, epss.jsonl or kev.jsonl)");
         }
 
         BundleMetaV2 meta = metaBytes != null ? parseMetaV2(metaBytes) : null;
@@ -408,6 +446,16 @@ public class AirgappedSnapshotService {
                     for (String line : lines) ingestDepsDevLine(line, versionBuf, advisoryBuf);
                     counts.merge(SOURCE_DEPSDEV_VERSION, versionBuf.finish(), Integer::sum);
                     counts.merge(SOURCE_DEPSDEV_ADVISORY, advisoryBuf.finish(), Integer::sum);
+                }
+                case "github-advisory.jsonl" -> {
+                    SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_GITHUB_ADVISORY, mode);
+                    for (String line : lines) ingestOsvLine(line, buf);
+                    counts.merge(SOURCE_GITHUB_ADVISORY, buf.finish(), Integer::sum);
+                }
+                case "nvd.jsonl" -> {
+                    SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_NVD, mode);
+                    for (String line : lines) ingestOsvLine(line, buf);
+                    counts.merge(SOURCE_NVD, buf.finish(), Integer::sum);
                 }
                 case "epss.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_EPSS, mode);
@@ -790,11 +838,15 @@ public class AirgappedSnapshotService {
         List<Library> libraries = libraryRepository.findAll();
 
         StringBuilder osv = new StringBuilder();
+        StringBuilder githubAdvisory = new StringBuilder();
+        StringBuilder nvd = new StringBuilder();
         StringBuilder depsdev = new StringBuilder();
         Map<String, Double> epss = new LinkedHashMap<>();
         Set<String> kev = new LinkedHashSet<>();
         Map<String, SnapshotAdvisory> advisories = new LinkedHashMap<>();
         int osvRecords = 0;
+        int githubAdvisoryRecords = 0;
+        int nvdRecords = 0;
         int versionRecords = 0;
 
         for (Library lib : libraries) {
@@ -802,19 +854,27 @@ public class AirgappedSnapshotService {
             if (key == null) continue;
             List<Cve> cves = lib.getCves();
 
-            // osv.jsonl — only libraries with known vulns; absent key = "no vulnerabilities" offline
-            if (!cves.isEmpty()) {
-                List<SnapshotVuln> vulns = cves.stream()
-                        .map(c -> new SnapshotVuln(c.getGhsaId(), c.getCveId(), c.getSummary(),
-                                c.getFixVersion(), c.getCweId()))
-                        .toList();
-                ObjectNode line = objectMapper.createObjectNode();
-                line.put("ecosystem", lib.getEcosystem());
-                line.put("name", lib.getName());
-                line.put("version", lib.getVersion());
-                line.set("vulns", objectMapper.valueToTree(vulns));
-                osv.append(writeJson(line)).append('\n');
-                osvRecords++;
+            // Vulnerability records split by upstream source so the offline clients can each
+            // read the source they were built for. CVEs with no recorded source are treated as
+            // OSV-only for backward compatibility with rows enriched before multi-source tracking.
+            List<Cve> osvCves = new ArrayList<>();
+            List<Cve> ghCves = new ArrayList<>();
+            List<Cve> nvdCves = new ArrayList<>();
+            for (Cve c : cves) {
+                java.util.Set<CveSource> srcs = c.getSources();
+                boolean hasSources = srcs != null && !srcs.isEmpty();
+                if (!hasSources || srcs.contains(CveSource.OSV)) osvCves.add(c);
+                if (hasSources && srcs.contains(CveSource.GITHUB_ADVISORY)) ghCves.add(c);
+                if (hasSources && srcs.contains(CveSource.NVD)) nvdCves.add(c);
+            }
+            if (!osvCves.isEmpty()) {
+                osvRecords += appendVulnLines(osv, lib, osvCves);
+            }
+            if (!ghCves.isEmpty()) {
+                githubAdvisoryRecords += appendVulnLines(githubAdvisory, lib, ghCves);
+            }
+            if (!nvdCves.isEmpty()) {
+                nvdRecords += appendVulnLines(nvd, lib, nvdCves);
             }
 
             // depsdev.jsonl version record — only when deps.dev GetVersion resolved.
@@ -887,6 +947,8 @@ public class AirgappedSnapshotService {
         }
 
         String osvContent = osv.toString();
+        String githubAdvisoryContent = githubAdvisory.toString();
+        String nvdContent = nvd.toString();
         String depsdevContent = depsdev.toString();
         String epssContent = epssLines.toString();
         String kevContent = kevLines.toString();
@@ -909,11 +971,15 @@ public class AirgappedSnapshotService {
         putSourceMeta(sources, SOURCE_OSV, osvRecords, asOf);
         putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, asOf);
         putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), asOf);
+        putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, asOf);
+        putSourceMeta(sources, SOURCE_NVD, nvdRecords, asOf);
         putSourceMeta(sources, SOURCE_EPSS, epss.size(), asOf);
         putSourceMeta(sources, SOURCE_KEV, kev.size(), asOf);
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, osvRecords);
         putFileMeta(files, "depsdev.jsonl", depsdevContent, versionRecords + advisories.size());
+        putFileMeta(files, "github-advisory.jsonl", githubAdvisoryContent, githubAdvisoryRecords);
+        putFileMeta(files, "nvd.jsonl", nvdContent, nvdRecords);
         putFileMeta(files, "epss.jsonl", epssContent, epss.size());
         putFileMeta(files, "kev.jsonl", kevContent, kev.size());
 
@@ -923,15 +989,35 @@ public class AirgappedSnapshotService {
                 writeZipEntry(zos, "meta.json", writeJson(meta));
                 writeZipEntry(zos, "osv.jsonl", osvContent);
                 writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
+                writeZipEntry(zos, "github-advisory.jsonl", githubAdvisoryContent);
+                writeZipEntry(zos, "nvd.jsonl", nvdContent);
                 writeZipEntry(zos, "epss.jsonl", epssContent);
                 writeZipEntry(zos, "kev.jsonl", kevContent);
             }
-            log.info("[Snapshot] Exported offline snapshot bundleId={}: {} libraries, {} osv, {} version records, {} advisories, {} epss, {} kev",
-                    bundleId, libraries.size(), osvRecords, versionRecords, advisories.size(), epss.size(), kev.size());
+            log.info("[Snapshot] Exported offline snapshot bundleId={}: {} libraries, {} osv, {} github-advisory, {} nvd, {} version records, {} advisories, {} epss, {} kev",
+                    bundleId, libraries.size(), osvRecords, githubAdvisoryRecords, nvdRecords,
+                    versionRecords, advisories.size(), epss.size(), kev.size());
             return baos.toByteArray();
         } catch (IOException e) {
             throw new IllegalStateException("Failed to build snapshot bundle: " + e.getMessage(), e);
         }
+    }
+
+    private int appendVulnLines(StringBuilder target, Library lib, List<Cve> cves) {
+        List<SnapshotVuln> vulns = cves.stream()
+                .map(c -> new SnapshotVuln(c.getGhsaId(), c.getCveId(), c.getSummary(),
+                        c.getFixVersion(), c.getCweId(),
+                        c.getSeverity() != null ? c.getSeverity().name() : null,
+                        c.getCvssScore(), c.getCvss3Vector(),
+                        c.getMatchConfidence() != null ? c.getMatchConfidence().name() : null))
+                .toList();
+        ObjectNode line = objectMapper.createObjectNode();
+        line.put("ecosystem", lib.getEcosystem());
+        line.put("name", lib.getName());
+        line.put("version", lib.getVersion());
+        line.set("vulns", objectMapper.valueToTree(vulns));
+        target.append(writeJson(line)).append('\n');
+        return 1;
     }
 
     private static void putSourceMeta(ObjectNode sources, String source, int records, LocalDate asOf) {

@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.service.notification.WebhookNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,16 +24,25 @@ public class ScanFailureMarker {
 
     private final ScanResultRepository    scanResultRepository;
     private final ScanStatusEmitterRegistry scanStatusEmitterRegistry;
+    private final WebhookNotificationService webhookNotificationService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Long scanResultId, String reason) {
         scanResultRepository.findById(scanResultId).ifPresent(scan -> {
             Long projectId = scan.getProject().getId(); // capture inside tx (LAZY)
+            String projectName = scan.getProject().getName();
             scan.fail(reason);
             scanResultRepository.save(scan);
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override public void afterCommit() {
                     scanStatusEmitterRegistry.notifyStatus(projectId, "FAILED");
+                    try {
+                        webhookNotificationService.sendScanFailure(projectId, projectName,
+                                scanResultId, reason);
+                    } catch (Exception e) {
+                        log.error("[Enrich] Webhook notification failed for scanId={}: {}",
+                                scanResultId, e.getMessage());
+                    }
                 }
             });
         });

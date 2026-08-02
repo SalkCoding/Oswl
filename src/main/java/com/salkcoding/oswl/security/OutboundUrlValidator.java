@@ -56,6 +56,50 @@ public class OutboundUrlValidator {
         validateLocalAiHost(uri.getHost());
     }
 
+    /**
+     * Validates that a URL points at an internal (loopback/private) host.
+     * Used in air-gapped mode to ensure webhooks can only reach internal endpoints.
+     * Cloud metadata addresses remain blocked.
+     */
+    public void validateInternalHttpUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            return;
+        }
+        URI uri = parseRequiredHttpUri(rawUrl);
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw blocked("security.outboundUrl.error.invalid");
+        }
+        String normalized = host.toLowerCase(Locale.ROOT);
+        if (isMetadataHostname(normalized)) {
+            throw blocked("security.outboundUrl.error.metadata");
+        }
+        if (BLOCKED_HOSTNAMES.contains(normalized)
+                || normalized.endsWith(".localhost")
+                || normalized.endsWith(".local")) {
+            return;
+        }
+        if (isLiteralMetadataIp(normalized)) {
+            throw blocked("security.outboundUrl.error.metadata");
+        }
+        try {
+            boolean hasInternal = false;
+            for (InetAddress address : InetAddress.getAllByName(host)) {
+                if (isMetadataAddress(address)) {
+                    throw blocked("security.outboundUrl.error.metadata");
+                }
+                if (isBlockedAddress(address)) {
+                    hasInternal = true;
+                }
+            }
+            if (!hasInternal) {
+                throw blocked("security.outboundUrl.error.public");
+            }
+        } catch (UnknownHostException e) {
+            throw blocked("security.outboundUrl.error.unresolvable");
+        }
+    }
+
     private URI parseRequiredHttpUri(String rawUrl) {
         URI uri = parseUri(rawUrl.trim());
         String scheme = uri.getScheme();

@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  * {@link IllegalArgumentException}, which callers must treat as "unresolved coverage", never as
  * "not affected".
  */
-final class SimpleVersionComparator {
+public final class SimpleVersionComparator {
 
     private static final Pattern SEGMENT = Pattern.compile("[0-9]+|[^0-9.+-]+|[.+-]");
 
@@ -32,7 +32,7 @@ final class SimpleVersionComparator {
         return true;
     }
 
-    static int compare(String a, String b) {
+    public static int compare(String a, String b) {
         List<String> sa = tokenize(a);
         List<String> sb = tokenize(b);
         int n = Math.max(sa.size(), sb.size());

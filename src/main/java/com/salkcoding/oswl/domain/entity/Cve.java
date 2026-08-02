@@ -1,8 +1,13 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.enums.CveSource;
+import com.salkcoding.oswl.domain.enums.MatchConfidence;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * CVE (or GHSA advisory) attached to a shared Library.
@@ -92,6 +97,32 @@ public class Cve {
     @Column(name = "kev_listed")
     private Boolean kevListed;
 
+    /**
+     * Upstream sources that contributed data for this CVE.
+     * Stored as a separate table so a CVE can be attributed to multiple databases
+     * (e.g., OSV + GitHub Advisory + NVD) without duplicating rows.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "library_cve_sources",
+            joinColumns = @JoinColumn(name = "cve_id"))
+    @Column(name = "source", nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Set<CveSource> sources = new HashSet<>();
+
+    /** True when two or more sources supplied different non-null severities. */
+    @Column(name = "severity_conflict", nullable = false)
+    @Builder.Default
+    private boolean severityConflict = false;
+
+    /**
+     * Confidence of the name-to-vulnerability match. Used for CPE-based NVD lookups,
+     * where a low-confidence match must be flagged for manual review.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "match_confidence", length = 10)
+    private MatchConfidence matchConfidence;
+
     // ── Mutation helpers ─────────────────────────────────────────────────
 
     public void enrichFromAdvisory(String cveId, String title, Double cvssScore, String cvss3Vector, RiskLevel severity) {
@@ -116,6 +147,61 @@ public class Cve {
     public void setThreatIntel(Double epssScore, boolean kevListed) {
         this.epssScore = epssScore;
         this.kevListed = kevListed;
+    }
+
+    public void addSource(CveSource source) {
+        if (source != null) {
+            this.sources.add(source);
+        }
+    }
+
+    /**
+     * Merges a severity reported by an upstream source into this CVE. If another source
+     * already contributed a different non-null severity, the highest one is kept and the
+     * conflict flag is set so the UI can warn the reviewer.
+     */
+    public void mergeSeverity(CveSource source, RiskLevel incoming) {
+        addSource(source);
+        if (incoming == null) {
+            return;
+        }
+        if (this.severity == null) {
+            this.severity = incoming;
+            return;
+        }
+        if (this.severity == incoming) {
+            return;
+        }
+        this.severityConflict = true;
+        if (incoming.ordinal() < this.severity.ordinal()) {
+            this.severity = incoming;
+        }
+    }
+
+    public void setMatchConfidence(MatchConfidence confidence) {
+        this.matchConfidence = confidence;
+    }
+
+    public void setCvssScoreIfMissing(Double score) {
+        if (this.cvssScore == null && score != null) this.cvssScore = score;
+    }
+
+    public void setCvss3VectorIfMissing(String vector) {
+        if ((this.cvss3Vector == null || this.cvss3Vector.isBlank()) && vector != null && !vector.isBlank()) {
+            this.cvss3Vector = vector;
+        }
+    }
+
+    public void setFixVersionIfMissing(String version) {
+        if ((this.fixVersion == null || this.fixVersion.isBlank()) && version != null && !version.isBlank()) {
+            this.fixVersion = version;
+        }
+    }
+
+    public void setSummaryIfMissing(String summary) {
+        if ((this.summary == null || this.summary.isBlank()) && summary != null && !summary.isBlank()) {
+            this.summary = summary;
+        }
     }
 
     /** Backfills summary, fix version, and CWE from OSV when available. */

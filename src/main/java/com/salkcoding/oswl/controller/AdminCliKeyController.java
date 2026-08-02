@@ -66,8 +66,11 @@ public class AdminCliKeyController implements AdminCliKeyControllerSpec {
     public ResponseEntity<Void> toggle(@PathVariable Long keyId) {
         ApiKey key = apiKeyService.toggleActive(keyId);
         String action = key.isActive() ? "CLI_KEY.ACTIVATE" : "CLI_KEY.REVOKE";
-        auditLogService.log(action, "CLI_KEY", keyId.toString(),
-                (key.getLabel() != null ? key.getLabel() : "") + " / " + key.getProject().getName(), null);
+        String targetName = key.getLabel() != null ? key.getLabel() : "";
+        if (key.getProject() != null) {
+            targetName += " / " + key.getProject().getName();
+        }
+        auditLogService.log(action, "CLI_KEY", keyId.toString(), targetName, null);
         return ResponseEntity.noContent().build();
     }
 
@@ -77,8 +80,8 @@ public class AdminCliKeyController implements AdminCliKeyControllerSpec {
         return GlobalApiKeyResponse.builder()
                 .id(key.getId())
                 .token(ApiKeyTokenSupport.maskForDisplay(key.getTokenPrefix()))
-                .projectId(key.getProject().getId())
-                .projectName(key.getProject().getName())
+                .projectId(key.getProject() != null ? key.getProject().getId() : null)
+                .projectName(key.getProject() != null ? key.getProject().getName() : null)
                 .label(key.getLabel() != null ? key.getLabel() : "")
                 .active(key.isActive())
                 .createdAt(key.getCreatedAt().toString())

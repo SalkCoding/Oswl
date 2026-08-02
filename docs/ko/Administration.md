@@ -353,3 +353,49 @@ AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(
 
 변경 사항은 `CACHE.UPDATE_TTL`, `CACHE.CLEAR`로 감사 로그에 기록됩니다.
 
+
+---
+
+## SAML 2.0 SSO 및 SCIM 2.0 프로비저닝
+
+OsWL은 Okta, Entra ID, 온프레미스 AD FS를 사용하는 기업용 SAML 2.0 단일 로그인을 지원합니다. SAML IdP가 설정되면 `/login`에 **SSO로 로그인** 옵션이 표시됩니다.
+
+### SAML 설정
+
+1. SP 서명 키 쌍을 생성합니다(선택 사항이지만 권장):
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -keyout oswl-saml-sp.key -out oswl-saml-sp.crt -nodes -days 3650 -subj "/CN=oswl"
+   ```
+2. `application-prod.yaml`의 SAML 블록의 주석을 해제하고 환경 변수를 설정합니다:
+   | 환경 변수 | 용도 |
+   |---|---|
+   | `OSWL_SAML_IDP_METADATA_URL` | IdP 메타데이터 URL(예: Okta/Entra 앱 메타데이터) |
+   | `OSWL_SAML_IDP_CERTIFICATE` | IdP 서명 인증서 파일 경로 |
+   | `OSWL_SAML_SP_PRIVATE_KEY` | SP 개인 키 파일 경로 |
+   | `OSWL_SAML_SP_CERTIFICATE` | SP 인증서 파일 경로 |
+3. IdP에 SP 메타데이터를 등록합니다. 메타데이터 엔드포인트는 다음과 같습니다:
+   ```
+   https://<your-oswl-host>/saml2/service-provider-metadata/oswl
+   ```
+4. IdP가 email 클레임(NameID 또는 `email`/`mail` 속성)을 전송하는지 확인합니다.
+
+> SAML 로그인은 IdP가 이미 사용자를 인증했으므로 이메일 OTP 단계를 건너뜁니다. 기존 OsWL 계정과 일치하지 않는 이메일은 SCIM이 활성화하고 역할을 할당할 수 있도록 비활성화된 로컬 계정으로 자동 생성됩니다.
+
+### SCIM 2.0 프로비저닝
+
+SCIM을 사용하면 IdP의 사용자 생명주기를 OsWL과 동기화할 수 있습니다.
+
+| 리소스 | 엔드포인트 | 참고 |
+|---|---|---|
+| Users | `/scim/v2/Users` | GET/POST/PUT/PATCH/DELETE |
+| Groups | `/scim/v2/Groups` | GET/POST/PUT/PATCH/DELETE |
+
+**인증:** 모든 SCIM 요청에 `Authorization: Bearer <scim_token>`을 포함해야 합니다. 전용 SCIM 토큰은 `ApiKeyService#issueScimToken`을 통해 프로그래밍 방식으로 발급합니다. SCIM 토큰은 `api_keys` 테이블에 저장되지만 범위가 `SCIM`이며, 일반 CLI 스캔 API에서는 거부됩니다.
+
+**그룹 매핑:** `oswl.scim.group-mapping`(환경 변수: `OSWL_SCIM_GROUP_MAPPING`)으로 SCIM 그룹의 표현 방식을 선택합니다:
+- `TEAM`(기본값) — 각 SCIM 그룹은 Team이 되고, 멤버는 TeamMember 행이 됩니다.
+- `ROLE_TEMPLATE` — 각 SCIM 그룹은 RoleTemplate이 되고, 멤버는 해당 역할 템플릿이 할당됩니다.
+
+**사용자 비활성화:** `DELETE /scim/v2/Users/{id}`는 OsWL에서 `active=false`로 설정합니다. SCIM을 통해 사용자를 물리적으로 삭제하지는 않으므로 감사 귀속 정보가 보존됩니다.
+
+**감사 액션:** SCIM 작업은 `SCIM.USER_CREATE`, `SCIM.USER_UPDATE`, `SCIM.USER_DEACTIVATE`, `SCIM.GROUP_CREATE`, `SCIM.GROUP_UPDATE`, `SCIM.GROUP_DELETE`, `SCIM.GROUP_MEMBER_ADD`, `SCIM.GROUP_MEMBER_REMOVE`, `SCIM.AUTH_FAILURE`, `SCIM_KEY.CREATE`로 기록됩니다. SAML 로그인 이벤트는 `SAML.LOGIN_SUCCESS` 및 `SAML.LOGIN_FAILURE`로 기록됩니다.

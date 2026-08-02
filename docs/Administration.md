@@ -355,3 +355,48 @@ Single control point for **library enrichment cache** (deps.dev + OSV). There is
 
 Changes are audited as `CACHE.UPDATE_TTL` and `CACHE.CLEAR`.
 
+
+---
+
+## SAML 2.0 SSO and SCIM 2.0 Provisioning
+
+OsWL supports SAML 2.0 single sign-on for enterprises that use Okta, Entra ID, or on-premises AD FS. When a SAML IdP is configured, the **Sign in with SSO** option appears on `/login`.
+
+### SAML setup
+
+1. Generate an SP signing key pair (optional but recommended):
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -keyout oswl-saml-sp.key -out oswl-saml-sp.crt -nodes -days 3650 -subj "/CN=oswl"
+   ```
+2. Uncomment the SAML block in `application-prod.yaml` and set the environment variables:
+   | Env var | Purpose |
+   |---|---|
+   | `OSWL_SAML_IDP_METADATA_URL` | IdP metadata URL (e.g. Okta/Entra app metadata) |
+   | `OSWL_SAML_IDP_CERTIFICATE` | Path to the IdP signing certificate file |
+   | `OSWL_SAML_SP_PRIVATE_KEY` | Path to the SP private key file |
+   | `OSWL_SAML_SP_CERTIFICATE` | Path to the SP certificate file |
+3. Register the SP metadata with your IdP. The metadata endpoint is:
+   ```
+   https://<your-oswl-host>/saml2/service-provider-metadata/oswl
+   ```
+4. Ensure the IdP releases an email claim (NameID or `email`/`mail` attribute).
+
+> SAML logins skip the email OTP step because the IdP has already authenticated the user. If the email does not match an existing OsWL account, a disabled local account is created automatically so SCIM can activate and assign roles.
+
+### SCIM 2.0 provisioning
+
+SCIM keeps OsWL in sync with your identity provider's user lifecycle.
+
+| Resource | Endpoint | Notes |
+|---|---|---|
+| Users | `/scim/v2/Users` | GET/POST/PUT/PATCH/DELETE |
+| Groups | `/scim/v2/Groups` | GET/POST/PUT/PATCH/DELETE |
+
+**Authentication:** every SCIM request must include `Authorization: Bearer <scim_token>`. Issue a dedicated SCIM token programmatically via `ApiKeyService#issueScimToken`. SCIM tokens are stored in the same `api_keys` table but have scope `SCIM`; they are rejected by the normal CLI scan API.
+
+**Group mapping:** configure `oswl.scim.group-mapping` (env: `OSWL_SCIM_GROUP_MAPPING`) to choose how SCIM groups are represented:
+- `TEAM` (default) — each SCIM group becomes a Team; members become TeamMember rows.- `ROLE_TEMPLATE` — each SCIM group becomes a RoleTemplate; members are assigned that role template.
+
+**User deactivation:** `DELETE /scim/v2/Users/{id}` sets `active=false` in OsWL. Users are never physically deleted via SCIM, preserving audit attribution.
+
+**Audit actions:** SCIM operations are recorded as `SCIM.USER_CREATE`, `SCIM.USER_UPDATE`, `SCIM.USER_DEACTIVATE`, `SCIM.GROUP_CREATE`, `SCIM.GROUP_UPDATE`, `SCIM.GROUP_DELETE`, `SCIM.GROUP_MEMBER_ADD`, `SCIM.GROUP_MEMBER_REMOVE`, `SCIM.AUTH_FAILURE`, and `SCIM_KEY.CREATE`. SAML login events are recorded as `SAML.LOGIN_SUCCESS` and `SAML.LOGIN_FAILURE`.

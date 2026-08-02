@@ -103,4 +103,18 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
               AND sc.deferralExpiresAt <= :now
             """)
     List<ScanComponent> findExpiredDeferrals(@Param("now") LocalDateTime now);
+
+    /**
+     * Deferrals that will expire within the given window and have not already expired.
+     * Used by the webhook notification scheduler to warn about imminent waivers.
+     */
+    @Query("""
+            SELECT sc FROM ScanComponent sc
+            WHERE sc.deferredAt IS NOT NULL
+              AND sc.deferralExpiresAt IS NOT NULL
+              AND sc.deferralExpiresAt > :now
+              AND sc.deferralExpiresAt <= :windowEnd
+            """)
+    List<ScanComponent> findDeferralsExpiringWithin(@Param("now") LocalDateTime now,
+                                                    @Param("windowEnd") LocalDateTime windowEnd);
 }

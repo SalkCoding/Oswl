@@ -354,3 +354,49 @@ AI カードには本日の呼び出し件数、トークン合計、推定コ�
 | **クリア** | `POST /api/settings/cache/clear?cacheKey=…` | クリア時刻以前に取得されたライブラリは、次回のスキャンで古いものとして扱われる |
 
 変更は `CACHE.UPDATE_TTL` と `CACHE.CLEAR` として監査記録されます。
+
+---
+
+## SAML 2.0 SSO および SCIM 2.0 プロビジョニング
+
+OsWL は、Okta、Entra ID、オンプレミス AD FS を利用する企業向けに SAML 2.0 シングルサインオンをサポートしています。SAML IdP が設定されると、`/login` に **SSO でサインイン** オプションが表示されます。
+
+### SAML セットアップ
+
+1. SP 署名鍵ペアを生成します（任意ですが推奨）:
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -keyout oswl-saml-sp.key -out oswl-saml-sp.crt -nodes -days 3650 -subj "/CN=oswl"
+   ```
+2. `application-prod.yaml` の SAML ブロックのコメントを外し、環境変数を設定します:
+   | 環境変数 | 用途 |
+   |---|---|
+   | `OSWL_SAML_IDP_METADATA_URL` | IdP メタデータ URL（例: Okta/Entra アプリメタデータ） |
+   | `OSWL_SAML_IDP_CERTIFICATE` | IdP 署名証明書ファイルのパス |
+   | `OSWL_SAML_SP_PRIVATE_KEY` | SP 秘密鍵ファイルのパス |
+   | `OSWL_SAML_SP_CERTIFICATE` | SP 証明書ファイルのパス |
+3. IdP に SP メタデータを登録します。メタデータエンドポイントは以下です:
+   ```
+   https://<your-oswl-host>/saml2/service-provider-metadata/oswl
+   ```
+4. IdP が email クレーム（NameID または `email`/`mail` 属性）を送信することを確認します。
+
+> SAML ログインでは、IdP がすでにユーザーを認証しているため、メール OTP ステップをスキップします。既存の OsWL アカウントと一致しないメールアドレスは、SCIM が有効化してロールを割り当てられるよう、無効化されたローカルアカウントとして自動作成されます。
+
+### SCIM 2.0 プロビジョニング
+
+SCIM を使用すると、IdP のユーザー ライフサイクルを OsWL と同期できます。
+
+| リソース | エンドポイント | 備考 |
+|---|---|---|
+| Users | `/scim/v2/Users` | GET/POST/PUT/PATCH/DELETE |
+| Groups | `/scim/v2/Groups` | GET/POST/PUT/PATCH/DELETE |
+
+**認証:** すべての SCIM リクエストに `Authorization: Bearer <scim_token>` を含める必要があります。専用 SCIM トークンは `ApiKeyService#issueScimToken` でプログラム的に発行します。SCIM トークンは `api_keys` テーブルに保存されますが、スコープは `SCIM` であり、通常の CLI スキャン API では拒否されます。
+
+**グループ マッピング:** `oswl.scim.group-mapping`（環境変数: `OSWL_SCIM_GROUP_MAPPING`）で SCIM グループの表現方法を選択します:
+- `TEAM`（既定）— 各 SCIM グループは Team になり、メンバーは TeamMember 行になります。
+- `ROLE_TEMPLATE` — 各 SCIM グループは RoleTemplate になり、メンバーにはそのロール テンプレートが割り当てられます。
+
+**ユーザー無効化:** `DELETE /scim/v2/Users/{id}` は OsWL 上で `active=false` に設定します。SCIM 経由ではユーザーを物理的に削除しないため、監査の帰属情報が保持されます。
+
+**監査アクション:** SCIM 操作は `SCIM.USER_CREATE`、`SCIM.USER_UPDATE`、`SCIM.USER_DEACTIVATE`、`SCIM.GROUP_CREATE`、`SCIM.GROUP_UPDATE`、`SCIM.GROUP_DELETE`、`SCIM.GROUP_MEMBER_ADD`、`SCIM.GROUP_MEMBER_REMOVE`、`SCIM.AUTH_FAILURE`、`SCIM_KEY.CREATE` として記録されます。SAML ログイン イベントは `SAML.LOGIN_SUCCESS` および `SAML.LOGIN_FAILURE` として記録されます。
