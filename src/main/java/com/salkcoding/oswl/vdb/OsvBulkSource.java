@@ -31,7 +31,16 @@ import java.util.zip.ZipInputStream;
  */
 final class OsvBulkSource {
 
-    /** our normalized ecosystem (AirgappedSnapshotService.componentKey's output) -> OSV GCS bucket folder. */
+    /**
+     * our normalized ecosystem (AirgappedSnapshotService.componentKey's output) -> OSV GCS bucket folder.
+     *
+     * <p>CONAN is deliberately absent: as of 2026-08 the OSV GCS bucket has no
+     * {@code ConanCenter/} folder at all (and osv.dev lists zero ConanCenter advisories), so
+     * there is no dump to fetch. Wanted CONAN components therefore fall through to
+     * {@code unresolved.jsonl} — surfaced as "no data" rather than "confirmed clean", which is
+     * the honest state until OSV starts publishing ConanCenter entries. Add the mapping here
+     * once {@code https://storage.googleapis.com/osv-vulnerabilities/ConanCenter/all.zip} exists.
+     */
     private static final Map<String, String> ECOSYSTEM_TO_BUCKET = Map.of(
             "MAVEN", "Maven",
             "NPM", "npm",
@@ -39,7 +48,8 @@ final class OsvBulkSource {
             "GO", "Go",
             "CARGO", "crates.io",
             "NUGET", "NuGet",
-            "RUBYGEMS", "RubyGems"
+            "RUBYGEMS", "RubyGems",
+            "COMPOSER", "Packagist"
     );
 
     private final ObjectMapper mapper;

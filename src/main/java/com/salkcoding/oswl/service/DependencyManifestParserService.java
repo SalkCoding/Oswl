@@ -64,6 +64,16 @@ public class DependencyManifestParserService {
     /** Console tools (mvnw, gradlew, npm) write human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
     private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
     private static final Set<String> MANIFEST_SKIP_DIRS = ManifestCollectRules.SKIP_DIRS;
+
+    /**
+     * Every ecosystem tag this parser can emit on a {@code ComponentPayload}. Kept as an explicit
+     * set (rather than derived from the literals scattered through the per-format parsers) so a
+     * regression test can assert each tag is covered by the OSV ecosystem mapping — a tag missing
+     * there would silently report "no vulnerabilities" for the whole ecosystem.
+     */
+    public static final Set<String> EMITTED_ECOSYSTEMS = Set.of(
+            "MAVEN", "NPM", "PYPI", "GO", "CARGO", "NUGET", "RUBYGEMS", "COMPOSER", "CONAN");
+
     public record ParseResult(String ecosystem, List<ScanPayload.ComponentPayload> components) {}
 
     private record GradleComponent(String name, String version, List<List<ScanPayload.DependencyNodeRef>> paths) {}
@@ -1706,9 +1716,30 @@ public class DependencyManifestParserService {
                 continue;
             }
             if (seen.add(name + ":" + version)) {
-                comps.add(buildComponent(name, version, "COMPOSER").withScope(scope));
+                comps.add(buildComponent(name, version, "COMPOSER")
+                        .withScope(scope)
+                        .withLicenses(extractComposerLicenses(pkg)));
             }
         }
+    }
+
+    /**
+     * Reads a composer.lock package's {@code license} array (SPDX ids). deps.dev does not support
+     * the COMPOSER system, so this manifest field is the only license source for PHP packages.
+     */
+    private static List<String> extractComposerLicenses(JsonNode pkg) {
+        JsonNode license = pkg.path("license");
+        if (!license.isArray() || license.isEmpty()) {
+            return null;
+        }
+        List<String> licenses = new ArrayList<>();
+        for (JsonNode entry : license) {
+            String value = entry.asText(null);
+            if (value != null && !value.isBlank()) {
+                licenses.add(value.strip());
+            }
+        }
+        return licenses.isEmpty() ? null : licenses;
     }
 
     /** Strips the optional leading "v" from a composer version (composer normalizes v1.2.3 → 1.2.3). */

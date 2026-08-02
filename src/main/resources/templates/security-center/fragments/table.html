@@ -160,6 +160,11 @@
                 <span th:if="${comp.securityUnscored > 0}"
                       class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-50)] tracking-[-0.11px]"
                       th:text="${comp.securityUnscored}">3</span>
+                <!-- Zero CVEs but never actually queried (unmapped ecosystem): distinguish from "clean". -->
+                <span th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0 and !comp.vulnerabilitiesAnalyzed}"
+                      class="h-[20px] px-[6px] flex bg-[var(--grayscale-15)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-60)] tracking-[-0.11px] whitespace-nowrap"
+                      th:title="#{securityCenter.table.notAnalyzedTooltip}"
+                      th:text="#{securityCenter.table.notAnalyzed}">Not analyzed</span>
             </div>
 
             <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[140px] min-w-[140px]">

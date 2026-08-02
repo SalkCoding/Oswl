@@ -53,6 +53,7 @@ final class VdbBundleWriter {
     void write(Path out,
                Map<String, List<SnapshotVuln>> osvByComponentKey, LocalDate osvAsOf,
                List<DepsDevSource.VersionRecord> depsdevVersions, List<DepsDevSource.AdvisoryRecord> depsdevAdvisories,
+               Map<String, Integer> depsdevSkippedUnsupportedSystems,
                Map<String, Double> epssScores, LocalDate epssAsOf,
                java.util.Set<String> kevCveIds, LocalDate kevAsOf,
                int unresolvedComponentCount, WantedListInfo wantedListInfo,
@@ -147,6 +148,15 @@ final class VdbBundleWriter {
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
         putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
+        if (!depsdevSkippedUnsupportedSystems.isEmpty()) {
+            // deps.dev covers only 7 systems (GO RUBYGEMS NPM CARGO MAVEN PYPI NUGET) — wanted
+            // components on any other system (e.g. COMPOSER, CONAN) were never queried, so their
+            // absence from depsdev.jsonl means "no data", not "no license/advisories".
+            ObjectNode skipped = ((ObjectNode) sources.get("depsdev-version"))
+                    .putObject("skippedUnsupportedSystems");
+            depsdevSkippedUnsupportedSystems.forEach(skipped::put);
+            skipped.put("_reason", "deps.dev does not support this system — component not queried");
+        }
         putSourceMeta(sources, "depsdev-advisory", depsdevAdvisories.size(), LocalDate.now(), "deps.dev api");
         putSourceMeta(sources, "epss", epssByKey.size(), epssAsOf, "epss current");
         putSourceMeta(sources, "kev", kevByKey.size(), kevAsOf, "cisa kev");

@@ -147,6 +147,7 @@ public final class VdbBuilderCli {
 
         List<DepsDevSource.VersionRecord> depsdevVersions = List.of();
         List<DepsDevSource.AdvisoryRecord> depsdevAdvisories = List.of();
+        Map<String, Integer> depsdevSkippedSystems = Map.of();
         if (effectiveSources.contains("depsdev")) {
             if (wanted.isEmpty()) {
                 System.err.println("[oswl-vdb] WARNING: --sources includes depsdev but no --wanted was given — "
@@ -156,6 +157,7 @@ public final class VdbBuilderCli {
                     DepsDevSource.Result r = new DepsDevSource(mapper).fetch(wanted);
                     depsdevVersions = r.versions();
                     depsdevAdvisories = r.advisories();
+                    depsdevSkippedSystems = r.skippedUnsupportedSystems();
                     if (r.failedVersionLookups() > 0) {
                         System.err.println("[oswl-vdb] deps.dev: " + r.failedVersionLookups() + " GetVersion lookups failed/not-found");
                     }
@@ -208,6 +210,7 @@ public final class VdbBuilderCli {
         }
 
         new VdbBundleWriter(mapper).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
+                depsdevSkippedSystems,
                 epssScores, epssAsOf, kevIds, kevAsOf, unresolvedCount, wantedListInfo, unresolvedComponents, previous);
 
         System.err.println("[oswl-vdb] Wrote " + opts.out() + " (" + (opts.isDelta() ? "delta" : "full") + " mode)"

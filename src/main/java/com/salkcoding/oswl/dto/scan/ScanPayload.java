@@ -108,6 +108,14 @@ public class ScanPayload {
         @Schema(description = "Dependency scope — runtime (default/null), test, dev, or provided", example = "test")
         private String scope;
 
+        /**
+         * License ids read directly from the manifest (e.g. composer.lock's {@code license}
+         * array). Only populated for ecosystems deps.dev does not cover — for those, this is
+         * the only license source. Null/empty for ecosystems enriched from deps.dev.
+         */
+        @Schema(description = "Manifest-declared license ids (SPDX), when the manifest carries them", example = "[\"MIT\"]")
+        private List<String> licenses;
+
         /** Programmatic factory — avoids reflection when building payloads inside the service layer. */
         public static ComponentPayload create(String name, String version, String ecosystem,
                                               String dependencyInfo,
@@ -124,6 +132,12 @@ public class ScanPayload {
         /** Fluent scope tag — returns this instance for inline use in parsers. */
         public ComponentPayload withScope(String scope) {
             this.scope = (scope != null && !scope.isBlank()) ? scope.toLowerCase() : null;
+            return this;
+        }
+
+        /** Fluent manifest-declared licenses — returns this instance for inline use in parsers. */
+        public ComponentPayload withLicenses(List<String> licenses) {
+            this.licenses = (licenses != null && !licenses.isEmpty()) ? licenses : null;
             return this;
         }
     }

@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.entity.Project;
 import com.salkcoding.oswl.domain.entity.ProjectVersion;
 import com.salkcoding.oswl.domain.entity.ScanComponent;
 import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.Team;
 import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
@@ -52,8 +53,15 @@ class ProjectServiceTest {
     @Mock
     CveAlertRepository cveAlertRepository;
 
+    @Mock
+    TeamService teamService;
+
     @InjectMocks
     ProjectService projectService;
+
+    private Team defaultTeam() {
+        return Team.builder().id(1L).name("Default").build();
+    }
 
     private void stubAccessible(Project... projects) {
         List<Long> ids = java.util.Arrays.stream(projects).map(Project::getId).toList();
@@ -299,6 +307,7 @@ class ProjectServiceTest {
     @DisplayName("프로젝트 이름으로 생성하면 저장 후 반환한다")
     void create_savesAndReturnsProject() {
         Project saved = Project.builder().id(1L).name("NewProject").build();
+        when(teamService.findDefaultTeam()).thenReturn(defaultTeam());
         when(projectRepository.save(any(Project.class))).thenReturn(saved);
 
         Project result = projectService.create("NewProject");
@@ -414,6 +423,7 @@ class ProjectServiceTest {
     @Test
     @DisplayName("upsertFromGitHub — 새 저장소이면 프로젝트를 생성하고 첫 번째 버전을 추가한다")
     void upsertFromGitHub_createsNewProject_whenRepoNotFound() {
+        when(teamService.findDefaultTeam()).thenReturn(defaultTeam());
         when(projectRepository.findByGithubRepo("owner/new-repo")).thenReturn(Optional.empty());
         Project created = Project.builder().id(10L).name("owner/new-repo").build();
         when(projectRepository.save(any(Project.class))).thenReturn(created);

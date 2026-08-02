@@ -42,7 +42,7 @@
     "riskTag": "버전 간 델타",
     "transitiveTitle": "전이적 의존성 탐색",
     "transitiveDesc": "의존성 그래프 깊숙이 숨은 취약점을 발견합니다. DependencyPath 분석이 지원되는 모든 매니페스트에서 직접·전이적 노출을 추적합니다.",
-    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer · Conan",
+    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer (+ Conan 인벤토리만)"
     "gitTitle": "Git 네이티브 저장소 연동",
     "gitDesc": "Personal Access Token으로 GitHub, GitLab, Bitbucket을 연결합니다. Quick Import는 대량 저장소 임포트를 큐에 담아 처리하며 진행 중인 작업은 취소 버튼으로 중단할 수 있고, 모든 스캔은 브랜치 인식 스냅샷과 프로젝트별 히스토리를 기본 제공합니다.",
     "gitTag": "GitHub · GitLab · Bitbucket",

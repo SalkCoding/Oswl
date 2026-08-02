@@ -42,7 +42,7 @@
     "riskTag": "Version-over-version delta",
     "transitiveTitle": "Transitive Dependency Traversal",
     "transitiveDesc": "Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath analysis traces both direct and transitive exposure across every supported manifest.",
-    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer · Conan",
+    "transitiveTag": "Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer (+ Conan inventory-only)",
     "gitTitle": "Git-Native Repository Integration",
     "gitDesc": "Connect GitHub, GitLab, or Bitbucket via Personal Access Token. Quick Import queues bulk repository imports with a cancel button for jobs still running, and every scan keeps branch-aware snapshots and per-project history out of the box.",
     "gitTag": "GitHub · GitLab · Bitbucket",
