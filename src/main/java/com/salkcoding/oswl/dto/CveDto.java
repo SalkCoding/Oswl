@@ -29,6 +29,11 @@ public class CveDto {
     @Schema(description = "CVSS 3.x vector string", example = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H")
     private final String cvss3Vector;
 
+    @Schema(description = "CVSS 3.x Environmental score (0.0–10.0) — the base score adjusted for this "
+            + "project's deployment profile and the component's runtime scope; null when cvss3Vector "
+            + "isn't a scorable CVSS v3.0/v3.1 vector", example = "9.1")
+    private final Double environmentalScore;
+
     @Schema(description = "CWE identifier when available", example = "CWE-20")
     private final String cweId;
 

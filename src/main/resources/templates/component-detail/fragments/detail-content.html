@@ -506,6 +506,12 @@
                             <span class="font-medium" th:text="#{componentDetail.cve.cvssVector} + ':'">CVSS Vector:</span>
                             <span class="font-mono text-[11px]" th:text="${cve.cvss3Vector}">AV:N/AC:L/...</span>
                         </span>
+                        <span th:if="${cve.environmentalScore != null}" th:title="#{componentDetail.cve.envScore.tooltip}">
+                            <span class="font-medium" th:text="#{componentDetail.cve.envScore} + ':'">Environmental Score:</span>
+                            <span th:classappend="${cve.environmentalScore > cve.cvssScore} ? 'text-[var(--risk-critical)] font-medium'
+                                                 : (${cve.environmentalScore < cve.cvssScore} ? 'text-[var(--grayscale-50)]' : '')"
+                                  th:text="${#numbers.formatDecimal(cve.environmentalScore, 1, 1)}">8.5</span>
+                        </span>
                     </div>
                 </div>
             </div>
