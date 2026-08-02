@@ -39,6 +39,7 @@ public final class ManifestCollectRules {
             "composer.lock", "conan.lock",
             "vcpkg.json", "vcpkg-configuration.json",
             ".gitmodules", "CMakeLists.txt",
+            "Dockerfile",
             "mvnw", "mvnw.cmd", "gradlew", "gradlew.bat",
             "global.json", "nuget.config");
 
