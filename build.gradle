@@ -35,6 +35,8 @@ sourceSets {
 
 repositories {
 	mavenCentral()
+	// Spring Security SAML 7+ pulls OpenSAML 5.x from the Shibboleth repository.
+	maven { url 'https://build.shibboleth.net/maven/releases/' }
 }
 
 dependencies {
@@ -58,6 +60,8 @@ dependencies {
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 	// OIDC SSO (Okta / Entra) — optional, activated only when a provider is configured
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// SAML 2.0 SSO (Okta / Entra ID / AD FS) — optional, activated only when IdP metadata is configured
+	implementation 'org.springframework.security:spring-security-saml2-service-provider'
 	// Flyway DB migrations (prod-profile gated)
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
@@ -346,6 +350,7 @@ ext.trackedOssCoordinates = [
 	micrometer             : 'io.micrometer:micrometer-registry-prometheus',
 	flyway                 : 'org.flywaydb:flyway-core',
 	springOauth2           : 'org.springframework.security:spring-security-oauth2-client',
+	springSaml2Provider    : 'org.springframework.security:spring-security-saml2-service-provider',
 	springSessionJdbc      : 'org.springframework.session:spring-session-jdbc',
 	shedlock               : 'net.javacrumbs.shedlock:shedlock-spring',
 ]

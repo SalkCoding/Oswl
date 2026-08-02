@@ -8,6 +8,7 @@ import com.salkcoding.oswl.client.OsvClient;
 import com.salkcoding.oswl.client.OsvClient.OsvQuery;
 import com.salkcoding.oswl.client.OsvClient.OsvResult;
 import com.salkcoding.oswl.client.OsvClient.OsvVuln;
+import com.salkcoding.oswl.service.notification.WebhookNotificationService;
 import com.salkcoding.oswl.domain.entity.Cve;
 import com.salkcoding.oswl.domain.entity.CveAlert;
 import com.salkcoding.oswl.domain.entity.Library;
@@ -55,6 +56,7 @@ public class ContinuousMonitoringService {
     private final OsvClient osvClient;
     private final MailService mailService;
     private final AuditLogService auditLogService;
+    private final WebhookNotificationService webhookNotificationService;
 
     /** Outcome of one monitoring cycle — logged and returned by the local dev trigger. */
     public record MonitoringSummary(
@@ -264,6 +266,13 @@ public class ContinuousMonitoringService {
         auditLogService.logAnonymous("[system]", "MONITOR.ALERT_EMAIL", "PROJECT",
                 project.getId().toString(), project.getName(),
                 "alerts=" + alerts.size() + " recipients=" + recipients.size() + " sent=" + sent);
+
+        try {
+            webhookNotificationService.sendNewCveAlert(project, alerts);
+        } catch (Exception e) {
+            log.error("[Monitor] Webhook notification failed for projectId={}: {}",
+                    project.getId(), e.getMessage());
+        }
         return sent;
     }
 

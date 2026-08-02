@@ -2,7 +2,9 @@ package com.salkcoding.oswl.auth.security;
 
 import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,6 +44,8 @@ public class SecurityConfig {
     private final OswlSecurityHeadersProperties securityHeadersProperties;
     private final UserRepository userRepository;
     private final InstanceSetupLockRepository setupLockRepository;
+    private final AuditLogService auditLogService;
+    private final PasswordEncoder passwordEncoder;
     private final PermissionEvaluator oswlPermissionEvaluator;
     private final OswlAuthenticationFailureHandler authenticationFailureHandler;
     private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
@@ -76,6 +80,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
             org.springframework.beans.factory.ObjectProvider<org.springframework.security.oauth2.client.registration.ClientRegistrationRepository> clientRegistrations,
+            org.springframework.beans.factory.ObjectProvider<org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository> relyingParties,
             org.springframework.security.core.userdetails.UserDetailsService userDetailsService,
             SessionRegistry sessionRegistry) {
         AccessDeniedHandler accessDeniedHandler = (request, response, _) -> {
@@ -127,6 +132,8 @@ public class SecurityConfig {
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
                     .requestMatchers("/oss-notices").permitAll()
+                    .requestMatchers("/saml2/service-provider-metadata/**").permitAll()
+                    .requestMatchers("/scim/v2/**").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/actuator/**").hasRole("SYSTEM_ADMIN")
                     .anyRequest().authenticated())
@@ -174,6 +181,16 @@ public class SecurityConfig {
             http.oauth2Login(oauth -> oauth
                     .loginPage("/login")
                     .successHandler(new OidcLoginSuccessHandler(userDetailsService))
+                    .failureHandler(authenticationFailureHandler));
+        }
+
+        // SAML 2.0 SSO — activated only when a relying party is configured
+        // (spring.security.saml2.relyingparty.registration.*). IdP metadata and verification
+        // credentials are injected via environment variables.
+        if (relyingParties.getIfAvailable() != null) {
+            http.saml2Login(saml2 -> saml2
+                    .loginPage("/login")
+                    .successHandler(new Saml2LoginSuccessHandler(userDetailsService, userRepository, auditLogService, passwordEncoder))
                     .failureHandler(authenticationFailureHandler));
         }
 

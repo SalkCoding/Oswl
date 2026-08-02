@@ -46,6 +46,9 @@ public enum Permission {
     SETTINGS_JIRA_MANAGE("Manage Jira Integration"),
     SETTINGS_SNAPSHOT_MANAGE("Manage Offline Snapshot Bundles"),
 
+    // ── v1.0.5 capabilities ──
+    SETTINGS_WEBHOOK_MANAGE("Manage Webhook Notifications"),
+
     // ── Organization structure — team hierarchy and membership management ──
     TEAM_MANAGE("Manage Teams");
 

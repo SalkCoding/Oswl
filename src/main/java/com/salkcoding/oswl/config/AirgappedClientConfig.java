@@ -2,7 +2,9 @@ package com.salkcoding.oswl.config;
 
 import com.salkcoding.oswl.client.DepsDevClient;
 import com.salkcoding.oswl.client.EpssClient;
+import com.salkcoding.oswl.client.GitHubAdvisoryClient;
 import com.salkcoding.oswl.client.KevCatalogService;
+import com.salkcoding.oswl.client.NvdClient;
 import com.salkcoding.oswl.client.OsvClient;
 import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,27 @@ public class AirgappedClientConfig {
     @Value("${oswl.client.osv.read-timeout-ms:30000}")
     private long osvReadTimeoutMs;
 
+    @Value("${oswl.client.github-advisory.token:}")
+    private String githubAdvisoryToken;
+
+    @Value("${oswl.client.github-advisory.api-base:}")
+    private String githubAdvisoryApiBase;
+
+    @Value("${oswl.client.github-advisory.connect-timeout-ms:5000}")
+    private long githubAdvisoryConnectTimeoutMs;
+
+    @Value("${oswl.client.github-advisory.read-timeout-ms:20000}")
+    private long githubAdvisoryReadTimeoutMs;
+
+    @Value("${oswl.client.nvd.api-key:}")
+    private String nvdApiKey;
+
+    @Value("${oswl.client.nvd.connect-timeout-ms:5000}")
+    private long nvdConnectTimeoutMs;
+
+    @Value("${oswl.client.nvd.read-timeout-ms:20000}")
+    private long nvdReadTimeoutMs;
+
     @Bean
     public OsvClient osvClient() {
         return new OsvClient(snapshotService, airgapped,
@@ -62,5 +85,17 @@ public class AirgappedClientConfig {
     @Bean
     public KevCatalogService kevCatalogService() {
         return new KevCatalogService(snapshotService, airgapped);
+    }
+
+    @Bean
+    public GitHubAdvisoryClient gitHubAdvisoryClient() {
+        return new GitHubAdvisoryClient(snapshotService, airgapped, githubAdvisoryToken, githubAdvisoryApiBase,
+                Duration.ofMillis(githubAdvisoryConnectTimeoutMs), Duration.ofMillis(githubAdvisoryReadTimeoutMs));
+    }
+
+    @Bean
+    public NvdClient nvdClient() {
+        return new NvdClient(snapshotService, airgapped, nvdApiKey,
+                Duration.ofMillis(nvdConnectTimeoutMs), Duration.ofMillis(nvdReadTimeoutMs));
     }
 }

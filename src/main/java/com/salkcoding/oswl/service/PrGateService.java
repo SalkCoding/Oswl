@@ -6,6 +6,7 @@ import com.salkcoding.oswl.dto.gate.GateRequest.GitHubTarget;
 import com.salkcoding.oswl.dto.gate.GateResultDto;
 import com.salkcoding.oswl.dto.gate.GateResultDto.GitHubResult;
 import com.salkcoding.oswl.service.GatePolicyService.GateOptions;
+import com.salkcoding.oswl.service.notification.WebhookNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ public class PrGateService {
     private final GatePolicyService gatePolicyService;
     private final GitHubService gitHubService;
     private final AuditLogService auditLogService;
+    private final WebhookNotificationService webhookNotificationService;
 
     public GateResultDto evaluateAndPublish(Long projectId, GateRequest request) {
         GateOptions options = new GateOptions(
@@ -41,6 +43,15 @@ public class PrGateService {
                 projectId.toString(), result.projectName(),
                 "scanId=" + result.scanId() + " passed=" + result.passed()
                         + " violations=" + result.violations().size());
+
+        if (!result.passed()) {
+            try {
+                webhookNotificationService.sendGateFailure(projectId, result);
+            } catch (Exception e) {
+                log.error("[Gate] Webhook notification failed for projectId={}: {}",
+                        projectId, e.getMessage());
+            }
+        }
 
         GitHubTarget gh = request != null ? request.github() : null;
         if (gh == null || gh.token() == null || gh.owner() == null || gh.repo() == null) {

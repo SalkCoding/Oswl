@@ -53,6 +53,9 @@ public class SettingsTabAccess {
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CACHE_MANAGE)) {
             tabs.add(new TabSpec("cache", "⚡", "settings.tab.cache"));
         }
+        if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_WEBHOOK_MANAGE)) {
+            tabs.add(new TabSpec("webhooks", "🔔", "settings.tab.webhooks"));
+        }
         return tabs;
     }
 }

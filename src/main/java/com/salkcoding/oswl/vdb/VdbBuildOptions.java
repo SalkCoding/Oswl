@@ -19,9 +19,12 @@ public record VdbBuildOptions(
         Set<String> ecosystems,
         Path cacheDir,
         Path since,
-        Path offlineSources
+        Path offlineSources,
+        String githubAdvisoryToken,
+        String githubApiBase,
+        String nvdApiKey
 ) {
-    static final List<String> ALL_SOURCES = List.of("osv", "epss", "kev", "depsdev");
+    static final List<String> ALL_SOURCES = List.of("osv", "epss", "kev", "depsdev", "github-advisory", "nvd");
 
     static VdbBuildOptions parse(List<String> args) {
         Path out = null;
@@ -31,6 +34,9 @@ public record VdbBuildOptions(
         Path cacheDir = null;
         Path since = null;
         Path offlineSources = null;
+        String githubAdvisoryToken = System.getenv("OSWL_GITHUB_ADVISORY_TOKEN");
+        String githubApiBase = System.getenv("OSWL_GITHUB_API_BASE");
+        String nvdApiKey = System.getenv("OSWL_NVD_API_KEY");
         String mode = "full";
         for (int i = 0; i < args.size(); i++) {
             String a = args.get(i);
@@ -57,6 +63,9 @@ public record VdbBuildOptions(
                 }
                 case "--since" -> { since = Path.of(require(v, "--since")); i++; }
                 case "--offline-sources" -> { offlineSources = Path.of(require(v, "--offline-sources")); i++; }
+                case "--github-advisory-token" -> { githubAdvisoryToken = require(v, "--github-advisory-token"); i++; }
+                case "--github-api-base" -> { githubApiBase = require(v, "--github-api-base"); i++; }
+                case "--nvd-api-key" -> { nvdApiKey = require(v, "--nvd-api-key"); i++; }
                 default -> throw new IllegalArgumentException("Unknown option: " + a);
             }
         }
@@ -75,7 +84,8 @@ public record VdbBuildOptions(
             mode = "delta"; // --since implies delta even if --mode wasn't spelled out
         }
         Path finalSince = mode.equals("delta") ? since : null;
-        return new VdbBuildOptions(out, wanted, sources, ecosystems, cacheDir, finalSince, offlineSources);
+        return new VdbBuildOptions(out, wanted, sources, ecosystems, cacheDir, finalSince, offlineSources,
+                githubAdvisoryToken, githubApiBase, nvdApiKey);
     }
 
     boolean isDelta() {
