@@ -95,7 +95,8 @@
         'Integration':      /*[[#{permission.auditGroup.integration}]]*/ 'Integration',
         'Webhook':          /*[[#{permission.auditGroup.webhook}]]*/ 'Webhook',
         'Administration':   /*[[#{permission.auditGroup.administration}]]*/ 'Administration',
-        'SCIM Provisioning':/*[[#{permission.auditGroup.scim}]]*/ 'SCIM Provisioning'
+        'SCIM Provisioning':/*[[#{permission.auditGroup.scim}]]*/ 'SCIM Provisioning',
+        'Policy':           /*[[#{permission.auditGroup.policy}]]*/ 'Policy'
     };
     const _snapshotI18n = {
         airgappedOn:        /*[[#{settings.admin.snapshot.airgapped.on}]]*/ 'Air-gapped mode is on. Vulnerability and license lookups are answered from the definitions imported below.',
@@ -1367,6 +1368,7 @@
                 { label: _auditGroupLabels['Webhook'],          items: ['WEBHOOK.SETTINGS_UPDATE', 'WEBHOOK.SENT', 'WEBHOOK.FAILED'] },
                 { label: _auditGroupLabels['Administration'],   items: ['ORG_DASHBOARD.VIEW', 'AUDIT_LOG.EXPORT', 'SNAPSHOT.IMPORT', 'SNAPSHOT.EXPORT', 'SNAPSHOT.WANTED_LIST_EXPORT'] },
                 { label: _auditGroupLabels['SCIM Provisioning'],items: ['SCIM.USER_CREATE', 'SCIM.USER_UPDATE', 'SCIM.USER_DEACTIVATE', 'SCIM.GROUP_CREATE', 'SCIM.GROUP_UPDATE', 'SCIM.GROUP_DELETE', 'SCIM.GROUP_MEMBER_ADD', 'SCIM.GROUP_MEMBER_REMOVE', 'SCIM.AUTH_FAILURE', 'SCIM_KEY.CREATE'] },
+                { label: _auditGroupLabels['Policy'],           items: ['POLICY.CREATE', 'POLICY.UPDATE', 'POLICY.DELETE', 'POLICY.IMPORT', 'POLICY.GITOPS_SYNC', 'POLICY_EXCEPTION.REQUEST', 'POLICY_EXCEPTION.APPROVE', 'POLICY_EXCEPTION.REVOKE', 'POLICY_EXCEPTION.EXPIRE'] },
                 { label: 'System',                              items: ['SYSTEM.SETUP'] },
             ],
             get filteredAuditUsers() {
