@@ -134,6 +134,13 @@ public class Library {
     @Column(name = "source_repo_url", length = 500)
     private String sourceRepoUrl;
 
+    /**
+     * Best-matching CPE name for C/C++ components that are enriched through NVD CPE lookups
+     * (Conan, vcpkg, git submodules, vendored C/C++). Null for ecosystems covered by deps.dev/OSV.
+     */
+    @Column(columnDefinition = "TEXT")
+    private String cpe;
+
     /** True when OSV flags this package version as malicious (a {@code MAL-} advisory). */
     // columnDefinition supplies a DB default so ddl-auto=update can add this NOT NULL column to an existing populated table.
     @Column(name = "malicious", nullable = false, columnDefinition = "boolean default false")
@@ -202,6 +209,13 @@ public class Library {
 
     public void updateScorecardScore(Double scorecardScore) {
         this.scorecardScore = scorecardScore;
+    }
+
+    /** Stores the CPE name that produced NVD results for this C/C++ component. */
+    public void updateCpe(String cpe) {
+        if (cpe != null && !cpe.isBlank()) {
+            this.cpe = cpe.strip();
+        }
     }
 
     public void markMalicious() {

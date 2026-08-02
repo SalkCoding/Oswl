@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.domain.entity;
 
+import com.salkcoding.oswl.domain.enums.Reachability;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -52,6 +53,15 @@ public class ScanComponent {
      */
     @Column(name = "scope", length = 20)
     private String scope;
+
+    /**
+     * Bytecode call-graph reachability result for Java components.
+     * UNKNOWN when no project bytecode was supplied or analysis failed.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reachability", length = 20, nullable = false)
+    @Builder.Default
+    private Reachability reachability = Reachability.UNKNOWN;
 
     @Column(nullable = false)
     @Builder.Default
@@ -126,6 +136,10 @@ public class ScanComponent {
 
     public void markIgnored(boolean ignored) {
         this.ignored = ignored;
+    }
+
+    public void updateReachability(Reachability reachability) {
+        this.reachability = reachability != null ? reachability : Reachability.UNKNOWN;
     }
 
     public void applyDeferral(String reason, LocalDateTime expiresAt, String note) {

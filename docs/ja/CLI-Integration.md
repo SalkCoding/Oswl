@@ -252,8 +252,9 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 | `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
 | `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
 | `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+| `onlyReachable` | `OSWL_GATE_ONLY_REACHABLE` | `false` |
 
-`onlyNew` は直前の完了スキャンをベースラインとして比較するため、既存の技術的負債がマージを妨げることはありません。リクエストに GitHub の対象を指定すると、判定結果は Check Run と PR コメントとしても投稿されます。
+`onlyNew` は直前の完了スキャンをベースラインとして比較するため、既存の技術的負債がマージを妨げることはありません。`onlyReachable`(**v1.0.5**)はさらに、バイトコード呼び出しグラフ解析で脆弱なライブラリが実際に参照されていることが確認された場合のみブロックする追加のノイズ削減オプションです。`oswl.reachability.bytecode-root` が設定された Java/Gradle コンポーネントにのみ適用され、それ以外はすべて UNKNOWN のままこのオプションではブロックされないため、Java プロジェクトでない限り無効のままにしてください。リクエストに GitHub の対象を指定すると、判定結果は Check Run と PR コメントとしても投稿されます。
 
 ---
 

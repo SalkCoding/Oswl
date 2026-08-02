@@ -17,6 +17,7 @@ public record GateResultDto(
         String scanVersion,
         String baselineVersion,
         boolean onlyNew,
+        boolean onlyReachable,
         Thresholds thresholds,
         int evaluatedCount,
         int newVulnerabilityCount,

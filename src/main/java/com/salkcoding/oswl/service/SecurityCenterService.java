@@ -189,6 +189,8 @@ public class SecurityCenterService {
                     .recommendedFixVersion(lib.bestFixVersion())
                     .scope(sc != null ? sc.displayScope() : "runtime")
                     .runtimeScope(sc == null || sc.isRuntimeScope())
+                    .reachability(sc != null && sc.getReachability() != null
+                            ? sc.getReachability().name() : "UNKNOWN")
                     .scorecardScore(lib.getScorecardScore())
                     .malicious(lib.isMalicious())
                     .typosquatRisk(lib.isTyposquatRisk())
