@@ -2,7 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanHistoryService;
 import org.junit.jupiter.api.DisplayName;

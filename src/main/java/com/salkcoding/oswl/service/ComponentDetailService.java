@@ -22,10 +22,10 @@ import com.salkcoding.oswl.dto.DependencyPathDto;
 import com.salkcoding.oswl.exception.AiSummaryException;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.exception.InvalidRequestException;
-import com.salkcoding.oswl.repository.CveRepository;
-import com.salkcoding.oswl.repository.DependencyPathRepository;
-import com.salkcoding.oswl.repository.ProjectRepository;
-import com.salkcoding.oswl.repository.ScanComponentRepository;
+import com.salkcoding.oswl.repository.vulnerability.CveRepository;
+import com.salkcoding.oswl.repository.scan.DependencyPathRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
+import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import com.salkcoding.oswl.service.ai.AiStructuredSummary;
@@ -58,7 +58,7 @@ public class ComponentDetailService {
 
     private final ProjectRepository              projectRepository;
     private final ScanComponentRepository         scanComponentRepository;
-    private final com.salkcoding.oswl.repository.ScanResultRepository scanResultRepository;
+    private final com.salkcoding.oswl.repository.scan.ScanResultRepository scanResultRepository;
     private final DependencyPathRepository         dependencyPathRepository;
     private final AuditLogService                  auditLogService;
     private final GitHubService                    gitHubService;

@@ -14,7 +14,7 @@ import com.salkcoding.oswl.license.SpdxLicenseClassifier;
 
 import com.salkcoding.oswl.license.SpdxLicenseRegistry;
 
-import com.salkcoding.oswl.repository.LicensePolicyRepository;
+import com.salkcoding.oswl.repository.license.LicensePolicyRepository;
 
 import com.salkcoding.oswl.aop.Auditable;
 

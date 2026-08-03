@@ -5,7 +5,7 @@ import com.salkcoding.oswl.controller.spec.GitHubApiControllerSpec;
 import com.salkcoding.oswl.dto.github.GitHubAccountDto;
 import com.salkcoding.oswl.dto.github.GitHubImportRequest;
 import com.salkcoding.oswl.dto.github.GitHubRepoDto;
-import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.ProjectService;
 import com.salkcoding.oswl.service.SessionCipherService;

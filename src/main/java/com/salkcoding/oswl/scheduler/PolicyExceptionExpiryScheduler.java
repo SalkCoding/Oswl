@@ -4,7 +4,7 @@ import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.policy.PolicyException;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.enums.PolicyExceptionStatus;
-import com.salkcoding.oswl.repository.PolicyExceptionRepository;
+import com.salkcoding.oswl.repository.policy.PolicyExceptionRepository;
 import com.salkcoding.oswl.service.notification.WebhookNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

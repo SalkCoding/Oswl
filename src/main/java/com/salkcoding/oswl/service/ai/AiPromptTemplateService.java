@@ -8,7 +8,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
-import com.salkcoding.oswl.repository.AiPreferencesRepository;
+import com.salkcoding.oswl.repository.ai.AiPreferencesRepository;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;

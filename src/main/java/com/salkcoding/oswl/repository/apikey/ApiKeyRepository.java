@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.apikey;
 
 import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import org.springframework.data.jpa.repository.EntityGraph;

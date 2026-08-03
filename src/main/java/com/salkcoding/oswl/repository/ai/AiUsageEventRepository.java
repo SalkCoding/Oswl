@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiUsageEvent;
 import org.springframework.data.domain.Page;

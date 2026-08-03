@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
-import com.salkcoding.oswl.repository.AiPreferencesRepository;
+import com.salkcoding.oswl.repository.ai.AiPreferencesRepository;
 import jakarta.annotation.PreDestroy;
 import lombok.Builder;
 import lombok.Value;

@@ -6,7 +6,7 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;

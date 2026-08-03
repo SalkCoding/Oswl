@@ -24,7 +24,7 @@ import com.salkcoding.oswl.exception.QuickImportDuplicateException;
 import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.dto.QuickImportRepoDto;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

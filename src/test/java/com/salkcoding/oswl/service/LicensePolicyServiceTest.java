@@ -3,7 +3,7 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.domain.entity.license.LicensePolicyEntry;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.license.SpdxLicenseRegistry;
-import com.salkcoding.oswl.repository.LicensePolicyRepository;
+import com.salkcoding.oswl.repository.license.LicensePolicyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

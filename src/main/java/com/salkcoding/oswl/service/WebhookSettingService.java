@@ -5,7 +5,7 @@ import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.notification.WebhookSetting;
 import com.salkcoding.oswl.domain.enums.WebhookProvider;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
-import com.salkcoding.oswl.repository.WebhookSettingRepository;
+import com.salkcoding.oswl.repository.notification.WebhookSettingRepository;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

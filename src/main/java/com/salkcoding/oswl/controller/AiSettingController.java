@@ -16,7 +16,7 @@ import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
 import com.salkcoding.oswl.dto.api.AiUsageEventDto;
 import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
 import com.salkcoding.oswl.dto.api.EmbeddedAiConfigRequest;
-import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;

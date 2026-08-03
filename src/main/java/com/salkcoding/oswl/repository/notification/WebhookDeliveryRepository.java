@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.notification;
 
 import com.salkcoding.oswl.domain.entity.notification.WebhookDelivery;
 import com.salkcoding.oswl.domain.enums.WebhookDeliveryStatus;

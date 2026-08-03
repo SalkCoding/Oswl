@@ -10,7 +10,7 @@ import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
 import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
 import com.salkcoding.oswl.dto.QuickImportJobsResponse;
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

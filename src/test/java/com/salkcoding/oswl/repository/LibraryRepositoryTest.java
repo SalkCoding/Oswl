@@ -2,6 +2,7 @@ package com.salkcoding.oswl.repository;
 
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

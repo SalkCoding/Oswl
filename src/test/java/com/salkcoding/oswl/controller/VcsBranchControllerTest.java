@@ -6,7 +6,7 @@ import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.domain.entity.project.Project;
-import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.service.BitbucketService;
 import com.salkcoding.oswl.service.GitHubService;
 import com.salkcoding.oswl.service.GitLabService;

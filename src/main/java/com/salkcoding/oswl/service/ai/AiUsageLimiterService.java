@@ -2,7 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
 import com.salkcoding.oswl.domain.enums.AiProvider;
-import com.salkcoding.oswl.repository.AiDailyUsageRepository;
+import com.salkcoding.oswl.repository.ai.AiDailyUsageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;

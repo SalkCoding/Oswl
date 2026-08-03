@@ -9,7 +9,7 @@ import com.salkcoding.oswl.dto.api.WebhookDeliveryDto;
 import com.salkcoding.oswl.dto.api.WebhookSettingResponse;
 import com.salkcoding.oswl.dto.api.WebhookSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.WebhookTestRequest;
-import com.salkcoding.oswl.repository.WebhookDeliveryRepository;
+import com.salkcoding.oswl.repository.notification.WebhookDeliveryRepository;
 import com.salkcoding.oswl.service.WebhookSettingService;
 import com.salkcoding.oswl.service.notification.WebhookClient;
 import com.salkcoding.oswl.service.notification.WebhookMessageBuilder;

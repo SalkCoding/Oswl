@@ -3,7 +3,7 @@ package com.salkcoding.oswl.service.notification;
 import com.salkcoding.oswl.domain.entity.notification.WebhookDelivery;
 import com.salkcoding.oswl.domain.enums.WebhookDeliveryStatus;
 import com.salkcoding.oswl.domain.enums.WebhookEventType;
-import com.salkcoding.oswl.repository.WebhookDeliveryRepository;
+import com.salkcoding.oswl.repository.notification.WebhookDeliveryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

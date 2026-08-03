@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.license;
 
 import com.salkcoding.oswl.domain.entity.license.LicensePolicyEntry;
 import org.springframework.data.jpa.repository.JpaRepository;

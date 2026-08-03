@@ -8,7 +8,7 @@ import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
-import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
