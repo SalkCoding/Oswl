@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.scan.ComponentDetailController;
 
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.dto.CreatePrRequest;

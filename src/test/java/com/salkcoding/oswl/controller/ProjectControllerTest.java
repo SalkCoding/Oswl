@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.project.ProjectController;
 
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;

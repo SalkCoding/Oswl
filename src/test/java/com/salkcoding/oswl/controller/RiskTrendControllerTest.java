@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.reporting.RiskTrendController;
 
 import com.salkcoding.oswl.service.project.ProjectAccessService;
 import com.salkcoding.oswl.service.reporting.RiskTrendService;

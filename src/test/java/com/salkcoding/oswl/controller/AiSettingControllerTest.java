@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.ai.AiSettingController;
 
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;

@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.scan.ScanHistoryController;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
