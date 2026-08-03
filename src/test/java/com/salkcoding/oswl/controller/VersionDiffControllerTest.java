@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.scan.VersionDiffController;
 
 import com.salkcoding.oswl.service.project.ProjectAccessService;
 import com.salkcoding.oswl.service.scan.VersionDiffService;

@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.controller.spec;
 
-import com.salkcoding.oswl.controller.SnapshotAdminController.SnapshotStatusResponse;
+import com.salkcoding.oswl.controller.snapshot.SnapshotAdminController.SnapshotStatusResponse;
 import com.salkcoding.oswl.dto.SnapshotImportFromPathRequest;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotImportResult;
 import io.swagger.v3.oas.annotations.Operation;

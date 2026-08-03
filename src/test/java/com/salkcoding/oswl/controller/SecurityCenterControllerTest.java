@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.vulnerability.SecurityCenterController;
 
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.auth.service.AuditLogService;

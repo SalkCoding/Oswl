@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.ingest.ScanController;
 
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;

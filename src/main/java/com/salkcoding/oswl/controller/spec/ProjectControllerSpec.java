@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.controller.spec;
 
-import com.salkcoding.oswl.controller.ProjectController.CreateProjectRequest;
+import com.salkcoding.oswl.controller.project.ProjectController.CreateProjectRequest;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
