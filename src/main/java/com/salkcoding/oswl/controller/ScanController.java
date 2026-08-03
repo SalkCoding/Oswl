@@ -16,12 +16,12 @@ import com.salkcoding.oswl.exception.ForbiddenException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
-import com.salkcoding.oswl.service.DependencyManifestParserService;
-import com.salkcoding.oswl.service.ManifestArchiveService;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ingest.ManifestArchiveService;
 import com.salkcoding.oswl.service.manifest.ManifestCollectRules;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
-import com.salkcoding.oswl.service.ScanIngestService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.ingest.ScanApiCredentialThrottleService;
+import com.salkcoding.oswl.service.ingest.ScanIngestService;
 import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -65,7 +65,7 @@ public class ScanController implements ScanControllerSpec {
     private final ScanApiCredentialThrottleService scanApiCredentialThrottleService;
     private final DependencyManifestParserService dependencyManifestParserService;
     private final ManifestArchiveService manifestArchiveService;
-    private final com.salkcoding.oswl.service.PrGateService prGateService;
+    private final com.salkcoding.oswl.service.gate.PrGateService prGateService;
 
     /** Ping endpoint used by the CLI auth command for a connection test */
     @GetMapping("/ping")

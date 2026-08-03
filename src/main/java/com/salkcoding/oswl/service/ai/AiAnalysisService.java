@@ -8,7 +8,7 @@ import com.salkcoding.oswl.exception.AiSummaryFailureReason;
 import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
-import com.salkcoding.oswl.service.EnrichmentProgressContext;
+import com.salkcoding.oswl.service.ingest.EnrichmentProgressContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

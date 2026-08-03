@@ -29,7 +29,7 @@ import com.salkcoding.oswl.service.ai.AiUsageStatsService;
 import com.salkcoding.oswl.service.ai.EmbeddedAiBootstrapService;
 import com.salkcoding.oswl.service.ai.EmbeddedAiProviderRegistrar;
 import com.salkcoding.oswl.service.ai.EmbeddedAiService;
-import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;

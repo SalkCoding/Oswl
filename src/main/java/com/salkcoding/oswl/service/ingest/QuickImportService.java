@@ -1,0 +1,1362 @@
+package com.salkcoding.oswl.service.ingest;
+import com.salkcoding.oswl.service.apikey.IssuedApiKey;
+import com.salkcoding.oswl.service.scan.ScanTimingRecorder;
+import com.salkcoding.oswl.service.project.ProjectService;
+import com.salkcoding.oswl.service.apikey.ProjectCliKeyPolicyService;
+import com.salkcoding.oswl.service.vcs.GitHubService;
+import com.salkcoding.oswl.service.apikey.ApiKeyService;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.auth.entity.User;
+import com.salkcoding.oswl.client.BitbucketCloudClient;
+import com.salkcoding.oswl.service.git.CloneRootPathGuard;
+import com.salkcoding.oswl.service.git.GitCloneCredentials;
+import com.salkcoding.oswl.service.git.GitCloneExecutor;
+import com.salkcoding.oswl.auth.entity.UserVcsConnection;
+import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
+import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
+import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportJobStatus.Phase;
+import com.salkcoding.oswl.dto.QuickImportJobsResponse;
+import com.salkcoding.oswl.dto.QuickImportMessageKeys;
+import com.salkcoding.oswl.exception.QuickImportDuplicateException;
+import com.salkcoding.oswl.exception.QuickImportQueueFullException;
+import com.salkcoding.oswl.dto.QuickImportRepoDto;
+import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.*;
+import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import jakarta.annotation.PostConstruct;
+import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+/**
+ * Orchestrates the Quick Import flow:
+ * <ol>
+ *   <li>Detect the VCS provider from the URL</li>
+ *   <li>Retrieve and decrypt the user's stored access token</li>
+ *   <li>Clone the repository (shallow, depth 1) to a temporary directory</li>
+ *   <li>Detect the build ecosystem and parse dependency files</li>
+ *   <li>Find-or-create a Project and issue/reuse an API key</li>
+ *   <li>Submit the scan payload to {@link ScanIngestService}</li>
+ *   <li>Clean up the temporary clone</li>
+ * </ol>
+ *
+ * Each import is tracked as an asynchronous job (virtual thread) so the
+ * HTTP response is immediate; the UI polls {@link #getJobStatus(String, Long)}.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class QuickImportService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String USER_AGENT = "OsWL-App/1.0";
+    /** Safety bound for repo-list pagination (100 per page → up to 1000 repos). */
+    private static final int MAX_REPO_PAGES = 10;
+
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
+    @Value("${oswl.clone.temp-dir:}")
+    private String configuredTempDir;
+
+    @Value("${oswl.quick-import.max-concurrent:3}")
+    private int maxConcurrentImports;
+
+    @Value("${oswl.quick-import.max-queued-per-user:3}")
+    private int maxQueuedPerUser;
+
+    private volatile Path cloneBaseReal;
+
+    private final GitCloneExecutor gitCloneExecutor;
+    private final UserVcsConnectionRepository vcsConnectionRepository;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
+    private final EncryptionService encryptionService;
+    private final ProjectService projectService;
+    private final ApiKeyService apiKeyService;
+    private final ScanIngestService scanIngestService;
+    private final ScanResultRepository scanResultRepository;
+    private final GitHubService gitHubService;
+    private final BitbucketCloudClient bitbucketCloudClient;
+    private final EnrichmentProgressHolder enrichmentProgressHolder;
+    private final ProjectCliKeyPolicyService projectCliKeyPolicyService;
+    private final DependencyManifestParserService dependencyManifestParserService;
+    private final ScanTimingRecorder scanTimingRecorder;
+    private final CloneCleanupService cloneCleanupService;
+
+    /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
+    private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
+    /** Tracks job creation times for TTL-based eviction. */
+    private final ConcurrentHashMap<String, Instant> jobCreatedAt = new ConcurrentHashMap<>();
+    /** Job owner — used to prevent cross-user status polling (IDOR). */
+    private final ConcurrentHashMap<String, Long> jobOwners = new ConcurrentHashMap<>();
+    /** Tracks whether the full API token was already returned once on DONE. */
+    private final ConcurrentHashMap<String, Boolean> apiTokenRevealed = new ConcurrentHashMap<>();
+    /** Per-user job IDs (most recent last) for multi-import UI. */
+    private final ConcurrentHashMap<Long, CopyOnWriteArrayList<String>> userJobIds = new ConcurrentHashMap<>();
+    /** FIFO queue waiting for a worker slot. */
+    private final Deque<PendingImport> pendingQueue = new java.util.concurrent.ConcurrentLinkedDeque<>();
+    private final AtomicInteger runningImports = new AtomicInteger(0);
+    private final Object dispatchLock = new Object();
+    private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> jobEmitters = new ConcurrentHashMap<>();
+    /** jobId → normalized repoUrl#branch, used to reject duplicate concurrent imports. */
+    private final ConcurrentHashMap<String, String> jobRepoKeys = new ConcurrentHashMap<>();
+    /**
+     * Jobs the owner canceled. Persistent for the job's lifetime (cleared only on eviction) so
+     * that: (1) runImport bails at the next phase boundary, (2) the background worker can no longer
+     * overwrite the status via patchJob, and (3) status polling never resurrects an ENRICHING job
+     * back to DONE. This is what makes cancel actually stick during the long enrichment phase.
+     */
+    private final java.util.Set<String> canceledJobs = ConcurrentHashMap.newKeySet();
+
+    /** scanResultId → jobId, so enrichment progress events can find the owning job for SSE pushes. */
+    private final ConcurrentHashMap<Long, String> jobIdByScanResultId = new ConcurrentHashMap<>();
+    /**
+     * Per-job SSE throttle for high-frequency progress updates: [lastSentAtMs, lastSentPercent].
+     * Phase transitions always notify immediately (via {@link #patchJob}); only the continuous
+     * in-phase progress path is throttled to one frame per 500ms unless the percent advanced.
+     */
+    private final ConcurrentHashMap<String, long[]> progressThrottle = new ConcurrentHashMap<>();
+
+    /**
+     * Routes enrichment progress events (streaming previews, per-fetch counts) to the owning
+     * job's SSE stream — throttled, since streaming can produce several events per second.
+     */
+    @PostConstruct
+    void registerEnrichmentProgressListener() {
+        enrichmentProgressHolder.setUpdateListener(this::onEnrichmentProgress);
+    }
+
+    private void onEnrichmentProgress(Long scanResultId) {
+        String jobId = jobIdByScanResultId.get(scanResultId);
+        if (jobId == null) return;
+        QuickImportJobStatus job = jobs.get(jobId);
+        int percent = job != null && job.getPercent() != null ? job.getPercent() : 0;
+        throttledNotify(jobId, percent);
+    }
+
+    /**
+     * D3: continuous in-phase progress (e.g. manifests parsed N/M). Percent is clamped
+     * monotonically per job and SSE pushes are throttled; HTTP polls read the stored value.
+     */
+    private void reportJobProgress(String jobId, int percent) {
+        if (canceledJobs.contains(jobId)) return;
+        QuickImportJobStatus prev = jobs.get(jobId);
+        if (prev == null) return;
+        int previous = prev.getPercent() != null ? prev.getPercent() : 0;
+        int clamped = Math.min(100, Math.max(previous, percent));
+        if (clamped == previous) return;
+        patchJobQuiet(jobId, b -> b.percent(clamped));
+        throttledNotify(jobId, clamped);
+    }
+
+    private void throttledNotify(String jobId, int latestPercent) {
+        long now = System.currentTimeMillis();
+        long[] state = progressThrottle.computeIfAbsent(jobId, k -> new long[]{0L, -1});
+        synchronized (state) {
+            boolean percentAdvanced = latestPercent > state[1];
+            boolean intervalElapsed = now - state[0] >= 500;
+            if (!percentAdvanced && !intervalElapsed) return;
+            state[0] = now;
+            if (percentAdvanced) state[1] = latestPercent;
+        }
+        notifyJobUpdate(jobId);
+    }
+
+    private static final class ImportCanceledException extends RuntimeException {
+        ImportCanceledException() { super("canceled"); }
+    }
+
+    private record PendingImport(String jobId, String repoUrl, String branch, Long userId, String repoLabel,
+                                 Locale locale) {}
+
+    // ── Public API ────────────────────────────────────────────────────────
+
+    /**
+     * Starts an asynchronous import job and immediately returns the job ID.
+     *
+     * @param repoUrl   the repository URL entered by the user
+     * @param branch    requested branch (null = default branch)
+     * @param userId    authenticated user ID
+     * @return job ID (UUID string)
+     */
+    public String startImport(String repoUrl, String branch, Long userId) {
+        return startImportInternal(repoUrl, branch, userId, false);
+    }
+
+    /**
+     * Queues multiple public-repo imports (local demo seed). Bypasses the per-user queue cap
+     * so all jobs can be scheduled at once; concurrency is still limited by {@code max-concurrent}.
+     */
+    public List<String> startBatchImport(List<String> repoUrls, Long userId) {
+        List<String> jobIds = new ArrayList<>(repoUrls.size());
+        for (String repoUrl : repoUrls) {
+            jobIds.add(startImportInternal(repoUrl, null, userId, true));
+        }
+        return jobIds;
+    }
+
+    private String startImportInternal(String repoUrl, String branch, Long userId, boolean bypassQueueCap) {
+        if (!bypassQueueCap) {
+            int userQueued = countUserQueuedJobs(userId);
+            if (userQueued >= maxQueuedPerUser) {
+                throw new QuickImportQueueFullException(maxQueuedPerUser);
+            }
+            rejectDuplicateActiveImport(repoUrl, branch, userId);
+        }
+
+        String jobId = UUID.randomUUID().toString();
+        String repoLabel = extractRepoLabel(repoUrl);
+        int queuePosition = pendingQueue.size() + runningImports.get() + 1;
+
+        jobs.put(jobId, baseJobBuilder(jobId)
+                .phase(Phase.QUEUED)
+                .message(null)
+                .messageKey(null)
+                .messageArgs(null)
+                .repoLabel(repoLabel)
+                .queuePosition(queuePosition)
+                .percent(0)
+                .startedAtEpochMs(System.currentTimeMillis())
+                .build());
+        jobCreatedAt.put(jobId, Instant.now());
+        jobOwners.put(jobId, userId);
+        userJobIds.computeIfAbsent(userId, id -> new CopyOnWriteArrayList<>()).add(jobId);
+        notifyJobUpdate(jobId);
+
+        log.info("[QuickImport][{}] Job queued userId={} repo={} queuePos={}", jobId, userId,
+                repoUrl.replaceAll("(https?://)([^@/]+@)", "$1***@"), queuePosition);
+
+        String safeRepo = repoUrl.replaceAll("(https?://)([^@/]+@)", "$1***@");
+        auditLogService.log("QUICK_IMPORT.START", "PROJECT", null, safeRepo,
+                "jobId=" + jobId + " branch=" + (branch != null && !branch.isBlank() ? branch : "default"));
+
+        Locale locale = LocaleContextHolder.getLocale();
+        jobRepoKeys.put(jobId, importKey(repoUrl, branch));
+        pendingQueue.offer(new PendingImport(jobId, repoUrl, branch, userId, repoLabel, locale));
+        refreshQueuePositions();
+        dispatchQueue();
+
+        return jobId;
+    }
+
+    /**
+     * The same repo imported twice in a row used to scan concurrently and race on
+     * the same project rows — block a re-import while the first one is still active.
+     */
+    private void rejectDuplicateActiveImport(String repoUrl, String branch, Long userId) {
+        String key = importKey(repoUrl, branch);
+        CopyOnWriteArrayList<String> ids = userJobIds.get(userId);
+        if (ids == null) return;
+        for (String id : ids) {
+            QuickImportJobStatus status = jobs.get(id);
+            if (status == null) continue;
+            Phase phase = status.getPhase();
+            if (phase == Phase.DONE || phase == Phase.FAILED) continue;
+            if (key.equals(jobRepoKeys.get(id))) {
+                throw new QuickImportDuplicateException(extractRepoLabel(repoUrl));
+            }
+        }
+    }
+
+    private static String importKey(String repoUrl, String branch) {
+        String url = repoUrl == null ? "" : repoUrl.strip().toLowerCase();
+        if (url.endsWith(".git")) url = url.substring(0, url.length() - 4);
+        if (url.endsWith("/")) url = url.substring(0, url.length() - 1);
+        return url + "#" + (branch == null || branch.isBlank() ? "default" : branch.strip());
+    }
+
+    public List<QuickImportJobStatus> listJobsForUser(Long userId) {
+        CopyOnWriteArrayList<String> ids = userJobIds.get(userId);
+        if (ids == null || ids.isEmpty()) return List.of();
+        return ids.stream()
+                .map(id -> sanitizeApiToken(id, resolveJobStatus(id)))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    public QuickImportJobsResponse listJobsSnapshot(Long userId) {
+        return QuickImportJobsResponse.builder()
+                .jobs(listJobsForUser(userId))
+                .activeSlotsUsed(runningImports.get())
+                .maxConcurrentSlots(maxConcurrentImports)
+                .userQueuedCount(countUserQueuedJobs(userId))
+                .userRunningCount(countUserRunningJobs(userId))
+                .maxQueuedSlots(maxQueuedPerUser)
+                .build();
+    }
+
+    public SseEmitter subscribeJobStream(String jobId, Long userId) {
+        if (!isJobOwner(jobId, userId)) {
+            throw new IllegalArgumentException("Job not found");
+        }
+        SseEmitter emitter = new SseEmitter(Duration.ofMinutes(30).toMillis());
+        jobEmitters.computeIfAbsent(jobId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+        emitter.onCompletion(() -> removeEmitter(jobId, emitter));
+        emitter.onTimeout(() -> removeEmitter(jobId, emitter));
+        emitter.onError(e -> removeEmitter(jobId, emitter));
+        try {
+            // SSE follows the same reveal-once policy as HTTP polling: the full apiToken
+            // is delivered only on the first DONE frame, then masked.
+            QuickImportJobStatus status = sanitizeApiToken(jobId, resolveJobStatus(jobId));
+            emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
+        } catch (Exception e) {
+            emitter.completeWithError(e);
+        }
+        return emitter;
+    }
+
+    private void dispatchQueue() {
+        synchronized (dispatchLock) {
+            while (runningImports.get() < maxConcurrentImports && !pendingQueue.isEmpty()) {
+                PendingImport task = pendingQueue.poll();
+                if (task == null) break;
+                runningImports.incrementAndGet();
+                refreshQueuePositions();
+                Thread.ofVirtual().name("quick-import-" + task.jobId()).start(() -> executeImport(task));
+            }
+        }
+    }
+
+    private void executeImport(PendingImport task) {
+        String jobId = task.jobId();
+        try {
+            patchJob(jobId, b -> b.phase(Phase.CLONING)
+                    .message(null)
+                    .messageKey(null)
+                    .messageArgs(null)
+                    .queuePosition(null)
+                    .runningSinceEpochMs(System.currentTimeMillis())
+                    .percent(phasePercent(Phase.CLONING, null)));
+            runImport(jobId, task.repoUrl(), task.branch(), task.userId());
+        } catch (ImportCanceledException e) {
+            // Status was already set to canceled by cancelJob(); nothing more to do.
+            log.info("[QuickImport][{}] Worker stopped after cancellation", jobId);
+        } catch (com.salkcoding.oswl.exception.ConflictException e) {
+            log.warn("[QuickImport][{}] Blocked by CLI key policy: {}", jobId, e.getMessage());
+            failJob(jobId, QuickImportMessageKeys.CLI_POLICY_BLOCKED, List.of(),
+                    null, null, null, null, null, null);
+        } catch (Throwable t) {
+            log.error("[QuickImport][{}] Unhandled error", jobId, t);
+            failJob(jobId, classifyFailureKey(t), List.of(),
+                    null, null, null, null, null, null);
+        } finally {
+            // canceledJobs is intentionally NOT cleared here — it must survive until the job is
+            // evicted so late background writes and status polling stay blocked.
+            runningImports.decrementAndGet();
+            refreshQueuePositions();
+            dispatchQueue();
+        }
+    }
+
+    /**
+     * Requests cancellation of a queued or running job. Queued jobs stop immediately;
+     * running jobs stop at the next phase boundary (a long clone finishes first).
+     * Returns false when the job is unknown, not owned by the user, or already finished.
+     */
+    public boolean cancelJob(String jobId, Long requestingUserId) {
+        if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) return false;
+        QuickImportJobStatus status = jobs.get(jobId);
+        if (status == null) return false;
+        Phase phase = status.getPhase();
+        if (phase == Phase.DONE || phase == Phase.FAILED) return false;
+
+        // Mark canceled first so patchJob/resolveJobStatus stop mutating this job, then drop any
+        // queued task and stamp the terminal (FAILED = canceled) status directly.
+        canceledJobs.add(jobId);
+        pendingQueue.removeIf(t -> t.jobId().equals(jobId));
+        writeCanceledStatus(jobId, status);
+        refreshQueuePositions();
+
+        auditLogService.log("QUICK_IMPORT.CANCEL", "PROJECT", null, status.getRepoLabel(),
+                "jobId=" + jobId + " phase=" + phase);
+        log.info("[QuickImport][{}] Canceled by user (phase={})", jobId, phase);
+        return true;
+    }
+
+    /** Writes the terminal canceled status directly, bypassing the patchJob cancel-guard. */
+    private void writeCanceledStatus(String jobId, QuickImportJobStatus prev) {
+        QuickImportJobStatus canceled = (prev != null ? prev.toBuilder() : baseJobBuilder(jobId))
+                .phase(Phase.FAILED)
+                .message(null)
+                .messageKey(QuickImportMessageKeys.CANCELED)
+                .messageArgs(List.of())
+                .error(null)
+                .queuePosition(null)
+                .subPhase(null)
+                .build();
+        jobs.put(jobId, canceled);
+        notifyJobUpdate(jobId);
+    }
+
+    private void throwIfCanceled(String jobId) {
+        if (canceledJobs.contains(jobId)) {
+            throw new ImportCanceledException();
+        }
+    }
+
+    /**
+     * Returns the current status of a job for the requesting user, or null if the job is unknown
+     * or not owned by that user.
+     */
+    public QuickImportJobStatus getJobStatus(String jobId, Long requestingUserId) {
+        if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) {
+            return null;
+        }
+        return sanitizeApiToken(jobId, resolveJobStatus(jobId));
+    }
+
+    private boolean isJobOwner(String jobId, Long userId) {
+        Long owner = jobOwners.get(jobId);
+        return owner != null && owner.equals(userId);
+    }
+
+    private QuickImportJobStatus resolveJobStatus(String jobId) {
+        QuickImportJobStatus job = jobs.get(jobId);
+        if (job == null) return null;
+
+        // Canceled jobs keep their stored terminal status — never resurrect ENRICHING → DONE.
+        if (canceledJobs.contains(jobId)) {
+            return job;
+        }
+
+        final QuickImportJobStatus current = job.toBuilder()
+                .activeSlotsUsed(runningImports.get())
+                .maxConcurrentSlots(maxConcurrentImports)
+                .build();
+
+        if (current.getPhase() == Phase.ENRICHING && current.getScanResultId() != null) {
+            EnrichmentProgressHolder.Snapshot enrich =
+                    enrichmentProgressHolder.getSnapshot(current.getScanResultId());
+            return scanResultRepository.findById(current.getScanResultId())
+                    .map(sr -> {
+                        if (sr.getStatus() == ScanStatus.COMPLETED) {
+                            // The CVE/license data pipeline is done — the job is DONE even though
+                            // AI enrichment (aiStatus) may still be PENDING/RUNNING in the
+                            // background (D1: AI no longer blocks scan/job completion).
+                            int count = current.getComponentCount() != null ? current.getComponentCount() : 0;
+                            QuickImportJobStatus done = current.toBuilder()
+                                    .phase(Phase.DONE)
+                                    .message(null)
+                                    .messageKey(QuickImportMessageKeys.IMPORT_COMPLETE)
+                                    .messageArgs(List.of(String.valueOf(count)))
+                                    .percent(100)
+                                    .queuePosition(null)
+                                    .subPhase(null)
+                                    .aiStatus(sr.getAiStatus().name())
+                                    .build();
+                            jobs.put(jobId, done);
+                            notifyJobUpdate(jobId);
+                            return done;
+                        } else if (sr.getStatus() == ScanStatus.FAILED) {
+                            QuickImportJobStatus failed = current.toBuilder()
+                                    .phase(Phase.FAILED)
+                                    .message(null)
+                                    .messageKey(QuickImportMessageKeys.ENRICHMENT_FAILED)
+                                    .messageArgs(List.of())
+                                    .error("Enrichment pipeline failed.")
+                                    .build();
+                            jobs.put(jobId, failed);
+                            notifyJobUpdate(jobId);
+                            return failed;
+                        }
+                        QuickImportJobStatus.QuickImportJobStatusBuilder enriching = current.toBuilder();
+                        if (enrich != null) {
+                            // D3: the holder reports absolute 55–100 progress; clamp against the
+                            // stored percent so a stale poll/SSE race can never move it backwards.
+                            int jobPercent = current.getPercent() != null ? current.getPercent() : 0;
+                            enriching.message(enrich.message())
+                                    .subPhase(enrich.subPhase() != null ? enrich.subPhase().name() : null)
+                                    .detailLines(enrich.detailLines())
+                                    .aiPreviews(enrich.aiPreviews())
+                                    .cacheTotal(enrich.cacheTotal())
+                                    .cacheHit(enrich.cacheHit())
+                                    .cacheToFetch(enrich.cacheToFetch())
+                                    .percent(Math.max(jobPercent, enrich.percent()));
+                        }
+                        QuickImportJobStatus live = enriching.build();
+                        jobs.put(jobId, live);
+                        return live;
+                    })
+                    .orElse(current);
+        }
+
+        // Job already DONE, but the underlying scan may still be generating AI summaries in the
+        // background — re-check aiStatus on each poll until it reaches a terminal state, so the
+        // UI can flip "AI summary generating" -> done without the job itself changing phase again.
+        if (current.getPhase() == Phase.DONE && current.getScanResultId() != null
+                && !isTerminalAiStatus(current.getAiStatus())) {
+            // D2: AI previews/detail lines keep streaming after DONE (D1 moved AI past the
+            // data pipeline), so merge the live snapshot while AI is still running.
+            EnrichmentProgressHolder.Snapshot enrich =
+                    enrichmentProgressHolder.getSnapshot(current.getScanResultId());
+            return scanResultRepository.findById(current.getScanResultId())
+                    .map(sr -> {
+                        QuickImportJobStatus.QuickImportJobStatusBuilder refreshed = current.toBuilder()
+                                .aiStatus(sr.getAiStatus().name());
+                        if (enrich != null) {
+                            refreshed.detailLines(enrich.detailLines())
+                                    .aiPreviews(enrich.aiPreviews());
+                        }
+                        QuickImportJobStatus next = refreshed.build();
+                        jobs.put(jobId, next);
+                        return next;
+                    })
+                    .orElse(current);
+        }
+        return current;
+    }
+
+    private static boolean isTerminalAiStatus(String aiStatus) {
+        return aiStatus == null
+                || aiStatus.equals("COMPLETED")
+                || aiStatus.equals("FAILED")
+                || aiStatus.equals("NOT_APPLICABLE");
+    }
+
+    /**
+     * Returns the API token in full only on the first DONE delivery (HTTP poll or SSE frame,
+     * whichever comes first); every later delivery receives the masked value.
+     */
+    private QuickImportJobStatus sanitizeApiToken(String jobId, QuickImportJobStatus job) {
+        if (job == null || job.getApiToken() == null || job.getApiToken().isBlank()) {
+            return job;
+        }
+        if (job.getPhase() == Phase.DONE && apiTokenRevealed.putIfAbsent(jobId, true) == null) {
+            return job;
+        }
+        return job.toBuilder().apiToken(maskApiToken(job.getApiToken())).build();
+    }
+
+    static String maskApiToken(String token) {
+        if (token == null || token.length() < 12) {
+            return null;
+        }
+        return token.substring(0, 8) + "\u2026" + token.substring(token.length() - 4);
+    }
+
+    /**
+     * Returns all repositories accessible by the authenticated user for the given VCS provider.
+     *
+     * @param provider the VCS provider (GITHUB, GITLAB, BITBUCKET)
+     * @param userId   authenticated user ID
+     * @return list of repo DTOs, sorted by last updated, or empty list if no connection found
+     */
+    public List<QuickImportRepoDto> listRepos(VcsProvider provider, Long userId) {
+        Optional<UserVcsConnection> connOpt =
+                vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(userId, provider);
+
+        if (connOpt.isEmpty()) return List.of();
+
+        UserVcsConnection conn = connOpt.get();
+        String token;
+        try {
+            token = encryptionService.decrypt(conn.getAccessTokenEncrypted());
+        } catch (Exception e) {
+            log.warn("[RepoBrowser] Failed to decrypt token for provider {}: {}", provider, e.getMessage());
+            throw new com.salkcoding.oswl.exception.QuickImportUpstreamException(
+                    QuickImportMessageKeys.TOKEN_DECRYPT);
+        }
+
+        try {
+            return switch (provider) {
+                case GITHUB   -> listGitHubRepos(token, conn.getServerUrl());
+                case GITLAB   -> listGitLabRepos(token, conn.getServerUrl());
+                case BITBUCKET -> isBitbucketCloud(conn.getServerUrl())
+                        ? listBitbucketCloudRepos(token, conn.getVcsUsername())
+                        : listBitbucketServerRepos(token, conn.getServerUrl());
+            };
+        } catch (com.salkcoding.oswl.exception.OutboundUrlBlockedException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("[RepoBrowser] Failed to list repos for provider {}: {}", provider, e.toString());
+            throw new com.salkcoding.oswl.exception.QuickImportUpstreamException(
+                    QuickImportMessageKeys.LOAD_REPOS);
+        }
+    }
+
+    private List<QuickImportRepoDto> listGitHubRepos(String token, String serverUrl) {
+        String webBase = gitHubService.resolveWebBase(serverUrl);
+        return gitHubService.listAllUserRepos(token, serverUrl).stream()
+                .map(r -> new QuickImportRepoDto(
+                        r.getName(),
+                        r.getFullName(),
+                        webBase + "/" + r.getFullName(),
+                        r.getDefaultBranch(),
+                        r.isPrivate(),
+                        r.getUpdatedAt()))
+                .toList();
+    }
+
+    private List<QuickImportRepoDto> listGitLabRepos(String token, String serverUrl) throws Exception {
+        String base = serverUrl != null ? serverUrl.replaceAll("/+$", "") : "https://gitlab.com";
+
+        // membership=true works for classic PATs (user-level membership context).
+        // Fine-grained project-scoped tokens lack that context — fall back to min_access_level.
+        String url = base + "/api/v4/projects?membership=true&per_page=100&order_by=last_activity_at";
+        HttpResponse<String> resp = sendGitLabGet(token, url);
+        if (resp.statusCode() == 403) {
+            log.warn("[RepoBrowser] GitLab membership=true returned 403, retrying with min_access_level (fine-grained token)");
+            return listGitLabReposByAccessLevel(token, base);
+        }
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] GitLab returned HTTP {} — {}", resp.statusCode(), resp.body());
+            throw new IOException("GitLab API returned HTTP " + resp.statusCode());
+        }
+        return collectGitLabProjectPages(token, url, resp);
+    }
+
+    private List<QuickImportRepoDto> listGitLabReposByAccessLevel(String token, String base) throws Exception {
+        String url = base + "/api/v4/projects?min_access_level=10&per_page=100&order_by=last_activity_at";
+        HttpResponse<String> resp = sendGitLabGet(token, url);
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] GitLab min_access_level returned HTTP {} — {}", resp.statusCode(), resp.body());
+            throw new IOException("GitLab API returned HTTP " + resp.statusCode() +
+                " — ensure the fine-grained token has \"Project: Read\" permission.");
+        }
+        return collectGitLabProjectPages(token, url, resp);
+    }
+
+    /**
+     * Parses the first page and follows GitLab's {@code X-Next-Page} header, bounded by
+     * {@link #MAX_REPO_PAGES} so users with more than 100 projects are not silently truncated.
+     */
+    private List<QuickImportRepoDto> collectGitLabProjectPages(String token, String pageUrl,
+                                                               HttpResponse<String> firstResponse) throws Exception {
+        List<QuickImportRepoDto> result = new ArrayList<>(parseGitLabProjects(firstResponse.body()));
+        String nextPage = nextGitLabPage(firstResponse);
+        for (int page = 1; page < MAX_REPO_PAGES && nextPage != null; page++) {
+            HttpResponse<String> resp = sendGitLabGet(token, pageUrl + "&page=" + nextPage);
+            if (resp.statusCode() != 200) {
+                log.warn("[RepoBrowser] GitLab page {} returned HTTP {} — returning {} repos collected so far",
+                        nextPage, resp.statusCode(), result.size());
+                break;
+            }
+            result.addAll(parseGitLabProjects(resp.body()));
+            nextPage = nextGitLabPage(resp);
+        }
+        if (nextPage != null) {
+            log.info("[RepoBrowser] GitLab repo list truncated at {} pages ({} repos collected)",
+                    MAX_REPO_PAGES, result.size());
+        }
+        return result;
+    }
+
+    /** Next page number from GitLab's X-Next-Page header (null when the last page was reached). */
+    private static String nextGitLabPage(HttpResponse<?> resp) {
+        String next = resp.headers().firstValue("X-Next-Page").orElse("").trim();
+        return next.isEmpty() ? null : next;
+    }
+
+    private HttpResponse<String> sendGitLabGet(String token, String url) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("PRIVATE-TOKEN", token)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+        return httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private List<QuickImportRepoDto> parseGitLabProjects(String body) throws Exception {
+        JsonNode arr = OBJECT_MAPPER.readTree(body);
+        if (!arr.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode r : arr) {
+            result.add(new QuickImportRepoDto(
+                    r.path("name").asText(),
+                    r.path("path_with_namespace").asText(),
+                    r.path("web_url").asText(),
+                    r.path("default_branch").asText("main"),
+                    r.path("visibility").asText("public").equals("private"),
+                    r.path("last_activity_at").asText()));
+        }
+        return result;
+    }
+
+    /** True when serverUrl is blank or points at Bitbucket Cloud (not Data Center). */
+    private static boolean isBitbucketCloud(String serverUrl) {
+        if (serverUrl == null || serverUrl.isBlank()) return true;
+        String normalized = serverUrl.trim().replaceAll("/+$", "").toLowerCase();
+        return normalized.equals("https://bitbucket.org")
+                || normalized.equals("http://bitbucket.org");
+    }
+
+    private List<QuickImportRepoDto> listBitbucketCloudRepos(String tokenOrAppPassword, String username) throws Exception {
+        return bitbucketCloudClient.listRepositories(username, tokenOrAppPassword);
+    }
+
+    private List<QuickImportRepoDto> listBitbucketServerRepos(String token, String serverUrl) throws Exception {
+        String base = serverUrl.replaceAll("/+$", "");
+        String authHeader = "Bearer " + token;
+
+        // Primary: /rest/api/1.0/projects → repos per project (Data Center standard)
+        List<QuickImportRepoDto> fromProjects = listServerReposViaProjects(base, authHeader);
+        if (!fromProjects.isEmpty()) return fromProjects;
+
+        // Fallback: global repo list
+        String url = base + "/rest/api/1.0/repos?limit=100";
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", authHeader)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+
+        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        if (resp.statusCode() != 200) {
+            log.warn("[RepoBrowser] Bitbucket Server returned HTTP {} for {}", resp.statusCode(), url);
+            return List.of();
+        }
+
+        JsonNode root = OBJECT_MAPPER.readTree(resp.body());
+        JsonNode values = root.path("values");
+        if (!values.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode r : values) {
+            result.add(mapServerRepoNode(r, base));
+        }
+        return result;
+    }
+
+    private List<QuickImportRepoDto> listServerReposViaProjects(String base, String authHeader) throws Exception {
+        HttpRequest projectsReq = HttpRequest.newBuilder()
+                .uri(URI.create(base + "/rest/api/1.0/projects?limit=100"))
+                .header("Authorization", authHeader)
+                .header("User-Agent", USER_AGENT)
+                .GET().build();
+        HttpResponse<String> projectsResp = httpClient.send(projectsReq, HttpResponse.BodyHandlers.ofString());
+        if (projectsResp.statusCode() != 200) {
+            log.warn("[RepoBrowser] Bitbucket Server /projects returned HTTP {}", projectsResp.statusCode());
+            return List.of();
+        }
+
+        JsonNode projectsRoot = OBJECT_MAPPER.readTree(projectsResp.body());
+        JsonNode projects = projectsRoot.path("values");
+        if (!projects.isArray()) return List.of();
+
+        List<QuickImportRepoDto> result = new ArrayList<>();
+        for (JsonNode project : projects) {
+            String projectKey = project.path("key").asText();
+            if (projectKey.isBlank()) continue;
+
+            HttpRequest reposReq = HttpRequest.newBuilder()
+                    .uri(URI.create(base + "/rest/api/1.0/projects/" + projectKey + "/repos?limit=100"))
+                    .header("Authorization", authHeader)
+                    .header("User-Agent", USER_AGENT)
+                    .GET().build();
+            HttpResponse<String> reposResp = httpClient.send(reposReq, HttpResponse.BodyHandlers.ofString());
+            if (reposResp.statusCode() != 200) {
+                log.warn("[RepoBrowser] Bitbucket Server /projects/{}/repos returned HTTP {}",
+                        projectKey, reposResp.statusCode());
+                continue;
+            }
+            JsonNode reposRoot = OBJECT_MAPPER.readTree(reposResp.body());
+            JsonNode repos = reposRoot.path("values");
+            if (!repos.isArray()) continue;
+            for (JsonNode r : repos) {
+                result.add(mapServerRepoNode(r, base));
+            }
+        }
+        return result;
+    }
+
+    private QuickImportRepoDto mapServerRepoNode(JsonNode r, String base) {
+        String repoName = r.path("name").asText();
+        String projectKey = r.path("project").path("key").asText();
+        String slug = r.path("slug").asText();
+        String fullName = projectKey + "/" + slug;
+        String webUrl = base + "/projects/" + projectKey + "/repos/" + slug + "/browse";
+        boolean priv = !r.path("public").asBoolean(true);
+        String defaultBranch = r.path("defaultBranch").path("displayId").asText("main");
+        return new QuickImportRepoDto(repoName, fullName, webUrl, defaultBranch, priv, "");
+    }
+
+
+
+    private void runImport(String jobId, String repoUrl, String branch, Long userId) throws Exception {
+        // 1. Parse the URL (pass user connections so self-hosted hosts can be identified) ────
+        List<UserVcsConnection> userConns = vcsConnectionRepository.findByUserIdAndActiveTrue(userId);
+        ParsedRepoUrl parsed = parseRepoUrl(repoUrl, userConns);
+        if (parsed == null) {
+            failJob(jobId, QuickImportMessageKeys.INVALID_REPO_URL, List.of(),
+                    null, null, null, null, null, null);
+            return;
+        }
+
+        // 2. Resolve clone credentials (optional — public repos clone anonymously) ──
+        Optional<UserVcsConnection> connOpt =
+                vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(userId, parsed.provider);
+        GitCloneCredentials credentials = null;
+        if (connOpt.isPresent()) {
+            UserVcsConnection conn = connOpt.get();
+            String token = decryptToken(conn);
+            credentials = resolveCloneCredentials(parsed, token, conn.getVcsUsername());
+        }
+
+        // 3. Clone ─────────────────────────────────────────────────────────
+        throwIfCanceled(jobId);
+        advanceJob(jobId, Phase.CLONING, null, null, null, null, null, null, null);
+
+        Path cloneDir = createTempCloneDir(parsed.owner, parsed.repo, jobId);
+        ScanResult scanResult = null;
+        long cloneMs = 0;
+        long parseMs = 0;
+        try {
+            long cloneStartMs = System.currentTimeMillis();
+            String cloneUrl = buildCloneUrl(parsed);
+            gitCloneExecutor.clone(cloneUrl, credentials, branch, cloneDir, jobId);
+            cloneMs = System.currentTimeMillis() - cloneStartMs;
+            throwIfCanceled(jobId);
+
+            // 4. Parse dependencies ────────────────────────────────────────
+            advanceJob(jobId, Phase.PARSING, null, null, null, null, null, null, null);
+
+            long parseStartMs = System.currentTimeMillis();
+            // D3: manifest N/M progress fills the PARSING band (20–40).
+            DependencyManifestParserService.ParseResult deps =
+                    dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo,
+                            (done, total) -> reportJobProgress(jobId,
+                                    20 + (int) Math.round(20.0 * done / Math.max(1, total))));
+            parseMs = System.currentTimeMillis() - parseStartMs;
+            throwIfCanceled(jobId);
+
+            // 5. Create/find project and API key ──────────────────────────
+            Project project = projectService.upsertFromGitHub(
+                    parsed.provider,
+                    parsed.owner, parsed.repo,
+                    branch != null && !branch.isBlank() ? branch : "default",
+                    userId);
+
+            projectCliKeyPolicyService.assertScanIngestAllowed(project.getId());
+            ApiKeyResult keyResult = getOrIssueApiKey(project);
+
+            // 6. Submit scan ───────────────────────────────
+            advanceJob(jobId, Phase.SCANNING, project.getId(), project.getName(), null, false,
+                    deps.ecosystem(), deps.components().size());
+
+            String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
+            ScanPayload payload = dependencyManifestParserService.buildScanPayload(deps, scanVersion);
+            long ingestStartMs = System.currentTimeMillis();
+            try {
+                scanResult = scanIngestService.ingest(project.getId(), payload);
+            } catch (Exception ingestEx) {
+                // The project will appear on the Projects page with a "No scan data" indicator.
+                // The user can re-import to retry.
+                log.error("[QuickImport][{}] Scan ingest failed for project {}: {}",
+                        jobId, project.getId(), ingestEx.getMessage(), ingestEx);
+                failJob(jobId, QuickImportMessageKeys.SCAN_SUBMIT_FAILED, List.of(),
+                        project.getId(), project.getName(),
+                        keyResult.token, keyResult.isNew,
+                        deps.ecosystem(), deps.components().size());
+                return;
+            }
+            long ingestMs = System.currentTimeMillis() - ingestStartMs;
+            String timingKey = String.valueOf(scanResult.getId());
+            scanTimingRecorder.record(timingKey, "clone", cloneMs);
+            scanTimingRecorder.record(timingKey, "parse", parseMs);
+            scanTimingRecorder.record(timingKey, "ingest", ingestMs);
+
+            String actorEmail = userRepository.findById(userId)
+                    .map(User::getEmail)
+                    .orElse("user:" + userId);
+            auditLogService.logAnonymous(actorEmail, "SCAN.INGEST", "PROJECT",
+                    project.getId().toString(), scanVersion,
+                    "source=quick-import scanId=" + scanResult.getId());
+
+            // 7. Wait for async enrichment (vulnerability analysis + AI) ──
+            advanceJob(jobId, Phase.ENRICHING, project.getId(), project.getName(),
+                    keyResult.token, keyResult.isNew,
+                    deps.ecosystem(), deps.components().size(), scanResult.getId());
+
+        } finally {
+            long cleanupStartMs = System.currentTimeMillis();
+            cloneCleanupService.submit(cloneDir);
+            long cleanupMs = System.currentTimeMillis() - cleanupStartMs;
+            if (scanResult != null) {
+                scanTimingRecorder.record(String.valueOf(scanResult.getId()), "cleanup", cleanupMs);
+            }
+        }
+    }
+
+    // ── URL parsing ────────────────────────────────────────────────────────
+
+    /**
+     * @param clonePath the path segment used in the authenticated clone URL (e.g. {@code /scm/proj/repo}
+     *                  for Bitbucket DC/Server, or {@code null} to fall back to {@code /owner/repo}).
+     */
+    private record ParsedRepoUrl(VcsProvider provider, String host, String owner, String repo, String clonePath) {}
+
+    private ParsedRepoUrl parseRepoUrl(String rawUrl, List<UserVcsConnection> userConnections) {
+        if (rawUrl == null || rawUrl.isBlank()) return null;
+        // Normalize: remove trailing .git and trailing slash
+        String url = rawUrl.trim().replaceAll("\\.git$", "").replaceAll("/$", "");
+        // Extract host + full path: handle https://host/...
+        Pattern hostPattern = Pattern.compile("https?://([^/]+)(/.*)");
+        Matcher m = hostPattern.matcher(url);
+        if (!m.matches()) return null;
+        String host = m.group(1).toLowerCase();
+        String path = m.group(2); // starts with /
+
+        // On-premise first: when URL host matches a stored connection's serverUrl
+        ParsedRepoUrl fromConnection = parseFromStoredConnection(host, path, userConnections);
+        if (fromConnection != null) return fromConnection;
+
+        // ── Bitbucket Cloud ──────────────────────────────────────────────
+        if (host.equals("bitbucket.org") || host.endsWith(".bitbucket.org")) {
+            String[] parts = splitTwoPathSegments(path);
+            if (parts == null) return null;
+            return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
+        }
+
+        // ── GitHub (cloud + enterprise) ──────────────────────────────────
+        if (host.equals("github.com") || host.endsWith(".github.com")) {
+            String[] parts = splitTwoPathSegments(path);
+            if (parts == null) return null;
+            return new ParsedRepoUrl(VcsProvider.GITHUB, host, parts[0], parts[1], null);
+        }
+
+        // ── GitLab (cloud + self-hosted) ─────────────────────────────────
+        if (host.equals("gitlab.com") || host.contains("gitlab")) {
+            String[] parts = splitTwoPathSegments(path);
+            if (parts == null) return null;
+            return new ParsedRepoUrl(VcsProvider.GITLAB, host, parts[0], parts[1], null);
+        }
+
+        // ── Self-hosted fallback ─────────────────────────────────────────
+        ParsedRepoUrl fallback = parseFromStoredConnection(host, path, userConnections);
+        if (fallback != null) return fallback;
+
+        log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
+        return null;
+    }
+
+    private ParsedRepoUrl parseFromStoredConnection(String host, String path, List<UserVcsConnection> userConnections) {
+        for (UserVcsConnection conn : userConnections) {
+            if (conn.getServerUrl() == null || conn.getServerUrl().isBlank()) continue;
+            try {
+                String connHost = conn.getServerUrl().replaceAll("https?://", "").split("/")[0].toLowerCase();
+                if (!connHost.equals(host)) continue;
+
+                if (conn.getProvider() == VcsProvider.BITBUCKET) {
+                    Matcher scm = Pattern.compile("^/scm/([^/]+)/([^/]+)").matcher(path);
+                    if (scm.find()) {
+                        String proj = scm.group(1);
+                        String repo = scm.group(2);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
+                    }
+                    Matcher projects = Pattern.compile("^/projects/([^/]+)/repos/([^/]+)").matcher(path);
+                    if (projects.find()) {
+                        String proj = projects.group(1).toLowerCase();
+                        String repo = projects.group(2);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
+                    }
+                    String[] parts = splitTwoPathSegments(path);
+                    if (parts != null) {
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
+                    }
+                } else {
+                    String[] parts = splitTwoPathSegments(path);
+                    if (parts != null) {
+                        return new ParsedRepoUrl(conn.getProvider(), host, parts[0], parts[1], null);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    /** Extracts the first two non-empty path segments from a path like {@code /owner/repo/...}. */
+    private static String[] splitTwoPathSegments(String path) {
+        String[] segs = path.replaceAll("^/+", "").split("/", -1);
+        if (segs.length < 2 || segs[0].isBlank() || segs[1].isBlank()) return null;
+        return new String[]{ segs[0], segs[1] };
+    }
+
+    private String buildCloneUrl(ParsedRepoUrl parsed) {
+        String repoPath = parsed.clonePath() != null
+                ? parsed.clonePath()
+                : "/" + parsed.owner() + "/" + parsed.repo();
+        return switch (parsed.provider()) {
+            case GITHUB, GITLAB ->
+                    "https://" + parsed.host() + "/" + parsed.owner() + "/" + parsed.repo() + ".git";
+            case BITBUCKET -> "https://" + parsed.host() + repoPath + ".git";
+        };
+    }
+
+    private GitCloneCredentials resolveCloneCredentials(ParsedRepoUrl parsed, String token, String vcsUsername) {
+        return switch (parsed.provider()) {
+            case GITHUB, GITLAB -> new GitCloneCredentials("oauth2", token);
+            case BITBUCKET -> bitbucketCloudClient.cloneCredentials(vcsUsername, token);
+        };
+    }
+
+    private record ApiKeyResult(String token, boolean isNew) {}
+
+    /**
+     * Returns an existing active API key for the project, or issues a new one when the project
+     * has no api_keys rows. Revoked/inactive-only projects must not reach this method
+     * ({@link ProjectCliKeyPolicyService#assertScanIngestAllowed} runs first).
+     */
+    private ApiKeyResult getOrIssueApiKey(Project project) {
+        return switch (projectCliKeyPolicyService.resolve(project.getId())) {
+            case ACTIVE_PRESENT -> new ApiKeyResult(null, false);
+            case NONE -> {
+                IssuedApiKey issued = apiKeyService.issue(project.getId(), "quick-import", null);
+                yield new ApiKeyResult(issued.plainToken(), true);
+            }
+            case INACTIVE_ONLY -> throw new IllegalStateException("CLI key policy blocked ingest");
+        };
+    }
+
+    private String decryptToken(UserVcsConnection conn) {
+        try {
+            return encryptionService.decrypt(conn.getAccessTokenEncrypted());
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "VCS token could not be decrypted. Reconnect the integration in Settings.", e);
+        }
+    }
+
+    private Path getCloneBaseReal() throws IOException {
+        Path base = cloneBaseReal;
+        if (base == null) {
+            synchronized (this) {
+                base = cloneBaseReal;
+                if (base == null) {
+                    cloneBaseReal = CloneRootPathGuard.resolveConfiguredBase(configuredTempDir);
+                    base = cloneBaseReal;
+                }
+            }
+        }
+        return base;
+    }
+
+    private static String safePathSegment(String segment) {
+        if (segment == null || segment.isBlank()) {
+            return "unknown";
+        }
+        return segment.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    private Path createTempCloneDir(String owner, String repo, String jobId) throws IOException {
+        Path base = getCloneBaseReal();
+        Path dir = base.resolve(safePathSegment(owner) + "_" + safePathSegment(repo) + "_" + jobId);
+        Files.createDirectories(dir);
+        Path dirReal = dir.toRealPath(LinkOption.NOFOLLOW_LINKS);
+        if (!dirReal.startsWith(base)) {
+            throw new SecurityException("Clone directory escapes configured root: " + dir);
+        }
+        return dirReal;
+    }
+
+    private void advanceJob(String jobId, Phase phase,
+                          Long projectId, String projectName,
+                          String apiToken, Boolean newApiKey,
+                          String ecosystem, Integer componentCount) {
+        advanceJob(jobId, phase, projectId, projectName, apiToken, newApiKey, ecosystem, componentCount, null);
+    }
+
+    private void advanceJob(String jobId, Phase phase,
+                          Long projectId, String projectName,
+                          String apiToken, Boolean newApiKey,
+                          String ecosystem, Integer componentCount,
+                          Long scanResultId) {
+        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
+                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        if (scanResultId != null) {
+            jobIdByScanResultId.put(scanResultId, jobId);
+        }
+        patchJob(jobId, b -> {
+            b.phase(phase)
+                    .message(null)
+                    .messageKey(null)
+                    .messageArgs(null)
+                    .projectId(projectId).projectName(projectName)
+                    .apiToken(apiToken).newApiKey(newApiKey)
+                    .ecosystem(ecosystem).componentCount(componentCount)
+                    .scanResultId(scanResultId)
+                    .queuePosition(phase == Phase.QUEUED ? prev.getQueuePosition() : null)
+                    .percent(phasePercent(phase, scanResultId));
+            if (prev.getRepoLabel() != null) b.repoLabel(prev.getRepoLabel());
+        });
+    }
+
+    private void failJob(String jobId, String messageKey, List<String> messageArgs,
+                         Long projectId, String projectName,
+                         String apiToken, Boolean newApiKey,
+                         String ecosystem, Integer componentCount) {
+        failJob(jobId, messageKey, messageArgs, projectId, projectName,
+                apiToken, newApiKey, ecosystem, componentCount, null);
+    }
+
+    private void failJob(String jobId, String messageKey, List<String> messageArgs,
+                         Long projectId, String projectName,
+                         String apiToken, Boolean newApiKey,
+                         String ecosystem, Integer componentCount,
+                         Long scanResultId) {
+        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
+                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        patchJob(jobId, b -> {
+            b.phase(Phase.FAILED)
+                    .message(null)
+                    .messageKey(messageKey)
+                    .messageArgs(messageArgs != null ? messageArgs : List.of())
+                    .projectId(projectId).projectName(projectName)
+                    .apiToken(apiToken).newApiKey(newApiKey)
+                    .ecosystem(ecosystem).componentCount(componentCount)
+                    .scanResultId(scanResultId)
+                    .queuePosition(null)
+                    .percent(0);
+            if (prev.getRepoLabel() != null) b.repoLabel(prev.getRepoLabel());
+        });
+    }
+
+    private static String classifyFailureKey(Throwable t) {
+        String msg = t.getMessage();
+        if (msg == null || msg.isBlank()) {
+            return QuickImportMessageKeys.UNEXPECTED;
+        }
+        String lower = msg.toLowerCase(Locale.ROOT);
+        if (lower.contains("filename too long")) {
+            return QuickImportMessageKeys.CLONE_PATH_TOO_LONG;
+        }
+        if (lower.contains("timed out after")) {
+            return QuickImportMessageKeys.CLONE_TIMEOUT;
+        }
+        if (lower.contains("git clone failed")) {
+            return QuickImportMessageKeys.CLONE_FAILED;
+        }
+        if (lower.contains("no manifest files found") || lower.contains("no manifest")) {
+            return QuickImportMessageKeys.NO_MANIFESTS;
+        }
+        if (lower.contains("java_home") || lower.contains("java home")
+                || lower.contains("could not find java") || lower.contains("no java runtime")) {
+            return QuickImportMessageKeys.JAVA_REQUIRED;
+        }
+        if (lower.contains("gradle") && (lower.contains("failed") || lower.contains("error"))) {
+            return QuickImportMessageKeys.GRADLE_FAILED;
+        }
+        if (lower.contains("parse") || lower.contains("parsing") || lower.contains("manifest")) {
+            return QuickImportMessageKeys.PARSE_FAILED;
+        }
+        return QuickImportMessageKeys.UNEXPECTED;
+    }
+
+    private void patchJob(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
+        // Once canceled, ignore any further status writes from the background worker so the
+        // terminal canceled state cannot be overwritten (e.g. a clone finishing after cancel).
+        if (canceledJobs.contains(jobId)) {
+            return;
+        }
+        patchJobQuiet(jobId, patch);
+        notifyJobUpdate(jobId);
+    }
+
+    /**
+     * Applies a status patch WITHOUT emitting an SSE frame — used by the throttled progress
+     * path, which decides on its own cadence when to push.
+     */
+    private void patchJobQuiet(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
+        if (canceledJobs.contains(jobId)) {
+            return;
+        }
+        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
+                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        QuickImportJobStatus.QuickImportJobStatusBuilder builder = prev.toBuilder();
+        patch.accept(builder);
+        builder.activeSlotsUsed(runningImports.get())
+                .maxConcurrentSlots(maxConcurrentImports)
+                .maxQueuedSlots(maxQueuedPerUser);
+        jobs.put(jobId, builder.build());
+    }
+
+    private QuickImportJobStatus.QuickImportJobStatusBuilder baseJobBuilder(String jobId) {
+        return QuickImportJobStatus.builder()
+                .jobId(jobId)
+                .activeSlotsUsed(runningImports.get())
+                .maxConcurrentSlots(maxConcurrentImports)
+                .maxQueuedSlots(maxQueuedPerUser);
+    }
+
+    private int countUserQueuedJobs(Long userId) {
+        if (userId == null) return 0;
+        int count = 0;
+        for (var entry : jobOwners.entrySet()) {
+            if (!userId.equals(entry.getValue())) continue;
+            QuickImportJobStatus job = jobs.get(entry.getKey());
+            if (job != null && job.getPhase() == Phase.QUEUED) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int countUserRunningJobs(Long userId) {
+        if (userId == null) return 0;
+        int count = 0;
+        for (var entry : jobOwners.entrySet()) {
+            if (!userId.equals(entry.getValue())) continue;
+            QuickImportJobStatus job = jobs.get(entry.getKey());
+            if (job == null) continue;
+            Phase phase = job.getPhase();
+            if (phase != Phase.QUEUED && phase != Phase.DONE && phase != Phase.FAILED) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void refreshQueuePositions() {
+        int position = runningImports.get() + 1;
+        for (PendingImport pending : pendingQueue) {
+            QuickImportJobStatus job = jobs.get(pending.jobId());
+            if (job != null && job.getPhase() == Phase.QUEUED) {
+                jobs.put(pending.jobId(), job.toBuilder()
+                        .queuePosition(position)
+                        .message(null)
+                        .messageKey(null)
+                        .messageArgs(null)
+                        .percent(0)
+                        .activeSlotsUsed(runningImports.get())
+                        .build());
+                notifyJobUpdate(pending.jobId());
+            }
+            position++;
+        }
+    }
+
+    /**
+     * Phase-entry percents. Each phase owns a band that in-phase progress signals fill:
+     * CLONING 5–20, PARSING 20–40 (manifests N/M), SCANNING 40–55, ENRICHING 55–100
+     * (data fetch 55–80 via EnrichmentProgressHolder, AI blocks 80–100).
+     */
+    private static int phasePercent(Phase phase, Long scanResultId) {
+        return switch (phase) {
+            case QUEUED -> 0;
+            case CLONING -> 5;
+            case PARSING -> 20;
+            case SCANNING -> 40;
+            case ENRICHING -> 55;
+            case DONE -> 100;
+            case FAILED -> 0;
+        };
+    }
+
+    private static String extractRepoLabel(String repoUrl) {
+        try {
+            String path = URI.create(repoUrl.strip()).getPath();
+            if (path != null && path.length() > 1) {
+                return path.startsWith("/") ? path.substring(1) : path;
+            }
+        } catch (Exception ignored) { }
+        return repoUrl.length() > 48 ? repoUrl.substring(0, 45) + "\u2026" : repoUrl;
+    }
+
+    private void notifyJobUpdate(String jobId) {
+        CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.get(jobId);
+        if (emitters == null || emitters.isEmpty()) return;
+        Long owner = jobOwners.get(jobId);
+        // SSE follows the same reveal-once policy as HTTP polling: the full apiToken is
+        // sent only on the first DONE delivery, then masked (the UI keeps the revealed copy).
+        QuickImportJobStatus status = owner != null
+                ? sanitizeApiToken(jobId, resolveJobStatus(jobId))
+                : jobs.get(jobId);
+        if (status == null) return;
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
+            } catch (Exception e) {
+                removeEmitter(jobId, emitter);
+            }
+        }
+    }
+
+    private void removeEmitter(String jobId, SseEmitter emitter) {
+        CopyOnWriteArrayList<SseEmitter> list = jobEmitters.get(jobId);
+        if (list != null) list.remove(emitter);
+    }
+
+    /** Removes jobs older than 30 minutes from memory. Runs every 5 minutes. */
+    @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
+    public void evictExpiredJobs() {
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(30));
+        jobCreatedAt.entrySet().removeIf(entry -> {
+            if (entry.getValue().isBefore(cutoff)) {
+                purgeJobFromMemory(entry.getKey());
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /** Drops all in-memory references for a job (status, SSE, per-user index). */
+    private void purgeJobFromMemory(String jobId) {
+        disposeJobEmitters(jobId);
+        Long ownerId = jobOwners.get(jobId);
+        if (ownerId != null) {
+            CopyOnWriteArrayList<String> ids = userJobIds.get(ownerId);
+            if (ids != null) {
+                ids.remove(jobId);
+                if (ids.isEmpty()) {
+                    userJobIds.remove(ownerId, ids);
+                }
+            }
+        }
+        jobs.remove(jobId);
+        jobOwners.remove(jobId);
+        apiTokenRevealed.remove(jobId);
+        jobRepoKeys.remove(jobId);
+        canceledJobs.remove(jobId);
+        progressThrottle.remove(jobId);
+        jobIdByScanResultId.values().remove(jobId);
+        log.debug("[QuickImport] Evicted expired job {}", jobId);
+    }
+
+    private void disposeJobEmitters(String jobId) {
+        CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.remove(jobId);
+        if (emitters == null) return;
+        for (SseEmitter emitter : emitters) {
+            try {
+                emitter.complete();
+            } catch (Exception ignored) {
+                // already closed or timed out
+            }
+        }
+    }
+
+}

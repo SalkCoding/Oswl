@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.controller.spec;
 
-import com.salkcoding.oswl.service.SbomImportService.SbomImportResult;
+import com.salkcoding.oswl.service.ingest.SbomImportService.SbomImportResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

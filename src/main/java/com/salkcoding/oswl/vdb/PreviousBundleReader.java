@@ -2,7 +2,7 @@ package com.salkcoding.oswl.vdb;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

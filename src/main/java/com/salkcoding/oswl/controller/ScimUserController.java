@@ -4,7 +4,7 @@ import com.salkcoding.oswl.controller.spec.ScimUserControllerSpec;
 import com.salkcoding.oswl.dto.scim.ScimError;
 import com.salkcoding.oswl.dto.scim.ScimPatchRequest;
 import com.salkcoding.oswl.dto.scim.ScimUser;
-import com.salkcoding.oswl.service.ScimProvisioningService;
+import com.salkcoding.oswl.service.scim.ScimProvisioningService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;

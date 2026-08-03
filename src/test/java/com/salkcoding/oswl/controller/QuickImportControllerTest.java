@@ -10,7 +10,7 @@ import com.salkcoding.oswl.dto.QuickImportMessageKeys;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
-import com.salkcoding.oswl.service.QuickImportService;
+import com.salkcoding.oswl.service.ingest.QuickImportService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

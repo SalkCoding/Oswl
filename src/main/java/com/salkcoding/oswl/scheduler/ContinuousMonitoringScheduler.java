@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.scheduler;
 
-import com.salkcoding.oswl.service.ContinuousMonitoringService;
+import com.salkcoding.oswl.service.vulnerability.ContinuousMonitoringService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;

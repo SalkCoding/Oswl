@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.dto.JiraSettingDto;
-import com.salkcoding.oswl.service.JiraService;
-import com.salkcoding.oswl.service.JiraService.JiraTicketResult;
+import com.salkcoding.oswl.service.jira.JiraService;
+import com.salkcoding.oswl.service.jira.JiraService.JiraTicketResult;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

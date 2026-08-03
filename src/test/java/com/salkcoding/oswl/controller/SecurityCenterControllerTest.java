@@ -2,8 +2,8 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.SecurityCenterService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.vulnerability.SecurityCenterService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

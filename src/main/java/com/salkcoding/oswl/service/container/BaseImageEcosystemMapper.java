@@ -15,7 +15,7 @@ import java.util.Map;
  * written to stop repeating — so those return empty rather than a guess.
  *
  * <p>The returned tag already carries the version, e.g. {@code "DEBIAN:11"} or
- * {@code "ALPINE:V3.14"} — {@link com.salkcoding.oswl.service.VulnerabilityEnrichmentService}
+ * {@code "ALPINE:V3.14"} — {@link com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService}
  * reconstructs the exact-cased OSV ecosystem string ({@code "Debian:11"}, {@code "Alpine:v3.14"})
  * from this at query time, since {@code Library.ecosystem} is always stored upper-cased.
  */

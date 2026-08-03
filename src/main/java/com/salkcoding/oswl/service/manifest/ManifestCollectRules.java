@@ -9,7 +9,7 @@ import java.util.stream.Stream;
 
 /**
  * Single source of truth for which project files the CLI should upload and
- * which directories {@link com.salkcoding.oswl.service.DependencyManifestParserService}
+ * which directories {@link com.salkcoding.oswl.service.ingest.DependencyManifestParserService}
  * skips when walking manifests.
  *
  * <p>Serialized to {@code /scripts/manifest-rules.json} for shell clients.</p>

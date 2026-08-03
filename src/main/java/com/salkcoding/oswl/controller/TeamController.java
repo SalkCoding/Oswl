@@ -4,7 +4,7 @@ import com.salkcoding.oswl.controller.spec.TeamControllerSpec;
 import com.salkcoding.oswl.domain.enums.TeamMemberRole;
 import com.salkcoding.oswl.dto.TeamMemberDto;
 import com.salkcoding.oswl.dto.TeamSummaryDto;
-import com.salkcoding.oswl.service.TeamService;
+import com.salkcoding.oswl.service.org.TeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

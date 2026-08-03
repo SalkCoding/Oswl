@@ -1,4 +1,5 @@
 package com.salkcoding.oswl.service;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import org.junit.jupiter.api.Assumptions;

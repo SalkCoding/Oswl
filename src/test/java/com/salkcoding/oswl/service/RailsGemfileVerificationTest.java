@@ -1,4 +1,12 @@
 package com.salkcoding.oswl.service;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
+import com.salkcoding.oswl.service.ingest.EnrichmentProgressHolder;
+import com.salkcoding.oswl.service.apikey.ProjectCliKeyPolicyService;
+import com.salkcoding.oswl.service.project.ProjectService;
+import com.salkcoding.oswl.service.ingest.ScanIngestService;
+import com.salkcoding.oswl.service.vcs.GitHubService;
+import com.salkcoding.oswl.service.apikey.ApiKeyService;
 
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;

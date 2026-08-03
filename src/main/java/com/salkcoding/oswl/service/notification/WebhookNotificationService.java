@@ -6,7 +6,7 @@ import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.notification.WebhookSetting;
 import com.salkcoding.oswl.domain.enums.WebhookEventType;
 import com.salkcoding.oswl.dto.gate.GateResultDto;
-import com.salkcoding.oswl.service.WebhookSettingService;
+import com.salkcoding.oswl.service.notification.WebhookSettingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

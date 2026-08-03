@@ -3,7 +3,7 @@ package com.salkcoding.oswl.vdb;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -66,7 +66,7 @@ final class VdbBundleWriter {
             node.put("ecosystem", w.ecosystem());
             node.put("name", w.name());
             node.put("version", w.version());
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
             if (key != null) unresolvedByKey.put(key, writeJson(node));
         }
 
@@ -93,7 +93,7 @@ final class VdbBundleWriter {
             node.putArray("advisoryKeys").addAll(v.advisoryKeys().stream().map(s -> (JsonNode) mapper.valueToTree(s)).toList());
             node.put("isDefault", v.isDefault());
             if (v.deprecated() != null) node.put("deprecated", v.deprecated());
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
             if (key != null) depsdevByKey.put(key, writeJson(node));
         }
         for (DepsDevSource.AdvisoryRecord a : depsdevAdvisories) {

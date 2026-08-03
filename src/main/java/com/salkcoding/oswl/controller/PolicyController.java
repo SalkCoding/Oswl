@@ -8,7 +8,7 @@ import com.salkcoding.oswl.dto.policy.PolicyExceptionDto;
 import com.salkcoding.oswl.dto.policy.PolicyExceptionRequest;
 import com.salkcoding.oswl.dto.policy.PolicyGitOpsRequest;
 import com.salkcoding.oswl.dto.policy.PolicyRequest;
-import com.salkcoding.oswl.service.PolicyService;
+import com.salkcoding.oswl.service.policy.PolicyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;

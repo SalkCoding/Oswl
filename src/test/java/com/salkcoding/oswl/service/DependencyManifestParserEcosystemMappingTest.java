@@ -1,4 +1,6 @@
 package com.salkcoding.oswl.service;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

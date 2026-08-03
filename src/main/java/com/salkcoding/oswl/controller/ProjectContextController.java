@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.ProjectContextControllerSpec;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.ProjectService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.project.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
