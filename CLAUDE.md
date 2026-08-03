@@ -29,11 +29,21 @@ OsWL is an in-house SCA (Software Composition Analysis) platform for tracking an
     ├── auth/            # Auth module — config, controller, dto, entity, enums, repo, security, service, web
     ├── client/          # External API clients (OSV, deps.dev, GitHub…)
     ├── config/          # App-wide config beans (air-gapped client, startup warnings)
-    ├── controller/      # Business controllers
-    │   └── spec/        # Controller spec interfaces (all springdoc annotations here)
-    ├── domain/entity/   # JPA entities
+    ├── controller/      # Business controllers, grouped by feature — same group names as domain/entity/
+    │   │                #   below, plus ingest/ reporting/ scan/ scim/ vcs/ (no matching entity) and
+    │   │                #   audit/ ai/ (controller-only). HomeController/LocalDevController/
+    │   │                #   SettingsController have no single feature owner — stay flat.
+    │   └── spec/        # Controller spec interfaces (all springdoc annotations here) — organized by
+    │                    #   kind, not feature; this is a deliberately different axis, not an omission
+    ├── domain/entity/   # JPA entities, grouped by feature: ai/ apikey/ jira/ license/ notification/
+    │                    #   org/ policy/ project/ scan/ snapshot/ vulnerability/
     ├── domain/enums/
-    ├── dto/  exception/  license/  logging/  repository/  security/  service/  util/  vdb/
+    ├── repository/      # Spring Data interfaces — same feature groups as domain/entity/ above
+    ├── service/         # Grouped by feature: ai/ apikey/ container/ cvss/ gate/ git/ ingest/ jira/
+    │                    #   license/ manifest/ notification/ org/ policy/ project/ reachability/
+    │                    #   reporting/ scan/ scim/ snapshot/ vcs/ vulnerability/. SessionCipherService
+    │                    #   has no single feature owner — stays flat.
+    ├── dto/  exception/  license/  logging/  security/  util/  vdb/
     ├── scheduler/       # @Scheduled jobs + SchedulerLockConfig (ShedLock, opt-in cluster lock)
     ├── web/
     │   ├── config/      # MVC config
