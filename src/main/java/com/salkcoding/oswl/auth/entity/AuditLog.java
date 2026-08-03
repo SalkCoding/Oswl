@@ -52,4 +52,12 @@ public class AuditLog {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Hash of the immediately preceding audit log entry (null for the first entry in the chain). */
+    @Column(name = "prev_hash", length = 64)
+    private String prevHash;
+
+    /** SHA-256 integrity hash covering this entry's contents and {@code prevHash}. */
+    @Column(name = "hash", length = 64)
+    private String hash;
 }

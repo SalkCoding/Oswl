@@ -7,6 +7,8 @@ import com.salkcoding.oswl.auth.entity.SecuritySetting;
 import com.salkcoding.oswl.auth.enums.MailMode;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.repository.SecuritySettingRepository;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.Properties;
 
 @Service
@@ -25,10 +28,26 @@ public class SecuritySettingService {
     private final SecuritySettingRepository repository;
     private final EncryptionService encryptionService;
 
+    private final Cache<Long, SecuritySetting> securitySettingsCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(5))
+            .maximumSize(10)
+            .recordStats()
+            .build();
+
     // ── Read ────────────────────────────────────────────────────────────
 
     @Transactional
     public SecuritySetting getOrCreate() {
+        SecuritySetting cached = securitySettingsCache.getIfPresent(SETTINGS_ID);
+        if (cached != null) {
+            return cached;
+        }
+        SecuritySetting setting = fetchOrCreate();
+        securitySettingsCache.put(SETTINGS_ID, setting);
+        return setting;
+    }
+
+    private SecuritySetting fetchOrCreate() {
         return repository.findById(SETTINGS_ID)
                 .orElseGet(() -> repository.save(
                         SecuritySetting.builder().id(SETTINGS_ID).build()));
@@ -38,7 +57,7 @@ public class SecuritySettingService {
 
     @Transactional
     public SecuritySetting update(SecuritySettingUpdateRequest req) {
-        SecuritySetting s = getOrCreate();
+        SecuritySetting s = fetchOrCreate();
 
         if (req.getMailMode() != null) {
             s.setMailMode(MailMode.valueOf(req.getMailMode()));
@@ -62,7 +81,9 @@ public class SecuritySettingService {
             s.setTwoFaMode(TwoFaMode.valueOf(req.getTwoFaMode()));
         }
 
-        return repository.save(s);
+        SecuritySetting saved = repository.save(s);
+        securitySettingsCache.invalidate(SETTINGS_ID);
+        return saved;
     }
 
     // ── Mail connection test ───────────────────────────────────────────

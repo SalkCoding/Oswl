@@ -22,6 +22,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [H2 Database](#h2-database)                                           | EPL 2.0 / MPL 2.0      |
 | [PostgreSQL JDBC Driver](#postgresql-jdbc-driver)                     | BSD 2-Clause           |
 | [Project Lombok](#project-lombok)                                     | MIT                    |
+| [Caffeine](#caffeine)                                                 | Apache 2.0             |
 | [Alpine.js](#alpinejs)                                                | MIT                    |
 | [@alpinejs/collapse](#alpinejscollapse)                               | MIT                    |
 | [Chart.js](#chartjs)                                                  | MIT                    |
@@ -409,6 +410,25 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
+```
+
+---
+
+### Caffeine
+
+- **Version:** Managed by Spring Boot 4.1.0
+- **Website:** https://github.com/ben-manes/caffeine
+- **License:** Apache License, Version 2.0
+- **Used for:** High-performance in-memory query cache for read-heavy configuration data (license policy, role templates, settings).
+
+```
+Copyright 2015 Ben Manes. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
 ```
 
 ---

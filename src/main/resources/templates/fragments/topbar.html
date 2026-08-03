@@ -13,13 +13,17 @@
         deleteAccountConfirm: /*[[#{topbar.deleteAccount.confirm}]]*/ 'Delete my account',
         deleteAccountCancel: /*[[#{common.cancel}]]*/ 'Cancel',
         deleteAccountFailed: /*[[#{topbar.deleteAccount.failed}]]*/ 'Could not delete account.',
-        deleteAccountAdminBlocked: /*[[#{topbar.deleteAccount.adminBlocked}]]*/ 'The primary system administrator cannot delete this account.'
+        deleteAccountAdminBlocked: /*[[#{topbar.deleteAccount.adminBlocked}]]*/ 'The primary system administrator cannot delete this account.',
+        theme: /*[[#{topbar.theme}]]*/ 'Theme',
+        themeLight: /*[[#{topbar.theme.light}]]*/ 'Light',
+        themeDark: /*[[#{topbar.theme.dark}]]*/ 'Dark',
+        themeSystem: /*[[#{topbar.theme.system}]]*/ 'System'
     };
     </script>
 
     <!-- Reusable user menu (logged-in user dropdown + logout) -->
     <div th:fragment="user-menu" sec:authorize="isAuthenticated()"
-         x-data="topbarAccountMenu()" @click.outside="open = false" class="relative">
+         x-data="topbarAccountMenu()" x-init="init()" @click.outside="open = false" class="relative">
         <!-- Account menu scripts -->
         <th:block th:replace="~{fragments/topbar :: topbar-i18n}"></th:block>
         <th:block th:replace="~{fragments/topbar :: topbar-account-menu}"></th:block>
@@ -39,6 +43,36 @@
             </div>
             <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">Setting</a>
             <a th:href="@{/my/change-password}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.changePassword}">Change Password</a>
+            <div class="border-t border-white/15 my-[2px]"></div>
+            <div class="flex flex-col gap-[4px]">
+                <span class="text-white/50 text-[11px] px-[8px] uppercase tracking-wider" x-text="_topbarI18n.theme">Theme</span>
+                <div class="grid grid-cols-3 gap-[4px] px-[8px]">
+                    <button type="button"
+                            @click="setTheme('LIGHT')"
+                            :class="theme === 'LIGHT' ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'"
+                            class="flex flex-col items-center gap-[4px] rounded-[4px] px-[4px] py-[6px] text-[11px] transition-colors"
+                            :aria-checked="theme === 'LIGHT'">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                        <span x-text="_topbarI18n.themeLight">Light</span>
+                    </button>
+                    <button type="button"
+                            @click="setTheme('DARK')"
+                            :class="theme === 'DARK' ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'"
+                            class="flex flex-col items-center gap-[4px] rounded-[4px] px-[4px] py-[6px] text-[11px] transition-colors"
+                            :aria-checked="theme === 'DARK'">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        <span x-text="_topbarI18n.themeDark">Dark</span>
+                    </button>
+                    <button type="button"
+                            @click="setTheme('SYSTEM')"
+                            :class="theme === 'SYSTEM' ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'"
+                            class="flex flex-col items-center gap-[4px] rounded-[4px] px-[4px] py-[6px] text-[11px] transition-colors"
+                            :aria-checked="theme === 'SYSTEM'">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        <span x-text="_topbarI18n.themeSystem">System</span>
+                    </button>
+                </div>
+            </div>
             <div class="border-t border-white/15 my-[2px]"></div>
             <button type="button" @click="openDeleteModal()"
                     sec:authorize="!hasRole('SYSTEM_ADMIN')"
@@ -432,6 +466,21 @@
             deletePassword: '',
             deleteError: '',
             deleteSaving: false,
+            theme: window.OswlTheme ? window.OswlTheme.getMode() : 'SYSTEM',
+            init() {
+                if (window.OswlTheme) {
+                    this.theme = window.OswlTheme.getMode();
+                    var self = this;
+                    window.OswlTheme.subscribe(function (mode) { self.theme = mode; });
+                }
+            },
+            setTheme(mode) {
+                if (window.OswlTheme) {
+                    window.OswlTheme.setMode(mode);
+                } else {
+                    this.theme = mode;
+                }
+            },
             openDeleteModal() {
                 this.open = false;
                 this.deletePassword = '';

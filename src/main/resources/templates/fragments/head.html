@@ -10,6 +10,20 @@
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 
+    <!-- Theme: apply the cached choice before the first paint to avoid a flash. -->
+    <script>
+        (function () {
+            try {
+                var mode = (localStorage.getItem('oswl-theme') || 'SYSTEM').toUpperCase();
+                var dark = mode === 'DARK' || (mode === 'SYSTEM' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', dark);
+                document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            } catch (e) {
+                // ignore
+            }
+        })();
+    </script>
+
     <!-- Tailwind CSS — precompiled by the buildTailwindCss Gradle task (no CDN runtime). -->
     <link rel="stylesheet" th:href="@{/css/tailwind.css}">
     <!-- Alpine collapse plugin must load before Alpine (vendored — no CDN). -->
@@ -22,6 +36,7 @@
         [x-cloak] { display: none !important; }
     </style>
     <script th:src="@{/js/oswl-csrf.js}"></script>
+    <script th:src="@{/js/oswl-theme.js}"></script>
     <script>
         // Auto-inject CSRF header for same-origin state-changing fetch requests (token from meta, not cookie).
         (function () {

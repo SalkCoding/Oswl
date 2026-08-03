@@ -79,6 +79,8 @@ public class AuditLogSiemExportService {
         row.put("targetId", l.getTargetId());
         row.put("targetName", l.getTargetName());
         row.put("detail", l.getDetail());
+        row.put("prevHash", l.getPrevHash());
+        row.put("hash", l.getHash());
         return MAPPER.writeValueAsString(row);
     }
 

@@ -28,20 +28,32 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    const themeVar = (name, fallback) => {
+        if (window.OswlTheme && window.OswlTheme.cssVar) {
+            return window.OswlTheme.cssVar(name, fallback);
+        }
+        return fallback;
+    };
+
     const palette = {
-        critical: '#e62727',
-        high: '#f47a29',
-        medium: '#f5bd26',
-        low: '#97a5ab',
-        unknown: '#d0d9dd'
+        critical: themeVar('--risk-critical', '#e62727'),
+        high:     themeVar('--risk-high',     '#f47a29'),
+        medium:   themeVar('--risk-medium',   '#f5bd26'),
+        low:      themeVar('--risk-low',       '#97a5ab'),
+        unknown:  themeVar('--risk-unknown',   '#d0d9dd')
     };
 
     const licensePalette = {
-        restricted: '#e62727',
-        caution:    '#f59126',
-        permitted:  '#84dca5',
-        unknown:    '#abb8be'
+        restricted: themeVar('--risk-critical', '#e62727'),
+        caution:    themeVar('--risk-caution',  '#f59126'),
+        permitted:  themeVar('--risk-permitted','#84dca5'),
+        unknown:    themeVar('--risk-unknown',   '#abb8be')
     };
+
+    const axisColor = themeVar('--grayscale-50', '#5e6b70');
+    const tickColor = themeVar('--grayscale-60', '#425055');
+    const gridColor = themeVar('--grayscale-15', '#dce4e7');
+    const pointBorder = themeVar('--surface', '#ffffff');
 
     // 백엔드에서 주입된 실제 데이터, 없으면 빈 배열로 폴백
     const trendData = (window.riskTrendData && window.riskTrendData.versions.length > 0)
@@ -80,14 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     display: true,
                     text: i18n.xAxis,
                     align: 'end',
-                    color: '#5e6b70',
+                    color: axisColor,
                     font: { size: 14, family: 'Inter', weight: '500' },
                     padding: { top: 8 }
                 },
                 grid: { display: false },
                 border: { display: false },
                 ticks: {
-                    color: '#425055',
+                    color: tickColor,
                     font: { size: 14, family: 'Inter', weight: '500' },
                     maxRotation: 0
                 }
@@ -97,18 +109,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     display: true,
                     text: i18n.yAxis,
                     align: 'end',
-                    color: '#5e6b70',
+                    color: axisColor,
                     font: { size: 14, family: 'Inter' },
                     padding: { bottom: 8 }
                 },
                 grid: {
-                    color: '#dce4e7',
+                    color: gridColor,
                     drawBorder: false
                 },
                 border: { display: false, dash: [0] },
                 min: 0,
                 ticks: {
-                    color: '#425055',
+                    color: tickColor,
                     font: { size: 14, family: 'Inter', weight: '500' },
                     stepSize: 1,
                     callback: (val) => {
@@ -120,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         elements: {
             line: { tension: 0.3, borderWidth: 2 },
-            point: { radius: 4, hoverRadius: 6, borderWidth: 2, borderColor: 'white' }
+            point: { radius: 4, hoverRadius: 6, borderWidth: 2, borderColor: pointBorder }
         },
         interaction: { mode: 'nearest', axis: 'x', intersect: false }
     };

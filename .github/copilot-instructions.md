@@ -11,7 +11,7 @@ OTP는 개발용이라 000000으로 통과 가능하며, 테스트용으로 발�
 
 ## Tech Stack
 
-- **Backend:** Spring Boot 4.0.5 (Java 25) — WebMVC, Data JPA, Security, Mail, Validation, AspectJ
+- **Backend:** Spring Boot 4.1.0 (Java 25) — WebMVC, Data JPA, Security, Mail, Validation, AspectJ
 - **View:** Thymeleaf + `thymeleaf-extras-springsecurity6`
 - **Frontend:** Vanilla HTML/CSS/JS, Tailwind CSS 3.4 (precompiled standalone CLI), Chart.js, HTMX·Alpine.js (필요 시)
 - **DB:** PostgreSQL (prod) / H2 file-mode (`local` profile, PostgreSQL 호환)

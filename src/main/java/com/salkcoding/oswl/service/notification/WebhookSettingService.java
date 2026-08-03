@@ -6,12 +6,16 @@ import com.salkcoding.oswl.domain.entity.notification.WebhookSetting;
 import com.salkcoding.oswl.domain.enums.WebhookProvider;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.repository.notification.WebhookSettingRepository;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
 
 /**
  * Persistence and validation for the single-row webhook settings.
@@ -23,21 +27,35 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class WebhookSettingService {
 
+    private static final String CACHE_KEY = "current";
+
     private final WebhookSettingRepository webhookSettingRepository;
     private final EncryptionService encryptionService;
     private final OutboundUrlValidator outboundUrlValidator;
     private final AuditLogService auditLogService;
+
+    private final Cache<String, WebhookSetting> webhookSettingCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(5))
+            .maximumSize(10)
+            .recordStats()
+            .build();
 
     @Value("${oswl.airgapped.enabled:false}")
     private boolean airgapped;
 
     @Transactional(readOnly = true)
     public WebhookSetting getSetting() {
-        return webhookSettingRepository.findFirstByOrderByIdAsc()
+        WebhookSetting cached = webhookSettingCache.getIfPresent(CACHE_KEY);
+        if (cached != null) {
+            return cached;
+        }
+        WebhookSetting setting = webhookSettingRepository.findFirstByOrderByIdAsc()
                 .orElseGet(() -> WebhookSetting.builder()
                         .provider(WebhookProvider.SLACK)
                         .enabled(false)
                         .build());
+        webhookSettingCache.put(CACHE_KEY, setting);
+        return setting;
     }
 
     /**
@@ -77,6 +95,7 @@ public class WebhookSettingService {
         setting.update(provider, encryptedUrl, enabled,
                 notifyNewCve, notifyGateFailure, notifyScanFailure, notifyWaiverExpiry);
         webhookSettingRepository.save(setting);
+        webhookSettingCache.invalidate(CACHE_KEY);
 
         auditLogService.log("WEBHOOK.SETTINGS_UPDATE", "EXTERNAL_SETTING", "webhook", null,
                 "provider=" + provider + " enabled=" + enabled
