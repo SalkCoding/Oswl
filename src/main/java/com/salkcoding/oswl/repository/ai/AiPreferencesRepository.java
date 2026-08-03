@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
 import org.springframework.data.jpa.repository.JpaRepository;

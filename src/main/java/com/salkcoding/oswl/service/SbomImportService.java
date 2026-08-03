@@ -7,7 +7,7 @@ import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.dto.scan.ScanPayload.ComponentPayload;
 import com.salkcoding.oswl.exception.InvalidRequestException;
-import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.cyclonedx.exception.ParseException;

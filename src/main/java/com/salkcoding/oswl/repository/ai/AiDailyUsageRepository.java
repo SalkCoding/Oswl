@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
 import com.salkcoding.oswl.domain.enums.AiProvider;

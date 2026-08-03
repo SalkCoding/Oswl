@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.project.Project;
-import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;

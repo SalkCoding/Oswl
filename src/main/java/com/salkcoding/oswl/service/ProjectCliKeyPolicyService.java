@@ -2,7 +2,7 @@ package com.salkcoding.oswl.service;
 
 import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import com.salkcoding.oswl.exception.ConflictException;
-import com.salkcoding.oswl.repository.ApiKeyRepository;
+import com.salkcoding.oswl.repository.apikey.ApiKeyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.jira;
 
 import com.salkcoding.oswl.domain.entity.jira.JiraSetting;
 import org.springframework.data.jpa.repository.JpaRepository;

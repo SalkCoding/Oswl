@@ -5,7 +5,7 @@ import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.dto.ComplianceReportDto;
 import com.salkcoding.oswl.dto.CreatePrRequest;
-import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.ComplianceReportService;
 import com.salkcoding.oswl.service.ComponentDetailService;

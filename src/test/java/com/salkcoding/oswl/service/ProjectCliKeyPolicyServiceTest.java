@@ -3,7 +3,7 @@ package com.salkcoding.oswl.service;
 import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.exception.ConflictException;
-import com.salkcoding.oswl.repository.ApiKeyRepository;
+import com.salkcoding.oswl.repository.apikey.ApiKeyRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

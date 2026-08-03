@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service;
 
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.notification.WebhookNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

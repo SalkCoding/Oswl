@@ -2,7 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.controller.spec.ScanHistoryControllerSpec;
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.ProjectAccessService;
 import com.salkcoding.oswl.service.ScanHistoryService;

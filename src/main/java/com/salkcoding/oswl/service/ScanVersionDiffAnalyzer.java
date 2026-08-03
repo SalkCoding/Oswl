@@ -4,7 +4,7 @@ import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.dto.VersionDiffRowDto;
 import com.salkcoding.oswl.dto.VersionDiffRowDto.ChangeType;
-import com.salkcoding.oswl.repository.ScanComponentRepository;
+import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

@@ -3,6 +3,8 @@ package com.salkcoding.oswl.repository;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

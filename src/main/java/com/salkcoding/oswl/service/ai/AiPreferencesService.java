@@ -5,7 +5,7 @@ import com.salkcoding.oswl.domain.enums.AiEffort;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.exception.InvalidRequestException;
-import com.salkcoding.oswl.repository.AiPreferencesRepository;
+import com.salkcoding.oswl.repository.ai.AiPreferencesRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

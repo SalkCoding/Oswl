@@ -1,4 +1,4 @@
-package com.salkcoding.oswl.repository;
+package com.salkcoding.oswl.repository.scan;
 
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;

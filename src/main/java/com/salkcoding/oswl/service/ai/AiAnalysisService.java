@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
-import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.service.EnrichmentProgressContext;
