@@ -78,10 +78,26 @@ management:
     health:
       enabled: true
       show-details: never
+      # Separate liveness/readiness probes. Liveness covers core infrastructure only;
+      # readiness covers everything an operator needs before routing traffic to this instance.
+      group:
+        liveness:
+          include: ping,db,diskSpace
+          show-details: when-authorized
+        readiness:
+          include: db,diskSpace,snapshotFreshness,aiProvider,embeddedSidecar
+          show-details: when-authorized
     prometheus:
       enabled: true
     info:
       enabled: true
+  health:
+    # Use the custom OsWL DbHealthIndicator / DiskSpaceHealthIndicator instead of the
+    # auto-configured ones, so thresholds and monitored paths match the application config.
+    db:
+      enabled: false
+    diskspace:
+      enabled: false
   prometheus:
     metrics:
       export:
@@ -294,6 +310,11 @@ oswl:
     max-page-size: ${OSWL_AUDIT_MAX_PAGE_SIZE:200}
     # Audit log records older than this many months are automatically deleted
     retention-months: ${OSWL_AUDIT_RETENTION_MONTHS:6}
+    integrity:
+      # When true, the application verifies the audit log hash chain on startup and exits.
+      verify-and-exit: ${OSWL_AUDIT_INTEGRITY_VERIFY_AND_EXIT:false}
+      # Batch size used by the verification API/CLI
+      batch-size: ${OSWL_AUDIT_INTEGRITY_BATCH_SIZE:1000}
 
 # Logging: see logback-spring.xml. local/test are console-only. prod additionally writes a
 # rotating file under OSWL_LOG_DIR (default ./logs) — OSWL_LOG_JSON=true switches it to

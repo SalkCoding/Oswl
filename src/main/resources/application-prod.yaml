@@ -63,10 +63,26 @@ management:
     health:
       enabled: true
       show-details: never
+      # Separate liveness/readiness probes. Liveness covers core infrastructure only;
+      # readiness covers everything an operator needs before routing traffic to this instance.
+      group:
+        liveness:
+          include: ping,db,diskSpace
+          show-details: when-authorized
+        readiness:
+          include: db,diskSpace,snapshotFreshness,aiProvider,embeddedSidecar
+          show-details: when-authorized
     prometheus:
       enabled: true
     info:
       enabled: true
+  health:
+    # Use the custom OsWL DbHealthIndicator / DiskSpaceHealthIndicator instead of the
+    # auto-configured ones, so thresholds and monitored paths match the application config.
+    db:
+      enabled: false
+    diskspace:
+      enabled: false
   prometheus:
     metrics:
       export:

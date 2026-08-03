@@ -43,6 +43,7 @@ public enum Permission {
     ORG_DASHBOARD_VIEW("View Organization Dashboard"),
     AUDIT_LOG_VIEW("View Audit Log"),
     AUDIT_LOG_EXPORT("Export Audit Log (SIEM)"),
+    AUDIT_LOG_VERIFY("Verify Audit Log Integrity"),
     SETTINGS_JIRA_MANAGE("Manage Jira Integration"),
     SETTINGS_SNAPSHOT_MANAGE("Manage Offline Snapshot Bundles"),
 

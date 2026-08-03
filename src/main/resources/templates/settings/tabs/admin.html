@@ -1350,7 +1350,7 @@
             snapshotImportPath: '',
             actionGroups: [
                 { label: _auditGroupLabels['Auth'],             items: ['AUTH.LOGIN_SUCCESS', 'AUTH.LOGIN_FAILURE', 'AUTH.LOGOUT', 'AUTH.OTP_FAILURE', 'AUTH.OTP_RESEND', 'AUTH.TRUSTED_DEVICE', 'AUTH.PASSWORD_CHANGE', 'SAML.LOGIN_SUCCESS', 'SAML.LOGIN_FAILURE'] },
-                { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE', 'USER.SELF_DELETE'] },
+                { label: _auditGroupLabels['User'],             items: ['USER.CREATE', 'USER.UPDATE_NAME', 'USER.UPDATE_ROLES', 'USER.UPDATE_THEME', 'USER.ACTIVATE', 'USER.DEACTIVATE', 'USER.DELETE', 'USER.SELF_DELETE'] },
                 { label: _auditGroupLabels['Role Template'],    items: ['ROLE_TEMPLATE.CREATE', 'ROLE_TEMPLATE.UPDATE', 'ROLE_TEMPLATE.DELETE'] },
                 { label: _auditGroupLabels['Project'],          items: ['PROJECT.CREATE', 'PROJECT.DELETE', 'PROJECT.RESTORE', 'PROJECT.PERMANENT_DELETE', 'QUICK_IMPORT.START', 'QUICK_IMPORT.CANCEL', 'PROJECT.DEPLOYMENT_PROFILE', 'PROJECT.BATCH_PR', 'SBOM.IMPORT'] },
                 { label: _auditGroupLabels['VCS'],              items: ['VCS.CONNECT', 'VCS.DISCONNECT', 'GITHUB.PAT_CONNECT', 'GITHUB.PAT_DISCONNECT'] },
@@ -1366,7 +1366,7 @@
                 { label: _auditGroupLabels['Monitoring'],       items: ['MONITOR.NEW_CVE', 'MONITOR.ALERT_EMAIL', 'MONITOR.ALERT_ACK'] },
                 { label: _auditGroupLabels['Integration'],      items: ['JIRA.SETTINGS_UPDATE'] },
                 { label: _auditGroupLabels['Webhook'],          items: ['WEBHOOK.SETTINGS_UPDATE', 'WEBHOOK.SENT', 'WEBHOOK.FAILED'] },
-                { label: _auditGroupLabels['Administration'],   items: ['ORG_DASHBOARD.VIEW', 'AUDIT_LOG.EXPORT', 'SNAPSHOT.IMPORT', 'SNAPSHOT.EXPORT', 'SNAPSHOT.WANTED_LIST_EXPORT'] },
+                { label: _auditGroupLabels['Administration'],   items: ['ORG_DASHBOARD.VIEW', 'AUDIT_LOG.EXPORT', 'AUDIT_LOG.VERIFY', 'SNAPSHOT.IMPORT', 'SNAPSHOT.EXPORT', 'SNAPSHOT.WANTED_LIST_EXPORT'] },
                 { label: _auditGroupLabels['SCIM Provisioning'],items: ['SCIM.USER_CREATE', 'SCIM.USER_UPDATE', 'SCIM.USER_DEACTIVATE', 'SCIM.GROUP_CREATE', 'SCIM.GROUP_UPDATE', 'SCIM.GROUP_DELETE', 'SCIM.GROUP_MEMBER_ADD', 'SCIM.GROUP_MEMBER_REMOVE', 'SCIM.AUTH_FAILURE', 'SCIM_KEY.CREATE'] },
                 { label: _auditGroupLabels['Policy'],           items: ['POLICY.CREATE', 'POLICY.UPDATE', 'POLICY.DELETE', 'POLICY.IMPORT', 'POLICY.GITOPS_SYNC', 'POLICY_EXCEPTION.REQUEST', 'POLICY_EXCEPTION.APPROVE', 'POLICY_EXCEPTION.REVOKE', 'POLICY_EXCEPTION.EXPIRE'] },
                 { label: 'System',                              items: ['SYSTEM.SETUP'] },

@@ -23,8 +23,13 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -48,7 +53,7 @@ public class AuditLogService {
             actorId     = p.getUserId();
             displayName = p.getDisplayName();
         }
-        auditLogRepository.save(AuditLog.builder()
+        persistWithHash(AuditLog.builder()
                 .actorEmail(email)
                 .actorUserId(actorId)
                 .actorDisplayName(displayName)
@@ -68,7 +73,7 @@ public class AuditLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logAnonymous(String actorEmail, String action, String targetType,
                              String targetId, String targetName, String detail) {
-        auditLogRepository.save(AuditLog.builder()
+        persistWithHash(AuditLog.builder()
                 .actorEmail(actorEmail != null ? actorEmail : "anonymous")
                 .actorIp(resolveClientIp())
                 .action(action)
@@ -77,6 +82,63 @@ public class AuditLogService {
                 .targetName(targetName)
                 .detail(detail)
                 .build());
+    }
+
+    /** Persists the entry and appends its SHA-256 integrity hash to the chain. */
+    private void persistWithHash(AuditLog entry) {
+        auditLogRepository.save(entry);
+        auditLogRepository.flush();
+
+        AuditLog target = entry.getId() != null
+                ? auditLogRepository.findById(entry.getId()).orElse(entry)
+                : entry;
+
+        String prevHash = null;
+        if (target.getId() != null) {
+            Optional<AuditLog> previous = auditLogRepository.findTopByIdLessThanOrderByIdDesc(target.getId());
+            prevHash = previous.map(AuditLog::getHash).orElse(null);
+        }
+        target.setPrevHash(prevHash);
+        target.setHash(computeHash(target));
+    }
+
+    /**
+     * Computes the canonical SHA-256 hash for an audit log entry.
+     *
+     * <p>{@code createdAt} is truncated to microseconds before hashing. Without this, the hash
+     * computed right after insert (over the full-nanosecond-precision Java value still held by
+     * the just-saved entity) would never match the hash recomputed during verification (over a
+     * value freshly read from a database column that stores less precision than a
+     * {@code LocalDateTime} — e.g. PostgreSQL's default {@code timestamp} precision is
+     * microseconds) — every row would look "tampered" purely from a rounding difference, never
+     * from actual corruption. Truncating on both sides to a precision no supported database
+     * stores less than makes the two computations agree regardless of column precision.
+     */
+    public String computeHash(AuditLog entry) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            update(digest, entry.getId());
+            update(digest, entry.getActorUserId());
+            update(digest, entry.getActorEmail());
+            update(digest, entry.getActorDisplayName());
+            update(digest, entry.getActorIp());
+            update(digest, entry.getAction());
+            update(digest, entry.getTargetType());
+            update(digest, entry.getTargetId());
+            update(digest, entry.getTargetName());
+            update(digest, entry.getDetail());
+            update(digest, entry.getCreatedAt() != null
+                    ? entry.getCreatedAt().truncatedTo(ChronoUnit.MICROS) : null);
+            update(digest, entry.getPrevHash());
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    private void update(MessageDigest digest, Object value) {
+        digest.update((byte) 0x7c);
+        digest.update(value != null ? value.toString().getBytes(StandardCharsets.UTF_8) : new byte[]{'\0'});
     }
 
     private String resolveClientIp() {
@@ -113,10 +175,10 @@ public class AuditLogService {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (PrintWriter pw = new PrintWriter(baos, false, StandardCharsets.UTF_8)) {
             pw.print('\uFEFF'); // UTF-8 BOM so Excel renders Korean correctly
-            pw.println("createdAt,actorDisplayName,actorEmail,actorIp,action,targetType,targetName,detail");
+            pw.println("createdAt,actorDisplayName,actorEmail,actorIp,action,targetType,targetName,detail,prevHash,hash");
             DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
             for (AuditLog l : page.getContent()) {
-                pw.printf("%s,%s,%s,%s,%s,%s,%s,%s%n",
+                pw.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s%n",
                         l.getCreatedAt() != null ? l.getCreatedAt().format(fmt) : "",
                         csv(l.getActorDisplayName()),
                         csv(l.getActorEmail()),
@@ -124,7 +186,9 @@ public class AuditLogService {
                         csv(l.getAction()),
                         csv(l.getTargetType()),
                         csv(l.getTargetName()),
-                        csv(l.getDetail()));
+                        csv(l.getDetail()),
+                        csv(l.getPrevHash()),
+                        csv(l.getHash()));
             }
         }
         return baos.toByteArray();
@@ -152,6 +216,8 @@ public class AuditLogService {
                 .targetName(l.getTargetName())
                 .createdAt(l.getCreatedAt())
                 .detail(l.getDetail())
+                .prevHash(l.getPrevHash())
+                .hash(l.getHash())
                 .build();
     }
 

@@ -40,14 +40,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+
+import java.time.Duration;
 import java.util.List;
-
-import java.util.Map;
-
 import java.util.Set;
-
-import java.util.concurrent.ConcurrentHashMap;
-
 import java.util.stream.Collectors;
 
 
@@ -60,7 +58,7 @@ import java.util.stream.Collectors;
 
  * Built-in defaults are seeded from the bundled SPDX license list on first startup.
 
- * The in-memory map is loaded at startup and updated whenever the policy changes.
+ * Caffeine-backed caches are loaded at startup and updated whenever the policy changes.
 
  *
 
@@ -92,11 +90,19 @@ public class LicensePolicyService {
 
 
 
-    /** In-memory cache: SPDX ID (upper-case) → LicenseStatus */
+    /** Caffeine cache: SPDX ID (upper-case) → LicenseStatus */
 
-    private final Map<String, LicenseStatus> policyCache = new ConcurrentHashMap<>();
+    private final Cache<String, LicenseStatus> policyCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofHours(1))
+            .maximumSize(2_000)
+            .recordStats()
+            .build();
 
-    private final Map<String, String> reasonCache = new ConcurrentHashMap<>();
+    private final Cache<String, String> reasonCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofHours(1))
+            .maximumSize(2_000)
+            .recordStats()
+            .build();
 
 
 
@@ -120,13 +126,13 @@ public class LicensePolicyService {
 
 
 
-    /** Reloads the in-memory map from the database. */
+    /** Reloads the Caffeine caches from the database. */
 
     public void refreshCache() {
 
-        policyCache.clear();
+        policyCache.invalidateAll();
 
-        reasonCache.clear();
+        reasonCache.invalidateAll();
 
         licensePolicyRepository.findAll()
 
@@ -144,7 +150,7 @@ public class LicensePolicyService {
 
                 });
 
-        log.info("[LicensePolicyService] Cache loaded with {} entries", policyCache.size());
+        log.info("[LicensePolicyService] Cache loaded with {} entries", policyCache.estimatedSize());
 
     }
 
@@ -162,7 +168,7 @@ public class LicensePolicyService {
 
         String baseId = extractBaseSpdxId(spdxExpression.trim());
 
-        String reason = reasonCache.get(baseId.toUpperCase());
+        String reason = reasonCache.getIfPresent(baseId.toUpperCase());
 
         if (reason != null) return reason;
 
@@ -274,7 +280,7 @@ public class LicensePolicyService {
 
 
 
-        LicenseStatus status = policyCache.get(baseId.toUpperCase());
+        LicenseStatus status = policyCache.getIfPresent(baseId.toUpperCase());
 
         return status != null ? status : LicenseStatus.UNKNOWN;
 
@@ -446,7 +452,11 @@ public class LicensePolicyService {
 
         LicensePolicyEntry saved = licensePolicyRepository.save(entry);
 
-        policyCache.put(saved.getSpdxId().toUpperCase(), newStatus);
+        String cacheKey = saved.getSpdxId().toUpperCase();
+
+        policyCache.put(cacheKey, newStatus);
+
+        reasonCache.invalidate(cacheKey);
 
         return toDto(saved);
 
