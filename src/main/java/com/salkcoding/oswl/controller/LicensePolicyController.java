@@ -3,7 +3,7 @@ package com.salkcoding.oswl.controller;
 import com.salkcoding.oswl.controller.spec.LicensePolicyControllerSpec;
 import com.salkcoding.oswl.dto.LicensePolicyEntryDto;
 import com.salkcoding.oswl.dto.LicensePolicyPageResponse;
-import com.salkcoding.oswl.service.LicensePolicyService;
+import com.salkcoding.oswl.service.license.LicensePolicyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

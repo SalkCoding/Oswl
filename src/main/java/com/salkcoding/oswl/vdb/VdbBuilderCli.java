@@ -119,7 +119,7 @@ public final class VdbBuilderCli {
         }
         boolean anyFailure = false;
 
-        Map<String, List<com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln>> osvVulns = Map.of();
+        Map<String, List<com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln>> osvVulns = Map.of();
         LocalDate osvAsOf = LocalDate.now();
         java.util.Set<String> osvUnresolvedKeys = java.util.Set.of();
         java.util.Set<String> osvProcessedEcosystems = java.util.Set.of();
@@ -240,15 +240,15 @@ public final class VdbBuilderCli {
                                       List<DepsDevSource.VersionRecord> depsdevVersions) {
         java.util.Set<String> depsdevResolvedKeys = new java.util.HashSet<>();
         for (DepsDevSource.VersionRecord v : depsdevVersions) {
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
             if (key != null) depsdevResolvedKeys.add(key);
         }
         int resolved = 0;
         List<WantedComponent> unresolved = new ArrayList<>();
         for (WantedComponent w : wanted) {
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
             if (key == null) continue;
-            String ecosystem = com.salkcoding.oswl.service.AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
+            String ecosystem = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
             boolean osvResolved = osvVulnKeys.contains(key)
                     || (osvProcessedEcosystems.contains(ecosystem) && !osvUnresolvedKeys.contains(key));
             if (osvResolved || depsdevResolvedKeys.contains(key)) {

@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.RiskTrendControllerSpec;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.RiskTrendService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.reporting.RiskTrendService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

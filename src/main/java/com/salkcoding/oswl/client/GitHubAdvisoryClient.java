@@ -3,7 +3,7 @@ package com.salkcoding.oswl.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;

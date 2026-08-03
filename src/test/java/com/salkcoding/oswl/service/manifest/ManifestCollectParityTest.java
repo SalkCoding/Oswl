@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service.manifest;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.service.DependencyManifestParserService;
-import com.salkcoding.oswl.service.MavenBomVersionResolver;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

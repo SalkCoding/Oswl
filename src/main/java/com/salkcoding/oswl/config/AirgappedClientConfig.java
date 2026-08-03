@@ -6,7 +6,7 @@ import com.salkcoding.oswl.client.GitHubAdvisoryClient;
 import com.salkcoding.oswl.client.KevCatalogService;
 import com.salkcoding.oswl.client.NvdClient;
 import com.salkcoding.oswl.client.OsvClient;
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

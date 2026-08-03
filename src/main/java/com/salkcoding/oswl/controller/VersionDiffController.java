@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.controller;
 
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.VersionDiffService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.scan.VersionDiffService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

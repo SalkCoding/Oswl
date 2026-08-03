@@ -3,8 +3,8 @@ package com.salkcoding.oswl.vdb;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.client.GitHubAdvisoryClient;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 
 import java.time.Duration;
 import java.util.ArrayList;

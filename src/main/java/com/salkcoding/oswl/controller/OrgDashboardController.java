@@ -2,7 +2,7 @@ package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.OrgDashboardControllerSpec;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.service.OrgDashboardService;
+import com.salkcoding.oswl.service.org.OrgDashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;

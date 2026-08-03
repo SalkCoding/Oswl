@@ -15,7 +15,7 @@ import com.salkcoding.oswl.exception.QuickImportDuplicateException;
 import com.salkcoding.oswl.exception.QuickImportQueueFullException;
 import com.salkcoding.oswl.exception.QuickImportUpstreamException;
 import com.salkcoding.oswl.controller.spec.QuickImportControllerSpec;
-import com.salkcoding.oswl.service.QuickImportService;
+import com.salkcoding.oswl.service.ingest.QuickImportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.local;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.service.DependencyManifestParserService;
-import com.salkcoding.oswl.service.MavenBomVersionResolver;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

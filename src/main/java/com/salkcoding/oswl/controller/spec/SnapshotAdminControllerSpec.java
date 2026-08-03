@@ -2,7 +2,7 @@ package com.salkcoding.oswl.controller.spec;
 
 import com.salkcoding.oswl.controller.SnapshotAdminController.SnapshotStatusResponse;
 import com.salkcoding.oswl.dto.SnapshotImportFromPathRequest;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotImportResult;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotImportResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

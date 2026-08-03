@@ -12,7 +12,7 @@ import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
-import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import org.junit.jupiter.api.BeforeEach;

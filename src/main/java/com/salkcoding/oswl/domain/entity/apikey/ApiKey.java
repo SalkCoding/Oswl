@@ -25,7 +25,7 @@ public class ApiKey {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** First {@link com.salkcoding.oswl.service.ApiKeyTokenSupport#PREFIX_LENGTH} chars of the token for lookup */
+    /** First {@link com.salkcoding.oswl.service.apikey.ApiKeyTokenSupport#PREFIX_LENGTH} chars of the token for lookup */
     @Column(name = "token_prefix", nullable = false, unique = true, length = 20)
     private String tokenPrefix;
 

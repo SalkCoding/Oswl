@@ -6,7 +6,7 @@ import com.salkcoding.oswl.demo.DemoImportCatalog;
 import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import com.salkcoding.oswl.repository.project.ProjectMemberRepository;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
-import com.salkcoding.oswl.service.QuickImportService;
+import com.salkcoding.oswl.service.ingest.QuickImportService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

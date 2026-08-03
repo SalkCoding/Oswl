@@ -1,9 +1,9 @@
 package com.salkcoding.oswl.client;
 
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotAdvisory;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVersion;
-import com.salkcoding.oswl.service.EnrichmentProgressContext;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotAdvisory;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVersion;
+import com.salkcoding.oswl.service.ingest.EnrichmentProgressContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;

@@ -1,11 +1,11 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.dto.gate.GateResultDto;
-import com.salkcoding.oswl.service.ContinuousMonitoringService;
-import com.salkcoding.oswl.service.ContinuousMonitoringService.MonitoringSummary;
-import com.salkcoding.oswl.service.GatePolicyService;
-import com.salkcoding.oswl.service.GatePolicyService.GateOptions;
-import com.salkcoding.oswl.service.SbomExportService;
+import com.salkcoding.oswl.service.vulnerability.ContinuousMonitoringService;
+import com.salkcoding.oswl.service.vulnerability.ContinuousMonitoringService.MonitoringSummary;
+import com.salkcoding.oswl.service.gate.GatePolicyService;
+import com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions;
+import com.salkcoding.oswl.service.reporting.SbomExportService;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import org.cyclonedx.Version;
