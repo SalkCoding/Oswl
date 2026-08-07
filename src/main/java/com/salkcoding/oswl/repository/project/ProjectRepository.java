@@ -2,6 +2,7 @@ package com.salkcoding.oswl.repository.project;
 
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.org.Team;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -39,6 +40,21 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     /** Project ids the user can reach through a team grant (member of the owning team). */
     @Query("SELECT p.id FROM Project p JOIN TeamMember tm ON tm.team = p.team WHERE tm.userId = :userId")
     List<Long> findProjectIdsByTeamMembership(@Param("userId") Long userId);
+
+    /**
+     * Global search: name-matching active projects within the given (accessible) id set.
+     * Rows are {@code [id, name]}; the caller caps results via the pageable.
+     */
+    @Query("""
+            SELECT p.id, p.name FROM Project p
+            WHERE p.deletedAt IS NULL
+              AND p.id IN :ids
+              AND LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%'))
+            ORDER BY p.name
+            """)
+    List<Object[]> searchByIdInAndName(@Param("ids") Collection<Long> ids,
+                                       @Param("q") String q,
+                                       Pageable pageable);
 
     /** Reassigns every project of a team — used before the team is deleted. */
     @Modifying(clearAutomatically = true)

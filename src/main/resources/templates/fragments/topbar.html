@@ -125,6 +125,8 @@
         </div>
         <!-- Right area: User Info + Settings -->
         <div class="flex items-center gap-[44px]" sec:authorize="isAuthenticated()">
+            <!-- Global search palette -->
+            <div th:replace="~{fragments/topbar :: search-palette}"></div>
             <!-- User Info with logout dropdown -->
             <div x-data="topbarAccountMenu()" @click.outside="open = false" class="relative">
                 <button type="button" @click="open = !open"
@@ -300,6 +302,8 @@
                 </div>
             </div>
             <div class="flex-1"></div>
+            <!-- Global search palette -->
+            <div th:replace="~{fragments/topbar :: search-palette}"></div>
             <!-- User info (inline, matching Figma — click to log out) -->
             <div x-data="{ open: false }" @click.outside="open = false" class="relative" sec:authorize="isAuthenticated()">
                 <button type="button" @click="open = !open"
@@ -399,6 +403,8 @@
             <span class="text-white font-bold text-[18px] tracking-[-0.18px] whitespace-nowrap" th:text="#{topbar.nav.versionDiff}">Version Diff</span>
         </div>
         <div class="flex-1"></div>
+        <!-- Global search palette -->
+        <div th:replace="~{fragments/topbar :: search-palette}"></div>
         <!-- User info (inline, matching Figma — click to log out) -->
         <div x-data="{ open: false }" @click.outside="open = false" class="relative" sec:authorize="isAuthenticated()">
             <button type="button" @click="open = !open"
@@ -512,6 +518,236 @@
         };
     }
     </script>
+
+    <script th:inline="javascript" th:fragment="topbar-search-i18n">
+    const _searchI18n = {
+        button: /*[[#{search.button}]]*/ 'Search',
+        dialogLabel: /*[[#{search.dialogLabel}]]*/ 'Global search',
+        placeholder: /*[[#{search.placeholder}]]*/ 'Search projects, components, CVEs...',
+        groupProjects: /*[[#{search.group.projects}]]*/ 'Projects',
+        groupComponents: /*[[#{search.group.components}]]*/ 'Components',
+        groupCves: /*[[#{search.group.cves}]]*/ 'CVEs',
+        loading: /*[[#{search.loading}]]*/ 'Searching...',
+        empty: /*[[#{search.empty}]]*/ 'No results found.',
+        error: /*[[#{search.error}]]*/ 'Search failed. Please try again.',
+        footerHint: /*[[#{search.footer.hint}]]*/ 'Arrows to navigate, Enter to open, esc to close'
+    };
+    </script>
+
+    <script th:fragment="topbar-search-palette">
+    function oswlSearchPalette() {
+        return {
+            open: false,
+            query: '',
+            loading: false,
+            error: false,
+            searched: false,
+            groups: [],
+            flatItems: [],
+            activeIndex: -1,
+            debounceTimer: null,
+            requestSeq: 0,
+            shortcut: (navigator.platform || '').toUpperCase().indexOf('MAC') >= 0 ? '\u2318K' : 'Ctrl+K',
+
+            init() {
+                window.addEventListener('keydown', (e) => {
+                    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+                        e.preventDefault();
+                        if (this.open) { this.closePalette(); } else { this.openPalette(); }
+                    }
+                });
+                this.$watch('query', (value) => {
+                    clearTimeout(this.debounceTimer);
+                    const q = (value || '').trim();
+                    if (q.length < 2) {
+                        this.groups = [];
+                        this.flatItems = [];
+                        this.activeIndex = -1;
+                        this.loading = false;
+                        this.error = false;
+                        this.searched = false;
+                        return;
+                    }
+                    this.debounceTimer = setTimeout(() => this.runSearch(q), 250);
+                });
+            },
+
+            openPalette() {
+                this.open = true;
+                this.query = '';
+                this.groups = [];
+                this.flatItems = [];
+                this.activeIndex = -1;
+                this.loading = false;
+                this.error = false;
+                this.searched = false;
+                this.$nextTick(() => {
+                    if (window.oswlTrapFocus && this.$refs.dialog) {
+                        oswlTrapFocus(this.$refs.dialog);
+                    } else if (this.$refs.searchInput) {
+                        this.$refs.searchInput.focus();
+                    }
+                });
+            },
+
+            closePalette() {
+                if (!this.open) return;
+                this.open = false;
+                clearTimeout(this.debounceTimer);
+                if (window.oswlReleaseFocus) { oswlReleaseFocus(); }
+            },
+
+            async runSearch(q) {
+                const seq = ++this.requestSeq;
+                this.loading = true;
+                this.error = false;
+                try {
+                    const r = await fetch('/api/search?q=' + encodeURIComponent(q), {
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (!r.ok) throw new Error('search failed: ' + r.status);
+                    const data = await r.json();
+                    if (seq !== this.requestSeq) return; // a newer query superseded this one
+                    this.applyResults(data);
+                    this.searched = true;
+                } catch (e) {
+                    if (seq !== this.requestSeq) return;
+                    this.error = true;
+                    this.groups = [];
+                    this.flatItems = [];
+                    this.activeIndex = -1;
+                    this.searched = true;
+                } finally {
+                    if (seq === this.requestSeq) this.loading = false;
+                }
+            },
+
+            applyResults(data) {
+                const groups = [];
+                const flat = [];
+                const addGroup = (key, label, group, mapFn) => {
+                    const items = (group && group.items ? group.items : []).map(mapFn);
+                    groups.push({ key: key, label: label, hasMore: !!(group && group.hasMore), items: items });
+                    items.forEach((item) => flat.push(item));
+                };
+                addGroup('projects', _searchI18n.groupProjects, data.projects, (p) => ({
+                    primary: p.name,
+                    secondary: '',
+                    badge: '',
+                    url: '/projects/' + p.id + '/security-center'
+                }));
+                addGroup('components', _searchI18n.groupComponents, data.components, (c) => ({
+                    primary: c.name + (c.version ? '@' + c.version : ''),
+                    secondary: [c.ecosystem, c.projectName].filter(Boolean).join(' \u00b7 '),
+                    badge: '',
+                    url: '/projects/' + c.projectId + '/security-center'
+                }));
+                addGroup('cves', _searchI18n.groupCves, data.cves, (v) => ({
+                    primary: v.cveId,
+                    secondary: v.projectName || '',
+                    badge: v.severity || '',
+                    url: '/projects/' + v.projectId + '/security-center'
+                }));
+                this.groups = groups;
+                this.flatItems = flat;
+                this.activeIndex = flat.length > 0 ? 0 : -1;
+            },
+
+            moveActive(delta) {
+                const n = this.flatItems.length;
+                if (n === 0) return;
+                this.activeIndex = ((this.activeIndex + delta) % n + n) % n;
+            },
+
+            openActive() {
+                const item = this.flatItems[this.activeIndex];
+                if (item) { window.location.href = item.url; }
+            },
+
+            isActive(item) {
+                return this.activeIndex >= 0 && this.flatItems[this.activeIndex] === item;
+            },
+
+            hasResults() {
+                return this.flatItems.length > 0;
+            }
+        };
+    }
+    </script>
+
+    <!-- Global search palette: magnifier button + modal. Included by every topbar variant. -->
+    <div th:fragment="search-palette" sec:authorize="isAuthenticated()"
+         x-data="oswlSearchPalette()" class="relative shrink-0">
+        <th:block th:replace="~{fragments/topbar :: topbar-search-i18n}"></th:block>
+        <th:block th:replace="~{fragments/topbar :: topbar-search-palette}"></th:block>
+
+        <button type="button" @click="openPalette()"
+                :title="_searchI18n.button"
+                :aria-label="_searchI18n.button"
+                class="flex items-center gap-[8px] text-[rgba(255,255,255,0.7)] hover:text-white transition-colors bg-white/10 hover:bg-white/20 border border-white/30 rounded-[6px] px-[10px] py-[5px] cursor-pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <span class="text-[12px] font-medium tracking-[-0.12px] text-white/60 whitespace-nowrap" x-text="shortcut">Ctrl+K</span>
+        </button>
+
+        <!-- Palette modal -->
+        <div x-show="open" style="display:none;"
+             class="fixed inset-0 z-[250] flex items-start justify-center bg-black/40 px-[16px] pt-[15vh]"
+             @click.self="closePalette()">
+            <div x-ref="dialog"
+                 role="dialog" aria-modal="true" :aria-label="_searchI18n.dialogLabel"
+                 class="bg-white rounded-[10px] w-full max-w-[560px] shadow-xl flex flex-col overflow-hidden">
+                <div class="flex items-center gap-[10px] border-b border-[var(--grayscale-20)] px-[16px] py-[12px]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--grayscale-60)" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" class="shrink-0" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input x-ref="searchInput" x-model="query" type="text"
+                           :placeholder="_searchI18n.placeholder"
+                           @keydown.escape="closePalette()"
+                           @keydown.arrow-down.prevent="moveActive(1)"
+                           @keydown.arrow-up.prevent="moveActive(-1)"
+                           @keydown.enter.prevent="openActive()"
+                           class="flex-1 border-0 outline-none text-[15px] text-[var(--grayscale-100)] placeholder-[var(--grayscale-40)] bg-transparent p-0"/>
+                </div>
+
+                <div class="max-h-[360px] overflow-y-auto">
+                    <div x-show="loading" class="px-[16px] py-[20px] text-[13px] text-[var(--grayscale-60)]"
+                         x-text="_searchI18n.loading">Searching...</div>
+                    <div x-show="!loading && error" class="px-[16px] py-[20px] text-[13px] text-red-600"
+                         x-text="_searchI18n.error">Search failed.</div>
+                    <div x-show="!loading && !error && searched && !hasResults()"
+                         class="px-[16px] py-[20px] text-[13px] text-[var(--grayscale-60)]"
+                         x-text="_searchI18n.empty">No results found.</div>
+
+                    <template x-for="group in groups" :key="group.key">
+                        <div x-show="group.items.length > 0">
+                            <div class="px-[16px] pt-[10px] pb-[4px] text-[11px] font-bold uppercase tracking-[0.6px] text-[var(--grayscale-50)]">
+                                <span x-text="group.label"></span><span x-show="group.hasMore">&nbsp;&hellip;</span>
+                            </div>
+                            <template x-for="item in group.items" :key="item.url + '|' + item.primary">
+                                <a :href="item.url"
+                                   @mouseenter="activeIndex = flatItems.indexOf(item)"
+                                   class="flex items-center gap-[10px] px-[16px] py-[9px] no-underline transition-colors"
+                                   :class="isActive(item) ? 'bg-[rgba(51,209,183,0.12)]' : 'hover:bg-[var(--grayscale-10)]'">
+                                    <span class="flex-1 min-w-0 truncate text-[14px] font-medium text-[var(--grayscale-100)]" x-text="item.primary"></span>
+                                    <span x-show="item.secondary" class="shrink-0 max-w-[45%] truncate text-[12px] text-[var(--grayscale-60)]" x-text="item.secondary"></span>
+                                    <span x-show="item.badge"
+                                          class="shrink-0 text-[10px] font-bold px-[6px] py-[2px] rounded-[4px] bg-[var(--grayscale-10)] text-[var(--grayscale-70)]"
+                                          x-text="item.badge"></span>
+                                </a>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="border-t border-[var(--grayscale-20)] px-[16px] py-[8px] text-[11px] text-[var(--grayscale-50)]"
+                     x-text="_searchI18n.footerHint">esc to close</div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
