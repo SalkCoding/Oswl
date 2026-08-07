@@ -270,7 +270,9 @@ tasks.register('buildTailwindCss', Exec) {
 	inputs.file(inputCss)
 	inputs.file(configJs)
 	inputs.dir('src/main/resources/templates')
-	inputs.dir('src/main/resources/static/js')
+	// Sources only — the generated .min.js files (minifyJs) mirror them and would
+	// otherwise overlap with this task's input directory.
+	inputs.files(fileTree('src/main/resources/static/js') { exclude '**/*.min.js' })
 	outputs.file(outCss)
 
 	doFirst {
@@ -326,6 +328,106 @@ tasks.register('downloadVendorJs') {
 }
 
 processResources.dependsOn 'downloadVendorJs'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom JS minification
+//
+// Minifies src/main/resources/static/js/**/*.js (vendor/ excluded — vendor files
+// already ship minified from their CDNs) to <name>.min.js next to each source.
+// Templates reference the .min.js files; the unminified sources stay the editable
+// originals. The generated .min.js files are gitignored (build output, same as
+// tailwind.css).
+//
+// Uses the esbuild standalone binary (no Node.js required), downloaded from the
+// npm registry to build/tools/ on first build — same pattern as the Tailwind CLI.
+// ─────────────────────────────────────────────────────────────────────────────
+ext {
+	esbuildVersion = '0.28.1'
+	esbuildToolDir = layout.buildDirectory.dir("tools/esbuild-${esbuildVersion}").get().asFile
+}
+
+static def esbuildPackageName() {
+	def os = System.getProperty('os.name').toLowerCase()
+	def arch = System.getProperty('os.arch').toLowerCase()
+	def aarch = (arch == 'aarch64' || arch == 'arm64')
+	if (os.contains('win')) {
+		return aarch ? 'win32-arm64' : 'win32-x64'
+	} else if (os.contains('mac')) {
+		return aarch ? 'darwin-arm64' : 'darwin-x64'
+	} else {
+		return aarch ? 'linux-arm64' : 'linux-x64'
+	}
+}
+
+static def esbuildBinaryFile(File toolDir) {
+	// The npm tgz extracts under package/; the binary is package/esbuild.exe on
+	// Windows and package/bin/esbuild elsewhere.
+	return System.getProperty('os.name').toLowerCase().contains('win')
+		? new File(toolDir, 'unpacked/package/esbuild.exe')
+		: new File(toolDir, 'unpacked/package/bin/esbuild')
+}
+
+tasks.register('downloadEsbuild') {
+	description = 'Downloads the esbuild standalone binary from the npm registry (cached).'
+	group = 'frontend'
+	def pkg = esbuildPackageName()
+	def tgz = new File(esbuildToolDir, "${pkg}.tgz")
+	def marker = esbuildBinaryFile(esbuildToolDir)
+	outputs.file(marker)
+	doLast {
+		if (!marker.exists()) {
+			esbuildToolDir.mkdirs()
+			def url = "https://registry.npmjs.org/@esbuild/${pkg}/-/${pkg}-${esbuildVersion}.tgz"
+			logger.lifecycle("[esbuild] downloading ${url}")
+			URI.create(url).toURL().withInputStream { i -> tgz.withOutputStream { o -> o << i } }
+			def unpacked = new File(esbuildToolDir, 'unpacked')
+			unpacked.mkdirs()
+			project.copy {
+				from(tarTree(resources.gzip(tgz)))
+				into(unpacked)
+			}
+			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
+				marker.setExecutable(true, false)
+			}
+			logger.lifecycle("[esbuild] extracted to ${marker}")
+		}
+	}
+}
+
+tasks.register('minifyJs') {
+	description = 'Minifies custom static JS (vendor excluded) to <name>.min.js next to each source.'
+	group = 'frontend'
+	dependsOn 'downloadEsbuild'
+
+	def jsDir = file('src/main/resources/static/js')
+	def sources = fileTree(jsDir) {
+		include '**/*.js'
+		exclude 'vendor/**'
+		exclude '**/*.min.js'
+	}
+	def minified = sources.files.collect { f -> new File(f.parent, f.name.replaceAll(/\.js$/, '.min.js')) }
+
+	inputs.files(sources)
+	outputs.files(minified)
+
+	doLast {
+		def bin = esbuildBinaryFile(esbuildToolDir)
+		sources.files.each { src ->
+			def out = new File(src.parent, src.name.replaceAll(/\.js$/, '.min.js'))
+			// ProcessBuilder rather than an Exec task so one task handles all files;
+			// project.exec was removed in Gradle 9.
+			def proc = new ProcessBuilder(bin.absolutePath, src.absolutePath, '--minify',
+				"--outfile=${out.absolutePath}".toString())
+				.redirectErrorStream(true).start()
+			def output = proc.inputStream.text
+			if (proc.waitFor() != 0) {
+				throw new GradleException("esbuild failed for ${src}: ${output}")
+			}
+		}
+	}
+}
+
+processResources.dependsOn 'minifyJs'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OSS notices / THIRD_PARTY_LICENSES.md version single-sourcing.
