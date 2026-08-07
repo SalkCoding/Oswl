@@ -146,6 +146,16 @@ oswl:
     # SECURITY: this runs arbitrary repo code on the server — enable only when
     # every imported repository is trusted. Default: false (static manifest parse only).
     allow-build-exec: ${OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC:false}
+    # Backpressure for concurrent imports. Each job runs on a virtual thread (no platform-thread
+    # pool to exhaust), so these caps exist to bound DB connections, outbound HTTP and disk (clones):
+    # max-concurrent limits simultaneously RUNNING imports globally — keep it below
+    # spring.datasource.hikari.maximum-pool-size (default 10) or imports can starve interactive
+    # requests of DB connections (a startup warning fires when this is violated).
+    max-concurrent: ${OSWL_QUICK_IMPORT_MAX_CONCURRENT:3}
+    # max-queued-per-user caps how many jobs one user may have queued/running at once; beyond it
+    # the API rejects with 429 and a clear message. The TOTAL queue is per-user × user count —
+    # there is no global queue bound, which is acceptable only because running jobs are capped above.
+    max-queued-per-user: ${OSWL_QUICK_IMPORT_MAX_QUEUED_PER_USER:3}
   secretscan:
     # Regex + entropy secret scan and Terraform/Kubernetes/Dockerfile misconfiguration scan,
     # run once per Quick Import against the cloned working tree before it is deleted.
