@@ -22,6 +22,7 @@ import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
 import com.salkcoding.oswl.repository.scan.ScanFindingRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,6 +58,8 @@ public class GatePolicyService {
     private final ScanFindingRepository scanFindingRepository;
     private final LibraryRepository libraryRepository;
     private final PolicyService policyService;
+    /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
+    private final OswlMetrics oswlMetrics;
 
     @Value("${oswl.gate.fail-on-severity:HIGH}")
     private String defaultFailOnSeverity;
@@ -259,6 +262,9 @@ public class GatePolicyService {
 
         log.info("[Gate] projectId={} scanId={} passed={} violations={} evaluated={} newVulns={} onlyReachable={}",
                 projectId, scan.getId(), passed, violations.size(), evaluated, newVulnCount, onlyReachable);
+        if (oswlMetrics != null) {
+            oswlMetrics.recordGateEvaluation(passed);
+        }
 
         return new GateResultDto(
                 passed, passed ? 0 : 1,

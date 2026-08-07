@@ -221,6 +221,24 @@ Requires `ORG_DASHBOARD_VIEW` (or `SYSTEM_ADMIN`). Once granted, the entry point
 
 All three are admin-gated. Prometheus scrape config lives in `application-prod.yaml` under `management`.
 
+### Business metrics & Grafana
+
+In addition to the default JVM/HTTP meters, OsWL records these business metrics (all exposed via `/actuator/prometheus`; Prometheus names shown — dots become underscores):
+
+| Metric | Type | Tags | Description |
+|---|---|---|---|
+| `oswl_scan_duration_seconds` | Timer | `outcome` (`completed`\|`failed`) | End-to-end scan pipeline duration |
+| `oswl_quickimport_queue_depth` | Gauge | — | Quick Import jobs waiting for a worker slot |
+| `oswl_quickimport_running` | Gauge | — | Quick Import jobs currently running |
+| `oswl_components_ingested_total` | Counter | `ecosystem` | Components persisted by scan ingest |
+| `oswl_ai_calls_total` | Counter | `provider` | Recorded AI calls |
+| `oswl_ai_tokens_total` | Counter | `provider`, `direction` (`in`\|`out`) | AI prompt/completion tokens |
+| `oswl_ai_cost_usd_total` | Counter | `provider` | Estimated AI spend (USD) |
+| `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | Security-gate evaluations |
+| `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | Outbound calls to external data sources |
+
+A ready-to-import Grafana dashboard covering these metrics ships at [`docs/grafana/oswl-dashboard.json`](grafana/oswl-dashboard.json). Import it via **Dashboards → New → Import** — it prompts for a Prometheus datasource on import, so no JSON editing is needed.
+
 ---
 
 ## Offline snapshot bundles (v1.0.4)

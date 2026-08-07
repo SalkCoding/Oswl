@@ -5,6 +5,7 @@ import com.salkcoding.oswl.domain.entity.ai.AiUsageEvent;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.repository.ai.AiDailyUsageRepository;
 import com.salkcoding.oswl.repository.ai.AiUsageEventRepository;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +32,8 @@ public class AiUsageRecorderService {
     private final AiUsageEventRepository eventRepository;
     private final AiDailyUsageRepository dailyUsageRepository;
     private final Clock clock;
+    /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
+    private final OswlMetrics oswlMetrics;
 
     @Value("${oswl.ai.pricing.openai-input-per-1m:2.50}")
     private double openAiInputPer1M;
@@ -123,6 +126,9 @@ public class AiUsageRecorderService {
                 .build());
         trimToMaxEvents();
         upsertDailyUsage(today, provider, prompt, completion, cost);
+        if (oswlMetrics != null) {
+            oswlMetrics.recordAiUsage(provider.name(), prompt, completion, cost.doubleValue());
+        }
 
         log.debug("[AI][Usage] {} {} tokens={} cost=${}", provider, operation, total, cost);
     }

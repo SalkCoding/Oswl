@@ -3,6 +3,7 @@ package com.salkcoding.oswl.client;
 import com.salkcoding.oswl.domain.enums.MatchConfidence;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -44,6 +45,13 @@ public class NvdClient {
     private final String apiKey;
     private final long minIntervalMs;
     private long lastRequestMs = 0;
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP client with no API key. Used directly by unit tests. */
     public NvdClient() {
@@ -132,8 +140,10 @@ public class NvdClient {
                         })
                         .retrieve()
                         .body(Map.class);
+                recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
                 return body != null ? body : Map.of();
             } catch (RestClientException e) {
+                recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
                 if (!isRateLimited(e) || attempt >= MAX_RETRIES) {
                     throw e;
                 }
@@ -166,6 +176,14 @@ public class NvdClient {
     private static boolean isRateLimited(RestClientException e) {
         String message = e.getMessage();
         return message != null && (message.contains("403") || message.contains("429"));
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("nvd", outcome);
+        }
     }
 
     @SuppressWarnings("unchecked")

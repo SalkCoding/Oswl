@@ -14,6 +14,7 @@ import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -47,6 +48,8 @@ public class ScanIngestService {
     private final ProjectRepository               projectRepository;
     private final VulnerabilityEnrichmentService  enrichmentService;
     private final ProjectCliKeyPolicyService      projectCliKeyPolicyService;
+    /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
+    private final OswlMetrics                     oswlMetrics;
 
     /**
      * Persists the scan payload and kicks off async enrichment.
@@ -133,6 +136,7 @@ public class ScanIngestService {
             // Chunked bulk save — ScanComponents first so DependencyPaths can reference their IDs
             saveInChunks(scanComponentRepository, scanComponents);
             saveInChunks(dependencyPathRepository, dependencyPaths);
+            recordComponentsIngested(payload.getComponents());
         }
 
         log.info("[ScanIngest] projectId={} scanId={} version={} components={} rescan={} status=SCANNING — enrichment pending",
@@ -265,6 +269,20 @@ public class ScanIngestService {
                     .findByNameAndVersionAndEcosystem(cp.getName(), cp.getVersion(), eco)
                     .orElseThrow(() -> duplicate);
         }
+    }
+
+    /** Per-ecosystem ingest counter — one increment per ecosystem per scan, not per component. */
+    private void recordComponentsIngested(List<ScanPayload.ComponentPayload> components) {
+        if (oswlMetrics == null) {
+            return;
+        }
+        Map<String, Integer> countByEcosystem = new HashMap<>();
+        for (ScanPayload.ComponentPayload cp : components) {
+            if (cp.getEcosystem() != null) {
+                countByEcosystem.merge(cp.getEcosystem(), 1, Integer::sum);
+            }
+        }
+        countByEcosystem.forEach(oswlMetrics::recordComponentsIngested);
     }
 
     /** Persists in fixed-size chunks so a large payload does not build one giant saveAll() batch. */

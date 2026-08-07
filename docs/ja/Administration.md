@@ -221,6 +221,24 @@ v1.0.4 のアクションコードはフィルター UI で **モニタリング
 
 3 つとも管理者権限が必要です。Prometheus のスクレイプ設定は `application-prod.yaml` の `management` 配下にあります。
 
+### ビジネスメトリクス & Grafana
+
+デフォルトの JVM/HTTP メーターに加えて、OsWL は以下のビジネスメトリクスを記録します（すべて `/actuator/prometheus` で公開。Prometheus 名表記 — ドットはアンダースコアに変換されます）:
+
+| メトリクス | 型 | タグ | 説明 |
+|---|---|---|---|
+| `oswl_scan_duration_seconds` | Timer | `outcome` (`completed`\|`failed`) | スキャンパイプライン全体の所要時間 |
+| `oswl_quickimport_queue_depth` | Gauge | — | ワーカースロット待ちの Quick Import ジョブ数 |
+| `oswl_quickimport_running` | Gauge | — | 現在実行中の Quick Import ジョブ数 |
+| `oswl_components_ingested_total` | Counter | `ecosystem` | スキャン取り込みで保存されたコンポーネント数 |
+| `oswl_ai_calls_total` | Counter | `provider` | 記録された AI 呼び出し数 |
+| `oswl_ai_tokens_total` | Counter | `provider`, `direction` (`in`\|`out`) | AI プロンプト/完了トークン数 |
+| `oswl_ai_cost_usd_total` | Counter | `provider` | AI 推定コスト (USD) |
+| `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | セキュリティゲート評価数 |
+| `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | 外部データソースへの呼び出し数 |
+
+これらのメトリクスを網羅する Grafana ダッシュボードが [`docs/grafana/oswl-dashboard.json`](../grafana/oswl-dashboard.json) に同梱されています。**Dashboards → New → Import** からインポートすると Prometheus データソースの選択を求められるため、JSON の編集は不要です。
+
 ---
 
 ## オフラインスナップショットバンドル（v1.0.4）

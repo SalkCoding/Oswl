@@ -118,6 +118,8 @@ public class QuickImportService {
     private final ScanTimingRecorder scanTimingRecorder;
     private final CloneCleanupService cloneCleanupService;
     private final com.salkcoding.oswl.service.secretscan.SecretIacScanService secretIacScanService;
+    /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
+    private final com.salkcoding.oswl.service.metrics.OswlMetrics oswlMetrics;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -160,6 +162,11 @@ public class QuickImportService {
     @PostConstruct
     void registerEnrichmentProgressListener() {
         enrichmentProgressHolder.setUpdateListener(this::onEnrichmentProgress);
+        if (oswlMetrics != null) {
+            // Registered once against the live queue/counter objects — the gauges read current
+            // state at scrape time, so no per-job meter churn.
+            oswlMetrics.registerQuickImportGauges(pendingQueue::size, runningImports::get);
+        }
     }
 
     private void onEnrichmentProgress(Long scanResultId) {
