@@ -14,6 +14,7 @@
     const _accessDeniedMsg = /*[[#{common.error.accessDenied}]]*/ 'Access denied. You do not have permission to perform this action.';
     function _fetchErr(r, fallback) { return r.status === 403 ? _accessDeniedMsg : fallback; }
 </script>
+<script th:src="@{/js/settings/settings-subtabs.js}"></script>
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
 

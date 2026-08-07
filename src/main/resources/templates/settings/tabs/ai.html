@@ -26,6 +26,16 @@
         <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.backfillNote}">After connecting a provider, insights for recent scans are generated automatically in the background (this can take a minute). Per-CVE summaries apply to scans run after the connection — re-scan a project to fill them in.</p>
     </div>
 
+    <!-- Sub-tabs: Provider (usage + provider), Scope/Context (what+how AI analyzes), Prompts/Backfill. -->
+    <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('provider', #{settings.ai.subtab.provider})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('context', #{settings.ai.subtab.context})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('prompts', #{settings.ai.subtab.prompts})}"></div>
+    </div>
+
+    <!-- ===================== PROVIDER ===================== -->
+    <div x-show="subTab==='provider'" x-cloak class="flex flex-col gap-[20px]">
+
     <!-- Usage summary -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[28px] py-[24px] flex flex-col gap-[16px]">
         <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]" th:text="#{settings.ai.usage.heading}">Usage today</h3>
@@ -530,6 +540,14 @@
         </div>
 
     </div>
+    </div><!-- /PROVIDER -->
+
+    <!-- ===================== SCOPE / CONTEXT ===================== -->
+    <div x-show="subTab==='context'" x-cloak class="flex flex-col gap-[20px]">
+    <div x-show="mode==='off'" x-cloak class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] text-[13px] text-[var(--grayscale-60)]"
+         th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</div>
+    <template x-if="mode!=='off'">
+    <div class="flex flex-col gap-[20px]">
 
     <!-- Scan Enrichment — split into one card per concern. As a single card it ran to
          seven unrelated sections and one Save button at the very bottom. -->
@@ -586,20 +604,6 @@
                 </div>
                 <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
             </div>
-        </div>
-        <!-- Each card saves the whole enrichment payload; the button is repeated per card
-             so an edit is never stranded behind a save further down the page. -->
-        <div class="flex gap-[12px] items-center justify-end">
-            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                    <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
-                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
-            </button>
         </div>
     </div>
 
@@ -668,20 +672,6 @@
                 </div>
             </div>
         </div>
-        <!-- Each card saves the whole enrichment payload; the button is repeated per card
-             so an edit is never stranded behind a save further down the page. -->
-        <div class="flex gap-[12px] items-center justify-end">
-            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                    <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
-                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
-            </button>
-        </div>
     </div>
 
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
@@ -740,6 +730,17 @@
             </button>
         </div>
     </div>
+
+    </div>
+    </template>
+    </div><!-- /SCOPE-CONTEXT -->
+
+    <!-- ===================== PROMPTS / BACKFILL ===================== -->
+    <div x-show="subTab==='prompts'" x-cloak class="flex flex-col gap-[20px]">
+    <div x-show="mode==='off'" x-cloak class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] text-[13px] text-[var(--grayscale-60)]"
+         th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</div>
+    <template x-if="mode!=='off'">
+    <div class="flex flex-col gap-[20px]">
 
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.heading}">Prompt templates</h3>
@@ -854,6 +855,10 @@
         </div>
     </div>
 
+    </div>
+    </template>
+    </div><!-- /PROMPTS-BACKFILL -->
+
     <!-- ── Toast ── -->
     <div x-show="toastVisible" x-cloak
          x-transition:enter="transition ease-out duration-300"
@@ -944,6 +949,11 @@
             // reflects what the user is looking at, which is why an active provider and a running
             // embedded model used to look identical.
             activeProviderKind: 'OFF',
+            // Sub-tab: 'provider' | 'context' | 'prompts'. Restored from the URL's `section`
+            // query param so a documentation link like /settings?tab=ai&section=prompts opens
+            // directly on that panel.
+            subTab: initialSettingsSection('provider'),
+            _contextLoaded: false, _promptsLoaded: false, _providerLoaded: false,
             forms: {
                 OPENAI:    { apiKey: '', modelName: 'gpt-5.6-terra',   baseUrl: '' },
                 ANTHROPIC: { apiKey: '', modelName: 'claude-opus-5',   baseUrl: '' },
@@ -1135,11 +1145,32 @@
                     }
                     if (data.reasoningEffort) this.preferences.reasoningEffort = data.reasoningEffort;
                     this.preferences.autoBackfillInsights = !!data.autoBackfillInsights;
-                    await this.loadPrompts();
+                    // The 'context' group's fields all come from this single response — nothing
+                    // further to fetch for it. 'provider' (usage/embedded status) and 'prompts'
+                    // each have their own calls, deferred until that sub-tab is actually opened.
+                    await this.loadSection(this.subTab);
+                } catch (e) { this.apiError = _aiI18n.loadFailed; }
+            },
+
+            /** Loads a sub-tab's own data on first visit only — repeat visits reuse what's cached. */
+            async loadSection(key) {
+                if (key === 'provider' && !this._providerLoaded) {
+                    this._providerLoaded = true;
                     await this.loadUsageStats();
                     await this.loadUsageEvents(0);
                     await this.loadEmbeddedStatus();
-                } catch (e) { this.apiError = _aiI18n.loadFailed; }
+                } else if (key === 'prompts' && !this._promptsLoaded) {
+                    this._promptsLoaded = true;
+                    await this.loadPrompts();
+                } else if (key === 'context') {
+                    this._contextLoaded = true;
+                }
+            },
+
+            selectSubTab(key) {
+                this.subTab = key;
+                syncSettingsSection(key);
+                this.loadSection(key);
             },
 
             async loadEmbeddedStatus() {

@@ -79,7 +79,7 @@ Configuration defaults (a folder saved in the UI takes precedence over `dir`):
 
 ## Starting and Stopping
 
-Open **Settings → AI** and use the **Embedded AI (built-in local model)** card:
+Open **Settings → AI** (`/settings?tab=ai&section=provider`) and use the **Embedded AI (built-in local model)** card:
 
 1. Check the status line — **Running** / **Stopped**, plus a note when the binary is missing.
 2. Click **Start**. If the directory has no model yet, a progress bar shows the Qwen3

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+    <!--
+        Settings sub-tab nav button. Renders one button for a single (key, label) pair; the host
+        page wraps calls to this fragment in its own flex row.
+
+        The host page must define, in its own Alpine component:
+          - a `subTab` string ('' | key1 | key2 | ...)
+          - a `selectSubTab(key)` method that sets `subTab`, syncs the URL via
+            `syncSettingsSection(key)` (static/js/settings-subtabs.js), and lazy-loads that
+            section's data if it hasn't been loaded yet.
+
+        usage: th:replace="~{fragments/settings-subtabs :: subtabButton('audit', #{settings.admin.auditLog.heading})}"
+    -->
+    <button type="button" th:fragment="subtabButton(key, label)"
+            @click="selectSubTab('__${key}__')"
+            :class="subTab === '__${key}__' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+            class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
+            th:text="${label}">Tab</button>
+
+</body>
+</html>
