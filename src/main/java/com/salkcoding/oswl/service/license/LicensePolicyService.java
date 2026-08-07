@@ -433,6 +433,12 @@ public class LicensePolicyService {
                detailExpr = "#newStatus.name()")
 
     public LicensePolicyEntryDto updateEntry(String spdxId, LicenseStatus newStatus) {
+        return upsertEntry(spdxId, newStatus, null);
+    }
+
+    /** Same as {@link #updateEntry}, plus a reason — used by config import. */
+    @Transactional
+    public LicensePolicyEntryDto upsertEntry(String spdxId, LicenseStatus newStatus, String reason) {
 
         LicensePolicyEntry entry = licensePolicyRepository.findBySpdxId(spdxId)
 
@@ -448,7 +454,7 @@ public class LicensePolicyService {
 
                 });
 
-        entry.updateStatus(newStatus, null);
+        entry.updateStatus(newStatus, reason);
 
         LicensePolicyEntry saved = licensePolicyRepository.save(entry);
 

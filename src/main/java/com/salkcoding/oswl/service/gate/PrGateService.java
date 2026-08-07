@@ -37,7 +37,8 @@ public class PrGateService {
                 request != null ? request.failOnEpss() : null,
                 request != null ? request.failOnLicenseViolation() : null,
                 request != null ? request.onlyNew() : null,
-                request != null ? request.onlyReachable() : null);
+                request != null ? request.onlyReachable() : null,
+                request != null ? request.failOnSecrets() : null);
 
         GateResultDto result = gatePolicyService.evaluate(projectId, options);
 

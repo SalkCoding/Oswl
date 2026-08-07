@@ -89,6 +89,19 @@ public class SecuritySettingService {
     // ── Mail connection test ───────────────────────────────────────────
 
     /**
+     * Tests the currently stored SMTP settings as-is (no form input) — used by the self-diagnostics
+     * page. Throws {@link MessagingException} on failure; {@link IllegalStateException}
+     * if no SMTP settings are stored yet.
+     */
+    public void testStoredMailConnection() throws MessagingException {
+        SecuritySetting stored = repository.findById(SETTINGS_ID).orElse(null);
+        if (stored == null || stored.getMailHost() == null || stored.getMailHost().isBlank()) {
+            throw new IllegalStateException("No SMTP settings configured.");
+        }
+        testMailConnection(new MailTestRequest());
+    }
+
+    /**
      * Attempts to open an SMTP session using the provided parameters.
      * Throws {@link MessagingException} if the connection fails.
      */

@@ -117,6 +117,7 @@ public class QuickImportService {
     private final DependencyManifestParserService dependencyManifestParserService;
     private final ScanTimingRecorder scanTimingRecorder;
     private final CloneCleanupService cloneCleanupService;
+    private final com.salkcoding.oswl.service.secretscan.SecretIacScanService secretIacScanService;
 
     /** In-memory job tracker. Entries are removed after 30 minutes by {@link #evictExpiredJobs()}. */
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
@@ -897,6 +898,10 @@ public class QuickImportService {
             auditLogService.logAnonymous(actorEmail, "SCAN.INGEST", "PROJECT",
                     project.getId().toString(), scanVersion,
                     "source=quick-import scanId=" + scanResult.getId());
+
+            // 6b. Secret / IaC misconfiguration scan — runs while the clone still exists,
+            // best-effort only, never fails the import.
+            secretIacScanService.scanAndPersist(cloneDir, scanResult.getId());
 
             // 7. Wait for async enrichment (vulnerability analysis + AI) ──
             advanceJob(jobId, Phase.ENRICHING, project.getId(), project.getName(),

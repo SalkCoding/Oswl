@@ -89,4 +89,22 @@ public interface SecurityCenterControllerSpec {
         @Parameter(description = "Export format — only `csv` is supported", example = "csv")
         @RequestParam(defaultValue = "csv") String format
     );
+
+    @Operation(
+        summary = "Secret / IaC misconfiguration findings",
+        description = """
+            Lists secret and Terraform/Kubernetes/Dockerfile misconfiguration findings detected
+            during the Quick Import clone scan. Never includes the matched secret
+            value — only the rule id, file location, severity and a non-reversible fingerprint.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Findings for the resolved scan")
+    })
+    java.util.List<com.salkcoding.oswl.dto.scan.ScanFindingRowDto> findings(
+        @Parameter(description = "Project ID", example = "1", required = true)
+        @PathVariable Long projectId,
+        @Parameter(description = "Specific scan ID; omit for latest")
+        @RequestParam(required = false) Long scanId
+    );
 }

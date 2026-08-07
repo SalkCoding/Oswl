@@ -44,7 +44,7 @@ public class LocalDevController {
                               @org.springframework.web.bind.annotation.RequestParam(required = false) Boolean onlyNew,
                               @org.springframework.web.bind.annotation.RequestParam(required = false) String failOnSeverity) {
         return gatePolicyService.evaluate(projectId,
-                new GateOptions(null, failOnSeverity, null, null, null, onlyNew, null));
+                new GateOptions(null, failOnSeverity, null, null, null, onlyNew, null, null));
     }
 
     @GetMapping("/monitor")

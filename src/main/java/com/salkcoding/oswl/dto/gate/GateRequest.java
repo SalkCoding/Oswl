@@ -26,6 +26,8 @@ public record GateRequest(
                 "(Java only; non-Java components and unanalyzed Java components are never blocking under this option)",
                 example = "false")
         Boolean onlyReachable,
+        @Schema(description = "Fail on any CRITICAL/HIGH-severity secret finding", example = "false")
+        Boolean failOnSecrets,
         @Schema(description = "Optional GitHub target — when present, the result is posted as a PR comment and/or Check Run")
         GitHubTarget github
 ) {
