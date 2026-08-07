@@ -594,7 +594,7 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 bg-black/50 z-[100]"
-         @click="componentPanelOpen = false; activeCompId = null"
+         @click="componentPanelOpen = false; activeCompId = null; oswlReleaseFocus()"
          style="display: none;"></div>
 
     <!-- Component Detail Panel -->
@@ -606,8 +606,10 @@
          x-transition:leave-start="translate-x-0"
          x-transition:leave-end="translate-x-full"
          class="fixed top-0 right-0 h-screen w-full max-w-[920px] z-[110] bg-white shadow-2xl flex flex-col"
-         @open-component-panel.window="componentPanelOpen = true; activeCompId = String($event.detail.id)"
-         @close-component-panel.window="componentPanelOpen = false; activeCompId = null"
+         role="dialog" aria-modal="true" th:aria-label="#{securityCenter.componentPanel.ariaLabel}"
+         @open-component-panel.window="componentPanelOpen = true; activeCompId = String($event.detail.id); $nextTick(() => oswlTrapFocus($el))"
+         @close-component-panel.window="componentPanelOpen = false; activeCompId = null; oswlReleaseFocus()"
+         @keydown.escape.window="if (componentPanelOpen) { componentPanelOpen = false; activeCompId = null; oswlReleaseFocus(); }"
          style="display: none;">
          
          <div id="slideout-content" class="flex-1 overflow-y-auto custom-scrollbar w-full relative" style="overscroll-behavior: contain;">
