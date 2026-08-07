@@ -119,7 +119,7 @@ public class OtpVerifyController implements OtpVerifyControllerSpec {
         loginCompletionService.recordSuccessfulLogin(principal.getUsername());
 
         log.info("[OTP] 2FA authentication succeeded for user {}.", principal.getUsername());
-        String redirectUrl = principal.isMustChangePassword() ? "/change-password" : "/projects";
+        String redirectUrl = loginCompletionService.resolvePostLoginDestination(principal);
         return ResponseEntity.ok(Map.of("redirectUrl", redirectUrl));
     }
 
