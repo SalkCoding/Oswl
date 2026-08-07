@@ -90,6 +90,13 @@
                     <span th:if="${row.errorMessage != null}"
                           class="text-[11px] text-[var(--risk-critical)] tracking-[-0.11px] leading-[1.4]"
                           th:text="${#strings.abbreviate(row.errorMessage, 80)}">Error</span>
+                    <!-- Archived scans: detail rows were deleted by the retention policy — only
+                         the aggregate counts stamped at archive time are shown, never a detail link. -->
+                    <span th:if="${row.archived}"
+                          class="inline-flex items-center gap-[6px] text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]">
+                        <span th:text="#{scanHistory.archived.label}">Archived</span>
+                        <span th:text="'· ' + (${row.archivedSecurityCritical} ?: 0) + ' ' + #{riskTrend.legend.critical} + ', ' + (${row.archivedSecurityHigh} ?: 0) + ' ' + #{riskTrend.legend.high}">-</span>
+                    </span>
                 </div>
 
                 <!-- Scanned At -->

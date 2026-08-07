@@ -114,6 +114,60 @@ public class ScanResult {
     @Builder.Default
     private List<ScanFinding> findings = new ArrayList<>();
 
+    /**
+     * Retention policy: once true, {@link #components} has been deleted and only the
+     * aggregate counts below remain — the scan is still listed (with its version/date), but its
+     * per-component/CVE detail is gone. Never set directly; go through {@link #archive}.
+     */
+    @Column(name = "archived", nullable = false)
+    @Builder.Default
+    private boolean archived = false;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
+    @Column(name = "archived_component_count")
+    private Integer archivedComponentCount;
+
+    @Column(name = "archived_security_critical")
+    private Integer archivedSecurityCritical;
+    @Column(name = "archived_security_high")
+    private Integer archivedSecurityHigh;
+    @Column(name = "archived_security_medium")
+    private Integer archivedSecurityMedium;
+    @Column(name = "archived_security_low")
+    private Integer archivedSecurityLow;
+    @Column(name = "archived_security_unscored")
+    private Integer archivedSecurityUnscored;
+
+    @Column(name = "archived_license_critical")
+    private Integer archivedLicenseCritical;
+    @Column(name = "archived_license_high")
+    private Integer archivedLicenseHigh;
+    @Column(name = "archived_license_medium")
+    private Integer archivedLicenseMedium;
+    @Column(name = "archived_license_low")
+    private Integer archivedLicenseLow;
+
+    /**
+     * Records the aggregate before the caller deletes {@link #components}/dependency paths —
+     * this method only stamps the summary, it does not touch the component rows itself.
+     */
+    public void archive(int componentCount, int[] security, int[] license) {
+        this.archived = true;
+        this.archivedAt = LocalDateTime.now();
+        this.archivedComponentCount = componentCount;
+        this.archivedSecurityCritical = security[0];
+        this.archivedSecurityHigh = security[1];
+        this.archivedSecurityMedium = security[2];
+        this.archivedSecurityLow = security[3];
+        this.archivedSecurityUnscored = security[4];
+        this.archivedLicenseCritical = license[0];
+        this.archivedLicenseHigh = license[1];
+        this.archivedLicenseMedium = license[2];
+        this.archivedLicenseLow = license[3];
+    }
+
     public void complete() {
         this.status = ScanStatus.COMPLETED;
     }
@@ -190,6 +244,18 @@ public class ScanResult {
         this.versionDiffAiInsight = null;
         this.versionDiffFromScanId = null;
         this.aiStatus = null;
+        this.archived = false;
+        this.archivedAt = null;
+        this.archivedComponentCount = null;
+        this.archivedSecurityCritical = null;
+        this.archivedSecurityHigh = null;
+        this.archivedSecurityMedium = null;
+        this.archivedSecurityLow = null;
+        this.archivedSecurityUnscored = null;
+        this.archivedLicenseCritical = null;
+        this.archivedLicenseHigh = null;
+        this.archivedLicenseMedium = null;
+        this.archivedLicenseLow = null;
     }
 }
 

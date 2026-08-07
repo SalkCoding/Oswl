@@ -89,9 +89,16 @@ public class ScanHistoryService {
                             .status(s.getStatus().name())
                             .scannedAt(s.getScannedAt() != null
                                     ? s.getScannedAt().format(DISPLAY_FMT) : "-")
-                            .componentCount(componentCount)
+                            .componentCount(s.isArchived()
+                                    ? (s.getArchivedComponentCount() != null ? s.getArchivedComponentCount() : 0)
+                                    : componentCount)
                             .errorMessage(s.getErrorMessage())
                             .importSource(importSource)
+                            .archived(s.isArchived())
+                            .archivedSecurityCritical(s.getArchivedSecurityCritical())
+                            .archivedSecurityHigh(s.getArchivedSecurityHigh())
+                            .archivedLicenseCritical(s.getArchivedLicenseCritical())
+                            .archivedLicenseHigh(s.getArchivedLicenseHigh())
                             .build();
                 })
                 .toList();

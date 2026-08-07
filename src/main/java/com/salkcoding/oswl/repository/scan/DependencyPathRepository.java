@@ -2,11 +2,20 @@ package com.salkcoding.oswl.repository.scan;
 
 import com.salkcoding.oswl.domain.entity.scan.DependencyPath;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface DependencyPathRepository extends JpaRepository<DependencyPath, Long> {
 
     /** Retrieve all paths for a component, ordered by their original index. */
     List<DependencyPath> findByScanComponentIdOrderByPathIndexAsc(Long scanComponentId);
+
+    /** Bulk delete for scan archiving — must run before the owning components are deleted. */
+    @Modifying
+    @Query("DELETE FROM DependencyPath dp WHERE dp.scanComponent.id IN :scanComponentIds")
+    void deleteByScanComponentIdIn(@Param("scanComponentIds") Collection<Long> scanComponentIds);
 }
