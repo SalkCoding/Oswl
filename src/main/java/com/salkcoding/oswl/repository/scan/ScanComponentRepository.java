@@ -1,11 +1,13 @@
 package com.salkcoding.oswl.repository.scan;
 
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDateTime;
@@ -95,6 +97,27 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
               AND sc.scanResult.status = 'COMPLETED'
             """)
     long countDistinctProjectsByLibraryId(@Param("libraryId") Long libraryId);
+
+    /**
+     * Global search: component name matches inside the latest completed scan of each accessible
+     * project. Rows are {@code [projectId, projectName, name, version, ecosystem]}; the caller
+     * caps results via the pageable.
+     */
+    @Query("""
+            SELECT DISTINCT p.id, p.name, l.name, l.version, l.ecosystem
+            FROM ScanComponent sc
+            JOIN sc.library l
+            JOIN sc.scanResult sr
+            JOIN sr.project p
+            WHERE sr.id = (SELECT MAX(s2.id) FROM ScanResult s2
+                           WHERE s2.project = p AND s2.status = 'COMPLETED')
+              AND p.id IN :projectIds
+              AND LOWER(l.name) LIKE LOWER(CONCAT('%', :q, '%'))
+            ORDER BY l.name
+            """)
+    List<Object[]> searchAccessibleComponents(@Param("projectIds") Collection<Long> projectIds,
+                                              @Param("q") String q,
+                                              Pageable pageable);
 
     /** All ScanComponents referencing a given library within the given projects — used for access-scoped cross-project deferral */
     @Query("""
