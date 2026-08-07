@@ -2,6 +2,7 @@ package com.salkcoding.oswl.repository.scan;
 
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -36,6 +37,15 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
                                                           @Param("projectId") Long projectId);
 
     long countByScanResultId(Long scanResultId);
+
+    /** Component ids only — used to bulk-delete their dependency paths before the components themselves. */
+    @Query("SELECT sc.id FROM ScanComponent sc WHERE sc.scanResult.id = :scanResultId")
+    List<Long> findIdsByScanResultId(@Param("scanResultId") Long scanResultId);
+
+    /** Bulk delete for scan archiving — bypasses cascade, so dependency paths must be deleted first. */
+    @Modifying
+    @Query("DELETE FROM ScanComponent sc WHERE sc.scanResult.id = :scanResultId")
+    void deleteByScanResultId(@Param("scanResultId") Long scanResultId);
 
     /**
      * Component counts for many scans in one query (scan history page, avoids per-row N+1).

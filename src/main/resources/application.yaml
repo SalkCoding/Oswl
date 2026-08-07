@@ -151,6 +151,12 @@ oswl:
     # run once per Quick Import against the cloned working tree before it is deleted.
     # Findings never include the matched secret value — only file path/line/rule id/fingerprint.
     enabled: ${OSWL_SECRETSCAN_ENABLED:true}
+  archive:
+    # Retention policy for old scans, triggered manually via POST /api/admin/projects/{id}/archive-scans
+    # (SYSTEM_ADMIN only, no scheduler). Scans beyond this count (most recent first) have their
+    # scan_components/dependency_paths rows deleted; only the aggregate severity/license counts
+    # remain on the scan itself. Irreversible.
+    retain-scans-per-project: ${OSWL_ARCHIVE_RETAIN_SCANS:20}
   cache:
     # TTL for deps.dev version metadata (isLatestVersion / deprecated / latestVersion / scorecard)
     # on cache-hit libraries. The full CVE/license TTL stays in Cache Settings (DEPS_DEV).
