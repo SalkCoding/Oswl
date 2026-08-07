@@ -50,6 +50,7 @@ public enum Permission {
     // ── v1.0.5 capabilities ──
     SETTINGS_WEBHOOK_MANAGE("Manage Webhook Notifications"),
     POLICY_MANAGE("Manage Security Policies"),
+    SETTINGS_REPORTING_MANAGE("Manage Report Branding"),
 
     // ── Organization structure — team hierarchy and membership management ──
     TEAM_MANAGE("Manage Teams");

@@ -56,6 +56,9 @@ public class SettingsTabAccess {
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_WEBHOOK_MANAGE)) {
             tabs.add(new TabSpec("webhooks", "🔔", "settings.tab.webhooks"));
         }
+        if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_REPORTING_MANAGE)) {
+            tabs.add(new TabSpec("reports", "🖨️", "settings.tab.reports"));
+        }
         // Read-only infra/connectivity checks — SYSTEM_ADMIN only (no delegated permission,
         // unlike the other tabs: it surfaces DB/SMTP/AI/VCS reachability details in one place).
         if (principal.isSystemAdmin()) {
