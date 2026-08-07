@@ -53,6 +53,12 @@
         page-break-inside: avoid;
     }
 
+    /* content-visibility:auto skips off-screen rows for the on-screen list, but print has no
+       "off-screen" — force every row to actually render so nothing is missing from the PDF. */
+    .component-row {
+        content-visibility: visible !important;
+    }
+
     /* ── 그림자 제거 ────────────────────────────────── */
     * { box-shadow: none !important; }
 }
@@ -60,6 +66,18 @@
 /* ── 체크박스 선택 행 하이라이트 ──────────────────────── */
 .component-row:has(input[name="selectedComponent"]:checked) {
     background-color: #d3fcf3;
+}
+
+/* Large component lists (thousands of rows for a big project) previously paid full layout/paint
+   cost for every row regardless of scroll position. content-visibility:auto tells the browser to
+   skip layout/style/paint work for rows currently off-screen — the DOM nodes and all existing
+   Alpine/HTMX behavior (filters, bulk select, detail panel) are unchanged, only the rendering cost
+   of off-screen rows drops. contain-intrinsic-size gives the browser a size estimate so the
+   scrollbar doesn't jump before an off-screen row has ever been measured (48px content + 1px
+   border-bottom, matching h-[48px] + border-b on .component-row). */
+.component-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 49px;
 }
 </style>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col relative"
