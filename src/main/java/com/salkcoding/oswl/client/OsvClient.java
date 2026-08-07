@@ -2,6 +2,7 @@ package com.salkcoding.oswl.client;
 
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -39,6 +40,13 @@ public class OsvClient {
     private final RestClient restClient;
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public OsvClient() {
@@ -165,6 +173,7 @@ public class OsvClient {
                     .body(Map.of("queries", requestBody))
                     .retrieve()
                     .body(Map.class);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
 
             log.debug("[OsvClient] querybatch response raw={}", response);
 
@@ -210,9 +219,24 @@ public class OsvClient {
             }
             return java.util.Arrays.asList(finalResults);
         } catch (RestClientException e) {
+            recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.error("[OsvClient] querybatch failed: {}", e.getMessage());
             return Collections.nCopies(queries.size(), new OsvResult(List.of()));
         }
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("osv", outcome);
+        }
+    }
+
+    /** A 429 (or 403, used by some hosts as a throttle signal) anywhere in the error message. */
+    private static boolean isRateLimited(RestClientException e) {
+        String message = e.getMessage();
+        return message != null && (message.contains("429") || message.contains("403"));
     }
 
     private OsvVuln parseVuln(Map<String, Object> vuln) {

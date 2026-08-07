@@ -6,6 +6,7 @@ import com.salkcoding.oswl.client.GitHubAdvisoryClient;
 import com.salkcoding.oswl.client.KevCatalogService;
 import com.salkcoding.oswl.client.NvdClient;
 import com.salkcoding.oswl.client.OsvClient;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ import java.time.Duration;
 public class AirgappedClientConfig {
 
     private final AirgappedSnapshotService snapshotService;
+    private final OswlMetrics oswlMetrics;
 
     @Value("${oswl.airgapped.enabled:false}")
     private boolean airgapped;
@@ -66,36 +68,49 @@ public class AirgappedClientConfig {
 
     @Bean
     public OsvClient osvClient() {
-        return new OsvClient(snapshotService, airgapped,
+        OsvClient client = new OsvClient(snapshotService, airgapped,
                 Duration.ofMillis(osvConnectTimeoutMs), Duration.ofMillis(osvReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public DepsDevClient depsDevClient() {
-        return new DepsDevClient(snapshotService, airgapped,
+        DepsDevClient client = new DepsDevClient(snapshotService, airgapped,
                 Duration.ofMillis(depsDevConnectTimeoutMs), Duration.ofMillis(depsDevReadTimeoutMs),
                 depsDevMaxConcurrent);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public EpssClient epssClient() {
-        return new EpssClient(snapshotService, airgapped);
+        EpssClient client = new EpssClient(snapshotService, airgapped);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public KevCatalogService kevCatalogService() {
-        return new KevCatalogService(snapshotService, airgapped);
+        KevCatalogService client = new KevCatalogService(snapshotService, airgapped);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public GitHubAdvisoryClient gitHubAdvisoryClient() {
-        return new GitHubAdvisoryClient(snapshotService, airgapped, githubAdvisoryToken, githubAdvisoryApiBase,
+        GitHubAdvisoryClient client = new GitHubAdvisoryClient(snapshotService, airgapped, githubAdvisoryToken,
+                githubAdvisoryApiBase,
                 Duration.ofMillis(githubAdvisoryConnectTimeoutMs), Duration.ofMillis(githubAdvisoryReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public NvdClient nvdClient() {
-        return new NvdClient(snapshotService, airgapped, nvdApiKey,
+        NvdClient client = new NvdClient(snapshotService, airgapped, nvdApiKey,
                 Duration.ofMillis(nvdConnectTimeoutMs), Duration.ofMillis(nvdReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 }

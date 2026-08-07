@@ -4,6 +4,7 @@ import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotAdvisory;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVersion;
 import com.salkcoding.oswl.service.ingest.EnrichmentProgressContext;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -87,6 +88,13 @@ public class DepsDevClient {
     private final Semaphore requestPermits;
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public DepsDevClient() {
@@ -306,11 +314,15 @@ public class DepsDevClient {
      */
     private <T> T withPermit(Supplier<T> call) {
         try {
-            return callUnderPermit(call);
+            T result = callUnderPermit(call);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
+            return result;
         } catch (RestClientException e) {
             if (!isRateLimited(e)) {
+                recordApiCall(OswlMetrics.OUTCOME_FAILURE);
                 throw e;
             }
+            recordApiCall(OswlMetrics.OUTCOME_RATE_LIMITED);
             log.debug("[DepsDevClient] 429 rate limit from deps.dev — backing off {}ms before a single retry",
                     RATE_LIMIT_BACKOFF_MS);
         }
@@ -322,10 +334,21 @@ public class DepsDevClient {
             return null;
         }
         try {
-            return callUnderPermit(call);
+            T result = callUnderPermit(call);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
+            return result;
         } catch (RestClientException e) {
+            recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.debug("[DepsDevClient] request still failing after 429 retry: {}", e.getMessage());
             return null;
+        }
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("depsdev", outcome);
         }
     }
 

@@ -219,6 +219,24 @@ v1.0.4의 작업 코드는 필터 UI에서 **모니터링**(`MONITOR.*`), **연�
 
 세 엔드포인트 모두 관리자 권한이 필요합니다. Prometheus 스크랩 설정은 `application-prod.yaml`의 `management` 블록에 있습니다.
 
+### 비즈니스 메트릭 & Grafana
+
+기본 JVM/HTTP 미터 외에도 OsWL은 다음 비즈니스 메트릭을 기록합니다 (모두 `/actuator/prometheus`로 노출되며, Prometheus 이름 기준 — 점(.)은 밑줄(_)로 변환됩니다):
+
+| 메트릭 | 타입 | 태그 | 설명 |
+|---|---|---|---|
+| `oswl_scan_duration_seconds` | Timer | `outcome` (`completed`\|`failed`) | 스캔 파이프라인 전체 소요 시간 |
+| `oswl_quickimport_queue_depth` | Gauge | — | 워커 슬롯을 기다리는 Quick Import 작업 수 |
+| `oswl_quickimport_running` | Gauge | — | 현재 실행 중인 Quick Import 작업 수 |
+| `oswl_components_ingested_total` | Counter | `ecosystem` | 스캔 인제스트로 저장된 컴포넌트 수 |
+| `oswl_ai_calls_total` | Counter | `provider` | 기록된 AI 호출 수 |
+| `oswl_ai_tokens_total` | Counter | `provider`, `direction` (`in`\|`out`) | AI 프롬프트/완성 토큰 수 |
+| `oswl_ai_cost_usd_total` | Counter | `provider` | 추정 AI 비용 (USD) |
+| `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | 시큐리티 게이트 평가 수 |
+| `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | 외부 데이터 소스 호출 수 |
+
+이 메트릭들을 다루는 Grafana 대시보드가 [`docs/grafana/oswl-dashboard.json`](../grafana/oswl-dashboard.json)에 포함되어 있습니다. **Dashboards → New → Import**로 임포트하면 Prometheus 데이터소스를 선택하라는 prompt가 표시되므로 JSON을 직접 수정할 필요가 없습니다.
+
 ---
 
 ## 오프라인 스냅샷 번들 (v1.0.4)

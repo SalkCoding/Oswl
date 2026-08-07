@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -60,6 +61,13 @@ public class GitHubAdvisoryClient {
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP client with no token (will silently return empty results). Used by unit tests. */
     public GitHubAdvisoryClient() {
@@ -119,11 +127,28 @@ public class GitHubAdvisoryClient {
             return List.of();
         }
         try {
-            return query(ghEcosystem, name, version);
+            List<GitHubAdvisory> result = query(ghEcosystem, name, version);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
+            return result;
         } catch (Exception e) {
+            recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.warn("[GitHubAdvisory] Lookup failed for {}:{} — {}", name, version, e.getMessage());
             return List.of();
         }
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("github-advisory", outcome);
+        }
+    }
+
+    /** GitHub rate limiting surfaces as a 403/429 status in the error message. */
+    private static boolean isRateLimited(Exception e) {
+        String message = e.getMessage();
+        return message != null && (message.contains("429") || message.contains("403"));
     }
 
     /**

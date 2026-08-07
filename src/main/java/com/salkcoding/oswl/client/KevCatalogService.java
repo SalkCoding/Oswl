@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.client;
 
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestClient;
@@ -29,6 +30,13 @@ public class KevCatalogService {
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
     private volatile Set<String> kevCveIds = Set.of();
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP catalog (no snapshot store). Used directly by unit tests. */
     public KevCatalogService() {
@@ -57,6 +65,7 @@ public class KevCatalogService {
                     .uri(KEV_FEED_URL)
                     .retrieve()
                     .body(Map.class);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
             if (body == null) return;
             Object vulns = body.get("vulnerabilities");
             if (!(vulns instanceof List<?> list)) return;
@@ -72,7 +81,16 @@ public class KevCatalogService {
             kevCveIds = Collections.unmodifiableSet(ids);
             log.info("[KEV] Loaded {} known exploited CVE entries", ids.size());
         } catch (Exception e) {
+            recordApiCall(OswlMetrics.OUTCOME_FAILURE);
             log.warn("[KEV] Failed to refresh catalog: {}", e.getMessage());
+        }
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("kev", outcome);
         }
     }
 
