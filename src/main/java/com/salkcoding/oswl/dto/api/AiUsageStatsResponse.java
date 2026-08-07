@@ -18,4 +18,9 @@ public class AiUsageStatsResponse {
     private final BigDecimal todayEstimatedCostUsd;
     private final int dailyCallCap;
     private final List<AiUsageDailySummaryDto> dailySummaries;
+    /** All-time context-hash cache counters (item level); 0/0 when no scan has run yet. */
+    private final long cacheHitCount;
+    private final long cacheMissCount;
+    /** Rough avoided-cost estimate (average cost per summarized item × cache hits); null when no misses are recorded yet. */
+    private final BigDecimal estimatedAvoidedCostUsd;
 }

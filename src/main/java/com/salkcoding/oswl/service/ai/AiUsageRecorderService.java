@@ -1,9 +1,11 @@
 package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
+import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.entity.ai.AiUsageEvent;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.repository.ai.AiDailyUsageRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.repository.ai.AiUsageEventRepository;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ public class AiUsageRecorderService {
 
     private final AiUsageEventRepository eventRepository;
     private final AiDailyUsageRepository dailyUsageRepository;
+    private final AiSettingRepository aiSettingRepository;
     private final Clock clock;
     /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
     private final OswlMetrics oswlMetrics;
@@ -101,6 +104,31 @@ public class AiUsageRecorderService {
                     operation, modelName, cacheCreation, cacheRead, input);
         }
         record(provider, operation, modelName, input + cacheCreation + cacheRead, intVal(usage.get("output_tokens")));
+    }
+
+    /**
+     * Counts context-hash cache outcomes from a scan enrichment batch. Hits/misses are item
+     * level (one per CVE/license candidate), not per API call — a hit means the previous
+     * summary was reused and no tokens were spent on that item. Recorded on the daily
+     * aggregate (not as usage events) so the hit rate survives the raw-event FIFO cap.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordCacheOutcomes(int hits, int misses) {
+        if (hits <= 0 && misses <= 0) return;
+        AiProvider provider = aiSettingRepository.findByActiveTrue()
+                .map(AiSetting::getProvider)
+                .orElse(null);
+        if (provider == null) return;
+        LocalDate today = LocalDate.now(clock);
+        AiDailyUsage daily = dailyUsageRepository.findLockedByUsageDateAndProvider(today, provider)
+                .orElseGet(() -> AiDailyUsage.builder()
+                        .usageDate(today)
+                        .provider(provider)
+                        .callCount(0)
+                        .build());
+        daily.accumulateCacheOutcomes(hits, misses);
+        dailyUsageRepository.save(daily);
+        log.debug("[AI][Usage] {} context-cache hits={} misses={}", provider, hits, misses);
     }
 
     private void record(AiProvider provider, String operation, String modelName,

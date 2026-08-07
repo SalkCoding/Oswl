@@ -68,6 +68,21 @@
                     </div>
                 </div>
                 <p class="text-[11px] text-[var(--grayscale-50)]" th:text="#{settings.ai.usage.pricingDisclaimer}">Cost figures are rough estimates from configured per-million token rates, not provider invoices.</p>
+                <!-- Context-hash cache efficiency, all time (survives the recent-calls FIFO cap) -->
+                <div x-show="(usageStats.cacheHitCount + usageStats.cacheMissCount) > 0" class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px] flex flex-col gap-[6px]">
+                    <p class="text-[11px] text-[var(--grayscale-50)]" th:text="#{settings.ai.usage.cache.heading}">Context cache efficiency (all time)</p>
+                    <div class="flex items-baseline gap-[16px] flex-wrap">
+                        <p class="font-bold text-[20px] text-[var(--grayscale-100)]"><span x-text="cacheHitRate(usageStats)"></span>%</p>
+                        <p class="text-[12px] text-[var(--grayscale-60)]">
+                            <span th:text="#{settings.ai.usage.cache.hits}">Hits</span>&nbsp;<span class="font-medium" x-text="exactTokens(usageStats.cacheHitCount)"></span>
+                            / <span th:text="#{settings.ai.usage.cache.misses}">misses</span>&nbsp;<span class="font-medium" x-text="exactTokens(usageStats.cacheMissCount)"></span>
+                        </p>
+                        <p class="text-[12px] text-[var(--grayscale-60)]" x-show="usageStats.estimatedAvoidedCostUsd != null">
+                            <span th:text="#{settings.ai.usage.cache.avoided}">Est. avoided</span>&nbsp;$<span class="font-medium" x-text="Number(usageStats.estimatedAvoidedCostUsd || 0).toFixed(4)"></span>
+                        </p>
+                    </div>
+                    <p class="text-[11px] text-[var(--grayscale-50)]" th:text="#{settings.ai.usage.cache.note}">Unchanged CVEs/licenses reuse their previous AI summary instead of a new API call. Avoided cost is a rough estimate from your recorded average cost per summarized item.</p>
+                </div>
                 <div x-show="usageEvents.length" class="flex flex-col gap-[8px]">
                     <p class="font-medium text-[13px] text-[var(--grayscale-80)]" th:text="#{settings.ai.usage.recent}">Recent calls</p>
                     <div class="overflow-x-auto">
@@ -1051,6 +1066,14 @@
             /** Full count with thousands separators — used as the title of an abbreviated value. */
             exactTokens(value) {
                 return (Number(value) || 0).toLocaleString();
+            },
+
+            /** Integer hit-rate percentage; 0 until at least one cache outcome is recorded. */
+            cacheHitRate(stats) {
+                const hits = Number(stats && stats.cacheHitCount) || 0;
+                const misses = Number(stats && stats.cacheMissCount) || 0;
+                const total = hits + misses;
+                return total > 0 ? Math.round((hits / total) * 100) : 0;
             },
 
             localeLabel() {

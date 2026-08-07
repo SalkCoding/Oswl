@@ -2,6 +2,7 @@ package com.salkcoding.oswl.repository.ai;
 
 import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.dto.api.AiCacheSumsDto;
 import com.salkcoding.oswl.dto.api.AiUsageDailyTotalsDto;
 import com.salkcoding.oswl.dto.api.AiUsageSumsDto;
 import jakarta.persistence.LockModeType;
@@ -44,4 +45,18 @@ public interface AiDailyUsageRepository extends JpaRepository<AiDailyUsage, Long
             """)
     List<AiUsageDailyTotalsDto> dailyTotalsSince(@Param("since") LocalDate since,
                                                  @Param("provider") AiProvider provider);
+
+    /**
+     * All-time context-hash cache sums. The cost total feeds the avoided-cost estimate
+     * (average cost per summarized item × items the cache served), so it is summed over the
+     * same rows the hit/miss counters live on.
+     */
+    @Query("""
+            select new com.salkcoding.oswl.dto.api.AiCacheSumsDto(
+                coalesce(sum(u.cacheHits), 0), coalesce(sum(u.cacheMisses), 0),
+                coalesce(sum(u.estimatedCostUsd), 0))
+            from AiDailyUsage u
+            where (:provider is null or u.provider = :provider)
+            """)
+    AiCacheSumsDto cacheSums(@Param("provider") AiProvider provider);
 }
