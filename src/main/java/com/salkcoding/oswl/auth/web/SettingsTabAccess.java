@@ -56,6 +56,16 @@ public class SettingsTabAccess {
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_WEBHOOK_MANAGE)) {
             tabs.add(new TabSpec("webhooks", "🔔", "settings.tab.webhooks"));
         }
+        // Read-only infra/connectivity checks — SYSTEM_ADMIN only (no delegated permission,
+        // unlike the other tabs: it surfaces DB/SMTP/AI/VCS reachability details in one place).
+        if (principal.isSystemAdmin()) {
+            tabs.add(new TabSpec("diagnostics", "🩺", "settings.tab.diagnostics"));
+        }
+        // Config export/import — SYSTEM_ADMIN only, mirrors the admin tab's own
+        // security posture (role templates, license policy) rather than a delegatable permission.
+        if (principal.isSystemAdmin()) {
+            tabs.add(new TabSpec("config-transfer", "📦", "settings.tab.configTransfer"));
+        }
         return tabs;
     }
 }

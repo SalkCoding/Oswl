@@ -109,6 +109,11 @@ public class ScanResult {
     @Builder.Default
     private List<ScanComponent> components = new ArrayList<>();
 
+    /** Secret/IaC misconfiguration findings from the Quick Import clone. */
+    @OneToMany(mappedBy = "scanResult", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ScanFinding> findings = new ArrayList<>();
+
     public void complete() {
         this.status = ScanStatus.COMPLETED;
     }

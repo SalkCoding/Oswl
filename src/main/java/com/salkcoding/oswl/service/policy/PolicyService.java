@@ -476,7 +476,7 @@ public class PolicyService {
         applyLevel(h.team(), m);
         applyLevel(h.project(), m);
         return new GateOptions(null, m.failOnSeverity, m.failOnKev, m.failOnEpss,
-                m.failOnLicenseViolation, m.onlyNew, null);
+                m.failOnLicenseViolation, m.onlyNew, null, null);
     }
 
     private void applyLevel(Optional<Policy> policyOpt, MutableGate m) {

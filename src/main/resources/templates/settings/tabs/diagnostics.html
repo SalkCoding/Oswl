@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="diagnosticsTab()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.diagnostics.heading}">Diagnostics</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.diagnostics.description}">Checks connectivity to external data sources, SMTP, AI provider, VCS tokens, database, disk space and the embedded AI sidecar.</p>
+    </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[24px]">
+        <div class="flex items-center justify-between flex-wrap gap-[12px]">
+            <span class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.diagnostics.results.heading}">Results</span>
+            <div class="flex items-center gap-[8px]">
+                <button @click="copyForSupport()" x-show="results.length"
+                        class="text-[var(--grayscale-70)] hover:text-[var(--grayscale-100)] text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] transition-colors"
+                        th:text="#{settings.diagnostics.btn.copy}">Copy for support</button>
+                <button @click="run()" :disabled="running"
+                        class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        x-text="running ? _diagI18n.running : _diagI18n.run">Run diagnostics</button>
+            </div>
+        </div>
+
+        <div x-show="!results.length && !running" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.diagnostics.empty}">
+            Click "Run diagnostics" to check connectivity and health.
+        </div>
+
+        <div x-show="results.length" class="flex flex-col divide-y divide-[var(--grayscale-10)]">
+            <template x-for="r in results" :key="r.id">
+                <div class="flex items-center justify-between gap-[16px] py-[12px]">
+                    <div class="flex flex-col gap-[2px] min-w-0">
+                        <span class="font-medium text-[14px] text-black" x-text="r.label"></span>
+                        <span class="text-[12px] text-[var(--grayscale-60)] truncate" x-text="r.detail"></span>
+                    </div>
+                    <div class="flex items-center gap-[8px] shrink-0">
+                        <span class="text-[11px] text-[var(--grayscale-50)]" x-show="r.tookMs" x-text="r.tookMs + 'ms'"></span>
+                        <span class="text-[12px] font-bold px-[10px] py-[4px] rounded-[100px]"
+                              :class="statusClass(r.status)" x-text="statusLabel(r.status)"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _diagI18n = {
+        run:        /*[[#{settings.diagnostics.btn.run}]]*/ 'Run diagnostics',
+        running:    /*[[#{settings.diagnostics.btn.running}]]*/ 'Running…',
+        copied:     /*[[#{settings.diagnostics.copied}]]*/ 'Copied to clipboard.',
+        loadFailed: /*[[#{settings.diagnostics.error.loadFailed}]]*/ 'Diagnostics run failed.',
+        up:         /*[[#{settings.diagnostics.status.up}]]*/ 'UP',
+        down:       /*[[#{settings.diagnostics.status.down}]]*/ 'DOWN',
+        skipped:    /*[[#{settings.diagnostics.status.skipped}]]*/ 'SKIPPED',
+        unknown:    /*[[#{settings.diagnostics.status.unknown}]]*/ 'UNKNOWN'
+    };
+    </script>
+    <script>
+    function diagnosticsTab() {
+        return {
+            results: [],
+            running: false, apiError: null, toast: null,
+            showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
+            statusLabel(s) { return _diagI18n[(s || '').toLowerCase()] || s; },
+            statusClass(s) {
+                switch (s) {
+                    case 'UP': return 'bg-[rgba(34,197,94,0.12)] text-[#15803d]';
+                    case 'DOWN': return 'bg-[rgba(239,68,68,0.12)] text-[#b91c1c]';
+                    case 'SKIPPED': return 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]';
+                    default: return 'bg-[rgba(234,179,8,0.12)] text-[#a16207]';
+                }
+            },
+            async run() {
+                this.running = true; this.apiError = null;
+                try {
+                    const r = await fetch('/api/settings/diagnostics');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _diagI18n.loadFailed); return; }
+                    this.results = await r.json();
+                } catch (e) {
+                    this.apiError = _diagI18n.loadFailed;
+                } finally {
+                    this.running = false;
+                }
+            },
+            copyForSupport() {
+                const lines = this.results.map(r => `[${r.status}] ${r.label} — ${r.detail}`);
+                const text = lines.join('\n');
+                navigator.clipboard.writeText(text).then(() => this.showToast(_diagI18n.copied));
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

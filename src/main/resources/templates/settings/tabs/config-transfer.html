@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="configTransferTab()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.configTransfer.heading}">Config Export / Import</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.configTransfer.description}">Export role templates, license policy, AI provider settings (secrets excluded) and cache TTLs as a single JSON file, or import one into this instance.</p>
+    </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <!-- Export card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[16px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.configTransfer.export.heading}">Export</h3>
+        <p class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.export.description}">Downloads a JSON file. It never contains secrets, API keys, or passwords.</p>
+        <div>
+            <button @click="exportBundle()" :disabled="exporting"
+                    class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                    x-text="exporting ? _cfgI18n.exporting : _cfgI18n.export">Export</button>
+        </div>
+    </div>
+
+    <!-- Import card -->
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[16px]">
+        <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.configTransfer.import.heading}">Import</h3>
+        <p class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.import.description}">Select a bundle file to preview what would change before anything is written.</p>
+
+        <input type="file" accept="application/json" @change="onFileSelected($event)"
+               class="text-[13px] file:mr-[12px] file:py-[8px] file:px-[16px] file:rounded-[8px] file:border-0 file:bg-[var(--grayscale-10)] file:text-[13px] file:font-medium file:cursor-pointer cursor-pointer" />
+
+        <div x-show="preview" x-cloak class="flex flex-col gap-[12px] pt-[8px] border-t border-[var(--grayscale-10)]">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-[12px] text-[13px]">
+                <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.roleTemplates}">Role templates</span>: <span x-text="preview ? (preview.roleTemplatesCreated + preview.roleTemplatesUpdated) : 0"></span></div>
+                <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.licensePolicy}">License policy</span>: <span x-text="preview ? (preview.licensePolicyCreated + preview.licensePolicyUpdated) : 0"></span></div>
+                <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.aiSettings}">AI settings</span>: <span x-text="preview ? (preview.aiSettingsCreated + preview.aiSettingsUpdated) : 0"></span></div>
+                <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.cache}">Cache TTLs</span>: <span x-text="preview ? preview.cacheSettingsUpdated : 0"></span></div>
+            </div>
+            <div x-show="preview && preview.roleTemplatesSkippedBuiltIn" class="text-[12px] text-[var(--grayscale-60)]"
+                 x-text="_cfgI18n.skippedBuiltIn.replace('{0}', preview ? preview.roleTemplatesSkippedBuiltIn : 0)"></div>
+            <div x-show="preview && preview.manualStepsRequired && preview.manualStepsRequired.length" class="bg-amber-50 border border-amber-200 rounded-[8px] px-[14px] py-[10px] text-[12px] text-amber-800 flex flex-col gap-[4px]">
+                <template x-for="step in (preview ? preview.manualStepsRequired : [])" :key="step">
+                    <div x-text="step"></div>
+                </template>
+            </div>
+            <div>
+                <button @click="applyImport()" :disabled="applying"
+                        class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        x-text="applying ? _cfgI18n.applying : _cfgI18n.apply">Apply import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _cfgI18n = {
+        export:         /*[[#{settings.configTransfer.btn.export}]]*/ 'Export',
+        exporting:      /*[[#{settings.configTransfer.btn.exporting}]]*/ 'Exporting…',
+        apply:          /*[[#{settings.configTransfer.btn.apply}]]*/ 'Apply import',
+        applying:       /*[[#{settings.configTransfer.btn.applying}]]*/ 'Applying…',
+        exportFailed:   /*[[#{settings.configTransfer.error.exportFailed}]]*/ 'Export failed.',
+        previewFailed:  /*[[#{settings.configTransfer.error.previewFailed}]]*/ 'Could not read this file as a config bundle.',
+        applyFailed:    /*[[#{settings.configTransfer.error.applyFailed}]]*/ 'Import failed.',
+        applied:        /*[[#{settings.configTransfer.applied}]]*/ 'Import applied.',
+        skippedBuiltIn: /*[[#{settings.configTransfer.skippedBuiltIn}]]*/ '{0} built-in role template(s) in the bundle were skipped.'
+    };
+    </script>
+    <script>
+    function configTransferTab() {
+        return {
+            exporting: false, applying: false, apiError: null, toast: null,
+            bundle: null, preview: null,
+            showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
+            headers() { return oswlJsonHeaders(); },
+            async exportBundle() {
+                this.exporting = true; this.apiError = null;
+                try {
+                    const r = await fetch('/api/settings/config-transfer/export');
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cfgI18n.exportFailed); return; }
+                    const data = await r.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'oswl-config-' + new Date().toISOString().slice(0, 10) + '.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    this.apiError = _cfgI18n.exportFailed;
+                } finally {
+                    this.exporting = false;
+                }
+            },
+            onFileSelected(evt) {
+                const file = evt.target.files && evt.target.files[0];
+                if (!file) return;
+                this.apiError = null; this.preview = null; this.bundle = null;
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    try {
+                        this.bundle = JSON.parse(reader.result);
+                    } catch (e) {
+                        this.apiError = _cfgI18n.previewFailed;
+                        return;
+                    }
+                    await this.runPreview();
+                };
+                reader.readAsText(file);
+            },
+            async runPreview() {
+                try {
+                    const r = await fetch('/api/settings/config-transfer/import?dryRun=true', {
+                        method: 'POST', headers: this.headers(), body: JSON.stringify(this.bundle)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cfgI18n.previewFailed); return; }
+                    this.preview = await r.json();
+                } catch (e) {
+                    this.apiError = _cfgI18n.previewFailed;
+                }
+            },
+            async applyImport() {
+                if (!this.bundle) return;
+                this.applying = true; this.apiError = null;
+                try {
+                    const r = await fetch('/api/settings/config-transfer/import?dryRun=false', {
+                        method: 'POST', headers: this.headers(), body: JSON.stringify(this.bundle)
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cfgI18n.applyFailed); return; }
+                    this.preview = await r.json();
+                    this.showToast(_cfgI18n.applied);
+                } catch (e) {
+                    this.apiError = _cfgI18n.applyFailed;
+                } finally {
+                    this.applying = false;
+                }
+            }
+        };
+    }
+    </script>
+</div>
+</body>
+</html>

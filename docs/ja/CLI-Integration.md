@@ -253,10 +253,13 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 | `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
 | `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
 | `onlyReachable` | `OSWL_GATE_ONLY_REACHABLE` | `false` |
+| `failOnSecrets` | `OSWL_GATE_FAIL_ON_SECRETS` | `false` |
 
 `onlyNew` は直前の完了スキャンをベースラインとして比較するため、既存の技術的負債がマージを妨げることはありません。`onlyReachable`(**v1.0.5**)はさらに、バイトコード呼び出しグラフ解析で脆弱なライブラリが実際に参照されていることが確認された場合のみブロックする追加のノイズ削減オプションです。`oswl.reachability.bytecode-root` が設定された Java/Gradle コンポーネントにのみ適用され、それ以外はすべて UNKNOWN のままこのオプションではブロックされないため、Java プロジェクトでない限り無効のままにしてください。リクエストに GitHub の対象を指定すると、判定結果は Check Run と PR コメントとしても投稿されます。
 
 確定的に悪性と判定されたパッケージ(OSV `MAL-` アドバイザリ)は、上記のすべてのしきい値および `onlyNew`/`onlyReachable` に関係なく常にブロックされます — 解除する唯一の方法は承認済みのポリシー例外(waiver、**v1.0.5**、`/api/policies/exceptions` 参照)です。
+
+`failOnSecrets`(**v1.0.5**)は、Quick Import クローンのスキャンで CRITICAL/HIGH severity のシークレット検出(正規表現 + エントロピー規則 — AWS キー、GitHub/GitLab/Slack/npm トークン、埋め込みプライベートキーブロックなど)が1件でもあればブロックします。組織/チーム/プロジェクトのポリシー階層にはまだ組み込まれておらず、リクエストのオーバーライドとインスタンスの既定値のみが適用されます。
 
 ---
 

@@ -15,9 +15,12 @@ import com.salkcoding.oswl.dto.gate.GateResultDto;
 import com.salkcoding.oswl.dto.gate.GateResultDto.Thresholds;
 import com.salkcoding.oswl.dto.gate.GateResultDto.Violation;
 import com.salkcoding.oswl.exception.ConflictException;
+import com.salkcoding.oswl.domain.entity.scan.ScanFinding;
+import com.salkcoding.oswl.domain.enums.ScanFindingType;
 import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
+import com.salkcoding.oswl.repository.scan.ScanFindingRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,7 @@ public class GatePolicyService {
     private final ProjectRepository projectRepository;
     private final ScanResultRepository scanResultRepository;
     private final ScanComponentRepository scanComponentRepository;
+    private final ScanFindingRepository scanFindingRepository;
     private final LibraryRepository libraryRepository;
     private final PolicyService policyService;
 
@@ -66,8 +70,16 @@ public class GatePolicyService {
     private boolean defaultOnlyNew;
     @Value("${oswl.gate.only-reachable:false}")
     private boolean defaultOnlyReachable;
+    @Value("${oswl.gate.fail-on-secrets:false}")
+    private boolean defaultFailOnSecrets;
 
-    /** Per-request overrides; null fields fall back to the configured defaults. */
+    /**
+     * Per-request overrides; null fields fall back to the configured defaults.
+     *
+     * {@code failOnSecrets} is resolved request-override → instance default only — it is not
+     * yet part of the {@link PolicyService} org/team/project hierarchy (same gap as
+     * {@code onlyReachable}, see ROADMAP A7's "후속으로 다룰 수 있는 것").
+     */
     public record GateOptions(
             Long scanId,
             String failOnSeverity,
@@ -75,9 +87,10 @@ public class GatePolicyService {
             Double failOnEpss,
             Boolean failOnLicenseViolation,
             Boolean onlyNew,
-            Boolean onlyReachable) {
+            Boolean onlyReachable,
+            Boolean failOnSecrets) {
         public static GateOptions defaults() {
-            return new GateOptions(null, null, null, null, null, null, null);
+            return new GateOptions(null, null, null, null, null, null, null, null);
         }
     }
 
@@ -99,11 +112,14 @@ public class GatePolicyService {
                 policyOptions.failOnLicenseViolation(), defaultFailOnLicenseViolation);
         boolean onlyNew = firstNonNull(options.onlyNew(), policyOptions.onlyNew(), defaultOnlyNew);
         boolean onlyReachable = firstNonNull(options.onlyReachable(), policyOptions.onlyReachable(), defaultOnlyReachable);
+        // Not yet part of the policy hierarchy (Policy has no failOnSecrets column) — request
+        // override → instance default only, same gap as onlyReachable (see the GateOptions doc).
+        boolean failOnSecrets = firstNonNull(options.failOnSecrets(), null, defaultFailOnSecrets);
 
         List<PolicyException> activeExceptions = policyService.findActiveExceptions(projectId);
 
         Thresholds thresholds = new Thresholds(
-                failOnSeverity.name(), failOnKev, failOnEpss >= 0 ? failOnEpss : null, failOnLicense);
+                failOnSeverity.name(), failOnKev, failOnEpss >= 0 ? failOnEpss : null, failOnLicense, failOnSecrets);
 
         // Resolve the scan to gate: explicit id, else latest completed
         ScanResult scan;
@@ -207,6 +223,28 @@ public class GatePolicyService {
             }
         }
 
+        // Secret findings — CRITICAL/HIGH severity findings only; MEDIUM/LOW never block.
+        if (failOnSecrets) {
+            Set<String> baselineSecretKeys = baseline != null
+                    ? collectSecretKeys(baseline.getId(), projectId)
+                    : Set.of();
+            for (ScanFinding finding : scanFindingRepository.findByScanResultIdAndProjectId(scan.getId(), projectId)) {
+                if (finding.getType() != ScanFindingType.SECRET) continue;
+                if (finding.getSeverity() != RiskLevel.CRITICAL && finding.getSeverity() != RiskLevel.HIGH) continue;
+                String key = secretFindingKey(finding);
+                boolean isNew = !baselineSecretKeys.contains(key);
+                if (onlyNew && !isNew) continue;
+                evaluated++;
+                if (isNew) newVulnCount++;
+                violations.add(new Violation(
+                        "SECRET", finding.getRuleId(), finding.getFilePath(),
+                        finding.getSeverity().name(), null, false,
+                        finding.getDescription() + (finding.getLineNumber() != null
+                                ? " (line " + finding.getLineNumber() + ")" : ""),
+                        isNew));
+            }
+        }
+
         // Most severe first
         violations.sort(Comparator.comparingInt(GatePolicyService::violationRank));
 
@@ -268,10 +306,24 @@ public class GatePolicyService {
         return keys;
     }
 
+    private Set<String> collectSecretKeys(Long scanResultId, Long projectId) {
+        Set<String> keys = new HashSet<>();
+        for (ScanFinding f : scanFindingRepository.findByScanResultIdAndProjectId(scanResultId, projectId)) {
+            if (f.getType() == ScanFindingType.SECRET) keys.add(secretFindingKey(f));
+        }
+        return keys;
+    }
+
+    /** Same secret at the same location across scans — file path + rule id + value fingerprint. */
+    private static String secretFindingKey(ScanFinding f) {
+        return f.getFilePath() + "|" + f.getRuleId() + "|" + f.getFingerprint();
+    }
+
     // ── Formatting ───────────────────────────────────────────────────────
 
     private static int violationRank(Violation v) {
         if ("MALICIOUS".equals(v.type())) return -1;
+        if ("SECRET".equals(v.type())) return 0;
         if ("LICENSE".equals(v.type())) return 5;
         return switch (v.severity()) {
             case "CRITICAL" -> 0;
@@ -291,8 +343,10 @@ public class GatePolicyService {
         long mal = violations.stream().filter(v -> "MALICIOUS".equals(v.type())).count();
         long cve = violations.stream().filter(v -> "CVE".equals(v.type())).count();
         long lic = violations.stream().filter(v -> "LICENSE".equals(v.type())).count();
+        long sec = violations.stream().filter(v -> "SECRET".equals(v.type())).count();
         String malPart = mal > 0 ? mal + " confirmed-malicious package(s), " : "";
-        return "Security gate failed — " + malPart + cve + " vulnerability finding(s) and "
+        String secPart = sec > 0 ? sec + " secret finding(s), " : "";
+        return "Security gate failed — " + malPart + secPart + cve + " vulnerability finding(s) and "
                 + lic + " license violation(s) breach the policy.";
     }
 
@@ -310,6 +364,7 @@ public class GatePolicyService {
         if (t.failOnKev()) md.append(", KEV-listed");
         if (t.failOnEpss() != null) md.append(String.format(", EPSS ≥ %.2f", t.failOnEpss()));
         if (t.failOnLicenseViolation()) md.append(", license violations");
+        if (t.failOnSecrets()) md.append(", secrets (CRITICAL/HIGH)");
         if (onlyReachable) md.append(", reachable CVEs only (bytecode call-graph, Java)");
         md.append("\n\n");
 

@@ -80,6 +80,24 @@ public class RoleTemplateService {
         return dto;
     }
 
+    /**
+     * Create-or-update by name — used by config import, which has no template id
+     * to key off (ids are not portable across instances). Built-in templates are never modified
+     * this way; a same-named built-in in the bundle is silently skipped.
+     */
+    @Transactional
+    public RoleTemplateDto upsertByName(String name, String description, Set<String> permissionNames) {
+        RoleTemplate existing = roleTemplateRepository.findByName(name).orElse(null);
+        if (existing != null && existing.isBuiltIn()) {
+            return toDto(existing);
+        }
+        RoleTemplateRequest req = new RoleTemplateRequest();
+        req.setName(name);
+        req.setDescription(description);
+        req.setPermissions(permissionNames);
+        return existing != null ? update(existing.getId(), req) : create(req);
+    }
+
     @Transactional
     public void delete(Long id) {
         RoleTemplate rt = roleTemplateRepository.findById(id)
