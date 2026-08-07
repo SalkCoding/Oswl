@@ -46,6 +46,15 @@ public class AiDailyUsage {
     @Builder.Default
     private BigDecimal estimatedCostUsd = BigDecimal.ZERO;
 
+    /** Context-hash cache outcomes at item level (CVE/license), not per API call. */
+    @Column(name = "cache_hits", nullable = false)
+    @Builder.Default
+    private int cacheHits = 0;
+
+    @Column(name = "cache_misses", nullable = false)
+    @Builder.Default
+    private int cacheMisses = 0;
+
     public void increment() {
         this.callCount++;
     }
@@ -56,5 +65,11 @@ public class AiDailyUsage {
         this.completionTokens += completionTokens;
         this.totalTokens += promptTokens + completionTokens;
         this.estimatedCostUsd = this.estimatedCostUsd.add(costUsd);
+    }
+
+    /** Counts items served from the context-hash cache vs items that needed an AI call. */
+    public void accumulateCacheOutcomes(int hits, int misses) {
+        this.cacheHits += hits;
+        this.cacheMisses += misses;
     }
 }

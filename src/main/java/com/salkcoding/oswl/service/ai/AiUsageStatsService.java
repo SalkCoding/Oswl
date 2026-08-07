@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service.ai;
 import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.entity.ai.AiUsageEvent;
 import com.salkcoding.oswl.domain.enums.AiProvider;
+import com.salkcoding.oswl.dto.api.AiCacheSumsDto;
 import com.salkcoding.oswl.dto.api.AiUsageDailySummaryDto;
 import com.salkcoding.oswl.dto.api.AiUsageEventDto;
 import com.salkcoding.oswl.dto.api.AiUsageStatsResponse;
@@ -58,6 +59,8 @@ public class AiUsageStatsService {
                         .build())
                 .toList();
 
+        AiCacheSumsDto cache = dailyUsageRepository.cacheSums(active);
+
         return AiUsageStatsResponse.builder()
                 .provider(active)
                 .todayCallCount(callCount)
@@ -67,7 +70,23 @@ public class AiUsageStatsService {
                 .todayEstimatedCostUsd(scale6(sums.estimatedCostUsd()))
                 .dailyCallCap(cap)
                 .dailySummaries(daily)
+                .cacheHitCount(cache.hits())
+                .cacheMissCount(cache.misses())
+                .estimatedAvoidedCostUsd(estimateAvoidedCost(cache))
                 .build();
+    }
+
+    /**
+     * Avoided-cost estimate from already-recorded figures only: the average estimated cost per
+     * summarized item (all-time cost ÷ all-time misses) multiplied by the items the cache
+     * served. Null until at least one miss is recorded — with no misses there is no observed
+     * per-item cost to extrapolate from, and inventing one would be a made-up price.
+     */
+    private static BigDecimal estimateAvoidedCost(AiCacheSumsDto cache) {
+        if (cache == null || cache.misses() <= 0 || cache.hits() <= 0) return null;
+        return scale6(cache.estimatedCostUsd()
+                .multiply(BigDecimal.valueOf(cache.hits()))
+                .divide(BigDecimal.valueOf(cache.misses()), 6, RoundingMode.HALF_UP));
     }
 
     /** Raw recent-call events, newest first. The table is FIFO-capped, so pages stay small. */
