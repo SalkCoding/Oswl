@@ -120,6 +120,11 @@
               hideNonRuntime: true
           },
           filterVersion: 0,
+          views: [],
+          viewsOpen: false,
+          savingView: false,
+          newViewName: '',
+          newViewShared: false,
           scanStatus: window.securityCenterData.scanStatus,
           latestScanId: window.securityCenterData.latestScanId,
           currentScanId: window.securityCenterData.currentScanId,
@@ -439,12 +444,80 @@
               this.selectedComponents = [];
               this.selectAll = false;
           },
+          // ── Saved views ───────────────────────────────────────────────
+          async loadViews() {
+              const projectId = document.body.dataset.projectId;
+              try {
+                  const r = await fetch('/api/projects/' + projectId + '/saved-views', { headers: oswlJsonHeaders() });
+                  if (!r.ok) return;
+                  this.views = await r.json();
+              } catch (e) { /* leave the list empty */ }
+          },
+          currentViewState() {
+              return { filters: this.filters, sortMode: this.sortMode, searchQuery: this.searchQuery };
+          },
+          applyView(view) {
+              let state;
+              try { state = JSON.parse(view.filtersJson); } catch (e) { return; }
+              if (state.filters) this.filters = Object.assign({}, this.filters, state.filters);
+              if (state.sortMode) this.applySort(state.sortMode);
+              if (typeof state.searchQuery === 'string') this.searchQuery = state.searchQuery;
+              this.filterVersion++;
+              this.viewsOpen = false;
+          },
+          async saveCurrentView() {
+              const name = this.newViewName.trim();
+              if (!name) return;
+              const projectId = document.body.dataset.projectId;
+              try {
+                  const r = await fetch('/api/projects/' + projectId + '/saved-views', {
+                      method: 'POST', headers: oswlJsonHeaders(),
+                      body: JSON.stringify({
+                          name: name,
+                          shared: this.newViewShared,
+                          filtersJson: JSON.stringify(this.currentViewState())
+                      })
+                  });
+                  if (!r.ok) { alert(window.securityCenterData.i18n.actionFailed); return; }
+                  const saved = await r.json();
+                  this.views.unshift(saved);
+                  this.newViewName = '';
+                  this.newViewShared = false;
+                  this.savingView = false;
+              } catch (e) {
+                  alert(window.securityCenterData.i18n.actionFailed);
+              }
+          },
+          async deleteView(view) {
+              const projectId = document.body.dataset.projectId;
+              try {
+                  const r = await fetch('/api/projects/' + projectId + '/saved-views/' + view.id, {
+                      method: 'DELETE', headers: oswlJsonHeaders()
+                  });
+                  if (!r.ok) { alert(window.securityCenterData.i18n.actionFailed); return; }
+                  this.views = this.views.filter(v => v.id !== view.id);
+              } catch (e) {
+                  alert(window.securityCenterData.i18n.actionFailed);
+              }
+          },
+          copyViewLink(view) {
+              const url = new URL(window.location.href);
+              url.searchParams.set('view', view.id);
+              navigator.clipboard?.writeText(url.toString());
+          },
+          applyViewFromUrl() {
+              const viewId = new URLSearchParams(window.location.search).get('view');
+              if (!viewId) return;
+              const match = this.views.find(v => String(v.id) === viewId);
+              if (match) this.applyView(match);
+          },
           init() {
               if (['SCANNING', 'ANALYZING', 'PENDING'].includes(this.scanStatus)) {
                   this.startPolling();
               } else if (['PENDING', 'RUNNING'].includes(this.aiStatus)) {
                   this.startAiPolling();
               }
+              this.loadViews().then(() => this.applyViewFromUrl());
           }
       }"
       x-init="init()">
