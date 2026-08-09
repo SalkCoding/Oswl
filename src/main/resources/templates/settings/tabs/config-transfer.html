@@ -35,14 +35,17 @@
                class="text-[13px] file:mr-[12px] file:py-[8px] file:px-[16px] file:rounded-[8px] file:border-0 file:bg-[var(--grayscale-10)] file:text-[13px] file:font-medium file:cursor-pointer cursor-pointer" />
 
         <div x-show="preview" x-cloak class="flex flex-col gap-[12px] pt-[8px] border-t border-[var(--grayscale-10)]">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-[12px] text-[13px]">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-[12px] text-[13px]">
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.roleTemplates}">Role templates</span>: <span x-text="preview ? (preview.roleTemplatesCreated + preview.roleTemplatesUpdated) : 0"></span></div>
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.licensePolicy}">License policy</span>: <span x-text="preview ? (preview.licensePolicyCreated + preview.licensePolicyUpdated) : 0"></span></div>
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.aiSettings}">AI settings</span>: <span x-text="preview ? (preview.aiSettingsCreated + preview.aiSettingsUpdated) : 0"></span></div>
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.cache}">Cache TTLs</span>: <span x-text="preview ? preview.cacheSettingsUpdated : 0"></span></div>
+                <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.policies}">Policies</span>: <span x-text="preview ? (preview.policiesCreated + preview.policiesUpdated) : 0"></span></div>
             </div>
             <div x-show="preview && preview.roleTemplatesSkippedBuiltIn" class="text-[12px] text-[var(--grayscale-60)]"
                  x-text="_cfgI18n.skippedBuiltIn.replace('{0}', preview ? preview.roleTemplatesSkippedBuiltIn : 0)"></div>
+            <div x-show="preview && preview.policiesSkippedUnresolved" class="text-[12px] text-[var(--grayscale-60)]"
+                 x-text="_cfgI18n.skippedUnresolvedPolicies.replace('{0}', preview ? preview.policiesSkippedUnresolved : 0)"></div>
             <div x-show="preview && preview.manualStepsRequired && preview.manualStepsRequired.length" class="bg-amber-50 border border-amber-200 rounded-[8px] px-[14px] py-[10px] text-[12px] text-amber-800 flex flex-col gap-[4px]">
                 <template x-for="step in (preview ? preview.manualStepsRequired : [])" :key="step">
                     <div x-text="step"></div>
@@ -79,7 +82,8 @@
         previewFailed:  /*[[#{settings.configTransfer.error.previewFailed}]]*/ 'Could not read this file as a config bundle.',
         applyFailed:    /*[[#{settings.configTransfer.error.applyFailed}]]*/ 'Import failed.',
         applied:        /*[[#{settings.configTransfer.applied}]]*/ 'Import applied.',
-        skippedBuiltIn: /*[[#{settings.configTransfer.skippedBuiltIn}]]*/ '{0} built-in role template(s) in the bundle were skipped.'
+        skippedBuiltIn: /*[[#{settings.configTransfer.skippedBuiltIn}]]*/ '{0} built-in role template(s) in the bundle were skipped.',
+        skippedUnresolvedPolicies: /*[[#{settings.configTransfer.skippedUnresolvedPolicies}]]*/ '{0} policy(ies) were skipped — their scope could not be matched by name on this instance.'
     };
     </script>
     <script>

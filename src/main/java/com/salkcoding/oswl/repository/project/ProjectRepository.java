@@ -34,6 +34,12 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     /** Safe lookup — only finds non-deleted projects. */
     Optional<Project> findByIdAndDeletedAtIsNull(Long id);
 
+    /**
+     * All active projects with this exact name. Names are not unique, so callers must
+     * treat size != 1 as unresolvable (used by config-bundle import's name-based matching).
+     */
+    List<Project> findAllByNameAndDeletedAtIsNull(String name);
+
     /** Auto-cleanup: projects deleted before the given cutoff. */
     List<Project> findAllByDeletedAtBefore(LocalDateTime cutoff);
 

@@ -12,6 +12,7 @@ public record ConfigImportResult(
         int licensePolicyCreated, int licensePolicyUpdated,
         int aiSettingsCreated, int aiSettingsUpdated,
         int cacheSettingsUpdated,
+        int policiesCreated, int policiesUpdated, int policiesSkippedUnresolved,
         List<String> manualStepsRequired
 ) {
 }
