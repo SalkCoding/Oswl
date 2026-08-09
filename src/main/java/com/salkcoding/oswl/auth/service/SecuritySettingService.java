@@ -10,6 +10,7 @@ import com.salkcoding.oswl.auth.repository.SecuritySettingRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.service.config.CacheInvalidationService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -27,6 +28,7 @@ public class SecuritySettingService {
 
     private final SecuritySettingRepository repository;
     private final EncryptionService encryptionService;
+    private final CacheInvalidationService cacheInvalidationService;
 
     private final Cache<Long, SecuritySetting> securitySettingsCache = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofMinutes(5))
@@ -83,7 +85,13 @@ public class SecuritySettingService {
 
         SecuritySetting saved = repository.save(s);
         securitySettingsCache.invalidate(SETTINGS_ID);
+        cacheInvalidationService.bump(CacheInvalidationService.SECURITY_SETTINGS);
         return saved;
+    }
+
+    /** Drops the local cache; called by the invalidation poller when another instance changed the settings. */
+    public void evictLocalCache() {
+        securitySettingsCache.invalidateAll();
     }
 
     // ── Mail connection test ───────────────────────────────────────────

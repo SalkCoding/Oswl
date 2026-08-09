@@ -131,6 +131,12 @@ oswl:
     # REQUIRED in production. Generate with: openssl rand -base64 32
     # Set via environment variable: OSWL_ENCRYPTION_KEY
     key: ${OSWL_ENCRYPTION_KEY:}
+  cache:
+    invalidation:
+      # How often each instance polls the cache_invalidation table for version bumps made by
+      # other instances. Worst-case propagation delay of a settings change in a multi-instance
+      # deployment equals this interval.
+      poll-interval-ms: ${OSWL_CACHE_INVALIDATION_POLL_INTERVAL_MS:5000}
   clone:
     # Directory for temporary git clones during Quick Import.
     # Defaults to system temp directory if left blank.

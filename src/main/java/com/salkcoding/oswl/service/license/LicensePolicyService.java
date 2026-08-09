@@ -16,6 +16,8 @@ import com.salkcoding.oswl.license.SpdxLicenseRegistry;
 
 import com.salkcoding.oswl.repository.license.LicensePolicyRepository;
 
+import com.salkcoding.oswl.service.config.CacheInvalidationService;
+
 import com.salkcoding.oswl.aop.Auditable;
 
 import jakarta.annotation.PostConstruct;
@@ -88,6 +90,8 @@ public class LicensePolicyService {
 
     private final PlatformTransactionManager transactionManager;
 
+    private final CacheInvalidationService cacheInvalidationService;
+
 
 
     /** Caffeine cache: SPDX ID (upper-case) → LicenseStatus */
@@ -152,6 +156,18 @@ public class LicensePolicyService {
 
         log.info("[LicensePolicyService] Cache loaded with {} entries", policyCache.estimatedSize());
 
+    }
+
+
+
+    /**
+     * Drops and rebuilds the local caches. Called by the invalidation poller when another
+     * instance changed the policy. Eviction alone is not enough here: {@link #classify}
+     * treats a cache miss as UNKNOWN instead of loading through, so the caches must be
+     * repopulated immediately.
+     */
+    public void evictLocalCache() {
+        refreshCache();
     }
 
 
@@ -463,6 +479,8 @@ public class LicensePolicyService {
         policyCache.put(cacheKey, newStatus);
 
         reasonCache.invalidate(cacheKey);
+
+        cacheInvalidationService.bump(CacheInvalidationService.LICENSE_POLICY);
 
         return toDto(saved);
 

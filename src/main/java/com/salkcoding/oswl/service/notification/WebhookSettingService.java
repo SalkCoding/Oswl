@@ -9,6 +9,7 @@ import com.salkcoding.oswl.repository.notification.WebhookSettingRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
+import com.salkcoding.oswl.service.config.CacheInvalidationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +34,7 @@ public class WebhookSettingService {
     private final EncryptionService encryptionService;
     private final OutboundUrlValidator outboundUrlValidator;
     private final AuditLogService auditLogService;
+    private final CacheInvalidationService cacheInvalidationService;
 
     private final Cache<String, WebhookSetting> webhookSettingCache = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofMinutes(5))
@@ -96,11 +98,17 @@ public class WebhookSettingService {
                 notifyNewCve, notifyGateFailure, notifyScanFailure, notifyWaiverExpiry);
         webhookSettingRepository.save(setting);
         webhookSettingCache.invalidate(CACHE_KEY);
+        cacheInvalidationService.bump(CacheInvalidationService.WEBHOOK_SETTINGS);
 
         auditLogService.log("WEBHOOK.SETTINGS_UPDATE", "EXTERNAL_SETTING", "webhook", null,
                 "provider=" + provider + " enabled=" + enabled
                         + " newCve=" + notifyNewCve + " gate=" + notifyGateFailure
                         + " scan=" + notifyScanFailure + " waiver=" + notifyWaiverExpiry);
+    }
+
+    /** Drops the local cache; called by the invalidation poller when another instance changed the settings. */
+    public void evictLocalCache() {
+        webhookSettingCache.invalidateAll();
     }
 
     private void validateUrl(String url) {

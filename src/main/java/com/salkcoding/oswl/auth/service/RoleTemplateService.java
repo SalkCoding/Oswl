@@ -8,6 +8,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
 import com.salkcoding.oswl.aop.Auditable;
+import com.salkcoding.oswl.service.config.CacheInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class RoleTemplateService {
 
     private final RoleTemplateRepository roleTemplateRepository;
     private final AuditLogService auditLogService;
+    private final CacheInvalidationService cacheInvalidationService;
 
     private final Cache<String, List<RoleTemplateDto>> roleTemplateCache = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofHours(1))
@@ -61,6 +63,7 @@ public class RoleTemplateService {
                 .build();
         RoleTemplateDto dto = toDto(roleTemplateRepository.save(rt));
         roleTemplateCache.invalidateAll();
+        cacheInvalidationService.bump(CacheInvalidationService.ROLE_TEMPLATE);
         return dto;
     }
 
@@ -77,6 +80,7 @@ public class RoleTemplateService {
         rt.setPermissions(parsePermissions(request.getPermissions()));
         RoleTemplateDto dto = toDto(rt);
         roleTemplateCache.invalidateAll();
+        cacheInvalidationService.bump(CacheInvalidationService.ROLE_TEMPLATE);
         return dto;
     }
 
@@ -113,7 +117,13 @@ public class RoleTemplateService {
         String name = rt.getName();
         roleTemplateRepository.delete(rt);
         roleTemplateCache.invalidateAll();
+        cacheInvalidationService.bump(CacheInvalidationService.ROLE_TEMPLATE);
         auditLogService.log("ROLE_TEMPLATE.DELETE", "ROLE_TEMPLATE", id.toString(), name, null);
+    }
+
+    /** Drops the local cache; called by the invalidation poller when another instance changed templates. */
+    public void evictLocalCache() {
+        roleTemplateCache.invalidateAll();
     }
 
     private Set<Permission> parsePermissions(Set<String> permissionNames) {

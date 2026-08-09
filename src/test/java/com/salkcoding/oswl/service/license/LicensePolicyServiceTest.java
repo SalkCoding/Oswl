@@ -36,6 +36,9 @@ class LicensePolicyServiceTest {
     @Mock
     SpdxLicenseRegistry spdxLicenseRegistry;
 
+    @Mock
+    com.salkcoding.oswl.service.config.CacheInvalidationService cacheInvalidationService;
+
     @InjectMocks
     LicensePolicyService licensePolicyService;
 
