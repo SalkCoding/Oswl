@@ -5,6 +5,7 @@
       th:attr="data-active-count=${#lists.size(projects)},data-trash-count=${#lists.size(trashProjects)}"
       x-data="projectsPage()"
       x-init="initToast()"
+      @keydown.escape.window="if (confirmModal) { confirmModal = null; oswlReleaseFocus(); } else if (openPanel) { if (openPanel === 'quickImport') window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null; oswlReleaseFocus(); }"
       :class="(openPanel || confirmModal || showOnboarding) ? 'overflow-hidden h-screen' : ''">
     <script th:inline="javascript">
     const _pi18n = {
@@ -55,6 +56,8 @@
                     if (cliId) {
                         this.cliPreSelectProject = cliId;
                         this.openPanel = 'cli';
+                        // Refs aren't registered yet during x-init — wait a tick past it.
+                        setTimeout(() => oswlTrapFocus(this.$refs.cliPanel), 100);
                         history.replaceState(null, '', location.pathname);
                     }
                     if (!localStorage.getItem('oswl-onboarding-v1')) {
@@ -72,6 +75,7 @@
                 },
                 openConfirm(title, message, onConfirm) {
                     this.confirmModal = { title, message, onConfirm };
+                    this.$nextTick(() => oswlTrapFocus(this.$refs.confirmDialog));
                 },
                 dismissOnboarding() {
                     localStorage.setItem('oswl-onboarding-v1', '1');
@@ -97,6 +101,7 @@
                         }
                         this.newProjectName = '';
                         this.openPanel = null;
+                        oswlReleaseFocus();
                         window.dispatchEvent(new CustomEvent('project-imported'));
                     } finally {
                         this.newProjectSaving = false;
@@ -120,7 +125,7 @@
             </div>
 
             <div class="grid grid-cols-2 xl:grid-cols-3 gap-[24px] w-full">
-                <button type="button" @click="openPanel = 'cli'"
+                <button type="button" @click="openPanel = 'cli'; $nextTick(() => oswlTrapFocus($refs.cliPanel))"
                    class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-terminal.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
@@ -136,7 +141,7 @@
                     <span class="text-[12px] font-semibold text-[var(--secondary-100)] mt-[2px]" th:text="#{projects.add.openCta}">Open →</span>
                 </button>
 
-                <button type="button" @click="openPanel = 'quickImport'; $nextTick(() => window.dispatchEvent(new CustomEvent('qi-panel-open')))"
+                <button type="button" @click="openPanel = 'quickImport'; $nextTick(() => { window.dispatchEvent(new CustomEvent('qi-panel-open')); oswlTrapFocus($refs.qiPanel); })"
                    class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg no-underline cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <div class="flex items-center gap-[7px] shrink-0">
@@ -174,7 +179,7 @@
                 <!-- New Project card — admin or PROJECT_CREATE only -->
                 <button type="button"
                         th:if="${#authorization.expression('hasPermission(null, ''PROJECT_CREATE'') or hasRole(''SYSTEM_ADMIN'')')}"
-                        @click="newProjectName = ''; newProjectError = ''; newProjectSaving = false; openPanel = 'newProject'; $nextTick(() => $refs.newProjectInput && $refs.newProjectInput.focus())"
+                        @click="newProjectName = ''; newProjectError = ''; newProjectSaving = false; openPanel = 'newProject'; $nextTick(() => { oswlTrapFocus($refs.npPanel); setTimeout(() => $refs.newProjectInput && $refs.newProjectInput.focus(), 60); })"
                         class="bg-[var(--background-dark)] border border-white/10 hover:border-[var(--secondary-100)]/50 flex flex-col gap-[14px] items-start p-[24px] rounded-[10px] text-left transition-all hover:translate-y-[-2px] hover:shadow-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--secondary-100)]">
                     <div class="flex gap-[12px] items-center w-full">
                         <img th:src="@{/icon/icon-plus.svg}" class="w-[22px] h-[22px]" alt="" aria-hidden="true">
@@ -490,11 +495,13 @@
     <div x-show="openPanel !== null"
          x-transition.opacity
          class="fixed inset-0 bg-black/30 z-[100]"
-         @click="if (openPanel === 'quickImport') window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null"
+         @click="if (openPanel === 'quickImport') window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null; oswlReleaseFocus()"
          style="display: none;"></div>
 
     <!-- CLI Integration Panel -->
     <div x-show="openPanel === 'cli'"
+         x-ref="cliPanel"
+         role="dialog" aria-modal="true" th:aria-label="#{projects.add.cli.title}"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="translate-x-full"
          x-transition:enter-end="translate-x-0"
@@ -508,6 +515,8 @@
 
     <!-- Quick Import Panel -->
     <div x-show="openPanel === 'quickImport'"
+         x-ref="qiPanel"
+         role="dialog" aria-modal="true" th:aria-label="#{projects.add.quickImport.title}"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="translate-x-full"
          x-transition:enter-end="translate-x-0"
@@ -521,6 +530,8 @@
 
     <!-- New Project Panel -->
     <div x-show="openPanel === 'newProject'"
+         x-ref="npPanel"
+         role="dialog" aria-modal="true" th:aria-label="#{projects.add.new.header}"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="opacity-0 translate-x-4"
          x-transition:enter-end="opacity-100 translate-x-0"
@@ -534,7 +545,7 @@
             <div class="flex items-center gap-[8px]">
                 <img th:src="@{/icon/icon-plus.svg}" class="w-[20px] h-[20px] flex-shrink-0" alt="" aria-hidden="true">
                 <span class="flex-1 font-bold text-[14px]" th:text="#{projects.add.new.header}">New Project</span>
-                <button @click="openPanel = null" th:aria-label="#{common.close}"
+                <button @click="openPanel = null; oswlReleaseFocus()" th:aria-label="#{common.close}"
                         class="w-[24px] h-[24px] bg-white/10 hover:bg-white/20 rounded-[4px] flex items-center justify-center flex-shrink-0 transition-colors">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -575,7 +586,7 @@
                     <span x-show="newProjectSaving" x-cloak th:text="#{projects.add.new.btn.creating}">Creating…</span>
                 </button>
                 <button type="button"
-                        @click="openPanel = null"
+                        @click="openPanel = null; oswlReleaseFocus()"
                         class="flex-1 bg-white border border-[#c5cfd3] hover:bg-[var(--grayscale-5)] text-[var(--primary-120)] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors" th:text="#{common.cancel}">
                     Cancel
                 </button>
@@ -683,10 +694,12 @@
          style="display:none"
          class="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center px-[16px]">
         <div x-show="confirmModal !== null"
+             x-ref="confirmDialog"
+             role="dialog" aria-modal="true" :aria-label="confirmModal && confirmModal.title"
              x-transition:enter="transition ease-out duration-150"
              x-transition:enter-start="opacity-0 scale-95"
              x-transition:enter-end="opacity-100 scale-100"
-             @click.outside="confirmModal = null"
+             @click.outside="confirmModal = null; oswlReleaseFocus()"
              class="bg-white rounded-[10px] px-[28px] py-[26px] w-full max-w-[420px] shadow-2xl">
             <!-- Icon + title + message -->
             <div class="flex items-start gap-[14px] mb-[22px]">
@@ -703,12 +716,12 @@
             <!-- Buttons -->
             <div class="flex gap-[10px]">
                 <button type="button"
-                        @click="confirmModal = null"
+                        @click="confirmModal = null; oswlReleaseFocus()"
                         class="flex-1 border border-[var(--grayscale-20)] bg-white hover:bg-[var(--grayscale-5)] rounded-[8px] py-[11px] text-[13px] font-semibold text-[var(--grayscale-80)] tracking-[-0.13px] transition" th:text="#{common.cancel}">
                     Cancel
                 </button>
                 <button type="button"
-                        @click="const fn = confirmModal.onConfirm; confirmModal = null; fn()"
+                        @click="const fn = confirmModal.onConfirm; confirmModal = null; oswlReleaseFocus(); fn()"
                         class="flex-1 bg-[#e53e3e] hover:bg-[#c53030] rounded-[8px] py-[11px] text-[13px] font-semibold text-white tracking-[-0.13px] transition" th:text="#{projects.trash.modal.confirmBtn}">
                     Delete Permanently
                 </button>

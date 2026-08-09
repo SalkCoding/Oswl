@@ -196,12 +196,14 @@
                                    @input="forms.OPENAI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.OPENAI.modelName || ''"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list" aria-controls="ai-model-menu-openai"
                                    placeholder="e.g. gpt-5.6-terra"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.openaiModelInput.focus())}else{modelSearch=forms.OPENAI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
+                             id="ai-model-menu-openai" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in filterModels('OPENAI', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
@@ -255,12 +257,14 @@
                                    @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.ANTHROPIC.modelName || ''"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list" aria-controls="ai-model-menu-anthropic"
                                    placeholder="e.g. claude-sonnet-5"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.anthropicModelInput.focus())}else{modelSearch=forms.ANTHROPIC.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
+                             id="ai-model-menu-anthropic" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in filterModels('ANTHROPIC', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
@@ -314,12 +318,14 @@
                                    @input="forms.GEMINI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.GEMINI.modelName || ''"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list" aria-controls="ai-model-menu-gemini"
                                    placeholder="e.g. gemini-3.1-pro"
                                    class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.geminiModelInput.focus())}else{modelSearch=forms.GEMINI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
+                             id="ai-model-menu-gemini" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in filterModels('GEMINI', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.GEMINI.modelName = opt; modelSearch = opt; open = false"

@@ -39,14 +39,16 @@
                     <input type="number" min="1" x-model.number="customAmount"
                            class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
                     <!-- Custom dropdown for time unit -->
-                    <div class="relative" @click.away="unitDropdownOpen=false">
+                    <div class="relative" @click.away="unitDropdownOpen=false" @keydown.escape.stop="unitDropdownOpen=false">
                         <button type="button" @click="unitDropdownOpen=!unitDropdownOpen"
+                                :aria-expanded="unitDropdownOpen" aria-haspopup="listbox" aria-controls="cache-unit-menu"
                                 class="flex items-center gap-[6px] pr-[8px] pl-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] bg-white text-[var(--grayscale-80)] cursor-pointer transition-colors"
                                 :class="unitDropdownOpen ? 'border-[#33D1B7]' : ''">
                             <span x-text="customUnit === 'hour' ? _cacheI18n.hours : _cacheI18n.days"></span>
                             <img src="/icon/icon-triangle-down.svg" :class="unitDropdownOpen ? 'rotate-180' : ''" class="transition-transform shrink-0 w-[12px] h-[12px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="unitDropdownOpen" x-cloak
+                             id="cache-unit-menu" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[3px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <button type="button" @click="customUnit='hour'; unitDropdownOpen=false"
                                     class="w-full text-left px-[10px] py-[7px] text-[13px] hover:bg-[var(--grayscale-5)] transition-colors"

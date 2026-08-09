@@ -4,6 +4,7 @@
 <div th:fragment="tab"
      x-data="vcsTab()"
      x-init="init()"
+     @keydown.escape.window="if (slideout) closeCreate()"
      class="flex flex-col gap-[20px] relative">
 
     <!-- Heading -->
@@ -319,6 +320,8 @@
         <div class="absolute inset-0 bg-black/30" @click="closeCreate()"></div>
 
         <div class="absolute right-0 top-0 h-full w-[440px] max-w-[95vw] bg-[var(--background-dark,#001d35)] text-white shadow-2xl flex flex-col overflow-hidden"
+             x-ref="createPanel"
+             role="dialog" aria-modal="true" th:aria-label="#{settings.vcs.slideout.title}"
              x-transition:enter="transition transform ease-out duration-300"
              x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
              x-transition:leave="transition transform ease-in duration-200"
@@ -341,8 +344,9 @@
                 <!-- Provider dropdown -->
                 <div class="flex flex-col gap-[6px]">
                     <label class="text-[12px] font-bold" th:text="#{settings.vcs.slideout.label.provider}">Provider</label>
-                    <div class="relative" @click.away="providerDropdownOpen=false">
+                    <div class="relative" @click.away="providerDropdownOpen=false" @keydown.escape.stop="providerDropdownOpen=false">
                         <button type="button" @click="providerDropdownOpen=!providerDropdownOpen"
+                                :aria-expanded="providerDropdownOpen" aria-haspopup="listbox" aria-controls="vcs-provider-menu"
                                 class="w-full flex items-center justify-between bg-white/5 border border-white/15 rounded-[8px] px-[12px] py-[10px] text-[13px] transition-colors cursor-pointer"
                                 :class="providerDropdownOpen ? 'border-[#33D1B7]' : ''">
                             <span :class="form.provider ? 'text-white' : 'text-white/50'"
@@ -351,6 +355,7 @@
                                  class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] opacity-70 ml-[8px]" style="filter: brightness(0) invert(1);" alt="" aria-hidden="true">
                         </button>
                         <div x-show="providerDropdownOpen" x-cloak
+                             id="vcs-provider-menu" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-[#001d35] border border-white/15 rounded-[8px] shadow-lg overflow-hidden">
                             <button type="button" @click="form.provider=''; providerDropdownOpen=false"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
@@ -568,10 +573,12 @@
                 this.form = { provider: '', serverUrl: '', vcsUsername: '', accessToken: '' };
                 this.providerDropdownOpen = false;
                 this.slideout = true;
+                this.$nextTick(() => oswlTrapFocus(this.$refs.createPanel));
             },
             closeCreate() {
                 this.providerDropdownOpen = false;
                 this.slideout = false;
+                oswlReleaseFocus();
             },
             async addConnection() {
                 if (!this.form.provider || !this.form.accessToken.trim()) return;

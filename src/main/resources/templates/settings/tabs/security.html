@@ -63,14 +63,16 @@
                     </div>
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] shrink-0" th:text="#{settings.security.mail.smtp.encryption}">Encryption</span>
                     <!-- Encryption Dropdown -->
-                    <div class="relative w-[140px]" x-data="{ encOpen: false }">
+                    <div class="relative w-[140px]" x-data="{ encOpen: false }" @keydown.escape.stop="encOpen = false">
                         <button type="button" @click="encOpen = !encOpen" @click.away="encOpen = false"
+                                :aria-expanded="encOpen" aria-haspopup="listbox" aria-controls="mail-encryption-menu"
                                 class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
                                 :class="encOpen ? 'border-[var(--primary-120)]' : ''">
                             <span x-text="mailForm.encryption"></span>
                             <img src="/icon/icon-triangle-down.svg" :class="encOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="encOpen" x-cloak
+                             id="mail-encryption-menu" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <template x-for="opt in ['NONE','STARTTLS','SSL_TLS']" :key="opt">
                                 <button type="button" @click="mailForm.encryption = opt; encOpen = false; applyEncryptionDefaults(opt)"

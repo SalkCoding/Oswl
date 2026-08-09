@@ -69,9 +69,11 @@
                     <td class="px-[18px] py-[12px] text-[13px] text-[var(--grayscale-90)] flex-1" x-text="entry.displayName || entry.spdxId"></td>
                     <td class="px-[18px] py-[12px] w-[200px]">
                         <div class="relative min-w-[100px]"
-                             @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
+                             @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null"
+                             @keydown.escape.stop="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
                             <button type="button"
                                     @click="openStatusDropdown = openStatusDropdown === entry.spdxId ? null : entry.spdxId"
+                                    :aria-expanded="openStatusDropdown === entry.spdxId" aria-haspopup="listbox" :aria-controls="'lp-status-menu-' + entry.spdxId"
                                     class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] transition-colors cursor-pointer"
                                     :class="openStatusDropdown === entry.spdxId ? 'border-[var(--primary-120)]' : ''">
                                 <span x-text="statusLabel(entry.status)"></span>
@@ -80,6 +82,7 @@
                                      class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
                             </button>
                             <div x-show="openStatusDropdown === entry.spdxId" x-cloak
+                                 :id="'lp-status-menu-' + entry.spdxId" role="listbox"
                                  class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                                 <template x-for="opt in statusOptions" :key="opt.value">
                                     <button type="button"

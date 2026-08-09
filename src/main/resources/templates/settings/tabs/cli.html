@@ -4,6 +4,7 @@
 <div th:fragment="tab"
      x-data="cliTab()"
      x-init="init()"
+     @keydown.escape.window="if (slideout) closeCreate()"
      class="flex flex-col gap-[20px] relative">
 
     <!-- Heading + Create New Key button -->
@@ -106,6 +107,8 @@
 
     <!-- ===================== Create New Key Panel (absolute) ===================== -->
     <div x-show="slideout" x-cloak
+         x-ref="createPanel"
+         role="dialog" aria-modal="true" th:aria-label="#{settings.cli.slideout.title}"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 translate-x-2"
          x-transition:enter-end="opacity-100 translate-x-0"
@@ -132,8 +135,9 @@
                 <!-- Project dropdown -->
                 <div class="flex flex-col gap-[8px]">
                     <label class="text-[13px] font-bold text-[var(--grayscale-100)]" th:text="#{settings.cli.slideout.label.project}">Project</label>
-                    <div class="relative" x-data="{ open: false }">
+                    <div class="relative" x-data="{ open: false }" @keydown.escape.stop="open = false">
                         <button type="button" @click="open = !open" @click.away="open = false"
+                                :aria-expanded="open" aria-haspopup="listbox" aria-controls="cli-project-menu"
                                 class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
                                 :class="open ? 'border-[var(--primary-120)]' : ''">
                             <span :class="form.projectId ? 'text-[var(--grayscale-100)]' : 'text-[#abb8be] font-normal'"
@@ -141,6 +145,7 @@
                             <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                         </button>
                         <div x-show="open" x-cloak
+                             id="cli-project-menu" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <button type="button" @click="form.projectId = null; open = false"
                                     class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
@@ -228,9 +233,11 @@
                 this.form = { projectId: '', label: '' };
                 this.newTokenBanner = null;
                 this.slideout = true;
+                this.$nextTick(() => oswlTrapFocus(this.$refs.createPanel));
             },
             closeCreate() {
                 this.slideout = false;
+                oswlReleaseFocus();
             },
             async createKey() {
                 if (!this.form.projectId) return;
