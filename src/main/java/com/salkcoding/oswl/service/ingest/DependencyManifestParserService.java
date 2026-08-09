@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
@@ -34,6 +37,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -51,6 +55,7 @@ import java.util.regex.Pattern;
 public class DependencyManifestParserService {
 
     private final MavenBomVersionResolver bomVersionResolver;
+    private final CondaPypiMappingService condaPypiMappingService;
 
     /**
      * SECURITY: executing mvnw/gradlew/dotnet from a cloned repository runs arbitrary repo
@@ -61,6 +66,12 @@ public class DependencyManifestParserService {
     private boolean allowBuildExec;
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    /**
+     * Loader for conda-lock.yml — the file comes from a cloned (untrusted) repository, so
+     * {@code SafeConstructor} restricts deserialization to plain Java types, the same guard
+     * used for user-supplied policy YAML in {@code PolicyService}.
+     */
+    private static final Yaml SAFE_YAML = new Yaml(new SafeConstructor(new LoaderOptions()));
     /** Console tools (mvnw, gradlew, npm) write human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
     private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
     private static final Set<String> MANIFEST_SKIP_DIRS = ManifestCollectRules.SKIP_DIRS;
@@ -73,7 +84,7 @@ public class DependencyManifestParserService {
      */
     public static final Set<String> EMITTED_ECOSYSTEMS = Set.of(
             "MAVEN", "NPM", "PYPI", "GO", "CARGO", "NUGET", "RUBYGEMS", "COMPOSER",
-            "CONAN", "VCPKG", "SUBMODULE", "VENDORED");
+            "CONAN", "VCPKG", "SUBMODULE", "VENDORED", "COCOAPODS", "CONDA");
 
     public record ParseResult(String ecosystem, List<ScanPayload.ComponentPayload> components) {}
 
@@ -355,6 +366,28 @@ public class DependencyManifestParserService {
                 mergeComponents(allComps, seen, vendoredComps, "VENDORED");
             }
             report.accept(List.of(cmake));
+        }
+
+        // ── iOS/macOS: Podfile.lock (CocoaPods) ─────────────────────────────────
+        for (Path lock : indexByNames(index, "Podfile.lock")) {
+            List<ScanPayload.ComponentPayload> podComps = parsePodfileLock(lock.getParent(), repoName);
+            if (podComps != null && !podComps.isEmpty()) {
+                if (!ecosystems.contains("COCOAPODS")) ecosystems.add("COCOAPODS");
+                mergeComponents(allComps, seen, podComps, "COCOAPODS");
+            }
+            report.accept(List.of(lock));
+        }
+
+        // ── Data science: conda-lock.yml (Conda) ────────────────────────────────
+        for (Path lock : indexByNames(index, "conda-lock.yml")) {
+            List<ScanPayload.ComponentPayload> condaComps = parseCondaLock(lock.getParent(), repoName);
+            if (condaComps != null && !condaComps.isEmpty()) {
+                for (ScanPayload.ComponentPayload c : condaComps) {
+                    if (!ecosystems.contains(c.getEcosystem())) ecosystems.add(c.getEcosystem());
+                }
+                mergeComponents(allComps, seen, condaComps, "CONDA");
+            }
+            report.accept(List.of(lock));
         }
 
         // ── Container: explicitly version-pinned OS packages in Dockerfile ──────
@@ -1861,6 +1894,113 @@ public class DependencyManifestParserService {
         if (seen.add(name + ":" + version)) {
             comps.add(buildComponent(name, version, "CONAN").withScope(scope));
         }
+    }
+
+    /**
+     * Matches a top-level {@code PODS:} entry line in a {@code Podfile.lock}, e.g.
+     * {@code "  - Alamofire (5.6.4)"} or {@code "  - GoogleUtilities/Environment (7.11.0):"}.
+     * Exactly 2 spaces of indentation — 4-space lines are a pod's own sub-dependencies, not
+     * separate locked entries, and are intentionally not matched.
+     */
+    private static final Pattern PODFILE_TOP_LEVEL_POD =
+            Pattern.compile("^ {2}- ([A-Za-z0-9_.+-]+)(?:/[A-Za-z0-9_.+-]+)?\\s+\\(([^)]+)\\):?\\s*$");
+
+    /**
+     * Parses {@code Podfile.lock}'s {@code PODS:} section. A subspec entry (e.g.
+     * {@code "GoogleUtilities/AppDelegateSwizzler (7.11.0)"}) is folded into its base pod
+     * ({@code GoogleUtilities}) — subspecs aren't separately published, so podspec resolution
+     * (ROADMAP A9) only ever needs the base pod name.
+     */
+    private List<ScanPayload.ComponentPayload> parsePodfileLock(Path dir, String repoName) {
+        try {
+            List<String> lines = Files.readAllLines(dir.resolve("Podfile.lock"), StandardCharsets.UTF_8);
+            return parsePodfileLockLines(lines, repoName);
+        } catch (Exception e) {
+            log.warn("[DependencyParser][CocoaPods] Failed to parse Podfile.lock for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private List<ScanPayload.ComponentPayload> parsePodfileLockLines(List<String> lines, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        boolean inPods = false;
+        for (String line : lines) {
+            if (!inPods) {
+                if (line.strip().equals("PODS:")) inPods = true;
+                continue;
+            }
+            if (!line.isEmpty() && !Character.isWhitespace(line.charAt(0))) {
+                break; // reached the next top-level section (DEPENDENCIES:, SPEC REPOS:, ...)
+            }
+            Matcher m = PODFILE_TOP_LEVEL_POD.matcher(line);
+            if (!m.matches()) continue;
+            String name = m.group(1);
+            String version = m.group(2).trim();
+            // A pod pinned to a git ref/branch/podspec path has no released version here
+            // (e.g. "MyPod (from `https://github.com/...`, branch `main`)") — skip it rather
+            // than feed a non-existent version into the Specs trunk lookup.
+            if (!version.matches("[0-9][0-9A-Za-z.+-]*")) continue;
+            if (seen.add(name + ":" + version)) {
+                comps.add(buildComponent(name, version, "COCOAPODS"));
+            }
+        }
+        log.info("[DependencyParser][CocoaPods] Parsed {} components from Podfile.lock in '{}'", comps.size(), repoName);
+        return comps;
+    }
+
+    /**
+     * Parses {@code conda-lock.yml}. Each entry's {@code manager} field says whether it was
+     * installed via conda or pip: {@code pip} entries are already real PyPI names, and
+     * {@code conda} entries are looked up in {@link CondaPypiMappingService} — a hit means the
+     * package is a Python project repackaged for conda (gets real OSV PyPI coverage under the
+     * mapped name); a miss almost always means a native (non-Python) library, tagged
+     * {@code CONDA} and left for the caller's existing "no OSV mapping" guard to render as
+     * {@code UNKNOWN} rather than a false "no vulnerabilities" (see ROADMAP A0/A9).
+     */
+    private List<ScanPayload.ComponentPayload> parseCondaLock(Path dir, String repoName) {
+        try (var reader = Files.newBufferedReader(dir.resolve("conda-lock.yml"), StandardCharsets.UTF_8)) {
+            Object parsed = SAFE_YAML.load(reader);
+            if (!(parsed instanceof Map<?, ?> root)) {
+                return null;
+            }
+            return parseCondaLockYaml(root, repoName);
+        } catch (Exception e) {
+            log.warn("[DependencyParser][Conda] Failed to parse conda-lock.yml for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private List<ScanPayload.ComponentPayload> parseCondaLockYaml(Map<?, ?> root, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        Object packagesObj = root.get("package");
+        if (packagesObj instanceof List<?> packages) {
+            for (Object pkgObj : packages) {
+                if (!(pkgObj instanceof Map<?, ?> pkg)) continue;
+                String name = yamlString(pkg.get("name"));
+                String version = yamlString(pkg.get("version"));
+                String manager = yamlString(pkg.get("manager"));
+                if (name == null || name.isBlank() || version == null || version.isBlank()) continue;
+                if (!seen.add(name.toLowerCase(Locale.ROOT) + ":" + version)) continue;
+
+                if ("pip".equalsIgnoreCase(manager)) {
+                    comps.add(buildComponent(name, version, "PYPI"));
+                    continue;
+                }
+                String pypiName = condaPypiMappingService.resolvePypiName(name);
+                comps.add(pypiName != null
+                        ? buildComponent(pypiName, version, "PYPI")
+                        : buildComponent(name, version, "CONDA"));
+            }
+        }
+        log.info("[DependencyParser][Conda] Parsed {} components from conda-lock.yml in '{}'", comps.size(), repoName);
+        return comps;
+    }
+
+    /** SnakeYAML returns scalars as their inferred Java type (String/Integer/Double/Boolean) — normalize to String. */
+    private static String yamlString(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     /**
