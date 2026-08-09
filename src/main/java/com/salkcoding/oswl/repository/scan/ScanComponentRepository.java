@@ -18,20 +18,29 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
      * All ScanComponents for a given scan, with library and its CVEs fetch-joined so the
      * result stays fully usable after the query's own transaction ends (the async
      * enrichment pipeline and the version-diff analyzer run without an outer transaction).
+     * {@code Cve.sources} is an EAGER element collection — without the explicit fetch join
+     * Hibernate issues one extra SELECT per CVE to populate it.
      */
     @Query("""
             SELECT DISTINCT sc FROM ScanComponent sc
             JOIN FETCH sc.library l
-            LEFT JOIN FETCH l.cves
+            LEFT JOIN FETCH l.cves c
+            LEFT JOIN FETCH c.sources
             WHERE sc.scanResult.id = :scanResultId
             """)
     List<ScanComponent> findByScanResultId(@Param("scanResultId") Long scanResultId);
 
-    /** Single component with library + CVEs for the detail panel */
+    /**
+     * Single component with library + CVEs for the detail panel. Also fetch-joins
+     * {@code Cve.sources} (EAGER element collection — one SELECT per CVE otherwise) and the
+     * LAZY {@code scanResult} association the detail page reads for the project version.
+     */
     @Query("""
             SELECT sc FROM ScanComponent sc
             JOIN FETCH sc.library l
-            LEFT JOIN FETCH l.cves
+            LEFT JOIN FETCH l.cves c
+            LEFT JOIN FETCH c.sources
+            JOIN FETCH sc.scanResult
             WHERE sc.id = :componentId
               AND sc.scanResult.project.id = :projectId
             """)
@@ -70,9 +79,14 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
     long countRecentlyExpiredDeferrals(@Param("scanResultId") Long scanResultId,
                                        @Param("since") LocalDateTime since);
 
-    /** Bulk-load components by ID list, restricted to a specific project (prevents IDOR). */
+    /**
+     * Bulk-load components by ID list, restricted to a specific project (prevents IDOR).
+     * {@code library} is fetch-joined because it's an EAGER association — without the join
+     * Hibernate still loads it, but as one secondary SELECT per row.
+     */
     @Query("""
             SELECT sc FROM ScanComponent sc
+            JOIN FETCH sc.library
             WHERE sc.id IN :ids
               AND sc.scanResult.project.id = :projectId
             """)

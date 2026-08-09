@@ -491,6 +491,19 @@ public class ComponentDetailService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
+        return createPullRequest(sc, project, req, userId, githubToken);
+    }
+
+    /**
+     * PR creation with the component and project already loaded — the batch path passes its
+     * pre-loaded entities in so the per-component loop doesn't re-run the component/project
+     * lookups for every candidate.
+     */
+    private Map<String, Object> createPullRequest(ScanComponent sc, Project project,
+                                                  CreatePrRequest req, Long userId, String githubToken) {
+        Long projectId = project.getId();
+        Long componentId = sc.getId();
+
         VcsProvider provider = project.getVcsProvider();
         if (provider == null) {
             throw new IllegalStateException("This project is not connected to a VCS repository. (CLI imports do not support PR creation.)");
@@ -610,7 +623,7 @@ public class ComponentDetailService {
             row.put("targetVersion", lib.resolvePrTargetVersion());
             try {
                 CreatePrRequest req = CreatePrRequest.ofBranch(baseBranch);
-                Map<String, Object> result = createPullRequest(projectId, sc.getId(), req, userId, githubToken);
+                Map<String, Object> result = createPullRequest(sc, project, req, userId, githubToken);
                 row.put("success", true);
                 row.put("prUrl", result.get("prUrl"));
                 created++;

@@ -6,8 +6,8 @@ import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.dto.OrgProjectRiskDto;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
-import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,8 +21,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Organization-wide portfolio roll-up for the admin dashboard.
@@ -41,7 +43,7 @@ public class OrgDashboardService {
 
     private final ProjectRepository       projectRepository;
     private final ScanResultRepository    scanResultRepository;
-    private final ScanComponentRepository scanComponentRepository;
+    private final LibraryRepository       libraryRepository;
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
@@ -49,16 +51,55 @@ public class OrgDashboardService {
     public void populateModel(Model model) {
         List<Project> projects = projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc();
 
-        // Latest completed scan per project (null when the project was never scanned)
-        Map<Long, ScanResult> latestScanByProject = new HashMap<>();
+        // All completed scans of every project in one query, grouped per project (scannedAt
+        // DESC within each project) — the trend walk needs the full per-project history, not
+        // just the latest scan, so this is a real batch rather than a latest-per-project query.
         Map<Long, List<ScanResult>> completedByProject = new HashMap<>();
         for (Project project : projects) {
-            List<ScanResult> completed = scanResultRepository.findCompletedByProjectId(project.getId());
-            completedByProject.put(project.getId(), completed);
+            completedByProject.put(project.getId(), new ArrayList<>());
+        }
+        if (!projects.isEmpty()) {
+            List<Long> projectIds = projects.stream().map(Project::getId).toList();
+            for (ScanResult scan : scanResultRepository.findCompletedByProjectIdIn(projectIds)) {
+                completedByProject.get(scan.getProject().getId()).add(scan);
+            }
+        }
+
+        // Latest completed scan per project (null when the project was never scanned)
+        Map<Long, ScanResult> latestScanByProject = new HashMap<>();
+        for (Project project : projects) {
+            List<ScanResult> completed = completedByProject.get(project.getId());
             if (!completed.isEmpty()) {
                 latestScanByProject.put(project.getId(), completed.getFirst());
             }
         }
+
+        // Per-project scans in ascending order for the trend's as-of walk
+        Map<Long, List<ScanResult>> scansAscByProject = new HashMap<>();
+        for (Project project : projects) {
+            List<ScanResult> asc = new ArrayList<>(completedByProject.get(project.getId()));
+            asc.sort(Comparator.comparing(ScanResult::getScannedAt,
+                    Comparator.nullsLast(Comparator.naturalOrder())));
+            scansAscByProject.put(project.getId(), asc);
+        }
+
+        // Every scan the page aggregates: each project's latest scan plus every scan the trend
+        // walk can reference as-of a weekly bucket boundary. Batch-loading their components,
+        // libraries, and CVEs up front (2 queries total, same hydration pattern as
+        // ProjectService.findAll) keeps the aggregations below from issuing per-scan component
+        // queries and per-CVE Cve.sources selects.
+        Set<Long> aggregateScanIds = new HashSet<>();
+        latestScanByProject.values().forEach(scan -> aggregateScanIds.add(scan.getId()));
+        LocalDate today = LocalDate.now();
+        for (int i = trendWeeks - 1; i >= 0; i--) {
+            LocalDateTime bucketEndExclusive = today.minusWeeks(i).plusDays(1).atStartOfDay();
+            for (Project project : projects) {
+                ScanResult asOf = latestScanAtOrBefore(scansAscByProject.get(project.getId()),
+                        bucketEndExclusive);
+                if (asOf != null) aggregateScanIds.add(asOf.getId());
+            }
+        }
+        Map<Long, List<ScanComponent>> componentsByScanId = loadComponentsByScanId(aggregateScanIds);
 
         // ── Org-wide posture totals + worst-project ranking ──────────────
         int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secUnscored = 0;
@@ -77,7 +118,7 @@ public class OrgDashboardService {
                 continue;
             }
 
-            List<ScanComponent> components = scanComponentRepository.findByScanResultId(latest.getId());
+            List<ScanComponent> components = componentsByScanId.getOrDefault(latest.getId(), List.of());
             int[] sec = aggregateSecurity(components);
             int[] lic = aggregateLicense(components);
             int[] kev = aggregateKev(components);
@@ -129,7 +170,24 @@ public class OrgDashboardService {
         model.addAttribute("kevUnaddressed", kevUnaddressed);
         model.addAttribute("projectRows", rows);
 
-        addTrendModel(model, projects, completedByProject);
+        addTrendModel(model, projects, scansAscByProject, componentsByScanId);
+    }
+
+    /**
+     * Batch-loads the components (each with its EAGER library) of every scan the page aggregates,
+     * then hydrates those libraries' CVEs — and each CVE's EAGER {@code sources} collection — in
+     * one more query. Mirrors {@code ProjectService.findAll}'s hydration: the second query's
+     * return value isn't needed, it initializes collections on the already persistence-context-
+     * loaded Library entities.
+     */
+    private Map<Long, List<ScanComponent>> loadComponentsByScanId(Set<Long> scanIds) {
+        if (scanIds.isEmpty()) return Map.of();
+        Map<Long, List<ScanComponent>> byScanId = new HashMap<>();
+        for (ScanResult scan : scanResultRepository.findByIdInWithComponentsAndLibrary(scanIds)) {
+            byScanId.put(scan.getId(), scan.getComponents());
+        }
+        libraryRepository.findByScanResultIdInWithCves(scanIds);
+        return byScanId;
     }
 
     // ── Org-wide vulnerability trend (weekly buckets) ────────────────────
@@ -140,22 +198,14 @@ public class OrgDashboardService {
      * Same severity bucketing as {@link RiskTrendService}.
      */
     private void addTrendModel(Model model, List<Project> projects,
-                               Map<Long, List<ScanResult>> completedByProject) {
+                               Map<Long, List<ScanResult>> scansAscByProject,
+                               Map<Long, List<ScanComponent>> componentsByScanId) {
         List<String>  labels      = new ArrayList<>();
         List<Integer> trCritical  = new ArrayList<>();
         List<Integer> trHigh      = new ArrayList<>();
         List<Integer> trMedium    = new ArrayList<>();
         List<Integer> trLow       = new ArrayList<>();
         List<Integer> trUnscored  = new ArrayList<>();
-
-        // Per-project scans in ascending order for the as-of walk
-        Map<Long, List<ScanResult>> scansAscByProject = new HashMap<>();
-        for (Project project : projects) {
-            List<ScanResult> asc = new ArrayList<>(completedByProject.get(project.getId()));
-            asc.sort(Comparator.comparing(ScanResult::getScannedAt,
-                    Comparator.nullsLast(Comparator.naturalOrder())));
-            scansAscByProject.put(project.getId(), asc);
-        }
 
         // Severity counts are computed once per distinct scan actually used by a bucket
         Map<Long, int[]> secCountsByScanId = new HashMap<>();
@@ -172,7 +222,7 @@ public class OrgDashboardService {
                         bucketEndExclusive);
                 if (asOf == null) continue;
                 int[] sec = secCountsByScanId.computeIfAbsent(asOf.getId(),
-                        scanId -> aggregateSecurity(scanComponentRepository.findByScanResultId(scanId)));
+                        scanId -> aggregateSecurity(componentsByScanId.getOrDefault(scanId, List.of())));
                 c += sec[0]; h += sec[1]; m += sec[2]; l += sec[3]; n += sec[4];
             }
             trCritical.add(c); trHigh.add(h); trMedium.add(m); trLow.add(l); trUnscored.add(n);
