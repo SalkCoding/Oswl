@@ -10,6 +10,7 @@
         networkError:       /*[[#{gitIntegration.error.networkError}]]*/ 'Network error. Please try again.',
         reposLoadFailed:    /*[[#{gitIntegration.error.reposLoadFailed}]]*/ 'Could not load repositories. Check your token, then retry.',
         importFailed:       /*[[#{gitIntegration.error.importFailed}]]*/ '{0} import(s) failed. Check repository access and try again.',
+        selectItem:         /*[[#{common.selectItem}]]*/ 'Select {0}',
         justNow:            /*[[#{common.time.justNow}]]*/ 'just now',
         minuteAgo:          /*[[#{common.time.minuteAgo}]]*/ '1 minute ago',
         minutesAgo:         /*[[#{common.time.minutesAgo}]]*/ '{0} minutes ago',
@@ -533,6 +534,7 @@
                                         <button
                                             @click.stop="disconnectAccount(account)"
                                             th:title="#{gitIntegration.btn.disconnectAccount}"
+                                            th:aria-label="#{gitIntegration.btn.disconnectAccount}"
                                             class="pr-[12px] pl-[4px] py-[10px] flex items-center text-[var(--grayscale-30)] hover:text-red-500 transition-colors">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                                 <circle cx="12" cy="12" r="10"></circle>
@@ -567,6 +569,7 @@
                             type="button"
                             @click="reloadRepos()"
                             th:title="#{gitIntegration.btn.reloadRepos}"
+                            th:aria-label="#{gitIntegration.btn.reloadRepos}"
                             :disabled="reloading || repoStatus === 'loading'"
                             :class="(reloading || repoStatus === 'loading') ? 'cursor-wait opacity-60' : 'cursor-pointer'"
                             class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[7px] rounded-[6px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-90)] transition-colors focus:outline-none shrink-0">
@@ -740,7 +743,7 @@
         <div class="bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] flex items-center w-full h-[40px]">
             <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
                 <label class="cursor-pointer relative flex items-center justify-center p-2">
-                    <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
+                    <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()" th:aria-label="#{common.selectAll}">
                     <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                          :class="selectAll ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
@@ -787,7 +790,8 @@
                     <!-- Checkbox -->
                     <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
                         <label class="cursor-pointer relative flex items-center justify-center p-2">
-                            <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos">
+                            <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos"
+                                   :aria-label="_gitI18n.selectItem.replace('{0}', repo.fullName || repo.name)">
                             <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                                  :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"

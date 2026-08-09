@@ -9,7 +9,7 @@
     <div class="flex items-center w-full bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] sticky top-0 z-10">
         <div class="flex h-[40px] items-center w-[60px] min-w-[60px] pl-[20px] pr-[4px]">
             <label class="cursor-pointer relative flex items-center justify-center p-2">
-                <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
+                <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()" th:aria-label="#{common.selectAll}">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                      :class="selectAll ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
@@ -85,7 +85,8 @@
                     <input type="checkbox" class="sr-only"
                            x-model="selectedComponents"
                            name="selectedComponent"
-                           th:value="${comp.id}">
+                           th:value="${comp.id}"
+                           th:aria-label="#{common.selectItem(${comp.name + ' ' + comp.version})}">
                     <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                          :class="selectedComponents.some(v => String(v) === $el.closest('[data-row-id]').dataset.rowId) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
