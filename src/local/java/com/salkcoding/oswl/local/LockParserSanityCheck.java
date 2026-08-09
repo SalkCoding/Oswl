@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.local;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.service.ingest.CondaPypiMappingService;
 import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
 import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 
@@ -18,7 +19,7 @@ public final class LockParserSanityCheck {
 
     static void main(String[] args) throws Exception {
         DependencyManifestParserService parser =
-                new DependencyManifestParserService(new MavenBomVersionResolver());
+                new DependencyManifestParserService(new MavenBomVersionResolver(), new CondaPypiMappingService());
         int failures = 0;
 
         // ── 1. Repo-walk parse: composer.lock + conan.lock (2.x) in one tree ──

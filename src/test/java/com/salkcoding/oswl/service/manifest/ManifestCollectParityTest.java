@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.service.manifest;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
+import com.salkcoding.oswl.service.ingest.CondaPypiMappingService;
 import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
 import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 import org.junit.jupiter.api.Assumptions;
@@ -46,7 +47,7 @@ class ManifestCollectParityTest {
     }
 
     private final DependencyManifestParserService parser =
-            new DependencyManifestParserService(new MavenBomVersionResolver());
+            new DependencyManifestParserService(new MavenBomVersionResolver(), new CondaPypiMappingService());
     private final ManifestCollectArchiveService archiveService = new ManifestCollectArchiveService();
 
     static boolean hasVerificationRepos() {

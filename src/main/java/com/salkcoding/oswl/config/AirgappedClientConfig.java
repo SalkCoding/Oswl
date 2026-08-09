@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.config;
 
+import com.salkcoding.oswl.client.CocoaPodsSpecsClient;
 import com.salkcoding.oswl.client.DepsDevClient;
 import com.salkcoding.oswl.client.EpssClient;
 import com.salkcoding.oswl.client.GitHubAdvisoryClient;
@@ -110,6 +111,20 @@ public class AirgappedClientConfig {
     public NvdClient nvdClient() {
         NvdClient client = new NvdClient(snapshotService, airgapped, nvdApiKey,
                 Duration.ofMillis(nvdConnectTimeoutMs), Duration.ofMillis(nvdReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
+    }
+
+    @Value("${oswl.client.cocoapods-specs.connect-timeout-ms:5000}")
+    private long cocoaPodsConnectTimeoutMs;
+
+    @Value("${oswl.client.cocoapods-specs.read-timeout-ms:10000}")
+    private long cocoaPodsReadTimeoutMs;
+
+    @Bean
+    public CocoaPodsSpecsClient cocoaPodsSpecsClient() {
+        CocoaPodsSpecsClient client = new CocoaPodsSpecsClient(airgapped,
+                Duration.ofMillis(cocoaPodsConnectTimeoutMs), Duration.ofMillis(cocoaPodsReadTimeoutMs));
         client.setOswlMetrics(oswlMetrics);
         return client;
     }
