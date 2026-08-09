@@ -21,7 +21,12 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     /** Active projects (not soft-deleted). */
     List<Project> findAllByDeletedAtIsNullOrderByCreatedAtDesc();
 
-    List<Project> findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(Collection<Long> ids);
+    /**
+     * Active projects by id, with the (LAZY) team fetch-joined — the project list page reads
+     * {@code team.getName()} for every row, which would otherwise be one extra query per project.
+     */
+    @Query("SELECT p FROM Project p LEFT JOIN FETCH p.team WHERE p.deletedAt IS NULL AND p.id IN :ids ORDER BY p.createdAt DESC")
+    List<Project> findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(@Param("ids") Collection<Long> ids);
 
     /** Soft-deleted projects (trash). */
     List<Project> findAllByDeletedAtIsNotNullOrderByDeletedAtAsc();

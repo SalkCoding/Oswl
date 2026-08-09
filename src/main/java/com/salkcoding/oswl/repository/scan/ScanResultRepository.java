@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,28 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
     /** List of completed scans for the project (version history) */
     @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId AND s.status = 'COMPLETED' ORDER BY s.scannedAt DESC")
     List<ScanResult> findCompletedByProjectId(@Param("projectId") Long projectId);
+
+    /**
+     * Most recent scan (any status) per project, batched for the project list page — one query
+     * for every project instead of calling {@link #findLatestByProjectId(Long)} once per project.
+     * A tie on {@code scannedAt} within the same project can return more than one row; the caller
+     * de-dupes by keeping the first row seen per project id (matches this method's own lack of
+     * ordering guarantee across ties, same as the single-project query it replaces).
+     */
+    @Query("""
+            SELECT s FROM ScanResult s
+            WHERE s.project.id IN :projectIds
+              AND s.scannedAt = (SELECT MAX(s2.scannedAt) FROM ScanResult s2 WHERE s2.project.id = s.project.id)
+            """)
+    List<ScanResult> findLatestByProjectIds(@Param("projectIds") Collection<Long> projectIds);
+
+    /**
+     * Batched fetch of scans with their components and each component's (EAGER) library
+     * pre-loaded, so aggregating security/license counts across many scans doesn't re-trigger
+     * the components query and the per-component library lookup for every scan.
+     */
+    @Query("SELECT DISTINCT s FROM ScanResult s LEFT JOIN FETCH s.components c LEFT JOIN FETCH c.library WHERE s.id IN :scanIds")
+    List<ScanResult> findByIdInWithComponentsAndLibrary(@Param("scanIds") Collection<Long> scanIds);
 
     /** Find existing scan for a project+version combination (for upsert logic) */
     Optional<ScanResult> findByProjectIdAndVersion(Long projectId, String version);

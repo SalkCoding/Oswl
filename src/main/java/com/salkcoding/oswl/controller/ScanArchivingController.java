@@ -1,11 +1,14 @@
 package com.salkcoding.oswl.controller;
 
 import com.salkcoding.oswl.controller.spec.ScanArchivingControllerSpec;
+import com.salkcoding.oswl.dto.scan.ScanArchiveExportDto;
 import com.salkcoding.oswl.dto.scan.ScanArchiveResult;
 import com.salkcoding.oswl.service.scan.ScanArchivingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/projects/{projectId}/archive-scans")
@@ -14,6 +17,14 @@ import org.springframework.web.bind.annotation.*;
 public class ScanArchivingController implements ScanArchivingControllerSpec {
 
     private final ScanArchivingService scanArchivingService;
+
+    @GetMapping("/export")
+    public List<ScanArchiveExportDto> exportPendingArchive(@PathVariable Long projectId,
+                                                            @RequestParam(required = false) Integer retainCount) {
+        return retainCount != null
+                ? scanArchivingService.exportPendingArchive(projectId, retainCount)
+                : scanArchivingService.exportPendingArchive(projectId);
+    }
 
     @PostMapping
     public ScanArchiveResult archive(@PathVariable Long projectId,

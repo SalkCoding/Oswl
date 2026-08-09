@@ -4,12 +4,15 @@ import com.salkcoding.oswl.service.org.TeamService;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.project.ProjectVersion;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.enums.DeploymentProfile;
 import com.salkcoding.oswl.domain.enums.ImportSource;
 import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
+import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.dto.TrashProjectDto;
 import com.salkcoding.oswl.repository.vulnerability.CveAlertRepository;
+import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.project.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
@@ -23,7 +26,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -38,6 +43,7 @@ public class ProjectService {
     private final AuditLogService auditLogService;
     private final ProjectAccessService projectAccessService;
     private final CveAlertRepository cveAlertRepository;
+    private final LibraryRepository libraryRepository;
     private final TeamService teamService;
 
     @Transactional(readOnly = true)
@@ -49,8 +55,45 @@ public class ProjectService {
         java.util.Map<Long, Long> alertCounts = cveAlertRepository
                 .countUnacknowledgedByProjectIds(accessible).stream()
                 .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
-        return projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(accessible).stream()
-                .map(p -> toSummary(p, alertCounts.getOrDefault(p.getId(), 0L)))
+
+        List<Project> projects = projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(accessible);
+        if (projects.isEmpty()) {
+            return List.of();
+        }
+
+        // Batched in place of one findLatestByProjectId() call per project — see
+        // ScanResultRepository.findLatestByProjectIds() for why a tie on scannedAt is harmless here.
+        Map<Long, ScanResult> latestScanByProjectId = new HashMap<>();
+        for (ScanResult scan : scanResultRepository.findLatestByProjectIds(accessible)) {
+            latestScanByProjectId.putIfAbsent(scan.getProject().getId(), scan);
+        }
+
+        // For completed scans only: re-fetch with components+library eagerly joined, then batch
+        // the components' libraries' CVEs — replaces the per-scan components query, the
+        // per-component EAGER library query, and the per-library CVE query with three
+        // fixed-count queries total regardless of how many projects are on this page.
+        List<Long> completedScanIds = latestScanByProjectId.values().stream()
+                .filter(s -> s.getStatus() == ScanStatus.COMPLETED)
+                .map(ScanResult::getId)
+                .toList();
+        // A plain HashMap, not Map.of() — Map.of() throws on a null-key lookup, and
+        // ScanResult::getId can be null for entities Hibernate hasn't yet assigned an id to.
+        Map<Long, ScanResult> hydratedScansById = completedScanIds.isEmpty()
+                ? new HashMap<>()
+                : scanResultRepository.findByIdInWithComponentsAndLibrary(completedScanIds).stream()
+                        .collect(Collectors.toMap(ScanResult::getId, s -> s));
+        if (!completedScanIds.isEmpty()) {
+            // Populates the (already loaded, same persistence context) Library entities' cves
+            // collections; the return value itself isn't needed.
+            libraryRepository.findByScanResultIdInWithCves(completedScanIds);
+        }
+
+        return projects.stream()
+                .map(p -> {
+                    ScanResult latest = latestScanByProjectId.get(p.getId());
+                    ScanResult effective = latest != null ? hydratedScansById.getOrDefault(latest.getId(), latest) : null;
+                    return toSummary(p, effective, alertCounts.getOrDefault(p.getId(), 0L));
+                })
                 .collect(Collectors.toList());
     }
 
@@ -244,7 +287,7 @@ public class ProjectService {
 
     private static final DateTimeFormatter IMPORT_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
-    private ProjectSummaryDto toSummary(Project project, long newCveAlerts) {
+    private ProjectSummaryDto toSummary(Project project, ScanResult latestScan, long newCveAlerts) {
         String importedAt = project.getImportedAt() != null
                 ? project.getImportedAt().format(IMPORT_FMT)
                 : null;
@@ -262,12 +305,8 @@ public class ProjectService {
                 ? project.getVcsProvider().name()
                 : null;
 
-        // Get the most recent scan regardless of status so we can display in-progress and
-        // failed states on the project card (not just COMPLETED scans).
-        var latestScanOpt = scanResultRepository.findLatestByProjectId(project.getId());
-
         // No scan at all → truly unsaved / zombie project
-        if (latestScanOpt.isEmpty()) {
+        if (latestScan == null) {
             return ProjectSummaryDto.builder()
                     .id(project.getId())
                     .name(project.getName())
@@ -285,11 +324,10 @@ public class ProjectService {
                     .build();
         }
 
-        var latestScan = latestScanOpt.get();
         var status = latestScan.getStatus();
 
         // For completed scans: aggregate full security/license data
-        if (status == com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED) {
+        if (status == ScanStatus.COMPLETED) {
             int[] sec = aggregateSecurity(latestScan);
             int[] lic = aggregateLicense(latestScan);
             String lastScanned = latestScan.getScannedAt() != null
