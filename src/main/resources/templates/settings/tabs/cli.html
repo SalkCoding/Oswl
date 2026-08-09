@@ -120,7 +120,7 @@
                         <img th:src="@{/icon/icon-key.svg}" class="w-[18px] h-[18px] flex-shrink-0" alt="" aria-hidden="true">
                         <span class="font-bold text-[13px]" th:text="#{settings.cli.slideout.title}">Create New Key</span>
                     </div>
-                    <button @click="closeCreate()" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex-shrink-0 flex items-center justify-center transition-colors">
+                    <button @click="closeCreate()" th:aria-label="#{common.close}" class="w-[20px] h-[20px] bg-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.2)] rounded-[4px] flex-shrink-0 flex items-center justify-center transition-colors">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>

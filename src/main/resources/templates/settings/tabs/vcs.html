@@ -333,7 +333,7 @@
                         </h3>
                         <p class="text-[12px] text-white/60" th:text="#{settings.vcs.slideout.hint}">Access tokens are encrypted and never exposed after saving.</p>
                     </div>
-                    <button @click="closeCreate()" class="text-white/60 hover:text-white flex-shrink-0 mt-[2px]">
+                    <button @click="closeCreate()" th:aria-label="#{common.close}" class="text-white/60 hover:text-white flex-shrink-0 mt-[2px]">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>

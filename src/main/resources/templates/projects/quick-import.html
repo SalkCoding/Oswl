@@ -574,7 +574,7 @@
                                                     class="shrink-0 inline-flex items-center gap-[5px] px-[20px] py-[7px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--primary-100)] transition-colors">
                                                 <span th:text="#{quickImport.repoBrowser.import}">Import</span>
                                             </button>
-                                            <button @click="pendingBranch = null"
+                                            <button @click="pendingBranch = null" th:aria-label="#{common.clear}"
                                                     class="w-[24px] h-[24px] flex items-center justify-center text-[var(--grayscale-40)] hover:text-[var(--grayscale-80)] transition-colors rounded">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                             </button>
@@ -594,12 +594,12 @@
                             </span>
                             <div class="flex items-center gap-[6px]">
                                 <button @click="browserPrevPage(provider)"
-                                        :disabled="repoBrowsers[provider].page <= 1"
+                                        :disabled="repoBrowsers[provider].page <= 1" th:aria-label="#{common.pagination.previous}"
                                         class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                                 </button>
                                 <button @click="browserNextPage(provider)"
-                                        :disabled="repoBrowsers[provider].page >= getBrowserTotalPages(provider)"
+                                        :disabled="repoBrowsers[provider].page >= getBrowserTotalPages(provider)" th:aria-label="#{common.pagination.next}"
                                         class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                                 </button>
