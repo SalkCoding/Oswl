@@ -8,6 +8,7 @@ import com.salkcoding.oswl.dto.policy.PolicyExceptionDto;
 import com.salkcoding.oswl.dto.policy.PolicyExceptionRequest;
 import com.salkcoding.oswl.dto.policy.PolicyGitOpsRequest;
 import com.salkcoding.oswl.dto.policy.PolicyRequest;
+import com.salkcoding.oswl.dto.policy.PolicyScopeOptionsDto;
 import com.salkcoding.oswl.service.policy.PolicyService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,11 @@ public class PolicyController implements PolicyControllerSpec {
     @GetMapping("/{id}")
     public PolicyDto get(@PathVariable Long id) {
         return policyService.findById(id);
+    }
+
+    @GetMapping("/scope-options")
+    public PolicyScopeOptionsDto scopeOptions() {
+        return policyService.getScopeOptions();
     }
 
     @PostMapping

@@ -7,6 +7,7 @@ import com.salkcoding.oswl.dto.policy.PolicyExceptionDto;
 import com.salkcoding.oswl.dto.policy.PolicyExceptionRequest;
 import com.salkcoding.oswl.dto.policy.PolicyGitOpsRequest;
 import com.salkcoding.oswl.dto.policy.PolicyRequest;
+import com.salkcoding.oswl.dto.policy.PolicyScopeOptionsDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -31,6 +32,9 @@ public interface PolicyControllerSpec {
     @Operation(summary = "Get a policy by id")
     @ApiResponses({@ApiResponse(responseCode = "404", description = "Not found", content = @Content)})
     PolicyDto get(@Parameter(description = "Policy id", required = true) @PathVariable Long id);
+
+    @Operation(summary = "List available scopes (organization/teams/projects) for the policy scope selector")
+    PolicyScopeOptionsDto scopeOptions();
 
     @Operation(summary = "Create a policy at an organization, team, or project scope")
     @ApiResponses({@ApiResponse(responseCode = "409", description = "A policy already exists for that scope", content = @Content)})

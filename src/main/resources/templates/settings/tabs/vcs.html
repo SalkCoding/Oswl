@@ -28,11 +28,18 @@
     <!-- Loading -->
     <div x-show="loading" class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center" th:text="#{common.loading}">Loading...</div>
 
+    <!-- Sub-tabs: one per provider, so a docs link like /settings?tab=vcs&section=gitlab opens directly on it. -->
+    <div x-show="!loading" x-cloak class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('github', #{settings.vcs.provider.github})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('gitlab', #{settings.vcs.provider.gitlab})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('atlassian', #{settings.vcs.provider.atlassian})}"></div>
+    </div>
+
     <!-- Provider Cards -->
     <div x-show="!loading" x-cloak class="flex flex-col gap-[12px]">
 
         <!-- ── GitHub Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
+        <div x-show="subTab==='github'" x-cloak class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
@@ -111,7 +118,7 @@
         </div>
 
         <!-- ── GitLab Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
+        <div x-show="subTab==='gitlab'" x-cloak class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
@@ -188,7 +195,7 @@
         </div>
 
         <!-- ── Atlassian / Bitbucket Card ── -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
+        <div x-show="subTab==='atlassian'" x-cloak class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[24px] px-[28px] pb-[28px] flex flex-col gap-[16px]">
             <div class="flex items-center justify-between gap-[16px]">
                 <div class="flex items-center gap-[14px]">
                     <div class="w-[38px] h-[38px] flex items-center justify-center rounded-[8px] bg-[var(--grayscale-5)]">
@@ -496,6 +503,7 @@
     <script>
     function vcsTab() {
         return {
+            subTab: initialSettingsSection('github'),
             connections: [],
             loading: true,
             slideout: false,
@@ -534,6 +542,10 @@
                 this.toastMsg = msg;
                 this.toastVisible = true;
                 setTimeout(() => { this.toastVisible = false; }, 3000);
+            },
+            selectSubTab(key) {
+                this.subTab = key;
+                syncSettingsSection(key);
             },
 
             async init() {
