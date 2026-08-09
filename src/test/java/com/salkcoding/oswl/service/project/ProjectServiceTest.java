@@ -17,6 +17,7 @@ import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
 import com.salkcoding.oswl.dto.TrashProjectDto;
 import com.salkcoding.oswl.repository.vulnerability.CveAlertRepository;
+import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.project.ProjectVersionRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
@@ -33,6 +34,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,6 +59,9 @@ class ProjectServiceTest {
     CveAlertRepository cveAlertRepository;
 
     @Mock
+    LibraryRepository libraryRepository;
+
+    @Mock
     TeamService teamService;
 
     @InjectMocks
@@ -72,6 +77,20 @@ class ProjectServiceTest {
         when(projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(ids))
                 .thenReturn(List.of(projects));
         when(cveAlertRepository.countUnacknowledgedByProjectIds(ids)).thenReturn(List.of());
+    }
+
+    /**
+     * Stubs the batched scan lookups findAll() now uses in place of the old per-project
+     * findLatestByProjectId(Long) call. findByIdInWithComponentsAndLibrary is only stubbed for
+     * COMPLETED scans, matching the production code's own skip-if-empty short circuit.
+     */
+    private void stubLatestScan(ScanResult scan) {
+        when(scanResultRepository.findLatestByProjectIds(anyCollection()))
+                .thenReturn(scan == null ? List.of() : List.of(scan));
+        if (scan != null && scan.getStatus() == ScanStatus.COMPLETED) {
+            when(scanResultRepository.findByIdInWithComponentsAndLibrary(anyCollection()))
+                    .thenReturn(List.of(scan));
+        }
     }
 
     // ── findAll ───────────────────────────────────────────────────────────
@@ -90,7 +109,7 @@ class ProjectServiceTest {
         Project project = Project.builder().id(1L).name("P1").build();
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.empty());
+        stubLatestScan(null);
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -128,7 +147,7 @@ class ProjectServiceTest {
         scan.setScannedAt(LocalDateTime.of(2026, 4, 1, 0, 0));
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
+        stubLatestScan(scan);
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -166,7 +185,7 @@ class ProjectServiceTest {
         scan.setScannedAt(LocalDateTime.of(2026, 4, 4, 10, 0));
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
+        stubLatestScan(scan);
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -187,7 +206,7 @@ class ProjectServiceTest {
         scan.setScannedAt(LocalDateTime.of(2026, 4, 15, 12, 0));
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scan));
+        stubLatestScan(scan);
 
         assertThat(projectService.findAll().getFirst().getLastScanned()).isEqualTo("2026.04.15");
     }
@@ -198,7 +217,7 @@ class ProjectServiceTest {
         Project project = Project.builder().id(1L).name("P1").build();
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.empty());
+        stubLatestScan(null);
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -217,7 +236,7 @@ class ProjectServiceTest {
         scanning.setScannedAt(LocalDateTime.now());
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(scanning));
+        stubLatestScan(scanning);
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -237,7 +256,7 @@ class ProjectServiceTest {
         failed.setScannedAt(LocalDateTime.now());
 
         stubAccessible(project);
-        when(scanResultRepository.findLatestByProjectId(1L)).thenReturn(Optional.of(failed));
+        stubLatestScan(failed);
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 

@@ -8,6 +8,7 @@ import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.dto.scan.ScanArchiveExportDto;
 import com.salkcoding.oswl.dto.scan.ScanArchiveResult;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
@@ -22,6 +23,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -105,5 +107,42 @@ class ScanArchivingServiceTest {
         // Idempotent: running again with the same retain count archives nothing further.
         ScanArchiveResult second = scanArchivingService.archiveProject(project.getId(), 1);
         assertThat(second.archivedNow()).isZero();
+    }
+
+    @Test
+    @DisplayName("exportPendingArchive는 삭제 전 컴포넌트/CVE 상세를 반환하고 실제로는 아무것도 지우지 않는다")
+    void exportPendingArchive_returnsDetailWithoutDeleting() {
+        project = projectRepository.save(Project.builder().name("D3-Export-Test").build());
+
+        // Distinct version strings from the other test in this class — seedScan() names each
+        // library "<version>-lib-<i>", and Library rows aren't cleaned up between tests (they're
+        // a shared catalog, not owned by Project), so reusing "1.0.0"/"2.0.0" here would collide
+        // with the other test's leftover rows on the (name, version, ecosystem) unique constraint.
+        seedScan(project, "3.0.0", LocalDateTime.now().minusDays(10), 2);
+        seedScan(project, "4.0.0", LocalDateTime.now(), 1);
+        project = projectRepository.save(project);
+
+        Long olderId = scanResultRepository.findByProjectIdAndVersion(project.getId(), "3.0.0").orElseThrow().getId();
+
+        List<ScanArchiveExportDto> export = scanArchivingService.exportPendingArchive(project.getId(), 1);
+
+        assertThat(export).hasSize(1);
+        ScanArchiveExportDto exported = export.getFirst();
+        assertThat(exported.scanId()).isEqualTo(olderId);
+        assertThat(exported.version()).isEqualTo("3.0.0");
+        assertThat(exported.components()).hasSize(2);
+        assertThat(exported.components()).allSatisfy(c -> assertThat(c.cves()).hasSize(1));
+        assertThat(exported.components().stream()
+                .flatMap(c -> c.cves().stream())
+                .map(ScanArchiveExportDto.CveExportDto::severity))
+                .containsOnly("CRITICAL");
+
+        // Read-only: the scan must still be fully intact so a subsequent real archive can delete it.
+        assertThat(scanComponentRepository.countByScanResultId(olderId)).isEqualTo(2);
+        assertThat(scanResultRepository.findById(olderId).orElseThrow().isArchived()).isFalse();
+
+        // Once actually archived, the same scan is no longer "pending" — nothing left to export.
+        scanArchivingService.archiveProject(project.getId(), 1);
+        assertThat(scanArchivingService.exportPendingArchive(project.getId(), 1)).isEmpty();
     }
 }

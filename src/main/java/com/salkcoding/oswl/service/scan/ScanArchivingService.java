@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.dto.scan.ScanArchiveExportDto;
 import com.salkcoding.oswl.dto.scan.ScanArchiveResult;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.DependencyPathRepository;
@@ -51,6 +52,36 @@ public class ScanArchivingService {
         return archiveProject(projectId, defaultRetainCount);
     }
 
+    /**
+     * Full component/CVE/dependency-path detail for every not-yet-archived scan that {@link
+     * #archiveProject(Long, int)} would delete the detail of, at the given retain count.
+     * Read-only — call this before archiving to keep a copy, since archiving cannot be undone.
+     */
+    @Transactional(readOnly = true)
+    public List<ScanArchiveExportDto> exportPendingArchive(Long projectId) {
+        return exportPendingArchive(projectId, defaultRetainCount);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScanArchiveExportDto> exportPendingArchive(Long projectId, int retainCount) {
+        if (retainCount < 1) {
+            retainCount = defaultRetainCount;
+        }
+        if (!projectRepository.existsById(projectId)) {
+            throw new IllegalArgumentException("Project not found: " + projectId);
+        }
+        List<ScanResult> completed = new ArrayList<>(scanResultRepository.findCompletedByProjectId(projectId));
+        VersionOrder.sortDesc(completed);
+
+        List<ScanArchiveExportDto> export = new ArrayList<>();
+        for (int i = retainCount; i < completed.size(); i++) {
+            ScanResult scan = completed.get(i);
+            if (scan.isArchived()) continue;
+            export.add(exportOneScan(scan));
+        }
+        return export;
+    }
+
     @Transactional
     public ScanArchiveResult archiveProject(Long projectId, int retainCount) {
         if (retainCount < 1) {
@@ -91,6 +122,34 @@ public class ScanArchivingService {
             dependencyPathRepository.deleteByScanComponentIdIn(componentIds);
         }
         scanComponentRepository.deleteByScanResultId(scan.getId());
+    }
+
+    private ScanArchiveExportDto exportOneScan(ScanResult scan) {
+        List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
+        List<ScanArchiveExportDto.ComponentExportDto> componentDtos = components.stream()
+                .map(this::toComponentExport)
+                .toList();
+        return new ScanArchiveExportDto(scan.getId(), scan.getVersion(), scan.getScannedAt(), componentDtos);
+    }
+
+    private ScanArchiveExportDto.ComponentExportDto toComponentExport(ScanComponent comp) {
+        Library lib = comp.getLibrary();
+        List<ScanArchiveExportDto.CveExportDto> cveDtos = lib.getCves().stream()
+                .map(cve -> new ScanArchiveExportDto.CveExportDto(
+                        cve.getCveId(),
+                        cve.getSeverity() != null ? cve.getSeverity().name() : null,
+                        cve.getCvssScore(), cve.getEpssScore(), cve.getKevListed(), cve.getFixVersion()))
+                .toList();
+        List<List<String>> dependencyPaths = dependencyPathRepository
+                .findByScanComponentIdOrderByPathIndexAsc(comp.getId()).stream()
+                .map(path -> path.getPathNodes().stream()
+                        .map(node -> node.getName() + "@" + node.getVersion())
+                        .toList())
+                .toList();
+        return new ScanArchiveExportDto.ComponentExportDto(
+                lib.getName(), lib.getVersion(), lib.getEcosystem(),
+                lib.getLicenseStatus() != null ? lib.getLicenseStatus().name() : null,
+                lib.getLicenseName(), cveDtos, dependencyPaths);
     }
 
     private static int[] aggregateSecurity(List<ScanComponent> components) {

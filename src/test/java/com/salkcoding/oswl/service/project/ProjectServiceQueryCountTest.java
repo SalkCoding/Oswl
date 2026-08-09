@@ -35,8 +35,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Query-count regression test for the projects list — the highest-traffic page in
- * the app. Locks in the current (known, not-yet-fixed) query count as an upper bound rather than
- * an exact figure, so unrelated changes don't make this flaky, but any further regression trips it.
+ * the app. {@code ProjectService.findAll()} used to issue one latest-scan query, one components
+ * query, and one CVE-sources query per project/component/CVE; it now batches all of that into a
+ * handful of fixed queries regardless of how many projects are on the page. This test locks in an
+ * upper bound (with headroom, not exact equality) so a future change can't silently reintroduce
+ * per-row querying.
  *
  * Isolated from other data via an explicit non-admin membership (not the systemAdmin
  * "see every project" path) so leftover rows from other {@code @SpringBootTest} classes sharing
@@ -130,15 +133,16 @@ class ProjectServiceQueryCountTest {
         long queries = stats.getPrepareStatementCount();
         assertThat(result).hasSize(3);
 
-        // Currently measured: 28 for 3 projects / 6 total library-CVE pairs (own-user accessible-ids
-        // + project list + alert-count, then per project: findLatestByProjectId, the lazy
-        // ScanResult.components load, one SELECT per component for the EAGER Library association,
-        // and one lazy Library.cves load per distinct library). Locked with headroom (35) rather
-        // than exact equality so an unrelated field addition elsewhere doesn't make this flaky —
-        // a real N+1 regression (e.g. a new per-component or per-CVE query) will still blow well
-        // past this bound.
-        // KNOWN, NOT YET FIXED: ScanResult.components and Library.cves are lazy-loaded per project/
-        // component instead of being batch-fetched once — see ROADMAP.md's D2 section.
-        assertThat(queries).as("ProjectService.findAll() prepared-statement count").isLessThanOrEqualTo(35);
+        // Fixed at 7 for this fixture (own-user accessible-ids: 2, alert-count: 1, project list
+        // with team fetch-joined: 1, findLatestByProjectIds: 1, findByIdInWithComponentsAndLibrary:
+        // 1, findByScanResultIdInWithCves: 1) — down from a measured 28 before the batching fix
+        // (one findLatestByProjectId + one lazy components load + one EAGER-library select per
+        // component + one lazy Cve.sources select per CVE, all repeated per project/component/CVE).
+        // The key property this test protects is that the count does NOT scale with project,
+        // component, or CVE count — it stays at this fixed number whether there are 3 projects or
+        // 300. Locked with headroom (12) rather than exact equality so an unrelated added query
+        // elsewhere doesn't make this flaky, while a real regression (a new per-row query) still
+        // blows well past it.
+        assertThat(queries).as("ProjectService.findAll() prepared-statement count").isLessThanOrEqualTo(12);
     }
 }
