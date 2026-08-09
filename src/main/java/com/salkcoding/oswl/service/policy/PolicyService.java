@@ -89,6 +89,23 @@ public class PolicyService {
                         "Policy not found for " + scopeType + "=" + scopeId)));
     }
 
+    /** Populates the scope selector in the policy editor UI. */
+    @Transactional(readOnly = true)
+    public PolicyScopeOptionsDto getScopeOptions() {
+        PolicyScopeOptionsDto.Option organization = organizationRepository.findAll().stream()
+                .findFirst()
+                .map(o -> new PolicyScopeOptionsDto.Option(o.getId(), o.getName()))
+                .orElse(null);
+        List<PolicyScopeOptionsDto.Option> teams = teamRepository.findAll().stream()
+                .map(t -> new PolicyScopeOptionsDto.Option(t.getId(), t.getName()))
+                .sorted(Comparator.comparing(PolicyScopeOptionsDto.Option::name))
+                .toList();
+        List<PolicyScopeOptionsDto.Option> projects = projectRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc().stream()
+                .map(p -> new PolicyScopeOptionsDto.Option(p.getId(), p.getName()))
+                .toList();
+        return new PolicyScopeOptionsDto(organization, teams, projects);
+    }
+
     @Transactional
     @Auditable(action = "POLICY.CREATE", targetType = "POLICY",
                targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.name")

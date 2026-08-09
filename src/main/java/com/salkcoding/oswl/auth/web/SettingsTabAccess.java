@@ -41,6 +41,10 @@ public class SettingsTabAccess {
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.LICENSE_POLICY_MANAGE)) {
             tabs.add(new TabSpec("license-policy", "📋", "settings.tab.licensePolicy"));
         }
+        if (principal.isSystemAdmin()
+                || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.POLICY_MANAGE)) {
+            tabs.add(new TabSpec("policy", "📜", "settings.tab.policy"));
+        }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
             tabs.add(new TabSpec("ai", "🤖", "settings.tab.ai"));
         }
