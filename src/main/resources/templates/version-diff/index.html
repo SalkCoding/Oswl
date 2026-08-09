@@ -183,6 +183,23 @@
             </div>
 
             <div th:unless="${#lists.isEmpty(diffRows)}">
+                <!-- A category tab with zero entries: say so instead of showing a blank table body -->
+                <div th:if="${addedCount == 0}" x-show="tab === 'added'" x-cloak
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                    <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
+                </div>
+                <div th:if="${removedCount == 0}" x-show="tab === 'removed'" x-cloak
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                    <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
+                </div>
+                <div th:if="${updatedCount == 0}" x-show="tab === 'updated'" x-cloak
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                    <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
+                </div>
+                <div th:if="${newThreatCount == 0}" x-show="tab === 'newThreat'" x-cloak
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                    <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
+                </div>
                 <div th:each="row, stat : ${diffRows}"
                      th:attr="data-change-type=${row.changeType}"
                      class="diff-row flex items-stretch border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)] transition-colors"

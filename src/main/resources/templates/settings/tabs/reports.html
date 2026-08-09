@@ -14,8 +14,14 @@
 
     <!-- API Error Banner -->
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
-         x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
+        <span x-text="apiError"></span>
+        <!-- Only a failed initial load offers Retry here — re-loading after a failed save
+             would discard the unsaved edits, so save errors rely on the Save button. -->
+        <button x-show="loadError" type="button" @click="apiError = null; loadError = false; load()"
+                class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
+                th:text="#{common.retry}">Retry</button>
+    </div>
 
     <!-- Settings Panel -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
@@ -129,6 +135,7 @@ function reportsTab() {
         },
         saving: false,
         apiError: null,
+        loadError: false,
         toastVisible: false,
         toastMsg: '',
 
@@ -145,13 +152,14 @@ function reportsTab() {
         async load() {
             try {
                 const r = await fetch('/api/settings/report-branding', { headers: oswlJsonHeaders() });
-                if (!r.ok) { this.apiError = _fetchErr(r, _reportsI18n.backendError); return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _reportsI18n.backendError); this.loadError = true; return; }
                 const d = await r.json();
                 this.form.companyName = d.companyName || '';
                 this.form.logoDataUri = d.logoDataUri || '';
                 this.form.headerText = d.headerText || '';
                 this.form.showCoverPage = !!d.showCoverPage;
-            } catch (e) { this.apiError = _reportsI18n.backendError; }
+                this.loadError = false;
+            } catch (e) { this.apiError = _reportsI18n.backendError; this.loadError = true; }
         },
 
         onLogoSelected(event) {

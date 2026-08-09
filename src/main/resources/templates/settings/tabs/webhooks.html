@@ -179,13 +179,23 @@
         <!-- Loading -->
         <div x-show="historyLoading" class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center" th:text="#{common.loading}">Loading…</div>
 
+        <!-- Load failure — without this a failed fetch renders as "No deliveries yet",
+             which reads as "nothing happened" rather than "something went wrong". -->
+        <div x-show="!historyLoading && historyError" x-cloak
+             class="py-[20px] text-center text-[13px] text-red-600 flex items-center justify-center gap-[10px]">
+            <span th:text="#{settings.webhooks.history.error}">Could not load delivery history.</span>
+            <button type="button" @click="loadHistory()"
+                    class="text-[12px] font-semibold text-red-700 hover:underline"
+                    th:text="#{common.retry}">Retry</button>
+        </div>
+
         <!-- Empty -->
-        <div x-show="!historyLoading && history.length === 0" x-cloak
+        <div x-show="!historyLoading && !historyError && history.length === 0" x-cloak
              class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center"
              th:text="#{settings.webhooks.history.empty}">No deliveries yet.</div>
 
         <!-- Table -->
-        <div x-show="!historyLoading && history.length > 0" x-cloak class="overflow-x-auto">
+        <div x-show="!historyLoading && !historyError && history.length > 0" x-cloak class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                 <tr class="border-b border-[var(--grayscale-15)]">
@@ -272,6 +282,7 @@ function webhooksTab() {
         toastMsg: '',
         history: [],
         historyLoading: false,
+        historyError: false,
         historyFilter: { status: '', eventType: '' },
 
         init() {
@@ -357,6 +368,7 @@ function webhooksTab() {
 
         async loadHistory() {
             this.historyLoading = true;
+            this.historyError = false;
             try {
                 const params = new URLSearchParams();
                 params.set('limit', '50');
@@ -365,8 +377,14 @@ function webhooksTab() {
                 const r = await fetch('/api/settings/webhooks/deliveries?' + params.toString());
                 if (r.ok) {
                     this.history = await r.json();
+                } else {
+                    this.historyError = true;
+                    this.history = [];
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                this.historyError = true;
+                this.history = [];
+            }
             this.historyLoading = false;
         },
 
