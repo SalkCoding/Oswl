@@ -17,6 +17,18 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
     List<ScanResult> findCompletedByProjectId(@Param("projectId") Long projectId);
 
     /**
+     * All completed scans for many projects in one query (org dashboard) — ordered per project
+     * by scannedAt DESC, so grouping the rows by project id in encounter order reproduces exactly
+     * what calling {@link #findCompletedByProjectId(Long)} once per project would return.
+     */
+    @Query("""
+            SELECT s FROM ScanResult s
+            WHERE s.project.id IN :projectIds AND s.status = 'COMPLETED'
+            ORDER BY s.project.id, s.scannedAt DESC
+            """)
+    List<ScanResult> findCompletedByProjectIdIn(@Param("projectIds") Collection<Long> projectIds);
+
+    /**
      * Most recent scan (any status) per project, batched for the project list page — one query
      * for every project instead of calling {@link #findLatestByProjectId(Long)} once per project.
      * A tie on {@code scannedAt} within the same project can return more than one row; the caller
