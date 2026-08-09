@@ -83,7 +83,7 @@ function deleteProject(projectId, projectName, cardEl) {
     })
     .then(r => {
         if (r.ok) {
-            setTimeout(() => cardEl.remove(), 200);
+            setTimeout(() => { cardEl.remove(); checkActiveEmpty(); }, 200);
             const option = document.querySelector(`select option[value="${projectId}"]`);
             if (option) option.remove();
             updateCounts(-1, 1);
@@ -116,6 +116,9 @@ function restoreOne(projectId, projectName, cardEl) {
         } else {
             showToast('', _p.restoreFailed || 'Failed to restore project.');
         }
+    })
+    .catch(() => {
+        showToast('', _p.restoreFailed || 'Failed to restore project.');
     });
 }
 
@@ -132,6 +135,9 @@ function permanentDeleteOne(projectId, projectName, cardEl) {
         } else {
             showToast('', _p.permanentDeleteFailed || 'Failed to permanently delete project.');
         }
+    })
+    .catch(() => {
+        showToast('', _p.permanentDeleteFailed || 'Failed to permanently delete project.');
     });
 }
 
@@ -149,6 +155,9 @@ function deleteAllPermanently() {
         } else {
             showToast('', _p.deleteAllFailed || 'Failed to delete all trashed projects.');
         }
+    })
+    .catch(() => {
+        showToast('', _p.deleteAllFailed || 'Failed to delete all trashed projects.');
     });
 }
 
@@ -174,6 +183,9 @@ function restoreSelected() {
         } else {
             showToast('', _p.restoreSelectedFailed || 'Failed to restore selected projects.');
         }
+    })
+    .catch(() => {
+        showToast('', _p.restoreSelectedFailed || 'Failed to restore selected projects.');
     });
 }
 
@@ -198,7 +210,28 @@ function deleteSelected() {
         } else {
             showToast('', _p.deleteSelectedFailed || 'Failed to delete selected projects.');
         }
+    })
+    .catch(() => {
+        showToast('', _p.deleteSelectedFailed || 'Failed to delete selected projects.');
     });
+}
+
+// 활성 프로젝트가 하나도 없을 때 empty-state 표시 ─────────────────────────────
+function checkActiveEmpty() {
+    const container = document.getElementById('project-cards-container');
+    if (!container) return;
+    const cards = container.querySelectorAll('.project-card');
+    const existing = container.querySelector('#projects-empty-state');
+    if (cards.length === 0 && !existing) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.id = 'projects-empty-state';
+        emptyDiv.className = 'col-span-3 flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]';
+        const label = _p.activeEmpty || 'No active projects yet. Import or create a project to get started.';
+        emptyDiv.innerHTML = `
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <p style="font-size:14px;font-weight:500;">${label}</p>`;
+        container.appendChild(emptyDiv);
+    }
 }
 
 // 휴지통 비었을 때 empty-state 표시 ─────────────────────────────────────────

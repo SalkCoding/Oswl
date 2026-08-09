@@ -298,7 +298,8 @@
                             </td>
                         </tr>
                     </template>
-                    <tr x-show="users.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.users.noUsers}">No users.</td></tr>
+                    <tr x-show="users.length===0 && !initialLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.users.noUsers}">No users.</td></tr>
+                    <tr x-show="initialLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]" th:text="#{common.loading}">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -922,7 +923,8 @@
                         </td>
                     </tr>
                 </template>
-                <tr x-show="auditLogs.length===0"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.noRecords}">No audit records.</td></tr>
+                <tr x-show="auditLogs.length===0 && !auditLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.noRecords}">No audit records.</td></tr>
+                <tr x-show="auditLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]" th:text="#{common.loading}">Loading…</td></tr>
                 </tbody>
             </table>
         </div>
@@ -1325,6 +1327,7 @@
                 return (requested && allowedFor[requested]) ? requested : fallback;
             })(),
             users: [], templates: [], allPermissions: [],
+            initialLoading: true,   // true until the first users/templates/permissions load settles
             sidebarMode: null,  // 'invite' | 'editUser' | 'newTemplate' | 'editTemplate' | null
             apiError: null,
             inviteError: null,
@@ -1340,6 +1343,7 @@
             editingTpl: null, tplForm: { name: '', description: '', permissions: [] },
             auditFilter: { dateRange: '7', actorEmail: '', action: '', dateFrom: '', dateTo: '' },
             auditLogs: [],
+            auditLoading: false,
             auditPage: 0, auditTotalPages: 0, auditTotalElements: 0, auditPageSize: 20,
             auditPsOpen: false,
             actorDropdownOpen: false,
@@ -1445,6 +1449,8 @@
                         await Promise.all([this.loadUsers(), this.loadTemplates(), this.loadPermissions()]);
                     } catch(e) {
                         this.apiError = e.message || _adminI18n.loadDataFailed;
+                    } finally {
+                        this.initialLoading = false;
                     }
                     try {
                         const r = await fetch('/api/settings/security');
@@ -1455,6 +1461,7 @@
                     } catch(_) {}
                     return;
                 }
+                this.initialLoading = false;
                 if (this.subTab === 'audit') this.loadAudit(0);
                 else if (this.subTab === 'snapshot') this.loadSnapshotStatus();
             },
@@ -1641,6 +1648,7 @@
                 if (this.auditFilter.action) params.set('action', this.auditFilter.action);
                 params.set('page', this.auditPage);
                 params.set('size', this.auditPageSize);
+                this.auditLoading = true;
                 try {
                     const r = await fetch('/api/admin/audit-logs?' + params.toString());
                     if (r.status === 401) { location.href = '/login'; return; }
@@ -1650,6 +1658,7 @@
                     this.auditTotalPages = data.page?.totalPages || data.totalPages || 0;
                     this.auditTotalElements = data.page?.totalElements || data.totalElements || 0;
                 } catch(e) { this.apiError = e.message || _adminI18n.auditLoadFailed; }
+                finally { this.auditLoading = false; }
             },
             pageRange() {
                 const total = this.auditTotalPages;

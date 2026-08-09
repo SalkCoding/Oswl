@@ -14,7 +14,12 @@
     </div>
 
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
+        <span x-text="apiError"></span>
+        <button type="button" @click="apiError = null; resetAndLoad()"
+                class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
+                th:text="#{common.retry}">Retry</button>
+    </div>
 
     <div class="bg-[var(--grayscale-10)] flex gap-[9px] h-[40px] items-center max-w-[560px] px-[14px] rounded-[75px] border border-transparent focus-within:border-[var(--primary-120)]">
         <img th:src="@{/icon/icon-search.svg}" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
@@ -295,13 +300,17 @@
             },
             async save(entry) {
                 this.apiError = null;
-                const encoded = encodeURIComponent(entry.spdxId);
-                const r = await fetch('/api/settings/license-policy/' + encoded, {
-                    method: 'PUT', headers: this.headers(), body: JSON.stringify({ status: entry.status })
-                });
-                if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.saveFailed); return; }
-                this.showToast(_licensePolicyI18n.saved);
+                try {
+                    const encoded = encodeURIComponent(entry.spdxId);
+                    const r = await fetch('/api/settings/license-policy/' + encoded, {
+                        method: 'PUT', headers: this.headers(), body: JSON.stringify({ status: entry.status })
+                    });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.saveFailed); return; }
+                    this.showToast(_licensePolicyI18n.saved);
+                } catch (e) {
+                    this.apiError = _licensePolicyI18n.saveFailed;
+                }
             }
         };
     }

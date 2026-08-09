@@ -14,7 +14,12 @@
 
     <!-- API Error -->
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
+        <span x-text="apiError"></span>
+        <button type="button" @click="apiError = null; load()"
+                class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
+                th:text="#{common.retry}">Retry</button>
+    </div>
 
     <!-- Policy card -->
     <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
@@ -197,10 +202,15 @@
             },
             async clearAll() {
                 this.clearConfirm = false;
-                const r = await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
-                if (r.status === 401) { location.href = '/login'; return; }
-                await this.load();
-                this.showToast(_cacheI18n.cleared);
+                try {
+                    const r = await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.saveFailed); return; }
+                    await this.load();
+                    this.showToast(_cacheI18n.cleared);
+                } catch (e) {
+                    this.apiError = _cacheI18n.saveFailed;
+                }
             }
         };
     }

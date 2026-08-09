@@ -311,7 +311,7 @@ function securityTab() {
         async load() {
             try {
                 const r = await fetch('/api/settings/security');
-                if (!r.ok) return;
+                if (!r.ok) { this.apiError = _securityI18n.backendNotConnected; return; }
                 const d = await r.json();
                 if (d.mailMode)  this.mailMode  = d.mailMode;
                 if (d.twoFaMode) this.twoFaMode = d.twoFaMode;
@@ -323,7 +323,7 @@ function securityTab() {
                     if (d.mail.senderName    != null) this.mailForm.senderName    = d.mail.senderName;
                     if (d.mail.senderAddress != null) this.mailForm.senderAddress = d.mail.senderAddress;
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) { this.apiError = _securityI18n.backendNotConnected; }
         },
 
         showToast(msg) {
