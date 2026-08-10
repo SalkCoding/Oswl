@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/head :: head(#{mobile.pageTitle})}"></head>
+<body class="min-h-screen bg-[var(--grayscale-5)]">
+
+<div x-data="mobileDashboard()" class="max-w-[480px] mx-auto min-h-screen flex flex-col">
+
+    <!-- Minimal header — deliberately not the desktop topbar/sidebar. This is a phone-sized
+         companion view for notifications only; everything else stays desktop-only. -->
+    <header class="bg-[var(--background-dark)] text-white px-[16px] py-[14px] flex items-center justify-between sticky top-0 z-10 shadow-sm">
+        <span class="font-bold text-[16px] tracking-[-0.16px]">OsWL</span>
+        <a th:href="@{/projects}" class="text-white/70 hover:text-white text-[12px] no-underline" th:text="#{mobile.desktopSite}">Desktop site</a>
+    </header>
+
+    <main class="flex-1 flex flex-col gap-[20px] p-[16px]">
+
+        <!-- ===================== WAIVERS AWAITING APPROVAL ===================== -->
+        <section th:if="${canManagePolicy}" class="flex flex-col gap-[10px]">
+            <h2 class="font-bold text-[15px] text-[var(--grayscale-100)] tracking-[-0.15px]" th:text="#{mobile.waivers.heading}">Waivers awaiting approval</h2>
+
+            <div x-show="waiverList.length === 0" x-cloak
+                 class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[16px] py-[20px] text-center text-[13px] text-[var(--grayscale-50)]"
+                 th:text="#{mobile.waivers.empty}">No pending waivers.</div>
+
+            <template x-for="w in waiverList" :key="w.id">
+                <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[14px] flex flex-col gap-[8px]">
+                    <div class="flex items-start justify-between gap-[8px]">
+                        <span class="font-semibold text-[13px] text-[var(--grayscale-90)]" x-text="w.projectName"></span>
+                        <span class="text-[11px] text-[var(--grayscale-50)] shrink-0" x-text="w.targetType"></span>
+                    </div>
+                    <p class="text-[12px] text-[var(--grayscale-70)] leading-[1.4]" x-text="w.reason"></p>
+                    <p class="text-[11px] text-[var(--grayscale-50)]">
+                        <span x-text="w.requesterName"></span> · <span x-text="w.expiry"></span>
+                    </p>
+                    <div class="flex gap-[8px] pt-[4px]">
+                        <button type="button" @click="approve(w)"
+                                class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-semibold rounded-[8px] py-[9px]"
+                                th:text="#{mobile.waivers.approve}">Approve</button>
+                        <button type="button" @click="revoke(w)"
+                                class="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-[13px] font-semibold rounded-[8px] py-[9px]"
+                                th:text="#{mobile.waivers.revoke}">Revoke</button>
+                    </div>
+                </div>
+            </template>
+        </section>
+
+        <!-- ===================== NEW CVE ALERTS ===================== -->
+        <section class="flex flex-col gap-[10px]">
+            <h2 class="font-bold text-[15px] text-[var(--grayscale-100)] tracking-[-0.15px]" th:text="#{mobile.alerts.heading}">New CVE alerts</h2>
+
+            <div x-show="alertGroups.length === 0" x-cloak
+                 class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[16px] py-[20px] text-center text-[13px] text-[var(--grayscale-50)]"
+                 th:text="#{mobile.alerts.empty}">All clear — no new alerts.</div>
+
+            <template x-for="group in alertGroups" :key="group.projectId">
+                <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[14px] flex flex-col gap-[10px]">
+                    <div class="flex items-center justify-between gap-[8px]">
+                        <span class="font-semibold text-[13px] text-[var(--grayscale-90)]" x-text="group.projectName"></span>
+                        <button type="button" @click="acknowledge(group)"
+                                class="text-[12px] font-semibold text-[var(--primary-120)] hover:underline shrink-0"
+                                th:text="#{mobile.alerts.acknowledgeAll}">Mark all seen</button>
+                    </div>
+                    <template x-for="a in group.alerts" :key="a.id">
+                        <div class="flex items-start gap-[8px] border-t border-[var(--grayscale-10)] pt-[8px] first:border-t-0 first:pt-0">
+                            <span class="w-[8px] h-[8px] rounded-full mt-[4px] shrink-0" :style="'background:' + severityColor(a.severity)"></span>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[12px] font-medium text-[var(--grayscale-90)] truncate">
+                                    <span x-text="a.libraryName"></span><span x-show="a.libraryVersion"> @<span x-text="a.libraryVersion"></span></span>
+                                </p>
+                                <p class="text-[11px] text-[var(--grayscale-50)]" x-text="a.vulnId"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </section>
+
+    </main>
+
+    <!-- Toast -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[24px] left-1/2 -translate-x-1/2 z-[120] px-[18px] py-[12px] rounded-[100px]"
+         style="background: rgba(0,29,53,0.92); backdrop-filter: blur(6px);">
+        <span class="font-medium text-[13px] text-[#f4fefc] whitespace-nowrap" x-text="toastMsg"></span>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const _mobileI18n = {
+        approveFailed: /*[[#{mobile.waivers.error.approveFailed}]]*/ 'Failed to approve waiver.',
+        revokeFailed:  /*[[#{mobile.waivers.error.revokeFailed}]]*/ 'Failed to revoke waiver.',
+        ackFailed:     /*[[#{mobile.alerts.error.ackFailed}]]*/ 'Failed to mark alerts as seen.',
+        approved:      /*[[#{mobile.waivers.approved}]]*/ 'Waiver approved.',
+        revoked:       /*[[#{mobile.waivers.revoked}]]*/ 'Waiver revoked.',
+        acknowledged:  /*[[#{mobile.alerts.acknowledged}]]*/ 'Marked as seen.'
+    };
+    const _mobileWaivers = /*[[${waivers}]]*/ [];
+    const _mobileAlertGroups = /*[[${alerts}]]*/ [];
+</script>
+<script>
+    function mobileDashboard() {
+        return {
+            waiverList: _mobileWaivers,
+            alertGroups: _mobileAlertGroups,
+            toastVisible: false,
+            toastMsg: '',
+
+            showToast(msg) {
+                this.toastMsg = msg;
+                this.toastVisible = true;
+                setTimeout(() => { this.toastVisible = false; }, 2200);
+            },
+            severityColor(sev) {
+                switch (sev) {
+                    case 'CRITICAL': return 'var(--risk-critical)';
+                    case 'HIGH': return 'var(--risk-high)';
+                    case 'MEDIUM': return 'var(--risk-medium)';
+                    case 'LOW': return 'var(--risk-low)';
+                    default: return 'var(--risk-unknown)';
+                }
+            },
+            async approve(w) {
+                try {
+                    const r = await fetch('/api/policies/exceptions/' + w.id + '/approve', { method: 'POST' });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.showToast(_mobileI18n.approveFailed); return; }
+                    this.waiverList = this.waiverList.filter(x => x.id !== w.id);
+                    this.showToast(_mobileI18n.approved);
+                } catch (e) {
+                    this.showToast(_mobileI18n.approveFailed);
+                }
+            },
+            async revoke(w) {
+                try {
+                    const r = await fetch('/api/policies/exceptions/' + w.id + '/revoke', { method: 'POST' });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.showToast(_mobileI18n.revokeFailed); return; }
+                    this.waiverList = this.waiverList.filter(x => x.id !== w.id);
+                    this.showToast(_mobileI18n.revoked);
+                } catch (e) {
+                    this.showToast(_mobileI18n.revokeFailed);
+                }
+            },
+            async acknowledge(group) {
+                try {
+                    const r = await fetch('/projects/' + group.projectId + '/cve-alerts/acknowledge', { method: 'POST' });
+                    if (r.status === 401) { location.href = '/login'; return; }
+                    if (!r.ok) { this.showToast(_mobileI18n.ackFailed); return; }
+                    this.alertGroups = this.alertGroups.filter(g => g.projectId !== group.projectId);
+                    this.showToast(_mobileI18n.acknowledged);
+                } catch (e) {
+                    this.showToast(_mobileI18n.ackFailed);
+                }
+            }
+        };
+    }
+</script>
+</body>
+</html>

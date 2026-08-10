@@ -44,6 +44,7 @@
                 <div class="text-amber-300 text-[10px] mt-[2px]" sec:authorize="hasRole('SYSTEM_ADMIN')" th:text="#{topbar.userMenu.systemAdmin}">★ System Admin</div>
             </div>
             <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">Setting</a>
+            <a th:href="@{/mobile}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.mobileView}">Mobile notifications</a>
             <a th:href="@{/my/change-password}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.changePassword}">Change Password</a>
             <div class="border-t border-white/15 my-[2px]"></div>
             <div class="flex flex-col gap-[4px]">

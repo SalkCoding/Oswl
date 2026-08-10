@@ -137,6 +137,9 @@ oswl:
       # other instances. Worst-case propagation delay of a settings change in a multi-instance
       # deployment equals this interval.
       poll-interval-ms: ${OSWL_CACHE_INVALIDATION_POLL_INTERVAL_MS:5000}
+    # TTL for deps.dev version metadata (isLatestVersion / deprecated / latestVersion / scorecard)
+    # on cache-hit libraries. The full CVE/license TTL stays in Cache Settings (DEPS_DEV).
+    version-meta-ttl-seconds: ${OSWL_VERSION_META_TTL_SEC:86400}
   clone:
     # Directory for temporary git clones during Quick Import.
     # Defaults to system temp directory if left blank.
@@ -173,10 +176,6 @@ oswl:
     # scan_components/dependency_paths rows deleted; only the aggregate severity/license counts
     # remain on the scan itself. Irreversible.
     retain-scans-per-project: ${OSWL_ARCHIVE_RETAIN_SCANS:20}
-  cache:
-    # TTL for deps.dev version metadata (isLatestVersion / deprecated / latestVersion / scorecard)
-    # on cache-hit libraries. The full CVE/license TTL stays in Cache Settings (DEPS_DEV).
-    version-meta-ttl-seconds: ${OSWL_VERSION_META_TTL_SEC:86400}
   client:
     # HTTP timeouts for the deps.dev / OSV enrichment clients. Without these, a stalled
     # upstream call previously hung indefinitely and held a deps.dev concurrency permit forever.
