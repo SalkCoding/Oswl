@@ -215,12 +215,12 @@ oswl:
     # Import a snapshot bundle first (POST /api/admin/snapshot/import, SYSTEM_ADMIN only);
     # components absent from the snapshot resolve as "no data" (empty results).
     enabled: ${OSWL_AIRGAPPED_ENABLED:false}
-    # E3: server-path import (POST /api/admin/snapshot/import-from-path) only accepts files
+    # Server-path import (POST /api/admin/snapshot/import-from-path) only accepts files
     # under this directory — a realpath-verified whitelist (CloneRootPathGuard), since arbitrary
     # server-path reads would otherwise be an admin-triggered file-read vulnerability. Blank
     # disables the endpoint entirely (returns 400) — an operator must opt in to a specific path.
     import-dir: ${OSWL_AIRGAPPED_IMPORT_DIR:}
-    # E7: definition-DB staleness thresholds, measured from the oldest per-source "as of" date
+    # Definition-DB staleness thresholds, measured from the oldest per-source "as of" date
     # across the imported snapshot (not builtAt/importedAt — see AirgappedSnapshotService).
     staleness-warn-days: ${OSWL_AIRGAPPED_STALENESS_WARN_DAYS:7}
     staleness-critical-days: ${OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS:30}
@@ -240,13 +240,13 @@ oswl:
     # Default off — turning this on for an existing project can surprise-fail its next CI run.
     fail-on-secrets: ${OSWL_GATE_FAIL_ON_SECRETS:false}
   ai:
-    # D2: stream free-form AI calls (security posture / trend / version diff) token-by-token
+    # Stream free-form AI calls (security posture / trend / version diff) token-by-token
     # over OpenAI-compatible SSE so the Quick Import panel can show a live preview. Endpoints
     # that reject streaming fall back to the plain non-streaming call automatically; batch
-    # (JSON) calls never stream. Disable to force the pre-D2 behavior everywhere.
+    # (JSON) calls never stream. Disable to force non-streaming behavior everywhere.
     streaming-enabled: ${OSWL_AI_STREAMING_ENABLED:true}
     anthropic:
-      # F4: mark the (per-provider fixed) system prompt as an ephemeral cache breakpoint so
+      # Mark the (per-provider fixed) system prompt as an ephemeral cache breakpoint so
       # repeat calls within Anthropic's cache TTL are billed as cache reads. Disable if a
       # future Anthropic API/beta-header change makes this incompatible with the account.
       prompt-caching-enabled: ${OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED:true}
@@ -272,25 +272,20 @@ oswl:
       extra-args: ${OSWL_EMBEDDED_AI_EXTRA_ARGS:}
       # GPU model loading can take longer than the previous fixed 90s wait.
       startup-timeout-seconds: ${OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC:120}
-      # G4: default-model-url/sha256/size-bytes are always a matched set — changing the URL
-      # without updating the SHA256 to match makes every download fail checksum verification
-      # (by design: this is the integrity check, not a bug to work around).
+      # default-model-url/sha256/size-bytes are always a matched set — changing the URL without
+      # updating the SHA256 to match makes every download fail checksum verification (by design:
+      # this is the integrity check, not a bug to work around).
       #
-      # Points at the upstream ggml-org/Qwen3-1.7B-GGUF asset. G2 decided to self-host this on
-      # OsWL's own GitHub Release (tag "models-v1"), but that asset has not been uploaded yet and
-      # the URL 404s, so the self-hosted URL is NOT the default — a default that always fails and
-      # silently leans on a fallback is worse than pointing at the host that actually serves it.
-      # To switch to self-hosting once the asset is uploaded, verify it resolves and override:
-      #   OSWL_EMBEDDED_DEFAULT_MODEL_URL=https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf
-      # The SHA256 below is the upstream file's, so a byte-identical re-host needs no other change.
-      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}
+      # Self-hosted on OsWL's own GitHub Release (tag "models-v1", asset uploaded and verified
+      # byte-identical to the upstream ggml-org/Qwen3-1.7B-GGUF file — same size and SHA256 below)
+      # so networks that block huggingface.co but allow github.com can still fetch the default
+      # model. Falls back to the original Hugging Face URL if the GitHub asset is ever unreachable.
+      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf}
       default-model-sha256: ${OSWL_EMBEDDED_DEFAULT_MODEL_SHA256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}
       default-model-size-bytes: ${OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES:1282439264}
-      # Retried once if the primary URL fails (network error / non-200). Empty by default: with
-      # the primary already pointing upstream there is no second host to fall back to. Set this
-      # to the upstream URL when you override default-model-url with a self-hosted mirror.
-      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:}
-      # G5: prefetches the default model in the background on boot (if none is present yet) so
+      # Retried once if the primary URL fails (network error / non-200).
+      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}
+      # Prefetches the default model in the background on boot (if none is present yet) so
       # a user who later visits Settings and clicks Start does not hit a surprise 1.2GB download.
       # Download-only — never starts the sidecar or changes the active AI provider on its own.
       # Never attempted in air-gapped mode regardless of this setting (oswl.airgapped.enabled).
