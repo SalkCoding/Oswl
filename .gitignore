@@ -65,5 +65,5 @@ htmlReport
 .claude
 
 # Local-only planning/verification artifacts
-/ROADMAP.md
+/ROADMAP*.md
 /e6verify/
