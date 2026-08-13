@@ -36,10 +36,12 @@ embedded-ai/
 실행합니다. 카드에 실시간 다운로드 진행률이 표시되며, `java -jar app.jar`만으로 전 과정이
 끝납니다. 별도 스크립트나 빌드 단계가 필요 없습니다. 이렇게 할 수 있는 이유는 Qwen3가 Apache 2.0
 라이선스이기 때문입니다([THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)
-참고) — 사용자를 대신해 받아오는 데 별도 재배포 의무가 없습니다. 모델은 기본적으로 업스트림
-[Hugging Face 저장소](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)에서 다운로드됩니다.
-서드파티 호스트에 의존하고 싶지 않다면 `OSWL_EMBEDDED_DEFAULT_MODEL_URL`을 바이트 단위로
-동일한 자체 호스팅 미러로 지정하세요.
+참고) — 사용자를 대신해 받아오는 데 별도 재배포 의무가 없습니다. 모델은 기본적으로 OsWL 자체
+[GitHub Release 자산](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)에서
+다운로드됩니다(업스트림 파일과 바이트 단위로 동일한 사본) — 사내망에서 `huggingface.co`는 막혀
+있고 `github.com`은 허용되는 환경이 흔하기 때문입니다. 이 자산에 접근할 수 없으면 업스트림
+[Hugging Face 저장소](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)로 1회 재시도합니다.
+다른 미러를 쓰려면 `OSWL_EMBEDDED_DEFAULT_MODEL_URL`로 1차 소스를 재정의하세요.
 
 기본 모델 URL, SHA256, 크기 설정은 한 세트로 묶인 값입니다. URL만 바꾸고 SHA256/크기를 맞추지
 않으면 모든 다운로드가 체크섬 검증 실패로 거부됩니다.
@@ -67,10 +69,10 @@ embedded-ai/
 | `oswl.ai.embedded.cache-reuse` | `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | 프리픽스 캐시 재사용(`--cache-reuse N`); `<=0`이면 비활성화 |
 | `oswl.ai.embedded.extra-args` | `OSWL_EMBEDDED_AI_EXTRA_ARGS` | (비어 있음) | 추가 llama-server CLI 인자를 공백으로 구분해 그대로 덧붙임 — 서버 설정 전용이며 요청 입력에서 받지 않음 |
 | `oswl.ai.embedded.startup-timeout-seconds` | `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | 모델 후보 한 개가 healthy 상태가 될 때까지 기다리는 최대 시간(초) |
-| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | 업스트림 Hugging Face `ggml-org/Qwen3-1.7B-GGUF` 자산 | 기본 Qwen3 모델의 1차 다운로드 소스 |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL GitHub Release `models-v1` 자산 | 기본 Qwen3 모델의 1차 다운로드 소스 |
 | `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | (THIRD_PARTY_LICENSES.md 참고) | 기대 SHA256 — URL과 항상 함께 변경 |
 | `oswl.ai.embedded.default-model-size-bytes` | `OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES` | `1282439264` | 기대 파일 크기(바이트). 진행률 바를 미리 채우는 데 사용되며, URL/SHA256과 같은 세트입니다 |
-| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | (비어 있음) | 1차 URL 실패 시 1회 재시도. 1차를 자체 호스팅 미러로 바꿀 때 이 값에 업스트림 URL을 지정하세요 |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | 업스트림 Hugging Face `ggml-org/Qwen3-1.7B-GGUF` 자산 | 1차 URL 실패 시 1회 재시도. 1차와 바이트 단위로 동일해야 함(같은 SHA256) |
 | `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 부팅 시 백그라운드로 기본 모델을 미리 받음; `oswl.airgapped.enabled=true`면 절대 실행 안 함 |
 
 ---

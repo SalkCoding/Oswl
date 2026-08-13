@@ -38,9 +38,12 @@ download progress, and the whole thing runs from just `java -jar app.jar`, no se
 script or build step needed. This is safe because Qwen3 is Apache 2.0 licensed (see
 [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)) — bundling/fetching it
 on the user's behalf carries no extra redistribution obligation. The model is downloaded from
-the upstream [Hugging Face repository](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) by
-default; point `OSWL_EMBEDDED_DEFAULT_MODEL_URL` at a byte-identical self-hosted mirror if you
-would rather not depend on a third-party host.
+OsWL's own [GitHub Release asset](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)
+by default — a byte-identical copy of the upstream file — because networks that block
+`huggingface.co` while allowing `github.com` are common. If that asset is unreachable, the
+download retries once against the upstream
+[Hugging Face repository](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF). Point
+`OSWL_EMBEDDED_DEFAULT_MODEL_URL` at your own mirror to override the primary source.
 
 Treat the default-model URL, SHA256, and size settings as a matched set: if you override the
 URL, you must also update the SHA256 and size to match, or every download will fail checksum
@@ -69,10 +72,10 @@ Configuration defaults (a folder saved in the UI takes precedence over `dir`):
 | `oswl.ai.embedded.cache-reuse` | `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse N` for prefix-cache reuse across calls; `<=0` disables |
 | `oswl.ai.embedded.extra-args` | `OSWL_EMBEDDED_AI_EXTRA_ARGS` | (empty) | Extra llama-server CLI args, appended verbatim — server config only, never taken from request input |
 | `oswl.ai.embedded.startup-timeout-seconds` | `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | How long each model candidate gets per launch attempt to become healthy |
-| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | Upstream Hugging Face `ggml-org/Qwen3-1.7B-GGUF` asset | Primary download source for the default Qwen3 model |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL GitHub Release `models-v1` asset | Primary download source for the default Qwen3 model |
 | `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | (see THIRD_PARTY_LICENSES.md) | Expected SHA256 — always change together with the URL |
 | `oswl.ai.embedded.default-model-size-bytes` | `OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES` | `1282439264` | Expected size, used to pre-fill the download progress bar — part of the same matched set as URL/SHA256 |
-| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | (empty) | Retried once if the primary URL fails; set this to the upstream URL when you override the primary with a self-hosted mirror |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Upstream Hugging Face `ggml-org/Qwen3-1.7B-GGUF` asset | Retried once if the primary URL fails; must be byte-identical to the primary (same SHA256) |
 | `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | Prefetch the default model in the background on boot; never runs when `oswl.airgapped.enabled=true` |
 
 ---

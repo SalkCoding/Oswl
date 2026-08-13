@@ -36,9 +36,12 @@ embedded-ai/
 `java -jar app.jar` だけですべてが完結します — 別のスクリプトやビルド手順は不要です。Qwen3 は
 Apache 2.0 ライセンスのため（[THIRD_PARTY_LICENSES.md](../../THIRD_PARTY_LICENSES.md#qwen3-17b-gguf)
 参照）、これは安全です — ユーザーに代わって取得・同梱しても追加の再配布義務は発生しません。モデルは
-既定で上流の [Hugging Face リポジトリ](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)から
-ダウンロードされます。サードパーティのホストに依存したくない場合は、
-`OSWL_EMBEDDED_DEFAULT_MODEL_URL` にバイト単位で同一の自己ホスティングミラーを指定してください。
+既定で OsWL 自身の [GitHub Release アセット](https://github.com/SalkCoding/Oswl/releases/tag/models-v1)
+からダウンロードされます（上流ファイルとバイト単位で同一のコピー）— 社内ネットワークでは
+`huggingface.co` が遮断され `github.com` は許可されている環境が多いためです。このアセットに
+到達できない場合は、上流の [Hugging Face リポジトリ](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF)
+に 1 回だけ再試行します。別のミラーを使う場合は `OSWL_EMBEDDED_DEFAULT_MODEL_URL` で一次ソースを
+上書きしてください。
 
 既定モデルの URL、SHA256、サイズの各設定は 1 つの組として扱ってください。URL だけを変更して
 SHA256 やサイズを合わせないと、すべてのダウンロードがチェックサム検証で失敗します。
@@ -64,10 +67,10 @@ SHA256 やサイズを合わせないと、すべてのダウンロードがチ�
 | `oswl.ai.embedded.cache-reuse` | `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | 呼び出し間でのプレフィックスキャッシュ再利用のための `--cache-reuse N`；`<=0` で無効化 |
 | `oswl.ai.embedded.extra-args` | `OSWL_EMBEDDED_AI_EXTRA_ARGS` | （空） | llama-server の CLI 追加引数をそのまま付加します — サーバー設定専用で、リクエスト入力からは決して取得されません |
 | `oswl.ai.embedded.startup-timeout-seconds` | `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | 各モデル候補が healthy になるまで、起動試行ごとに許容される時間（秒） |
-| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | 上流の Hugging Face `ggml-org/Qwen3-1.7B-GGUF` アセット | 既定 Qwen3 モデルの一次ダウンロード元 |
+| `oswl.ai.embedded.default-model-url` | `OSWL_EMBEDDED_DEFAULT_MODEL_URL` | OsWL GitHub Release `models-v1` アセット | 既定 Qwen3 モデルの一次ダウンロード元 |
 | `oswl.ai.embedded.default-model-sha256` | `OSWL_EMBEDDED_DEFAULT_MODEL_SHA256` | （THIRD_PARTY_LICENSES.md 参照） | 期待される SHA256 — URL と必ず同時に変更 |
 | `oswl.ai.embedded.default-model-size-bytes` | `OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES` | `1282439264` | 想定サイズ（バイト）。ダウンロード進捗バーの初期表示に使用され、URL/SHA256 と同じ組として扱います |
-| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | （空） | 一次 URL 失敗時に 1 回だけ再試行。一次を自己ホスティングミラーに変更する場合は、この値に上流 URL を指定してください |
+| `oswl.ai.embedded.fallback-model-url` | `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | 上流の Hugging Face `ggml-org/Qwen3-1.7B-GGUF` アセット | 一次 URL 失敗時に 1 回だけ再試行。一次とバイト単位で同一である必要があります（同じ SHA256） |
 | `oswl.ai.embedded.auto-download-on-boot` | `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 起動時にバックグラウンドで既定モデルを先読み；`oswl.airgapped.enabled=true` の場合は実行されない |
 
 ---
