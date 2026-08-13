@@ -141,6 +141,12 @@ GET http://localhost:8080/data/test-api-key
 
 ---
 
+## UI/Accessibility Test Harness (developer-only)
+
+`./gradlew uiTest` boots the real application on a random port and drives it with headless Chromium via Playwright, then runs an axe-core accessibility audit on each page it visits — catching things a curl-based smoke check structurally cannot see (Alpine.js actually initializing, a click firing the expected DOM update, real WCAG contrast/landmark issues on the rendered page). It is deliberately kept separate from `./gradlew test`/`check` since it downloads a browser (hundreds of MB, cached after the first run under `%LOCALAPPDATA%\ms-playwright` / `~/.cache/ms-playwright`) and boots a full Spring context; run it explicitly when working on templates, JS, or accessibility. Reports land in `build/reports/axe/`. In an offline/air-gapped build environment, pre-populate that browser cache and point the `PLAYWRIGHT_BROWSERS_PATH` environment variable at it instead of relying on the automatic download.
+
+---
+
 ## Access control (recommended reading)
 
 * [Authorization layers](Authorization-Layers.md) — role templates (Admin / Developer / Viewer) vs project membership

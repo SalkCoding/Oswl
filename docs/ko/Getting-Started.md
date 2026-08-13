@@ -141,6 +141,12 @@ GET http://localhost:8080/data/test-api-key
 
 ---
 
+## UI/접근성 테스트 하네스 (개발자 전용)
+
+`./gradlew uiTest`는 실제 애플리케이션을 임의 포트로 기동한 뒤 Playwright로 헤드리스 Chromium을 구동해 화면을 조작하고, 방문하는 각 페이지에 axe-core 접근성 감사를 실행한다. curl 기반 스모크 테스트로는 원리적으로 확인할 수 없는 것들 — Alpine.js가 실제로 초기화되는지, 클릭이 기대한 DOM 갱신을 일으키는지, 실제 렌더된 페이지의 WCAG 명암비·랜드마크 위반 여부 — 를 잡아낸다. 브라우저를 내려받고(수백 MB, 최초 실행 후 `%LOCALAPPDATA%\ms-playwright` / `~/.cache/ms-playwright`에 캐시됨) 전체 Spring 컨텍스트를 기동해야 하므로 `./gradlew test`/`check`와 의도적으로 분리되어 있다 — 템플릿·JS·접근성 작업 시 명시적으로 실행할 것. 리포트는 `build/reports/axe/`에 남는다. 폐쇄망 빌드 환경에서는 브라우저 캐시를 미리 채워두고 `PLAYWRIGHT_BROWSERS_PATH` 환경 변수로 그 경로를 가리키게 하면 자동 다운로드에 의존하지 않을 수 있다.
+
+---
+
 ## 접근 제어 (권장)
 
 * [권한 레이어](Authorization-Layers.md) — 역할 템플릿 vs 프로젝트 멤버십

@@ -141,6 +141,12 @@ GET http://localhost:8080/data/test-api-key
 
 ---
 
+## UI/アクセシビリティ テストハーネス（開発者専用）
+
+`./gradlew uiTest` は実際のアプリケーションをランダムなポートで起動し、Playwright 経由のヘッドレス Chromium で操作したうえで、訪れる各ページに axe-core のアクセシビリティ監査を実行する。curl ベースのスモークテストでは原理的に確認できないこと——Alpine.js が実際に初期化されるか、クリックが期待どおりの DOM 更新を発火するか、実際にレンダリングされたページの WCAG コントラスト・ランドマーク違反——を検出できる。ブラウザのダウンロード（数百 MB、初回実行後は `%LOCALAPPDATA%\ms-playwright` / `~/.cache/ms-playwright` にキャッシュ）と Spring コンテキスト全体の起動を伴うため、`./gradlew test`/`check` とは意図的に分離してある。テンプレート・JS・アクセシビリティ関連の作業時に明示的に実行すること。レポートは `build/reports/axe/` に出力される。オフライン(エアギャップ)ビルド環境では、ブラウザキャッシュを事前に用意し `PLAYWRIGHT_BROWSERS_PATH` 環境変数でそのパスを指定すれば、自動ダウンロードに頼らずに済む。
+
+---
+
 ## アクセス制御（推奨読み物）
 
 * [権限レイヤー](Authorization-Layers.md) — ロールテンプレート（Admin / Developer / Viewer）とプロジェクトメンバーシップの違い

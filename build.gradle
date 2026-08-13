@@ -31,6 +31,22 @@ sourceSets {
 		compileClasspath += sourceSets.local.output
 		runtimeClasspath += sourceSets.local.output
 	}
+	// Playwright-driven UI/accessibility tests against a live app instance (ROADMAP v1.0.5.1 — V1).
+	// Deliberately separate from `test`: needs a browser download (hundreds of MB) and a real
+	// Spring Boot boot, so it must never run as part of the default `./gradlew test`/`check`.
+	uiTest {
+		java {
+			srcDir 'src/uiTest/java'
+		}
+		// resources default to src/uiTest/resources by convention — no extra srcDir needed.
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.local.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.local.output
+	}
+}
+
+configurations {
+	uiTestImplementation.extendsFrom testImplementation
+	uiTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 repositories {
@@ -92,6 +108,14 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	// Headless-browser UI/accessibility verification (ROADMAP v1.0.5.1 — V1). Java-native: no
+	// package.json/npm needed, same "standalone binary, self-managed" spirit as the Tailwind CLI
+	// and esbuild downloads below — Playwright's own CLI fetches its browser binaries on demand.
+	uiTestImplementation 'com.microsoft.playwright:playwright:1.52.0'
+	uiTestImplementation 'com.deque.html.axe-core:playwright:4.10.1'
+	uiTestCompileOnly 'org.projectlombok:lombok'
+	uiTestAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -175,6 +199,36 @@ tasks.named('compileTestJava') {
 
 tasks.named('test') {
 	dependsOn compileLocalJava
+}
+
+tasks.named('compileUiTestJava') {
+	dependsOn compileLocalJava
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Playwright + axe-core UI verification (ROADMAP v1.0.5.1 — V1)
+//
+// `./gradlew uiTest` boots the real app (@SpringBootTest RANDOM_PORT) and drives it with a
+// headless Chromium via Playwright. Kept out of `test`/`check` on purpose — see sourceSets.uiTest
+// above. In an offline/air-gapped build environment, pre-populate the browser cache and point
+// PLAYWRIGHT_BROWSERS_PATH at it instead of relying on installPlaywrightBrowsers' download.
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.register('installPlaywrightBrowsers', JavaExec) {
+	description = 'Downloads the Playwright Chromium browser binary into the local Playwright cache (cached; run once or after a Playwright version bump).'
+	group = 'verification'
+	classpath = configurations.uiTestRuntimeClasspath
+	mainClass = 'com.microsoft.playwright.CLI'
+	args = ['install', 'chromium']
+}
+
+tasks.register('uiTest', Test) {
+	description = 'Runs Playwright-driven UI and axe-core accessibility tests against a live app instance. Not part of test/check — run explicitly.'
+	group = 'verification'
+	dependsOn 'installPlaywrightBrowsers'
+	testClassesDirs = sourceSets.uiTest.output.classesDirs
+	classpath = sourceSets.uiTest.runtimeClasspath
+	useJUnitPlatform()
+	shouldRunAfter test
 }
 
 jacoco {
