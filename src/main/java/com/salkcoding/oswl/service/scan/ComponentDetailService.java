@@ -36,6 +36,8 @@ import com.salkcoding.oswl.service.ai.AiStructuredSummary;
 import com.salkcoding.oswl.service.ai.AiLanguageContext;
 import com.salkcoding.oswl.service.ai.AiUsageContext;
 import com.salkcoding.oswl.service.cvss.CvssV3Calculator;
+import com.salkcoding.oswl.service.cvss.CvssV4Calculator;
+import com.salkcoding.oswl.service.cvss.CvssVectorVersion;
 import com.salkcoding.oswl.service.cvss.EnvironmentalRequirementMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -276,7 +278,7 @@ public class ComponentDetailService {
                         .ghsaId(c.getGhsaId())
                         .title(c.getTitle())
                         .severity(c.getSeverity() != null ? c.getSeverity().name() : "NONE")
-                        .cvssScore(c.getCvssScore() != null ? c.getCvssScore() : 0.0)
+                        .cvssScore(resolveCvssScore(c))
                         .cvss3Vector(c.getCvss3Vector())
                         .cweId(c.getCweId())
                         .summary(c.getSummary())
@@ -295,18 +297,43 @@ public class ComponentDetailService {
     }
 
     /**
-     * CVSS v3.0/v3.1 Environmental score for one CVE (ROADMAP A5) — {@code null} when the CVE
-     * has no CVSS v3 vector (e.g. CVSS v4.0, or no CVSS data at all; see {@link CvssV3Calculator}
-     * for why v4.0 isn't scored).
+     * The CVE's displayed score — the score reported directly by the data source (deps.dev/NVD/
+     * GitHub Advisory) when present, falling back to computing the CVSS Base Score from the
+     * stored vector (v3.x via {@link CvssV3Calculator}, v4.0 via {@link CvssV4Calculator}) so a
+     * CVE that supplied a vector without an accompanying score still shows one. {@code 0.0} when
+     * neither is available (no CVSS data at all).
      */
-    private Double computeEnvironmentalScore(String cvss3Vector, DeploymentProfile deploymentProfile,
+    private double resolveCvssScore(Cve c) {
+        if (c.getCvssScore() != null) {
+            return c.getCvssScore();
+        }
+        String vector = c.getCvss3Vector();
+        Double fromVector = switch (CvssVectorVersion.detect(vector)) {
+            case V3 -> CvssV3Calculator.baseScore(vector);
+            case V4 -> CvssV4Calculator.baseScore(vector);
+            case UNKNOWN -> null;
+        };
+        return fromVector != null ? fromVector : 0.0;
+    }
+
+    /**
+     * CVSS Environmental score for one CVE (ROADMAP A5) — {@code null} when the CVE has no
+     * recognized CVSS vector at all. Dispatches to {@link CvssV3Calculator} or
+     * {@link CvssV4Calculator} depending on which version the stored vector declares.
+     */
+    private Double computeEnvironmentalScore(String cvssVector, DeploymentProfile deploymentProfile,
                                              boolean runtimeScope) {
-        if (cvss3Vector == null || cvss3Vector.isBlank()) {
+        if (cvssVector == null || cvssVector.isBlank()) {
             return null;
         }
         var req = EnvironmentalRequirementMapper.resolve(deploymentProfile, runtimeScope);
-        return CvssV3Calculator.environmentalScore(
-                cvss3Vector, req.confidentiality(), req.integrity(), req.availability());
+        return switch (CvssVectorVersion.detect(cvssVector)) {
+            case V3 -> CvssV3Calculator.environmentalScore(
+                    cvssVector, req.confidentiality(), req.integrity(), req.availability());
+            case V4 -> CvssV4Calculator.environmentalScore(
+                    cvssVector, req.confidentiality(), req.integrity(), req.availability());
+            case UNKNOWN -> null;
+        };
     }
 
     private String patchabilityLabel(com.salkcoding.oswl.domain.enums.Patchability p) {

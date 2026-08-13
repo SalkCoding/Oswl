@@ -14,7 +14,7 @@
                 <template x-for="f in filters" :key="f.key">
                     <button type="button" @click="activeFilter = f.key"
                             :class="activeFilter === f.key
-                                ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold border-[rgba(0,176,160,0.25)]'
+                                ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold border-[rgba(0,176,160,0.25)]'
                                 : 'bg-white text-[var(--grayscale-60)] font-medium border-[var(--grayscale-20)] hover:border-[var(--grayscale-40)] hover:text-[var(--grayscale-80)]'"
                             class="inline-flex items-center gap-[5px] px-[13px] py-[7px] rounded-[8px] text-[13px] tracking-[-0.13px] border transition-all cursor-pointer">
                         <span x-text="f.label"></span>
@@ -187,6 +187,7 @@
             { slug: 'springOauth2', abbr: 'OA', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springOauth2']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springOauth2.name}]]*/ '', description: /*[[#{ossNotices.lib.springOauth2.description}]]*/ '' },
             { slug: 'springSessionJdbc', abbr: 'SJ2', color: '#4a6f24', url: 'https://spring.io/projects/spring-session', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springSessionJdbc']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springSessionJdbc.name}]]*/ '', description: /*[[#{ossNotices.lib.springSessionJdbc.description}]]*/ '' },
             { slug: 'shedlock', abbr: 'SD', color: '#7e57c2', url: 'https://github.com/lukas-krecan/ShedLock', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['shedlock']} ?: '-']]*/ '7.7.0', name: /*[[#{ossNotices.lib.shedlock.name}]]*/ '', description: /*[[#{ossNotices.lib.shedlock.description}]]*/ '' },
+            { slug: 'cvssV4Lookup', abbr: 'C4', color: '#8a4b3b', url: 'https://github.com/FIRSTdotorg/cvss-v4-calculator', license: 'BSD 2-Clause', licenseGroup: 'bsd', categoryKey: 'backend', version: '270-entry table, vendored', name: /*[[#{ossNotices.lib.cvssV4Lookup.name}]]*/ '', description: /*[[#{ossNotices.lib.cvssV4Lookup.description}]]*/ '' },
         ];
 
         const dataSources = [

@@ -40,6 +40,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
 | [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
 | [deps.dev](#depsdev)                                                  | CC-BY 4.0 (generated data) / Apache 2.0 (client repo) |
+| [CVSS v4.0 Lookup Table (cvss-v4-calculator)](#cvss-v40-lookup-table-cvss-v4-calculator) | BSD 2-Clause |
 
 ---
 
@@ -627,6 +628,35 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
 - **Attribution:** This notice + the OSV/GHSA attribution above satisfies CC-BY 4.0 for the
   generated and advisory data. deps.dev-derived fields are used to power OsWL's own analysis
   output, not redistributed as a standalone dataset.
+
+### CVSS v4.0 Lookup Table (cvss-v4-calculator)
+
+- **Source:** https://github.com/FIRSTdotorg/cvss-v4-calculator (`cvss_lookup.js`, `max_composed.js`,
+  `max_severity.js`) · publisher: FIRST.org, Inc., Red Hat, and contributors
+- **License:** BSD 2-Clause
+- **Note:** Unlike the other entries in this section, this is not a live-queried feed — the
+  270-entry MacroVector→score table and its supporting per-equivalence-class data are vendored
+  verbatim as `src/main/resources/cvss/cvss-v4-lookup.json`, converted from the source `.js` object
+  literals to JSON with no values changed. `service/cvss/CvssV4Calculator.java` reimplements the
+  surrounding scoring algorithm (MacroVector derivation, severity-distance interpolation) in Java
+  from the same reference source, since the algorithm itself is not data that can be vendored as a
+  file.
+- **Used for:** CVSS v4.0 Base/Environmental scoring (`CvssV4Calculator`) when a CVE supplies a
+  `CVSS:4.0/...` vector.
+
+```
+Copyright (c) 2023 FIRST.ORG, Inc., Red Hat, and contributors
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+```
 
 ---
 

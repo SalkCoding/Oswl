@@ -5,13 +5,12 @@ package com.salkcoding.oswl.service.cvss;
  * FIRST.org specification (no external dependency, no lookup table — v3's formulas are
  * closed-form).
  *
- * <p><b>CVSS v4.0 is intentionally not supported here.</b> Unlike v3, v4.0 scoring is not a
- * closed-form formula — the official algorithm resolves a vector to a "MacroVector" and looks
- * up its score in a ~1,300-row table published by FIRST. Reproducing that table by hand risks
- * silently wrong scores, which is worse than not scoring at all for a security tool, and no
- * data source wired into OsWL currently supplies v4.0 vectors anyway (deps.dev, NVD, and GitHub
- * Advisory all report CVSS 3.x today). {@link CvssVectorVersion#detect} still recognizes v4.0
- * vectors so callers can distinguish "not a CVSS vector" from "CVSS v4.0, not yet scorable."
+ * <p>CVSS v4.0 vectors are scored separately by {@link CvssV4Calculator} — v4.0 scoring is not
+ * a closed-form formula the way v3's is, so it needs FIRST's published MacroVector lookup table
+ * rather than the algebraic approach this class uses. {@link CvssVectorVersion#detect} tells a
+ * caller which vector version it has so it can route to the matching calculator; no data source
+ * wired into OsWL supplies v4.0 vectors today (deps.dev, NVD, and GitHub Advisory all report
+ * CVSS 3.x), so {@link CvssV4Calculator} exists ready for when one does.
  *
  * <p>OsWL does not collect CVSS Temporal metrics (Exploit Code Maturity / Remediation Level /
  * Report Confidence) or the attacker-facing Modified* Base metrics from any data source, so the
