@@ -101,7 +101,7 @@
         <!-- Logo -->
         <a th:href="@{/projects}" class="flex gap-[12px] items-center shrink-0 no-underline">
             <img th:src="@{/icon/icon-logo.svg}" class="w-[28px] h-[38px]" alt="OsWL" aria-hidden="true">
-            <span class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</span>
+            <h1 class="font-extrabold text-[24px] text-[var(--secondary-100)] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
         </a>
         <!-- Breadcrumb: Projects Projects > [icon] pageLabel -->
         <div class="flex flex-1 items-center gap-[24px]">
@@ -191,8 +191,9 @@
 
         <!-- Upper bar (logo + breadcrumb + version).
              relative + z-20 so the version dropdown panel is painted above the tab bar below it
-             instead of being clipped by it. -->
-        <div class="relative z-20 bg-[var(--background-dark)] flex items-center gap-[44px] pl-[60px] pr-[40px] py-[17px] h-[64px] shrink-0">
+             instead of being clipped by it. <header> gives this its own banner landmark instead
+             of leaving the logo/breadcrumb/nav-links as unlandmarked page content. -->
+        <header class="relative z-20 bg-[var(--background-dark)] flex items-center gap-[44px] pl-[60px] pr-[40px] py-[17px] h-[64px] shrink-0">
             <a th:href="@{/projects}" class="flex items-center gap-[12px] shrink-0">
                 <img th:src="@{/icon/icon-logo.svg}" class="w-[28px] h-[38px]" alt="OsWL" aria-hidden="true">
                 <h1 class="text-[var(--secondary-100)] font-extrabold text-[24px] tracking-[-0.24px] leading-[1.3] whitespace-nowrap">OsWL</h1>
@@ -350,14 +351,14 @@
                 </svg>
                 <span class="text-[16px] font-medium tracking-[-0.16px] whitespace-nowrap" th:text="#{topbar.settings}">Settings</span>
             </a>
-        </div>
+        </header>
 
         <!-- Lower bar (tabs) -->
         <nav class="bg-[var(--grayscale-10)] flex items-center gap-[32px] pl-[60px] pr-[40px] py-[16px] h-[64px] shrink-0">
             <a th:if="${#authorization.expression('hasPermission(null, ''SECURITY_CENTER_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
                th:href="@{|/projects/${projectId}/security-center|}"
                th:classappend="${activeTab == 'security-center'}
-                   ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
+                   ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.securityCenter}">Security Center</a>
 
@@ -367,7 +368,7 @@
             <a th:if="${#authorization.expression('hasPermission(null, ''LICENSE_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
                th:href="@{|/projects/${projectId}/license|}"
                th:classappend="${activeTab == 'license'}
-                   ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
+                   ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.license}">License</a>
 
@@ -377,7 +378,7 @@
             <a th:if="${#authorization.expression('hasPermission(null, ''RISK_TREND_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
                th:href="@{|/projects/${projectId}/risk-trend|}"
                th:classappend="${activeTab == 'risk-trend'}
-                   ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
+                   ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.riskTrend}">Risk Trend</a>
 
@@ -387,7 +388,7 @@
             <a th:if="${#authorization.expression('hasPermission(null, ''SCAN_HISTORY_VIEW'') or hasRole(''SYSTEM_ADMIN'')')}"
                th:href="@{|/projects/${projectId}/scan-history|}"
                th:classappend="${activeTab == 'scan-history'}
-                   ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold rounded-[8px] px-[12px] py-[6px]'
+                   ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold rounded-[8px] px-[12px] py-[6px]'
                    : 'text-[var(--grayscale-90)] font-medium px-[12px] py-[6px] hover:text-[var(--primary-120)] transition-colors'"
                class="text-[18px] tracking-[-0.18px] leading-[1.3]" th:text="#{topbar.nav.scanHistory}">Scan History</a>
         </nav>

@@ -132,7 +132,7 @@
                            <span th:text="#{securityCenter.malicious.badge}">Malicious</span></span>
                        <span th:if="${comp.typosquatRisk}"
                              class="ml-[6px] inline-flex items-center gap-[3px] align-middle text-[10px] font-bold uppercase tracking-[0.3px] px-[6px] py-[1px] rounded-[4px]"
-                             style="background:rgba(245,189,38,0.14);color:#a9781a;border:1px solid rgba(245,189,38,0.4);"
+                             style="background:rgba(245,189,38,0.14);color:#956917;border:1px solid rgba(245,189,38,0.4);"
                              th:title="${comp.typosquatReason} ?: #{securityCenter.typosquat.tooltip}">
                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                            <span th:text="#{securityCenter.typosquat.badge}">Typosquat?</span></span>
@@ -143,7 +143,7 @@
                        <span th:if="${comp.reachability != null}"
                              th:classappend="${comp.reachability == 'REACHABLE' ? 'bg-[rgba(51,209,183,0.14)] text-[#0d6a5b] border-[rgba(51,209,183,0.35)]' :
                                               comp.reachability == 'NOT_REACHABLE' ? 'bg-[rgba(94,107,112,0.1)] text-[#5e6b70] border-[rgba(94,107,112,0.2)]' :
-                                              'bg-[rgba(245,189,38,0.14)] text-[#a9781a] border-[rgba(245,189,38,0.4)]'}"
+                                              'bg-[rgba(245,189,38,0.14)] text-[#956917] border-[rgba(245,189,38,0.4)]'}"
                              class="ml-[6px] inline-block align-middle text-[10px] font-semibold uppercase tracking-[0.3px] px-[6px] py-[1px] rounded-[4px] border"
                              th:title="${comp.reachability == 'REACHABLE'} ? #{securityCenter.reachability.tooltip.reachable} :
                                        (${comp.reachability == 'NOT_REACHABLE'} ? #{securityCenter.reachability.tooltip.notReachable} :

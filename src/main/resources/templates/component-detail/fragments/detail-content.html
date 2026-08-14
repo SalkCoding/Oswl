@@ -1,4 +1,4 @@
-<div id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative"
+<main id="component-detail-content" th:fragment="content" class="flex-1 w-full bg-white flex flex-col relative"
      th:attr="data-project-id=${projectId}, data-component-id=${componentId}, data-scan-version=${projectVersion}"
      x-data="{ modal: null, aiToast: null, aiToastKind: 'error', _aiToastTimer: null }"
      @oswl-ai-toast="aiToast = $event.detail.message; aiToastKind = $event.detail.kind || 'error'; clearTimeout(_aiToastTimer); _aiToastTimer = setTimeout(() => aiToast = null, aiToastKind === 'error' ? 5000 : 3000)">
@@ -75,23 +75,23 @@
                                  : 'background:rgba(230,39,39,0.06);border:1px solid rgba(230,39,39,0.25)')"
                   th:title="#{componentDetail.scorecard.tooltip}">
                 <span class="text-[11px] font-semibold tracking-[-0.11px]"
-                      th:styleappend="${scorecardScore >= 7.0} ? 'color:#00a049' : (${scorecardScore >= 4.0} ? 'color:#a9781a' : 'color:#e62727')"
+                      th:styleappend="${scorecardScore >= 7.0} ? 'color:#00a049' : (${scorecardScore >= 4.0} ? 'color:#956917' : 'color:#d11818')"
                       th:text="#{componentDetail.scorecard.label} + ' ' + ${#numbers.formatDecimal(scorecardScore, 1, 1)} + '/10'">Scorecard 7.4/10</span>
             </span>
             <!-- Malicious package (OSV MAL-) -->
             <span th:if="${malicious}"
                   class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px]"
                   style="background:rgba(230,39,39,0.12);border:1px solid rgba(230,39,39,0.4)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e62727" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <span class="text-[11px] font-bold text-[#e62727] tracking-[-0.11px]" th:text="#{componentDetail.malicious.label}">Malicious package</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d11818" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span class="text-[11px] font-bold text-[#d11818] tracking-[-0.11px]" th:text="#{componentDetail.malicious.label}">Malicious package</span>
             </span>
             <!-- Supply-chain heuristic: possible typosquat / dependency confusion (amber warning) -->
             <span th:if="${typosquatRisk}"
                   class="flex items-center gap-[5px] px-[12px] py-[4px] rounded-[40px]"
                   style="background:rgba(245,189,38,0.12);border:1px solid rgba(245,189,38,0.4)"
                   th:title="${typosquatReason} ?: #{componentDetail.typosquat.tooltip}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#a9781a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span class="text-[11px] font-bold text-[#a9781a] tracking-[-0.11px]" th:text="#{componentDetail.typosquat.label}">Possible typosquat</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#956917" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span class="text-[11px] font-bold text-[#956917] tracking-[-0.11px]" th:text="#{componentDetail.typosquat.label}">Possible typosquat</span>
             </span>
             <!-- Jira issue link / create action (#10)
                  The "create" state is an action, not a status, so it is styled as a solid Jira-blue
@@ -859,4 +859,4 @@
     })();
     </script>
 
-</div>
+</main>
