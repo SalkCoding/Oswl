@@ -9,18 +9,24 @@
     --grayscale-80:  #333e42;
     --grayscale-70:  #425055;
     --grayscale-60:  #5e6b70;
-    --grayscale-50:  #849197;
-    --grayscale-40:  #abb8be;
+    /* --grayscale-50/-40, --primary-*, --risk-critical/-high, --semantic-caution below are
+       darkened from their original values to clear WCAG 2 AA 4.5:1 text contrast (ROADMAP
+       v1.0.5.1 C1-1) — hue/saturation preserved, only lightness reduced. Solved against
+       --grayscale-10 (#f3f5f6, the darkest of the light theme's common card/soft backgrounds,
+       i.e. the worst realistic case a white-background-only calculation would miss) rather than
+       plain white, per the false-negative this same audit caught for these two tokens. */
+    --grayscale-50:  #667278;
+    --grayscale-40:  #60737c;
     --grayscale-30:  #c5cfd3;
     --grayscale-20:  #dbe4e7;
     --grayscale-15:  #e8eef0;
     --grayscale-10:  #f3f5f6;
     --grayscale-5:   #fafbfb;
 
-    --primary-140:   #009086;
-    --primary-120:   #00a093;
-    --primary-100:   #00b0a0;
-    --primary-80:    #33d1b7;
+    --primary-140:   #007e76;
+    --primary-120:   #007e74;
+    --primary-100:   #007e73;
+    --primary-80:    #1d7e6e;
     --primary-40:    #99ebd9;
     --primary-20:    #d3fcf3;
 
@@ -29,16 +35,16 @@
     --secondary-60:  #00a093;
     --secondary-20:  #d3fcf3;
 
-    --risk-critical:  #e62727;
-    --risk-high:      #f47a29;
+    --risk-critical:  #dd1a1a;
+    --risk-high:      #bb500a;
     --risk-medium:    #f5bd26;
     --risk-low:       #c2cdd1;
     --risk-unknown:   #e8eef0;
     --risk-permitted: #84dca5;
     --risk-caution:   #f59126;
 
-    --semantic-warning: #e62727;
-    --semantic-caution: #f59126;
+    --semantic-warning: #dd1a1a;
+    --semantic-caution: #ab5c08;
     --semantic-patchable: #00d761;
 
     --surface:        #ffffff;
@@ -62,7 +68,10 @@
     --grayscale-70:  #c5cfd3;
     --grayscale-60:  #abb8be;
     --grayscale-50:  #849197;
-    --grayscale-40:  #5e6b70;
+    /* Lightened from #5e6b70 to clear 4.5:1 against --surface (#141a1d) — see the light-theme
+       comment above for the token-set this pass covers (ROADMAP v1.0.5.1 C1-1). Dark theme only
+       needed this one token; the rest already passed at their original values. */
+    --grayscale-40:  #74848a;
     --grayscale-30:  #425055;
     --grayscale-20:  #333e42;
     --grayscale-15:  #272d30;
