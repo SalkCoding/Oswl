@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 
 import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
@@ -25,9 +26,25 @@ import java.util.zip.ZipInputStream;
  * when present (exact match — always reliable), otherwise via a best-effort SEMVER range check
  * ({@link SimpleVersionComparator}) which can fail to parse exotic version strings. Anything
  * neither path can confidently resolve is <b>never</b> silently treated as "not affected" — it's
- * counted in {@link Result#unresolvedComponentCount()} and surfaced in the bundle's
- * {@code meta.json} coverage stats, per the plan's explicit requirement that "no data" and
- * "confirmed clean" must stay distinguishable.
+ * counted in {@code unresolvedKeys} and surfaced in the bundle's {@code meta.json} coverage
+ * stats, per the plan's explicit requirement that "no data" and "confirmed clean" must stay
+ * distinguishable.
+ *
+ * <p><b>Debian/Ubuntu's bulk dumps are stale — this is a real, currently-unavoidable gap, not a
+ * bug in this class.</b> Verified against the live {@code osv-vulnerabilities} GCS bucket
+ * (2026-08-13): {@code Debian:11/all.zip} and {@code Ubuntu:22.04:LTS/all.zip} both carry an HTTP
+ * {@code Last-Modified} of October 2024 — roughly 22 months old at the time of writing — while
+ * {@code npm/all.zip} updates same-day. A cross-check against OSV's live query API for the exact
+ * same package/version found 53 CVEs online vs. 27 in the bulk dump, and every one of the 26
+ * missing entries turned out to be genuinely absent from the downloaded {@code .json} files
+ * (confirmed by direct inspection, not a parsing miss on this class's part) — i.e. the gap is
+ * OSV's bulk export for these ecosystems having gone stale, not anything resolvable here. The
+ * fetched {@code asOfByBucket} date now reflects the real upstream {@code Last-Modified} (see
+ * {@link HttpCache#getOrFetchWithLastModified}), so the existing air-gapped staleness-warning
+ * system ({@code oswl.airgapped.staleness-warn-days}/{@code staleness-critical-days}) correctly
+ * flags Debian/Ubuntu coverage as critically stale rather than reporting it as current — that
+ * warning is the honest, currently-correct outcome, not something to suppress. Revisit if OSV
+ * resumes publishing fresh Debian/Ubuntu bulk dumps.
  */
 final class OsvBulkSource {
 
@@ -40,6 +57,12 @@ final class OsvBulkSource {
      * {@code unresolved.jsonl} — surfaced as "no data" rather than "confirmed clean", which is
      * the honest state until OSV starts publishing ConanCenter entries. Add the mapping here
      * once {@code https://storage.googleapis.com/osv-vulnerabilities/ConanCenter/all.zip} exists.
+     *
+     * <p>Debian/Ubuntu (version-suffixed, e.g. {@code "DEBIAN:11"}) aren't listed here — there's
+     * one bucket per release, so a fixed map can't enumerate them. {@link #resolveBucket} handles
+     * those via {@link VulnerabilityEnrichmentService#osPackageOsvEcosystem}, the same
+     * internal↔OSV-casing reconstruction the live per-component query path already uses (ROADMAP
+     * A3-1) — kept as one shared implementation rather than a second hardcoded prefix table here.
      */
     private static final Map<String, String> ECOSYSTEM_TO_BUCKET = Map.of(
             "MAVEN", "Maven",
@@ -58,6 +81,28 @@ final class OsvBulkSource {
         this.mapper = mapper;
     }
 
+    /**
+     * Resolves an internal ecosystem tag to its OSV GCS bucket folder name, or {@code null} if
+     * there's nothing to fetch for it.
+     *
+     * <p>Alpine is deliberately excluded even though {@code osPackageOsvEcosystem} would resolve
+     * a bucket name for it: Alpine's OSV advisories are {@code ECOSYSTEM}-typed ranges only (no
+     * enumerated {@code versions[]}), and {@link #resolveAffected} can't compare apk version
+     * ranges yet (that's the separate apk comparator, ROADMAP A3-2) — fetching the bucket now
+     * would only produce a flood of "unresolved" components with zero actual detections. Revisit
+     * once that comparator exists.
+     */
+    private static String resolveBucket(String ecosystem) {
+        String fixed = ECOSYSTEM_TO_BUCKET.get(ecosystem);
+        if (fixed != null) {
+            return fixed;
+        }
+        if (ecosystem.startsWith("ALPINE:")) {
+            return null;
+        }
+        return VulnerabilityEnrichmentService.osPackageOsvEcosystem(ecosystem);
+    }
+
     /** {@code unresolvedKeys} (not just a count) so callers can tell resolved from unresolved
      * components — a wanted key that's neither in {@code vulnsByComponentKey} nor
      * {@code unresolvedKeys} was confirmed clean (its package never appeared in the ecosystem's
@@ -71,7 +116,7 @@ final class OsvBulkSource {
         Map<String, Map<String, Set<String>>> byEcosystem = new LinkedHashMap<>();
         for (WantedComponent w : wanted) {
             String eco = AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
-            if (!ECOSYSTEM_TO_BUCKET.containsKey(eco)) continue;
+            if (resolveBucket(eco) == null) continue;
             if (ecosystemFilter != null && !ecosystemFilter.contains(eco)) continue;
             byEcosystem.computeIfAbsent(eco, e -> new LinkedHashMap<>())
                     .computeIfAbsent(w.name(), n -> new LinkedHashSet<>())
@@ -84,12 +129,29 @@ final class OsvBulkSource {
 
         for (Map.Entry<String, Map<String, Set<String>>> ecoEntry : byEcosystem.entrySet()) {
             String ecosystem = ecoEntry.getKey();
-            String bucket = ECOSYSTEM_TO_BUCKET.get(ecosystem);
+            String bucket = resolveBucket(ecosystem);
             Map<String, Set<String>> namesWanted = ecoEntry.getValue();
             System.err.println("[oswl-vdb] OSV: fetching " + bucket + "/all.zip for " + namesWanted.size() + " wanted package name(s)");
-            byte[] zipBytes = cache.getOrFetch("osv-" + bucket.replace('/', '_') + "-all.zip",
+            // Debian/Ubuntu bucket names contain ':' (e.g. "Debian:11", "Ubuntu:22.04:LTS"), which
+            // is a reserved character in Windows filenames — sanitize the whole cache key, not
+            // just '/', so this doesn't only work on Linux/Mac dev machines.
+            HttpCache.FetchResult fetched = cache.getOrFetchWithLastModified(
+                    "osv-" + bucket.replaceAll("[^A-Za-z0-9.-]", "_") + "-all.zip",
                     "https://storage.googleapis.com/osv-vulnerabilities/" + bucket + "/all.zip");
-            asOfByBucket.put(ecosystem, LocalDate.now());
+            byte[] zipBytes = fetched.body();
+            // The upstream's own Last-Modified, not "today" — a bulk dump can sit unchanged on
+            // the server for a long time (Debian/Ubuntu's haven't moved since Oct 2024, verified
+            // 2026-08-13, while npm's updates same-day) and stamping "now" here would silently
+            // defeat the air-gapped staleness-warning system for exactly the ecosystems where it
+            // matters most. Falls back to "today" only if the server didn't send the header, with
+            // a visible warning rather than a silent optimistic guess.
+            LocalDate asOf = fetched.lastModified();
+            if (asOf == null) {
+                System.err.println("[oswl-vdb] WARNING: " + bucket + "/all.zip had no Last-Modified header — "
+                        + "assuming today's date for its freshness, which may overstate how current this data is");
+                asOf = LocalDate.now();
+            }
+            asOfByBucket.put(ecosystem, asOf);
 
             int entriesScanned = 0;
             try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {

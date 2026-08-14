@@ -69,10 +69,23 @@ public final class BaseImageEcosystemMapper {
 
     private static String ubuntu(String tag) {
         String version = UBUNTU_CODENAMES.get(tag);
-        if (version == null && tag.matches("\\d{2}\\.\\d{2}")) {
-            version = tag;
+        if (version != null) {
+            // Every codename in UBUNTU_CODENAMES is an LTS release, and OSV's real ecosystem/bucket
+            // name for those carries a literal ":LTS" suffix (e.g. "Ubuntu:22.04:LTS" — confirmed
+            // against the live osv-vulnerabilities GCS bucket listing, 2026-08-13). Omitting it here
+            // used to still resolve for live queries (OSV's query API tolerates the missing
+            // suffix) but 404s against the bulk dump bucket, which only has the ":LTS" folder.
+            return "UBUNTU:" + version + ":LTS";
         }
-        return version != null ? "UBUNTU:" + version : null;
+        if (tag.matches("\\d{2}\\.\\d{2}")) {
+            // Ubuntu's public numbering scheme: LTS releases are always an even year's April
+            // (YY.04); anything else (odd years, or the October interim releases) is a non-LTS
+            // release, whose OSV bucket has no ":LTS" suffix (e.g. "Ubuntu:23.10").
+            String[] parts = tag.split("\\.");
+            boolean isLts = "04".equals(parts[1]) && Integer.parseInt(parts[0]) % 2 == 0;
+            return "UBUNTU:" + tag + (isLts ? ":LTS" : "");
+        }
+        return null;
     }
 
     private static String alpine(String tag) {

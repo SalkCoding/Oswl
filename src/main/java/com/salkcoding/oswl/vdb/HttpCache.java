@@ -9,6 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * E5's "재실행 가능성" requirement: caches downloaded upstream bytes under {@code --cache-dir} so a
@@ -43,18 +47,35 @@ final class HttpCache {
         this.offlineOnly = offlineOnly;
     }
 
+    /**
+     * The upstream's own {@code Last-Modified} date, when the caller needs to know how fresh the
+     * fetched content actually is rather than assuming "today" — a bulk dump can sit unchanged
+     * on the server for a long time (verified: OSV's Debian/Ubuntu {@code all.zip} dumps haven't
+     * moved since October 2024, while npm's updates same-day) and a source that just stamps
+     * {@code LocalDate.now()} would silently defeat the air-gapped staleness-warning system.
+     * {@code lastModified} is {@code null} when unavailable (server didn't send the header, or a
+     * cache hit predating this field's introduction with no sidecar file) — callers should treat
+     * that as "freshness unknown", not "fresh".
+     */
+    record FetchResult(byte[] body, LocalDate lastModified) {}
+
     byte[] getOrFetch(String cacheKey, String url) throws IOException, InterruptedException {
+        return getOrFetchWithLastModified(cacheKey, url).body();
+    }
+
+    FetchResult getOrFetchWithLastModified(String cacheKey, String url) throws IOException, InterruptedException {
+        Path sidecar = cacheDir != null ? cacheDir.resolve(cacheKey + ".lastmodified") : null;
         if (cacheDir != null) {
             Path cached = cacheDir.resolve(cacheKey);
             if (Files.isRegularFile(cached)) {
                 if (offlineOnly) {
                     System.err.println("[oswl-vdb] offline-sources hit: " + cacheKey);
-                    return Files.readAllBytes(cached);
+                    return new FetchResult(Files.readAllBytes(cached), readSidecar(sidecar));
                 }
                 Instant mtime = Files.getLastModifiedTime(cached).toInstant();
                 if (Duration.between(mtime, Instant.now()).compareTo(MAX_AGE) < 0) {
                     System.err.println("[oswl-vdb] cache hit: " + cacheKey);
-                    return Files.readAllBytes(cached);
+                    return new FetchResult(Files.readAllBytes(cached), readSidecar(sidecar));
                 }
             }
         }
@@ -77,10 +98,36 @@ final class HttpCache {
             throw new IOException("Fetch " + url + " returned HTTP " + response.statusCode());
         }
         byte[] body = response.body();
+        LocalDate lastModified = parseLastModified(response.headers().firstValue("Last-Modified").orElse(null));
         if (cacheDir != null) {
             Files.createDirectories(cacheDir);
             Files.write(cacheDir.resolve(cacheKey), body);
+            if (lastModified != null && sidecar != null) {
+                Files.writeString(sidecar, lastModified.toString());
+            }
         }
-        return body;
+        return new FetchResult(body, lastModified);
+    }
+
+    private static LocalDate readSidecar(Path sidecar) {
+        if (sidecar == null || !Files.isRegularFile(sidecar)) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(Files.readString(sidecar).strip());
+        } catch (IOException | DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private static LocalDate parseLastModified(String httpDate) {
+        if (httpDate == null || httpDate.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(httpDate, DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC));
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 }
