@@ -259,7 +259,7 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 
 確定的に悪性と判定されたパッケージ(OSV `MAL-` アドバイザリ)は、上記のすべてのしきい値および `onlyNew`/`onlyReachable` に関係なく常にブロックされます — 解除する唯一の方法は承認済みのポリシー例外(waiver、**v1.0.5**、`/api/policies/exceptions` 参照)です。
 
-`failOnSecrets`(**v1.0.5**)は、Quick Import クローンのスキャンで CRITICAL/HIGH severity のシークレット検出(正規表現 + エントロピー規則 — AWS キー、GitHub/GitLab/Slack/npm トークン、埋め込みプライベートキーブロックなど)が1件でもあればブロックします。組織/チーム/プロジェクトのポリシー階層にはまだ組み込まれておらず、リクエストのオーバーライドとインスタンスの既定値のみが適用されます。
+`failOnSecrets`(**v1.0.5**)は、Quick Import クローンのスキャンで CRITICAL/HIGH severity のシークレット検出(正規表現 + エントロピー規則 — AWS キー、GitHub/GitLab/Slack/npm トークン、埋め込みプライベートキーブロックなど)が1件でもあればブロックします。上記の他のしきい値と同様に、リクエストのオーバーライド → 組織/チーム/プロジェクトのポリシー階層 → インスタンスの既定値の順で解決されます。
 
 ---
 

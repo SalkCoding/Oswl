@@ -4,11 +4,13 @@ import com.deque.html.axecore.results.AxeResults;
 import com.deque.html.axecore.results.Rule;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
+import com.salkcoding.oswl.domain.entity.scan.ScanFinding;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
+import com.salkcoding.oswl.domain.enums.ScanFindingType;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -58,6 +60,7 @@ class AxeAuditUiTest extends UiTestBase {
 
         assertPage(url("/projects"), "projects", failures);
         assertPage(url("/projects/" + projectId + "/security-center"), "security-center", failures);
+        assertFindingsSectionRendersRealData();
         assertPage(url("/settings"), "settings", failures);
         assertPage(url("/org-dashboard"), "org-dashboard", failures);
         assertPage(url("/projects/" + projectId + "/version-diff"), "version-diff", failures);
@@ -66,6 +69,20 @@ class AxeAuditUiTest extends UiTestBase {
         assertThat(failures)
                 .withFailMessage("Serious/critical axe violations found:%n%s", String.join("\n", failures))
                 .isEmpty();
+    }
+
+    /**
+     * axe only proves the Findings table is structurally valid (real table, no ARIA issues) —
+     * it says nothing about whether the two seeded findings actually made it through
+     * SecurityCenterService -> the th:switch severity badges -> the rendered page. Assert the
+     * actual page content instead of trusting "axe passed" to mean "the feature works".
+     */
+    private void assertFindingsSectionRendersRealData() {
+        String body = page.locator("body").innerText();
+        assertThat(body).contains("generic-api-key");
+        assertThat(body).contains("tf-public-s3");
+        assertThat(body).contains("config/settings.py:42");
+        assertThat(body).contains("infra/main.tf:10");
     }
 
     private void assertPage(String targetUrl, String reportName, List<String> failures) throws IOException {
@@ -105,6 +122,16 @@ class AxeAuditUiTest extends UiTestBase {
         library = libraryRepository.save(library);
 
         scan.getComponents().add(ScanComponent.builder().scanResult(scan).library(library).build());
+        // A finding of each severity axe will actually render — exercises the Findings table's
+        // severity-badge branches, not just its empty state.
+        scan.getFindings().add(ScanFinding.builder().scanResult(scan).type(ScanFindingType.SECRET)
+                .ruleId("generic-api-key").severity(RiskLevel.CRITICAL)
+                .filePath("config/settings.py").lineNumber(42)
+                .description("Possible API key literal").fingerprint("abc123def456").build());
+        scan.getFindings().add(ScanFinding.builder().scanResult(scan).type(ScanFindingType.IAC)
+                .ruleId("tf-public-s3").severity(RiskLevel.MEDIUM)
+                .filePath("infra/main.tf").lineNumber(10)
+                .description("S3 bucket may be publicly readable").build());
         project.getScanResults().add(scan);
         return projectRepository.save(project);
     }

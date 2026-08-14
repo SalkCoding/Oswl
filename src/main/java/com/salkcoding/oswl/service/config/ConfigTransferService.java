@@ -86,7 +86,8 @@ public class ConfigTransferService {
                 .map(p -> new PolicyExport(p.getScope().name(), exportScopeName(p),
                         p.getName(), p.getDescription(), p.isLocked(), p.isEnabled(),
                         p.getFailOnSeverity(), p.getFailOnKev(), p.getFailOnEpss(),
-                        p.getFailOnLicenseViolation(), p.getOnlyNew()))
+                        p.getFailOnLicenseViolation(), p.getOnlyNew(),
+                        p.getOnlyReachable(), p.getFailOnSecrets()))
                 .toList();
 
         List<String> redacted = new ArrayList<>();
@@ -265,7 +266,8 @@ public class ConfigTransferService {
         if (target.existing() != null) {
             target.existing().update(pol.name(), pol.description(), pol.locked(), pol.enabled(),
                     pol.failOnSeverity(), pol.failOnKev(), pol.failOnEpss(),
-                    pol.failOnLicenseViolation(), pol.onlyNew());
+                    pol.failOnLicenseViolation(), pol.onlyNew(),
+                    pol.onlyReachable(), pol.failOnSecrets());
             policyRepository.save(target.existing());
         } else {
             policyRepository.save(Policy.builder()
@@ -282,6 +284,8 @@ public class ConfigTransferService {
                     .failOnEpss(pol.failOnEpss())
                     .failOnLicenseViolation(pol.failOnLicenseViolation())
                     .onlyNew(pol.onlyNew())
+                    .onlyReachable(pol.onlyReachable())
+                    .failOnSecrets(pol.failOnSecrets())
                     .build());
         }
     }

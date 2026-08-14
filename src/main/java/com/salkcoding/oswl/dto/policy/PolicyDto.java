@@ -23,6 +23,8 @@ public class PolicyDto {
     Double failOnEpss;
     Boolean failOnLicenseViolation;
     Boolean onlyNew;
+    Boolean onlyReachable;
+    Boolean failOnSecrets;
     LocalDateTime createdAt;
     LocalDateTime updatedAt;
 }

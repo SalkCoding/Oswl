@@ -16,5 +16,7 @@ public record PolicyRequest(
         Boolean failOnKev,
         Double failOnEpss,
         Boolean failOnLicenseViolation,
-        Boolean onlyNew
+        Boolean onlyNew,
+        Boolean onlyReachable,
+        Boolean failOnSecrets
 ) {}

@@ -77,11 +77,9 @@ public class GatePolicyService {
     private boolean defaultFailOnSecrets;
 
     /**
-     * Per-request overrides; null fields fall back to the configured defaults.
-     *
-     * {@code failOnSecrets} is resolved request-override → instance default only — it is not
-     * yet part of the {@link PolicyService} org/team/project hierarchy (same gap as
-     * {@code onlyReachable}, see ROADMAP A7's "후속으로 다룰 수 있는 것").
+     * Per-request overrides; null fields fall back to the org/team/project policy hierarchy
+     * ({@link PolicyService}), and fields the hierarchy also leaves null fall through to the
+     * configured {@code oswl.gate.*} instance defaults.
      */
     public record GateOptions(
             Long scanId,
@@ -115,9 +113,7 @@ public class GatePolicyService {
                 policyOptions.failOnLicenseViolation(), defaultFailOnLicenseViolation);
         boolean onlyNew = firstNonNull(options.onlyNew(), policyOptions.onlyNew(), defaultOnlyNew);
         boolean onlyReachable = firstNonNull(options.onlyReachable(), policyOptions.onlyReachable(), defaultOnlyReachable);
-        // Not yet part of the policy hierarchy (Policy has no failOnSecrets column) — request
-        // override → instance default only, same gap as onlyReachable (see the GateOptions doc).
-        boolean failOnSecrets = firstNonNull(options.failOnSecrets(), null, defaultFailOnSecrets);
+        boolean failOnSecrets = firstNonNull(options.failOnSecrets(), policyOptions.failOnSecrets(), defaultFailOnSecrets);
 
         List<PolicyException> activeExceptions = policyService.findActiveExceptions(projectId);
 

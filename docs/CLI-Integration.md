@@ -259,7 +259,7 @@ Server-side defaults (all overridable per request):
 
 A confirmed-malicious package (an OSV `MAL-` advisory) always blocks, regardless of every threshold above and regardless of `onlyNew`/`onlyReachable` — the only way to unblock one is an approved policy exception (waiver, **v1.0.5**, see `/api/policies/exceptions`).
 
-`failOnSecrets` (**v1.0.5**) blocks on any CRITICAL/HIGH-severity secret finding from the Quick Import clone scan (regex + entropy rules — AWS keys, GitHub/GitLab/Slack/npm tokens, embedded private key blocks, etc.). It does not yet participate in the org/team/project policy hierarchy — only the request override and the instance default apply.
+`failOnSecrets` (**v1.0.5**) blocks on any CRITICAL/HIGH-severity secret finding from the Quick Import clone scan (regex + entropy rules — AWS keys, GitHub/GitLab/Slack/npm tokens, embedded private key blocks, etc.). Like every other threshold above, it resolves through the request override, then the org/team/project policy hierarchy, then the instance default.
 
 ---
 

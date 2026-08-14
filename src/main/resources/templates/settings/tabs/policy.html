@@ -129,6 +129,22 @@
                         <option value="false" th:text="#{common.no}">No</option>
                     </select>
                 </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.onlyReachable}">Fail only on reachable CVEs (Java call-graph)</label>
+                    <select x-model="form.onlyReachable" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.failOnSecrets}">Fail on CRITICAL/HIGH secret findings</label>
+                    <select x-model="form.failOnSecrets" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
             </div>
 
             <div class="flex gap-[10px] justify-end pt-[4px]">
@@ -462,7 +478,7 @@
             formOpen: false,
             editingId: null,
             form: { scopeType: 'PROJECT', scopeId: '', name: '', description: '', locked: false, enabled: true,
-                     failOnSeverity: '', failOnKev: '', failOnEpss: '', failOnLicenseViolation: '', onlyNew: '' },
+                     failOnSeverity: '', failOnKev: '', failOnEpss: '', failOnLicenseViolation: '', onlyNew: '', onlyReachable: '', failOnSecrets: '' },
 
             waiverProjectId: '',
             exceptions: [],
@@ -530,7 +546,7 @@
 
             emptyForm() {
                 return { scopeType: 'PROJECT', scopeId: '', name: '', description: '', locked: false, enabled: true,
-                         failOnSeverity: '', failOnKev: '', failOnEpss: '', failOnLicenseViolation: '', onlyNew: '' };
+                         failOnSeverity: '', failOnKev: '', failOnEpss: '', failOnLicenseViolation: '', onlyNew: '', onlyReachable: '', failOnSecrets: '' };
             },
             openNewPolicy() {
                 this.editingId = null;
@@ -547,7 +563,9 @@
                     failOnKev: p.failOnKev === null || p.failOnKev === undefined ? '' : String(p.failOnKev),
                     failOnEpss: p.failOnEpss === null || p.failOnEpss === undefined ? '' : String(p.failOnEpss),
                     failOnLicenseViolation: p.failOnLicenseViolation === null || p.failOnLicenseViolation === undefined ? '' : String(p.failOnLicenseViolation),
-                    onlyNew: p.onlyNew === null || p.onlyNew === undefined ? '' : String(p.onlyNew)
+                    onlyNew: p.onlyNew === null || p.onlyNew === undefined ? '' : String(p.onlyNew),
+                    onlyReachable: p.onlyReachable === null || p.onlyReachable === undefined ? '' : String(p.onlyReachable),
+                    failOnSecrets: p.failOnSecrets === null || p.failOnSecrets === undefined ? '' : String(p.failOnSecrets)
                 };
                 this.formOpen = true;
             },
@@ -572,7 +590,9 @@
                     failOnKev: this.triBool(this.form.failOnKev),
                     failOnEpss: this.form.failOnEpss === '' ? null : Number(this.form.failOnEpss),
                     failOnLicenseViolation: this.triBool(this.form.failOnLicenseViolation),
-                    onlyNew: this.triBool(this.form.onlyNew)
+                    onlyNew: this.triBool(this.form.onlyNew),
+                    onlyReachable: this.triBool(this.form.onlyReachable),
+                    failOnSecrets: this.triBool(this.form.failOnSecrets)
                 };
                 try {
                     const url = this.editingId ? ('/api/policies/' + this.editingId) : '/api/policies';
@@ -609,6 +629,8 @@
                 if (p.failOnEpss !== null && p.failOnEpss !== undefined) parts.push('EPSS≥' + p.failOnEpss);
                 if (p.failOnLicenseViolation === true) parts.push('License');
                 if (p.onlyNew === true) parts.push('New-only');
+                if (p.onlyReachable === true) parts.push('Reachable-only');
+                if (p.failOnSecrets === true) parts.push('Secrets');
                 return parts.length ? parts.join(' · ') : _policyI18n.noOverrides;
             },
 

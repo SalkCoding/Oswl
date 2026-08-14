@@ -185,7 +185,7 @@ class ConfigTransferServiceTest {
 
         ConfigImportResult result = configTransferService.importBundle(bundleWith(
                 new PolicyExport("ORGANIZATION", "Different Org Name", "Org baseline", null,
-                        true, true, "HIGH", null, null, null, null)
+                        true, true, "HIGH", null, null, null, null, null, null)
         ), false);
 
         assertThat(result.policiesCreated()).isEqualTo(1);
@@ -206,11 +206,11 @@ class ConfigTransferServiceTest {
 
     private static PolicyExport teamPolicy(String name) {
         return new PolicyExport("TEAM", "Backend", name, null,
-                false, true, null, true, null, null, null);
+                false, true, null, true, null, null, null, null, null);
     }
 
     private static PolicyExport projectPolicy(String scopeName, String name) {
         return new PolicyExport("PROJECT", scopeName, name, null,
-                false, true, "CRITICAL", null, null, null, null);
+                false, true, "CRITICAL", null, null, null, null, null, null);
     }
 }

@@ -245,7 +245,7 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 
 확정 악성 패키지(OSV `MAL-` 어드바이저리)는 위의 모든 임계값 및 `onlyNew`/`onlyReachable`과 무관하게 항상 차단됩니다 — 유일한 해제 방법은 승인된 정책 예외(waiver, **v1.0.5**, `/api/policies/exceptions` 참고)뿐입니다.
 
-`failOnSecrets`(**v1.0.5**)는 Quick Import 클론 스캔에서 CRITICAL/HIGH 등급 시크릿 탐지(정규식 + 엔트로피 규칙 — AWS 키, GitHub/GitLab/Slack/npm 토큰, 임베디드 프라이빗 키 블록 등)가 하나라도 있으면 차단합니다. 아직 조직/팀/프로젝트 정책 계층에는 포함되지 않으며, 요청 오버라이드와 인스턴스 기본값만 적용됩니다.
+`failOnSecrets`(**v1.0.5**)는 Quick Import 클론 스캔에서 CRITICAL/HIGH 등급 시크릿 탐지(정규식 + 엔트로피 규칙 — AWS 키, GitHub/GitLab/Slack/npm 토큰, 임베디드 프라이빗 키 블록 등)가 하나라도 있으면 차단합니다. 위의 다른 임계값과 마찬가지로 요청 오버라이드 → 조직/팀/프로젝트 정책 계층 → 인스턴스 기본값 순으로 해석됩니다.
 
 ---
 

@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS policies (
     fail_on_epss                DOUBLE PRECISION,
     fail_on_license_violation    BOOLEAN,
     only_new                     BOOLEAN,
+    only_reachable               BOOLEAN,
+    fail_on_secrets              BOOLEAN,
     created_at                   TIMESTAMP    NOT NULL DEFAULT now(),
     updated_at                   TIMESTAMP    NOT NULL DEFAULT now(),
     CONSTRAINT uq_policies_organization UNIQUE (organization_id),

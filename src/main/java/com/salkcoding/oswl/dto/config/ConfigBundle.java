@@ -40,5 +40,6 @@ public record ConfigBundle(
     public record PolicyExport(String scopeType, String scopeName, String name, String description,
                                boolean locked, boolean enabled,
                                String failOnSeverity, Boolean failOnKev, Double failOnEpss,
-                               Boolean failOnLicenseViolation, Boolean onlyNew) {}
+                               Boolean failOnLicenseViolation, Boolean onlyNew,
+                               Boolean onlyReachable, Boolean failOnSecrets) {}
 }

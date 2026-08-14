@@ -236,6 +236,11 @@ oswl:
     fail-on-license-violation: ${OSWL_GATE_FAIL_ON_LICENSE_VIOLATION:true}
     # only-new: gate considers only findings absent from the previous completed scan (baseline).
     only-new: ${OSWL_GATE_ONLY_NEW:true}
+    # only-reachable: gate considers only CVEs the call-graph analysis marked REACHABLE (Java
+    # only; other ecosystems have no bytecode to analyze and are always treated as reachable).
+    # Default off — most projects don't have reachability data yet, and filtering on it silently
+    # would hide every finding for an unanalyzed project.
+    only-reachable: ${OSWL_GATE_ONLY_REACHABLE:false}
     # fail-on-secrets: gate fails when the scan found a CRITICAL/HIGH-severity secret finding.
     # Default off — turning this on for an existing project can surprise-fail its next CI run.
     fail-on-secrets: ${OSWL_GATE_FAIL_ON_SECRETS:false}

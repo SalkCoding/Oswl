@@ -81,6 +81,12 @@ public class Policy {
     @Column(name = "only_new")
     private Boolean onlyNew;
 
+    @Column(name = "only_reachable")
+    private Boolean onlyReachable;
+
+    @Column(name = "fail_on_secrets")
+    private Boolean failOnSecrets;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -91,7 +97,8 @@ public class Policy {
 
     public void update(String name, String description, boolean locked, boolean enabled,
                        String failOnSeverity, Boolean failOnKev, Double failOnEpss,
-                       Boolean failOnLicenseViolation, Boolean onlyNew) {
+                       Boolean failOnLicenseViolation, Boolean onlyNew,
+                       Boolean onlyReachable, Boolean failOnSecrets) {
         this.name = name;
         this.description = description;
         this.locked = locked;
@@ -101,6 +108,8 @@ public class Policy {
         this.failOnEpss = failOnEpss;
         this.failOnLicenseViolation = failOnLicenseViolation;
         this.onlyNew = onlyNew;
+        this.onlyReachable = onlyReachable;
+        this.failOnSecrets = failOnSecrets;
     }
 
     public void setEnabled(boolean enabled) {

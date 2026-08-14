@@ -134,7 +134,8 @@ public class PolicyService {
         }
         policy.update(request.name(), request.description(), request.locked(), request.enabled(),
                 request.failOnSeverity(), request.failOnKev(), request.failOnEpss(),
-                request.failOnLicenseViolation(), request.onlyNew());
+                request.failOnLicenseViolation(), request.onlyNew(),
+                request.onlyReachable(), request.failOnSecrets());
         return toDto(policy);
     }
 
@@ -166,6 +167,8 @@ public class PolicyService {
                 .failOnEpss(merged.failOnEpss())
                 .failOnLicenseViolation(merged.failOnLicenseViolation())
                 .onlyNew(merged.onlyNew())
+                .onlyReachable(merged.onlyReachable())
+                .failOnSecrets(merged.failOnSecrets())
                 .build();
     }
 
@@ -262,7 +265,7 @@ public class PolicyService {
                     PolicyScopeType.PROJECT, project.getId(), imported.getName(), imported.getDescription(),
                     imported.isLocked(), imported.isEnabled(), imported.getFailOnSeverity(),
                     imported.getFailOnKev(), imported.getFailOnEpss(), imported.getFailOnLicenseViolation(),
-                    imported.getOnlyNew());
+                    imported.getOnlyNew(), imported.getOnlyReachable(), imported.getFailOnSecrets());
             return saveOrUpdateScoped(projectScoped);
         } catch (Exception e) {
             log.error("[PolicyGitOps] Failed to sync projectId={} from {}: {}",
@@ -392,7 +395,9 @@ public class PolicyService {
                 (Boolean) gate.get("failOnKev"),
                 (Double) gate.get("failOnEpss"),
                 (Boolean) gate.get("failOnLicenseViolation"),
-                (Boolean) gate.get("onlyNew")
+                (Boolean) gate.get("onlyNew"),
+                (Boolean) gate.get("onlyReachable"),
+                (Boolean) gate.get("failOnSecrets")
         );
         return saveOrUpdateScoped(request);
     }
@@ -412,6 +417,8 @@ public class PolicyService {
                 .failOnEpss(request.failOnEpss())
                 .failOnLicenseViolation(request.failOnLicenseViolation())
                 .onlyNew(request.onlyNew())
+                .onlyReachable(request.onlyReachable())
+                .failOnSecrets(request.failOnSecrets())
                 .build();
     }
 
@@ -493,7 +500,7 @@ public class PolicyService {
         applyLevel(h.team(), m);
         applyLevel(h.project(), m);
         return new GateOptions(null, m.failOnSeverity, m.failOnKev, m.failOnEpss,
-                m.failOnLicenseViolation, m.onlyNew, null, null);
+                m.failOnLicenseViolation, m.onlyNew, m.onlyReachable, m.failOnSecrets);
     }
 
     private void applyLevel(Optional<Policy> policyOpt, MutableGate m) {
@@ -503,6 +510,8 @@ public class PolicyService {
             applyField(policy.getFailOnEpss(), "epss", policy.isLocked(), m);
             applyField(policy.getFailOnLicenseViolation(), "license", policy.isLocked(), m);
             applyField(policy.getOnlyNew(), "onlyNew", policy.isLocked(), m);
+            applyField(policy.getOnlyReachable(), "onlyReachable", policy.isLocked(), m);
+            applyField(policy.getFailOnSecrets(), "failOnSecrets", policy.isLocked(), m);
         });
     }
 
@@ -517,6 +526,8 @@ public class PolicyService {
                 case "epss" -> m.failOnEpss = (Double) value;
                 case "license" -> m.failOnLicenseViolation = (Boolean) value;
                 case "onlyNew" -> m.onlyNew = (Boolean) value;
+                case "onlyReachable" -> m.onlyReachable = (Boolean) value;
+                case "failOnSecrets" -> m.failOnSecrets = (Boolean) value;
             }
         }
         if (locked) {
@@ -549,6 +560,8 @@ public class PolicyService {
                 .failOnEpss(policy.getFailOnEpss())
                 .failOnLicenseViolation(policy.getFailOnLicenseViolation())
                 .onlyNew(policy.getOnlyNew())
+                .onlyReachable(policy.getOnlyReachable())
+                .failOnSecrets(policy.getFailOnSecrets())
                 .createdAt(policy.getCreatedAt())
                 .updatedAt(policy.getUpdatedAt())
                 .build();
@@ -561,6 +574,8 @@ public class PolicyService {
         if (effective.getFailOnEpss() != null) gate.put("failOnEpss", effective.getFailOnEpss());
         gate.put("failOnLicenseViolation", effective.isFailOnLicenseViolation());
         gate.put("onlyNew", effective.isOnlyNew());
+        if (effective.getOnlyReachable() != null) gate.put("onlyReachable", effective.getOnlyReachable());
+        if (effective.getFailOnSecrets() != null) gate.put("failOnSecrets", effective.getFailOnSecrets());
         return gate;
     }
 
@@ -578,6 +593,8 @@ public class PolicyService {
         if (dto.getFailOnEpss() != null) gate.put("failOnEpss", dto.getFailOnEpss());
         if (dto.getFailOnLicenseViolation() != null) gate.put("failOnLicenseViolation", dto.getFailOnLicenseViolation());
         if (dto.getOnlyNew() != null) gate.put("onlyNew", dto.getOnlyNew());
+        if (dto.getOnlyReachable() != null) gate.put("onlyReachable", dto.getOnlyReachable());
+        if (dto.getFailOnSecrets() != null) gate.put("failOnSecrets", dto.getFailOnSecrets());
         root.put(YAML_GATE_KEY, gate);
         return root;
     }
@@ -637,6 +654,8 @@ public class PolicyService {
         Double failOnEpss;
         Boolean failOnLicenseViolation;
         Boolean onlyNew;
+        Boolean onlyReachable;
+        Boolean failOnSecrets;
         final Set<String> locked = new HashSet<>();
     }
 }
