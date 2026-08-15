@@ -71,7 +71,7 @@
                 </div>
             </div>
             <!-- Inline form: shown when not connected -->
-            <div x-show="!connections.some(c=>c.provider==='GITHUB')" x-cloak class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
+            <div x-show="!connections.some(c=>c.provider==='GITHUB')" x-cloak data-dirty-scope="vcs-github" class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
                 <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
                     <button type="button" @click="githubMode = 'cloud'"
                             :class="githubMode === 'cloud'
@@ -150,7 +150,7 @@
                 </div>
             </div>
             <!-- Inline form: shown when not connected -->
-            <div x-show="!connections.some(c=>c.provider==='GITLAB')" x-cloak class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
+            <div x-show="!connections.some(c=>c.provider==='GITLAB')" x-cloak data-dirty-scope="vcs-gitlab" class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
                 <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
                     <button type="button" @click="gitlabMode = 'cloud'"
                             :class="gitlabMode === 'cloud'
@@ -227,7 +227,7 @@
                 </div>
             </div>
             <!-- Inline form: shown when not connected -->
-            <div x-show="!connections.some(c=>c.provider==='BITBUCKET')" x-cloak class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
+            <div x-show="!connections.some(c=>c.provider==='BITBUCKET')" x-cloak data-dirty-scope="vcs-bitbucket" class="flex flex-col gap-[16px] pt-[16px] border-t border-[var(--grayscale-10)]">
                 <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
                     <button type="button" @click="bitbucketMode = 'cloud'"
                             :class="bitbucketMode === 'cloud'
@@ -647,6 +647,7 @@
                     this.gitlabMode = 'cloud';
                     this.gitlabServerUrl = '';
                     this.gitlabAccessToken = '';
+                    if (window.OswlDirty) window.OswlDirty.clear('vcs-gitlab');
                     await this.loadConnections();
                     this.showToast(_vcsI18n.providerGitlab + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
@@ -677,6 +678,7 @@
                     this.githubMode = 'cloud';
                     this.githubServerUrl = '';
                     this.githubAccessToken = '';
+                    if (window.OswlDirty) window.OswlDirty.clear('vcs-github');
                     await this.loadConnections();
                     this.showToast(_vcsI18n.providerGithub + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
@@ -716,6 +718,7 @@
                     this.bitbucketUsername = '';
                     this.bitbucketEmail = '';
                     this.bitbucketAccessToken = '';
+                    if (window.OswlDirty) window.OswlDirty.clear('vcs-bitbucket');
                     await this.loadConnections();
                     this.showToast(_vcsI18n.providerBitbucket + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {

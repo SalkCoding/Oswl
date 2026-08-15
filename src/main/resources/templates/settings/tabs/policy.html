@@ -38,7 +38,7 @@
         </div>
 
         <!-- Create / edit form -->
-        <div x-show="formOpen" x-cloak class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[16px]">
+        <div x-show="formOpen" x-cloak data-dirty-scope="policy" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[16px]">
             <h3 class="font-bold text-[15px] text-black" x-text="editingId ? _policyI18n.editPolicy : _policyI18n.newPolicy"></h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
@@ -222,7 +222,7 @@
         <p x-show="!waiverProjectId" x-cloak class="text-[13px] text-[var(--grayscale-50)]" th:text="#{settings.policy.waivers.selectProjectHint}">Select a project above to view or request waivers.</p>
 
         <!-- New waiver form -->
-        <div x-show="waiverFormOpen" x-cloak class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[16px]">
+        <div x-show="waiverFormOpen" x-cloak data-dirty-scope="policy-waiver" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[16px]">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
                 <div class="flex flex-col gap-[6px] md:col-span-2">
                     <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.waivers.form.reason}">Reason</label>
@@ -251,7 +251,7 @@
                 </div>
             </div>
             <div class="flex gap-[10px] justify-end">
-                <button type="button" @click="waiverFormOpen = false" class="px-[14px] py-[8px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-70)] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)]" th:text="#{common.cancel}">Cancel</button>
+                <button type="button" @click="waiverFormOpen = false; if (window.OswlDirty) window.OswlDirty.clear('policy-waiver')" class="px-[14px] py-[8px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-70)] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)]" th:text="#{common.cancel}">Cancel</button>
                 <button type="button" @click="submitWaiver()" class="bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]" th:text="#{settings.policy.waivers.submit}">Request Waiver</button>
             </div>
         </div>
@@ -318,7 +318,7 @@
         </div>
 
         <!-- Import -->
-        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[12px]">
+        <div data-dirty-scope="policy-import" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[12px]">
             <h3 class="font-bold text-[15px] text-black" th:text="#{settings.policy.sync.import.heading}">Import from YAML</h3>
             <textarea x-model="importText" rows="8" th:placeholder="#{settings.policy.sync.import.placeholder}"
                       class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[10px] text-[12px] font-mono resize-y"></textarea>
@@ -569,7 +569,11 @@
                 };
                 this.formOpen = true;
             },
-            closeForm() { this.formOpen = false; },
+            closeForm() {
+                this.formOpen = false;
+                // Cancel discards the edits, so the leave-warning must go with them.
+                if (window.OswlDirty) window.OswlDirty.clear('policy');
+            },
             triBool(v) { return v === '' ? null : v === 'true'; },
 
             async savePolicy() {
@@ -601,6 +605,7 @@
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.saveFailed); return; }
                     this.formOpen = false;
+                    if (window.OswlDirty) window.OswlDirty.clear('policy');
                     await this.loadPolicies();
                     this.showToast(_policyI18n.saved);
                 } catch (e) {
@@ -640,6 +645,8 @@
             },
             async loadExceptions() {
                 this.waiverFormOpen = false;
+                // Switching projects discards the half-filled waiver form.
+                if (window.OswlDirty) window.OswlDirty.clear('policy-waiver');
                 if (!this.waiverProjectId) { this.exceptions = []; return; }
                 this.exceptionsLoading = true;
                 this.apiError = null;
@@ -670,6 +677,7 @@
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.waiverRequestFailed); return; }
                     this.waiverFormOpen = false;
+                    if (window.OswlDirty) window.OswlDirty.clear('policy-waiver');
                     await this.loadExceptions();
                     this.showToast(_policyI18n.waiverRequested);
                 } catch (e) {
@@ -731,6 +739,7 @@
                     if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.importFailed); return; }
                     const data = await r.json();
                     this.importResult = _policyI18n.importResult.replace('{0}', String(data.length));
+                    if (window.OswlDirty) window.OswlDirty.clear('policy-import');
                     await this.loadPolicies();
                 } catch (e) {
                     this.apiError = _policyI18n.importFailed;

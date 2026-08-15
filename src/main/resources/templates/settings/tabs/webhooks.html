@@ -18,7 +18,8 @@
          x-text="apiError"></div>
 
     <!-- Settings Panel -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
+    <div data-dirty-scope="webhooks"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
 
         <!-- Provider -->
         <div class="flex flex-col gap-[12px]">
@@ -325,6 +326,7 @@ function webhooksTab() {
                     body: JSON.stringify(this.form)
                 });
                 if (r.ok) {
+                    if (window.OswlDirty) window.OswlDirty.clear('webhooks');
                     this.showToast(_webhooksI18n.saved);
                     this.form.url = '';
                     this.loadHistory();

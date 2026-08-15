@@ -20,7 +20,8 @@
     <!-- ─────────────────────────────────────────────────────────────── -->
     <!-- Section 1: Mail Server                                         -->
     <!-- ─────────────────────────────────────────────────────────────── -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+    <div data-dirty-scope="security-mail"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.security.mail.heading}">Mail Server</h3>
 
@@ -33,7 +34,7 @@
 
         <!-- Option: SMTP -->
         <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mailMode='SMTP'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="mailMode='SMTP'">
                 <img :src="mailMode==='SMTP' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.security.mail.mode.smtp}">SMTP</span>
@@ -75,7 +76,7 @@
                              id="mail-encryption-menu" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <template x-for="opt in ['NONE','STARTTLS','SSL_TLS']" :key="opt">
-                                <button type="button" @click="mailForm.encryption = opt; encOpen = false; applyEncryptionDefaults(opt)"
+                                <button type="button" data-dirty-mark @click="mailForm.encryption = opt; encOpen = false; applyEncryptionDefaults(opt)"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
                                         :class="mailForm.encryption === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
@@ -173,7 +174,8 @@
     <!-- ─────────────────────────────────────────────────────────────── -->
     <!-- Section 2: Two-Factor Authentication                           -->
     <!-- ─────────────────────────────────────────────────────────────── -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+    <div data-dirty-scope="security-2fa"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.security.twoFa.heading}">Two-Factor Authentication</h3>
 
@@ -186,7 +188,7 @@
 
         <!-- Option: Email OTP -->
         <div class="flex flex-col gap-[16px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="twoFaMode='EMAIL_OTP'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="twoFaMode='EMAIL_OTP'">
                 <img :src="twoFaMode==='EMAIL_OTP' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.security.twoFa.mode.emailOtp}">Email OTP</span>
@@ -379,6 +381,7 @@ function securityTab() {
                     body: JSON.stringify({ mailMode: this.mailMode, mail: this.mailForm })
                 });
                 if (r.ok) {
+                    if (window.OswlDirty) window.OswlDirty.clear('security-mail');
                     this.showToast(_securityI18n.saved);
                 } else {
                     const body = await r.json().catch(() => ({}));
@@ -401,6 +404,7 @@ function securityTab() {
                     body: JSON.stringify({ twoFaMode: this.twoFaMode })
                 });
                 if (r.ok) {
+                    if (window.OswlDirty) window.OswlDirty.clear('security-2fa');
                     this.showToast(_securityI18n.saved);
                 } else {
                     const body = await r.json().catch(() => ({}));

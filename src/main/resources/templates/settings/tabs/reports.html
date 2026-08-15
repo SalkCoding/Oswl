@@ -24,7 +24,8 @@
     </div>
 
     <!-- Settings Panel -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
+    <div data-dirty-scope="reports"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
 
         <!-- Logo -->
         <div class="flex flex-col gap-[8px]">
@@ -40,7 +41,7 @@
                             <span th:text="#{settings.reports.logo.upload}">Upload image</span>
                             <input type="file" accept="image/png,image/jpeg,image/svg+xml" class="hidden" @change="onLogoSelected($event)">
                         </label>
-                        <button type="button" x-show="form.logoDataUri" @click="form.logoDataUri = ''"
+                        <button type="button" x-show="form.logoDataUri" data-dirty-mark @click="form.logoDataUri = ''"
                                 class="px-[12px] py-[7px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition-colors"
                                 th:text="#{common.clear}">Clear</button>
                     </div>
@@ -190,6 +191,7 @@ function reportsTab() {
                     body: JSON.stringify(this.form)
                 });
                 if (r.ok) {
+                    if (window.OswlDirty) window.OswlDirty.clear('reports');
                     this.showToast(_reportsI18n.saved);
                 } else {
                     const body = await r.json().catch(() => ({}));
