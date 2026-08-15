@@ -525,7 +525,7 @@ function quickImportPage() {
             tracker.messageArgs = job.messageArgs || [];
             tracker.percent = job.percent != null ? job.percent : tracker.percent;
             tracker.queuePosition = job.queuePosition;
-            // D2/D4: live enrichment details — preview joins the rolling tail chunks into one
+            // live enrichment details — preview joins the rolling tail chunks into one
             // string; the cache badge keeps its last known values once the job is DONE.
             if (Array.isArray(job.detailLines)) tracker.detailLines = job.detailLines;
             if (Array.isArray(job.aiPreviews)) tracker.aiPreview = job.aiPreviews.join('');
@@ -546,8 +546,9 @@ function quickImportPage() {
                 // The elapsed-time gate keeps the very first anchor (set the instant CLONING
                 // starts, with ~0ms of real data) from freezing a near-zero estimate that then
                 // sits hidden for the rest of that phase — some phases still report a near-fixed
-                // percent (D3 made PARSING/ENRICHING gradually climbing, but CLONING/SCANNING
-                // have no in-phase signal), so without this gate the ETA could surface only once
+                // percent (PARSING/ENRICHING report gradually climbing progress, but CLONING/
+                // SCANNING have no in-phase signal), so without this gate the ETA could surface
+                // only once
                 // a *later* phase transition happened to accumulate 5s of elapsed time.
                 // Requiring 5s of real elapsed time up front instead means the estimate appears
                 // as soon as there's a real sample, regardless of which phase we're in.
@@ -666,7 +667,7 @@ function quickImportPage() {
         },
 
         /**
-         * D4 cache badge. Hidden on a first scan (0 hits) — "0 of N served from cache" would
+         * Cache-hit badge. Hidden on a first scan (0 hits) — "0 of N served from cache" would
          * read as if something went wrong, so the badge only appears once there is a real hit.
          */
         cacheBadgeText(job) {
@@ -694,7 +695,7 @@ function quickImportPage() {
                 return this._localizedMessage(job);
             }
             if (phase === 'DONE') {
-                // D1: the job reaches DONE as soon as the CVE/license data pipeline finishes —
+                // the job reaches DONE as soon as the CVE/license data pipeline finishes —
                 // AI summaries (aiStatus) may still be generating in the background.
                 const aiPending = job.aiStatus === 'PENDING' || job.aiStatus === 'RUNNING';
                 const base = job.messageKey === 'importComplete'

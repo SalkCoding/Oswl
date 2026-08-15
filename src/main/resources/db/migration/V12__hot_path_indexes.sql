@@ -1,4 +1,4 @@
--- Hot-path index backfill (ROADMAP D1).
+-- Hot-path index backfill.
 --
 -- All statements are idempotent (IF NOT EXISTS), matching the V2+ convention, so this is a
 -- no-op wherever an index already exists (e.g. idx_project_members_user_id on databases built

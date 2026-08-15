@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * One project's unacknowledged CVE alerts, grouped for the mobile notifications view
- * (ROADMAP C8) — the existing acknowledge endpoint clears a whole project's alerts at once,
+ * — the existing acknowledge endpoint clears a whole project's alerts at once,
  * so the UI acts at the same granularity rather than per-alert.
  */
 public record MobileProjectAlertsDto(Long projectId, String projectName, List<MobileAlertDto> alerts) {}

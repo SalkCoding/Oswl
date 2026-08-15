@@ -7,9 +7,8 @@ import java.util.regex.Pattern;
 
 /**
  * Best-effort version comparator for OSV {@code SEMVER}-typed ranges, used only as a fallback when
- * an {@code affected[]} entry has no enumerated {@code versions[]} list (see E5.3 in
- * PERFORMANCE-AND-OFFLINE-PLAN.md — the plan explicitly calls "proper per-ecosystem version
- * comparison" a separate, substantial piece of work).
+ * an {@code affected[]} entry has no enumerated {@code versions[]} list — proper per-ecosystem
+ * version comparison is a separate, substantial piece of work.
  *
  * <p>This is a generic dotted-segment comparator (numeric segments compare numerically, other
  * segments lexicographically; a leading {@code v} is stripped), <b>not</b> a real SemVer/PEP440/

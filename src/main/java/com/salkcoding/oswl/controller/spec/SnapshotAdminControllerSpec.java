@@ -57,7 +57,7 @@ public interface SnapshotAdminControllerSpec {
 
     @Operation(summary = "Import an offline snapshot bundle already on the server's disk",
         description = """
-            E3: for large bundles where uploading through the browser is impractical. `path` is resolved under
+            for large bundles where uploading through the browser is impractical. `path` is resolved under
             `oswl.airgapped.import-dir` (a server-side whitelist — the endpoint returns 400 if that setting is
             blank, or if `path` resolves outside it). Same mode/checksum/merge semantics as the multipart upload.
             """

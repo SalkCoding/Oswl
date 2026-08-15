@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Orchestrates the A4 secret + IaC misconfiguration scan against a Quick Import clone and
+ * Orchestrates the secret + IaC misconfiguration scan against a Quick Import clone and
  * persists the results. Runs synchronously right after the scan is ingested, while the clone
  * directory still exists — before {@code CloneCleanupService} deletes it. Never re-clones or
  * keeps its own copy of the working tree.

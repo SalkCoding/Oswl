@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 /**
- * E5's "재실행 가능성" requirement: caches downloaded upstream bytes under {@code --cache-dir} so a
+ * Caches downloaded upstream bytes under {@code --cache-dir} so a
  * re-run of {@code oswl-vdb build} (e.g. after tweaking {@code --wanted}) doesn't re-download
  * multi-hundred-MB OSV dumps. Entries older than {@link #MAX_AGE} are treated as stale and
  * re-fetched; with no {@code --cache-dir}, every call goes straight to the network.

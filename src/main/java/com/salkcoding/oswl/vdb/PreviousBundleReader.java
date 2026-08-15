@@ -18,7 +18,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * E5 delta mode ({@code --since <previous-bundle.zip>}): reads a previously built bundle so the
+ * Delta mode ({@code --since <previous-bundle.zip>}): reads a previously built bundle so the
  * new build can be diffed against it — same key-extraction rules the app's own
  * {@code AirgappedSnapshotService} ingest methods use, kept in sync manually since this is a
  * plain-Java CLI class outside the service's package.

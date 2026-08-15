@@ -178,7 +178,7 @@ public class QuickImportService {
     }
 
     /**
-     * D3: continuous in-phase progress (e.g. manifests parsed N/M). Percent is clamped
+     * Continuous in-phase progress (e.g. manifests parsed N/M). Percent is clamped
      * monotonically per job and SSE pushes are throttled; HTTP polls read the stored value.
      */
     private void reportJobProgress(String jobId, int percent) {
@@ -475,7 +475,7 @@ public class QuickImportService {
                         if (sr.getStatus() == ScanStatus.COMPLETED) {
                             // The CVE/license data pipeline is done — the job is DONE even though
                             // AI enrichment (aiStatus) may still be PENDING/RUNNING in the
-                            // background (D1: AI no longer blocks scan/job completion).
+                            // background — AI no longer blocks scan/job completion.
                             int count = current.getComponentCount() != null ? current.getComponentCount() : 0;
                             QuickImportJobStatus done = current.toBuilder()
                                     .phase(Phase.DONE)
@@ -504,7 +504,7 @@ public class QuickImportService {
                         }
                         QuickImportJobStatus.QuickImportJobStatusBuilder enriching = current.toBuilder();
                         if (enrich != null) {
-                            // D3: the holder reports absolute 55–100 progress; clamp against the
+                            // the holder reports absolute 55–100 progress; clamp against the
                             // stored percent so a stale poll/SSE race can never move it backwards.
                             int jobPercent = current.getPercent() != null ? current.getPercent() : 0;
                             enriching.message(enrich.message())
@@ -528,8 +528,8 @@ public class QuickImportService {
         // UI can flip "AI summary generating" -> done without the job itself changing phase again.
         if (current.getPhase() == Phase.DONE && current.getScanResultId() != null
                 && !isTerminalAiStatus(current.getAiStatus())) {
-            // D2: AI previews/detail lines keep streaming after DONE (D1 moved AI past the
-            // data pipeline), so merge the live snapshot while AI is still running.
+            // AI previews/detail lines keep streaming after DONE (AI completion no longer gates
+            // the job's own DONE transition), so merge the live snapshot while AI is still running.
             EnrichmentProgressHolder.Snapshot enrich =
                     enrichmentProgressHolder.getSnapshot(current.getScanResultId());
             return scanResultRepository.findById(current.getScanResultId())
@@ -855,7 +855,7 @@ public class QuickImportService {
             advanceJob(jobId, Phase.PARSING, null, null, null, null, null, null, null);
 
             long parseStartMs = System.currentTimeMillis();
-            // D3: manifest N/M progress fills the PARSING band (20–40).
+            // manifest N/M progress fills the PARSING band (20–40).
             DependencyManifestParserService.ParseResult deps =
                     dependencyManifestParserService.parseDependencies(cloneDir, parsed.owner + "/" + parsed.repo,
                             (done, total) -> reportJobProgress(jobId,

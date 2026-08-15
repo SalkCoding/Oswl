@@ -36,7 +36,7 @@
         </div>
     </div>
 
-    <!-- Body: rows fetched from /rows (ROADMAP C4) — the initial load renders this fragment
+    <!-- Body: rows fetched from /rows — the initial load renders this fragment
          server-side same as always, but filter/sort/search changes and "Load more" replace or
          append into this container via a plain fetch() instead of a full page reload or a
          client-side re-scan of every already-rendered row (the old rowVisible() approach, which
@@ -56,7 +56,7 @@
 
 </div>
 
-<!-- Row list fragment (ROADMAP C4): rendered inline on first load, re-fetched and swapped in by
+<!-- Row list fragment: rendered inline on first load, re-fetched and swapped in by
      JS afterward. The wrapper carries the page's total/has-more state as data attributes so the
      swap handler can update the pagination footer without a second round trip. -->
 <div th:fragment="rows" th:attr="data-total-count=${totalComponentCount},data-has-more=${hasMoreComponents}" class="contents">

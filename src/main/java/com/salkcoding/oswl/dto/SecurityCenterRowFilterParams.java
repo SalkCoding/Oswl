@@ -2,7 +2,7 @@ package com.salkcoding.oswl.dto;
 
 /**
  * Server-side mirror of the Security Center table's Alpine {@code filters} object and free-text
- * search/sort state (ROADMAP C4) — one field per filter checkbox, same names. Bound from request
+ * search/sort state — one field per filter checkbox, same names. Bound from request
  * params on the {@code /rows} endpoint, and also used directly for the initial page load so that
  * load matches exactly what the interactive filter panel would produce with its default toggles.
  */

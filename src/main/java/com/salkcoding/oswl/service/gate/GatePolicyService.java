@@ -42,7 +42,7 @@ import java.util.Set;
  * the previous completed scan as the baseline for "new vulnerability" detection — no new
  * scanning or persistence. Deferred/ignored components are treated as accepted exceptions
  * and never fail the gate, and so are findings covered by an approved, unexpired
- * {@link PolicyException} (ROADMAP A7).
+ * {@link PolicyException}.
  *
  * Threshold resolution order is request override → {@link PolicyService} org/team/project
  * policy hierarchy → {@code oswl.gate.*} instance defaults.
@@ -100,7 +100,7 @@ public class GatePolicyService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        // Tier 2 of the resolution order — org/team/project policy hierarchy (ROADMAP A7).
+        // Tier 2 of the resolution order — org/team/project policy hierarchy.
         // Fields the hierarchy leaves null (no policy row, or policy exists but doesn't set
         // that field) fall through to the oswl.gate.* instance defaults below.
         GateOptions policyOptions = policyService.resolveGateOptions(projectId);
@@ -158,7 +158,7 @@ public class GatePolicyService {
             Library lib = sc.getLibrary();
             String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
 
-            // Confirmed-malicious packages (OSV MAL- advisories, ROADMAP A6) block unconditionally —
+            // Confirmed-malicious packages (OSV MAL- advisories) block unconditionally —
             // severity/KEV/EPSS thresholds and onlyNew/onlyReachable do not apply. The only release
             // valve is an approved policy exception (waiver).
             if (lib.isMalicious()
@@ -174,7 +174,7 @@ public class GatePolicyService {
             // "Only reachable" is a noise-cut for CVE findings only (license violations don't
             // depend on whether vulnerable code is called). Components never analyzed for
             // reachability (non-Java, or Java without a configured bytecode root) stay UNKNOWN
-            // and are excluded here — this option is opt-in and Java-only by design (ROADMAP A2).
+            // and are excluded here — this option is opt-in and Java-only by design.
             boolean reachabilityGatePasses = !onlyReachable || sc.getReachability() == Reachability.REACHABLE;
 
             if (reachabilityGatePasses) {
@@ -398,7 +398,7 @@ public class GatePolicyService {
         }
     }
 
-    // ── Waivers (ROADMAP A7) ────────────────────────────────────────────
+    // ── Waivers ────────────────────────────────────────────
 
     /**
      * True when an active, approved exception covers this finding: an {@code ALL}-scoped

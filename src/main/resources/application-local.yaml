@@ -4,9 +4,9 @@ spring:
       on-profile: local
 
   datasource:
-    # LOCK_TIMEOUT bumped from H2's 2000ms default: a large offline-snapshot import (E1-E3) does a
+    # LOCK_TIMEOUT bumped from H2's 2000ms default: a large offline-snapshot import does a
     # single bulk delete+insert per source in one transaction, and the default margin proved too
-    # tight under momentary contention from an adjacent request during live E5/E6 testing — this
+    # tight under momentary contention from an adjacent request during live testing — this
     # only widens the wait window when there IS contention, it doesn't change normal-path latency.
     url: jdbc:h2:file:./oswl-db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=30000
     driver-class-name: org.h2.Driver

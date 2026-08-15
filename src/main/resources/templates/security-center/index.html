@@ -119,7 +119,7 @@
               patchUpToDate: false,
               hideNonRuntime: true
           },
-          // ── Server-side pagination state (ROADMAP C4) ──────────────────
+          // ── Server-side pagination state ──────────────────
           totalComponentCount: window.securityCenterData.totalComponentCount,
           hasMoreComponents: window.securityCenterData.hasMoreComponents,
           loadedComponentCount: 0,
@@ -140,7 +140,7 @@
           aiRetrying: false,
           scanPollTimer: null,
           aiPollTimer: null,
-          // ── Server-side filtered/sorted/paginated rows (ROADMAP C4) ─────────
+          // ── Server-side filtered/sorted/paginated rows ─────────
           // Filtering used to run in the browser (rowVisible(), against every already-rendered
           // row's data-* attributes) — that meant shipping and DOM-rendering all 5,000+ rows up
           // front just so JS could hide most of them (measured ~15s at 5,000 components). Filter
@@ -288,7 +288,7 @@
                   this.aiRetrying = false;
               }
           },
-          // Sorting moved server-side (ROADMAP C4) — SecurityCenterService.resolveSort() applies
+          // Sorting moved server-side — SecurityCenterService.resolveSort() applies
           // the equivalent risk/name/license ordering via the /rows query. Setting sortMode here
           // triggers the $watch in init() that re-fetches the current page.
           applySort(mode) {
@@ -638,7 +638,7 @@
             </div>
         </section>
 
-        <!-- Secret / IaC findings (ROADMAP A4) -->
+        <!-- Secret / IaC findings -->
         <div th:replace="~{security-center/fragments/findings :: findings}"></div>
 
         <!-- Table & Action area -->

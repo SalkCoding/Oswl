@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.List;
 
 /**
- * Lightweight mobile "notifications" screen (ROADMAP C8) — unacknowledged CVE alerts on
+ * Lightweight mobile "notifications" screen — unacknowledged CVE alerts on
  * projects the user can see, plus (for whoever can manage policy) pending waiver approvals.
  * A phone-sized companion view, not a mobile port of the full app: no scan browsing, no
  * settings, nothing else. Reuses the same session auth and the existing acknowledge/approve/

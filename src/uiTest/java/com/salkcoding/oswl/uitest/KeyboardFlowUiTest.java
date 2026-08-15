@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
 /**
- * Keyboard-only completion of the main flow (ROADMAP v1.0.5.1 — C1-2): sign in, open a project
+ * Keyboard-only completion of the main flow: sign in, open a project
  * from the list, and operate Security Center's export menu — all via Tab/Enter/Space, never a
  * mouse click. This is the DoD's "키보드만으로 주요 플로우 완주 가능... 자동 테스트로 증명" —
  * asserting keyboard *operability* (a focused control responds correctly to Enter/Space) rather

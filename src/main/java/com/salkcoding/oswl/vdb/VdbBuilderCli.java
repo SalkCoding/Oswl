@@ -19,7 +19,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * E5: {@code oswl-vdb} — builds/verifies/inspects offline vulnerability-DB (VDB) bundles from
+ * {@code oswl-vdb} — builds/verifies/inspects offline vulnerability-DB (VDB) bundles from
  * live upstream sources (OSV, EPSS, CISA KEV, deps.dev), for import into an air-gapped OsWL
  * instance via {@code POST /api/admin/snapshot/import}.
  *
@@ -32,12 +32,12 @@ import java.util.zip.ZipInputStream;
  *
  * <p>{@code --mode delta --since <previous-bundle.zip>} diffs the newly-built full dataset
  * against a previous bundle key-by-key (see {@link PreviousBundleReader}/{@link VdbBundleWriter}):
- * only added/changed lines are written, plus a {@code "_deleted":true} marker (E2's existing
- * convention) for keys the previous bundle had that this build doesn't.
+ * only added/changed lines are written, plus a {@code "_deleted":true} marker (the existing
+ * delete-marker convention) for keys the previous bundle had that this build doesn't.
  *
  * <p>{@code --offline-sources <dir>} builds entirely without network access from a directory
  * pre-populated by an earlier {@code --cache-dir} run — see {@link HttpCache}'s offline-only mode.
- * Only covers osv/epss/kev (deps.dev has no bulk dump at all, E5.2, so it's always skipped when
+ * Only covers osv/epss/kev (deps.dev has no bulk dump at all, so it's always skipped when
  * this flag is set).
  */
 public final class VdbBuilderCli {
@@ -226,7 +226,7 @@ public final class VdbBuilderCli {
 
     private record Resolution(int resolvedCount, List<WantedComponent> unresolved) {}
 
-    /** E6: a wanted component counts as "resolved" if OSV or deps.dev actually produced an answer
+    /** A wanted component counts as "resolved" if OSV or deps.dev actually produced an answer
      * for it — either found vulnerabilities, confirmed none, or resolved a deps.dev version. Only
      * genuinely unresolved (OSV range we couldn't evaluate, deps.dev lookup failed/skipped, or an
      * ecosystem OSV never even fetched a dump for) components are excluded — those are written to

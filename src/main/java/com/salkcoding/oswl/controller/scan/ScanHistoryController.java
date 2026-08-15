@@ -38,7 +38,7 @@ public class ScanHistoryController implements ScanHistoryControllerSpec {
     }
 
     /**
-     * E7: in air-gapped mode, the scan results were analyzed against snapshot definitions as of
+     * In air-gapped mode, the scan results were analyzed against snapshot definitions as of
      * {@link AirgappedSnapshotService#oldestSourceAsOf()}; the page shows that date so auditors can
      * see how fresh the underlying data was. Null outside air-gapped mode or with no provenance.
      */

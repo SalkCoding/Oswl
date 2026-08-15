@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Nightly scheduler that automatically expires overdue policy exceptions (waivers, ROADMAP A7)
+ * Nightly scheduler that automatically expires overdue policy exceptions (waivers)
  * so a gate that once passed because of an approved exception starts failing again once that
  * exception's expiry date has passed — the DoD explicitly requires this to happen without
  * manual intervention.

@@ -317,13 +317,13 @@
                         <span><span th:text="#{quickImport.progress.elapsed}">Elapsed</span> <span x-text="elapsedText(job)"></span></span>
                         <span x-show="etaText(job)" x-cloak x-text="etaText(job)"></span>
                     </div>
-                    <!-- D4: cache-hit badge (hidden on first scans with 0 hits) -->
+                    <!-- cache-hit badge (hidden on first scans with 0 hits) -->
                     <div x-show="cacheBadgeText(job)" x-cloak class="flex">
                         <span class="inline-flex items-center gap-[4px] text-[11px] font-medium text-[#00a093] rounded-full px-[8px] py-[2px]"
                               style="background:rgba(0,160,147,0.08);"
                               x-text="cacheBadgeText(job)"></span>
                     </div>
-                    <!-- D2: enrichment detail lines (findings / batch progress) -->
+                    <!-- enrichment detail lines (findings / batch progress) -->
                     <template x-if="job.detailLines && job.detailLines.length > 0">
                         <div class="flex flex-col gap-[2px] border-l-2 border-[var(--grayscale-15)] pl-[10px] max-h-[120px] overflow-y-auto">
                             <template x-for="(line, idx) in job.detailLines" :key="job.jobId + '-detail-' + idx">
@@ -332,7 +332,7 @@
                             </template>
                         </div>
                     </template>
-                    <!-- D2: live AI preview — x-text inserts as textContent only (model output is untrusted; innerHTML would be an XSS hole) -->
+                    <!-- live AI preview — x-text inserts as textContent only (model output is untrusted; innerHTML would be an XSS hole) -->
                     <template x-if="job.aiPreview">
                         <pre class="m-0 p-[10px] rounded-[8px] bg-[var(--grayscale-5)] text-[11px] font-mono leading-[1.5] whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-h-[160px] overflow-y-auto text-[var(--grayscale-80)]"
                              x-text="job.aiPreview"></pre>

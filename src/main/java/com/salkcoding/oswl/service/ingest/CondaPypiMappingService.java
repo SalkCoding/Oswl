@@ -15,7 +15,7 @@ import java.util.Map;
  * Conda package name → PyPI project name, for the subset of conda packages that are just a
  * Python project repackaged for conda (numpy, requests, django, ...). A hit means the package
  * can be queried through OSV's PyPI ecosystem exactly like a real PyPI dependency; a miss means
- * it's very likely a native (non-Python) library — see ROADMAP A9 for why those are left
+ * it's very likely a native (non-Python) library, which is why those are left
  * conspicuously {@code UNKNOWN} rather than guessed at.
  *
  * <p>Backed by a bundled snapshot of {@code regro/cf-graph-countyfair}'s

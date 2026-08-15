@@ -15,12 +15,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Boots the real app and drives it end to end through headless Chromium: login, project list,
- * Security Center. This is the case the roadmap's V1 exists for — curl/grep against rendered
- * HTML cannot tell whether the page a user actually sees works, only whether the markup exists.
+ * Security Center. This is exactly what this headless-browser harness exists for — curl/grep
+ * against rendered HTML cannot tell whether the page a user actually sees works, only whether
+ * the markup exists.
  *
- * <p>Does not assert on axe violations — that assertion belongs to C1-2, once the color-contrast
- * and keyboard-navigation fixes (C1-1/C1-2) are in. Here we only prove the harness itself works
- * end to end and leave a report behind.
+ * <p>Does not assert on axe violations — that assertion belongs to the dedicated accessibility
+ * audit, once the color-contrast and keyboard-navigation fixes are in. Here we only prove the
+ * harness itself works end to end and leave a report behind.
  */
 @DisplayName("UI smoke: login -> project list -> Security Center")
 class SmokeUiTest extends UiTestBase {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OsWL restore-rehearsal verification (roadmap S5) — run this against a freshly restored
+# OsWL restore-rehearsal verification — run this against a freshly restored
 # instance (restored PostgreSQL + injected OSWL_ENCRYPTION_KEY + app started) to confirm the
 # three things a backup restore actually needs to prove:
 #   (a) the encryption key is correct — a stored VCS token decrypts without error

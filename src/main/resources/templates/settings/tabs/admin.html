@@ -1001,7 +1001,7 @@
         </div><!-- end table + footer wrapper -->
     </div>
 
-    <!-- ===================== SNAPSHOT (Offline VDB, E7) ===================== -->
+    <!-- ===================== SNAPSHOT (Offline VDB) ===================== -->
     <div x-show="subTab==='snapshot'" x-cloak class="flex flex-col gap-[12px]">
         <!-- Info box -->
         <div class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] flex items-center gap-[10px]">
@@ -1734,7 +1734,7 @@
                 return map[this.auditFilter.dateRange] ?? _adminI18n.last7Days;
             },
 
-            // ── Snapshot (offline VDB, E7) ──
+            // ── Snapshot (offline VDB) ──
             async loadSnapshotStatus() {
                 try {
                     const r = await this.apiGet('/api/admin/snapshot');

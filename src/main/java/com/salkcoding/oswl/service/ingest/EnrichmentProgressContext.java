@@ -4,7 +4,7 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /**
- * Thread-scoped channel for live enrichment progress (D2 AI streaming previews, D3 continuous
+ * Thread-scoped channel for live enrichment progress (AI streaming previews, continuous
  * progress). The entry points that know the scan ({@link VulnerabilityEnrichmentService}) open a
  * {@link #scope(Frame)} around their work; the layers that produce progress signals
  * ({@code OpenAiClient} token stream, {@code DepsDevClient} fetch completions,

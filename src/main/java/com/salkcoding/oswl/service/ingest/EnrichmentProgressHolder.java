@@ -10,37 +10,37 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * In-memory registry for AI enrichment progress (Quick Import live status).
  *
- * <p>D3: the enrichment phase owns the 55–100 band of the overall job progress — 55–80 for the
- * data pipeline (deps.dev/OSV fetch completions) and 80–100 for the AI blocks (B2 completion
- * count). Percent is clamped monotonically here so parallel reporters can never move it
- * backwards.
+ * <p>The enrichment phase owns the 55–100 band of the overall job progress — 55–80 for the
+ * data pipeline (deps.dev/OSV fetch completions) and 80–100 for the AI blocks (sub-phase
+ * completion count). Percent is clamped monotonically here so parallel reporters can never move
+ * it backwards.
  *
- * <p>D2: {@code detailLines} (what was found / batch progress) and {@code aiPreviews} (raw
+ * <p>{@code detailLines} (what was found / batch progress) and {@code aiPreviews} (raw
  * free-form model output) are bounded ring buffers — unbounded growth would bloat every SSE
  * frame and leak memory.
  */
 @Component
 public class EnrichmentProgressHolder {
 
-    /** F2 folded posture/trend/diff into one combined-insights block, so 5 blocks became 3. */
+    /** Posture/trend/diff are folded into one combined-insights block, so 5 blocks became 3. */
     public static final int ENRICHMENT_STEPS = 3;
 
     /** Data pipeline (deps.dev fetch) maps to 55–80 of the overall job progress. */
     private static final int DATA_PERCENT_BASE = 55;
     private static final int DATA_PERCENT_SPAN = 25;
-    /** AI blocks (B2 completion count / {@link #ENRICHMENT_STEPS}) map to 80–100. */
+    /** AI blocks (sub-phase completion count / {@link #ENRICHMENT_STEPS}) map to 80–100. */
     private static final int AI_PERCENT_BASE = 80;
     private static final int AI_PERCENT_SPAN = 20;
 
-    /** Rolling AI preview keeps only the tail — older text is dropped (D2 cap). */
+    /** Rolling AI preview keeps only the tail — older text is dropped. */
     private static final int PREVIEW_CHAR_LIMIT = 2_000;
-    /** Detail log keeps only the most recent lines (D2 cap). */
+    /** Detail log keeps only the most recent lines. */
     private static final int DETAIL_LINE_LIMIT = 20;
 
     public enum EnrichmentSubPhase {
         CVE,
         LICENSE,
-        /** F2: posture + security-trend + license-trend + version-diff folded into one call. */
+        /** Posture + security-trend + license-trend + version-diff folded into one call. */
         INSIGHTS
     }
 
@@ -103,7 +103,7 @@ public class EnrichmentProgressHolder {
     }
 
     /**
-     * D3: a deps.dev fetch completed. {@code fetchedCount} is measured against the
+     * A deps.dev fetch completed. {@code fetchedCount} is measured against the
      * {@link #recordCacheStats} toFetch total; percent is clamped monotonically.
      */
     public void reportDataProgress(Long scanResultId, int fetchedCount) {
@@ -123,7 +123,7 @@ public class EnrichmentProgressHolder {
         fireUpdate(scanResultId);
     }
 
-    /** D2: appends a raw AI output delta to the rolling preview (tail-capped, single entry). */
+    /** Appends a raw AI output delta to the rolling preview (tail-capped, single entry). */
     public void appendPreview(Long scanResultId, String chunk) {
         if (scanResultId == null || chunk == null || chunk.isEmpty()) return;
         snapshots.compute(scanResultId, (id, prev) -> {
@@ -148,7 +148,7 @@ public class EnrichmentProgressHolder {
     }
 
     /**
-     * D2: appends one line to the detail log (ring buffer — oldest lines drop off).
+     * Appends one line to the detail log (ring buffer — oldest lines drop off).
      * Content rule: library name/version/CVE counts only, never repo URLs or paths.
      */
     public void appendDetail(Long scanResultId, String line) {

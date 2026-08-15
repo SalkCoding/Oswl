@@ -1,4 +1,4 @@
--- CVE multi-source attribution + CPE match confidence (ROADMAP A1).
+-- CVE multi-source attribution + CPE match confidence.
 --
 -- CVEs can now be contributed by OSV, GitHub Advisory, and NVD. Each contributing source
 -- is recorded in library_cve_sources so the UI can show "where this finding came from".

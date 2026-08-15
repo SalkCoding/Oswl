@@ -23,10 +23,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Real-scale measurement for ROADMAP C4. First measured the Security Center's initial render at
+ * Real-scale measurement. First measured the Security Center's initial render at
  * 5,000 components on the {@code content-visibility: auto} fix alone: ~15s, ~125k DOM nodes,
- * ~37MB decoded body — nowhere near the 1s DoD, so per the roadmap's own "measure first" gate
- * this confirmed server-side pagination was actually needed (not a speculative build). After
+ * ~37MB decoded body — nowhere near the 1s target, which confirmed server-side pagination was
+ * actually needed rather than a speculative build. After
  * adding it ({@code SecurityCenterService.populateIndexModel}/{@code queryRows}, the
  * {@code /security-center/rows} endpoint, and the client-side fetch-based filter/sort/load-more
  * in {@code security-center/index.html}), this test re-measures against the same DoD and also
@@ -103,8 +103,8 @@ class ScaleMeasurementUiTest extends UiTestBase {
                 "expected the pagination footer to show the true total of %d components; body=%s",
                 COMPONENT_COUNT, body);
 
-        // Server-side filtering (ROADMAP C4's other risk: reimplementing rowVisible() in SQL and
-        // getting a filter wrong) — checking the "Restricted" license filter should re-fetch and
+        // Server-side filtering's own risk is reimplementing rowVisible() in SQL and
+        // getting a filter wrong — checking the "Restricted" license filter should re-fetch and
         // show only the 715 seeded restricted-license rows, not silently keep showing the
         // unfiltered page. Selected by its x-model attribute rather than label text since the
         // default test locale renders the label translated (e.g. Korean "제한됨").

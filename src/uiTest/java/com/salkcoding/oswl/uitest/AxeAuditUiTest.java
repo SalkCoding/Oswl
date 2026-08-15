@@ -28,9 +28,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * axe-core accessibility audit across the app's main screens (ROADMAP v1.0.5.1 — C1-2), on top
- * of the color-contrast token fixes from C1-1. Asserts zero serious/critical violations — the
- * DoD's "axe 심각 이슈 0건" — while leaving moderate/minor findings in the per-page report under
+ * axe-core accessibility audit across the app's main screens, on top
+ * of the earlier color-contrast token fixes. Asserts zero serious/critical violations while
+ * leaving moderate/minor findings in the per-page report under
  * {@code build/reports/axe/} for follow-up (e.g. the chart-as-table alternative for
  * org-dashboard/risk-trend, tracked separately since it's a feature addition, not a fix).
  */

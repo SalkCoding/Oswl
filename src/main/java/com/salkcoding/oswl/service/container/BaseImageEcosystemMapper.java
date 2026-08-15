@@ -6,12 +6,12 @@ import java.util.Map;
 /**
  * Maps a Docker base image reference ({@code repository[:tag]}) to the internal ecosystem tag
  * for that OS release, when — and only when — the repository name and tag unambiguously name a
- * known Linux distribution release (ROADMAP A3).
+ * known Linux distribution release.
  *
  * <p>Deliberately conservative: only images whose <em>repository name itself</em> is a known
  * distro (e.g. {@code debian}, {@code alpine}) are mapped. Images like {@code python:3.11-slim}
  * or {@code node:20-alpine} are very likely Debian/Alpine underneath, but guessing that from the
- * tag string would be exactly the "assume the label, not the data" mistake ROADMAP A0 was
+ * tag string would be exactly the "assume the label, not the data" mistake was
  * written to stop repeating — so those return empty rather than a guess.
  *
  * <p>The returned tag already carries the version, e.g. {@code "DEBIAN:11"} or

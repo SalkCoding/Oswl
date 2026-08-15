@@ -19,8 +19,8 @@ import java.util.zip.ZipInputStream;
 
 /**
  * OSV bulk vulnerability dumps (per-ecosystem {@code all.zip} on the public GCS bucket), re-indexed
- * from vuln-unit to component-unit against a wanted-list (E5.3/E6 — full re-indexing without a
- * wanted-list is a combinatorial explosion the plan explicitly rules out).
+ * from vuln-unit to component-unit against a wanted-list — full re-indexing without a
+ * wanted-list is a combinatorial explosion, so it is deliberately out of scope.
  *
  * <p>Coverage: an {@code affected[]} entry is resolved via its enumerated {@code versions[]} list
  * when present (exact match — always reliable), otherwise via a best-effort SEMVER range check
@@ -61,8 +61,8 @@ final class OsvBulkSource {
      * <p>Debian/Ubuntu (version-suffixed, e.g. {@code "DEBIAN:11"}) aren't listed here — there's
      * one bucket per release, so a fixed map can't enumerate them. {@link #resolveBucket} handles
      * those via {@link VulnerabilityEnrichmentService#osPackageOsvEcosystem}, the same
-     * internal↔OSV-casing reconstruction the live per-component query path already uses (ROADMAP
-     * A3-1) — kept as one shared implementation rather than a second hardcoded prefix table here.
+     * internal↔OSV-casing reconstruction the live per-component query path already uses —
+     * kept as one shared implementation rather than a second hardcoded prefix table here.
      */
     private static final Map<String, String> ECOSYSTEM_TO_BUCKET = Map.of(
             "MAVEN", "Maven",
@@ -90,7 +90,7 @@ final class OsvBulkSource {
      * through to {@code osPackageOsvEcosystem} the same way Debian/Ubuntu do. Unlike Debian/
      * Ubuntu, Alpine's advisories carry no enumerated {@code versions[]}, only {@code ECOSYSTEM}-
      * typed ranges, so {@link #resolveAffected} compares those with {@link ApkVersionComparator}
-     * (ROADMAP A3-2) instead of leaving them unresolved.
+     * instead of leaving them unresolved.
      */
     private static String resolveBucket(String ecosystem) {
         String fixed = ECOSYSTEM_TO_BUCKET.get(ecosystem);
@@ -222,7 +222,7 @@ final class OsvBulkSource {
         }
         // Alpine's OSV advisories are ECOSYSTEM-typed ranges only (no enumerated versions[] and
         // apk's version scheme isn't SemVer/GIT) — everyone else's ECOSYSTEM-typed ranges
-        // (Debian/Ubuntu style) stay unresolved here because A3-1 already resolves those via
+        // (Debian/Ubuntu style) stay unresolved here because they're already resolved via
         // enumerated versions[] before this method is ever reached for them.
         boolean isAlpine = ecosystem.startsWith("ALPINE:");
         boolean anyUnresolved = false;

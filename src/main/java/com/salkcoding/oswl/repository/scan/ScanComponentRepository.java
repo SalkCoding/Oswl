@@ -167,7 +167,7 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
                                                     @Param("windowEnd") LocalDateTime windowEnd);
 
     /**
-     * Server-side filtered + paginated Security Center table query (ROADMAP C4). Mirrors, one
+     * Server-side filtered + paginated Security Center table query. Mirrors, one
      * filter group at a time, the client-side {@code rowVisible()} predicate that used to run in
      * the browser against every row's {@code data-*} attributes — that approach meant shipping
      * and DOM-rendering all 5,000+ rows up front just so JS could hide most of them. Each boolean

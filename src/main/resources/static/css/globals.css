@@ -10,8 +10,8 @@
     --grayscale-70:  #425055;
     --grayscale-60:  #5e6b70;
     /* --grayscale-50/-40, --primary-*, --risk-critical/-high, --semantic-caution below are
-       darkened from their original values to clear WCAG 2 AA 4.5:1 text contrast (ROADMAP
-       v1.0.5.1 C1-1) — hue/saturation preserved, only lightness reduced. Solved against
+       darkened from their original values to clear WCAG 2 AA 4.5:1 text contrast — hue/saturation
+       preserved, only lightness reduced. Solved against
        --grayscale-10 (#f3f5f6, the darkest of the light theme's common card/soft backgrounds,
        i.e. the worst realistic case a white-background-only calculation would miss) rather than
        plain white, per the false-negative this same audit caught for these two tokens. */
@@ -69,7 +69,7 @@
     --grayscale-60:  #abb8be;
     --grayscale-50:  #849197;
     /* Lightened from #5e6b70 to clear 4.5:1 against --surface (#141a1d) — see the light-theme
-       comment above for the token-set this pass covers (ROADMAP v1.0.5.1 C1-1). Dark theme only
+       comment above for the token-set this pass covers. Dark theme only
        needed this one token; the rest already passed at their original values. */
     --grayscale-40:  #74848a;
     --grayscale-30:  #425055;

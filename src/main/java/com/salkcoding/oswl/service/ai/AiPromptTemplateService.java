@@ -56,10 +56,10 @@ public class AiPromptTemplateService {
     private boolean localSimpleSchema;
 
     /**
-     * F3: cloud providers (OPENAI/ANTHROPIC/GEMINI) get a pipe-delimited batch item format
+     * Cloud providers (OPENAI/ANTHROPIC/GEMINI) get a pipe-delimited batch item format
      * instead of repeating a full field label on every line — the labels alone cost ~17 tokens
-     * per item. LOCAL never uses this: C3 already pulls the opposite direction (smaller models
-     * need explicit labels to avoid mis-assigning fields), and local tokens are effectively
+     * per item. LOCAL never uses this: smaller models already pull the opposite direction
+     * (they need explicit labels to avoid mis-assigning fields), and local tokens are effectively
      * free (self-hosted), so the accuracy risk is not worth the saving there.
      */
     @Value("${oswl.ai.enrichment.compact-batch-prompts:true}")
@@ -336,7 +336,7 @@ public class AiPromptTemplateService {
     }
 
     /**
-     * F2: posture + security-trend + license-trend + version-diff folded into one JSON call
+     * Posture + security-trend + license-trend + version-diff folded into one JSON call
      * instead of 4 separate free-form ones. {@code hasHistory=false} (first scan for the
      * project, no prior completed scan) renders the reduced posture-only schema — the trend/
      * diff sections would otherwise ask the model to invent a "no change" narrative from
@@ -402,7 +402,7 @@ public class AiPromptTemplateService {
                 "deploymentProfile", deploymentProfile != null ? deploymentProfile : "COMMERCIAL_PRODUCT"));
         StringBuilder sb = new StringBuilder(header);
         String itemKey = compact ? "batch.cve.item.compact" : "batch.cve.item";
-        // F3: compact mode drops the trailing "-" for a missing field to blank ("||") — every
+        // compact mode drops the trailing "-" for a missing field to blank ("||") — every
         // char counts once the label is gone, and an empty field is still unambiguous in a
         // fixed pipe-delimited position. The labeled format keeps "-" (unambiguous either way).
         java.util.function.Function<String, String> missing = compact ? s -> s != null ? s : "" : AiEnrichmentContextBuilder::orDash;
@@ -428,7 +428,7 @@ public class AiPromptTemplateService {
         return sb.toString().stripTrailing();
     }
 
-    /** F3: pipe-delimited compact batch prompts are cloud-only (see {@link #compactBatchPromptsEnabled}). */
+    /** Pipe-delimited compact batch prompts are cloud-only (see {@link #compactBatchPromptsEnabled}). */
     private boolean useCompactBatchFormat(AiProvider provider) {
         return compactBatchPromptsEnabled && provider != null && provider != AiProvider.LOCAL;
     }

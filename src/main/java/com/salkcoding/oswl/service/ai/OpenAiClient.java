@@ -66,7 +66,7 @@ public class OpenAiClient implements AiAnalysisClient {
             .build();
 
     /**
-     * D2: stream free-form AI calls (posture/trend/diff) token-by-token so Quick Import can show
+     * Stream free-form AI calls (posture/trend/diff) token-by-token so Quick Import can show
      * a live preview. Field-injected (not constructor) so plain-Mockito unit tests keep the
      * Java default {@code false} — the non-streaming path they were written against.
      */

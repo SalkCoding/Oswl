@@ -59,7 +59,7 @@ import java.util.zip.ZipOutputStream;
  *       {@code sources[].origin}/{@code files[].sha256} are read and enforced (checksum mismatch
  *       rejects the whole bundle before any store mutation).</li>
  *   <li>missing or {@code 1} — legacy bundle: {@code meta.json} content (if present at all) is
- *       ignored beyond format detection, exactly like the pre-E1 behavior, so old exports keep
+ * ignored beyond format detection, exactly like the original behavior, so old exports keep
  *       importing.</li>
  * </ul>
  *
@@ -79,11 +79,10 @@ import java.util.zip.ZipOutputStream;
  *
  * <p>Export mirrors the data the (online) instance has already fetched into its Library/CVE
  * tables; components absent from the snapshot resolve as "no data". This makes the export
- * strictly narrower than a bundle built directly from upstream (see the plan's E5/E6 — not yet
- * implemented in this codebase) — {@code meta.json}'s {@code origin} is set to
+ * strictly narrower than a bundle built directly from upstream (building directly from upstream
+ * is not yet implemented in this codebase) — {@code meta.json}'s {@code origin} is set to
  * {@code "derived-from-scan"} for every source to disclose that limitation, most importantly for
- * advisory {@code aliases} (this entity only ever stores one, {@code Cve.cveId} — see L4 in
- * PERFORMANCE-AND-OFFLINE-PLAN.md).
+ * advisory {@code aliases} (this entity only ever stores one, {@code Cve.cveId}).
  */
 @Slf4j
 @Service
@@ -97,11 +96,11 @@ public class AirgappedSnapshotService {
     public static final String SOURCE_NVD = "nvd";
     public static final String SOURCE_EPSS = "epss";
     public static final String SOURCE_KEV = "kev";
-    /** E6: components a wanted-list included but the {@code oswl-vdb} builder never resolved
+    /** Components a wanted-list included but the {@code oswl-vdb} builder never resolved
      * (upstream had no data, or a range couldn't be confidently evaluated) — never populated by
      * this app's own {@link #exportBundle()}, only by bundles built via the CLI. Kept as an
      * ordinary source (not folded into {@code osv}) so the existing per-source status/import-count
-     * plumbing (E1-E3) surfaces it without any bespoke wiring. */
+     * plumbing surfaces it without any bespoke wiring. */
     public static final String SOURCE_UNRESOLVED = "unresolved";
     public static final List<String> SOURCES = List.of(
             SOURCE_OSV, SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY, SOURCE_GITHUB_ADVISORY,
@@ -160,7 +159,7 @@ public class AirgappedSnapshotService {
     /**
      * Per-source store status for the admin API. The provenance fields (everything after
      * {@code importedAt}) are null for a source last imported from a v1 (or meta-less) bundle —
-     * new fields on an existing DTO is backward compatible (E1: existing clients simply ignore
+     * new fields on an existing DTO is backward compatible (existing clients simply ignore
      * fields they don't know about).
      */
     public record SourceStatus(String source, long recordCount, LocalDateTime importedAt,
@@ -169,7 +168,7 @@ public class AirgappedSnapshotService {
     /** Import outcome: record count per source. */
     public record SnapshotImportResult(Map<String, Integer> sources, int totalRecords, String mode) {}
 
-    /** E2: REPLACE clears each source before writing (pre-E2 behavior); MERGE upserts by key. */
+    /** REPLACE clears each source before writing (original behavior); MERGE upserts by key. */
     public enum ImportMode { REPLACE, MERGE }
 
     /** Parsed {@code meta.json} (v2 only — v1/missing meta never reaches this type, see {@link #parseMetaV2}). */
@@ -178,7 +177,7 @@ public class AirgappedSnapshotService {
     private record BundleMetaV2(String mode, LocalDateTime builtAt, String bundleId,
                                 Map<String, BundleSourceMeta> sources, Map<String, BundleFileMeta> files) {}
 
-    /** One decoded JSONL line: either a normal upsert ({@code deleted=false}) or an E2 delete marker. */
+    /** One decoded JSONL line: either a normal upsert ({@code deleted=false}) or a delete marker. */
     private record ParsedLine(String key, String payload, boolean deleted) {}
 
     // ── Key handling ─────────────────────────────────────────────────────
@@ -316,7 +315,7 @@ public class AirgappedSnapshotService {
     }
 
     /**
-     * E7: the oldest {@code sourceAsOf} across every source that has ever been imported — the
+     * The oldest {@code sourceAsOf} across every source that has ever been imported — the
      * value staleness is measured against (never {@code builtAt}/{@code importedAt}, which say
      * when the bundle/import happened, not how fresh the upstream data itself is). Null when no
      * source has provenance yet (never imported, or only ever imported from a v1/meta-less bundle).
@@ -377,8 +376,8 @@ public class AirgappedSnapshotService {
 
     /**
      * Legacy entry point — always REPLACE, regardless of what {@code meta.json} (if any) says.
-     * Kept byte-for-byte behavior-compatible for existing callers/tests (E2 AC: "REPLACE 모드
-     * 동작이 변경 전과 동일하다"). New callers (the admin controller) should call the 2-arg
+     * Kept byte-for-byte behavior-compatible for existing callers/tests: REPLACE mode's behavior
+     * is unchanged from before. New callers (the admin controller) should call the 2-arg
      * overload with an explicit mode, or {@code null} to let {@code meta.json} decide.
      */
     @Transactional
@@ -387,7 +386,7 @@ public class AirgappedSnapshotService {
     }
 
     /**
-     * E3: takes the zip as a stream rather than a fully-buffered {@code byte[]} — the caller
+     * Takes the zip as a stream rather than a fully-buffered {@code byte[]} — the caller
      * (the admin controller) passes the multipart upload's own input stream directly, so the
      * compressed upload itself is never buffered whole in memory before this method even starts
      * (only each decompressed entry is, bounded by {@link #MAX_ENTRY_BYTES}).
@@ -476,7 +475,7 @@ public class AirgappedSnapshotService {
             }
         }
 
-        // E2: recordCount is always a fresh count query, never an accumulated delta — a MERGE
+        // recordCount is always a fresh count query, never an accumulated delta — a MERGE
         // over existing keys must not double-count, and a REPLACE's true count is simply "what's
         // there now" regardless of how many lines the bundle had (duplicates within one bundle
         // collapse to one row via the (source, entry_key) unique constraint).
@@ -516,8 +515,8 @@ public class AirgappedSnapshotService {
     }
 
     /**
-     * E2: buffers one source's entries and flushes every {@link #SAVE_CHUNK_SIZE} rows instead
-     * of accumulating the whole source (let alone every source at once, as the pre-E2/E3 code
+     * Buffers one source's entries and flushes every {@link #SAVE_CHUNK_SIZE} rows instead
+     * of accumulating the whole source (let alone every source at once, as the original code
      * did) in memory before the first write — the proximate cause of L6's OOM risk.
      */
     private final class SourceIngestBuffer {
@@ -558,7 +557,7 @@ public class AirgappedSnapshotService {
             } else {
                 snapshotEntryRepository.saveAll(buffer);
             }
-            // E3: chunk-level progress visibility for large imports — total accumulates across
+            // chunk-level progress visibility for large imports — total accumulates across
             // flushes, so this traces how far a multi-minute import has gotten without a separate
             // job-status endpoint.
             log.debug("[Snapshot] {} mode={}: flushed chunk ({} rows so far)", source, mode, total);
@@ -829,9 +828,9 @@ public class AirgappedSnapshotService {
      * (libraries + CVEs). Run on an ONLINE instance, then import on the air-gapped one.
      * Only deps.dev-resolved libraries ({@code isLatestVersion != null}) contribute
      * version records; advisory records and version-record {@code advisoryKeys} are keyed
-     * purely on GHSA-format ids (E4 — no longer gated on whether an advisory record itself
+     * purely on GHSA-format ids — no longer gated on whether an advisory record itself
      * exists, since "does this component have a GHSA id" and "do we have advisory detail for
-     * that id" are independent facts).
+     * that id" are independent facts.
      */
     @Transactional(readOnly = true)
     public byte[] exportBundle() {
@@ -878,16 +877,16 @@ public class AirgappedSnapshotService {
             }
 
             // depsdev.jsonl version record — only when deps.dev GetVersion resolved.
-            // E4 (L3): advisoryKeys includes every GHSA-format id regardless of whether we also
-            // have advisory detail for it — an OSV-only finding with a GHSA alias still belongs
-            // in the version record's key list; the *advisory* record is a separate concern.
+            // advisoryKeys includes every GHSA-format id regardless of whether we also have
+            // advisory detail for it — an OSV-only finding with a GHSA alias still belongs in
+            // the version record's key list; the *advisory* record is a separate concern.
             List<String> advisoryKeys = cves.stream()
                     .filter(c -> c.getGhsaId() != null && c.getGhsaId().startsWith("GHSA-"))
                     .map(Cve::getGhsaId)
                     .distinct()
                     .toList();
             if (lib.getIsLatestVersion() != null) {
-                // E4 (L2): prefer the preserved pre-join license list; legacy rows enriched
+                // Prefer the preserved pre-join license list; legacy rows enriched
                 // before licenseExpressionRaw existed fall back to re-splitting licenseName on
                 // " AND " (the same lossy heuristic as before, only for rows with no better data).
                 List<String> licenses = lib.getLicenseExpressionRaw() != null
@@ -912,7 +911,7 @@ public class AirgappedSnapshotService {
             for (Cve c : cves) {
                 // depsdev.jsonl advisory records (deduped — CVEs are per-library). Still gated on
                 // hasAdvisoryData: this map specifically means "we have deps.dev advisory detail",
-                // independent from the version record's advisoryKeys list above (E4 instruction 2).
+                // independent from the version record's advisoryKeys list above.
                 String ghsaId = c.getGhsaId();
                 if (ghsaId != null && ghsaId.startsWith("GHSA-") && hasAdvisoryData(c)
                         && !advisories.containsKey(ghsaId)) {

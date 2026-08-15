@@ -1,4 +1,4 @@
--- A7 — Policy as Code schema reference.
+-- Policy as Code schema reference.
 -- Run once on PostgreSQL when ddl-auto=validate (Flyway disabled).
 -- Statements are idempotent so they are safe to reapply.
 

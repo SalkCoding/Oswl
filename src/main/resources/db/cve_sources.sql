@@ -1,4 +1,4 @@
--- CVE multi-source attribution + CPE match confidence reference script (ROADMAP A1).
+-- CVE multi-source attribution + CPE match confidence reference script.
 -- Run once on PostgreSQL when ddl-auto=validate. All statements are idempotent.
 
 ALTER TABLE library_cves ADD COLUMN IF NOT EXISTS severity_conflict BOOLEAN NOT NULL DEFAULT false;

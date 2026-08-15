@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * {@code scorecardScore} — each needs 1-2 extra API calls per package (GetPackage / GetProject),
  * which multiplies request count across a wanted-list of possibly thousands of components. The
  * offline snapshot's {@code SnapshotVersion} fields for these are nullable, so this is a
- * completeness/runtime trade-off, not a schema break — see E5's implementation notes.
+ * completeness/runtime trade-off, not a schema break.
  */
 final class DepsDevSource {
 

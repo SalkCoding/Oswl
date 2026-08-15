@@ -7,10 +7,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Alpine {@code apk} package version comparator (ROADMAP A3-2) — Alpine's OSV advisories carry
+ * Alpine {@code apk} package version comparator — Alpine's OSV advisories carry
  * only {@code ECOSYSTEM}-typed ranges (no enumerated {@code versions[]}), and apk's version
  * scheme isn't SemVer, so {@link SimpleVersionComparator} can't be reused for it (Debian/Ubuntu
- * needed no comparator at all — A3-1 found OSV enumerates their {@code versions[]} directly).
+ * needed no comparator at all — OSV enumerates their {@code versions[]} directly).
  *
  * <p>Grammar handled, in the order apk itself defines it: {@code N(.N)*} numeric segments, an
  * optional single trailing letter, an optional {@code _suffix[num]} (one of alpha/beta/pre/rc/

@@ -78,7 +78,7 @@ public class SarifExportService {
         ArrayNode runs = sarif.putArray("runs");
         ObjectNode run = runs.addObject();
 
-        // E7: in air-gapped mode, stamp the run with the vulnerability-definition cutoff date
+        // in air-gapped mode, stamp the run with the vulnerability-definition cutoff date
         // (oldest sourceAsOf across imported snapshot sources) so exported reports carry the
         // same "analyzed against definitions as of YYYY-MM-DD" provenance as the UI.
         if (airgapped) {

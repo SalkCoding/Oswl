@@ -22,7 +22,7 @@ import java.util.Optional;
  *
  * <p>The repository URL is what OSV's {@code SwiftURL} ecosystem actually keys vulnerabilities
  * by (not the pod name — a CocoaPods pod and a Swift Package Manager package that share the same
- * GitHub repository are the same OSV entry). See ROADMAP A9.
+ * GitHub repository are the same OSV entry).
  *
  * <p>Air-gapped mode: there is no offline bundle for the CocoaPods Specs index yet (unlike OSV/
  * NVD/GitHub Advisory data, this mapping isn't a vulnerability feed and would need its own

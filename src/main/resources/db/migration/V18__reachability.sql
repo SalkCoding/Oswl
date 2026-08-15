@@ -1,4 +1,4 @@
--- ROADMAP A2: Java call-graph reachability analysis.
+-- Java call-graph reachability analysis.
 --
 -- Stores the result of bytecode reachability analysis for each scan component.
 -- UNKNOWN is the default for scans that pre-date this feature or for which no

@@ -82,7 +82,7 @@ public class AiUsageRecorderService {
     }
 
     /**
-     * Parses Anthropic Messages API usage block. F4: {@code cache_creation_input_tokens}/
+     * Parses Anthropic Messages API usage block. {@code cache_creation_input_tokens}/
      * {@code cache_read_input_tokens} are real prompt content Anthropic still processed (a
      * cache read is billed at a discount, not for free) and are excluded from
      * {@code input_tokens} by the API — folding them into the recorded prompt total keeps

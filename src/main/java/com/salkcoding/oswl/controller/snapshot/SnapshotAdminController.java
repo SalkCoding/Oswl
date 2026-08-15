@@ -58,11 +58,11 @@ public class SnapshotAdminController implements SnapshotAdminControllerSpec {
     @Value("${oswl.airgapped.enabled:false}")
     private boolean airgapped;
 
-    /** E3: server-path import only accepts files under this directory; blank disables the endpoint. */
+    /** Server-path import only accepts files under this directory; blank disables the endpoint. */
     @Value("${oswl.airgapped.import-dir:}")
     private String importDir;
 
-    /** E7: staleness badge thresholds, measured from {@link AirgappedSnapshotService#oldestSourceAsOf()}. */
+    /** Staleness badge thresholds, measured from {@link AirgappedSnapshotService#oldestSourceAsOf()}. */
     @Value("${oswl.airgapped.staleness-warn-days:7}")
     private int stalenessWarnDays;
 
@@ -81,7 +81,7 @@ public class SnapshotAdminController implements SnapshotAdminControllerSpec {
             @RequestParam(required = false) String mode) {
         ImportMode importMode = parseMode(mode);
         SnapshotImportResult result;
-        // E3: the multipart upload's own stream is handed to the service directly — no
+        // the multipart upload's own stream is handed to the service directly — no
         // file.getBytes() buffering the whole compressed upload in memory up front.
         try (InputStream in = file.getInputStream()) {
             result = importMode != null
@@ -179,7 +179,7 @@ public class SnapshotAdminController implements SnapshotAdminControllerSpec {
     // ── DTO ──────────────────────────────────────────────────────────────
 
     /**
-     * E7: {@code oldestSourceAsOf}/{@code stalenessWarnDays}/{@code stalenessCriticalDays} let the
+     * {@code oldestSourceAsOf}/{@code stalenessWarnDays}/{@code stalenessCriticalDays} let the
      * admin UI render the staleness badge without hardcoding the threshold values it's configured with.
      */
     public record SnapshotStatusResponse(boolean airgapped, List<SourceStatus> sources,

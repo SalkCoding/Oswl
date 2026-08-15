@@ -12,13 +12,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Parses a {@code Dockerfile} for OS-package vulnerability inventory (ROADMAP A3).
+ * Parses a {@code Dockerfile} for OS-package vulnerability inventory.
  *
- * <p><b>Scope, deliberately kept narrow (see the AskUserQuestion decision in this session):</b>
- * a Dockerfile alone cannot tell you the actual installed-package inventory of an image — that
- * depends on the base image's own layers, which this parser never inspects (that would require
- * pulling/extracting the image, out of scope here — see the A3 roadmap entry for the full-image
- * alternative). What a Dockerfile <em>can</em> tell you reliably is:
+ * <p><b>Scope, deliberately kept narrow:</b> a Dockerfile alone cannot tell you the actual
+ * installed-package inventory of an image — that depends on the base image's own layers, which
+ * this parser never inspects (that would require pulling/extracting the image, out of scope
+ * here). What a Dockerfile <em>can</em> tell you reliably is:
  * <ol>
  *   <li>the base image's distro + version, from the final {@code FROM} instruction, and</li>
  *   <li>any package explicitly installed with a <b>pinned version</b> in a {@code RUN} instruction
@@ -26,7 +25,7 @@ import java.util.regex.Pattern;
  * </ol>
  * Packages installed without a pinned version are skipped rather than guessed at, and unrecognized
  * base images are skipped rather than inventoried with an unknown/wrong distro — both would
- * otherwise silently misreport results, the exact class of bug ROADMAP A0 was written to fix.
+ * otherwise silently misreport results, the exact class of bug was written to fix.
  */
 @Slf4j
 public final class DockerfileParser {

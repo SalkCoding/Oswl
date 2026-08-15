@@ -20,7 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Base class for headless-browser UI/accessibility tests (ROADMAP v1.0.5.1 — V1).
+ * Base class for headless-browser UI/accessibility tests.
  *
  * <p>Boots the real application on a random port and drives it with headless Chromium via
  * Playwright, giving these tests things curl-based smoke checks structurally cannot see:

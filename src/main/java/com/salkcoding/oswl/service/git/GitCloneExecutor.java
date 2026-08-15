@@ -76,7 +76,7 @@ public class GitCloneExecutor {
         }
     }
 
-    /** Plain shallow clone — the pre-A4 behavior, kept for build-exec mode and as fallback. */
+    /** Plain shallow clone — the original behavior, kept for build-exec mode and as fallback. */
     private void cloneFull(String repositoryUrl, String branch, Path targetDir, String jobId,
                            Path askpass, GitCloneCredentials credentials) throws Exception {
         List<String> cmd = gitBase();

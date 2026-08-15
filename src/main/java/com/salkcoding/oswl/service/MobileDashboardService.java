@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Backs the mobile "notifications" view (ROADMAP C8) — a lightweight, phone-sized screen
+ * Backs the mobile "notifications" view — a lightweight, phone-sized screen
  * limited to two things a user might act on away from a desktop: unread CVE alerts on
  * projects they can see, and (for whoever can manage policy) pending waiver approvals.
  * Deliberately not a full feature port — everything else stays desktop-only.

@@ -130,11 +130,11 @@ public class SbomExportService {
     // ── Bom assembly ─────────────────────────────────────────────────────
 
     /**
-     * E7: in air-gapped mode, stamps the oldest snapshot {@code sourceAsOf} into
+     * In air-gapped mode, stamps the oldest snapshot {@code sourceAsOf} into
      * {@code metadata.properties} as {@code oswl:definition-as-of} (ISO date), so a consumer
      * can tell which upstream-data date the results were analyzed against. Applies to both
      * SBOM and VEX exports. Adds nothing when not air-gapped or when no source has
-     * provenance yet, leaving the output byte-identical to the pre-E7 behavior.
+     * provenance yet, leaving the output byte-identical to the original behavior.
      */
     private void addDefinitionAsOf(Metadata metadata) {
         if (!airgapped) return;

@@ -22,8 +22,8 @@ public interface PolicyExceptionRepository extends JpaRepository<PolicyException
                                                              LocalDateTime now);
 
     /**
-     * System-wide, not scoped to a project — POLICY_MANAGE is a global permission (see A7).
-     * Mobile approval view (C8); project fetch-joined since every row displays the project name.
+     * System-wide, not scoped to a project — POLICY_MANAGE is a global permission.
+     * Mobile approval view; project fetch-joined since every row displays the project name.
      */
     @Query("SELECT e FROM PolicyException e JOIN FETCH e.project WHERE e.status = :status ORDER BY e.createdAt DESC")
     List<PolicyException> findByStatusOrderByCreatedAtDesc(@Param("status") PolicyExceptionStatus status);

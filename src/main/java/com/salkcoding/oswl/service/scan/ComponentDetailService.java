@@ -203,7 +203,7 @@ public class ComponentDetailService {
         model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
         model.addAttribute("ecosystem", lib.getEcosystem());
 
-        // ROADMAP A2: reachability verdict + the evidence backing a REACHABLE one (one
+        // Reachability verdict + the evidence backing a REACHABLE one (one
         // "yourClass -> libraryClass" line per list entry; empty for NOT_REACHABLE/UNKNOWN).
         model.addAttribute("reachability", sc.getReachability() != null ? sc.getReachability().name() : "UNKNOWN");
         model.addAttribute("reachabilityEvidence", sc.getReachabilityEvidence() != null
@@ -324,7 +324,7 @@ public class ComponentDetailService {
     }
 
     /**
-     * CVSS Environmental score for one CVE (ROADMAP A5) — {@code null} when the CVE has no
+     * CVSS Environmental score for one CVE — {@code null} when the CVE has no
      * recognized CVSS vector at all. Dispatches to {@link CvssV3Calculator} or
      * {@link CvssV4Calculator} depending on which version the stored vector declares.
      */

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E5: thin wrapper around the oswl-vdb Java CLI (com.salkcoding.oswl.vdb.VdbBuilderCli),
+# thin wrapper around the oswl-vdb Java CLI (com.salkcoding.oswl.vdb.VdbBuilderCli),
 # run on an internet-connected machine to build/verify/inspect offline vulnerability-DB
 # bundles for import into an air-gapped OsWL instance.
 #

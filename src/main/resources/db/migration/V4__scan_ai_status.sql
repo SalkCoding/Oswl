@@ -1,4 +1,4 @@
--- OsWL v1.0.4 — decouple AI enrichment from scan completion (performance plan D1).
+-- OsWL v1.0.4 — decouple AI enrichment from scan completion.
 --
 -- A scan previously stayed ANALYZING until AI summaries finished, even though the CVE/license
 -- data pipeline itself was already done. This column tracks AI progress independently so a scan

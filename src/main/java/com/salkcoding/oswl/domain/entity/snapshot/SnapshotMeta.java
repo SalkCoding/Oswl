@@ -13,10 +13,10 @@ import java.time.LocalDateTime;
  * Per-source bookkeeping for the air-gapped offline snapshot store:
  * when the source was last imported and how many records it holds.
  *
- * <p>E1: the {@code bundleId}/{@code builtAt}/{@code sourceAsOf}/{@code origin}/
+ * <p>The {@code bundleId}/{@code builtAt}/{@code sourceAsOf}/{@code origin}/
  * {@code formatVersion} columns capture bundle provenance — null on rows imported from a
- * v1 (pre-E1) bundle or before this column set existed, since those bundles carried no
- * provenance to record. {@code sourceAsOf} (the upstream data's own as-of date) is what E7's
+ * v1 (original) bundle or before this column set existed, since those bundles carried no
+ * provenance to record. {@code sourceAsOf} (the upstream data's own as-of date) is what the
  * staleness UI keys off, deliberately distinct from {@code importedAt}/{@code builtAt}.
  */
 @Entity

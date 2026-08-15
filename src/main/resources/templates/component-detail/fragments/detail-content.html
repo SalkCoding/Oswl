@@ -93,7 +93,7 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#956917" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span class="text-[11px] font-bold text-[#956917] tracking-[-0.11px]" th:text="#{componentDetail.typosquat.label}">Possible typosquat</span>
             </span>
-            <!-- Bytecode call-graph reachability (ROADMAP A2) — same colors/keys as the Security
+            <!-- Bytecode call-graph reachability — same colors/keys as the Security
                  Center table badge, so the verdict reads identically in both places. -->
             <span th:if="${ecosystem == 'MAVEN' or ecosystem == 'GRADLE'}"
                   th:classappend="${reachability == 'REACHABLE'} ? 'bg-[rgba(51,209,183,0.14)] text-[#0d6a5b] border-[rgba(51,209,183,0.35)]' :
@@ -418,7 +418,7 @@
         </div>
     </section>
 
-    <!-- Reachability evidence (ROADMAP A2) — only meaningful for a REACHABLE verdict, since
+    <!-- Reachability evidence — only meaningful for a REACHABLE verdict, since
          NOT_REACHABLE/UNKNOWN have nothing to point to (absence of evidence, not evidence). -->
     <section th:if="${reachability == 'REACHABLE' and not #lists.isEmpty(reachabilityEvidence)}"
              class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">

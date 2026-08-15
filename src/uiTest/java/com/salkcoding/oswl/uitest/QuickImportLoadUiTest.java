@@ -27,10 +27,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Real concurrency measurement for ROADMAP D5. {@code QuickImportService.startBatchImport}
+ * Real concurrency measurement. {@code QuickImportService.startBatchImport}
  * already exists for exactly this (bypasses the per-user queue cap; concurrency is still gated
- * by {@code max-concurrent}), so no new load-test entry point was needed. Per the roadmap's own
- * disclosed option, the actual git clone is stubbed out: submitted URLs use a host
+ * by {@code max-concurrent}), so no new load-test entry point was needed. The actual git clone
+ * is stubbed out as a deliberate, disclosed simplification: submitted URLs use a host
  * {@code parseRepoUrl} won't recognize, so each job fails fast via the existing
  * {@code INVALID_REPO_URL} path with zero network I/O — the concern here is the backpressure
  * machinery (queue admission, the running-count semaphore, DB writes), not whether a real clone
@@ -167,9 +167,9 @@ class QuickImportLoadUiTest {
     /**
      * A host parseRepoUrl won't recognize as GitHub/GitLab/Bitbucket and won't match any stored
      * VCS connection — runImport() fails it via INVALID_REPO_URL before any network I/O, which is
-     * exactly the "stub the clone step" option the roadmap calls out as legitimate for this DoD.
+     * a legitimate way to stub the clone step for a concurrency measurement like this one.
      */
     private static String fakeRepoUrl(int i) {
-        return "https://d5-load-test.invalid/oswl-loadtest/repo-" + i;
+        return "https://load-test.invalid/oswl-loadtest/repo-" + i;
     }
 }

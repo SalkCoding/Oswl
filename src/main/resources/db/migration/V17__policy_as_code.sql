@@ -1,4 +1,4 @@
--- A7 — Policy as Code + waiver/exception approval workflow.
+-- Policy as Code + waiver/exception approval workflow.
 --
 -- Policies compose hierarchically: organization → team → project.
 -- A locked policy prevents lower levels from overriding the fields it defines.

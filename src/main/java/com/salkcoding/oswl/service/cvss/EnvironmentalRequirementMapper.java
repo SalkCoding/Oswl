@@ -6,7 +6,7 @@ import com.salkcoding.oswl.service.cvss.CvssV3Calculator.Requirement;
 /**
  * Maps a project's {@link DeploymentProfile} and a component's runtime scope to the CVSS
  * Security Requirement metrics (Confidentiality/Integrity/Availability Requirement) used for
- * the Environmental score (ROADMAP A5).
+ * the Environmental score.
  *
  * <p>CVSS itself defines no standard mapping from "how is this product deployed" to these
  * metrics — that judgment call is explicitly left to the scoring organization. The mapping

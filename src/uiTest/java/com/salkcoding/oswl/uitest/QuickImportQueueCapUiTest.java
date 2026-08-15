@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * ROADMAP D5 DoD point 2: "429 rejection happens exactly at the cap." Separated from
+ * DoD point 2: "429 rejection happens exactly at the cap." Separated from
  * {@link QuickImportLoadUiTest} because it needs {@code max-concurrent} pinned to 0 — with any
  * real dispatch, the submitted jobs would fail (and leave Phase.QUEUED) in under a millisecond,
  * making the queued-count boundary this test checks a race instead of a deterministic assertion.
@@ -38,11 +38,11 @@ class QuickImportQueueCapUiTest {
         long userId = System.nanoTime();
         for (int i = 0; i < maxQueuedPerUser; i++) {
             String jobId = quickImportService.startImport(
-                    "https://d5-load-test.invalid/oswl-loadtest/repo-" + i, null, userId);
+                    "https://load-test.invalid/oswl-loadtest/repo-" + i, null, userId);
             assertThat(jobId).isNotNull();
         }
         assertThatThrownBy(() -> quickImportService.startImport(
-                "https://d5-load-test.invalid/oswl-loadtest/repo-999", null, userId))
+                "https://load-test.invalid/oswl-loadtest/repo-999", null, userId))
                 .isInstanceOf(QuickImportQueueFullException.class);
     }
 }
