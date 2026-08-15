@@ -35,6 +35,7 @@ public class AiAnalysisService {
     private final AiPromptTemplateService promptTemplates;
     private final AiUsageLimiterService usageLimiter;
     private final AiConnectionDiagnostics connectionDiagnostics;
+    private final AiUsageRecorderService usageRecorder;
 
     /**
      * Batch items are split into chunks of this size before the prompt is assembled, so a
@@ -293,6 +294,16 @@ public class AiAnalysisService {
         }
 
         String prompt = promptTemplates.batchCvePrompt(List.of(item), deploymentProfile);
+        // D7: this on-demand path has no content-hash cache to check (the "Regenerate" action it
+        // backs must always ask the provider fresh, even when a cached summary already matches
+        // the current CVE data), so it's always a real call — record it as a miss so the batch
+        // enrichment pipeline's cache-hit-rate stat reflects total AI usage, not just batch usage.
+        // Best-effort: stats must never fail the regenerate action itself.
+        try {
+            usageRecorder.recordCacheOutcomes(0, 1);
+        } catch (Exception e) {
+            log.debug("[AI] On-demand cache-outcome recording failed: {}", e.getMessage());
+        }
         String response;
         try {
             response = delegate(prompt, setting, "batch.cve");
