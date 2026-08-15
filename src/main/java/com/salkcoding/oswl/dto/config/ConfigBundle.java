@@ -1,12 +1,17 @@
 package com.salkcoding.oswl.dto.config;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Portable instance-config bundle — role templates, license policy overrides,
- * AI provider settings (minus secrets), cache TTL policy, and the org/team/project
- * security policy hierarchy. Never contains any secret,
+ * AI provider settings (minus secrets), user-customized AI prompt overrides, cache TTL
+ * policy, and the org/team/project security policy hierarchy. Never contains any secret,
  * API key, or password; {@code redactedFields} lists what must be re-entered by hand after import.
+ *
+ * <p>Prompt overrides are the DB-stored per-key customizations made in Settings → AI
+ * ({@code AiPreferences.promptOverrides}); the base templates themselves ship with the app
+ * (classpath resources, locale-overlaid) and are deliberately not portable.
  *
  * Policies are exported with their scope resolved to <em>names</em> (never numeric ids,
  * which are not portable across instances). On import the scope is matched by exact name:
@@ -20,6 +25,8 @@ public record ConfigBundle(
         List<RoleTemplateExport> roleTemplates,
         List<LicensePolicyExport> licensePolicy,
         List<AiSettingExport> aiSettings,
+        /** User-customized AI prompt overrides ({key → template text}); base templates ship with the app. */
+        Map<String, String> promptOverrides,
         List<CacheSettingExport> cacheSettings,
         List<PolicyExport> policies,
         List<String> redactedFields

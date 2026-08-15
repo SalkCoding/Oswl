@@ -11,6 +11,7 @@ public record ConfigImportResult(
         int roleTemplatesCreated, int roleTemplatesUpdated, int roleTemplatesSkippedBuiltIn,
         int licensePolicyCreated, int licensePolicyUpdated,
         int aiSettingsCreated, int aiSettingsUpdated,
+        int promptOverridesCreated, int promptOverridesUpdated,
         int cacheSettingsUpdated,
         int policiesCreated, int policiesUpdated, int policiesSkippedUnresolved,
         List<String> manualStepsRequired

@@ -50,6 +50,8 @@ class ConfigTransferServiceTest {
     @Mock LicensePolicyRepository licensePolicyRepository;
     @Mock com.salkcoding.oswl.service.license.LicensePolicyService licensePolicyService;
     @Mock AiSettingRepository aiSettingRepository;
+    @Mock com.salkcoding.oswl.repository.ai.AiPreferencesRepository aiPreferencesRepository;
+    @Mock com.salkcoding.oswl.service.ai.AiPreferencesService aiPreferencesService;
     @Mock CacheManagementService cacheManagementService;
     @Mock AuditLogService auditLogService;
     @Mock PolicyRepository policyRepository;
@@ -201,7 +203,7 @@ class ConfigTransferServiceTest {
     // ── helpers ───────────────────────────────────────────────────────────
 
     private static ConfigBundle bundleWith(PolicyExport... policies) {
-        return new ConfigBundle(null, null, null, null, null, null, List.of(policies), null);
+        return new ConfigBundle(null, null, null, null, null, null, null, List.of(policies), null);
     }
 
     private static PolicyExport teamPolicy(String name) {

@@ -5,6 +5,9 @@ import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.auth.service.CacheManagementService;
 import com.salkcoding.oswl.auth.service.RoleTemplateService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
 import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.entity.org.Organization;
 import com.salkcoding.oswl.domain.entity.org.Team;
@@ -26,6 +29,8 @@ import com.salkcoding.oswl.repository.org.OrganizationRepository;
 import com.salkcoding.oswl.repository.org.TeamRepository;
 import com.salkcoding.oswl.repository.policy.PolicyRepository;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
+import com.salkcoding.oswl.service.ai.AiPreferencesService;
+import com.salkcoding.oswl.service.ai.AiPromptTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Exports/imports a portable subset of instance configuration as a single JSON bundle —
@@ -51,11 +58,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ConfigTransferService {
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     private final RoleTemplateService roleTemplateService;
     private final RoleTemplateRepository roleTemplateRepository;
     private final LicensePolicyRepository licensePolicyRepository;
     private final com.salkcoding.oswl.service.license.LicensePolicyService licensePolicyService;
     private final AiSettingRepository aiSettingRepository;
+    private final com.salkcoding.oswl.repository.ai.AiPreferencesRepository aiPreferencesRepository;
+    private final AiPreferencesService aiPreferencesService;
     private final CacheManagementService cacheManagementService;
     private final AuditLogService auditLogService;
     private final PolicyRepository policyRepository;
@@ -78,6 +89,13 @@ public class ConfigTransferService {
                 .map(s -> new AiSettingExport(s.getProvider().name(), s.getModelName(), s.getBaseUrl(), s.isActive()))
                 .toList();
 
+        Map<String, String> promptOverrides = parseOverridesJson(
+                aiPreferencesRepository.findById(AiPreferences.SINGLETON_ID)
+                        .map(AiPreferences::getPromptOverrides).orElse(null));
+        if (promptOverrides.isEmpty()) {
+            promptOverrides = null;
+        }
+
         List<CacheSettingExport> cacheSettings = cacheManagementService.findAll().stream()
                 .map(c -> new CacheSettingExport(c.getCacheKey(), c.getTtlSeconds()))
                 .toList();
@@ -96,7 +114,7 @@ public class ConfigTransferService {
         }
 
         return new ConfigBundle(Instant.now().toString(), null,
-                roleTemplates, licensePolicy, aiSettings, cacheSettings, policies, redacted);
+                roleTemplates, licensePolicy, aiSettings, promptOverrides, cacheSettings, policies, redacted);
     }
 
     /** Scope as a name, never an id — ids are not portable across instances. */
@@ -159,6 +177,32 @@ public class ConfigTransferService {
             manualSteps.add("AI provider " + provider + ": enter the API key and re-activate in Settings → AI");
         }
 
+        // Prompt overrides merge key-by-key (bundle wins per key); keys outside the editable
+        // set and blank values are dropped, never guessed at.
+        int promptsCreated = 0, promptsUpdated = 0;
+        Map<String, String> bundleOverrides = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : (bundle.promptOverrides() != null
+                ? bundle.promptOverrides() : Map.<String, String>of()).entrySet()) {
+            if (AiPromptTemplateService.EDITABLE_PROMPT_KEYS.contains(e.getKey())
+                    && e.getValue() != null && !e.getValue().isBlank()) {
+                bundleOverrides.put(e.getKey(), e.getValue());
+            }
+        }
+        if (!bundleOverrides.isEmpty()) {
+            AiPreferences prefs = aiPreferencesService.getEffective();
+            Map<String, String> merged = new LinkedHashMap<>(parseOverridesJson(prefs.getPromptOverrides()));
+            for (Map.Entry<String, String> e : bundleOverrides.entrySet()) {
+                if (merged.containsKey(e.getKey())) promptsUpdated++; else promptsCreated++;
+                merged.put(e.getKey(), e.getValue());
+            }
+            if (!dryRun) {
+                aiPreferencesService.save(prefs.getPromptsLocale(), prefs.getCveLimit(), prefs.getLicenseLimit(),
+                        prefs.getCveSeverities(), prefs.getTemperature(), prefs.getMaxTokens(),
+                        prefs.getDailyCallCap(), writeOverridesJson(merged), prefs.getDefaultDeploymentProfile(),
+                        prefs.getReasoningEffort(), prefs.isAutoBackfillInsights());
+            }
+        }
+
         int cacheUpdated = 0;
         for (CacheSettingExport c : nullSafe(bundle.cacheSettings())) {
             cacheUpdated++;
@@ -182,16 +226,17 @@ public class ConfigTransferService {
 
         if (!dryRun) {
             String summary = String.format(
-                    "roleTemplates=%d/%d license=%d/%d aiSettings=%d/%d cache=%d policies=%d/%d unresolvedPolicies=%d (created/updated)",
-                    rtCreated, rtUpdated, licCreated, licUpdated, aiCreated, aiUpdated, cacheUpdated,
+                    "roleTemplates=%d/%d license=%d/%d aiSettings=%d/%d promptOverrides=%d/%d cache=%d policies=%d/%d unresolvedPolicies=%d (created/updated)",
+                    rtCreated, rtUpdated, licCreated, licUpdated, aiCreated, aiUpdated,
+                    promptsCreated, promptsUpdated, cacheUpdated,
                     polCreated, polUpdated, polUnresolved);
             auditLogService.log("CONFIG.IMPORT", "SYSTEM", null, "config-bundle", summary);
             log.info("[ConfigTransfer] Import applied: {}", summary);
         }
 
         return new ConfigImportResult(dryRun, rtCreated, rtUpdated, rtSkippedBuiltIn,
-                licCreated, licUpdated, aiCreated, aiUpdated, cacheUpdated,
-                polCreated, polUpdated, polUnresolved, manualSteps);
+                licCreated, licUpdated, aiCreated, aiUpdated, promptsCreated, promptsUpdated,
+                cacheUpdated, polCreated, polUpdated, polUnresolved, manualSteps);
     }
 
     /**
@@ -319,5 +364,25 @@ public class ConfigTransferService {
 
     private static <T> List<T> nullSafe(List<T> list) {
         return list != null ? list : List.of();
+    }
+
+    private static Map<String, String> parseOverridesJson(String json) {
+        if (json == null || json.isBlank()) return Map.of();
+        try {
+            return MAPPER.readValue(json, new TypeReference<LinkedHashMap<String, String>>() {});
+        } catch (Exception e) {
+            log.warn("[ConfigTransfer] Ignoring unparseable prompt overrides JSON: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private static String writeOverridesJson(Map<String, String> overrides) {
+        if (overrides.isEmpty()) return null;
+        try {
+            return MAPPER.writeValueAsString(overrides);
+        } catch (Exception e) {
+            log.warn("[ConfigTransfer] Failed to serialize prompt overrides: {}", e.getMessage());
+            return null;
+        }
     }
 }
