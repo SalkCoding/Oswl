@@ -40,7 +40,7 @@ class SecurityCenterControllerTest {
     void index_callsServiceAndReturnsView() {
         String view = controller.index(1L, null, new ConcurrentModel());
 
-        verify(securityCenterService).populateModel(eq(1L), isNull(), any());
+        verify(securityCenterService).populateIndexModel(eq(1L), isNull(), any());
         assertThat(view).isEqualTo("security-center/index");
     }
 
@@ -49,7 +49,7 @@ class SecurityCenterControllerTest {
     void index_passesScanId() {
         controller.index(1L, 42L, new ConcurrentModel());
 
-        verify(securityCenterService).populateModel(eq(1L), eq(42L), any());
+        verify(securityCenterService).populateIndexModel(eq(1L), eq(42L), any());
     }
 
     @Test

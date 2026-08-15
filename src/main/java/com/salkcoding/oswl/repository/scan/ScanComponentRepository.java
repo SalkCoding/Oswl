@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.repository.scan;
 
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -164,4 +165,87 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
             """)
     List<ScanComponent> findDeferralsExpiringWithin(@Param("now") LocalDateTime now,
                                                     @Param("windowEnd") LocalDateTime windowEnd);
+
+    /**
+     * Server-side filtered + paginated Security Center table query (ROADMAP C4). Mirrors, one
+     * filter group at a time, the client-side {@code rowVisible()} predicate that used to run in
+     * the browser against every row's {@code data-*} attributes — that approach meant shipping
+     * and DOM-rendering all 5,000+ rows up front just so JS could hide most of them. Each boolean
+     * pair below is a "no filters in this group active" escape hatch (matches
+     * {@code anyFilter}/{@code anyReachability}/etc. in the old JS) followed by the OR'd
+     * per-option predicates. Every enum comparison uses the fully-qualified constant because
+     * JPQL has no bind-parameter syntax for enum literals.
+     */
+    @Query("""
+            SELECT sc FROM ScanComponent sc JOIN sc.library l
+            WHERE sc.scanResult.id = :scanId
+              AND (:search IS NULL OR :search = '' OR LOWER(CONCAT(l.name, ' ', l.version)) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:hideNonRuntime = FALSE OR sc.scope IS NULL OR LOWER(sc.scope) IN ('runtime','compile','import'))
+              AND ( (:reviewedF = FALSE AND :nonReviewedF = FALSE)
+                 OR (:reviewedF = TRUE AND :nonReviewedF = TRUE)
+                 OR (:reviewedF = TRUE AND :nonReviewedF = FALSE AND sc.reviewed = TRUE)
+                 OR (:reviewedF = FALSE AND :nonReviewedF = TRUE AND sc.reviewed = FALSE) )
+              AND ( (:ignoredF = FALSE AND :nonIgnoredF = FALSE AND :deferredF = FALSE)
+                 OR (:deferredF = TRUE AND sc.deferredAt IS NOT NULL)
+                 OR (:ignoredF = TRUE AND sc.ignored = TRUE AND sc.deferredAt IS NULL)
+                 OR (:nonIgnoredF = TRUE AND sc.ignored = FALSE AND sc.deferredAt IS NULL) )
+              AND ( (:reachableF = FALSE AND :notReachableF = FALSE AND :unknownReachF = FALSE)
+                 OR (:reachableF = TRUE AND sc.reachability = com.salkcoding.oswl.domain.enums.Reachability.REACHABLE)
+                 OR (:notReachableF = TRUE AND sc.reachability = com.salkcoding.oswl.domain.enums.Reachability.NOT_REACHABLE)
+                 OR (:unknownReachF = TRUE AND sc.reachability = com.salkcoding.oswl.domain.enums.Reachability.UNKNOWN) )
+              AND ( (:secCriticalF = FALSE AND :secHighF = FALSE AND :secMediumF = FALSE AND :secLowF = FALSE AND :secUnknownF = FALSE)
+                 OR EXISTS (SELECT 1 FROM Cve cv WHERE cv.library = l AND (
+                        (:secCriticalF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL) OR
+                        (:secHighF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.HIGH) OR
+                        (:secMediumF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.MEDIUM) OR
+                        (:secLowF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.LOW) OR
+                        (:secUnknownF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                 )) )
+              AND ( (:licRestrictedF = FALSE AND :licCautionF = FALSE AND :licUnknownF = FALSE AND :licPermittedF = FALSE)
+                 OR (:licRestrictedF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.RESTRICTED)
+                 OR (:licCautionF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.CAUTION)
+                 OR (:licUnknownF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.UNKNOWN)
+                 OR (:licPermittedF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.PERMITTED) )
+              AND ( (:patchableF = FALSE AND :nonPatchableF = FALSE AND :patchDeprecatedF = FALSE AND :patchOutdatedF = FALSE AND :patchUpToDateF = FALSE)
+                 OR (:patchableF = TRUE
+                     AND EXISTS (SELECT 1 FROM Cve cv2 WHERE cv2.library = l AND cv2.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                     AND EXISTS (SELECT 1 FROM Cve cv3 WHERE cv3.library = l AND cv3.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE AND cv3.fixVersion IS NOT NULL AND TRIM(cv3.fixVersion) <> ''))
+                 OR (:nonPatchableF = TRUE
+                     AND EXISTS (SELECT 1 FROM Cve cv4 WHERE cv4.library = l AND cv4.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                     AND NOT EXISTS (SELECT 1 FROM Cve cv5 WHERE cv5.library = l AND cv5.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE AND cv5.fixVersion IS NOT NULL AND TRIM(cv5.fixVersion) <> ''))
+                 OR (:patchDeprecatedF = TRUE AND l.deprecated IS NOT NULL)
+                 OR (:patchOutdatedF = TRUE
+                     AND NOT EXISTS (SELECT 1 FROM Cve cv6 WHERE cv6.library = l AND cv6.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                     AND l.deprecated IS NULL AND l.isLatestVersion = FALSE)
+                 OR (:patchUpToDateF = TRUE
+                     AND NOT EXISTS (SELECT 1 FROM Cve cv7 WHERE cv7.library = l AND cv7.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                     AND l.deprecated IS NULL AND l.isLatestVersion = TRUE) )
+            """)
+    Page<ScanComponent> searchForSecurityCenter(
+            @Param("scanId") Long scanId,
+            @Param("search") String search,
+            @Param("hideNonRuntime") boolean hideNonRuntime,
+            @Param("reviewedF") boolean reviewedF,
+            @Param("nonReviewedF") boolean nonReviewedF,
+            @Param("ignoredF") boolean ignoredF,
+            @Param("nonIgnoredF") boolean nonIgnoredF,
+            @Param("deferredF") boolean deferredF,
+            @Param("reachableF") boolean reachableF,
+            @Param("notReachableF") boolean notReachableF,
+            @Param("unknownReachF") boolean unknownReachF,
+            @Param("secCriticalF") boolean secCriticalF,
+            @Param("secHighF") boolean secHighF,
+            @Param("secMediumF") boolean secMediumF,
+            @Param("secLowF") boolean secLowF,
+            @Param("secUnknownF") boolean secUnknownF,
+            @Param("licRestrictedF") boolean licRestrictedF,
+            @Param("licCautionF") boolean licCautionF,
+            @Param("licUnknownF") boolean licUnknownF,
+            @Param("licPermittedF") boolean licPermittedF,
+            @Param("patchableF") boolean patchableF,
+            @Param("nonPatchableF") boolean nonPatchableF,
+            @Param("patchDeprecatedF") boolean patchDeprecatedF,
+            @Param("patchOutdatedF") boolean patchOutdatedF,
+            @Param("patchUpToDateF") boolean patchUpToDateF,
+            Pageable pageable);
 }
