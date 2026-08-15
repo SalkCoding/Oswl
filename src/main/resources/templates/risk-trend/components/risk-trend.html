@@ -56,9 +56,16 @@
             </div>
 
             <!-- Chart -->
-            <div class="relative w-full" style="height: 300px;">
-                <canvas id="securityRiskChart"></canvas>
+            <div class="flex justify-end">
+                <button type="button" id="securityRiskTableToggle"
+                        class="text-[13px] font-medium text-[var(--primary-120)] hover:underline"
+                        aria-pressed="false" th:text="#{riskTrend.chart.viewAsTable}">View as table</button>
             </div>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="securityRiskChart" role="img" th:attr="aria-label=#{riskTrend.chart.security}"></canvas>
+            </div>
+            <!-- Text alternative to the canvas above, populated on demand by risk-trend.js -->
+            <div id="securityRiskChartTable" class="hidden overflow-x-auto custom-scrollbar"></div>
 
             <!-- AI Insight -->
             <div class="pl-[60px] pr-[0px] ai-insight-box">
@@ -137,9 +144,16 @@
             </div>
 
             <!-- Chart -->
-            <div class="relative w-full" style="height: 300px;">
-                <canvas id="licenseRiskChart"></canvas>
+            <div class="flex justify-end">
+                <button type="button" id="licenseRiskTableToggle"
+                        class="text-[13px] font-medium text-[var(--primary-120)] hover:underline"
+                        aria-pressed="false" th:text="#{riskTrend.chart.viewAsTable}">View as table</button>
             </div>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="licenseRiskChart" role="img" th:attr="aria-label=#{riskTrend.chart.license}"></canvas>
+            </div>
+            <!-- Text alternative to the canvas above, populated on demand by risk-trend.js -->
+            <div id="licenseRiskChartTable" class="hidden overflow-x-auto custom-scrollbar"></div>
 
             <!-- AI Insight -->
             <div class="pl-[60px] pr-[0px] ai-insight-box">

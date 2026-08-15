@@ -2,6 +2,54 @@
  * Org-wide vulnerability trend line chart (admin org dashboard).
  * Data and labels are injected by Thymeleaf into window.orgDashboardData / window.orgDashboardI18n.
  */
+
+// Builds an accessible <table> mirror of the chart's series so screen-reader users get the
+// same numbers the canvas shows (Chart.js canvases expose nothing to assistive tech).
+function buildChartDataTable(xLabel, labels, series, captionText) {
+    const table = document.createElement('table');
+    table.className = 'w-full text-[13px]';
+    const caption = document.createElement('caption');
+    caption.className = 'sr-only';
+    caption.textContent = captionText;
+    table.appendChild(caption);
+
+    const headRow = document.createElement('tr');
+    headRow.className = 'text-left text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)]';
+    const cornerTh = document.createElement('th');
+    cornerTh.className = 'px-[16px] py-[12px] font-bold';
+    cornerTh.textContent = xLabel;
+    headRow.appendChild(cornerTh);
+    series.forEach(s => {
+        const th = document.createElement('th');
+        th.className = 'px-[16px] py-[12px] font-bold text-right';
+        th.textContent = s.label;
+        headRow.appendChild(th);
+    });
+    const thead = document.createElement('thead');
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    labels.forEach((label, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-[var(--grayscale-10)]';
+        const th = document.createElement('th');
+        th.scope = 'row';
+        th.className = 'px-[16px] py-[12px] text-left font-medium text-[var(--grayscale-80)]';
+        th.textContent = label;
+        tr.appendChild(th);
+        series.forEach(s => {
+            const td = document.createElement('td');
+            td.className = 'px-[16px] py-[12px] text-right text-[var(--grayscale-80)]';
+            td.textContent = s.data[i] != null ? s.data[i] : 0;
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const i18n = window.orgDashboardI18n || {
         xAxis: 'Week',
@@ -13,6 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const canvas = document.getElementById('orgVulnTrendChart');
     if (!canvas) return;
+
+    const tableToggle = document.getElementById('orgVulnTrendTableToggle');
+    const hideTableToggle = () => { if (tableToggle) tableToggle.style.display = 'none'; };
 
     const showPlaceholder = (title, hint) => {
         const container = canvas.closest('.relative') || canvas.parentElement;
@@ -27,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof Chart === 'undefined') {
         console.warn('Chart.js is not loaded. Please include it in your layout.');
         showPlaceholder(i18n.chartLoadFailed || 'Chart could not be loaded.', null);
+        hideTableToggle();
         return;
     }
 
@@ -37,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!hasData) {
         showPlaceholder(i18n.noData, i18n.noDataHint);
+        hideTableToggle();
         return;
     }
 
@@ -130,4 +183,37 @@ document.addEventListener('DOMContentLoaded', () => {
             interaction: { mode: 'nearest', axis: 'x', intersect: false }
         }
     });
+
+    // "View as table" toggle: swaps the canvas for a lazily built data table and back.
+    const tableContainer = document.getElementById('orgVulnTrendChartTable');
+    if (tableToggle && tableContainer) {
+        const series = [
+            { label: i18n.critical || 'Critical', data: data.critical },
+            { label: i18n.high     || 'High',     data: data.high },
+            { label: i18n.medium   || 'Medium',   data: data.medium },
+            { label: i18n.low      || 'Low',      data: data.low },
+            { label: i18n.unscored || 'Unscored', data: data.unscored }
+        ];
+        const chartWrap = canvas.closest('.relative') || canvas.parentElement;
+        let table = null;
+        tableToggle.addEventListener('click', () => {
+            const showing = tableToggle.getAttribute('aria-pressed') === 'true';
+            if (showing) {
+                tableContainer.classList.add('hidden');
+                chartWrap.classList.remove('hidden');
+                tableToggle.setAttribute('aria-pressed', 'false');
+                tableToggle.textContent = i18n.viewAsTable || 'View as table';
+            } else {
+                if (!table) {
+                    table = buildChartDataTable(i18n.xAxis || 'Week', data.labels, series,
+                        i18n.trendHeading || 'Org-wide Vulnerability Trend');
+                    tableContainer.appendChild(table);
+                }
+                tableContainer.classList.remove('hidden');
+                chartWrap.classList.add('hidden');
+                tableToggle.setAttribute('aria-pressed', 'true');
+                tableToggle.textContent = i18n.viewAsChart || 'View as chart';
+            }
+        });
+    }
 });

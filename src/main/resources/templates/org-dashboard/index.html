@@ -85,9 +85,16 @@
                     <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.unscored}">Unscored</p>
                 </div>
             </div>
-            <div class="relative w-full" style="height: 300px;">
-                <canvas id="orgVulnTrendChart"></canvas>
+            <div class="flex justify-end">
+                <button type="button" id="orgVulnTrendTableToggle"
+                        class="text-[13px] font-medium text-[var(--primary-120)] hover:underline"
+                        aria-pressed="false" th:text="#{riskTrend.chart.viewAsTable}">View as table</button>
             </div>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="orgVulnTrendChart" role="img" th:attr="aria-label=#{orgDashboard.trend.heading}"></canvas>
+            </div>
+            <!-- Text alternative to the canvas above, populated on demand by org-dashboard.js -->
+            <div id="orgVulnTrendChartTable" class="hidden overflow-x-auto custom-scrollbar"></div>
         </section>
 
         <!-- Worst-project ranking -->
@@ -172,7 +179,10 @@
         high:     /*[[#{riskTrend.legend.high}]]*/ 'High',
         medium:   /*[[#{riskTrend.legend.medium}]]*/ 'Medium',
         low:      /*[[#{riskTrend.legend.low}]]*/ 'Low',
-        unscored: /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored'
+        unscored: /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored',
+        viewAsTable: /*[[#{riskTrend.chart.viewAsTable}]]*/ 'View as table',
+        viewAsChart: /*[[#{riskTrend.chart.viewAsChart}]]*/ 'View as chart',
+        trendHeading: /*[[#{orgDashboard.trend.heading}]]*/ 'Org-wide Vulnerability Trend'
     };
     /*]]>*/
     </script>

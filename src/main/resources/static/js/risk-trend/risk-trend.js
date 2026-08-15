@@ -13,6 +13,89 @@ function showChartPlaceholder(canvasId, title, hint) {
     container.appendChild(msg);
 }
 
+// Builds an accessible <table> mirror of a chart's series so screen-reader users get the
+// same numbers the canvas shows (Chart.js canvases expose nothing to assistive tech).
+function buildChartDataTable(xLabel, labels, series, captionText) {
+    const table = document.createElement('table');
+    table.className = 'w-full text-[13px]';
+    const caption = document.createElement('caption');
+    caption.className = 'sr-only';
+    caption.textContent = captionText;
+    table.appendChild(caption);
+
+    const headRow = document.createElement('tr');
+    headRow.className = 'text-left text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)]';
+    const cornerTh = document.createElement('th');
+    cornerTh.className = 'px-[16px] py-[12px] font-bold';
+    cornerTh.textContent = xLabel;
+    headRow.appendChild(cornerTh);
+    series.forEach(s => {
+        const th = document.createElement('th');
+        th.className = 'px-[16px] py-[12px] font-bold text-right';
+        th.textContent = s.label;
+        headRow.appendChild(th);
+    });
+    const thead = document.createElement('thead');
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    labels.forEach((label, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-[var(--grayscale-10)]';
+        const th = document.createElement('th');
+        th.scope = 'row';
+        th.className = 'px-[16px] py-[12px] text-left font-medium text-[var(--grayscale-80)]';
+        th.textContent = label;
+        tr.appendChild(th);
+        series.forEach(s => {
+            const td = document.createElement('td');
+            td.className = 'px-[16px] py-[12px] text-right text-[var(--grayscale-80)]';
+            td.textContent = s.data[i] != null ? s.data[i] : 0;
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+}
+
+// Wires a "view as table" toggle: swaps the chart's canvas wrapper for a lazily built
+// data table and back. i18n needs viewAsTable/viewAsChart labels.
+function setupChartTableToggle(toggleId, tableContainerId, canvasId, xLabel, labels, series, captionText, i18n) {
+    const toggle = document.getElementById(toggleId);
+    const tableContainer = document.getElementById(tableContainerId);
+    const canvas = document.getElementById(canvasId);
+    if (!toggle || !tableContainer || !canvas) return;
+    const chartWrap = canvas.closest('.relative') || canvas.parentElement;
+    let table = null;
+    toggle.addEventListener('click', () => {
+        const showing = toggle.getAttribute('aria-pressed') === 'true';
+        if (showing) {
+            tableContainer.classList.add('hidden');
+            chartWrap.classList.remove('hidden');
+            toggle.setAttribute('aria-pressed', 'false');
+            toggle.textContent = (i18n && i18n.viewAsTable) || 'View as table';
+        } else {
+            if (!table) {
+                table = buildChartDataTable(xLabel, labels, series, captionText);
+                tableContainer.appendChild(table);
+            }
+            tableContainer.classList.remove('hidden');
+            chartWrap.classList.add('hidden');
+            toggle.setAttribute('aria-pressed', 'true');
+            toggle.textContent = (i18n && i18n.viewAsChart) || 'View as chart';
+        }
+    });
+}
+
+function hideChartTableToggles(ids) {
+    ids.forEach(id => {
+        const toggle = document.getElementById(id);
+        if (toggle) toggle.style.display = 'none';
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const i18nEarly = window.riskTrendI18n || {
         noData: 'No scan data yet',
@@ -25,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['securityRiskChart', 'licenseRiskChart'].forEach(id => {
             showChartPlaceholder(id, i18nEarly.chartLoadFailed || 'Chart could not be loaded.', null);
         });
+        hideChartTableToggles(['securityRiskTableToggle', 'licenseRiskTableToggle']);
         return;
     }
 
@@ -74,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         // Hide AI insight boxes when no data
         document.querySelectorAll('.ai-insight-box').forEach(el => el.style.display = 'none');
+        hideChartTableToggles(['securityRiskTableToggle', 'licenseRiskTableToggle']);
         return;
     }
 
@@ -164,6 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
             data: { labels: versions, datasets: createDatasets('security') },
             options: commonOptions
         });
+        setupChartTableToggle('securityRiskTableToggle', 'securityRiskChartTable', 'securityRiskChart',
+            i18n.xAxis || 'Version', versions, createDatasets('security'), i18n.chartSecurity || 'Security Risk', i18n);
     }
 
     const ctxLicense = document.getElementById('licenseRiskChart');
@@ -173,5 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data: { labels: versions, datasets: createDatasets('license') },
             options: commonOptions
         });
+        setupChartTableToggle('licenseRiskTableToggle', 'licenseRiskChartTable', 'licenseRiskChart',
+            i18n.xAxis || 'Version', versions, createDatasets('license'), i18n.chartLicense || 'License Risk', i18n);
     }
 });
