@@ -85,20 +85,17 @@ final class OsvBulkSource {
      * Resolves an internal ecosystem tag to its OSV GCS bucket folder name, or {@code null} if
      * there's nothing to fetch for it.
      *
-     * <p>Alpine is deliberately excluded even though {@code osPackageOsvEcosystem} would resolve
-     * a bucket name for it: Alpine's OSV advisories are {@code ECOSYSTEM}-typed ranges only (no
-     * enumerated {@code versions[]}), and {@link #resolveAffected} can't compare apk version
-     * ranges yet (that's the separate apk comparator, ROADMAP A3-2) — fetching the bucket now
-     * would only produce a flood of "unresolved" components with zero actual detections. Revisit
-     * once that comparator exists.
+     * <p>Alpine (like Debian/Ubuntu) isn't in the fixed map above because it's version-suffixed
+     * (one bucket per release, e.g. {@code "ALPINE:V3.14"} -> {@code "Alpine:v3.14"}) — falls
+     * through to {@code osPackageOsvEcosystem} the same way Debian/Ubuntu do. Unlike Debian/
+     * Ubuntu, Alpine's advisories carry no enumerated {@code versions[]}, only {@code ECOSYSTEM}-
+     * typed ranges, so {@link #resolveAffected} compares those with {@link ApkVersionComparator}
+     * (ROADMAP A3-2) instead of leaving them unresolved.
      */
     private static String resolveBucket(String ecosystem) {
         String fixed = ECOSYSTEM_TO_BUCKET.get(ecosystem);
         if (fixed != null) {
             return fixed;
-        }
-        if (ecosystem.startsWith("ALPINE:")) {
-            return null;
         }
         return VulnerabilityEnrichmentService.osPackageOsvEcosystem(ecosystem);
     }
@@ -201,7 +198,7 @@ final class OsvBulkSource {
             for (String wantedVersion : versionsWanted) {
                 String key = AirgappedSnapshotService.componentKey(ecosystem, pkgName, wantedVersion);
                 if (key == null) continue;
-                Boolean affectedResult = resolveAffected(wantedVersion, enumerated, affected.path("ranges"));
+                Boolean affectedResult = resolveAffected(ecosystem, wantedVersion, enumerated, affected.path("ranges"));
                 if (affectedResult == null) {
                     unresolvedKeys.add(key);
                 } else if (affectedResult) {
@@ -216,18 +213,25 @@ final class OsvBulkSource {
     }
 
     /** {@code true} affected, {@code false} confidently not affected, {@code null} unresolved. */
-    private static Boolean resolveAffected(String version, Set<String> enumerated, JsonNode ranges) {
+    private static Boolean resolveAffected(String ecosystem, String version, Set<String> enumerated, JsonNode ranges) {
         if (enumerated != null) {
             return enumerated.contains(version);
         }
         if (!ranges.isArray() || ranges.isEmpty()) {
             return false; // no versions[] and no ranges[] at all -> nothing says this version is affected
         }
+        // Alpine's OSV advisories are ECOSYSTEM-typed ranges only (no enumerated versions[] and
+        // apk's version scheme isn't SemVer/GIT) — everyone else's ECOSYSTEM-typed ranges
+        // (Debian/Ubuntu style) stay unresolved here because A3-1 already resolves those via
+        // enumerated versions[] before this method is ever reached for them.
+        boolean isAlpine = ecosystem.startsWith("ALPINE:");
         boolean anyUnresolved = false;
         for (JsonNode range : ranges) {
-            if (!"SEMVER".equals(range.path("type").asText(null))
-                    && !"GIT".equals(range.path("type").asText(null))) {
-                anyUnresolved = true; // ECOSYSTEM-typed ranges (Debian/Alpine style) — not applicable/comparable here
+            String rangeType = range.path("type").asText(null);
+            boolean semverOrGit = "SEMVER".equals(rangeType) || "GIT".equals(rangeType);
+            boolean apkEcosystemRange = isAlpine && "ECOSYSTEM".equals(rangeType);
+            if (!semverOrGit && !apkEcosystemRange) {
+                anyUnresolved = true; // ECOSYSTEM-typed ranges for non-Alpine ecosystems — not comparable here
                 continue;
             }
             String introduced = null;
@@ -242,10 +246,10 @@ final class OsvBulkSource {
             }
             try {
                 if (fixedBoundaries.isEmpty()) {
-                    if (SimpleVersionComparator.inRange(version, introduced, null)) return true;
+                    if (inRange(apkEcosystemRange, version, introduced, null)) return true;
                 } else {
                     for (String fixed : fixedBoundaries) {
-                        if (SimpleVersionComparator.inRange(version, introduced, fixed)) return true;
+                        if (inRange(apkEcosystemRange, version, introduced, fixed)) return true;
                     }
                 }
             } catch (IllegalArgumentException e) {
@@ -253,6 +257,12 @@ final class OsvBulkSource {
             }
         }
         return anyUnresolved ? null : false;
+    }
+
+    private static boolean inRange(boolean apk, String version, String introduced, String fixed) {
+        return apk
+                ? ApkVersionComparator.inRange(version, introduced, fixed)
+                : SimpleVersionComparator.inRange(version, introduced, fixed);
     }
 
     private static SnapshotVuln toSnapshotVuln(JsonNode vuln) {
