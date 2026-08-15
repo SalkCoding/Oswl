@@ -64,6 +64,14 @@ public class ScanComponent {
     @Builder.Default
     private Reachability reachability = Reachability.UNKNOWN;
 
+    /**
+     * Human-readable evidence backing a REACHABLE verdict — up to a handful of
+     * "your class X references library class Y" lines, one per line. Null for
+     * NOT_REACHABLE/UNKNOWN, where there's nothing to point to.
+     */
+    @Column(name = "reachability_evidence", columnDefinition = "TEXT")
+    private String reachabilityEvidence;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean reviewed = false;
@@ -141,6 +149,15 @@ public class ScanComponent {
 
     public void updateReachability(Reachability reachability) {
         this.reachability = reachability != null ? reachability : Reachability.UNKNOWN;
+        this.reachabilityEvidence = null;
+    }
+
+    /** Same as {@link #updateReachability(Reachability)} but also records why — evidence lines,
+     *  each "referencingClass -> referencedClass", one per line. */
+    public void updateReachability(Reachability reachability, String evidenceText) {
+        this.reachability = reachability != null ? reachability : Reachability.UNKNOWN;
+        this.reachabilityEvidence = (this.reachability == Reachability.REACHABLE
+                && evidenceText != null && !evidenceText.isBlank()) ? evidenceText : null;
     }
 
     public void applyDeferral(String reason, LocalDateTime expiresAt, String note) {

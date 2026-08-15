@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
@@ -29,6 +31,19 @@ import java.util.stream.Stream;
 @Component
 public class CallGraphAnalyzer {
 
+    /** How many project-class -> library-class references to keep as displayable evidence. */
+    private static final int MAX_EVIDENCE = 5;
+
+    /** One concrete reference the analyzer found: our class X calls/extends/uses library class Y. */
+    public record ReferenceEvidence(String referencingClass, String referencedClass) {}
+
+    /** {@link Reachability} plus the evidence backing a REACHABLE verdict (empty otherwise). */
+    public record AnalysisResult(Reachability reachability, List<ReferenceEvidence> evidence) {
+        static AnalysisResult of(Reachability reachability) {
+            return new AnalysisResult(reachability, List.of());
+        }
+    }
+
     /**
      * Analyzes the bytecode under {@code projectBytecodeRoot} for references to any
      * class prefix in {@code libraryClassPrefixes}.
@@ -36,51 +51,51 @@ public class CallGraphAnalyzer {
      * @param projectBytecodeRoot directory or JAR containing project class files;
      *                            may be null or non-existent
      * @param libraryClassPrefixes internal class-name prefixes (e.g. "org/springframework/core/")
-     * @return REACHABLE if a reference is found, NOT_REACHABLE if the root was read
-     *         but no reference was found, UNKNOWN if the root is missing/unreadable
+     * @return REACHABLE (with up to {@value #MAX_EVIDENCE} evidence entries) if a reference is
+     *         found, NOT_REACHABLE if the root was read but no reference was found, UNKNOWN if
+     *         the root is missing/unreadable
      */
-    public Reachability analyze(Path projectBytecodeRoot, Set<String> libraryClassPrefixes) {
+    public AnalysisResult analyze(Path projectBytecodeRoot, Set<String> libraryClassPrefixes) {
         if (projectBytecodeRoot == null || !Files.exists(projectBytecodeRoot)) {
-            return Reachability.UNKNOWN;
+            return AnalysisResult.of(Reachability.UNKNOWN);
         }
         if (libraryClassPrefixes == null || libraryClassPrefixes.isEmpty()) {
-            return Reachability.UNKNOWN;
+            return AnalysisResult.of(Reachability.UNKNOWN);
         }
 
-        Set<String> referenced = new HashSet<>();
+        List<ReferenceEvidence> evidence = new ArrayList<>();
+        boolean[] anyClassRead = {false};
         try {
             if (Files.isDirectory(projectBytecodeRoot)) {
-                walkDirectory(projectBytecodeRoot, referenced);
+                walkDirectory(projectBytecodeRoot, libraryClassPrefixes, evidence, anyClassRead);
             } else {
-                walkJar(projectBytecodeRoot, referenced);
+                walkJar(projectBytecodeRoot, libraryClassPrefixes, evidence, anyClassRead);
             }
         } catch (IOException e) {
             log.warn("[Reachability] Failed to read bytecode root {}: {}",
                     projectBytecodeRoot, e.getMessage());
-            return Reachability.UNKNOWN;
+            return AnalysisResult.of(Reachability.UNKNOWN);
         }
 
-        if (referenced.isEmpty()) {
-            return Reachability.UNKNOWN;
+        if (!anyClassRead[0]) {
+            return AnalysisResult.of(Reachability.UNKNOWN);
         }
-
-        for (String ref : referenced) {
-            for (String prefix : libraryClassPrefixes) {
-                if (ref.startsWith(prefix)) {
-                    log.debug("[Reachability] Found reference {} matching prefix {}", ref, prefix);
-                    return Reachability.REACHABLE;
-                }
-            }
+        if (evidence.isEmpty()) {
+            return AnalysisResult.of(Reachability.NOT_REACHABLE);
         }
-        return Reachability.NOT_REACHABLE;
+        log.debug("[Reachability] Found {} reference(s), e.g. {}", evidence.size(), evidence.getFirst());
+        return new AnalysisResult(Reachability.REACHABLE, evidence);
     }
 
-    private void walkDirectory(Path root, Set<String> referenced) throws IOException {
+    private void walkDirectory(Path root, Set<String> libraryClassPrefixes,
+                               List<ReferenceEvidence> evidence, boolean[] anyClassRead) throws IOException {
         try (Stream<Path> stream = Files.walk(root)) {
             for (Path path : stream.toList()) {
+                if (evidence.size() >= MAX_EVIDENCE) break;
                 if (Files.isRegularFile(path) && path.toString().endsWith(".class")) {
                     try (InputStream in = Files.newInputStream(path)) {
-                        collectReferences(in, referenced);
+                        collectClassEvidence(in, libraryClassPrefixes, evidence);
+                        anyClassRead[0] = true;
                     } catch (IOException e) {
                         log.debug("[Reachability] Skipping unreadable class file {}: {}",
                                 path, e.getMessage());
@@ -90,14 +105,17 @@ public class CallGraphAnalyzer {
         }
     }
 
-    private void walkJar(Path jar, Set<String> referenced) throws IOException {
+    private void walkJar(Path jar, Set<String> libraryClassPrefixes,
+                         List<ReferenceEvidence> evidence, boolean[] anyClassRead) throws IOException {
         try (InputStream fileIn = Files.newInputStream(jar);
              JarInputStream jarIn = new JarInputStream(fileIn)) {
             JarEntry entry;
             while ((entry = jarIn.getNextJarEntry()) != null) {
+                if (evidence.size() >= MAX_EVIDENCE) break;
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
                     try {
-                        collectReferences(jarIn, referenced);
+                        collectClassEvidence(jarIn, libraryClassPrefixes, evidence);
+                        anyClassRead[0] = true;
                     } catch (IOException e) {
                         log.debug("[Reachability] Skipping unreadable jar entry {}: {}",
                                 entry.getName(), e.getMessage());
@@ -107,10 +125,34 @@ public class CallGraphAnalyzer {
         }
     }
 
-    private void collectReferences(InputStream in, Set<String> referenced) throws IOException {
+    /**
+     * Parses one class file, collects everything it references, and — if any reference matches
+     * a library prefix — records which of the project's own classes did the referencing. Unlike
+     * the merged-set approach this replaced, this is what actually lets a REACHABLE verdict point
+     * at a specific "class X in your code uses class Y in the vulnerable library" fact instead of
+     * just asserting a boolean.
+     */
+    private void collectClassEvidence(InputStream in, Set<String> libraryClassPrefixes,
+                                      List<ReferenceEvidence> evidence) throws IOException {
         ClassReader reader = new ClassReader(in);
+        String ownClass = reader.getClassName();
+        Set<String> referenced = new LinkedHashSet<>();
         ReferenceVisitor visitor = new ReferenceVisitor(referenced);
         reader.accept(visitor, ClassReader.SKIP_FRAMES);
+
+        for (String ref : referenced) {
+            if (evidence.size() >= MAX_EVIDENCE) break;
+            for (String prefix : libraryClassPrefixes) {
+                if (ref.startsWith(prefix)) {
+                    evidence.add(new ReferenceEvidence(toDisplayName(ownClass), toDisplayName(ref)));
+                    break;
+                }
+            }
+        }
+    }
+
+    private static String toDisplayName(String internalName) {
+        return internalName == null ? null : internalName.replace('/', '.');
     }
 
     /**

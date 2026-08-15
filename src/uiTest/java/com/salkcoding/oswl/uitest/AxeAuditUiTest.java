@@ -9,6 +9,7 @@ import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
+import com.salkcoding.oswl.domain.enums.Reachability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.domain.enums.ScanFindingType;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
@@ -65,6 +66,7 @@ class AxeAuditUiTest extends UiTestBase {
         assertPage(url("/org-dashboard"), "org-dashboard", failures);
         assertPage(url("/projects/" + projectId + "/version-diff"), "version-diff", failures);
         assertPage(url("/projects/" + projectId + "/components/" + componentId), "component-detail", failures);
+        assertReachabilityEvidenceSectionRendersRealData();
 
         assertThat(failures)
                 .withFailMessage("Serious/critical axe violations found:%n%s", String.join("\n", failures))
@@ -83,6 +85,17 @@ class AxeAuditUiTest extends UiTestBase {
         assertThat(body).contains("tf-public-s3");
         assertThat(body).contains("config/settings.py:42");
         assertThat(body).contains("infra/main.tf:10");
+    }
+
+    /**
+     * axe only proves the reachability evidence section is structurally valid — it says nothing
+     * about whether a REACHABLE verdict and its evidence lines actually made it through
+     * ComponentDetailService -> the Thymeleaf th:if gate -> the rendered page.
+     */
+    private void assertReachabilityEvidenceSectionRendersRealData() {
+        String body = page.locator("body").innerText();
+        assertThat(body).contains("com.example.UiTestCaller");
+        assertThat(body).contains("UiTest.Axe.Project.lib.Vulnerable");
     }
 
     private void assertPage(String targetUrl, String reportName, List<String> failures) throws IOException {
@@ -121,7 +134,10 @@ class AxeAuditUiTest extends UiTestBase {
                 .cveId(name + "-CVE-1").severity(RiskLevel.HIGH).cvssScore(7.5).build());
         library = libraryRepository.save(library);
 
-        scan.getComponents().add(ScanComponent.builder().scanResult(scan).library(library).build());
+        scan.getComponents().add(ScanComponent.builder().scanResult(scan).library(library)
+                .reachability(Reachability.REACHABLE)
+                .reachabilityEvidence("com.example.UiTestCaller -> " + name.replace('-', '.') + ".lib.Vulnerable")
+                .build());
         // A finding of each severity axe will actually render — exercises the Findings table's
         // severity-badge branches, not just its empty state.
         scan.getFindings().add(ScanFinding.builder().scanResult(scan).type(ScanFindingType.SECRET)

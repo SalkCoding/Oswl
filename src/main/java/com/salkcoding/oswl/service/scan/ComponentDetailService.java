@@ -203,6 +203,13 @@ public class ComponentDetailService {
         model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
         model.addAttribute("ecosystem", lib.getEcosystem());
 
+        // ROADMAP A2: reachability verdict + the evidence backing a REACHABLE one (one
+        // "yourClass -> libraryClass" line per list entry; empty for NOT_REACHABLE/UNKNOWN).
+        model.addAttribute("reachability", sc.getReachability() != null ? sc.getReachability().name() : "UNKNOWN");
+        model.addAttribute("reachabilityEvidence", sc.getReachabilityEvidence() != null
+                ? List.of(sc.getReachabilityEvidence().split("\n"))
+                : List.of());
+
         // Full dependency path tree (may be empty for scans created before this feature was introduced)
         List<DependencyPathDto> pathDtos = buildPathDtos(
                 dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(sc.getId()),

@@ -33,30 +33,30 @@ public class ReachabilityService {
      * Determines the reachability of the given component from the project bytecode.
      *
      * @param component the component to analyze
-     * @return REACHABLE, NOT_REACHABLE, or UNKNOWN
+     * @return REACHABLE (with evidence), NOT_REACHABLE, or UNKNOWN
      */
-    public Reachability analyze(ScanComponent component) {
+    public CallGraphAnalyzer.AnalysisResult analyze(ScanComponent component) {
         if (component == null || component.getLibrary() == null) {
-            return Reachability.UNKNOWN;
+            return CallGraphAnalyzer.AnalysisResult.of(Reachability.UNKNOWN);
         }
 
         Set<String> prefixes = LibraryPackageMapper.map(component);
         if (prefixes.isEmpty()) {
             log.debug("[Reachability] No class prefixes for component {} (ecosystem {})",
                     component.getLibrary().getName(), component.getLibrary().getEcosystem());
-            return Reachability.UNKNOWN;
+            return CallGraphAnalyzer.AnalysisResult.of(Reachability.UNKNOWN);
         }
 
         Path root = resolveBytecodeRoot(component);
         if (root == null) {
             log.debug("[Reachability] No bytecode root configured for component {}",
                     component.getLibrary().getName());
-            return Reachability.UNKNOWN;
+            return CallGraphAnalyzer.AnalysisResult.of(Reachability.UNKNOWN);
         }
 
-        Reachability result = callGraphAnalyzer.analyze(root, prefixes);
-        log.info("[Reachability] component={} prefixes={} root={} result={}",
-                component.getLibrary().getName(), prefixes, root, result);
+        CallGraphAnalyzer.AnalysisResult result = callGraphAnalyzer.analyze(root, prefixes);
+        log.info("[Reachability] component={} prefixes={} root={} result={} evidence={}",
+                component.getLibrary().getName(), prefixes, root, result.reachability(), result.evidence());
         return result;
     }
 
