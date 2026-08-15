@@ -1,15 +1,90 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{onboarding.pageTitle})}"></head>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Onboarding')}"></header>
 
+<script th:inline="javascript">
+    const _onbI18n = {
+        connect:       /*[[#{onboarding.inline.connect}]]*/ 'Connect',
+        connecting:    /*[[#{onboarding.inline.connecting}]]*/ 'Connecting…',
+        save:          /*[[#{common.save}]]*/ 'Save',
+        saving:        /*[[#{common.saving}]]*/ 'Saving…',
+        connectFailed: /*[[#{onboarding.inline.connectFailed}]]*/ 'Connection failed. Check your input and try again.'
+    };
+    // Initial per-step completion, derived server-side from real instance state.
+    const _onbDone = {
+        teamReady: /*[[${stepStatus.teamReady}]]*/ false,
+        repoConnected: /*[[${stepStatus.repoConnected}]]*/ false,
+        notificationsReady: /*[[${stepStatus.notificationsReady}]]*/ false
+    };
+    function onboardingWizard(done) {
+        return {
+            step: 1, total: 4, done: done,
+            // Step 2 inline VCS connect (cloud providers only — self-hosted stays in Settings)
+            vcsProvider: 'GITHUB', vcsUsername: '', vcsToken: '', vcsSaving: false, vcsError: null,
+            // Step 4 inline webhook
+            hookProvider: 'SLACK', hookUrl: '', hookSaving: false, hookError: null,
+            async connectVcs() {
+                const token = this.vcsToken.trim();
+                if (!token || this.vcsSaving) return;
+                if (this.vcsProvider === 'BITBUCKET' && !this.vcsUsername.trim()) {
+                    this.vcsError = _onbI18n.connectFailed; return;
+                }
+                this.vcsSaving = true; this.vcsError = null;
+                try {
+                    const r = await fetch('/api/settings/vcs', {
+                        method: 'POST', headers: oswlJsonHeaders(),
+                        body: JSON.stringify({
+                            provider: this.vcsProvider,
+                            serverUrl: null,
+                            vcsUsername: this.vcsProvider === 'BITBUCKET' ? this.vcsUsername.trim() : null,
+                            accessToken: token
+                        })
+                    });
+                    if (!r.ok) {
+                        const b = await r.json().catch(() => ({}));
+                        this.vcsError = b.error || b.message || _onbI18n.connectFailed;
+                        return;
+                    }
+                    this.vcsToken = ''; this.vcsUsername = '';
+                    this.done.repoConnected = true;
+                } catch (e) { this.vcsError = _onbI18n.connectFailed; }
+                finally { this.vcsSaving = false; }
+            },
+            async saveWebhook() {
+                const url = this.hookUrl.trim();
+                if (!url || this.hookSaving) return;
+                this.hookSaving = true; this.hookError = null;
+                try {
+                    const r = await fetch('/api/settings/webhooks', {
+                        method: 'PUT', headers: oswlJsonHeaders(),
+                        body: JSON.stringify({
+                            provider: this.hookProvider, url: url, enabled: true,
+                            notifyNewCve: true, notifyGateFailure: true,
+                            notifyScanFailure: true, notifyWaiverExpiry: true
+                        })
+                    });
+                    if (!r.ok) {
+                        const b = await r.json().catch(() => ({}));
+                        this.hookError = b.message || b.error || _onbI18n.connectFailed;
+                        return;
+                    }
+                    this.hookUrl = '';
+                    this.done.notificationsReady = true;
+                } catch (e) { this.hookError = _onbI18n.connectFailed; }
+                finally { this.hookSaving = false; }
+            }
+        };
+    }
+</script>
+
 <main class="flex-1 flex items-center justify-center px-[24px] py-[40px]">
     <div class="w-full max-w-[560px] bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[32px] py-[32px]
                 flex flex-col gap-[24px]"
          style="filter: drop-shadow(0px 0px 20px rgba(0,29,53,0.03));"
-         x-data="{ step: 1, total: 4 }">
+         x-data="onboardingWizard(_onbDone)">
 
         <!-- Progress -->
         <div class="flex items-center gap-[8px]">
@@ -24,7 +99,12 @@
 
         <!-- Step 1: SSO / invite users -->
         <div x-show="step === 1" class="flex flex-col gap-[16px]">
-            <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step1.heading}">SSO & team access</h2>
+            <div class="flex items-center gap-[8px]">
+                <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step1.heading}">SSO & team access</h2>
+                <span x-show="done.teamReady" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                    <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{onboarding.step.done}">Done</span>
+                </span>
+            </div>
             <p class="text-[14px] text-[var(--grayscale-70)] leading-[1.5]" th:text="#{onboarding.step1.body}">Connect OIDC/SAML single sign-on, or invite teammates directly. You can always change this later in Settings.</p>
             <div class="flex gap-[10px]">
                 <a th:href="@{/settings(tab='security')}" class="text-[13px] font-medium text-[var(--primary-120)] hover:underline" th:text="#{onboarding.step1.linkSso}">Configure SSO →</a>
@@ -34,8 +114,45 @@
 
         <!-- Step 2: connect a repository -->
         <div x-show="step === 2" class="flex flex-col gap-[16px]">
-            <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step2.heading}">Connect a repository</h2>
+            <div class="flex items-center gap-[8px]">
+                <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step2.heading}">Connect a repository</h2>
+                <span x-show="done.repoConnected" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                    <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{onboarding.step.done}">Done</span>
+                </span>
+            </div>
             <p class="text-[14px] text-[var(--grayscale-70)] leading-[1.5]" th:text="#{onboarding.step2.body}">Link GitHub, GitLab, or Bitbucket so OsWL can pull in a project to scan. Quick Import works with a repository URL alone if you'd rather skip this for now.</p>
+
+            <!-- Inline connect form (cloud providers; self-hosted setups stay in Settings) -->
+            <div x-show="!done.repoConnected" x-cloak
+                 sec:authorize="hasPermission(null, 'SETTINGS_VCS_MANAGE') or hasRole('SYSTEM_ADMIN')"
+                 class="flex flex-col gap-[10px] border-t border-[var(--grayscale-10)] pt-[16px]">
+                <div class="flex items-center gap-[8px]">
+                    <label for="onb-vcs-provider" class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{onboarding.inline.provider}">Provider</label>
+                    <select id="onb-vcs-provider" x-model="vcsProvider"
+                            class="flex-1 text-[13px] border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[7px] bg-white text-[var(--grayscale-90)]">
+                        <option value="GITHUB" th:text="#{settings.vcs.provider.github}">GitHub</option>
+                        <option value="GITLAB" th:text="#{settings.vcs.provider.gitlab}">GitLab</option>
+                        <option value="BITBUCKET" th:text="#{settings.vcs.provider.bitbucket}">Bitbucket</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-[8px]" x-show="vcsProvider === 'BITBUCKET'" x-cloak>
+                    <label for="onb-vcs-username" class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{onboarding.inline.username}">Username</label>
+                    <input id="onb-vcs-username" type="text" x-model="vcsUsername" autocomplete="off"
+                           class="flex-1 text-[13px] border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[7px]">
+                </div>
+                <div class="flex items-center gap-[8px]">
+                    <label for="onb-vcs-token" class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.vcs.label.token}">Access Token</label>
+                    <input id="onb-vcs-token" type="password" x-model="vcsToken" autocomplete="off"
+                           class="flex-1 text-[13px] border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[7px]">
+                </div>
+                <div class="flex items-center gap-[10px]">
+                    <button type="button" @click="connectVcs()" :disabled="vcsSaving"
+                            class="text-[13px] font-bold text-white bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[7px] rounded-[8px] disabled:opacity-50 transition-colors"
+                            x-text="vcsSaving ? _onbI18n.connecting : _onbI18n.connect">Connect</button>
+                    <p x-show="vcsError" x-cloak x-text="vcsError" class="text-[12px] text-[var(--risk-critical)] m-0"></p>
+                </div>
+            </div>
+
             <div class="flex gap-[10px]">
                 <a th:href="@{/settings(tab='vcs')}" class="text-[13px] font-medium text-[var(--primary-120)] hover:underline" th:text="#{onboarding.step2.link}">Connect a VCS provider →</a>
                 <a th:href="@{/projects}" class="text-[13px] font-medium text-[var(--primary-120)] hover:underline" th:text="#{onboarding.step2.linkQuickImport}">Quick Import a project →</a>
@@ -53,8 +170,40 @@
 
         <!-- Step 4: notifications -->
         <div x-show="step === 4" class="flex flex-col gap-[16px]">
-            <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step4.heading}">Notifications</h2>
+            <div class="flex items-center gap-[8px]">
+                <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step4.heading}">Notifications</h2>
+                <span x-show="done.notificationsReady" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                    <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{onboarding.step.done}">Done</span>
+                </span>
+            </div>
             <p class="text-[14px] text-[var(--grayscale-70)] leading-[1.5]" th:text="#{onboarding.step4.body}">Add a Slack or Teams webhook so new CVEs and gate failures reach the channel your team actually watches, instead of only email.</p>
+
+            <!-- Inline webhook form -->
+            <div x-show="!done.notificationsReady" x-cloak
+                 sec:authorize="hasPermission(null, 'SETTINGS_WEBHOOK_MANAGE') or hasRole('SYSTEM_ADMIN')"
+                 class="flex flex-col gap-[10px] border-t border-[var(--grayscale-10)] pt-[16px]">
+                <div class="flex items-center gap-[8px]">
+                    <label for="onb-hook-provider" class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{onboarding.inline.provider}">Provider</label>
+                    <select id="onb-hook-provider" x-model="hookProvider"
+                            class="flex-1 text-[13px] border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[7px] bg-white text-[var(--grayscale-90)]">
+                        <option value="SLACK">Slack</option>
+                        <option value="TEAMS">Teams</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-[8px]">
+                    <label for="onb-hook-url" class="text-[13px] font-medium text-[var(--grayscale-60)] w-[110px] shrink-0" th:text="#{settings.webhooks.url.label}">Webhook URL</label>
+                    <input id="onb-hook-url" type="url" x-model="hookUrl" autocomplete="off"
+                           th:placeholder="#{settings.webhooks.url.placeholder}" placeholder="https://hooks.slack.com/services/..."
+                           class="flex-1 text-[13px] border border-[var(--grayscale-20)] rounded-[6px] px-[10px] py-[7px]">
+                </div>
+                <div class="flex items-center gap-[10px]">
+                    <button type="button" @click="saveWebhook()" :disabled="hookSaving"
+                            class="text-[13px] font-bold text-white bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[7px] rounded-[8px] disabled:opacity-50 transition-colors"
+                            x-text="hookSaving ? _onbI18n.saving : _onbI18n.save">Save</button>
+                    <p x-show="hookError" x-cloak x-text="hookError" class="text-[12px] text-[var(--risk-critical)] m-0"></p>
+                </div>
+            </div>
+
             <div class="flex gap-[10px]">
                 <a th:href="@{/settings(tab='webhooks')}" class="text-[13px] font-medium text-[var(--primary-120)] hover:underline" th:text="#{onboarding.step4.link}">Set up webhooks →</a>
             </div>

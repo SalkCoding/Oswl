@@ -1,8 +1,11 @@
 package com.salkcoding.oswl.auth.controller;
 
+import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
 import com.salkcoding.oswl.auth.service.OnboardingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,7 +25,9 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
 
     @GetMapping
-    public String wizard() {
+    public String wizard(Model model, @AuthenticationPrincipal OswlUserPrincipal principal) {
+        model.addAttribute("stepStatus",
+                onboardingService.stepStatus(principal != null ? principal.getUserId() : null));
         return "auth/onboarding";
     }
 
