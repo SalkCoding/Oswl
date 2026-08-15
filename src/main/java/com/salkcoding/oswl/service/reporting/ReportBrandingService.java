@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service.reporting;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.reporting.ReportBrandingSettings;
 import com.salkcoding.oswl.repository.reporting.ReportBrandingSettingsRepository;
+import com.salkcoding.oswl.util.LogoImageNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,9 @@ public class ReportBrandingService {
             if (logoDataUri.length() > MAX_LOGO_DATA_URI_LENGTH) {
                 throw new IllegalArgumentException("Logo image is too large");
             }
+            // Decode + downscale at save time: logos render at a few dozen CSS pixels, so the
+            // stored copy is capped to keep every report page and mail light.
+            logoDataUri = LogoImageNormalizer.normalize(logoDataUri);
         }
 
         ReportBrandingSettings settings = reportBrandingSettingsRepository.findFirstByOrderByIdAsc()
