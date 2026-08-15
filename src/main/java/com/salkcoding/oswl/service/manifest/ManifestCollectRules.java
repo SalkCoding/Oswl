@@ -40,7 +40,7 @@ public final class ManifestCollectRules {
             "vcpkg.json", "vcpkg-configuration.json",
             ".gitmodules", "CMakeLists.txt",
             "Podfile.lock",
-            "conda-lock.yml",
+            "conda-lock.yml", "pixi.lock",
             "Dockerfile",
             "mvnw", "mvnw.cmd", "gradlew", "gradlew.bat",
             "global.json", "nuget.config");

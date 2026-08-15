@@ -98,9 +98,9 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * @param manifestProgress optional D3 callback receiving {@code (processedManifests, totalManifests)}
-     *                         as each manifest group is handled — the A3 index knows the full
-     *                         manifest count up front, so the caller can interpolate continuous
+     * @param manifestProgress optional callback receiving {@code (processedManifests, totalManifests)}
+     *                         as each manifest group is handled — the manifest index knows the
+     *                         full manifest count up front, so the caller can interpolate continuous
      *                         progress. Parsing must never fail because of reporting, so callback
      *                         exceptions are swallowed at debug level.
      */
@@ -110,12 +110,12 @@ public class DependencyManifestParserService {
         Set<String> seen = new LinkedHashSet<>();
         List<String> ecosystems = new ArrayList<>();
 
-        // A3: walk the tree exactly once; every manifest lookup below hits this index.
+        // walk the tree exactly once; every manifest lookup below hits this index.
         ManifestIndex index = buildIndex(cloneDir);
         log.debug("[DependencyParser] Manifest index built for '{}': {} basenames, {} suffixes",
                 repoName, index.byFileName().size(), index.bySuffix().size());
 
-        // D3: progress denominator = every distinct indexed manifest; numerator = the ones
+        // progress denominator = every distinct indexed manifest; numerator = the ones
         // actually processed below (fallback groups skipped because a lock file already
         // resolved the ecosystem simply never count — the caller clamps monotonically).
         Set<Path> indexedManifests = new HashSet<>();
@@ -386,6 +386,18 @@ public class DependencyManifestParserService {
                     if (!ecosystems.contains(c.getEcosystem())) ecosystems.add(c.getEcosystem());
                 }
                 mergeComponents(allComps, seen, condaComps, "CONDA");
+            }
+            report.accept(List.of(lock));
+        }
+
+        // ── Data science: pixi.lock (pixi/Conda) ────────────────────────────────
+        for (Path lock : indexByNames(index, "pixi.lock")) {
+            List<ScanPayload.ComponentPayload> pixiComps = parsePixiLock(lock.getParent(), repoName);
+            if (pixiComps != null && !pixiComps.isEmpty()) {
+                for (ScanPayload.ComponentPayload c : pixiComps) {
+                    if (!ecosystems.contains(c.getEcosystem())) ecosystems.add(c.getEcosystem());
+                }
+                mergeComponents(allComps, seen, pixiComps, "CONDA");
             }
             report.accept(List.of(lock));
         }
@@ -1909,7 +1921,7 @@ public class DependencyManifestParserService {
      * Parses {@code Podfile.lock}'s {@code PODS:} section. A subspec entry (e.g.
      * {@code "GoogleUtilities/AppDelegateSwizzler (7.11.0)"}) is folded into its base pod
      * ({@code GoogleUtilities}) — subspecs aren't separately published, so podspec resolution
-     * (ROADMAP A9) only ever needs the base pod name.
+     * only ever needs the base pod name.
      */
     private List<ScanPayload.ComponentPayload> parsePodfileLock(Path dir, String repoName) {
         try {
@@ -1956,7 +1968,7 @@ public class DependencyManifestParserService {
      * package is a Python project repackaged for conda (gets real OSV PyPI coverage under the
      * mapped name); a miss almost always means a native (non-Python) library, tagged
      * {@code CONDA} and left for the caller's existing "no OSV mapping" guard to render as
-     * {@code UNKNOWN} rather than a false "no vulnerabilities" (see ROADMAP A0/A9).
+     * {@code UNKNOWN} rather than a false "no vulnerabilities".
      */
     private List<ScanPayload.ComponentPayload> parseCondaLock(Path dir, String repoName) {
         try (var reader = Files.newBufferedReader(dir.resolve("conda-lock.yml"), StandardCharsets.UTF_8)) {
@@ -2004,23 +2016,162 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * Parses an uploaded raw lock file (composer.lock / conan.lock), detected by content shape.
+     * Parses {@code pixi.lock}. Packages are grouped per environment and per platform; each
+     * entry is either a {@code conda:} package URL (name/version derived from the filename,
+     * then run through the same conda→PyPI mapping as conda-lock.yml) or a {@code pypi:}
+     * entry carrying explicit {@code name}/{@code version} fields.
+     */
+    private List<ScanPayload.ComponentPayload> parsePixiLock(Path dir, String repoName) {
+        try (var reader = Files.newBufferedReader(dir.resolve("pixi.lock"), StandardCharsets.UTF_8)) {
+            Object parsed = SAFE_YAML.load(reader);
+            if (!(parsed instanceof Map<?, ?> root)) {
+                return null;
+            }
+            return parsePixiLockYaml(root, repoName);
+        } catch (Exception e) {
+            log.warn("[DependencyParser][Conda] Failed to parse pixi.lock for '{}': {}", repoName, e.getMessage());
+            return null;
+        }
+    }
+
+    private List<ScanPayload.ComponentPayload> parsePixiLockYaml(Map<?, ?> root, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        if (root.get("environments") instanceof Map<?, ?> environments) {
+            for (Object envObj : environments.values()) {
+                if (!(envObj instanceof Map<?, ?> env)) continue;
+                if (!(env.get("packages") instanceof Map<?, ?> byPlatform)) continue;
+                for (Object listObj : byPlatform.values()) {
+                    if (!(listObj instanceof List<?> entries)) continue;
+                    for (Object entryObj : entries) {
+                        if (!(entryObj instanceof Map<?, ?> entry)) continue;
+                        String name = null;
+                        String version = null;
+                        boolean pypi = entry.get("pypi") != null;
+                        if (pypi) {
+                            name = yamlString(entry.get("name"));
+                            version = yamlString(entry.get("version"));
+                        } else if (entry.get("conda") != null) {
+                            String[] nv = parseCondaPackageNameVersion(yamlString(entry.get("conda")));
+                            if (nv != null) {
+                                name = nv[0];
+                                version = nv[1];
+                            }
+                        }
+                        if (name == null || name.isBlank() || version == null || version.isBlank()) continue;
+                        if (!seen.add(name.toLowerCase(Locale.ROOT) + ":" + version)) continue;
+                        if (pypi) {
+                            comps.add(buildComponent(name, version, "PYPI"));
+                            continue;
+                        }
+                        String pypiName = condaPypiMappingService.resolvePypiName(name);
+                        comps.add(pypiName != null
+                                ? buildComponent(pypiName, version, "PYPI")
+                                : buildComponent(name, version, "CONDA"));
+                    }
+                }
+            }
+        }
+        log.info("[DependencyParser][Conda] Parsed {} components from pixi.lock in '{}'", comps.size(), repoName);
+        return comps;
+    }
+
+    /**
+     * Parses a {@code conda list --explicit} spec: comment headers, an {@code @EXPLICIT}
+     * marker, then one conda package URL per line. Each URL's filename yields the pinned
+     * name/version; the conda→PyPI mapping applies exactly as for conda-lock.yml.
+     */
+    private List<ScanPayload.ComponentPayload> parseCondaExplicitLines(List<String> lines, String repoName) {
+        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String line : lines) {
+            String url = line.strip();
+            if (url.isEmpty() || url.startsWith("#") || url.startsWith("@")) continue;
+            String[] nv = parseCondaPackageNameVersion(url);
+            if (nv == null) continue;
+            if (!seen.add(nv[0].toLowerCase(Locale.ROOT) + ":" + nv[1])) continue;
+            String pypiName = condaPypiMappingService.resolvePypiName(nv[0]);
+            comps.add(pypiName != null
+                    ? buildComponent(pypiName, nv[1], "PYPI")
+                    : buildComponent(nv[0], nv[1], "CONDA"));
+        }
+        log.info("[DependencyParser][Conda] Parsed {} components from explicit spec in '{}'", comps.size(), repoName);
+        return comps;
+    }
+
+    /**
+     * Derives (name, version) from a conda package URL or filename, e.g.
+     * {@code "…/linux-64/openssl-3.1.1-hd590300_1.conda"} → {@code ["openssl", "3.1.1"]}.
+     * Filenames are {@code name-version-build}; names may contain '-' but versions and build
+     * strings never do, so the split happens from the right.
+     */
+    private static String[] parseCondaPackageNameVersion(String urlOrFilename) {
+        if (urlOrFilename == null) return null;
+        String filename = urlOrFilename;
+        int slash = filename.lastIndexOf('/');
+        if (slash >= 0) filename = filename.substring(slash + 1);
+        if (filename.endsWith(".conda")) {
+            filename = filename.substring(0, filename.length() - ".conda".length());
+        } else if (filename.endsWith(".tar.bz2")) {
+            filename = filename.substring(0, filename.length() - ".tar.bz2".length());
+        } else {
+            return null;
+        }
+        int lastDash = filename.lastIndexOf('-');
+        if (lastDash <= 0) return null;
+        int prevDash = filename.lastIndexOf('-', lastDash - 1);
+        if (prevDash <= 0) return null;
+        String name = filename.substring(0, prevDash);
+        String version = filename.substring(prevDash + 1, lastDash);
+        if (name.isEmpty() || version.isEmpty() || !Character.isDigit(version.charAt(0))) return null;
+        return new String[]{name, version};
+    }
+
+    /**
+     * Parses an uploaded raw lock file (composer.lock / conan.lock / Podfile.lock /
+     * conda-lock.yml / pixi.lock / a `conda list --explicit` spec), detected by content shape.
      * Used by the SBOM-upload import path. Returns {@code null} when the content is not a
      * recognized lock file so the caller can fall back to CycloneDX SBOM parsing.
      */
     public List<ScanPayload.ComponentPayload> parseUploadedLockFile(byte[] content, String label) {
         try {
-            String head = new String(content, 0, Math.min(content.length, 200), StandardCharsets.UTF_8)
-                    .stripLeading();
-            if (!head.startsWith("{")) {
+            String text = new String(content, StandardCharsets.UTF_8);
+            String head = text.substring(0, Math.min(text.length(), 200)).stripLeading();
+            if (head.startsWith("{")) {
+                JsonNode root = OBJECT_MAPPER.readTree(content);
+                if (isComposerLockJson(root)) {
+                    return parseComposerLockJson(root, label);
+                }
+                if (isConanLockJson(root)) {
+                    return parseConanLockJson(root, label);
+                }
                 return null;
             }
-            JsonNode root = OBJECT_MAPPER.readTree(content);
-            if (isComposerLockJson(root)) {
-                return parseComposerLockJson(root, label);
+            // XML — the caller's CycloneDX path handles it.
+            if (head.startsWith("<")) {
+                return null;
             }
-            if (isConanLockJson(root)) {
-                return parseConanLockJson(root, label);
+            // Podfile.lock is YAML-shaped but parsed line-wise, same as the repo-walk parser.
+            if (head.startsWith("PODS:")) {
+                return parsePodfileLockLines(text.lines().toList(), label);
+            }
+            // `conda list --explicit` spec file: comment headers, an @EXPLICIT marker, then
+            // one package URL per line. It has no stable filename, so content shape is the
+            // only way it can arrive here.
+            List<String> lines = text.lines().toList();
+            if (lines.stream().anyMatch(l -> l.strip().equals("@EXPLICIT"))) {
+                return parseCondaExplicitLines(lines, label);
+            }
+            // YAML lock files: pixi.lock (environments → per-platform package URLs) or
+            // conda-lock.yml (flat "package" list).
+            Object parsed = SAFE_YAML.load(text);
+            if (parsed instanceof Map<?, ?> root) {
+                if (root.containsKey("environments")) {
+                    return parsePixiLockYaml(root, label);
+                }
+                if (root.get("package") instanceof List<?>) {
+                    return parseCondaLockYaml(root, label);
+                }
             }
         } catch (Exception e) {
             log.debug("[DependencyParser] Uploaded content is not a supported lock file: {}", e.getMessage());
@@ -2261,7 +2412,7 @@ public class DependencyManifestParserService {
     }
 
     /**
-     * ROADMAP A3: OS-package inventory from a Dockerfile's base image + explicitly
+     * OS-package inventory from a Dockerfile's base image + explicitly
      * version-pinned {@code apt-get install}/{@code apk add} packages.
      * See {@link com.salkcoding.oswl.service.container.DockerfileParser} for scope.
      */

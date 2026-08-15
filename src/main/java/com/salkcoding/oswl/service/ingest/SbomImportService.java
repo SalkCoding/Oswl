@@ -31,7 +31,8 @@ import java.util.Set;
  * {@link ScanIngestService} pipeline as Quick Import / CLI scans, so storage and async
  * enrichment behave identically.
  *
- * Raw lock files (composer.lock / conan.lock) are also accepted: they are parsed with
+ * Raw lock files (composer.lock / conan.lock / Podfile.lock / conda-lock.yml / pixi.lock /
+ * a `conda list --explicit` spec) are also accepted: they are parsed with
  * {@link DependencyManifestParserService} and imported through the same pipeline.
  *
  * Components without a purl, or with a purl type outside the supported ecosystems, are
@@ -74,7 +75,8 @@ public class SbomImportService {
             throw new InvalidRequestException("SBOM file exceeds the 20 MB limit");
         }
 
-        // Raw lock-file upload (composer.lock / conan.lock) — manifest parser, same ingest pipeline.
+        // Raw lock-file upload (composer.lock / conan.lock / Podfile.lock / conda formats) —
+        // manifest parser, same ingest pipeline.
         List<ComponentPayload> lockComponents =
                 dependencyManifestParserService.parseUploadedLockFile(content, "sbom-upload");
         if (lockComponents != null) {

@@ -1,7 +1,7 @@
 {
   "version" : 1,
   "skipDirs" : [ ".cargo", ".dart_tool", ".git", ".gradle", ".idea", ".tox", ".venv", "__pycache__", "bin", "bower_components", "build", "dist", "generated", "node_modules", "obj", "out", "target", "vendor", "venv" ],
-  "exactFileNames" : [ ".gitmodules", "CMakeLists.txt", "Cargo.lock", "Cargo.toml", "Directory.Packages.props", "Dockerfile", "Gemfile.lock", "Pipfile.lock", "Podfile.lock", "build.gradle", "build.gradle.kts", "composer.lock", "conan.lock", "conda-lock.yml", "global.json", "go.mod", "go.sum", "gradle.properties", "gradlew", "gradlew.bat", "mvnw", "mvnw.cmd", "nuget.config", "package-lock.json", "package.json", "packages.config", "packages.lock.json", "pnpm-lock.yaml", "poetry.lock", "pom.xml", "pyproject.toml", "requirements.txt", "settings.gradle", "settings.gradle.kts", "uv.lock", "vcpkg-configuration.json", "vcpkg.json", "yarn.lock" ],
+  "exactFileNames" : [ ".gitmodules", "CMakeLists.txt", "Cargo.lock", "Cargo.toml", "Directory.Packages.props", "Dockerfile", "Gemfile.lock", "Pipfile.lock", "Podfile.lock", "build.gradle", "build.gradle.kts", "composer.lock", "conan.lock", "conda-lock.yml", "global.json", "go.mod", "go.sum", "gradle.properties", "gradlew", "gradlew.bat", "mvnw", "mvnw.cmd", "nuget.config", "package-lock.json", "package.json", "packages.config", "packages.lock.json", "pixi.lock", "pnpm-lock.yaml", "poetry.lock", "pom.xml", "pyproject.toml", "requirements.txt", "settings.gradle", "settings.gradle.kts", "uv.lock", "vcpkg-configuration.json", "vcpkg.json", "yarn.lock" ],
   "fileSuffixes" : [ ".csproj", ".props", ".sln", ".versions.toml" ],
   "pathPrefixes" : [ ".mvn/wrapper/", "gradle/wrapper/" ],
   "buildSrcSuffixes" : [ ".java", ".kt" ]
