@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import com.salkcoding.oswl.domain.entity.scan.DependencyPath;
 
 /**
  * Retention policy for old scans — a project's {@code scan_components}/{@code dependency_paths}
@@ -110,28 +113,30 @@ public class ScanArchivingService {
     }
 
     private void archiveOneScan(ScanResult scan) {
-        List<Long> componentIds = scanComponentRepository.findIdsByScanResultId(scan.getId());
+        long componentCount = scanComponentRepository.countByScanResultId(scan.getId());
         var summary = summaryReader.read(List.of(scan)).get(scan.getId());
         int[] security = summary.security();
         int[] license = summary.licenses();
-        scan.archive(componentIds.size(), security, license);
+        scan.archive(Math.toIntExact(componentCount), security, license);
         scanResultRepository.save(scan);
 
-        if (!componentIds.isEmpty()) {
-            dependencyPathRepository.deleteByScanComponentIdIn(componentIds);
+        if (componentCount > 0) {
+            dependencyPathRepository.deleteByScanResultId(scan.getId());
         }
         scanComponentRepository.deleteByScanResultId(scan.getId());
     }
 
     private ScanArchiveExportDto exportOneScan(ScanResult scan) {
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
+        Map<Long, List<DependencyPath>> paths = dependencyPathRepository.findByScanResultId(scan.getId()).stream()
+                .collect(Collectors.groupingBy(path -> path.getScanComponent().getId()));
         List<ScanArchiveExportDto.ComponentExportDto> componentDtos = components.stream()
-                .map(this::toComponentExport)
+                .map(component -> toComponentExport(component, paths.getOrDefault(component.getId(), List.of())))
                 .toList();
         return new ScanArchiveExportDto(scan.getId(), scan.getVersion(), scan.getScannedAt(), componentDtos);
     }
 
-    private ScanArchiveExportDto.ComponentExportDto toComponentExport(ScanComponent comp) {
+    private ScanArchiveExportDto.ComponentExportDto toComponentExport(ScanComponent comp, List<DependencyPath> paths) {
         Library lib = comp.getLibrary();
         List<ScanArchiveExportDto.CveExportDto> cveDtos = lib.getCves().stream()
                 .map(cve -> new ScanArchiveExportDto.CveExportDto(
@@ -139,8 +144,7 @@ public class ScanArchivingService {
                         cve.getSeverity() != null ? cve.getSeverity().name() : null,
                         cve.getCvssScore(), cve.getEpssScore(), cve.getKevListed(), cve.getFixVersion()))
                 .toList();
-        List<List<String>> dependencyPaths = dependencyPathRepository
-                .findByScanComponentIdOrderByPathIndexAsc(comp.getId()).stream()
+        List<List<String>> dependencyPaths = paths.stream()
                 .map(path -> path.getPathNodes().stream()
                         .map(node -> node.getName() + "@" + node.getVersion())
                         .toList())

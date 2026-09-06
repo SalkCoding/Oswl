@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.scan;
 
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
+import com.salkcoding.oswl.domain.entity.scan.DependencyPath;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
@@ -12,6 +13,7 @@ import com.salkcoding.oswl.dto.scan.ScanArchiveExportDto;
 import com.salkcoding.oswl.dto.scan.ScanArchiveResult;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
+import com.salkcoding.oswl.repository.scan.DependencyPathRepository;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -40,6 +42,7 @@ class ScanArchivingServiceTest {
     @Autowired ProjectRepository projectRepository;
     @Autowired ScanResultRepository scanResultRepository;
     @Autowired ScanComponentRepository scanComponentRepository;
+    @Autowired DependencyPathRepository dependencyPathRepository;
     @Autowired LibraryRepository libraryRepository;
     @Autowired PlatformTransactionManager transactionManager;
 
@@ -123,6 +126,14 @@ class ScanArchivingServiceTest {
         project = projectRepository.save(project);
 
         Long olderId = scanResultRepository.findByProjectIdAndVersion(project.getId(), "3.0.0").orElseThrow().getId();
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            ScanComponent component = scanComponentRepository.findByScanResultId(olderId).getFirst();
+            for (int index : List.of(1, 0)) {
+                dependencyPathRepository.save(DependencyPath.builder().scanComponent(component)
+                        .pathIndex(index).depth(1)
+                        .pathNodes(List.of(new DependencyPath.PathNode("path-" + index, "1"))).build());
+            }
+        });
 
         List<ScanArchiveExportDto> export = scanArchivingService.exportPendingArchive(project.getId(), 1);
 
@@ -132,6 +143,8 @@ class ScanArchivingServiceTest {
         assertThat(exported.version()).isEqualTo("3.0.0");
         assertThat(exported.components()).hasSize(2);
         assertThat(exported.components()).allSatisfy(c -> assertThat(c.cves()).hasSize(1));
+        assertThat(exported.components().stream().filter(c -> !c.dependencyPaths().isEmpty()).findFirst().orElseThrow()
+                .dependencyPaths()).extracting(List::getFirst).containsExactly("path-0@1", "path-1@1");
         assertThat(exported.components().stream()
                 .flatMap(c -> c.cves().stream())
                 .map(ScanArchiveExportDto.CveExportDto::severity))
@@ -144,5 +157,6 @@ class ScanArchivingServiceTest {
         // Once actually archived, the same scan is no longer "pending" — nothing left to export.
         scanArchivingService.archiveProject(project.getId(), 1);
         assertThat(scanArchivingService.exportPendingArchive(project.getId(), 1)).isEmpty();
+        assertThat(dependencyPathRepository.findByScanResultId(olderId)).isEmpty();
     }
 }

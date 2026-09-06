@@ -14,6 +14,14 @@ public interface DependencyPathRepository extends JpaRepository<DependencyPath, 
     /** Retrieve all paths for a component, ordered by their original index. */
     List<DependencyPath> findByScanComponentIdOrderByPathIndexAsc(Long scanComponentId);
 
+    @Query("SELECT dp FROM DependencyPath dp WHERE dp.scanComponent.scanResult.id = :scanId ORDER BY dp.scanComponent.id, dp.pathIndex")
+    List<DependencyPath> findByScanResultId(@Param("scanId") Long scanId);
+
+    /** Delete by scan without materializing every component id or generating a large IN list. */
+    @Modifying
+    @Query("DELETE FROM DependencyPath dp WHERE dp.scanComponent.id IN (SELECT sc.id FROM ScanComponent sc WHERE sc.scanResult.id = :scanId)")
+    void deleteByScanResultId(@Param("scanId") Long scanId);
+
     /** Bulk delete for scan archiving — must run before the owning components are deleted. */
     @Modifying
     @Query("DELETE FROM DependencyPath dp WHERE dp.scanComponent.id IN :scanComponentIds")

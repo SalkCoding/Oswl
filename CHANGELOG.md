@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **performance:** Archive paths are fetched/deleted by scan; snapshot uploads are staged and checksum-validated before a bounded atomic transaction, with 500-row flush/detach and keyset export. Tests cover ordered dependency paths, 5,000-row import, interruption/checksum/DB-failure rollback and temporary-file cleanup. Maximum payload/concurrent export budgets remain open (roadmap 19).
 * **performance:** Version Diff now reads coordinate/severity projections; Org Dashboard uses batch summaries and archived counters. Verified duplicate-component and archive equivalence, zero component/CVE graph loads, and 2/10/100-scan measurements (roadmap 18).
 
 ## [1.0.3](https://github.com/SalkCoding/Oswl/releases/tag/v1.0.3) (2026-07-19)

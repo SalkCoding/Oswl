@@ -17,13 +17,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import jakarta.persistence.EntityManager;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -112,18 +114,6 @@ public class AirgappedSnapshotService {
 
     private static final int SAVE_CHUNK_SIZE = 500;
 
-    /** Max decompressed bytes per bundle entry (decompression-bomb guard). */
-    private static final long MAX_ENTRY_BYTES = 200L * 1024 * 1024; // ~200 MB
-    /**
-     * Secondary decompression-bomb guard: rejects an entry whose decompressed size is
-     * disproportionate to its compressed size. Best-effort only — {@link ZipInputStream} does
-     * not reliably expose {@link ZipEntry#getCompressedSize()} for every entry (it depends on
-     * whether the writer stored sizes in the local header vs. a trailing data descriptor), so
-     * this check silently no-ops when the compressed size is unknown; {@link #MAX_ENTRY_BYTES}
-     * is the guarantee that always applies.
-     */
-    private static final double MAX_COMPRESSION_RATIO = 100.0;
-
     private static final Set<String> KNOWN_DATA_FILES =
             Set.of("osv.jsonl", "depsdev.jsonl", "github-advisory.jsonl", "nvd.jsonl",
                     "epss.jsonl", "kev.jsonl", "unresolved.jsonl");
@@ -131,6 +121,8 @@ public class AirgappedSnapshotService {
     private final SnapshotEntryRepository snapshotEntryRepository;
     private final SnapshotMetaRepository snapshotMetaRepository;
     private final LibraryRepository libraryRepository;
+    private final PlatformTransactionManager transactionManager;
+    private final EntityManager entityManager;
     /** Local instance (codebase convention — matches DepsDevClient/GitHubService); avoids a bean dependency. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -380,7 +372,6 @@ public class AirgappedSnapshotService {
      * is unchanged from before. New callers (the admin controller) should call the 2-arg
      * overload with an explicit mode, or {@code null} to let {@code meta.json} decide.
      */
-    @Transactional
     public SnapshotImportResult importBundle(InputStream zipStream) {
         return importBundle(zipStream, ImportMode.REPLACE);
     }
@@ -389,7 +380,7 @@ public class AirgappedSnapshotService {
      * Takes the zip as a stream rather than a fully-buffered {@code byte[]} — the caller
      * (the admin controller) passes the multipart upload's own input stream directly, so the
      * compressed upload itself is never buffered whole in memory before this method even starts
-     * (only each decompressed entry is, bounded by {@link #MAX_ENTRY_BYTES}).
+     * (decompressed entries are staged to bounded temporary files by {@link SnapshotBundleStager}).
      *
      * @param requestedMode explicit mode, or {@code null} to resolve from {@code meta.json}'s
      *                      {@code mode} field (falling back to {@link ImportMode#REPLACE} when
@@ -398,77 +389,66 @@ public class AirgappedSnapshotService {
      *         bundles only) a SHA-256 mismatch against {@code meta.json} — thrown before any
      *         store mutation, so a corrupt/tampered bundle never touches the existing store.
      */
-    @Transactional
     public SnapshotImportResult importBundle(InputStream zipStream, ImportMode requestedMode) {
-        Map<String, byte[]> rawFiles = new LinkedHashMap<>();
-        byte[] metaBytes = null;
-        try (ZipInputStream zis = new ZipInputStream(zipStream, StandardCharsets.UTF_8)) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (entry.isDirectory()) continue;
-                String name = baseName(entry.getName());
-                boolean isMeta = "meta.json".equals(name);
-                if (!isMeta && !KNOWN_DATA_FILES.contains(name)) continue; // ignore unknown entries
-                byte[] content = readEntryBytes(zis, entry);
-                if (isMeta) {
-                    metaBytes = content;
-                } else {
-                    rawFiles.put(name, content);
-                }
-            }
+        try (SnapshotBundleStager staged = new SnapshotBundleStager()) {
+            staged.read(zipStream, KNOWN_DATA_FILES);
+            Map<String, Path> rawFiles = new LinkedHashMap<>(staged.files());
+            Path metaFile = rawFiles.remove("meta.json");
+            if (rawFiles.isEmpty()) throw new InvalidRequestException("Snapshot bundle contains no recognized data files.");
+            BundleMetaV2 meta = metaFile == null ? null : parseMetaV2(Files.readAllBytes(metaFile));
+            if (meta != null) verifyChecksums(meta, rawFiles);
+            // Validate line budgets before a REPLACE is allowed to delete existing source data.
+            rawFiles.values().forEach(file -> SnapshotBundleStager.forEachLine(file, ignored -> {}));
+            ImportMode mode = requestedMode != null ? requestedMode : resolveModeFromMeta(meta);
+            SnapshotBundleStager.checkInterrupted();
+            TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+            transaction.setTimeout(300);
+            return transaction.execute(status -> applyBundle(rawFiles, meta, mode));
         } catch (IOException e) {
             throw new InvalidRequestException("Snapshot bundle is not a readable zip: " + e.getMessage());
         }
-        if (rawFiles.isEmpty()) {
-            throw new InvalidRequestException(
-                    "Snapshot bundle contains no data files (expected osv.jsonl, depsdev.jsonl, github-advisory.jsonl, nvd.jsonl, epss.jsonl or kev.jsonl)");
-        }
+    }
 
-        BundleMetaV2 meta = metaBytes != null ? parseMetaV2(metaBytes) : null;
-        if (meta != null) {
-            verifyChecksums(meta, rawFiles); // throws before any of the writes below
-        }
-        ImportMode mode = requestedMode != null ? requestedMode : resolveModeFromMeta(meta);
-
+    private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode) {
         Map<String, Integer> counts = new LinkedHashMap<>();
-        for (Map.Entry<String, byte[]> rf : rawFiles.entrySet()) {
-            List<String> lines = splitLines(rf.getValue());
+        for (Map.Entry<String, Path> rf : rawFiles.entrySet()) {
+            SnapshotBundleStager.checkInterrupted();
             switch (rf.getKey()) {
                 case "osv.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_OSV, mode);
-                    for (String line : lines) ingestOsvLine(line, buf);
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestOsvLine(line, buf));
                     counts.merge(SOURCE_OSV, buf.finish(), Integer::sum);
                 }
                 case "depsdev.jsonl" -> {
                     SourceIngestBuffer versionBuf = new SourceIngestBuffer(SOURCE_DEPSDEV_VERSION, mode);
                     SourceIngestBuffer advisoryBuf = new SourceIngestBuffer(SOURCE_DEPSDEV_ADVISORY, mode);
-                    for (String line : lines) ingestDepsDevLine(line, versionBuf, advisoryBuf);
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestDepsDevLine(line, versionBuf, advisoryBuf));
                     counts.merge(SOURCE_DEPSDEV_VERSION, versionBuf.finish(), Integer::sum);
                     counts.merge(SOURCE_DEPSDEV_ADVISORY, advisoryBuf.finish(), Integer::sum);
                 }
                 case "github-advisory.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_GITHUB_ADVISORY, mode);
-                    for (String line : lines) ingestOsvLine(line, buf);
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestOsvLine(line, buf));
                     counts.merge(SOURCE_GITHUB_ADVISORY, buf.finish(), Integer::sum);
                 }
                 case "nvd.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_NVD, mode);
-                    for (String line : lines) ingestOsvLine(line, buf);
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestOsvLine(line, buf));
                     counts.merge(SOURCE_NVD, buf.finish(), Integer::sum);
                 }
                 case "epss.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_EPSS, mode);
-                    for (String line : lines) ingestEpssLine(line, buf);
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestEpssLine(line, buf));
                     counts.merge(SOURCE_EPSS, buf.finish(), Integer::sum);
                 }
                 case "kev.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_KEV, mode);
-                    for (String line : lines) ingestKevLine(line, buf);
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestKevLine(line, buf));
                     counts.merge(SOURCE_KEV, buf.finish(), Integer::sum);
                 }
                 case "unresolved.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_UNRESOLVED, mode);
-                    for (String line : lines) ingestOsvLine(line, buf); // same {ecosystem,name,version} shape, no "vulns" needed
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestOsvLine(line, buf)); // same {ecosystem,name,version} shape, no "vulns" needed
                     counts.merge(SOURCE_UNRESOLVED, buf.finish(), Integer::sum);
                 }
                 default -> { /* unreachable — filtered by KNOWN_DATA_FILES above */ }
@@ -507,11 +487,6 @@ public class AirgappedSnapshotService {
             return ImportMode.MERGE;
         }
         return ImportMode.REPLACE;
-    }
-
-    private static String baseName(String zipEntryName) {
-        int slash = zipEntryName.lastIndexOf('/');
-        return slash >= 0 ? zipEntryName.substring(slash + 1) : zipEntryName;
     }
 
     /**
@@ -555,7 +530,9 @@ public class AirgappedSnapshotService {
             if (mode == ImportMode.MERGE) {
                 upsertChunk(source, buffer);
             } else {
-                snapshotEntryRepository.saveAll(buffer);
+                List<SnapshotEntry> saved = snapshotEntryRepository.saveAll(buffer);
+                snapshotEntryRepository.flush();
+                saved.forEach(entityManager::detach);
             }
             // chunk-level progress visibility for large imports — total accumulates across
             // flushes, so this traces how far a multi-minute import has gotten without a separate
@@ -588,7 +565,9 @@ public class AirgappedSnapshotService {
                             .entryKey(e.getEntryKey()).payload(e.getPayload()).build()
                     : e);
         }
-        snapshotEntryRepository.saveAll(toSave);
+        List<SnapshotEntry> saved = snapshotEntryRepository.saveAll(toSave);
+        snapshotEntryRepository.flush();
+        saved.forEach(entityManager::detach);
     }
 
     private void ingestOsvLine(String line, SourceIngestBuffer buffer) {
@@ -703,51 +682,6 @@ public class AirgappedSnapshotService {
         }
     }
 
-    /**
-     * Reads one zip entry fully, bounded by {@link #MAX_ENTRY_BYTES} (decompression-bomb guard),
-     * with a best-effort compression-ratio check (see {@link #MAX_COMPRESSION_RATIO}).
-     */
-    private static byte[] readEntryBytes(ZipInputStream zis, ZipEntry entry) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buf = new byte[64 * 1024];
-        long total = 0;
-        int n;
-        while ((n = zis.read(buf)) != -1) {
-            total += n;
-            if (total > MAX_ENTRY_BYTES) {
-                throw new InvalidRequestException(
-                        "Snapshot bundle entry '" + entry.getName() + "' exceeds the decompressed size limit ("
-                                + (MAX_ENTRY_BYTES / (1024 * 1024)) + " MB). The bundle may be corrupt or malicious.");
-            }
-            out.write(buf, 0, n);
-        }
-        long compressedSize = entry.getCompressedSize();
-        if (compressedSize > 0 && total > 0) {
-            double ratio = (double) total / (double) compressedSize;
-            if (ratio > MAX_COMPRESSION_RATIO) {
-                throw new InvalidRequestException(
-                        "Snapshot bundle entry '" + entry.getName() + "' has a suspicious compression ratio ("
-                                + Math.round(ratio) + "x) — rejected as a possible decompression bomb.");
-            }
-        }
-        return out.toByteArray();
-    }
-
-    private static List<String> splitLines(byte[] content) {
-        List<String> lines = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new ByteArrayInputStream(content), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                lines.add(line);
-            }
-        } catch (IOException e) {
-            // Reading from a ByteArrayInputStream cannot actually throw — kept for the checked signature.
-            throw new IllegalStateException(e);
-        }
-        return lines;
-    }
-
     /** Parses {@code meta.json}; returns null for a v1/unversioned bundle (legacy import path). */
     private BundleMetaV2 parseMetaV2(byte[] metaBytes) {
         try {
@@ -798,12 +732,12 @@ public class AirgappedSnapshotService {
      *         mutation. A file listed in {@code meta.json} but absent from this bundle (a
      *         partial/delta bundle covering only some sources) is not an error.
      */
-    private void verifyChecksums(BundleMetaV2 meta, Map<String, byte[]> rawFiles) {
+    private void verifyChecksums(BundleMetaV2 meta, Map<String, Path> rawFiles) {
         if (meta.files() == null) return;
         meta.files().forEach((filename, fileMeta) -> {
-            byte[] content = rawFiles.get(filename);
+            Path content = rawFiles.get(filename);
             if (content == null || fileMeta.sha256() == null) return;
-            String actual = sha256Hex(content);
+            String actual = SnapshotBundleStager.checksum(content);
             if (!fileMeta.sha256().equalsIgnoreCase(actual)) {
                 throw new InvalidRequestException("Snapshot bundle integrity check failed for '" + filename
                         + "' (expected sha256=" + fileMeta.sha256() + ", got " + actual
@@ -834,7 +768,9 @@ public class AirgappedSnapshotService {
      */
     @Transactional(readOnly = true)
     public byte[] exportBundle() {
-        List<Library> libraries = libraryRepository.findAll();
+        long upperId = libraryRepository.findSnapshotUpperId();
+        long afterId = 0;
+        int exportedLibraries = 0;
 
         StringBuilder osv = new StringBuilder();
         StringBuilder githubAdvisory = new StringBuilder();
@@ -848,84 +784,98 @@ public class AirgappedSnapshotService {
         int nvdRecords = 0;
         int versionRecords = 0;
 
-        for (Library lib : libraries) {
-            String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
-            if (key == null) continue;
-            List<Cve> cves = lib.getCves();
+        while (afterId < upperId) {
+            List<Long> ids = libraryRepository.findSnapshotIds(afterId, upperId,
+                    org.springframework.data.domain.PageRequest.of(0, SAVE_CHUNK_SIZE));
+            if (ids.isEmpty()) break;
+            List<Library> libraries = libraryRepository.findByIdInWithCves(ids);
+            exportedLibraries += libraries.size();
+            for (Library lib : libraries) {
+                String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
+                if (key == null) continue;
+                List<Cve> cves = lib.getCves();
 
-            // Vulnerability records split by upstream source so the offline clients can each
-            // read the source they were built for. CVEs with no recorded source are treated as
-            // OSV-only for backward compatibility with rows enriched before multi-source tracking.
-            List<Cve> osvCves = new ArrayList<>();
-            List<Cve> ghCves = new ArrayList<>();
-            List<Cve> nvdCves = new ArrayList<>();
-            for (Cve c : cves) {
-                java.util.Set<CveSource> srcs = c.getSources();
-                boolean hasSources = srcs != null && !srcs.isEmpty();
-                if (!hasSources || srcs.contains(CveSource.OSV)) osvCves.add(c);
-                if (hasSources && srcs.contains(CveSource.GITHUB_ADVISORY)) ghCves.add(c);
-                if (hasSources && srcs.contains(CveSource.NVD)) nvdCves.add(c);
-            }
-            if (!osvCves.isEmpty()) {
-                osvRecords += appendVulnLines(osv, lib, osvCves);
-            }
-            if (!ghCves.isEmpty()) {
-                githubAdvisoryRecords += appendVulnLines(githubAdvisory, lib, ghCves);
-            }
-            if (!nvdCves.isEmpty()) {
-                nvdRecords += appendVulnLines(nvd, lib, nvdCves);
-            }
-
-            // depsdev.jsonl version record — only when deps.dev GetVersion resolved.
-            // advisoryKeys includes every GHSA-format id regardless of whether we also have
-            // advisory detail for it — an OSV-only finding with a GHSA alias still belongs in
-            // the version record's key list; the *advisory* record is a separate concern.
-            List<String> advisoryKeys = cves.stream()
-                    .filter(c -> c.getGhsaId() != null && c.getGhsaId().startsWith("GHSA-"))
-                    .map(Cve::getGhsaId)
-                    .distinct()
-                    .toList();
-            if (lib.getIsLatestVersion() != null) {
-                // Prefer the preserved pre-join license list; legacy rows enriched
-                // before licenseExpressionRaw existed fall back to re-splitting licenseName on
-                // " AND " (the same lossy heuristic as before, only for rows with no better data).
-                List<String> licenses = lib.getLicenseExpressionRaw() != null
-                        ? lib.getLicenseExpressionRaw()
-                        : (isBlank(lib.getLicenseName()) ? List.of() : List.of(lib.getLicenseName().split(" AND ")));
-                SnapshotVersion version = new SnapshotVersion(
-                        licenses,
-                        advisoryKeys,
-                        lib.getIsLatestVersion(),
-                        lib.getDeprecated(),
-                        lib.getLatestVersion(),
-                        lib.getScorecardScore());
-                ObjectNode line = objectMapper.valueToTree(version);
-                line.put("type", "version");
-                line.put("ecosystem", lib.getEcosystem());
-                line.put("name", lib.getName());
-                line.put("version", lib.getVersion());
-                depsdev.append(writeJson(line)).append('\n');
-                versionRecords++;
-            }
-
-            for (Cve c : cves) {
-                // depsdev.jsonl advisory records (deduped — CVEs are per-library). Still gated on
-                // hasAdvisoryData: this map specifically means "we have deps.dev advisory detail",
-                // independent from the version record's advisoryKeys list above.
-                String ghsaId = c.getGhsaId();
-                if (ghsaId != null && ghsaId.startsWith("GHSA-") && hasAdvisoryData(c)
-                        && !advisories.containsKey(ghsaId)) {
-                    advisories.put(ghsaId, new SnapshotAdvisory(ghsaId, c.getTitle(),
-                            c.getCveId() != null ? List.of(c.getCveId()) : List.of(),
-                            c.getCvssScore(), c.getCvss3Vector()));
+                // Vulnerability records split by upstream source so the offline clients can each
+                // read the source they were built for. CVEs with no recorded source are treated as
+                // OSV-only for backward compatibility with rows enriched before multi-source tracking.
+                List<Cve> osvCves = new ArrayList<>();
+                List<Cve> ghCves = new ArrayList<>();
+                List<Cve> nvdCves = new ArrayList<>();
+                for (Cve c : cves) {
+                    java.util.Set<CveSource> srcs = c.getSources();
+                    boolean hasSources = srcs != null && !srcs.isEmpty();
+                    if (!hasSources || srcs.contains(CveSource.OSV)) osvCves.add(c);
+                    if (hasSources && srcs.contains(CveSource.GITHUB_ADVISORY)) ghCves.add(c);
+                    if (hasSources && srcs.contains(CveSource.NVD)) nvdCves.add(c);
                 }
-                // epss.jsonl / kev.jsonl (deduped by CVE id)
-                if (c.getCveId() != null) {
-                    String cveId = c.getCveId().strip().toUpperCase(Locale.ROOT);
-                    if (c.getEpssScore() != null) epss.putIfAbsent(cveId, c.getEpssScore());
-                    if (Boolean.TRUE.equals(c.getKevListed())) kev.add(cveId);
+                if (!osvCves.isEmpty()) {
+                    osvRecords += appendVulnLines(osv, lib, osvCves);
+                }
+                if (!ghCves.isEmpty()) {
+                    githubAdvisoryRecords += appendVulnLines(githubAdvisory, lib, ghCves);
+                }
+                if (!nvdCves.isEmpty()) {
+                    nvdRecords += appendVulnLines(nvd, lib, nvdCves);
+                }
+
+                // depsdev.jsonl version record — only when deps.dev GetVersion resolved.
+                // advisoryKeys includes every GHSA-format id regardless of whether we also have
+                // advisory detail for it — an OSV-only finding with a GHSA alias still belongs in
+                // the version record's key list; the *advisory* record is a separate concern.
+                List<String> advisoryKeys = cves.stream()
+                        .filter(c -> c.getGhsaId() != null && c.getGhsaId().startsWith("GHSA-"))
+                        .map(Cve::getGhsaId)
+                        .distinct()
+                        .toList();
+                if (lib.getIsLatestVersion() != null) {
+                    // Prefer the preserved pre-join license list; legacy rows enriched
+                    // before licenseExpressionRaw existed fall back to re-splitting licenseName on
+                    // " AND " (the same lossy heuristic as before, only for rows with no better data).
+                    List<String> licenses = lib.getLicenseExpressionRaw() != null
+                            ? lib.getLicenseExpressionRaw()
+                            : (isBlank(lib.getLicenseName()) ? List.of() : List.of(lib.getLicenseName().split(" AND ")));
+                    SnapshotVersion version = new SnapshotVersion(
+                            licenses,
+                            advisoryKeys,
+                            lib.getIsLatestVersion(),
+                            lib.getDeprecated(),
+                            lib.getLatestVersion(),
+                            lib.getScorecardScore());
+                    ObjectNode line = objectMapper.valueToTree(version);
+                    line.put("type", "version");
+                    line.put("ecosystem", lib.getEcosystem());
+                    line.put("name", lib.getName());
+                    line.put("version", lib.getVersion());
+                    depsdev.append(writeJson(line)).append('\n');
+                    versionRecords++;
+                }
+
+                for (Cve c : cves) {
+                    // depsdev.jsonl advisory records (deduped — CVEs are per-library). Still gated on
+                    // hasAdvisoryData: this map specifically means "we have deps.dev advisory detail",
+                    // independent from the version record's advisoryKeys list above.
+                    String ghsaId = c.getGhsaId();
+                    if (ghsaId != null && ghsaId.startsWith("GHSA-") && hasAdvisoryData(c)
+                            && !advisories.containsKey(ghsaId)) {
+                        advisories.put(ghsaId, new SnapshotAdvisory(ghsaId, c.getTitle(),
+                                c.getCveId() != null ? List.of(c.getCveId()) : List.of(),
+                                c.getCvssScore(), c.getCvss3Vector()));
+                    }
+                    // epss.jsonl / kev.jsonl (deduped by CVE id)
+                    if (c.getCveId() != null) {
+                        String cveId = c.getCveId().strip().toUpperCase(Locale.ROOT);
+                        if (c.getEpssScore() != null) epss.putIfAbsent(cveId, c.getEpssScore());
+                        if (Boolean.TRUE.equals(c.getKevListed())) kev.add(cveId);
+                    }
                 }
             }
+
+            // Output builders contain values only; release each batch's managed entity graph.
+            for (Library library : libraries) {
+                library.getCves().forEach(entityManager::detach);
+                entityManager.detach(library);
+            }
+            afterId = ids.getLast();
         }
 
         for (SnapshotAdvisory advisory : advisories.values()) {
@@ -994,7 +944,7 @@ public class AirgappedSnapshotService {
                 writeZipEntry(zos, "kev.jsonl", kevContent);
             }
             log.info("[Snapshot] Exported offline snapshot bundleId={}: {} libraries, {} osv, {} github-advisory, {} nvd, {} version records, {} advisories, {} epss, {} kev",
-                    bundleId, libraries.size(), osvRecords, githubAdvisoryRecords, nvdRecords,
+                    bundleId, exportedLibraries, osvRecords, githubAdvisoryRecords, nvdRecords,
                     versionRecords, advisories.size(), epss.size(), kev.size());
             return baos.toByteArray();
         } catch (IOException e) {
