@@ -1,6 +1,8 @@
 name: CI/CD
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -10,9 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Djava.net.preferIPv4Stack=true
@@ -39,19 +39,38 @@ jobs:
       - name: Build, test, and verify production JAR
         run: ./gradlew --no-daemon clean test bootJar verifyProdJar
 
-      - name: Verify THIRD_PARTY_LICENSES.md version sync (H3)
-        # Catches a build.gradle dependency bump whose THIRD_PARTY_LICENSES.md **Version:**
-        # lines were never re-synced (./gradlew syncThirdPartyLicenseVersions). This workflow
-        # is push-triggered on main only (no PR trigger configured), so this catches drift
-        # that already landed on main rather than blocking it pre-merge — still useful as a
-        # release-please gate: a broken doc sync fails the build before release-please runs.
+      - name: Verify THIRD_PARTY_LICENSES.md version sync
         run: |
           ./gradlew --no-daemon syncThirdPartyLicenseVersions
           git diff --exit-code THIRD_PARTY_LICENSES.md
 
+  ui:
+    name: Browser smoke and accessibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Run browser checks
+        run: ./gradlew --no-daemon uiTest --tests '*SmokeUiTest' --tests '*KeyboardFlowUiTest' --tests '*AxeAuditUiTest'
+      - name: Upload browser reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-reports
+          path: build/reports/tests/uiTest
+
   release-please:
     name: Version & Release
-    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [build, ui]
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
