@@ -31,7 +31,7 @@ sourceSets {
 		compileClasspath += sourceSets.local.output
 		runtimeClasspath += sourceSets.local.output
 	}
-	// Playwright-driven UI/accessibility tests against a live app instance (ROADMAP v1.0.5.1 — V1).
+	// Playwright-driven UI/accessibility tests against a live app instance.
 	// Deliberately separate from `test`: needs a browser download (hundreds of MB) and a real
 	// Spring Boot boot, so it must never run as part of the default `./gradlew test`/`check`.
 	uiTest {
@@ -215,7 +215,7 @@ tasks.named('compileUiTestJava') {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Playwright + axe-core UI verification (ROADMAP v1.0.5.1 — V1)
+// Playwright + axe-core UI verification
 //
 // `./gradlew uiTest` boots the real app (@SpringBootTest RANDOM_PORT) and drives it with a
 // headless Chromium via Playwright. Kept out of `test`/`check` on purpose — see sourceSets.uiTest
