@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **verification:** Added opt-in H2 5k/50k-component and 100-project JDBC/heap/HTML/DOM measurements, actual bound EXPLAIN ANALYZE capture, and an isolated 2 GiB Gradle verification budget. Final targeted backend 76 and UI 9 tests passed; PostgreSQL plans and operational worst cases remain open. See [measurement methods, raw evidence and limits](docs/ko/Performance-Verification.md) (roadmap 17–21).
 * **settings:** Extracted eleven settings scripts, removed duplicate Alpine initialization and corrected settings/Quick Import script order. Fixed admin/AI contrast findings. Verified 11-tab request/DOM/heap measurements, 1,100-row repeated load-more, 5k/50k repository filtering, 100 scan versions, mobile keyboard/axe and existing UI flows (9 UI scenarios, roadmap 21).
 * **imports:** Concurrent creation of the same new library no longer reuses a failed JPA persistence context. A two-transaction regression and real clone/parse/ingest bursts completed 20/20, 50/50 and 100/100; delayed two-user admission/cancellation completed 7 and canceled 2 of 9 accepted jobs. Upstream outages and process restart remain unverified (roadmap 20).
 * **performance:** Archive paths are fetched/deleted by scan; snapshot uploads are staged and checksum-validated before a bounded atomic transaction, with 500-row flush/detach and keyset export. Tests cover ordered dependency paths, 5,000-row import, interruption/checksum/DB-failure rollback and temporary-file cleanup. Maximum payload/concurrent export budgets remain open (roadmap 19).
