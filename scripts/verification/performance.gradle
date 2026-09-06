@@ -3,7 +3,7 @@ allprojects {
     // Concurrent developer builds must not replace classes under a running measurement JVM.
     layout.buildDirectory = layout.projectDirectory.dir('build/performance-work')
     tasks.withType(Test).configureEach {
-        maxHeapSize = '2g'
+        maxHeapSize = providers.gradleProperty('verificationHeap').orElse('2g').get()
         def isolatedTemp = layout.buildDirectory.dir('performance-temp').get().asFile
         systemProperty 'java.io.tmpdir', isolatedTemp.absolutePath
         doFirst { isolatedTemp.mkdirs() }
