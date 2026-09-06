@@ -184,8 +184,10 @@ def apply_layer(path, media_type, expected_diff_id, state, budget):
                 if name.startswith("var/lib/dpkg/updates/") and entry.isfile() and entry.size:
                     raise InspectionError("Pending dpkg updates are unsupported")
                 if name not in TRACKED:
-                    if not entry.isdir() and any(item.startswith(name + "/") for item in TRACKED):
-                        raise InspectionError("A package database ancestor is not a directory")
+                    if any(item.startswith(name + "/") for item in TRACKED):
+                        # A distro may link /lib while using only /var/lib/dpkg. Defer
+                        # rejection until inventory actually needs that ancestor.
+                        additions[name] = ("directory",) if entry.isdir() else ("blocked",)
                     continue
                 if entry.issym() or entry.islnk():
                     link = entry.linkname.lstrip("/") if entry.linkname.startswith("/") else posixpath.join(parent if entry.issym() else "", entry.linkname)
@@ -207,9 +209,14 @@ def apply_layer(path, media_type, expected_diff_id, state, budget):
 
 def content(state, name):
     seen = set()
-    while isinstance(state.get(name), tuple):
+    while True:
+        if any(name.startswith(parent + "/") and value == ("blocked",) for parent,value in state.items()):
+            raise InspectionError("A required package database ancestor is not a directory")
+        value = state.get(name)
+        if not isinstance(value, tuple): break
+        if value[0] != "link": raise InspectionError("Invalid package database entry")
         if name in seen: raise InspectionError("Cyclic package database link")
-        seen.add(name); name = state[name][1]
+        seen.add(name); name = value[1]
     raw = state.get(name)
     return raw.decode("utf-8", errors="strict") if isinstance(raw, bytes) else None
 

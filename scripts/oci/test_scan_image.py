@@ -103,6 +103,15 @@ class ImageTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"Incomplete advisory"):
                 scanner.query_osv(packages,scanner.Budget())
 
+    def test_unrelated_merged_usr_link_is_allowed_but_required_ancestor_is_not(self):
+        release=b'ID=debian\nVERSION_ID="12"\n'
+        database=b'Package: pkg\nStatus: install ok installed\nVersion: 1\n'
+        state={"etc/os-release":release,"var/lib/dpkg/status":database,"lib":("blocked",)}
+        self.assertEqual(scanner.inventory(state)[0]["name"],"pkg")
+        state["var/lib"]=("blocked",)
+        with self.assertRaisesRegex(ValueError,"required package database ancestor"):
+            scanner.inventory(state)
+
 
 if __name__ == "__main__":
     unittest.main()
