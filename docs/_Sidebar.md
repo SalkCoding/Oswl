@@ -4,6 +4,8 @@
 * [What's New in v1.0.4](Whats-New-v1.0.4)
 
 ### Guides
+
+* [Developer onboarding (한국어)](Developer-Onboarding)
 * [Getting Started](Getting-Started)
 * [User Guide](User-Guide)
 * [Quick Import](Quick-Import)

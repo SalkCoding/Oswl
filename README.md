@@ -199,6 +199,8 @@ Interactive Swagger UI is available in the **`local` profile** at `http://localh
 
 ## Documentation
 
+New contributors: start with the [Developer onboarding guide (Korean)](docs/Developer-Onboarding.md) for the current architecture, feature flows, and your first code change.
+
 Full documentation is available in the [`docs/`](docs/) folder and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (auto-synced from `docs/` on push to `main`). Korean docs live in [`docs/ko/`](docs/ko/), Japanese docs in [`docs/ja/`](docs/ja/).
 
 | Page | Description |

@@ -8,6 +8,8 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 
 ## Navigation
 
+For new developers: [Developer onboarding (Korean)](Developer-Onboarding.md) explains the current architecture, data model, feature flows, and code entry points.
+
 | Page | What you'll find |
 |---|---|
 | [What's New in v1.0.4](Whats-New-v1.0.4.md) | SBOM / VEX / SARIF export, CI gate, continuous monitoring, org dashboard, air-gapped mode |
