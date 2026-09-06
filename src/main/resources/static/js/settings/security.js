@@ -96,6 +96,7 @@ function securityTab() {
 
         async saveMail() {
             if (!this.loaded || this.loading || this.mailSaving) return;
+            const dirtyRevision = window.OswlDirty?.revision('security-mail');
             this.mailSaving = true;
             this.apiError = null;
             try {
@@ -105,7 +106,7 @@ function securityTab() {
                     body: JSON.stringify({ mailMode: this.mailMode, mail: this.mailForm })
                 });
                 if (r.ok) {
-                    if (window.OswlDirty) window.OswlDirty.clear('security-mail');
+                    if (window.OswlDirty) window.OswlDirty.clear('security-mail', dirtyRevision);
                     this.showToast(_securityI18n.saved);
                 } else {
                     const body = await r.json().catch(() => ({}));
@@ -120,6 +121,7 @@ function securityTab() {
 
         async saveTwoFa() {
             if (!this.loaded || this.loading || this.twoFaSaving) return;
+            const dirtyRevision = window.OswlDirty?.revision('security-2fa');
             this.twoFaSaving = true;
             this.apiError = null;
             try {
@@ -129,7 +131,7 @@ function securityTab() {
                     body: JSON.stringify({ twoFaMode: this.twoFaMode })
                 });
                 if (r.ok) {
-                    if (window.OswlDirty) window.OswlDirty.clear('security-2fa');
+                    if (window.OswlDirty) window.OswlDirty.clear('security-2fa', dirtyRevision);
                     this.showToast(_securityI18n.saved);
                 } else {
                     const body = await r.json().catch(() => ({}));
@@ -143,4 +145,3 @@ function securityTab() {
         }
     };
 }
-    

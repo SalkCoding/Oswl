@@ -316,6 +316,7 @@ function webhooksTab() {
         },
 
         async save() {
+            const dirtyRevision = window.OswlDirty?.revision('webhooks');
             this.saving = true;
             this.apiError = null;
             this.testStatus = null;
@@ -326,9 +327,10 @@ function webhooksTab() {
                     body: JSON.stringify(this.form)
                 });
                 if (r.ok) {
-                    if (window.OswlDirty) window.OswlDirty.clear('webhooks');
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('webhooks', dirtyRevision);
                     this.showToast(_webhooksI18n.saved);
-                    this.form.url = '';
+                    if (savedCurrentRevision) this.form.url = '';
                     this.loadHistory();
                 } else {
                     const body = await r.json().catch(() => ({}));

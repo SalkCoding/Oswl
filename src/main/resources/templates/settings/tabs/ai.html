@@ -1330,6 +1330,7 @@
             },
 
             async saveEmbeddedConfig() {
+                const dirtyRevision = window.OswlDirty?.revision('ai-embedded');
                 this.embeddedSaving = true;
                 this.embeddedError = null;
                 try {
@@ -1341,8 +1342,9 @@
                     const data = await r.json();
                     this.embedded = data;
                     if (r.ok && data.success) {
-                        this.syncEmbeddedInputs();
-                        if (window.OswlDirty) window.OswlDirty.clear('ai-embedded');
+                        const savedCurrentRevision = !window.OswlDirty
+                            || window.OswlDirty.clear('ai-embedded', dirtyRevision);
+                        if (savedCurrentRevision) this.syncEmbeddedInputs();
                         this.showToast(_aiI18n.embeddedConfigSaved);
                     } else {
                         this.embeddedError = data.message || _aiI18n.embeddedFailed;
@@ -1474,9 +1476,11 @@
                 // Embedded AI has no Save: its Start button both activates it and health-checks
                 // the sidecar. The button is hidden for that mode; this is the belt-and-braces.
                 if (this.mode === 'EMBEDDED') return;
+                const providerMode = this.mode;
+                const dirtyRevision = window.OswlDirty?.revision('ai-provider');
                 this.savingProvider = true; this.apiError = null; this.apiErrorHint = null;
                 try {
-                    if (this.mode === 'off') {
+                    if (providerMode === 'off') {
                         const r = await fetch('/api/settings/ai/deactivate', {
                             method: 'PUT',
                             headers: this.headers()
@@ -1484,15 +1488,15 @@
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
                         this.activeProviderKind = 'OFF';
-                        if (window.OswlDirty) window.OswlDirty.clear('ai-provider');
+                        if (window.OswlDirty) window.OswlDirty.clear('ai-provider', dirtyRevision);
                         this.showToast(this.embedded.running
                             ? _aiI18n.disabled + ' ' + _aiI18n.activatedEmbeddedStillRunning
                             : _aiI18n.disabled);
                         return;
                     }
-                    const f = this.forms[this.mode];
+                    const f = this.forms[providerMode];
                     const body = {
-                        provider:  this.mode,
+                        provider:  providerMode,
                         apiKey:    f.apiKey    || null,
                         modelName: f.modelName || null,
                         baseUrl:   f.baseUrl   || null,
@@ -1505,9 +1509,9 @@
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                    this.activeProviderKind = this.mode;
-                    if (window.OswlDirty) window.OswlDirty.clear('ai-provider');
-                    let msg = _aiI18n.activated.replace('{0}', this.providerLabel(this.mode));
+                    this.activeProviderKind = providerMode;
+                    if (window.OswlDirty) window.OswlDirty.clear('ai-provider', dirtyRevision);
+                    let msg = _aiI18n.activated.replace('{0}', this.providerLabel(providerMode));
                     // The sidecar process is a separate on/off control — saving a different
                     // provider does not stop it. Say so, otherwise it keeps consuming memory
                     // while nothing routes to it.
@@ -1520,6 +1524,8 @@
             },
 
             async saveEnrichment() {
+                const contextRevision = window.OswlDirty?.revision('ai-context');
+                const promptsRevision = window.OswlDirty?.revision('ai-prompts');
                 this.savingEnrichment = true; this.apiError = null; this.apiErrorHint = null;
                 try {
                     const prefs = this.preferencePayload();
@@ -1531,7 +1537,10 @@
                         });
                         if (r.status === 401) { location.href = '/login'; return; }
                         if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                        if (window.OswlDirty) { window.OswlDirty.clear('ai-context'); window.OswlDirty.clear('ai-prompts'); }
+                        if (window.OswlDirty) {
+                            window.OswlDirty.clear('ai-context', contextRevision);
+                            window.OswlDirty.clear('ai-prompts', promptsRevision);
+                        }
                         this.showToast(_aiI18n.enrichmentSaved);
                         return;
                     }
@@ -1543,7 +1552,10 @@
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                    if (window.OswlDirty) { window.OswlDirty.clear('ai-context'); window.OswlDirty.clear('ai-prompts'); }
+                    if (window.OswlDirty) {
+                        window.OswlDirty.clear('ai-context', contextRevision);
+                        window.OswlDirty.clear('ai-prompts', promptsRevision);
+                    }
                     this.showToast(_aiI18n.enrichmentSaved);
                 } catch (e) { this.apiError = String(e); }
                 finally { this.savingEnrichment = false; }

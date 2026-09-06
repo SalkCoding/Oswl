@@ -10,11 +10,17 @@
  *                            custom radios/dropdowns/pills that fire no input/change event.
  *   data-dirty-ignore        on an element — excluded (search/filter boxes that save nothing).
  *
- * Tabs clear their scope via window.OswlDirty.clear(scope) once a save succeeds; a failed
- * save leaves the scope dirty so the warning still fires.
+ * Before sending a save, tabs capture window.OswlDirty.revision(scope), then pass that
+ * revision to clear(scope, revision) after success. Edits made while the request is in
+ * flight advance the revision and therefore remain dirty. A failed save never clears.
+ *
+ * This guard is event/revision based rather than value based: changing a value and then
+ * restoring it still counts as unsaved activity until a save succeeds or the owning UI
+ * explicitly discards the edit with clear(scope).
  */
 (function () {
     const dirtyScopes = new Set();
+    const revisions = new Map();
 
     function scopeOf(el) {
         const container = el.closest('[data-dirty-scope]');
@@ -22,8 +28,19 @@
     }
 
     window.OswlDirty = {
-        mark(scope) { if (scope) dirtyScopes.add(scope); },
-        clear(scope) { dirtyScopes.delete(scope); },
+        mark(scope) {
+            if (!scope) return;
+            revisions.set(scope, (revisions.get(scope) || 0) + 1);
+            dirtyScopes.add(scope);
+        },
+        revision(scope) { return revisions.get(scope) || 0; },
+        clear(scope, savedRevision) {
+            if (savedRevision !== undefined && savedRevision !== (revisions.get(scope) || 0)) {
+                return false;
+            }
+            dirtyScopes.delete(scope);
+            return true;
+        },
         clearAll() { dirtyScopes.clear(); },
         isDirty() { return dirtyScopes.size > 0; }
     };

@@ -628,6 +628,7 @@
             async connectGitlab() {
                 if (!this.gitlabAccessToken.trim()) return;
                 if (this.gitlabMode === 'selfhosted' && !this.gitlabServerUrl.trim()) return;
+                const dirtyRevision = window.OswlDirty?.revision('vcs-gitlab');
                 this.creating = true;
                 this.apiError = null;
                 try {
@@ -644,10 +645,13 @@
                         this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
                         return;
                     }
-                    this.gitlabMode = 'cloud';
-                    this.gitlabServerUrl = '';
-                    this.gitlabAccessToken = '';
-                    if (window.OswlDirty) window.OswlDirty.clear('vcs-gitlab');
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('vcs-gitlab', dirtyRevision);
+                    if (savedCurrentRevision) {
+                        this.gitlabMode = 'cloud';
+                        this.gitlabServerUrl = '';
+                        this.gitlabAccessToken = '';
+                    }
                     await this.loadConnections();
                     this.showToast(_vcsI18n.providerGitlab + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
@@ -659,6 +663,7 @@
             async connectGithub() {
                 if (!this.githubAccessToken.trim()) return;
                 if (this.githubMode === 'enterprise' && !this.githubServerUrl.trim()) return;
+                const dirtyRevision = window.OswlDirty?.revision('vcs-github');
                 this.creating = true;
                 this.apiError = null;
                 try {
@@ -675,10 +680,13 @@
                         this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
                         return;
                     }
-                    this.githubMode = 'cloud';
-                    this.githubServerUrl = '';
-                    this.githubAccessToken = '';
-                    if (window.OswlDirty) window.OswlDirty.clear('vcs-github');
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('vcs-github', dirtyRevision);
+                    if (savedCurrentRevision) {
+                        this.githubMode = 'cloud';
+                        this.githubServerUrl = '';
+                        this.githubAccessToken = '';
+                    }
                     await this.loadConnections();
                     this.showToast(_vcsI18n.providerGithub + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {
@@ -691,6 +699,7 @@
                 if (!this.bitbucketAccessToken.trim()) return;
                 if (this.bitbucketMode === 'server' && !this.bitbucketServerUrl.trim()) return;
                 if (this.bitbucketMode === 'cloud' && !this.bitbucketUsername.trim()) return;
+                const dirtyRevision = window.OswlDirty?.revision('vcs-bitbucket');
                 this.creating = true;
                 this.apiError = null;
                 try {
@@ -713,12 +722,15 @@
                         this.apiError = errBody.error || (_vcsI18n.connectFailed + ' (' + r.status + ')');
                         return;
                     }
-                    this.bitbucketMode = 'cloud';
-                    this.bitbucketServerUrl = '';
-                    this.bitbucketUsername = '';
-                    this.bitbucketEmail = '';
-                    this.bitbucketAccessToken = '';
-                    if (window.OswlDirty) window.OswlDirty.clear('vcs-bitbucket');
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('vcs-bitbucket', dirtyRevision);
+                    if (savedCurrentRevision) {
+                        this.bitbucketMode = 'cloud';
+                        this.bitbucketServerUrl = '';
+                        this.bitbucketUsername = '';
+                        this.bitbucketEmail = '';
+                        this.bitbucketAccessToken = '';
+                    }
                     await this.loadConnections();
                     this.showToast(_vcsI18n.providerBitbucket + ' ' + _vcsI18n.connectedSuffix);
                 } catch (e) {

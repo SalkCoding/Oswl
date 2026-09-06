@@ -182,6 +182,7 @@ function reportsTab() {
         },
 
         async save() {
+            const dirtyRevision = window.OswlDirty?.revision('reports');
             this.saving = true;
             this.apiError = null;
             try {
@@ -191,7 +192,7 @@ function reportsTab() {
                     body: JSON.stringify(this.form)
                 });
                 if (r.ok) {
-                    if (window.OswlDirty) window.OswlDirty.clear('reports');
+                    if (window.OswlDirty) window.OswlDirty.clear('reports', dirtyRevision);
                     this.showToast(_reportsI18n.saved);
                 } else {
                     const body = await r.json().catch(() => ({}));

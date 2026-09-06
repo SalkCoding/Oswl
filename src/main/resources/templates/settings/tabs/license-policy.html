@@ -306,18 +306,20 @@
                 }
             },
             async save(entry) {
+                const dirtyRevision = window.OswlDirty?.revision('license-policy');
+                const savedStatus = entry.status;
                 this.apiError = null;
                 try {
                     const encoded = encodeURIComponent(entry.spdxId);
                     const r = await fetch('/api/settings/license-policy/' + encoded, {
-                        method: 'PUT', headers: this.headers(), body: JSON.stringify({ status: entry.status })
+                        method: 'PUT', headers: this.headers(), body: JSON.stringify({ status: savedStatus })
                     });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.saveFailed); return; }
-                    entry._savedStatus = entry.status;
+                    entry._savedStatus = savedStatus;
                     // Rows save individually — keep the warning while other rows still differ.
                     if (window.OswlDirty && !this.entries.some(e => e.status !== e._savedStatus)) {
-                        window.OswlDirty.clear('license-policy');
+                        window.OswlDirty.clear('license-policy', dirtyRevision);
                     }
                     this.showToast(_licensePolicyI18n.saved);
                 } catch (e) {

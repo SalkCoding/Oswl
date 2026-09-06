@@ -598,14 +598,16 @@
                     onlyReachable: this.triBool(this.form.onlyReachable),
                     failOnSecrets: this.triBool(this.form.failOnSecrets)
                 };
+                const dirtyRevision = window.OswlDirty?.revision('policy');
                 try {
                     const url = this.editingId ? ('/api/policies/' + this.editingId) : '/api/policies';
                     const method = this.editingId ? 'PUT' : 'POST';
                     const r = await fetch(url, { method, headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.saveFailed); return; }
-                    this.formOpen = false;
-                    if (window.OswlDirty) window.OswlDirty.clear('policy');
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('policy', dirtyRevision);
+                    if (savedCurrentRevision) this.formOpen = false;
                     await this.loadPolicies();
                     this.showToast(_policyI18n.saved);
                 } catch (e) {
@@ -643,10 +645,12 @@
                 this.waiverForm = { reason: '', expiry: '', targetType: 'ALL', targetId: '', componentCoordinate: '' };
                 this.waiverFormOpen = true;
             },
-            async loadExceptions() {
-                this.waiverFormOpen = false;
+            async loadExceptions(discardDraft = true) {
                 // Switching projects discards the half-filled waiver form.
-                if (window.OswlDirty) window.OswlDirty.clear('policy-waiver');
+                if (discardDraft) {
+                    this.waiverFormOpen = false;
+                    if (window.OswlDirty) window.OswlDirty.clear('policy-waiver');
+                }
                 if (!this.waiverProjectId) { this.exceptions = []; return; }
                 this.exceptionsLoading = true;
                 this.apiError = null;
@@ -663,6 +667,7 @@
             },
             async submitWaiver() {
                 if (!this.waiverProjectId) return;
+                const dirtyRevision = window.OswlDirty?.revision('policy-waiver');
                 this.apiError = null;
                 try {
                     const body = {
@@ -676,9 +681,10 @@
                     const r = await fetch('/api/policies/exceptions', { method: 'POST', headers: this.headers(), body: JSON.stringify(body) });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.waiverRequestFailed); return; }
-                    this.waiverFormOpen = false;
-                    if (window.OswlDirty) window.OswlDirty.clear('policy-waiver');
-                    await this.loadExceptions();
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('policy-waiver', dirtyRevision);
+                    this.waiverFormOpen = !savedCurrentRevision;
+                    await this.loadExceptions(false);
                     this.showToast(_policyI18n.waiverRequested);
                 } catch (e) {
                     this.apiError = _policyI18n.waiverRequestFailed;
@@ -728,6 +734,7 @@
             },
             async importYaml() {
                 if (!this.importText.trim()) return;
+                const dirtyRevision = window.OswlDirty?.revision('policy-import');
                 this.importing = true;
                 this.apiError = null;
                 this.importResult = null;
@@ -739,7 +746,7 @@
                     if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.importFailed); return; }
                     const data = await r.json();
                     this.importResult = _policyI18n.importResult.replace('{0}', String(data.length));
-                    if (window.OswlDirty) window.OswlDirty.clear('policy-import');
+                    if (window.OswlDirty) window.OswlDirty.clear('policy-import', dirtyRevision);
                     await this.loadPolicies();
                 } catch (e) {
                     this.apiError = _policyI18n.importFailed;

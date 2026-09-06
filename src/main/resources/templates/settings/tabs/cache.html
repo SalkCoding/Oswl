@@ -186,6 +186,7 @@
                 return `Cache policy set to ${this.customAmount} ${unit}.`;
             },
             async save() {
+                const dirtyRevision = window.OswlDirty?.revision('cache');
                 this.saving = true; this.apiError = null;
                 const label = this.savedPolicyLabel(); // capture before any await
                 try {
@@ -200,18 +201,20 @@
                     this.items = this.items.map(c => ({
                         ...c, ttlSeconds, ttlHours: Math.floor(ttlSeconds / 3600)
                     }));
-                    if (window.OswlDirty) window.OswlDirty.clear('cache');
+                    if (window.OswlDirty) window.OswlDirty.clear('cache', dirtyRevision);
                     this.showToast(label);
                 } finally { this.saving = false; }
             },
             async clearAll() {
+                const dirtyRevision = window.OswlDirty?.revision('cache');
                 this.clearConfirm = false;
                 try {
                     const r = await fetch('/api/settings/cache/clear?cacheKey=ALL', { method: 'POST', headers: this.headers() });
                     if (r.status === 401) { location.href = '/login'; return; }
                     if (!r.ok) { this.apiError = _fetchErr(r, _cacheI18n.saveFailed); return; }
-                    await this.load();
-                    if (window.OswlDirty) window.OswlDirty.clear('cache');
+                    const savedCurrentRevision = !window.OswlDirty
+                        || window.OswlDirty.clear('cache', dirtyRevision);
+                    if (savedCurrentRevision) await this.load();
                     this.showToast(_cacheI18n.cleared);
                 } catch (e) {
                     this.apiError = _cacheI18n.saveFailed;
