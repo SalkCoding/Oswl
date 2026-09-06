@@ -13,19 +13,19 @@
 #
 # This is NOT a substitute for a real PostgreSQL-backed staging rehearsal — H2's AUTO_SERVER mode
 # and two processes on one host don't exercise real network partitions, clock skew, or PostgreSQL
-# advisory-lock semantics. Its assertions are incomplete; successful output is not evidence of correct session/scheduler wiring.
+# advisory-lock semantics. Predicate self-tests alone do not verify session/scheduler wiring.
 #
-# Requires: a built boot jar (`./gradlew bootJar`), curl. Uses its own throwaway H2 DB under
-# build/cluster-verification — never touches the developer's own ./oswl-db.
+# Requires: a built boot jar (`./gradlew bootJar`), curl, Python 3. Uses a unique throwaway H2 DB
+# under build/cluster-verification.* — never touches the developer's own ./oswl-db.
 #
 # Usage: ./scripts/verification/verify-multi-instance.sh
 
 set -euo pipefail
 
-# Draft assertions still accept redirected login pages and confuse scheduler-owner
-# changes with duplicate execution. Keep this harness available for repair, not CI.
+# Result predicates have standalone regression checks; actual process/schema/session
+# rehearsal is still unverified. Keep the explicit opt-in until it has run end to end.
 if [[ "${OSWL_ALLOW_DRAFT_CLUSTER_CHECK:-0}" != "1" ]]; then
-  echo "Unverified draft: session identity and per-cycle scheduler checks need repair. See ROADMAP.md." >&2
+  echo "Unverified runtime draft: assertion self-tests do not prove process/schema/session wiring. See ROADMAP.md." >&2
   exit 2
 fi
 
@@ -41,8 +41,10 @@ info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
 require() { command -v "$1" &>/dev/null || { echo "Missing required tool: $1" >&2; exit 1; }; }
 require curl
 require java
+require python3
 
-WORKDIR="$(pwd)/build/cluster-verification"
+mkdir -p "$(pwd)/build"
+WORKDIR=$(mktemp -d "$(pwd)/build/cluster-verification.XXXXXX")
 DB_PATH="$WORKDIR/cluster-db"
 LOG_A="$WORKDIR/instance-a.log"
 LOG_B="$WORKDIR/instance-b.log"
@@ -51,8 +53,7 @@ PORT_A=18080
 PORT_B=18081
 ENC_KEY="KOaEB3zxojumnrmUsXpl4tPQGXSCLd+pE5bEuOirJy0="
 
-rm -rf "$WORKDIR"
-mkdir -p "$WORKDIR"
+
 
 echo "== 1. Locate boot jar =="
 JAR=$(find build/libs -maxdepth 1 -name "*.jar" ! -name "*plain*" 2>/dev/null | head -1)
@@ -150,26 +151,41 @@ curl -s --ipv4 -b "$JAR_A" -c "$JAR_A" -o /dev/null \
   -d "email=${EMAIL}" -d "password=${PASSWORD}" -d "_csrf=${CSRF}" \
   "http://127.0.0.1:${PORT_A}/login"
 
-STATUS_B=$(curl -s --ipv4 -o /dev/null -w '%{http_code}' -L -b "$JAR_A" "http://127.0.0.1:${PORT_B}/onboarding")
-if [[ "$STATUS_B" == "200" ]]; then
-  pass "Session created on instance A was accepted by instance B (final: $STATUS_B) — JDBC session sharing works"
+BODY_B="$WORKDIR/session-b.html"
+STATUS_B=$(curl -s --ipv4 -o "$BODY_B" -w '%{http_code}' -b "$JAR_A" "http://127.0.0.1:${PORT_B}/onboarding")
+if python3 scripts/verification/cluster_assertions.py session "$STATUS_B" "$BODY_B" "$EMAIL"; then
+  pass "Instance B returned the authenticated identity without redirects"
 else
-  fail "Instance B rejected instance A's session cookie (final status $STATUS_B) — sessions are NOT shared"
+  fail "Instance B did not return the expected identity"
+fi
+ANONYMOUS_BODY="$WORKDIR/anonymous.html"
+ANONYMOUS_STATUS=$(curl -s --ipv4 -o "$ANONYMOUS_BODY" -w '%{http_code}' "http://127.0.0.1:${PORT_B}/onboarding")
+if python3 scripts/verification/cluster_assertions.py session "$ANONYMOUS_STATUS" "$ANONYMOUS_BODY" "$EMAIL"; then
+  fail "Unauthenticated request incorrectly accepted as a shared session"
+else
+  pass "Unauthenticated request rejected by the identity assertion"
+fi
+
+CSRF=$(grep -oE 'name="_csrf" value="[^"]+"' "$BODY_B" | head -1 | sed 's/.*value="//;s/"//')
+LOGOUT_STATUS=$(curl -s --ipv4 -b "$JAR_A" -o /dev/null -w '%{http_code}' \
+  --data-urlencode "_csrf=${CSRF}" "http://127.0.0.1:${PORT_A}/logout")
+[[ "$LOGOUT_STATUS" == "302" ]] || { fail "Logout was not accepted"; exit 1; }
+LOGGED_OUT_BODY="$WORKDIR/logged-out.html"
+LOGGED_OUT_STATUS=$(curl -s --ipv4 -b "$JAR_A" -o "$LOGGED_OUT_BODY" -w '%{http_code}' "http://127.0.0.1:${PORT_B}/onboarding")
+if python3 scripts/verification/cluster_assertions.py session "$LOGGED_OUT_STATUS" "$LOGGED_OUT_BODY" "$EMAIL"; then
+  fail "Logged-out cookie remained authenticated on instance B"
+else
+  pass "Logged-out cookie rejected on instance B"
 fi
 
 echo "== 6. Scheduler: wait ~100s (5 cron cycles at 20s) and check which instance ran the job =="
 sleep 100
 # ContinuousMonitoringScheduler itself logs nothing — the service it calls
 # (ContinuousMonitoringService) is what actually logs the "[Monitor] cycle START/DONE" lines.
-COUNT_A=$(grep -c '\[Monitor\] Continuous monitoring cycle START' "$LOG_A" || true)
-COUNT_B=$(grep -c '\[Monitor\] Continuous monitoring cycle START' "$LOG_B" || true)
-info "Monitoring-cycle log lines — A=$COUNT_A B=$COUNT_B"
-if [[ "$COUNT_A" -gt 0 && "$COUNT_B" -gt 0 ]]; then
-  fail "Both instances logged scheduler activity — ShedLock did not prevent duplicate execution"
-elif [[ "$COUNT_A" -eq 0 && "$COUNT_B" -eq 0 ]]; then
-  fail "Neither instance logged scheduler activity — the job may not have fired at all; check both logs"
+if python3 scripts/verification/cluster_assertions.py scheduler "$LOG_A" "$LOG_B"; then
+  pass "Observed cron cycles have one execution each; owner changes are allowed"
 else
-  pass "Exactly one instance (A=$COUNT_A, B=$COUNT_B) ran the scheduled job — ShedLock is deduplicating correctly"
+  fail "Missing or duplicate scheduler evidence; inspect both logs"
 fi
 
 echo

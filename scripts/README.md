@@ -15,6 +15,6 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Verification drafts
 
-[`verification/verify-multi-instance.sh`](verification/verify-multi-instance.sh) is an incomplete local multi-instance harness. Its default execution block is intentional, and a successful run is not evidence of production session/scheduler correctness. It requires a built JAR and local tools and uses its own data under `build/cluster-verification/`. It is not part of CI.
+[`verification/verify-multi-instance.sh`](verification/verify-multi-instance.sh) is an incomplete local multi-instance harness. Its default execution block is intentional, and a successful run is not evidence of production session/scheduler correctness. It requires a built JAR and local tools and uses unique temporary data under `build/cluster-verification.*`. It is not part of CI. Its identity and per-observed-cycle predicates have independent regression checks: `python -m unittest discover -s scripts/verification -p test_cluster_assertions.py`. Predicate success does not establish PostgreSQL/LB or process-failover behavior.
 
 GitHub publishing helpers remain under [`.github/scripts/`](../.github/scripts/), beside the workflows that invoke them.
