@@ -60,4 +60,19 @@ class ScanSummaryReaderTest {
         trend.populateModel(project.getId(), null, modelAfter);
         assertThat(modelAfter.getAttribute("chartSecCritical")).isEqualTo(modelBefore.getAttribute("chartSecCritical"));
     }
+    @Test void kevUsesDistinctCvesAndRemainsOpenUntilEveryOccurrenceIsAddressed() {
+        var project = projects.save(Project.builder().name("KEV-" + UUID.randomUUID()).build());
+        var scan = scans.save(ScanResult.builder().project(project).version("1").status(ScanStatus.COMPLETED).build());
+        var lib = Library.builder().name("kev-" + UUID.randomUUID()).version("1").ecosystem("NPM").build();
+        lib.getCves().add(Cve.builder().library(lib).cveId("CVE-KEV").severity(RiskLevel.HIGH).kevListed(true).build());
+        lib = libraries.saveAndFlush(lib);
+        var first = components.save(ScanComponent.builder().scanResult(scan).library(lib).reviewed(true).build());
+        var second = components.saveAndFlush(ScanComponent.builder().scanResult(scan).library(lib).build());
+        var counts = libraries.countPortfolioKev(List.of(scan.getId())).getFirst();
+        assertThat(((Number)counts[1]).longValue()).isEqualTo(1);
+        assertThat(((Number)counts[2]).longValue()).isEqualTo(1);
+        second.markReviewed(true); components.saveAndFlush(second);
+        assertThat(((Number)libraries.countPortfolioKev(List.of(scan.getId())).getFirst()[2]).longValue()).isZero();
+    }
+
 }

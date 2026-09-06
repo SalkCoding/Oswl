@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Counted portfolio KEV findings by distinct CVE rows and kept duplicated occurrences open until all are addressed.
 - Preserved OSV advisory severity and CVSS through online detail lookup, offline enrichment and high-risk monitoring notifications.
 - Fixed nested dialog focus restoration and stale global search responses after clearing or closing search.
 - Include RE2/J, web-push, Bouncy Castle and jose4j in the generated version manifest, localized OSS notices and license references. Rebuild that manifest when build.gradle changes. Simplify migration verification to read the exact versioned SQL files.
