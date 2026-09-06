@@ -104,6 +104,7 @@ public class QuickImportService {
     private final GitCloneExecutor gitCloneExecutor;
     private final UserVcsConnectionRepository vcsConnectionRepository;
     private final UserRepository userRepository;
+    private final org.springframework.core.env.Environment environment;
     private final AuditLogService auditLogService;
     private final EncryptionService encryptionService;
     private final ProjectService projectService;
@@ -125,6 +126,7 @@ public class QuickImportService {
     private final ConcurrentHashMap<String, QuickImportJobStatus> jobs = new ConcurrentHashMap<>();
     /** Tracks job creation times for TTL-based eviction. */
     private final ConcurrentHashMap<String, Instant> jobCreatedAt = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Instant> jobFinishedAt = new ConcurrentHashMap<>();
     /** Job owner — used to prevent cross-user status polling (IDOR). */
     private final ConcurrentHashMap<String, Long> jobOwners = new ConcurrentHashMap<>();
     /** Tracks whether the full API token was already returned once on DONE. */
@@ -134,7 +136,6 @@ public class QuickImportService {
     /** FIFO queue waiting for a worker slot. */
     private final Deque<PendingImport> pendingQueue = new java.util.concurrent.ConcurrentLinkedDeque<>();
     private final AtomicInteger runningImports = new AtomicInteger(0);
-    private final Object dispatchLock = new Object();
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> jobEmitters = new ConcurrentHashMap<>();
     /** jobId → normalized repoUrl#branch, used to reject duplicate concurrent imports. */
     private final ConcurrentHashMap<String, String> jobRepoKeys = new ConcurrentHashMap<>();
@@ -231,6 +232,8 @@ public class QuickImportService {
      * so all jobs can be scheduled at once; concurrency is still limited by {@code max-concurrent}.
      */
     public List<String> startBatchImport(List<String> repoUrls, Long userId) {
+        if (environment != null && !environment.acceptsProfiles(org.springframework.core.env.Profiles.of("local", "test", "uitest")))
+            throw new IllegalStateException("Batch admission bypass is limited to local fixtures");
         List<String> jobIds = new ArrayList<>(repoUrls.size());
         for (String repoUrl : repoUrls) {
             jobIds.add(startImportInternal(repoUrl, null, userId, true));
@@ -238,7 +241,7 @@ public class QuickImportService {
         return jobIds;
     }
 
-    private String startImportInternal(String repoUrl, String branch, Long userId, boolean bypassQueueCap) {
+    private synchronized String startImportInternal(String repoUrl, String branch, Long userId, boolean bypassQueueCap) {
         if (!bypassQueueCap) {
             int userQueued = countUserQueuedJobs(userId);
             if (userQueued >= maxQueuedPerUser) {
@@ -349,7 +352,7 @@ public class QuickImportService {
     }
 
     private void dispatchQueue() {
-        synchronized (dispatchLock) {
+        synchronized (this) {
             while (runningImports.get() < maxConcurrentImports && !pendingQueue.isEmpty()) {
                 PendingImport task = pendingQueue.poll();
                 if (task == null) break;
@@ -396,7 +399,7 @@ public class QuickImportService {
      * running jobs stop at the next phase boundary (a long clone finishes first).
      * Returns false when the job is unknown, not owned by the user, or already finished.
      */
-    public boolean cancelJob(String jobId, Long requestingUserId) {
+    public synchronized boolean cancelJob(String jobId, Long requestingUserId) {
         if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) return false;
         QuickImportJobStatus status = jobs.get(jobId);
         if (status == null) return false;
@@ -453,7 +456,7 @@ public class QuickImportService {
         return owner != null && owner.equals(userId);
     }
 
-    private QuickImportJobStatus resolveJobStatus(String jobId) {
+    private synchronized QuickImportJobStatus resolveJobStatus(String jobId) {
         QuickImportJobStatus job = jobs.get(jobId);
         if (job == null) return null;
 
@@ -1108,8 +1111,8 @@ public class QuickImportService {
                           String apiToken, Boolean newApiKey,
                           String ecosystem, Integer componentCount,
                           Long scanResultId) {
-        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
-                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        QuickImportJobStatus prev = jobs.get(jobId);
+        if (prev == null || prev.getPhase() == Phase.DONE || prev.getPhase() == Phase.FAILED) return;
         if (scanResultId != null) {
             jobIdByScanResultId.put(scanResultId, jobId);
         }
@@ -1141,8 +1144,8 @@ public class QuickImportService {
                          String apiToken, Boolean newApiKey,
                          String ecosystem, Integer componentCount,
                          Long scanResultId) {
-        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
-                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        QuickImportJobStatus prev = jobs.get(jobId);
+        if (prev == null || prev.getPhase() == Phase.DONE || prev.getPhase() == Phase.FAILED) return;
         patchJob(jobId, b -> {
             b.phase(Phase.FAILED)
                     .message(null)
@@ -1189,7 +1192,7 @@ public class QuickImportService {
         return QuickImportMessageKeys.UNEXPECTED;
     }
 
-    private void patchJob(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
+    private synchronized void patchJob(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
         // Once canceled, ignore any further status writes from the background worker so the
         // terminal canceled state cannot be overwritten (e.g. a clone finishing after cancel).
         if (canceledJobs.contains(jobId)) {
@@ -1203,12 +1206,12 @@ public class QuickImportService {
      * Applies a status patch WITHOUT emitting an SSE frame — used by the throttled progress
      * path, which decides on its own cadence when to push.
      */
-    private void patchJobQuiet(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
+    private synchronized void patchJobQuiet(String jobId, Consumer<QuickImportJobStatus.QuickImportJobStatusBuilder> patch) {
         if (canceledJobs.contains(jobId)) {
             return;
         }
-        QuickImportJobStatus prev = jobs.getOrDefault(jobId,
-                baseJobBuilder(jobId).phase(Phase.QUEUED).build());
+        QuickImportJobStatus prev = jobs.get(jobId);
+        if (prev == null || prev.getPhase() == Phase.DONE || prev.getPhase() == Phase.FAILED) return;
         QuickImportJobStatus.QuickImportJobStatusBuilder builder = prev.toBuilder();
         patch.accept(builder);
         builder.activeSlotsUsed(runningImports.get())
@@ -1300,6 +1303,9 @@ public class QuickImportService {
     }
 
     private void notifyJobUpdate(String jobId) {
+        QuickImportJobStatus stored = jobs.get(jobId);
+        if (stored != null && (stored.getPhase() == Phase.DONE || stored.getPhase() == Phase.FAILED))
+            jobFinishedAt.putIfAbsent(jobId, Instant.now());
         CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.get(jobId);
         if (emitters == null || emitters.isEmpty()) return;
         Long owner = jobOwners.get(jobId);
@@ -1325,14 +1331,18 @@ public class QuickImportService {
 
     /** Removes jobs older than 30 minutes from memory. Runs every 5 minutes. */
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
-    public void evictExpiredJobs() {
+    public synchronized void evictExpiredJobs() {
         Instant cutoff = Instant.now().minus(Duration.ofMinutes(30));
-        jobCreatedAt.entrySet().removeIf(entry -> {
-            if (entry.getValue().isBefore(cutoff)) {
-                purgeJobFromMemory(entry.getKey());
-                return true;
+        jobs.forEach((id, status) -> {
+            if (status.getPhase() == Phase.DONE || status.getPhase() == Phase.FAILED) {
+                jobFinishedAt.putIfAbsent(id, Instant.now());
             }
-            return false;
+        });
+        jobFinishedAt.entrySet().removeIf(entry -> {
+            if (!entry.getValue().isBefore(cutoff)) return false;
+            purgeJobFromMemory(entry.getKey());
+            jobCreatedAt.remove(entry.getKey());
+            return true;
         });
     }
 
