@@ -91,6 +91,25 @@ class KeyboardFlowUiTest extends UiTestBase {
         assertThat(exportButton).hasAttribute("aria-expanded", "false");
     }
 
+
+    @Test void chartTablesRetainKeyboardFocusAndMirrorTheirSeries() {
+        Project project=seedProjectWithScan("Chart-"+java.util.UUID.randomUUID().toString().substring(0,8));loginAsTestAdmin();
+        for(String path:new String[]{"/org-dashboard","/projects/"+project.getId()+"/risk-trend"}) {
+            page.navigate(url(path+"?lang=en"));
+            String[] prefixes=path.equals("/org-dashboard")?new String[]{"orgVulnTrend"}:new String[]{"securityRisk","licenseRisk"};
+            for(String prefix:prefixes) {
+                String toggle=prefix+"TableToggle", table=prefix+"ChartTable";
+                page.locator("#"+toggle).focus();page.keyboard().press("Enter");
+                assertThat(page.locator("#"+toggle)).hasAttribute("aria-pressed","true");
+                assertThat(page.locator("#"+toggle)).isFocused();
+                assertThat(page.locator("#"+table+" table")).isVisible();
+                org.assertj.core.api.Assertions.assertThat(page.locator("#"+table+" tbody tr").count()).isGreaterThan(0);
+                org.assertj.core.api.Assertions.assertThat(runAxeScan().getViolations().stream().filter(v->java.util.List.of("serious","critical").contains(v.getImpact())).map(v->v.getId()).toList()).isEmpty();
+                page.keyboard().press("Enter");assertThat(page.locator("#"+toggle)).hasAttribute("aria-pressed","false");assertThat(page.locator("#"+toggle)).isFocused();
+            }
+        }
+    }
+
     private Project seedProjectWithScan(String name) {
         Project project = projectRepository.save(Project.builder().name(name).build());
 

@@ -573,6 +573,7 @@
                     }
                 });
                 this.$watch('query', (value) => {
+                    ++this.requestSeq;
                     clearTimeout(this.debounceTimer);
                     const q = (value || '').trim();
                     if (q.length < 2) {
@@ -609,6 +610,7 @@
             closePalette() {
                 if (!this.open) return;
                 this.open = false;
+                ++this.requestSeq;
                 clearTimeout(this.debounceTimer);
                 if (window.oswlReleaseFocus) { oswlReleaseFocus(); }
             },
@@ -712,7 +714,7 @@
         <div x-show="open" style="display:none;"
              class="fixed inset-0 z-[250] flex items-start justify-center bg-black/40 px-[16px] pt-[15vh]"
              @click.self="closePalette()">
-            <div x-ref="dialog"
+            <div x-ref="dialog" @keydown.escape.stop.prevent="closePalette()"
                  role="dialog" aria-modal="true" :aria-label="_searchI18n.dialogLabel"
                  class="bg-white rounded-[10px] w-full max-w-[560px] shadow-xl flex flex-col overflow-hidden">
                 <div class="flex items-center gap-[10px] border-b border-[var(--grayscale-20)] px-[16px] py-[12px]">
@@ -722,7 +724,6 @@
                     </svg>
                     <input x-ref="searchInput" x-model="query" type="text"
                            :placeholder="_searchI18n.placeholder"
-                           @keydown.escape="closePalette()"
                            @keydown.arrow-down.prevent="moveActive(1)"
                            @keydown.arrow-up.prevent="moveActive(-1)"
                            @keydown.enter.prevent="openActive()"

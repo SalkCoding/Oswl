@@ -207,4 +207,47 @@ class RequestLifecycleUiTest extends UiTestBase {
         page.waitForFunction("() => !Alpine.$data(document.body).rowsLoading && !Alpine.$data(document.body).rowsError");
         assertThat(page.locator("#component-rows-container").isVisible()).isTrue();
     }
+
+    @Test void nestedSearchClosesOnlyTopDialogAndRestoresOuterTrap() {
+        Long project=seed(1);loginAsTestAdmin();
+        page.navigate(url("/projects/"+project+"/security-center?lang=en"));
+        var row=page.locator("a.component-row").first();String id=row.getAttribute("data-comp-id");row.focus();row.click();
+        page.waitForFunction("() => document.querySelector('#slideout-content').textContent.includes('request-fixture')");
+        page.keyboard().press("Control+k");
+        page.locator("input[x-ref=searchInput]").waitFor();
+        page.waitForFunction("() => document.activeElement.matches('input[x-ref=searchInput]')");
+        page.keyboard().press("Escape");
+        assertThat(page.evaluate("() => Alpine.$data(document.body).componentPanelOpen")).isEqualTo(true);
+        assertThat(page.evaluate("() => document.activeElement.closest('[role=dialog]')?.contains(document.querySelector('#slideout-content'))")).isEqualTo(true);
+        assertThat(page.evaluate("() => document.querySelector('#component-rows-container').closest('[inert]') !== null")).isEqualTo(true);
+        page.keyboard().press("Escape");
+        page.waitForFunction("() => !Alpine.$data(document.body).componentPanelOpen");
+        assertThat(page.evaluate("() => document.activeElement.dataset.compId")).isEqualTo(id);
+    }
+    @Test void clearingOrClosingSearchRejectsAnOlderResponseBody() {
+        loginAsTestAdmin(); page.navigate(url("/projects?lang=en"));
+        page.keyboard().press("Control+k");
+        page.waitForFunction("() => Alpine.$data(document.querySelector('[x-data=\"oswlSearchPalette()\"]')).open");
+        assertThat(page.evaluate("""
+            async () => {
+                const state=Alpine.$data(document.querySelector('[x-data="oswlSearchPalette()"]'));
+                const original=window.fetch;
+                try {
+                    for (const action of ['clear','close']) {
+                        state.query='old'; await Alpine.nextTick(); clearTimeout(state.debounceTimer);
+                        let release;
+                        window.fetch=async()=>({ok:true,json:()=>new Promise(resolve=>release=resolve)});
+                        const pending=state.runSearch('old');
+                        await Promise.resolve();
+                        if (action==='clear') {state.query='';await Alpine.nextTick();}
+                        else state.closePalette();
+                        release({projects:{items:[{id:1,name:'stale'}]}});await pending;
+                        if(state.flatItems.length || state.searched) return false;
+                    }
+                    return true;
+                } finally {window.fetch=original;}
+            }
+            """)).isEqualTo(true);
+    }
+
 }

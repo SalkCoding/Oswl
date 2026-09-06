@@ -16,6 +16,7 @@
     let trapEl = null;
     let previouslyFocused = null;
     let inerted = [];
+    const parents = [];
 
     function focusableElements(container) {
         return Array.from(container.querySelectorAll(
@@ -26,10 +27,12 @@
     function handleKeydown(e) {
         if (e.key !== 'Tab' || !trapEl) return;
         const focusables = focusableElements(trapEl);
-        if (!focusables.length) return;
+        if (!focusables.length) { e.preventDefault(); trapEl.focus(); return; }
         const first = focusables[0];
         const last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (!trapEl.contains(document.activeElement)) {
+            e.preventDefault(); first.focus();
+        } else if (e.shiftKey && document.activeElement === first) {
             e.preventDefault();
             last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
@@ -64,6 +67,7 @@
 
     global.oswlTrapFocus = function (el) {
         if (!el || trapEl === el) return;
+        if (trapEl) parents.push({el: trapEl, returnTo: previouslyFocused});
         previouslyFocused = document.activeElement;
         trapEl = el;
         if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
@@ -78,13 +82,20 @@
     };
 
     global.oswlReleaseFocus = function () {
-        document.removeEventListener('keydown', handleKeydown, true);
-        trapEl = null;
+        const returnTo = previouslyFocused;
         releaseBackground();
-        if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-            previouslyFocused.focus();
+        let parent = parents.pop();
+        while (parent && !parent.el.isConnected) parent = parents.pop();
+        trapEl = parent ? parent.el : null;
+        previouslyFocused = parent ? parent.returnTo : null;
+        if (trapEl) {
+            inertBackground(trapEl);
+            const target = returnTo && trapEl.contains(returnTo) ? returnTo : (focusableElements(trapEl)[0] || trapEl);
+            target.focus();
+        } else {
+            document.removeEventListener('keydown', handleKeydown, true);
+            if (returnTo && returnTo.isConnected && typeof returnTo.focus === 'function') returnTo.focus();
         }
-        previouslyFocused = null;
     };
 
     // Arrow-key navigation for [role="menu"] containers (ARIA APG menu pattern).
