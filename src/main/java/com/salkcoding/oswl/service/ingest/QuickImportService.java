@@ -320,7 +320,8 @@ public class QuickImportService {
     public List<QuickImportJobStatus> listJobsForUser(Long userId) {
         if (durableJobs != null) return durableJobs.list(userId).stream()
                 .map(snapshot -> jobs.containsKey(snapshot.getJobId())
-                        ? sanitizeApiToken(snapshot.getJobId(), resolveJobStatus(snapshot.getJobId())) : snapshot).toList();
+                        ? sanitizeApiToken(snapshot.getJobId(), resolveJobStatus(snapshot.getJobId())) : snapshot)
+                .filter(java.util.Objects::nonNull).toList();
         CopyOnWriteArrayList<String> ids = userJobIds.get(userId);
         if (ids == null || ids.isEmpty()) return List.of();
         return ids.stream()
