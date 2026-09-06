@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **embedded AI:** Publish background download errors, clear them on retry, bound download bytes and serialize admission; interruption stops fallback and removes partial output. Five local HTTP/checksum/concurrency tests and a browser failure/retry test pass while preserving existing models. Actual GGUF download/startup remains unverified (roadmap 26).
 * **cluster verification:** Validate protected identity without following redirects, add anonymous/logout controls and check duplicate scheduler execution per observed cron cycle. Four pure predicate tests and Bash syntax pass. The runtime draft remains gated until process/schema/session and PostgreSQL rehearsal are performed (roadmap 25).
 * **onboarding:** Browser fixtures verify GitHub/GitLab/Bitbucket permission failures, retry and secret-input clearing, plus webhook network failure/retry. No external credentials or deliveries were used; real provider verification remains open (roadmap 24).
 * **settings:** Failed initial loads cannot overwrite Reports/Webhooks/Cache with defaults; retry restores saved values and failed/overlapping saves preserve newer edits. Removed duplicate Alpine init calls and return real 403 HTML/JSON for membership and permission denials. Verified 60 language/page paths, read-only/no-permission accounts, injected 500/403/network failures and actual beforeunload (roadmap 22).

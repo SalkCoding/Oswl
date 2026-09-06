@@ -366,12 +366,18 @@ public class EmbeddedAiService {
                     + "Place a .gguf model file in " + resolveDir().toAbsolutePath() + " manually.";
             throw new IllegalStateException(lastError);
         }
-        if (downloading) return;
-        downloading = true;
-        downloadedBytes = 0;
-        downloadTotalBytes = defaultModelSizeBytes;
+        synchronized (this) {
+            if (downloading) return;
+            downloading = true;
+            downloadedBytes = 0;
+            downloadTotalBytes = defaultModelSizeBytes;
+            lastError = null;
+        }
         try {
             attemptDownloadWithFallback();
+        } catch (RuntimeException e) {
+            lastError = e.getMessage();
+            throw e;
         } finally {
             downloading = false;
         }
@@ -394,7 +400,7 @@ public class EmbeddedAiService {
         try {
             attemptDownload(defaultModelUrl, dir, dest, partFile);
         } catch (IllegalStateException primaryFailure) {
-            if (!hasFallback) throw primaryFailure;
+            if (!hasFallback || Thread.currentThread().isInterrupted()) throw primaryFailure;
             log.warn("[EmbeddedAI] Default model download from primary URL failed ({}) — retrying fallback {}",
                     primaryFailure.getMessage(), fallbackModelUrl);
             downloadedBytes = 0;
@@ -419,6 +425,7 @@ public class EmbeddedAiService {
                     .build();
             HttpResponse<InputStream> response = downloadClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() != 200) {
+                response.body().close();
                 throw new IllegalStateException(
                         "Model download failed: HTTP " + response.statusCode() + " from " + url);
             }
@@ -431,6 +438,9 @@ public class EmbeddedAiService {
                 byte[] buffer = new byte[64 * 1024];
                 int read;
                 while ((read = in.read(buffer)) != -1) {
+                    if (Thread.currentThread().isInterrupted()) throw new InterruptedException("Model download interrupted");
+                    if (downloadedBytes + read > defaultModelSizeBytes)
+                        throw new IOException("Model download exceeds the expected size");
                     out.write(buffer, 0, read);
                     downloadedBytes += read;
                 }
