@@ -154,12 +154,14 @@ public class GatePolicyService {
         long unanalysed = components.stream().filter(c -> !c.getLibrary().isVulnerabilitiesAnalyzed()).count();
         boolean scanCompleted = scan.getStatus() == ScanStatus.COMPLETED;
         boolean detailsAvailable = !scan.isArchived();
+        boolean scannersComplete = !scanFindingRepository.hasIncompleteScanner(scan.getId(), projectId);
         Coverage coverage = new Coverage(components.size(), unanalysed, scanCompleted, detailsAvailable,
-                scanCompleted && detailsAvailable && unanalysed == 0);
+                scanCompleted && detailsAvailable && unanalysed == 0 && scannersComplete);
         if (!coverage.complete()) {
             violations.add(new Violation("COVERAGE", "INCOMPLETE_ANALYSIS", "scan", "UNKNOWN", null, false,
                     "Cannot establish complete stored lookup coverage: scanCompleted=" + scanCompleted
-                            + ", detailsAvailable=" + detailsAvailable + ", unanalysedComponents=" + unanalysed,
+                            + ", detailsAvailable=" + detailsAvailable + ", unanalysedComponents=" + unanalysed
+                            + ", scannersComplete=" + scannersComplete,
                     false));
         }
         int evaluated = 0;

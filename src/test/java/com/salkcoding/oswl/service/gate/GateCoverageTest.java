@@ -78,6 +78,14 @@ class GateCoverageTest {
         assertThat(result.coverage().detailsAvailable()).isFalse();
     }
 
+    @Test void incompleteScannerCannotPassEvenWithSecretPolicyDisabled() {
+        when(findings.hasIncompleteScanner(2L, 1L)).thenReturn(true);
+        var result = service.evaluate(1L, new GatePolicyService.GateOptions(null,null,null,null,null,true,true,false));
+        assertThat(result.passed()).isFalse();
+        assertThat(result.coverage().complete()).isFalse();
+        assertThat(result.violations()).extracting(v -> v.type()).containsExactly("COVERAGE");
+    }
+
     @Test void runningScanCannotPassBeforeEnrichment() {
         scan.startScanning();
         var result = service.evaluate(1L, GatePolicyService.GateOptions.defaults());

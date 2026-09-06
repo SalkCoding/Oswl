@@ -14,6 +14,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProjectRepository extends JpaRepository<Project, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Project p WHERE p.id = :id")
+    Optional<Project> lockForScanIngest(@Param("id") Long id);
+
 
     /** Find a GitHub-imported project by its "owner/repo" key. Used for deduplication. */
     Optional<Project> findByGithubRepo(String githubRepo);

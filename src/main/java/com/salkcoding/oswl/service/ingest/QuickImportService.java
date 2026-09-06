@@ -922,11 +922,16 @@ public class QuickImportService {
 
             String scanVersion = branch != null && !branch.isBlank() ? branch : "default";
             ScanPayload payload = dependencyManifestParserService.buildScanPayload(deps, scanVersion);
+            var sourceRun = new java.util.concurrent.atomic.AtomicReference<Long>();
             long ingestStartMs = System.currentTimeMillis();
             try {
                 throwIfCanceled(jobId);
                 scanResult = durableJobs != null
-                        ? durableJobs.fenced(jobId, () -> scanIngestService.ingest(project.getId(), payload))
+                        ? durableJobs.fenced(jobId, () -> {
+                            ScanResult submitted = scanIngestService.ingest(project.getId(), payload);
+                            sourceRun.set(secretIacScanService.markPending(submitted.getId()));
+                            return submitted;
+                        })
                         : scanIngestService.ingest(project.getId(), payload);
                 Long persistedScanId = scanResult.getId();
                 patchJobQuiet(jobId, b -> b.scanResultId(persistedScanId));
@@ -958,11 +963,14 @@ public class QuickImportService {
             // 6b. Secret / IaC misconfiguration scan — runs while the clone still exists,
             // best-effort only, never fails the import.
             throwIfCanceled(jobId);
-            secretIacScanService.scanAndPersist(cloneDir, scanResult.getId());
+            boolean findingsStored = secretIacScanService.scanAndPersist(cloneDir, scanResult.getId(), sourceRun.get());
 
             // Source references use available checkout files without executing repository code.
             throwIfCanceled(jobId);
-            sourceReachabilityService.analyzeAndPersist(cloneDir, scanResult.getId());
+            if (findingsStored) {
+                sourceReachabilityService.analyzeAndPersist(cloneDir, scanResult.getId());
+                secretIacScanService.completeSourceScan(scanResult.getId(), sourceRun.get());
+            }
 
             // 7. Wait for async enrichment (vulnerability analysis + AI) ──
             advanceJob(jobId, Phase.ENRICHING, project.getId(), project.getName(),

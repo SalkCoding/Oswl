@@ -11,6 +11,18 @@ public interface ScanFindingRepository extends JpaRepository<ScanFinding, Long> 
 
     long countByScanResultId(Long scanResultId);
 
+    @Query("""
+            SELECT COUNT(f) > 0 FROM ScanFinding f
+            WHERE f.scanResult.id = :scanId AND f.scanResult.project.id = :projectId
+            AND (f.ruleId IN ('source-scan-pending', 'secret-scan-incomplete', 'iac-scan-incomplete', 'custom-scan-incomplete')
+                 OR f.ruleId LIKE 'custom-scan-incomplete@%')
+            """)
+    boolean hasIncompleteScanner(@Param("scanId") Long scanId, @Param("projectId") Long projectId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM ScanFinding f WHERE f.scanResult.id = :scanId AND f.id = :pendingId AND f.ruleId = 'source-scan-pending'")
+    void deleteSourceScanPending(@Param("scanId") Long scanId, @Param("pendingId") Long pendingId);
+
     /** Most severe first (CRITICAL..NONE), regardless of the enum's alphabetical string storage. */
     @Query("""
             SELECT f FROM ScanFinding f

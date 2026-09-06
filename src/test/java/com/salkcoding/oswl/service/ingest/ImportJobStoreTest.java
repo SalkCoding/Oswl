@@ -115,4 +115,21 @@ class ImportJobStoreTest {
         store.maintain();
         assertThat(jobs.findByJobId(job.getJobId()).orElseThrow().isWorkerActive()).isFalse();
     }
+    @Autowired com.salkcoding.oswl.repository.project.ProjectRepository projects;
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void expiredEnrichmentMarksScanFailedSoTheSameVersionCanBeRetried(boolean canceled) {
+        var project=projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Expired enrichment").build());
+        var scan=scans.save(ScanResult.builder().project(project).version("1").status(com.salkcoding.oswl.domain.enums.ScanStatus.SCANNING).build());
+        var job=status();long owner=owner();
+        store.reserve(job,owner,job.getJobId(),2,false);store.claim(job.getJobId(),100);
+        store.publish(job.toBuilder().scanResultId(scan.getId()).phase(Phase.ENRICHING).build());
+        if(canceled) store.cancel(job.getJobId(),owner);
+        jdbc.update("UPDATE import_jobs SET lease_until=? WHERE job_id=?",java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(10)),job.getJobId());
+        store.maintain();
+        assertThat(scans.findById(scan.getId()).orElseThrow().getStatus()).isEqualTo(com.salkcoding.oswl.domain.enums.ScanStatus.FAILED);
+        assertThat(store.read(job.getJobId(),owner).getPhase()).isEqualTo(Phase.FAILED);
+        if(canceled) assertThat(store.read(job.getJobId(),owner).getMessageKey()).isEqualTo(com.salkcoding.oswl.dto.QuickImportMessageKeys.CANCELED);
+    }
+
 }

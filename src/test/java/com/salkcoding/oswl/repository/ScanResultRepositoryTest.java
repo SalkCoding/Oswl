@@ -58,6 +58,16 @@ class ScanResultRepositoryTest {
         assertThat(found.get().getStatus()).isEqualTo(ScanStatus.COMPLETED);
     }
 
+    @Test void retryLookupSelectsLatestResultWhenAnInterruptedAttemptIsRetained() {
+        saveScan("retry", ScanStatus.SCANNING, -2);
+        saveScan("retry", ScanStatus.COMPLETED, -1);
+        var latest = scanResultRepository.findLatestByProjectId(project.getId()).orElseThrow();
+        assertThat(scanResultRepository.findByProjectIdAndVersion(project.getId(), "retry")).get()
+                .extracting(ScanResult::getId).isEqualTo(latest.getId());
+        assertThat(scanResultRepository.lockForRescan(project.getId(), "retry")).get()
+                .extracting(ScanResult::getId).isEqualTo(latest.getId());
+    }
+
     @Test
     @DisplayName("findLatestByProjectId returns newest scan regardless of status")
     void findLatestByProjectId_returnsNewestRegardlessOfStatus() {

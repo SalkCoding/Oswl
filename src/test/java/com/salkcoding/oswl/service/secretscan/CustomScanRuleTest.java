@@ -49,4 +49,12 @@ class CustomScanRuleTest {
         assertThatThrownBy(real::read).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(()->real.publish(new CustomRuleSet(-1,List.of()))).isInstanceOf(AccessDeniedException.class);
     }
+    @Test void malformedUtf8IsExplicitAndDoesNotDiscardOtherFiles() throws Exception {
+        deploy(rule("PRIVATE-[A-Z]{8}"));
+        Files.write(root.resolve("bad.txt"), new byte[]{(byte)0xc3, (byte)0x28});
+        Files.writeString(root.resolve("good.txt"), "PRIVATE-ABCDEFGH");
+        assertThat(new CustomRuleScanner(service).scan(root)).extracting(r -> r.ruleId())
+                .containsExactlyInAnyOrder("custom-company-token@7", "custom-scan-incomplete@7");
+    }
+
 }

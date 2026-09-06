@@ -50,6 +50,7 @@ public class ScanIngestService {
     private final ProjectCliKeyPolicyService      projectCliKeyPolicyService;
     /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
     private final OswlMetrics                     oswlMetrics;
+    private final ImportJobStore importJobs;
 
     /**
      * Persists the scan payload and kicks off async enrichment.
@@ -60,7 +61,7 @@ public class ScanIngestService {
      */
     @Transactional
     public ScanResult ingest(Long projectId, ScanPayload payload) {
-        Project project = projectRepository.findById(projectId)
+        Project project = projectRepository.lockForScanIngest(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
         projectCliKeyPolicyService.assertScanIngestAllowed(projectId);
@@ -71,13 +72,26 @@ public class ScanIngestService {
         ScanResult scanResult;
         boolean rescan = false;
         if (incomingVersion != null) {
-            var existingOpt = scanResultRepository.findByProjectIdAndVersion(projectId, incomingVersion);
+            var existingOpt = scanResultRepository.lockForRescan(projectId, incomingVersion);
             if (existingOpt.isPresent()) {
                 rescan = true;
                 ScanResult existing = existingOpt.get();
-                existing.getComponents().clear();
-                existing.resetForRescan();
-                scanResult = existing;
+                if (importJobs.hasActiveSourceScan(existing.getId()))
+                    throw new com.salkcoding.oswl.exception.ConflictException("This scan version is still being inspected; retry after it finishes");
+                if (existing.getStatus() != com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED
+                        || existing.getAiStatus() == com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.PENDING
+                        || existing.getAiStatus() == com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.RUNNING
+                        || existing.getFindings().stream().anyMatch(f -> "source-scan-pending".equals(f.getRuleId()))) {
+                    // An interrupted process has no reliable completion signal. Keep its
+                    // result isolated so a retry works and a delayed worker cannot overwrite it.
+                    scanResult = scanResultRepository.save(ScanResult.builder()
+                            .project(project).version(incomingVersion).build());
+                } else {
+                    existing.getComponents().clear();
+                    existing.getFindings().clear();
+                    existing.resetForRescan();
+                    scanResult = existing;
+                }
             } else {
                 scanResult = scanResultRepository.save(ScanResult.builder()
                         .project(project)

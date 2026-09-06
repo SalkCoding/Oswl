@@ -154,6 +154,9 @@ class QuickImportRealPipelineLoadUiTest {
     }
 
     @Test void delayedEnrichmentKeepsUserAdmissionAndCancellationSeparate() throws Exception {
+        awaitIdleWorkers();
+        var sourceTarget=org.springframework.test.util.AopTestUtils.<com.salkcoding.oswl.service.secretscan.SecretIacScanService>getUltimateTargetObject(sourceScanner);
+        var sourceEntered=new java.util.concurrent.CountDownLatch(3);
         var enrichmentTarget = org.springframework.test.util.AopTestUtils.<com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService>getUltimateTargetObject(enrichment);
         var entered = new java.util.concurrent.CountDownLatch(1);
         var release = new java.util.concurrent.CountDownLatch(1);
@@ -162,6 +165,8 @@ class QuickImportRealPipelineLoadUiTest {
             assertThat(release.await(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             return invocation.callRealMethod();
         }).when(enrichmentTarget).enrich(org.mockito.ArgumentMatchers.anyLong());
+        org.mockito.Mockito.doAnswer(invocation->{sourceEntered.countDown();assertThat(release.await(30,java.util.concurrent.TimeUnit.SECONDS)).isTrue();return invocation.callRealMethod();})
+                .when(sourceTarget).scanAndPersist(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anyLong());
         long firstOwner = ensureSelfHostedVcsConnection(1001);
         long secondOwner = ensureSelfHostedVcsConnection(1002);
         java.util.Map<String, Long> owners = new java.util.LinkedHashMap<>();
@@ -170,6 +175,7 @@ class QuickImportRealPipelineLoadUiTest {
             for (int i = 0; i < 3; i++) owners.put(quickImportService.startImport(
                     "https://" + gitServer.host() + "/slow/first-" + i + ".git", null, firstOwner), firstOwner);
             assertThat(entered.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(sourceEntered.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             long claimedDeadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
             while (owners.keySet().stream().anyMatch(id -> quickImportService.getJobStatus(id, firstOwner).getPhase() == QuickImportJobStatus.Phase.QUEUED)
                     && System.nanoTime() < claimedDeadline) Thread.sleep(25);
@@ -209,8 +215,55 @@ class QuickImportRealPipelineLoadUiTest {
             release.countDown();
             // Let any remaining jobs release their durable slots even after a failed assertion.
             owners.forEach((id, owner) -> quickImportService.cancelJob(id, owner));
+            awaitIdleWorkers();
             org.mockito.Mockito.reset(enrichmentTarget);
+            org.mockito.Mockito.reset(sourceTarget);
         }
+    }
+
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private com.salkcoding.oswl.service.secretscan.SecretIacScanService sourceScanner;
+    @Autowired private com.salkcoding.oswl.service.gate.GatePolicyService gate;
+    @Autowired private com.salkcoding.oswl.repository.scan.ScanFindingRepository findings;
+    @Autowired private com.salkcoding.oswl.repository.scan.ScanResultRepository scanResults;
+
+    @Test void enrichmentCannotMakeGateCompleteBeforeSourceInspectionFinishes() throws Exception {
+        awaitIdleWorkers();
+        var target=org.springframework.test.util.AopTestUtils.<com.salkcoding.oswl.service.secretscan.SecretIacScanService>getUltimateTargetObject(sourceScanner);
+        var entered=new java.util.concurrent.CountDownLatch(1);
+        var release=new java.util.concurrent.CountDownLatch(1);
+        org.mockito.Mockito.doAnswer(invocation->{entered.countDown();assertThat(release.await(30,java.util.concurrent.TimeUnit.SECONDS)).isTrue();return invocation.callRealMethod();})
+                .when(target).scanAndPersist(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.anyLong());
+        long owner=ensureSelfHostedVcsConnection(1003);
+        String job=null;
+        try {
+            job=quickImportService.startImport("https://"+gitServer.host()+"/source-gate/fixture.git",null,owner);
+            assertThat(entered.await(15,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            var state=quickImportService.getJobStatus(job,owner);
+            assertThat(state.getScanResultId()).isNotNull();
+            long enrichedBy=System.nanoTime()+Duration.ofSeconds(10).toNanos();
+            while(scanResults.findById(state.getScanResultId()).orElseThrow().getStatus()!=com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED && System.nanoTime()<enrichedBy) Thread.sleep(50);
+            assertThat(scanResults.findById(state.getScanResultId()).orElseThrow().getStatus()).isEqualTo(com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED);
+            assertThat(findings.hasIncompleteScanner(state.getScanResultId(),state.getProjectId())).isTrue();
+            var decision=gate.evaluate(state.getProjectId(),new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(state.getScanResultId(),null,null,null,null,true,true,false));
+            assertThat(decision.passed()).isFalse();assertThat(decision.coverage().complete()).isFalse();
+            release.countDown();
+            long deadline=System.nanoTime()+Duration.ofSeconds(30).toNanos();
+            while(findings.hasIncompleteScanner(state.getScanResultId(),state.getProjectId()) && System.nanoTime()<deadline) Thread.sleep(50);
+            assertThat(findings.hasIncompleteScanner(state.getScanResultId(),state.getProjectId())).isFalse();
+        } finally {
+            release.countDown();
+            if(job!=null) quickImportService.cancelJob(job,owner);
+            awaitIdleWorkers();
+            org.mockito.Mockito.reset(target);
+        }
+    }
+
+    @Autowired private com.salkcoding.oswl.service.ingest.ImportJobStore importStore;
+    private void awaitIdleWorkers() throws Exception {
+        long deadline=System.nanoTime()+Duration.ofSeconds(30).toNanos();
+        while(importStore.activeWorkers()!=0 && System.nanoTime()<deadline) Thread.sleep(50);
+        assertThat(importStore.activeWorkers()).isZero();
     }
 
     private String measureBurst(int scale, HttpClient httpClient, String csrfToken) throws Exception {

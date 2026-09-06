@@ -11,6 +11,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM ScanResult s WHERE s.id = :id")
+    Optional<ScanResult> lockForSourceWrite(@Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId AND s.version = :version ORDER BY s.scannedAt DESC, s.id DESC LIMIT 1")
+    Optional<ScanResult> lockForRescan(@Param("projectId") Long projectId, @Param("version") String version);
+
 
     /** List of completed scans for the project (version history) */
     @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId AND s.status = 'COMPLETED' ORDER BY s.scannedAt DESC")
@@ -51,7 +59,8 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
     List<ScanResult> findByIdInWithComponentsAndLibrary(@Param("scanIds") Collection<Long> scanIds);
 
     /** Find existing scan for a project+version combination (for upsert logic) */
-    Optional<ScanResult> findByProjectIdAndVersion(Long projectId, String version);
+    @Query("SELECT s FROM ScanResult s WHERE s.project.id = :projectId AND s.version = :version ORDER BY s.scannedAt DESC, s.id DESC LIMIT 1")
+    Optional<ScanResult> findByProjectIdAndVersion(@Param("projectId") Long projectId, @Param("version") String version);
 
     /** Most recent N completed scans (for the risk trend chart) */
     @Query(value = """

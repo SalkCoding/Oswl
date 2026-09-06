@@ -144,6 +144,13 @@ public class ImportJobStore {
     }
 
     @Transactional(readOnly = true)
+    public boolean hasActiveSourceScan(Long scanId) {
+        Instant current = now();
+        return jobs.findByWorkerActiveTrue().stream().anyMatch(job -> job.getLeaseUntil().isAfter(current)
+                && scanId.equals(decode(job).getScanResultId()));
+    }
+
+    @Transactional(readOnly = true)
     public int activeWorkers() { return Math.toIntExact(jobs.countByWorkerActiveTrue()); }
 
     @Transactional
@@ -161,11 +168,16 @@ public class ImportJobStore {
         jobs.renew(workerId, now, now.plus(LEASE));
         for (String expired : jobs.findExpiredJobIds(now)) {
             ImportJob job = jobs.lockJob(expired).orElseThrow();
-            if (job.getLeaseUntil().isAfter(now) || job.getFinishedAt() != null) continue;
+            if (job.getLeaseUntil().isAfter(now)) continue;
             QuickImportJobStatus snapshot = decode(job);
-            boolean completed = snapshot.getScanResultId() != null && scans.findById(snapshot.getScanResultId())
-                    .map(s -> s.getStatus() == com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED).orElse(false);
-            write(job, snapshot.toBuilder().phase(completed ? Phase.DONE : Phase.FAILED)
+            var scan = snapshot.getScanResultId() == null ? null : scans.lockForSourceWrite(snapshot.getScanResultId()).orElse(null);
+            boolean completed = scan != null && scan.getStatus() == com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED;
+            if (scan != null && !completed && jobs.findActiveJobs().stream().noneMatch(active ->
+                    active.getLeaseUntil().isAfter(now) && scan.getId().equals(decode(active).getScanResultId()))) {
+                scan.fail("Import worker lease expired before analysis completed");
+                scans.save(scan);
+            }
+            if (job.getFinishedAt() == null) write(job, snapshot.toBuilder().phase(completed ? Phase.DONE : Phase.FAILED)
                     .messageKey(completed ? QuickImportMessageKeys.IMPORT_COMPLETE : "interrupted")
                     .message(null).error(null).messageArgs(List.of(String.valueOf(snapshot.getComponentCount())))
                     .queuePosition(null).build(), now);

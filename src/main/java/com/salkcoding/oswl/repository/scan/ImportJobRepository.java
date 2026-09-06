@@ -19,7 +19,10 @@ public interface ImportJobRepository extends JpaRepository<ImportJob, Long> {
     @Query("SELECT COUNT(j) FROM ImportJob j WHERE j.ownerId = :owner AND j.repoKey = :key AND (j.finishedAt IS NULL OR j.workerActive = true)")
     long countDuplicate(@Param("owner") Long owner, @Param("key") String key);
     long countByWorkerActiveTrue();
-    @Query("SELECT j.jobId FROM ImportJob j WHERE j.leaseUntil < :now AND j.finishedAt IS NULL")
+    List<ImportJob> findByWorkerActiveTrue();
+    @Query("SELECT j FROM ImportJob j WHERE j.finishedAt IS NULL OR j.workerActive = true")
+    List<ImportJob> findActiveJobs();
+    @Query("SELECT j.jobId FROM ImportJob j WHERE j.leaseUntil < :now AND (j.finishedAt IS NULL OR j.workerActive = true)")
     List<String> findExpiredJobIds(@Param("now") Instant now);
     @Modifying
     @Query("UPDATE ImportJob j SET j.leaseUntil = :until WHERE j.workerId = :worker AND (j.finishedAt IS NULL OR j.workerActive = true) AND j.leaseUntil > :now")

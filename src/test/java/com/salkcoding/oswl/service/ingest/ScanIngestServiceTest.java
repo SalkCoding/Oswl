@@ -43,6 +43,7 @@ class ScanIngestServiceTest {
     @Mock LibraryRepository libraryRepository;
     @Mock com.salkcoding.oswl.repository.vulnerability.LibraryCatalogRepository libraryCatalogRepository;
     @Mock ProjectRepository projectRepository;
+    @Mock ImportJobStore importJobs;
     @Mock VulnerabilityEnrichmentService enrichmentService;
     @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
@@ -66,7 +67,7 @@ class ScanIngestServiceTest {
     @Test
     @DisplayName("존재하지 않는 프로젝트로 수신 시 IllegalArgumentException이 발생한다")
     void ingest_throwsIllegalArgument_whenProjectNotFound() {
-        when(projectRepository.findById(99L)).thenReturn(Optional.empty());
+        when(projectRepository.lockForScanIngest(99L)).thenReturn(Optional.empty());
         ScanPayload payload = mock(ScanPayload.class);
 
         assertThatThrownBy(() -> scanIngestService.ingest(99L, payload))
@@ -80,8 +81,8 @@ class ScanIngestServiceTest {
     @DisplayName("ingest 후 반환된 ScanResult 상태는 SCANNING이다")
     void ingest_setsScanStatusToScanning() {
         Project project = Project.builder().id(1L).name("P").build();
-        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(scanResultRepository.findByProjectIdAndVersion(1L, "2.0.0")).thenReturn(Optional.empty());
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L, "2.0.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ScanPayload payload = mock(ScanPayload.class);
@@ -102,8 +103,8 @@ class ScanIngestServiceTest {
                 .name("log4j").version("2.14.0").ecosystem("MAVEN")
                 .licenseStatus(LicenseStatus.PERMITTED).build();
 
-        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(libraryRepository.findByNameIn(any())).thenReturn(List.of(library));
         when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -134,8 +135,8 @@ class ScanIngestServiceTest {
     void ingest_createsLibrary_whenNotFound() {
         Project project = Project.builder().id(1L).name("P").build();
 
-        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(libraryRepository.findByNameIn(any())).thenReturn(List.of(), List.of(
                 Library.builder().id(42L).name("newlib").version("1.0.0").ecosystem("NPM").build()));
@@ -164,8 +165,8 @@ class ScanIngestServiceTest {
         Library libA = Library.builder().name("libA").version("1").ecosystem("MAVEN").build();
         Library libB = Library.builder().name("libB").version("1").ecosystem("MAVEN").build();
 
-        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(libraryRepository.findByNameIn(any())).thenReturn(List.of(libA, libB));
         when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -199,10 +200,10 @@ class ScanIngestServiceTest {
     void ingest_reusesScanResult_whenVersionAlreadyExists() {
         Project project = Project.builder().id(1L).name("P").build();
         ScanResult existing = ScanResult.builder()
-                .project(project).version("1.0").build();
+                .project(project).version("1.0").status(ScanStatus.COMPLETED).build();
 
-        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.of(existing));
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L, "1.0")).thenReturn(Optional.of(existing));
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ScanPayload payload = mock(ScanPayload.class);
@@ -221,8 +222,8 @@ class ScanIngestServiceTest {
         Library library = Library.builder().name("lib").version("1.0").ecosystem("MAVEN")
                 .licenseStatus(LicenseStatus.UNKNOWN).build();
 
-        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-        when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(libraryRepository.findByNameIn(any())).thenReturn(List.of(library));
         when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -248,4 +249,41 @@ class ScanIngestServiceTest {
 
         verify(dependencyPathRepository).saveAll(any());
     }
+    @Test void rejectsOverlapUntilSourceWorkerFinishes() {
+        var project=Project.builder().id(1L).name("P").build();
+        var scan=ScanResult.builder().id(2L).project(project).version("1").status(ScanStatus.COMPLETED).build();
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L,"1")).thenReturn(Optional.of(scan));
+        when(importJobs.hasActiveSourceScan(2L)).thenReturn(true);
+        assertThatThrownBy(()->scanIngestService.ingest(1L,ScanPayload.create("1",List.of())))
+                .isInstanceOf(com.salkcoding.oswl.exception.ConflictException.class);
+        verify(scanResultRepository,never()).save(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value=ScanStatus.class,names={"PENDING","SCANNING","ANALYZING","FAILED"})
+    void interruptedOrRunningScanCanBeRetriedWithoutOverwritingItsResult(ScanStatus status) {
+        var project=Project.builder().id(1L).name("P").build();
+        var existing=ScanResult.builder().id(2L).project(project).version("1").status(status).build();
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L,"1")).thenReturn(Optional.of(existing));
+        when(scanResultRepository.save(any())).thenAnswer(inv->inv.getArgument(0));
+        var retried=scanIngestService.ingest(1L,ScanPayload.create("1",List.of()));
+        assertThat(retried).isNotSameAs(existing);
+        assertThat(retried.getStatus()).isEqualTo(ScanStatus.SCANNING);
+        assertThat(existing.getStatus()).isEqualTo(status);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value=com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.class,names={"PENDING","RUNNING"})
+    void activeAiRetainsItsOwnResultOnRetry(com.salkcoding.oswl.domain.enums.AiEnrichmentStatus status) {
+        var project=Project.builder().id(1L).name("P").build();
+        var existing=ScanResult.builder().id(2L).project(project).version("1").status(ScanStatus.COMPLETED).aiStatus(status).build();
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.lockForRescan(1L,"1")).thenReturn(Optional.of(existing));
+        when(scanResultRepository.save(any())).thenAnswer(inv->inv.getArgument(0));
+        assertThat(scanIngestService.ingest(1L,ScanPayload.create("1",List.of()))).isNotSameAs(existing);
+        assertThat(existing.getAiStatus()).isEqualTo(status);
+    }
+
 }

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keep failed or pending source scanners visible to the gate, preserve built-in findings when custom rules fail, and isolate interrupted/source-pending/AI-active retries from late writes. Completed retries clear previous findings, canceled worker expiry repairs unfinished scans, and bytecode writes precede completion.
 - Include organization and authentication-expiry browser checks in PR CI, and synchronize the Caffeine notice with its resolved library version.
 - Omit OSV fixed-version hints for ambiguous or open-ended affected ranges instead of recommending an older fix.
 - Serialized unknown-version library creation and browser push subscription limits, event deduplication and delivery claims across instances. Requires migration V35 on migrated databases.

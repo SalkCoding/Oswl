@@ -18,7 +18,9 @@ public class CustomRuleScanner {
     private final CustomScanRuleService service;
 
     public List<ScanFindingCandidate> scan(Path directory) {
-        var rules = service.compiled();
+        List<CustomScanRuleService.CompiledRule> rules;
+        try { rules = service.compiled(); }
+        catch (RuntimeException e) { return List.of(incomplete("custom-scan-incomplete")); }
         if (rules.isEmpty()) return List.of();
         var findings = new ArrayList<ScanFindingCandidate>();
         long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
@@ -42,7 +44,9 @@ public class CustomRuleScanner {
                     try (var in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) { content = in.readNBytes(1_000_001); }
                     bytes[0] += content.length;
                     if (content.length > 1_000_000 || exhausted()) { incomplete[0] = true; return FileVisitResult.TERMINATE; }
-                    String text = new String(content, StandardCharsets.UTF_8);
+                    String text;
+                    try { text = StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(content)).toString(); }
+                    catch (java.nio.charset.CharacterCodingException e) { incomplete[0] = true; return FileVisitResult.CONTINUE; }
                     if (text.indexOf('\0') >= 0) { incomplete[0] = true; return FileVisitResult.CONTINUE; }
                     String[] lines = text.split("\\R", -1);
                     for (int i = 0; i < lines.length; i++) {
@@ -61,8 +65,12 @@ public class CustomRuleScanner {
                 @Override public FileVisitResult visitFileFailed(Path file, IOException e) { incomplete[0] = true; return FileVisitResult.CONTINUE; }
             });
         } catch (IOException e) { incomplete[0] = true; }
-        if (incomplete[0]) findings.add(new ScanFindingCandidate(ScanFindingType.IAC, "custom-scan-incomplete@" + rules.getFirst().revision(), RiskLevel.HIGH,
-                ".", null, "Custom rule scan incomplete: an input, time or finding limit was reached, or a file could not be read", null));
+        if (incomplete[0]) findings.add(incomplete("custom-scan-incomplete@" + rules.getFirst().revision()));
         return List.copyOf(findings);
+    }
+
+    private static ScanFindingCandidate incomplete(String ruleId) {
+        return new ScanFindingCandidate(ScanFindingType.IAC, ruleId, RiskLevel.HIGH, ".", null,
+                "Custom rule scan incomplete: rules or input could not be read, or a scan limit was reached", null);
     }
 }
