@@ -419,7 +419,7 @@ all copies or substantial portions of the Software.
 
 ### Caffeine
 
-- **Version:** Managed by Spring Boot 4.1.0
+- **Version:** 3.2.4
 - **Website:** https://github.com/ben-manes/caffeine
 - **License:** Apache License, Version 2.0
 - **Used for:** High-performance in-memory query cache for read-heavy configuration data (license policy, role templates, settings).

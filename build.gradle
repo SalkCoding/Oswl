@@ -617,7 +617,7 @@ ext.thirdPartyVersionSections = [
 	'H2 Database'                     : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'PostgreSQL JDBC Driver'          : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Project Lombok'                  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
-	'Caffeine'                        : [key: 'caffeine', mode: 'bomPhrase'],
+	'Caffeine'                        : [key: 'caffeine', mode: 'literal'],
 	'Alpine.js'                       : [key: 'alpine', mode: 'literal'],
 	'@alpinejs/collapse'              : [key: 'alpineCollapse', mode: 'literal'],
 	'Chart.js'                        : [key: 'chartjs', mode: 'literal'],

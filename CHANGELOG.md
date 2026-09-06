@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Include organization and authentication-expiry browser checks in PR CI, and synchronize the Caffeine notice with its resolved library version.
 - Omit OSV fixed-version hints for ambiguous or open-ended affected ranges instead of recommending an older fix.
 - Serialized unknown-version library creation and browser push subscription limits, event deduplication and delivery claims across instances. Requires migration V35 on migrated databases.
 - Counted portfolio KEV findings by distinct CVE rows and kept duplicated occurrences open until all are addressed.
