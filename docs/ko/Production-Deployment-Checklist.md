@@ -135,38 +135,13 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 번들이 50MB를 초과하면 `OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE`(기본값 각 `50MB`)를 조정해야 할 수 있습니다.
 
-## 8. 내장 AI 모델 (선택, 온프레미스)
+## 8. 내장 AI (선택, CPU 전용)
 
-**내장 AI**(설정 → AI → 로컬)를 클라우드 프로바이더 대신 또는 함께 쓸 계획일 때만 해당됩니다.
+기본은 **Qwen3.5-2B Q4_K_M**, 선택 모델은 **Gemma 4 E2B Q4_K_M**입니다. OsWL·PostgreSQL 동시 실행과 간헐적 사용 기준으로 Qwen 예상 최소 2 vCPU / RAM 8 GB, Gemma 권장 4 vCPU / RAM 16 GB를 잡습니다. 성능 보증이 아닌 추정치이며 CPU 크레딧과 스캔 중첩을 확인해야 합니다.
 
-| 확인 | 조치 |
-|------|------|
-| 서버 바이너리 | [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)에서 플랫폼에 맞는 `llama-server(.exe)`를 받아 `embedded-ai/`(또는 그 하위 `bin/`, 혹은 `PATH`)에 배치 — 유일한 수동 단계입니다 |
-| 모델 | 별도 조치 불필요 — 신규 설치에서 **시작**을 누르면 Apache 2.0 라이선스인 Qwen3-1.7B 모델(~1.2GB)이 자동으로 다운로드됩니다(SHA256 검증, UI에 진행률 표시) |
-| 폐쇄망 환경 | 자동 다운로드는 최초 1회 아웃바운드 인터넷 접근이 필요합니다. 인터넷이 없다면 시작을 누르기 전 직접 받은 `.gguf` 파일을 `embedded-ai/`에 미리 넣어두세요 |
-| 커스텀 모델 | OsWL이 번들/자동 다운로드하는 것은 Qwen3-1.7B뿐입니다. 다른 `.gguf`(다른 크기나 라이선스)를 쓰고 싶다면 해당 모델의 라이선스를 직접 확인한 뒤 `embedded-ai/`에 넣으세요 — [내장 AI](Embedded-AI.md) 참고 |
-| 디렉터리 | 기본값은 JVM이 시작되는 작업 디렉터리 기준 `./embedded-ai` — 다른 경로를 쓰려면 `OSWL_EMBEDDED_AI_DIR` 설정 |
+실행 파일은 `embedded-ai/llama/`, 모델은 `model/Qwen/`, `model/Gemma/`에 둡니다. Qwen만 자동 다운로드합니다. 기본 GPU 레이어 0, 스레드 1, 생성 슬롯 1, 컨텍스트 8192입니다. 고정 URL·해시·크기를 함께 유지하세요. 기존 `models-v1`은 새 모델이 아닙니다. Docker는 폴더 마운트와 Linux 실행 파일이 필요합니다.
 
-Gradle 태스크나 별도 스크립트가 필요 없습니다 — 다운로드는 시작 버튼을 처음 누를 때 앱
-자체에서 실행되므로, 단순히 `java -jar app.jar`로 배포해도 동작합니다.
-
-### 내장 AI 튜닝 (B1 / v1.0.4)
-
-기본값은 운영 환경에서 안전합니다. 측정된 이유가 있을 때만 오버라이드하세요.
-
-| 변수 | 기본값 | 용도 |
-|---|---|---|
-| `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | 전체 컨텍스트 크기(`-c`). `--parallel` 사용 시 슬롯 간에 나뉘며, 슬롯 컨텍스트가 2048 아래로 떨어지면 경고 로그가 출력됩니다. |
-| `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | `-ngl`: `-1`은 빌드가 지원하는 만큼 오프로드(`999` 전달), `0`은 CPU 전용, 양수는 명시적 레이어 수 |
-| `OSWL_EMBEDDED_AI_THREADS` | `0` | `-t`: `0`은 llama.cpp 자동 감지, 양수는 스레드 수 고정 |
-| `OSWL_EMBEDDED_AI_PARALLEL` | `4` | `--parallel N --cont-batching` 활성화; 1보다 크면 동시 AI 호출이 직렬화되지 않습니다. |
-| `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | `-fa`(flash attention) 추가 |
-| `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse` 토큰 수; `0` 이하면 비활성화 |
-| `OSWL_EMBEDDED_AI_EXTRA_ARGS` | (비어 있음) | `llama-server` CLI 인자를 공백으로 구분해 그대로 덧붙임(관리자 전용 설정, 요청 입력 아님) |
-| `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | `/health` 응답을 기다리는 시간(초). 시간 내 실패 시 CPU 전용 재시도 또는 다음 모델 후보로 넘어갑니다. |
-| `OSWL_EMBEDDED_DEFAULT_MODEL_URL` / `SHA256` / `SIZE_BYTES` | 업스트림 Hugging Face `ggml-org/Qwen3-1.7B-GGUF` | 기본 Qwen3-1.7B 다운로드용 매칭 세트; 자체 호스팅 미러 사용 시 셋 모두 오버라이드(바이트 단위로 동일한 재호스팅이면 URL만 변경) |
-| `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Hugging Face | 기본 URL 실패 시 1회 재시도; primary와 같거나 비워두면 재시도 비활성화 |
-| `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 부팅 시 기본 모델을 백그라운드로 미리 다운로드(다운로드만, 사이드카는 시작 안 함). **`OSWL_AIRGAPPED_ENABLED=true`이면 무시됩니다**. |
+전체 사양·구조·체크섬·미러 및 폐쇄망 설치·CPU 조정·모델과 언어 선택·재배포 고지는 [내장 AI](Embedded-AI.md)를 참고하세요.
 
 ## 9. 데이터베이스 스키마 (업그레이드)
 

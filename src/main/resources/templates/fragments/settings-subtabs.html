@@ -15,8 +15,9 @@
         usage: th:replace="~{fragments/settings-subtabs :: subtabButton('audit', #{settings.admin.auditLog.heading})}"
     -->
     <button type="button" th:fragment="subtabButton(key, label)"
-            @click="selectSubTab('__${key}__')"
-            :class="subTab === '__${key}__' ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+            th:attr="data-section=${key}"
+            @click="selectSubTab($el.dataset.section)"
+            :class="subTab === $el.dataset.section ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
             th:text="${label}">Tab</button>
 

@@ -135,39 +135,13 @@ Definition freshness: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS` (default `7`) and `OS
 
 Snapshot uploads may need `OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE` (default `50MB` each) if your bundle is larger.
 
-## 8. Embedded AI model (optional, on-premise)
+## 8. Embedded AI (optional, CPU-only)
 
-Only relevant if you plan to use **Embedded AI** (Settings → AI → Local) instead of, or in
-addition to, a cloud provider.
+Default: **Qwen3.5-2B Q4_K_M**; optional: **Gemma 4 E2B Q4_K_M**. Plan 2 vCPU / 8 GB RAM minimum for occasional Qwen use, or 4 vCPU / 16 GB recommended for Gemma, including OsWL and PostgreSQL. These are estimates, not validated performance guarantees; CPU credits and scan concurrency matter.
 
-| Check | Action |
-|-------|--------|
-| Server binary | Download `llama-server(.exe)` for your platform from the [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases) and place it in `embedded-ai/` (or `bin/` under it, or anywhere on `PATH`) — this is the only manual step |
-| Model | Nothing to do — clicking **Start** on a fresh install downloads the Apache-2.0-licensed Qwen3-1.7B model automatically (~1.2 GB, verifies SHA256, shows progress in the UI) |
-| Air-gapped hosts | The auto-download needs outbound internet access once. Without it, place a `.gguf` file you've obtained yourself into `embedded-ai/` before clicking Start |
-| Custom models | OsWL only bundles/auto-fetches Qwen3-1.7B. Any other `.gguf` you want (e.g. a different size or license) — check its own license, then place it in `embedded-ai/` yourself; see [Embedded AI](Embedded-AI.md) |
-| Directory | Defaults to `./embedded-ai` relative to the working directory the JVM starts in — set `OSWL_EMBEDDED_AI_DIR` for a different path |
+Place the matching runtime in `embedded-ai/llama/`, Qwen weights in `model/Qwen/`, and Gemma weights in `model/Gemma/`. Only Qwen auto-downloads. Default GPU layers = 0, threads = 1, parallel slots = 1, context = 8192. Use the pinned URL/hash/size together; the old `models-v1` asset is not the new model. Docker requires a mounted root and a Linux runtime.
 
-No Gradle task or separate script is involved — the download runs inside the application
-itself the first time Start is clicked, so a plain `java -jar app.jar` deployment works.
-
-### Embedded AI tuning (B1 / v1.0.4)
-
-All default to production-safe values. Override only when you have measured a reason.
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | Total context size (`-c`). With `--parallel`, this is divided across slots; a slot context below 2048 is logged as a warning. |
-| `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | `-ngl`: `-1` offloads as many layers as the build supports (passed as `999`), `0` is CPU only, positive pins an explicit layer count |
-| `OSWL_EMBEDDED_AI_THREADS` | `0` | `-t`: `0` lets llama.cpp auto-detect; positive values pin the thread count |
-| `OSWL_EMBEDDED_AI_PARALLEL` | `4` | Enables `--parallel N --cont-batching` so concurrent AI calls are not serialized |
-| `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | Adds `-fa` (flash attention) |
-| `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse` token count; `<=0` disables |
-| `OSWL_EMBEDDED_AI_EXTRA_ARGS` | (empty) | Space-separated extra `llama-server` CLI args appended verbatim (admin config only, never request input) |
-| `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | Seconds to wait for `/health` before falling back to CPU-only or the next model candidate |
-| `OSWL_EMBEDDED_DEFAULT_MODEL_URL` / `SHA256` / `SIZE_BYTES` | Upstream Hugging Face `ggml-org/Qwen3-1.7B-GGUF` | Matched set for the default Qwen3-1.7B download; override all three for a self-hosted mirror (a byte-identical re-host needs only the URL changed) |
-| `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Hugging Face | Retried once if the primary URL fails; set blank/equal to primary to disable |
-| `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | Prefetch the default model on boot (download-only, never starts the sidecar). **Ignored when `OSWL_AIRGAPPED_ENABLED=true`**. |
+See [Embedded AI](Embedded-AI.md) for full requirements, directory layout, checksums, mirror/offline installation, CPU tuning, model/language selection and distribution notices.
 
 ## 9. Database schema (upgrades)
 

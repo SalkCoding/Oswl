@@ -261,6 +261,19 @@ function aiTab() {
             this.embeddedDirInput = this.embedded.modelsDir || '';
         },
 
+        embeddedModelLabel(model) {
+            if (model === 'Qwen3.5-2B-Q4_K_M.gguf') return 'Qwen3.5 2B · Q4_K_M · ' + _aiI18n.embeddedDefault;
+            if (model === 'gemma-4-E2B-it-Q4_K_M.gguf') return 'Gemma 4 E2B · Q4_K_M';
+            return model;
+        },
+
+        embeddedModelHint() {
+            const model = this.embeddedModel || this.embedded.modelFile || 'Qwen3.5-2B-Q4_K_M.gguf';
+            if (model === 'Qwen3.5-2B-Q4_K_M.gguf') return _aiI18n.embeddedQwenHint;
+            if (model === 'gemma-4-E2B-it-Q4_K_M.gguf') return _aiI18n.embeddedGemmaHint;
+            return _aiI18n.embeddedCustomHint;
+        },
+
         async startEmbedded() {
             this.embeddedBusy = true;
             this.embeddedError = null;
@@ -577,7 +590,11 @@ function aiTab() {
                     this.showToast(_aiI18n.enrichmentSaved);
                     return;
                 }
-                const body = { provider: this.mode, activate: true, ...prefs };
+                const body = {
+                    provider: this.mode === 'EMBEDDED' ? 'LOCAL' : this.mode,
+                    activate: this.mode !== 'EMBEDDED',
+                    ...prefs
+                };
                 const r = await fetch('/api/settings/ai', {
                     method: 'PUT',
                     headers: this.headers(),

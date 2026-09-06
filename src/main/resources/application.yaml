@@ -258,19 +258,19 @@ oswl:
       # future Anthropic API/beta-header change makes this incompatible with the account.
       prompt-caching-enabled: ${OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED:true}
     embedded:
-      # llama.cpp sidecar: put llama-server(.exe) and .gguf models in this directory.
+      # Sidecar root: llama/ holds the runtime; model/Qwen and model/Gemma hold weights.
       dir: ${OSWL_EMBEDDED_AI_DIR:embedded-ai}
       port: ${OSWL_EMBEDDED_AI_PORT:11435}
       context-size: ${OSWL_EMBEDDED_AI_CONTEXT:8192}
       # -1 = offload as many layers as the build supports (-ngl 999); 0 = CPU only;
       # a positive number pins an explicit layer count (partial offload).
-      gpu-layers: ${OSWL_EMBEDDED_AI_GPU_LAYERS:-1}
-      # 0 = let llama.cpp auto-detect the thread count (no -t flag).
-      threads: ${OSWL_EMBEDDED_AI_THREADS:0}
+      gpu-layers: ${OSWL_EMBEDDED_AI_GPU_LAYERS:0}
+      # One generation/prompt thread by default for shared burstable CPU hosts; 0 = auto.
+      threads: ${OSWL_EMBEDDED_AI_THREADS:1}
       # >1 enables --parallel N --cont-batching so concurrent AI calls aren't serialized
       # on the server. context-size is the TOTAL context, divided across these slots —
       # see the slotContext warning logged at startup if it drops below 2048.
-      parallel-slots: ${OSWL_EMBEDDED_AI_PARALLEL:4}
+      parallel-slots: ${OSWL_EMBEDDED_AI_PARALLEL:1}
       flash-attn: ${OSWL_EMBEDDED_AI_FLASH_ATTN:true}
       # <=0 disables --cache-reuse.
       cache-reuse: ${OSWL_EMBEDDED_AI_CACHE_REUSE:256}
@@ -283,15 +283,13 @@ oswl:
       # updating the SHA256 to match makes every download fail checksum verification (by design:
       # this is the integrity check, not a bug to work around).
       #
-      # Self-hosted on OsWL's own GitHub Release (tag "models-v1", asset uploaded and verified
-      # byte-identical to the upstream ggml-org/Qwen3-1.7B-GGUF file — same size and SHA256 below)
-      # so networks that block huggingface.co but allow github.com can still fetch the default
-      # model. Falls back to the original Hugging Face URL if the GitHub asset is ever unreachable.
-      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://github.com/SalkCoding/Oswl/releases/download/models-v1/qwen3-1.7b-q4_k_m.gguf}
-      default-model-sha256: ${OSWL_EMBEDDED_DEFAULT_MODEL_SHA256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}
-      default-model-size-bytes: ${OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES:1282439264}
-      # Retried once if the primary URL fails (network error / non-200).
-      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}
+      # Pinned upstream revision. A GitHub mirror may be configured only after uploading
+      # and verifying a byte-identical asset; the old models-v1 asset is a different model.
+      default-model-url: ${OSWL_EMBEDDED_DEFAULT_MODEL_URL:https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf}
+      default-model-sha256: ${OSWL_EMBEDDED_DEFAULT_MODEL_SHA256:aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223}
+      default-model-size-bytes: ${OSWL_EMBEDDED_DEFAULT_MODEL_SIZE_BYTES:1280835840}
+      # Optional byte-identical mirror; no unverified release URL is assumed to exist.
+      fallback-model-url: ${OSWL_EMBEDDED_FALLBACK_MODEL_URL:}
       # Prefetches the default model in the background on boot (if none is present yet) so
       # a user who later visits Settings and clicks Start does not hit a surprise 1.2GB download.
       # Download-only — never starts the sidecar or changes the active AI provider on its own.

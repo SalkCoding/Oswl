@@ -138,9 +138,10 @@ public class AiSettingController implements AiSettingControllerSpec {
             validateAiBaseUrl(request.getProvider(), request.getBaseUrl());
         }
         setting.update(encryptedKey, request.getModelName(), request.getBaseUrl());
-        // Saving a provider from the settings form always means a user-configured endpoint — the
-        // embedded sidecar is registered through EmbeddedAiProviderRegistrar, never through here.
-        setting.markEmbeddedManaged(false);
+        // Language/prompt-only saves must preserve ownership of the embedded LOCAL endpoint.
+        if (request.getApiKey() != null || request.getModelName() != null || request.getBaseUrl() != null) {
+            setting.markEmbeddedManaged(false);
+        }
 
         boolean activating = Boolean.TRUE.equals(request.getActivate());
         if (activating) {

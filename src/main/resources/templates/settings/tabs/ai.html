@@ -438,7 +438,7 @@
                                 class="flex-1 min-w-[180px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] font-mono disabled:opacity-40">
                             <option value="" th:text="#{settings.ai.embedded.modelAuto}">Auto (preference order)</option>
                             <template x-for="m in embedded.availableModels" :key="m">
-                                <option :value="m" x-text="m"></option>
+                                <option :value="m" x-text="embeddedModelLabel(m)"></option>
                             </template>
                         </select>
                         <span x-show="embedded.fallbackUsed" x-cloak
@@ -446,6 +446,8 @@
                               th:text="#{settings.ai.embedded.fallbackUsed}">Started with fallback model</span>
                     </div>
                 </div>
+                <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] pl-[126px] max-w-[526px]" x-text="embeddedModelHint()"></p>
+                <p class="text-[12px] text-[var(--grayscale-50)] leading-[1.5] pl-[126px] max-w-[526px]" th:text="#{settings.ai.embedded.hardwareNote}"></p>
                 <div class="flex items-center gap-[16px]" x-show="embedded.activeModel" x-cloak>
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.embedded.activeModel}">Active</span>
                     <span class="text-[13px] font-mono text-[var(--grayscale-90)]" x-text="embedded.activeModel"></span>
@@ -464,6 +466,7 @@
 
                 <!-- Status notes -->
                 <div class="flex flex-col gap-[6px] pl-[126px] max-w-[526px] text-[12px] leading-[1.5]">
+                    <p class="m-0 text-[var(--grayscale-50)]" th:text="#{settings.ai.embedded.layoutHint}"></p>
                     <p class="m-0 text-amber-600" x-show="!embedded.binaryFound" x-cloak
                        th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found.</p>
                     <p class="m-0 text-[var(--grayscale-50)]" x-show="embedded.binaryFound &amp;&amp; !embedded.modelFile &amp;&amp; !embedded.downloading &amp;&amp; !embedded.airgapped" x-cloak
@@ -959,7 +962,11 @@
         backfillConfirmAll:     /*[[#{settings.ai.backfill.confirm.all}]]*/ 'Regenerate insights for ALL recent scans, replacing the existing ones? This calls the AI provider once per scan.',
         embeddedConfigSave: /*[[#{settings.ai.embedded.config.save}]]*/ 'Save',
         embeddedConfigSaving: /*[[#{settings.ai.embedded.config.saving}]]*/ 'Saving…',
-        embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.'
+        embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.',
+        embeddedDefault: /*[[#{settings.ai.embedded.defaultLabel}]]*/ 'Default',
+        embeddedQwenHint: /*[[#{settings.ai.embedded.qwenHint}]]*/ 'CPU default',
+        embeddedGemmaHint: /*[[#{settings.ai.embedded.gemmaHint}]]*/ 'Optional CPU model',
+        embeddedCustomHint: /*[[#{settings.ai.embedded.customHint}]]*/ 'Check the requirements of this model.'
     };
     </script>
 

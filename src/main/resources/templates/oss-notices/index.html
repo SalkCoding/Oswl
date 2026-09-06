@@ -8,6 +8,17 @@
 
     <main class="flex flex-col flex-1 px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[40px] gap-[28px] max-w-[1200px] w-full mx-auto">
 
+        <section class="bg-white border border-[var(--grayscale-15)] rounded-[12px] px-[24px] py-[20px] flex flex-col gap-[8px]">
+            <h2 class="text-[16px] font-semibold text-[var(--grayscale-100)]" th:text="#{ossNotices.embedded.title}">Embedded AI</h2>
+            <p class="text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{ossNotices.embedded.description}"></p>
+            <p class="text-[13px] text-[var(--grayscale-80)]">Qwen3.5-2B Q4_K_M — Qwen / Alibaba Cloud · Unsloth AI · Apache 2.0</p>
+            <p class="text-[13px] text-[var(--grayscale-80)]">Gemma 4 E2B Q4_K_M — Google DeepMind · Unsloth AI · Apache 2.0</p>
+            <p class="text-[13px] text-[var(--grayscale-80)]">llama.cpp — The ggml authors · MIT</p>
+            <a href="https://github.com/SalkCoding/Oswl/blob/main/THIRD_PARTY_LICENSES.md#embedded-ai-runtime-and-models"
+               target="_blank" rel="noopener noreferrer" class="text-[13px] text-[var(--primary-120)]"
+               th:text="#{ossNotices.embedded.licenseLink}">Full licenses and distribution notices</a>
+        </section>
+
         <!-- Filter + Search -->
         <div class="flex items-center gap-[12px] flex-wrap">
             <div class="flex items-center gap-[6px]">

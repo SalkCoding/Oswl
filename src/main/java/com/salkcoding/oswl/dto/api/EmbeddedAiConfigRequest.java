@@ -9,11 +9,11 @@ import lombok.Setter;
 @Setter
 public class EmbeddedAiConfigRequest {
 
-    @Schema(description = "Directory holding llama-server(.exe) and .gguf models. Null = keep current; blank = clear override (use oswl.ai.embedded.dir default).",
+    @Schema(description = "Root directory with llama/ runtime and model/Qwen, model/Gemma weights. Null = keep current; blank = clear override (use oswl.ai.embedded.dir default).",
             example = "C:\\tools\\embedded-ai")
     private String dir;
 
     @Schema(description = "Preferred .gguf model file name. Null = keep current; blank = clear override (use built-in preference order). Takes effect on next start.",
-            example = "qwen3-1.7b-q4_k_m.gguf")
+            example = "Qwen3.5-2B-Q4_K_M.gguf")
     private String model;
 }

@@ -35,7 +35,9 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [Spring Security OAuth2 Client](#spring-security-oauth2-client)       | Apache 2.0             |
 | [Spring Session JDBC](#spring-session-jdbc)                           | Apache 2.0             |
 | [ShedLock](#shedlock)                                                 | Apache 2.0             |
-| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf)                                  | Apache 2.0             |
+| [Qwen3.5-2B (GGUF)](#qwen35-2b-gguf) | Apache 2.0 |
+| [Gemma 4 E2B (GGUF)](#gemma-4-e2b-gguf) | Apache 2.0 |
+| [llama.cpp](#llamacpp) | MIT |
 | [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
 | [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
 | [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
@@ -538,25 +540,79 @@ all copies or substantial portions of the Software.
 
 ---
 
-## Bundled AI Models
+## Embedded AI Runtime and Models
 
-Unlike the libraries above, model weights are not source code and are not covered by a
-uniform "open source" regime — each model below is listed with its actual license, which
-may impose obligations beyond a copyright notice.
+Runtime binaries and model weights are optional downloads, excluded from the source repository,
+Docker build context and released JAR. The JAR includes this notice and the Apache 2.0 text.
+Inference runs locally. Installation from upstream is a separate network operation.
 
-### Qwen3-1.7B (GGUF)
+### Qwen3.5-2B (GGUF)
 
-- **Version:** Qwen3-1.7B, quantized to GGUF (Q4_K_M)
-- **Publisher:** Alibaba Cloud (Qwen team)
-- **Website:** https://github.com/QwenLM/Qwen3
-- **License:** Apache License, Version 2.0 — full text below under [Apache License 2.0 — Full Text](#apache-license-20--full-text)
-- **Distribution:** Not bundled in the git repository or build artifacts. OsWL downloads the official `ggml-org/Qwen3-1.7B-GGUF` file `Qwen3-1.7B-Q4_K_M.gguf` directly from Hugging Face (over plain HTTPS, verifying its SHA256 against the value below) the first time a user clicks **Start** on Embedded AI with no model present, or in the background shortly after boot (see [Embedded AI](docs/Embedded-AI.md)), storing it at `embedded-ai/qwen3-1.7b-q4_k_m.gguf`. Nothing is downloaded in air-gapped mode — those hosts place the file themselves. Operators may point `OSWL_EMBEDDED_DEFAULT_MODEL_URL` at a self-hosted byte-identical mirror instead; Apache 2.0 permits that redistribution, no modifications are made to the model weights beyond the upstream GGUF quantization already noted above, and this notice plus the included license text and upstream attribution satisfy its requirements. Permissively licensed, so mirroring and auto-fetching it carries no obligation beyond this notice.
-- **SHA256:** `d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5` — must always match `oswl.ai.embedded.default-model-sha256` (`EmbeddedAiService`'s default); if one changes without the other, downloads fail integrity verification.
+- **Role:** Default CPU model; replaces the previous Qwen3-1.7B automatic download.
+- **Publisher:** Alibaba Cloud / Qwen team.
+- **Upstream:** https://huggingface.co/Qwen/Qwen3.5-2B
+- **License:** Apache License, Version 2.0; full text below.
+- **Quantization:** Unsloth AI GGUF Q4_K_M. OsWL does not fine-tune or modify the downloaded bytes.
+- **Source revision:** `unsloth/Qwen3.5-2B-GGUF@f6d5376be1edb4d416d56da11e5397a961aca8ae`
+- **File:** `model/Qwen/Qwen3.5-2B-Q4_K_M.gguf`, 1280835840 bytes.
+- **SHA256:** `aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223`
+- **Pinned download:** https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf
+
+### Gemma 4 E2B (GGUF)
+
+- **Role:** Optional CPU model, installed manually; replaces Gemma 3 1B in the refreshed local installation.
+- **Publisher:** Google DeepMind.
+- **Upstream:** https://huggingface.co/google/gemma-4-E2B-it
+- **License:** Apache License, Version 2.0, as stated in the Gemma 4 model card and https://ai.google.dev/gemma/apache_2 .
+  This entry is specifically for Gemma 4, not the distinct terms of earlier Gemma releases.
+- **Quantization:** Unsloth AI GGUF Q4_K_M. OsWL does not fine-tune or modify the downloaded bytes.
+- **Source revision:** `unsloth/gemma-4-E2B-it-GGUF@0314792d7f1f7e229411f620751375812bb9faf2`
+- **File:** `model/Gemma/gemma-4-E2B-it-Q4_K_M.gguf`, 3106738272 bytes.
+- **SHA256:** `740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8`
+- **Pinned download:** https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf
+
+Apache 2.0 permits redistribution subject to its conditions, including supplying the license,
+retaining applicable copyright/attribution notices and carrying forward any upstream NOTICE
+content when provided. Preserve the quantization provenance above. Do not represent these weights
+as OsWL-authored or imply endorsement by Qwen, Google or Unsloth.
+
+The old GitHub `models-v1` asset is Qwen3-1.7B and is not the new default.
+A new mirror must be a verified byte-identical copy of the relevant pinned file and accompany
+the license and attribution notices. This change does not publish new model assets.
+Custom/older weights retain their own licenses; these entries do not relicense them.
+
+### llama.cpp
+
+- **Publisher:** The ggml authors.
+- **Source:** https://github.com/ggml-org/llama.cpp
+- **License:** MIT.
+- **Validated local runtime:** b10068, commit `571d0d540`; operators supply an OS/architecture-compatible build in `embedded-ai/llama/`.
+- **Distribution:** Not bundled in the repository or JAR. If packaging runtime binaries separately,
+  preserve this full license and the licenses/notices of all included libraries (for example,
+  an OpenMP runtime); this MIT notice alone does not cover every binary in a vendor archive.
 
 ```
-Copyright Alibaba Cloud. Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License. You may obtain a copy
-of the License at https://www.apache.org/licenses/LICENSE-2.0
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ---
@@ -663,7 +719,7 @@ modification, are permitted provided that the following conditions are met:
 ## Apache License 2.0 — Full Text
 
 The following libraries and models are licensed under the Apache License, Version 2.0:
-Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Spring Session JDBC, ShedLock, Qwen3-1.7B.
+Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Spring Session JDBC, ShedLock, Qwen3.5-2B, Gemma 4 E2B.
 
 ```
                                  Apache License
