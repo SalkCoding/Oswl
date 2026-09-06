@@ -13,6 +13,8 @@ English is the default documentation entry point. Start with the [English docume
 - [Architecture and optimization (Korean)](ko/Architecture-Optimization.md)
 - [UI states checklist (English)](en/Ui-States-Checklist.md)
 
+- [Browser security alerts (English)](en/Browser-Security-Alerts.md)
+
 ## Where files belong
 
 Document bodies live in `en/`, `ko/`, or `ja/` according to their actual language. Keep matching filenames for translations and prefer links to pages in the same language. Some developer references currently exist in only one language; link to that version with its language identified instead of creating empty translations.

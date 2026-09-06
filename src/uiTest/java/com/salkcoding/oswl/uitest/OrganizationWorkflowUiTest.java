@@ -57,6 +57,20 @@ class OrganizationWorkflowUiTest extends UiTestBase {
         assertThat(context.request().get(url("/api/settings/scan-rules")).status()).isEqualTo(403);
     }
 
+    @Test void browserPushShowsUnconfiguredStateAndPermissionDenial() {
+        loginAsTestAdmin(); page.setViewportSize(390,844);
+        page.navigate(url("/my/notifications?lang=en"));
+        page.waitForFunction("window.Alpine && Alpine.$data(document.querySelector('main')).loaded");
+        assertThat(page.locator("fieldset button").isDisabled()).isTrue();
+        assertNoSeriousOrCriticalAxeViolations();
+        page.route("**/api/my/web-push",route->route.fulfill(new com.microsoft.playwright.Route.FulfillOptions().setContentType("application/json").setBody("{\"enabled\":true,\"publicKey\":\"fixture\",\"subscriptions\":[]}")));
+        page.addInitScript("Object.defineProperty(Notification, 'requestPermission', {value: () => Promise.resolve('denied')})");
+        page.reload();page.locator("fieldset button").click();
+        page.locator("[role=alert]").waitFor();
+        assertThat(page.locator("[role=alert]").innerText()).contains("Allow notifications");
+        assertNoSeriousOrCriticalAxeViolations();
+    }
+
     private void fillTeam(String email) {
         page.fill("#onboarding-team-name","Inline fixture"); page.fill("#onboarding-team-email",email);
         page.fill("#onboarding-team-password",TEST_PASSWORD);

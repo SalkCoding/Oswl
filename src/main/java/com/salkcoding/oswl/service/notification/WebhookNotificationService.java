@@ -26,10 +26,16 @@ public class WebhookNotificationService {
     private final WebhookMessageBuilder messageBuilder;
     private final WebhookClient webhookClient;
     private final AuditLogService auditLogService;
+    private final WebPushService webPushService;
 
     // ── New CVE alerts ───────────────────────────────────────────────────
 
     public void sendNewCveAlert(Project project, List<CveAlert> alerts) {
+        var highRisk=alerts.stream().filter(a->a.getSeverity()==com.salkcoding.oswl.domain.enums.RiskLevel.HIGH || a.getSeverity()==com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL).toList();
+        if (!highRisk.isEmpty()) {
+            try {webPushService.enqueue(project.getId(),"NEW_HIGH_RISK","CVE:"+highRisk.getFirst().getId());}
+            catch(Exception e) {log.warn("[WebPush] Could not queue new vulnerability notification for projectId={}",project.getId());}
+        }
         WebhookSetting setting = webhookSettingService.getSetting();
         if (!shouldNotify(setting, WebhookEventType.NEW_CVE)) {
             return;
@@ -60,6 +66,8 @@ public class WebhookNotificationService {
     // ── Gate failure ─────────────────────────────────────────────────────
 
     public void sendGateFailure(Long projectId, GateResultDto result) {
+        try {webPushService.enqueue(projectId,"GATE_FAILURE","GATE:"+result.scanId());}
+        catch(Exception e) {log.warn("[WebPush] Could not queue gate notification for projectId={}",projectId);}
         WebhookSetting setting = webhookSettingService.getSetting();
         if (!shouldNotify(setting, WebhookEventType.GATE_FAILURE)) {
             return;

@@ -130,7 +130,7 @@ public class SecurityConfig {
                         .sessionRegistry(sessionRegistry))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico", "/oswl-push-sw.js").permitAll()
                     .requestMatchers("/oss-notices").permitAll()
                     .requestMatchers("/saml2/service-provider-metadata/**").permitAll()
                     .requestMatchers("/scim/v2/**").permitAll()

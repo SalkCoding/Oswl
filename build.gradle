@@ -57,6 +57,13 @@ repositories {
 
 dependencies {
     implementation 'com.google.re2j:re2j:1.8'
+    implementation('nl.martijndwars:web-push:5.1.2') {
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+        exclude group: 'org.apache.httpcomponents', module: 'httpasyncclient'
+        exclude group: 'org.asynchttpclient', module: 'async-http-client'
+    }
+    implementation 'org.bouncycastle:bcprov-jdk18on'
+    implementation 'org.bitbucket.b_c:jose4j:0.9.6'
 	// Bytecode call-graph analysis (ROADMAP A2)
 	implementation 'org.ow2.asm:asm:9.7'
 

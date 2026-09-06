@@ -45,6 +45,7 @@
             </div>
             <a th:href="@{/settings}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.settings}">Setting</a>
             <a th:href="@{/mobile}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.mobileView}">Mobile notifications</a>
+            <a th:href="@{/my/notifications}" class="text-white text-[13px] px-2 py-2" th:text="#{webPush.title}">Browser security alerts</a>
             <a th:href="@{/my/change-password}" class="text-white/80 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline" th:text="#{topbar.changePassword}">Change Password</a>
             <div class="border-t border-white/15 my-[2px]"></div>
             <div class="flex flex-col gap-[4px]">
@@ -144,7 +145,8 @@
                 <div x-show="open" x-transition style="display:none;"
                      id="simple-account-menu" role="menu"
                      class="absolute right-0 top-[36px] z-30 w-[200px] rounded-[6px] border border-white/20 bg-[rgba(0,29,53,0.95)] backdrop-blur-[6px] shadow-lg p-[8px] flex flex-col gap-[4px]">
-                    <a th:href="@{/my/change-password}" class="text-white/70 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline block" th:text="#{topbar.changePassword}">Change Password</a>
+                    <a th:href="@{/my/notifications}" class="text-white text-[13px] px-2 py-2" th:text="#{webPush.title}">Browser security alerts</a>
+            <a th:href="@{/my/change-password}" class="text-white/70 hover:text-white text-[13px] px-[8px] py-[6px] rounded-[4px] hover:bg-white/10 no-underline block" th:text="#{topbar.changePassword}">Change Password</a>
                     <div class="border-t border-white/15 my-[2px]"></div>
                     <button type="button" @click="openDeleteModal()"
                             sec:authorize="!hasRole('SYSTEM_ADMIN')"
