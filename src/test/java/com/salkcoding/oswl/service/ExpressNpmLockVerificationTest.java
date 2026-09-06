@@ -17,6 +17,7 @@ import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
+import com.salkcoding.oswl.support.ExternalVerificationFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,8 +60,7 @@ class ExpressNpmLockVerificationTest {
   @Test
   @DisplayName("npm --package-lock-only yields transitive deps beyond package.json direct refs")
   void npmLockGeneration_includesTransitivePackages() throws Exception {
-    Assumptions.assumeTrue(Files.isDirectory(EXPRESS_CLONE),
-        "Skip: clone expressjs/express to " + EXPRESS_CLONE);
+    ExternalVerificationFixture.require(EXPRESS_CLONE, "package.json", "package.json"::equals);
     Assumptions.assumeTrue(Files.exists(EXPRESS_CLONE.resolve("package.json")));
     Assumptions.assumeFalse(Files.exists(EXPRESS_CLONE.resolve("package-lock.json")),
         "Skip: remove package-lock.json to test generation");

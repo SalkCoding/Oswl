@@ -17,6 +17,7 @@ import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
+import com.salkcoding.oswl.support.ExternalVerificationFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,8 +60,7 @@ class RailsGemfileVerificationTest {
   @Test
   @DisplayName("Gemfile.lock parser captures most gems including pre-release versions")
   void gemfileLock_parsesRailsRootLock() throws Exception {
-    Assumptions.assumeTrue(Files.isDirectory(RAILS_CLONE),
-        "Skip: clone rails/rails to " + RAILS_CLONE);
+    ExternalVerificationFixture.require(RAILS_CLONE, "root Gemfile.lock", "Gemfile.lock"::equals);
 
     Method m = DependencyManifestParserService.class.getDeclaredMethod("parseGemfileLock", Path.class, String.class);
     m.setAccessible(true);

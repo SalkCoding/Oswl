@@ -17,6 +17,7 @@ import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
+import com.salkcoding.oswl.support.ExternalVerificationFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -59,8 +60,7 @@ class MauiNuGetParseVerificationTest {
   @Test
   @DisplayName("static NuGet parse finds many more packages than the old depth-3/20-file limit")
   void staticParse_findsMostCsprojPackages() throws Exception {
-    Assumptions.assumeTrue(Files.isDirectory(MAUI_CLONE),
-        "Skip: clone dotnet/maui to " + MAUI_CLONE);
+    ExternalVerificationFixture.require(MAUI_CLONE, "a .csproj manifest", name -> name.endsWith(".csproj"));
 
     Method m = DependencyManifestParserService.class.getDeclaredMethod("parseNuGetStatic", Path.class, String.class);
     m.setAccessible(true);
