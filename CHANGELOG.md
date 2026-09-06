@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add scoped CocoaPods Specs v2 bundles with original metadata, provenance/checksums, transactional validation and offline repository/license resolution. Four integration tests include actual Podfile ingestion, owned CVE detection, missing-spec UNKNOWN and export/import lookup equivalence. No upstream Specs dataset is redistributed.
 - Verify real isolated GGUF download/checksum, runtime inference and forced-process restart; exercise server-side session and OTP expiry in browser tests. Evidence: Ui-Operations-Verification.md.
 - Persist vulnerability lookup outcomes and block CI gates when analysis coverage is incomplete; retain unresolved snapshot evidence and NVD CVSS v4 metrics. Backend regression: 971 tests, 0 failures/errors, 8 opt-in skips; detection/auth browser scenarios: 4 passed.
 * **verification:** Recorded UI/operations evidence and narrowed remaining roadmap work. Backend suite: 963 tests, 956 passed, 7 optional skips; subsequent OSV/enrichment: 37 passed; browser: 16 plus 1 AI scenario passed; cluster predicates: 4 passed. Added browser and pure cluster checks to CI without running remote jobs. Real providers, PostgreSQL/LB, devices, model startup and unexecuted state combinations remain explicit in [the report](docs/ko/Ui-Operations-Verification.md).

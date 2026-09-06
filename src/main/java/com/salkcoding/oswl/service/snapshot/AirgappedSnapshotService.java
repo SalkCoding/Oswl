@@ -104,9 +104,10 @@ public class AirgappedSnapshotService {
      * ordinary source (not folded into {@code osv}) so the existing per-source status/import-count
      * plumbing surfaces it without any bespoke wiring. */
     public static final String SOURCE_UNRESOLVED = "unresolved";
+    public static final String SOURCE_COCOAPODS_SPECS = "cocoapods-specs";
     public static final List<String> SOURCES = List.of(
             SOURCE_OSV, SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY, SOURCE_GITHUB_ADVISORY,
-            SOURCE_NVD, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED);
+            SOURCE_NVD, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED, SOURCE_COCOAPODS_SPECS);
 
     private static final String BUNDLE_FORMAT = "oswl-vdb";
     private static final int CURRENT_FORMAT_VERSION = 2;
@@ -116,7 +117,7 @@ public class AirgappedSnapshotService {
 
     private static final Set<String> KNOWN_DATA_FILES =
             Set.of("osv.jsonl", "depsdev.jsonl", "github-advisory.jsonl", "nvd.jsonl",
-                    "epss.jsonl", "kev.jsonl", "unresolved.jsonl");
+                    "epss.jsonl", "kev.jsonl", "unresolved.jsonl", "cocoapods-specs.jsonl");
 
     private final SnapshotEntryRepository snapshotEntryRepository;
     private final SnapshotMetaRepository snapshotMetaRepository;
@@ -211,6 +212,14 @@ public class AirgappedSnapshotService {
     }
 
     // ── Offline lookups (used by the client fallbacks) ───────────────────
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<com.salkcoding.oswl.dto.snapshot.CocoaPodsSpec> findCocoaPodsSpec(String name, String version) {
+        String key = componentKey("COCOAPODS", name, version);
+        if (key == null) return java.util.Optional.empty();
+        return java.util.Optional.ofNullable(parsePayloads(SOURCE_COCOAPODS_SPECS, List.of(key),
+                com.salkcoding.oswl.dto.snapshot.CocoaPodsSpec.class).get(key));
+    }
 
     @Transactional(readOnly = true)
     public Set<String> findUnresolvedKeys(Collection<String> keys) {
@@ -401,6 +410,8 @@ public class AirgappedSnapshotService {
             Path metaFile = rawFiles.remove("meta.json");
             if (rawFiles.isEmpty()) throw new InvalidRequestException("Snapshot bundle contains no recognized data files.");
             BundleMetaV2 meta = metaFile == null ? null : parseMetaV2(Files.readAllBytes(metaFile));
+            if (rawFiles.containsKey("cocoapods-specs.jsonl") && meta == null)
+                throw new InvalidRequestException("CocoaPods specs require a version 2 bundle with checksums");
             if (meta != null) verifyChecksums(meta, rawFiles);
             // Validate line budgets before a REPLACE is allowed to delete existing source data.
             rawFiles.values().forEach(file -> SnapshotBundleStager.forEachLine(file, ignored -> {}));
@@ -419,6 +430,23 @@ public class AirgappedSnapshotService {
         for (Map.Entry<String, Path> rf : rawFiles.entrySet()) {
             SnapshotBundleStager.checkInterrupted();
             switch (rf.getKey()) {
+                case "cocoapods-specs.jsonl" -> {
+                    SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_COCOAPODS_SPECS, mode);
+                    int[] lines = {0};
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> {
+                        if (line.isBlank()) return;
+                        if (++lines[0] > 1000) throw new InvalidRequestException("CocoaPods bundle limit is 1000 specs");
+                        try {
+                            var spec = objectMapper.readValue(line, com.salkcoding.oswl.dto.snapshot.CocoaPodsSpec.class);
+                            spec.validate();
+                            buf.add(new ParsedLine(componentKey("COCOAPODS", spec.name(), spec.version()), writeJson(objectMapper.valueToTree(spec)), false));
+                        } catch (InvalidRequestException e) { throw e;
+                        } catch (Exception e) { throw new InvalidRequestException("Malformed CocoaPods spec record"); }
+                    });
+                    counts.merge(SOURCE_COCOAPODS_SPECS, buf.finish(), Integer::sum);
+                    if (snapshotEntryRepository.countBySource(SOURCE_COCOAPODS_SPECS) > 1000)
+                        throw new InvalidRequestException("CocoaPods store limit is 1000 specs");
+                }
                 case "osv.jsonl" -> {
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_OSV, mode);
                     SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestOsvLine(line, buf));
@@ -820,7 +848,7 @@ public class AirgappedSnapshotService {
                     if (hasSources && srcs.contains(CveSource.NVD)) nvdCves.add(c);
                 }
                 if (!osvCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("OSV")))) {
-                    osvRecords += appendVulnLines(osv, lib, osvCves);
+                    osvRecords += appendVulnLines(osv, lib, osvCves, true);
                 }
                 if (!ghCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("GITHUB_ADVISORY")))) {
                     githubAdvisoryRecords += appendVulnLines(githubAdvisory, lib, ghCves);
@@ -907,6 +935,14 @@ public class AirgappedSnapshotService {
         }
 
         String osvContent = osv.toString();
+        Set<String> specKeys = snapshotEntryRepository.findEntryKeysBySource(SOURCE_COCOAPODS_SPECS);
+        if (specKeys.size() > 1000) throw new InvalidRequestException("CocoaPods store limit is 1000 specs");
+        StringBuilder specsContent = new StringBuilder();
+        if (!specKeys.isEmpty()) {
+            for (SnapshotEntry entry : snapshotEntryRepository.findBySourceAndEntryKeyIn(SOURCE_COCOAPODS_SPECS, specKeys)) {
+                specsContent.append(entry.getPayload()).append('\n');
+            }
+        }
         String githubAdvisoryContent = githubAdvisory.toString();
         String nvdContent = nvd.toString();
         String depsdevContent = depsdev.toString();
@@ -930,6 +966,12 @@ public class AirgappedSnapshotService {
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, SOURCE_OSV, osvRecords, asOf);
         putSourceMeta(sources, SOURCE_UNRESOLVED, unresolvedRecords, asOf);
+        putSourceMeta(sources, SOURCE_COCOAPODS_SPECS, specKeys.size(), null);
+        snapshotMetaRepository.findById(SOURCE_COCOAPODS_SPECS).ifPresent(saved -> {
+            ObjectNode source = (ObjectNode) sources.get(SOURCE_COCOAPODS_SPECS);
+            if (saved.getSourceAsOf() != null) source.put("asOf", saved.getSourceAsOf().toString());
+            if (saved.getOrigin() != null) source.put("origin", saved.getOrigin());
+        });
         putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, asOf);
         putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), asOf);
         putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, asOf);
@@ -939,6 +981,7 @@ public class AirgappedSnapshotService {
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, osvRecords);
         putFileMeta(files, "unresolved.jsonl", unresolved.toString(), unresolvedRecords);
+        putFileMeta(files, "cocoapods-specs.jsonl", specsContent.toString(), specKeys.size());
         putFileMeta(files, "depsdev.jsonl", depsdevContent, versionRecords + advisories.size());
         putFileMeta(files, "github-advisory.jsonl", githubAdvisoryContent, githubAdvisoryRecords);
         putFileMeta(files, "nvd.jsonl", nvdContent, nvdRecords);
@@ -951,6 +994,7 @@ public class AirgappedSnapshotService {
                 writeZipEntry(zos, "meta.json", writeJson(meta));
                 writeZipEntry(zos, "osv.jsonl", osvContent);
                 writeZipEntry(zos, "unresolved.jsonl", unresolved.toString());
+                writeZipEntry(zos, "cocoapods-specs.jsonl", specsContent.toString());
                 writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
                 writeZipEntry(zos, "github-advisory.jsonl", githubAdvisoryContent);
                 writeZipEntry(zos, "nvd.jsonl", nvdContent);
@@ -967,6 +1011,10 @@ public class AirgappedSnapshotService {
     }
 
     private int appendVulnLines(StringBuilder target, Library lib, List<Cve> cves) {
+        return appendVulnLines(target, lib, cves, false);
+    }
+
+    private int appendVulnLines(StringBuilder target, Library lib, List<Cve> cves, boolean osvKeys) {
         List<SnapshotVuln> vulns = cves.stream()
                 .map(c -> new SnapshotVuln(c.getGhsaId(), c.getCveId(), c.getSummary(),
                         c.getFixVersion(), c.getCweId(),
@@ -977,6 +1025,10 @@ public class AirgappedSnapshotService {
         ObjectNode line = objectMapper.createObjectNode();
         line.put("ecosystem", lib.getEcosystem());
         line.put("name", lib.getName());
+        if (osvKeys && "COCOAPODS".equalsIgnoreCase(lib.getEcosystem()) && lib.getSourceRepoUrl() != null) {
+            line.put("ecosystem", "SwiftURL");
+            line.put("name", lib.getSourceRepoUrl());
+        }
         line.put("version", lib.getVersion());
         line.set("vulns", objectMapper.valueToTree(vulns));
         target.append(writeJson(line)).append('\n');
@@ -986,7 +1038,7 @@ public class AirgappedSnapshotService {
     private static void putSourceMeta(ObjectNode sources, String source, int records, LocalDate asOf) {
         ObjectNode s = sources.putObject(source);
         s.put("records", records);
-        s.put("asOf", asOf.toString());
+        if (asOf != null) s.put("asOf", asOf.toString());
         s.put("origin", EXPORT_ORIGIN);
     }
 

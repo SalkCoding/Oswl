@@ -124,7 +124,7 @@ public class AirgappedClientConfig {
     @Bean
     public CocoaPodsSpecsClient cocoaPodsSpecsClient() {
         CocoaPodsSpecsClient client = new CocoaPodsSpecsClient(airgapped,
-                Duration.ofMillis(cocoaPodsConnectTimeoutMs), Duration.ofMillis(cocoaPodsReadTimeoutMs));
+                Duration.ofMillis(cocoaPodsConnectTimeoutMs), Duration.ofMillis(cocoaPodsReadTimeoutMs), snapshotService);
         client.setOswlMetrics(oswlMetrics);
         return client;
     }

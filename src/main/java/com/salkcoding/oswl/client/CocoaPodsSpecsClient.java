@@ -3,6 +3,7 @@ package com.salkcoding.oswl.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.HttpClientErrorException;
@@ -24,11 +25,8 @@ import java.util.Optional;
  * by (not the pod name — a CocoaPods pod and a Swift Package Manager package that share the same
  * GitHub repository are the same OSV entry).
  *
- * <p>Air-gapped mode: there is no offline bundle for the CocoaPods Specs index yet (unlike OSV/
- * NVD/GitHub Advisory data, this mapping isn't a vulnerability feed and would need its own
- * snapshot format), so this client simply returns empty in that mode — CocoaPods components then
- * show as not-analyzed rather than "no vulnerabilities" (same safe-fallback idiom as an unmapped
- * OSV ecosystem).
+ * <p>Air-gapped mode uses only imported scoped Specs. Missing mappings remain unanalysed;
+ * this client never falls back to an external request in that mode.
  */
 @Slf4j
 public class CocoaPodsSpecsClient {
@@ -39,6 +37,7 @@ public class CocoaPodsSpecsClient {
 
     private final RestClient restClient;
     private final boolean airgapped;
+    private final AirgappedSnapshotService snapshotService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
     private volatile OswlMetrics oswlMetrics;
@@ -57,7 +56,12 @@ public class CocoaPodsSpecsClient {
     }
 
     public CocoaPodsSpecsClient(boolean airgapped, Duration connectTimeout, Duration readTimeout) {
+        this(airgapped, connectTimeout, readTimeout, null);
+    }
+
+    public CocoaPodsSpecsClient(boolean airgapped, Duration connectTimeout, Duration readTimeout, AirgappedSnapshotService snapshotService) {
         this.airgapped = airgapped;
+        this.snapshotService = snapshotService;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
@@ -66,8 +70,7 @@ public class CocoaPodsSpecsClient {
                 .defaultHeader("Accept", "application/json")
                 .build();
         if (airgapped) {
-            log.info("[CocoaPodsSpecs] Air-gapped mode — pod resolution skipped (no offline Specs index bundled), "
-                    + "CocoaPods components will show as not-analyzed rather than a false 'no vulnerabilities'");
+            log.info("[CocoaPodsSpecs] Air-gapped mode — only imported scoped Specs are used");
         }
     }
 
@@ -77,12 +80,19 @@ public class CocoaPodsSpecsClient {
     /**
      * Resolves a pod to its repository URL (host+path only, e.g. {@code github.com/Alamofire/
      * Alamofire} — no scheme, no {@code .git} suffix, matching OSV's {@code SwiftURL} convention)
-     * and license. Empty when air-gapped, the pod/version doesn't exist in the Specs trunk, or the
+     * and license. Empty when a mapping is absent from the selected online/offline source, or the
      * pod has no {@code source.git} (e.g. it ships as a local/binary-only pod).
      */
     public Optional<PodSpecInfo> resolve(String podName, String version) {
-        if (airgapped || podName == null || podName.isBlank() || version == null || version.isBlank()) {
+        if (podName == null || podName.isBlank() || version == null || version.isBlank()) {
             return Optional.empty();
+        }
+        if (airgapped) {
+            if (snapshotService == null) return Optional.empty();
+            return snapshotService.findCocoaPodsSpec(podName, version).flatMap(spec -> {
+                try { spec.validate(); return parsePodspec(spec.podspec()); }
+                catch (Exception e) { return Optional.empty(); }
+            });
         }
         String url = BASE_URL + "/Specs/" + md5Shard(podName) + "/" + podName + "/" + version + "/" + podName + ".podspec.json";
         try {
@@ -91,12 +101,7 @@ public class CocoaPodsSpecsClient {
             if (body == null || body.isBlank()) {
                 return Optional.empty();
             }
-            JsonNode root = objectMapper.readTree(body);
-            String repoUrl = normalizeRepoUrl(root.path("source").path("git").asText(null));
-            if (repoUrl == null) {
-                return Optional.empty();
-            }
-            return Optional.of(new PodSpecInfo(repoUrl, extractLicense(root.path("license"))));
+            return parsePodspec(body);
         } catch (HttpClientErrorException.NotFound e) {
             // Expected and common — pod or exact version not in the trunk (renamed, unpublished,
             // pinned to a fork, etc). Not a client failure, so it's not recorded as one.
@@ -112,6 +117,12 @@ public class CocoaPodsSpecsClient {
     }
 
     /** {@code https://github.com/Owner/Repo.git} → {@code github.com/Owner/Repo}, matching OSV's SwiftURL keys. Non-GitHub hosts return null — SwiftURL only covers GitHub-style repos. */
+    private Optional<PodSpecInfo> parsePodspec(String body) throws Exception {
+        JsonNode root = objectMapper.readTree(body);
+        String repoUrl = normalizeRepoUrl(root.path("source").path("git").asText(null));
+        return repoUrl == null ? Optional.empty() : Optional.of(new PodSpecInfo(repoUrl, extractLicense(root.path("license"))));
+    }
+
     private static String normalizeRepoUrl(String rawGitUrl) {
         if (rawGitUrl == null || rawGitUrl.isBlank()) {
             return null;
@@ -121,7 +132,7 @@ public class CocoaPodsSpecsClient {
         url = url.replaceFirst("^\\w+://", "");
         url = url.replaceFirst("\\.git$", "");
         url = url.replaceFirst("/+$", "");
-        if (!url.toLowerCase(Locale.ROOT).startsWith("github.com/")) {
+        if (!url.matches("(?i)github\\.com/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+") || url.endsWith("/.") || url.endsWith("/..")) {
             return null;
         }
         return url;

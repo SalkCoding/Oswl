@@ -10,6 +10,8 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Operations
 
+- [`vdb/build-cocoapods-specs.py`](vdb/build-cocoapods-specs.py): builds a scoped offline Specs ZIP from operator-supplied podspec files without network access. See [offline CocoaPods Specs](../docs/en/Offline-CocoaPods-Specs.md).
+
 - [`ops/verify-restore.sh`](ops/verify-restore.sh): interactive verification against a freshly restored instance. Requires Bash, curl, access to the instance and email OTP login. Follow the [restore guide](../docs/en/Backup-And-Restore.md); this is not an unattended health check.
 - [`oswl-vdb/oswl-vdb.sh`](oswl-vdb/oswl-vdb.sh) and [`oswl-vdb/oswl-vdb.ps1`](oswl-vdb/oswl-vdb.ps1): wrappers for building, verifying and inspecting offline vulnerability bundles through Gradle. Their existing public paths are retained. See the [offline deployment guide](../docs/en/Production-Deployment-Checklist.md#71-air-gapped--offline-snapshot-v104).
 
