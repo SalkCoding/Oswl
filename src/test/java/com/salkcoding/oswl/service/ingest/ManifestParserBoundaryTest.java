@@ -43,6 +43,16 @@ class ManifestParserBoundaryTest {
         }
     }
 
+    @Test void concurrentYamlUploadsDoNotShareParserState() throws Exception {
+        byte[] yaml = "version: 1\npackage:\n  - name: requests\n    version: 2.32.0\n    manager: pip\n".getBytes(StandardCharsets.UTF_8);
+        try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            var futures = java.util.stream.IntStream.range(0, 60)
+                    .mapToObj(i -> pool.submit(() -> parser.parseUploadedLockFile(yaml, "upload-" + i))).toList();
+            for (var future : futures) assertThat(keys(future.get(10, TimeUnit.SECONDS)))
+                    .containsExactly("PYPI:requests:2.32.0");
+        }
+    }
+
     private Set<String> keys(List<ScanPayload.ComponentPayload> components) {
         return components.stream().map(c -> c.getEcosystem() + ":" + c.getName() + ":" + c.getVersion()).collect(Collectors.toSet());
     }

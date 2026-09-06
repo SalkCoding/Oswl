@@ -14,12 +14,11 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 @Slf4j
 @RequiredArgsConstructor
 public class CondaLockParser {
-    private static final Yaml SAFE_YAML = new Yaml(new SafeConstructor(new LoaderOptions()));
     private final CondaPypiMappingService condaPypiMappingService;
 
     public List<ScanPayload.ComponentPayload> parseCondaLock(Path dir, String repoName) {
         try (var reader = Files.newBufferedReader(dir.resolve("conda-lock.yml"), StandardCharsets.UTF_8)) {
-            Object parsed = SAFE_YAML.load(reader);
+            Object parsed = new Yaml(new SafeConstructor(new LoaderOptions())).load(reader);
             if (!(parsed instanceof Map<?, ?> root)) {
                 return null;
             }
@@ -63,7 +62,7 @@ public class CondaLockParser {
 
     public List<ScanPayload.ComponentPayload> parsePixiLock(Path dir, String repoName) {
         try (var reader = Files.newBufferedReader(dir.resolve("pixi.lock"), StandardCharsets.UTF_8)) {
-            Object parsed = SAFE_YAML.load(reader);
+            Object parsed = new Yaml(new SafeConstructor(new LoaderOptions())).load(reader);
             if (!(parsed instanceof Map<?, ?> root)) {
                 return null;
             }

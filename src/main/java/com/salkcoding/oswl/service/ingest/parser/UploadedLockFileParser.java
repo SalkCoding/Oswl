@@ -15,7 +15,6 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 @Slf4j
 @RequiredArgsConstructor
 public class UploadedLockFileParser {
-    private static final Yaml SAFE_YAML = new Yaml(new SafeConstructor(new LoaderOptions()));
     private final CondaPypiMappingService condaPypiMappingService;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     public List<ScanPayload.ComponentPayload> parseUploadedLockFile(byte[] content, String label) {
@@ -49,7 +48,7 @@ public class UploadedLockFileParser {
             }
             // YAML lock files: pixi.lock (environments → per-platform package URLs) or
             // conda-lock.yml (flat "package" list).
-            Object parsed = SAFE_YAML.load(text);
+            Object parsed = new Yaml(new SafeConstructor(new LoaderOptions())).load(text);
             if (parsed instanceof Map<?, ?> root) {
                 if (root.containsKey("environments")) {
                     return new CondaLockParser(condaPypiMappingService).parsePixiLockYaml(root, label);
