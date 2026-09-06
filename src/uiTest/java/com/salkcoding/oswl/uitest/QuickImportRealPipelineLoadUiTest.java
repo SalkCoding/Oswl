@@ -7,6 +7,7 @@ import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.QuickImportJobStatus;
+import com.salkcoding.oswl.dto.QuickImportMessageKeys;
 import com.salkcoding.oswl.service.ingest.QuickImportService;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
@@ -56,7 +57,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * a {@code GIT_CONFIG_GLOBAL} rewrite rule set for the whole test JVM (see the {@code uiTest} task
  * in build.gradle), so every {@code git} subprocess it spawns picks it up automatically.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "oswl.airgapped.enabled=true")
 @ActiveProfiles("uitest")
 class QuickImportRealPipelineLoadUiTest {
 
@@ -84,6 +86,9 @@ class QuickImportRealPipelineLoadUiTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService enrichment;
+
     @LocalServerPort
     private int port;
 
@@ -102,7 +107,9 @@ class QuickImportRealPipelineLoadUiTest {
         workDir = Files.createTempDirectory("oswl-d5-real-pipeline-");
         // 150ms per CGI round trip (info/refs + upload-pack ≈ 2 requests/clone) gives each clone
         // real wall-clock duration to observe, without making a 100-job burst take minutes.
-        gitServer = LocalSmartHttpGitServer.start(workDir, 150);
+        gitServer = LocalSmartHttpGitServer.start(workDir, 150, java.util.Map.of("package.json",
+                "{\"name\":\"oswl-load-test\",\"version\":\"1.0.0\",\"dependencies\":{\"performance-fixture\":\"1.0.0\"}}",
+                "package-lock.json", "{\"name\":\"oswl-load-test\",\"version\":\"1.0.0\",\"lockfileVersion\":3,\"packages\":{\"\":{\"name\":\"oswl-load-test\",\"version\":\"1.0.0\"},\"node_modules/performance-fixture\":{\"version\":\"1.0.0\"}}}"));
         gitServer.writeGitConfigGlobalRewrite(gitConfigGlobalFile);
     }
 
@@ -135,6 +142,7 @@ class QuickImportRealPipelineLoadUiTest {
 
         StringBuilder report = new StringBuilder();
         report.append("Real pipeline (clone via loopback git-http-backend, 150ms/request delay)\n\n");
+        report.append("Single-machine H2; real clone/parse/ingest with one dependency. Advisory clients use empty offline snapshots (no upstream HTTP or vulnerability coverage). DONE means scan ready, not AI completion. Process restart is not measured.\n");
 
         for (int scale : List.of(20, 50, 100)) {
             report.append(measureBurst(scale, httpClient, csrfToken));
@@ -143,6 +151,66 @@ class QuickImportRealPipelineLoadUiTest {
         Path dir = Path.of("build", "reports", "load");
         Files.createDirectories(dir);
         Files.writeString(dir.resolve("quick-import-real-pipeline-load.txt"), report.toString());
+    }
+
+    @Test void delayedEnrichmentKeepsUserAdmissionAndCancellationSeparate() throws Exception {
+        var enrichmentTarget = org.springframework.test.util.AopTestUtils.<com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService>getUltimateTargetObject(enrichment);
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            entered.countDown();
+            assertThat(release.await(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            return invocation.callRealMethod();
+        }).when(enrichmentTarget).enrich(org.mockito.ArgumentMatchers.anyLong());
+        long firstOwner = ensureSelfHostedVcsConnection(1001);
+        long secondOwner = ensureSelfHostedVcsConnection(1002);
+        java.util.Map<String, Long> owners = new java.util.LinkedHashMap<>();
+        long started = System.nanoTime();
+        try {
+            for (int i = 0; i < 3; i++) owners.put(quickImportService.startImport(
+                    "https://" + gitServer.host() + "/slow/first-" + i + ".git", null, firstOwner), firstOwner);
+            assertThat(entered.await(15, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            long claimedDeadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (owners.keySet().stream().anyMatch(id -> quickImportService.getJobStatus(id, firstOwner).getPhase() == QuickImportJobStatus.Phase.QUEUED)
+                    && System.nanoTime() < claimedDeadline) Thread.sleep(25);
+            // The admission setting counts queued jobs; the three occupied worker slots are separate.
+            for (int i = 0; i < 3; i++) owners.put(quickImportService.startImport(
+                    "https://" + gitServer.host() + "/slow/first-queued-" + i + ".git", null, firstOwner), firstOwner);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> quickImportService.startImport(
+                    "https://" + gitServer.host() + "/slow/rejected.git", null, firstOwner))
+                    .isInstanceOf(com.salkcoding.oswl.exception.QuickImportQueueFullException.class);
+            for (int i = 0; i < 3; i++) owners.put(quickImportService.startImport(
+                    "https://" + gitServer.host() + "/slow/second-" + i + ".git", null, secondOwner), secondOwner);
+            String running = owners.keySet().stream().filter(id -> owners.get(id).equals(firstOwner))
+                    .filter(id -> quickImportService.getJobStatus(id, firstOwner).getScanResultId() != null).findFirst().orElseThrow();
+            String queued = owners.keySet().stream().filter(id -> owners.get(id).equals(secondOwner))
+                    .filter(id -> quickImportService.getJobStatus(id, secondOwner).getPhase() == QuickImportJobStatus.Phase.QUEUED).findFirst().orElseThrow();
+            assertThat(quickImportService.cancelJob(running, firstOwner)).isTrue();
+            assertThat(quickImportService.cancelJob(queued, secondOwner)).isTrue();
+            release.countDown();
+            long deadline = System.nanoTime() + Duration.ofSeconds(60).toNanos();
+            List<QuickImportJobStatus> states;
+            do {
+                states = owners.entrySet().stream().map(e -> quickImportService.getJobStatus(e.getKey(), e.getValue())).toList();
+                if (states.stream().allMatch(s -> s.getPhase() == QuickImportJobStatus.Phase.DONE || s.getPhase() == QuickImportJobStatus.Phase.FAILED)) break;
+                Thread.sleep(50);
+            } while (System.nanoTime() < deadline);
+            long done = states.stream().filter(s -> s.getPhase() == QuickImportJobStatus.Phase.DONE).count();
+            long canceled = states.stream().filter(s -> QuickImportMessageKeys.CANCELED.equals(s.getMessageKey())).count();
+            assertThat(done).isEqualTo(7);
+            assertThat(canceled).isEqualTo(2);
+            assertThat(quickImportService.getJobStatus(queued, secondOwner).getScanResultId()).isNull();
+            Path report = Path.of("build/reports/load/delayed-enrichment-cancel.txt");
+            Files.createDirectories(report.getParent());
+            Files.writeString(report, "Injected wait at enrichment entry; real clone/parse/ingest, offline advisory fallback.\n"
+                    + "owners=2 accepted=9 admission-rejected=1 done=7 canceled=2 failed=0 elapsed_ms=" + (System.nanoTime()-started)/1_000_000 + "\n"
+                    + "Running cancellation preserves its already-ingested scan; queued cancellation has no scan. Not a real upstream outage or process restart.\n");
+        } finally {
+            release.countDown();
+            // Let any remaining jobs release their durable slots even after a failed assertion.
+            owners.forEach((id, owner) -> quickImportService.cancelJob(id, owner));
+            org.mockito.Mockito.reset(enrichmentTarget);
+        }
     }
 
     private String measureBurst(int scale, HttpClient httpClient, String csrfToken) throws Exception {
@@ -155,10 +223,12 @@ class QuickImportRealPipelineLoadUiTest {
 
         HikariPoolMXBean pool = dataSource instanceof HikariDataSource h ? h.getHikariPoolMXBean() : null;
         AtomicInteger peakActiveConnections = new AtomicInteger(0);
+        AtomicInteger peakPendingConnections = new AtomicInteger(0);
         AtomicBoolean sampling = new AtomicBoolean(true);
         Thread poolSampler = pool == null ? null : Thread.ofVirtual().start(() -> {
             while (sampling.get()) {
                 peakActiveConnections.updateAndGet(prev -> Math.max(prev, pool.getActiveConnections()));
+                peakPendingConnections.accumulateAndGet(pool.getThreadsAwaitingConnection(), Math::max);
                 try {
                     Thread.sleep(5);
                 } catch (InterruptedException e) {
@@ -189,7 +259,9 @@ class QuickImportRealPipelineLoadUiTest {
         });
 
         Instant start = Instant.now();
-        List<String> jobIds = quickImportService.startBatchImport(urls, userId);
+        List<String> jobIds;
+        try {
+        jobIds = quickImportService.startBatchImport(urls, userId);
         assertThat(jobIds).hasSize(scale);
 
         Duration timeout = Duration.ofSeconds(180);
@@ -206,15 +278,34 @@ class QuickImportRealPipelineLoadUiTest {
         }
         Duration elapsed = Duration.between(start, Instant.now());
 
+        List<QuickImportJobStatus> finalStates = jobIds.stream()
+                .map(id -> quickImportService.getJobStatus(id, userId)).toList();
+        long succeeded = finalStates.stream().filter(s -> s != null && s.getPhase() == QuickImportJobStatus.Phase.DONE).count();
+        long canceled = finalStates.stream().filter(s -> s != null && QuickImportMessageKeys.CANCELED.equals(s.getMessageKey())).count();
+        long failed = finalStates.stream().filter(s -> s != null && s.getPhase() == QuickImportJobStatus.Phase.FAILED
+                && !QuickImportMessageKeys.CANCELED.equals(s.getMessageKey())).count();
+        List<Long> waits = finalStates.stream().filter(s -> s != null && s.getRunningSinceEpochMs() != null && s.getStartedAtEpochMs() != null)
+                .map(s -> Math.max(0, s.getRunningSinceEpochMs() - s.getStartedAtEpochMs())).sorted().toList();
+
         sampling.set(false);
         if (poolSampler != null) poolSampler.join(2000);
         webProbe.join(11_000);
+
+        String outcome = "scale=%d accepted=%d done=%d failed=%d canceled=%d unfinished=%d elapsed=%dms successful-throughput=%.3f/s queue-wait-n=%d p50=%dms p95=%dms peak-active=%d peak-pending=%d%n".formatted(
+                scale, jobIds.size(), succeeded, failed, canceled, scale - terminalCount, elapsed.toMillis(),
+                succeeded / Math.max(.001, elapsed.toMillis() / 1000.0), waits.size(),
+                waits.isEmpty() ? 0 : percentile(waits,50), waits.isEmpty() ? 0 : percentile(waits,95),
+                peakActiveConnections.get(), peakPendingConnections.get());
+        Path outcomes = Path.of("build/reports/load/quick-import-outcomes.txt");
+        Files.createDirectories(outcomes.getParent());
+        Files.writeString(outcomes, outcome, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
 
         int completionCount = terminalCount;
         assertThat(completionCount)
                 .withFailMessage("%d of %d jobs never reached a terminal state within %s",
                         scale - completionCount, scale, timeout)
                 .isEqualTo(scale);
+        assertThat(succeeded).as("real clone/parse/ingest success (FAILED is not successful throughput)").isEqualTo(scale);
 
         List<Long> sorted = new ArrayList<>(webResponseTimesMs);
         sorted.sort(null);
@@ -223,9 +314,14 @@ class QuickImportRealPipelineLoadUiTest {
                         sorted.size(), percentile(sorted, 50), percentile(sorted, 95),
                         sorted.get(sorted.size() - 1), webRequestFailures.get());
 
-        return "scale=%d: completed %d/%d in %dms, peak HikariCP active=%s, GET /projects: %s\n".formatted(
+        return outcome + "scale=%d: terminal %d/%d in %dms, peak HikariCP active=%s, GET /projects: %s\n".formatted(
                 scale, completionCount, scale, elapsed.toMillis(),
                 pool == null ? "n/a" : String.valueOf(peakActiveConnections.get()), webStats);
+        } finally {
+            sampling.set(false);
+            if (poolSampler != null) poolSampler.join(2000);
+            webProbe.join(11_000);
+        }
     }
 
     private static long percentile(List<Long> sorted, int pct) {

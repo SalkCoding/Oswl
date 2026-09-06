@@ -17,7 +17,6 @@ import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +44,7 @@ public class ScanIngestService {
     private final ScanComponentRepository         scanComponentRepository;
     private final DependencyPathRepository        dependencyPathRepository;
     private final LibraryRepository               libraryRepository;
+    private final com.salkcoding.oswl.repository.vulnerability.LibraryCatalogRepository libraryCatalogRepository;
     private final ProjectRepository               projectRepository;
     private final VulnerabilityEnrichmentService  enrichmentService;
     private final ProjectCliKeyPolicyService      projectCliKeyPolicyService;
@@ -223,52 +223,15 @@ public class ScanIngestService {
         return resolved;
     }
 
-    /**
-     * Inserts the missing Library rows in one saveAll(). When a concurrent ingest commits the same
-     * (name, version, ecosystem) first, the unique constraint violation is caught and each row goes
-     * through the original per-row save + re-read fallback, so the winner's row is reused (once)
-     * instead of failing the scan with a 500.
-     */
+    /** Native conflict handling leaves the surrounding scan transaction and JPA session usable. */
     private List<Library> createLibraries(Map<LibraryKey, ScanPayload.ComponentPayload> missingByKey) {
         List<Library> missing = missingByKey.entrySet().stream()
-                .map(e -> Library.builder()
-                        .name(e.getValue().getName())
-                        .version(e.getValue().getVersion())
-                        .ecosystem(e.getKey().ecosystem())
-                        .licenseStatus(LicenseStatus.UNKNOWN)
-                        .build())
+                .map(e -> Library.builder().name(e.getValue().getName()).version(e.getValue().getVersion())
+                        .ecosystem(e.getKey().ecosystem()).licenseStatus(LicenseStatus.UNKNOWN).build()).toList();
+        libraryCatalogRepository.ensurePresent(missing);
+        return libraryRepository.findByNameIn(missing.stream().map(Library::getName).distinct().toList()).stream()
+                .filter(library -> missingByKey.containsKey(new LibraryKey(library.getName(), library.getVersion(), library.getEcosystem())))
                 .toList();
-        try {
-            libraryRepository.saveAll(missing);
-            return missing;
-        } catch (DataIntegrityViolationException duplicate) {
-            List<Library> created = new ArrayList<>(missingByKey.size());
-            for (Map.Entry<LibraryKey, ScanPayload.ComponentPayload> e : missingByKey.entrySet()) {
-                created.add(createLibrary(e.getValue(), e.getKey().ecosystem()));
-            }
-            return created;
-        }
-    }
-
-    /**
-     * Inserts the Library row. When a concurrent ingest commits the same
-     * (name, version, ecosystem) first, the unique constraint violation is caught
-     * and the winner's row is re-read (once) instead of failing the scan with a 500.
-     * The IDENTITY key makes the INSERT execute (and fail) right at save().
-     */
-    private Library createLibrary(ScanPayload.ComponentPayload cp, String eco) {
-        try {
-            return libraryRepository.save(Library.builder()
-                    .name(cp.getName())
-                    .version(cp.getVersion())
-                    .ecosystem(eco)
-                    .licenseStatus(LicenseStatus.UNKNOWN)
-                    .build());
-        } catch (DataIntegrityViolationException duplicate) {
-            return libraryRepository
-                    .findByNameAndVersionAndEcosystem(cp.getName(), cp.getVersion(), eco)
-                    .orElseThrow(() -> duplicate);
-        }
     }
 
     /** Per-ecosystem ingest counter — one increment per ecosystem per scan, not per component. */

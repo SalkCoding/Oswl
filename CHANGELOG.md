@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **imports:** Concurrent creation of the same new library no longer reuses a failed JPA persistence context. A two-transaction regression and real clone/parse/ingest bursts completed 20/20, 50/50 and 100/100; delayed two-user admission/cancellation completed 7 and canceled 2 of 9 accepted jobs. Upstream outages and process restart remain unverified (roadmap 20).
 * **performance:** Archive paths are fetched/deleted by scan; snapshot uploads are staged and checksum-validated before a bounded atomic transaction, with 500-row flush/detach and keyset export. Tests cover ordered dependency paths, 5,000-row import, interruption/checksum/DB-failure rollback and temporary-file cleanup. Maximum payload/concurrent export budgets remain open (roadmap 19).
 * **performance:** Version Diff now reads coordinate/severity projections; Org Dashboard uses batch summaries and archived counters. Verified duplicate-component and archive equivalence, zero component/CVE graph loads, and 2/10/100-scan measurements (roadmap 18).
 

@@ -41,6 +41,7 @@ class ScanIngestServiceTest {
     @Mock ScanComponentRepository scanComponentRepository;
     @Mock DependencyPathRepository dependencyPathRepository;
     @Mock LibraryRepository libraryRepository;
+    @Mock com.salkcoding.oswl.repository.vulnerability.LibraryCatalogRepository libraryCatalogRepository;
     @Mock ProjectRepository projectRepository;
     @Mock VulnerabilityEnrichmentService enrichmentService;
     @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
@@ -136,8 +137,8 @@ class ScanIngestServiceTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findByProjectIdAndVersion(1L, "1.0")).thenReturn(Optional.empty());
         when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(libraryRepository.findByNameIn(any())).thenReturn(List.of());
-        when(libraryRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(libraryRepository.findByNameIn(any())).thenReturn(List.of(), List.of(
+                Library.builder().id(42L).name("newlib").version("1.0.0").ecosystem("NPM").build()));
         when(scanComponentRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
 
         ScanPayload.ComponentPayload compPayload = mock(ScanPayload.ComponentPayload.class);
@@ -152,7 +153,7 @@ class ScanIngestServiceTest {
 
         scanIngestService.ingest(1L, payload);
 
-        verify(libraryRepository).saveAll(any());
+        verify(libraryCatalogRepository).ensurePresent(any());
         verify(scanComponentRepository).saveAll(any());
     }
 
