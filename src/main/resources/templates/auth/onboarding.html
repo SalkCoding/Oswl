@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{onboarding.pageTitle})}"></head>
-<body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
+<body class="onboarding-page bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col">
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Onboarding')}"></header>
 
 <script th:inline="javascript">
     const _onbI18n = {
+        noRoles: /*[[#{onboarding.team.noRoles}]]*/ 'Create a role template in Settings, then retry.',
         connect:       /*[[#{onboarding.inline.connect}]]*/ 'Connect',
         connecting:    /*[[#{onboarding.inline.connecting}]]*/ 'Connecting…',
         save:          /*[[#{common.save}]]*/ 'Save',
@@ -101,7 +102,7 @@
         <div x-show="step === 1" class="flex flex-col gap-[16px]">
             <div class="flex items-center gap-[8px]">
                 <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step1.heading}">SSO & team access</h2>
-                <span x-show="done.teamReady" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                <span x-show="done.teamReady" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-700 font-semibold">
                     <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{onboarding.step.done}">Done</span>
                 </span>
             </div>
@@ -112,11 +113,34 @@
             </div>
         </div>
 
+        <form sec:authorize="hasRole('SYSTEM_ADMIN')" x-show="step === 1" x-data="inlineTeamInvite()"
+              @submit.prevent="invite()" class="flex flex-col gap-[12px]" data-dirty-scope="onboarding-team">
+            <h3 class="font-bold text-[16px]" th:text="#{onboarding.team.heading}">Add a teammate</h3>
+            <p class="text-[13px] text-[var(--grayscale-70)]" th:text="#{onboarding.team.help}">Create access with a temporary password. Share it securely; the user must change it on first login.</p>
+            <p role="alert" x-show="error" x-text="error" class="text-red-700 text-[13px]"></p>
+            <p role="status" x-show="success" x-cloak th:text="#{onboarding.team.success}">Account created.</p>
+            <button type="button" x-show="!loaded && !loading" @click="load()" class="underline p-2" th:text="#{common.retry}">Retry</button>
+            <fieldset :disabled="!loaded || saving" class="flex flex-col gap-[10px]">
+                <label for="onboarding-team-name" th:text="#{onboarding.team.name}">Name</label>
+                <input id="onboarding-team-name" x-model="name" required maxlength="100" autocomplete="off" class="border rounded p-2" />
+                <label for="onboarding-team-email" th:text="#{onboarding.team.email}">Email</label>
+                <input id="onboarding-team-email" x-model="email" required type="email" maxlength="254" autocomplete="off" class="border rounded p-2" />
+                <label for="onboarding-team-password" th:text="#{onboarding.team.password}">Temporary password</label>
+                <input id="onboarding-team-password" x-model="password" required type="password" minlength="8" maxlength="256" autocomplete="new-password" class="border rounded p-2" />
+                <label for="onboarding-team-role" th:text="#{onboarding.team.role}">Role template</label>
+                <select id="onboarding-team-role" x-model="selected" required class="border rounded p-2">
+                    <option value="" th:text="#{onboarding.team.selectRole}">Select a role template</option>
+                    <template x-for="role in roles" :key="role.id"><option :value="role.id" x-text="role.name"></option></template>
+                </select>
+                <button type="submit" class="rounded bg-[var(--primary-120)] text-white px-4 py-3" :disabled="!loaded || saving || !selected" th:text="#{onboarding.team.create}">Create account</button>
+            </fieldset>
+        </form>
+
         <!-- Step 2: connect a repository -->
         <div x-show="step === 2" class="flex flex-col gap-[16px]">
             <div class="flex items-center gap-[8px]">
                 <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step2.heading}">Connect a repository</h2>
-                <span x-show="done.repoConnected" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                <span x-show="done.repoConnected" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-700 font-semibold">
                     <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{onboarding.step.done}">Done</span>
                 </span>
             </div>
@@ -147,7 +171,7 @@
                 </div>
                 <div class="flex items-center gap-[10px]">
                     <button type="button" @click="connectVcs()" :disabled="vcsSaving"
-                            class="text-[13px] font-bold text-white bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[7px] rounded-[8px] disabled:opacity-50 transition-colors"
+                            class="text-[13px] font-bold text-white bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[14px] py-[7px] rounded-[8px] disabled:opacity-50 transition-colors"
                             x-text="vcsSaving ? _onbI18n.connecting : _onbI18n.connect">Connect</button>
                     <p x-show="vcsError" x-cloak x-text="vcsError" class="text-[12px] text-[var(--risk-critical)] m-0"></p>
                 </div>
@@ -172,7 +196,7 @@
         <div x-show="step === 4" class="flex flex-col gap-[16px]">
             <div class="flex items-center gap-[8px]">
                 <h2 class="font-bold text-[20px] text-black tracking-[-0.2px]" th:text="#{onboarding.step4.heading}">Notifications</h2>
-                <span x-show="done.notificationsReady" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
+                <span x-show="done.notificationsReady" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-700 font-semibold">
                     <span class="w-[5px] h-[5px] rounded-full bg-emerald-500 shrink-0"></span><span th:text="#{onboarding.step.done}">Done</span>
                 </span>
             </div>
@@ -198,7 +222,7 @@
                 </div>
                 <div class="flex items-center gap-[10px]">
                     <button type="button" @click="saveWebhook()" :disabled="hookSaving"
-                            class="text-[13px] font-bold text-white bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[7px] rounded-[8px] disabled:opacity-50 transition-colors"
+                            class="text-[13px] font-bold text-white bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[14px] py-[7px] rounded-[8px] disabled:opacity-50 transition-colors"
                             x-text="hookSaving ? _onbI18n.saving : _onbI18n.save">Save</button>
                     <p x-show="hookError" x-cloak x-text="hookError" class="text-[12px] text-[var(--risk-critical)] m-0"></p>
                 </div>
@@ -220,11 +244,11 @@
                         class="text-[13px] font-medium text-[var(--grayscale-70)] px-[14px] py-[8px] rounded-[8px] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)] transition-colors"
                         th:text="#{onboarding.btn.back}">Back</button>
                 <button type="button" x-show="step < total" @click="step++"
-                        class="text-[13px] font-bold text-white bg-[#00A093] hover:bg-[#008f83] px-[16px] py-[8px] rounded-[8px] transition-colors"
+                        class="text-[13px] font-bold text-white bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[16px] py-[8px] rounded-[8px] transition-colors"
                         th:text="#{onboarding.btn.next}">Next</button>
                 <form x-show="step === total" th:action="@{/onboarding/complete}" method="post">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                    <button type="submit" class="text-[13px] font-bold text-white bg-[#00A093] hover:bg-[#008f83] px-[16px] py-[8px] rounded-[8px] transition-colors" th:text="#{onboarding.btn.finish}">Finish</button>
+                    <button type="submit" class="text-[13px] font-bold text-white bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[16px] py-[8px] rounded-[8px] transition-colors" th:text="#{onboarding.btn.finish}">Finish</button>
                 </form>
             </div>
         </div>
@@ -233,5 +257,6 @@
 
 <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 
+<script th:src="@{/js/onboarding-team.min.js}"></script>
 </body>
 </html>
