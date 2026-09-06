@@ -55,7 +55,7 @@ jobs:
           java-version: '25'
           cache: gradle
       - name: Run browser checks
-        run: ./gradlew --no-daemon uiTest --tests '*SmokeUiTest' --tests '*KeyboardFlowUiTest' --tests '*AxeAuditUiTest'
+        run: ./gradlew --no-daemon uiTest --tests '*SmokeUiTest' --tests '*KeyboardFlowUiTest' --tests '*AxeAuditUiTest' --tests '*RequestLifecycleUiTest' --tests '*QuickImportSourceReachabilityUiTest'
       - name: Upload browser reports
         if: always()
         uses: actions/upload-artifact@v4
