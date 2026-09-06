@@ -18,6 +18,10 @@ def session_identity(status, body, expected_email):
     return (str(status) == "200" and expected_email in page.text
             and 'onboardingWizard(' in body and 'id="login-email"' not in body)
 
+def session_rejected(status):
+    # A server error or network failure is not evidence that logout invalidated a session.
+    return str(status) in {"302", "401", "403"}
+
 def scheduler_cycles(logs, period_seconds=20, minimum_cycles=2):
     cycles = {}
     marker = "[Monitor] Continuous monitoring cycle START"
@@ -46,6 +50,8 @@ def main():
     session.add_argument("status")
     session.add_argument("body", type=Path)
     session.add_argument("email")
+    rejected = commands.add_parser("rejected")
+    rejected.add_argument("status")
     scheduler = commands.add_parser("scheduler")
     scheduler.add_argument("log_a", type=Path)
     scheduler.add_argument("log_b", type=Path)
@@ -54,6 +60,10 @@ def main():
         if not session_identity(args.status, args.body.read_text(encoding="utf-8"), args.email):
             raise SystemExit("Expected authenticated onboarding identity; redirect/login/other user rejected")
         print("Authenticated onboarding identity matched")
+    elif args.command == "rejected":
+        if not session_rejected(args.status):
+            raise SystemExit("Expected authentication redirect/denial, not a server or transport error")
+        print("Protected request redirected or denied")
     else:
         try:
             cycles = scheduler_cycles({"A": args.log_a.read_text(encoding="utf-8"), "B": args.log_b.read_text(encoding="utf-8")})

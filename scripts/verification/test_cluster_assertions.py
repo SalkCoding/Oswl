@@ -1,5 +1,5 @@
 import unittest
-from cluster_assertions import session_identity, scheduler_cycles
+from cluster_assertions import session_identity, session_rejected, scheduler_cycles
 
 class ClusterAssertionsTest(unittest.TestCase):
     def test_redirect_and_login_are_not_authenticated(self):
@@ -8,6 +8,10 @@ class ClusterAssertionsTest(unittest.TestCase):
         self.assertFalse(session_identity(302, page, 'reader@example.test'))
         self.assertFalse(session_identity(200, '<input id="login-email">', 'reader@example.test'))
         self.assertFalse(session_identity(200, page, 'other@example.test'))
+        for status in (302, 401, 403):
+            self.assertTrue(session_rejected(status))
+        for status in (200, 500, 503, '000'):
+            self.assertFalse(session_rejected(status))
 
     def line(self, second):
         return f'2026-09-06 12:{second // 60:02d}:{second % 60:02d}.010 INFO [Monitor] Continuous monitoring cycle START'

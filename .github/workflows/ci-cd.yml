@@ -39,6 +39,11 @@ jobs:
       - name: Build, test, and verify production JAR
         run: ./gradlew --no-daemon clean test bootJar verifyProdJar
 
+      - name: Check cluster result predicates without starting servers
+        run: |
+          python3 -m unittest discover -s scripts/verification -p test_cluster_assertions.py
+          bash -n scripts/verification/verify-multi-instance.sh
+
       - name: Verify THIRD_PARTY_LICENSES.md version sync
         run: |
           ./gradlew --no-daemon syncThirdPartyLicenseVersions
@@ -55,7 +60,7 @@ jobs:
           java-version: '25'
           cache: gradle
       - name: Run browser checks
-        run: ./gradlew --no-daemon uiTest --tests '*SmokeUiTest' --tests '*KeyboardFlowUiTest' --tests '*AxeAuditUiTest' --tests '*RequestLifecycleUiTest' --tests '*QuickImportSourceReachabilityUiTest'
+        run: ./gradlew --no-daemon uiTest --tests '*SmokeUiTest' --tests '*KeyboardFlowUiTest' --tests '*AxeAuditUiTest' --tests '*RequestLifecycleUiTest' --tests '*QuickImportSourceReachabilityUiTest' --tests '*SettingsModulesUiTest' --tests '*SettingsFailureUiTest' --tests '*UiStateMatrixUiTest' --tests '*OnboardingFailureUiTest' --tests '*DetectionCoverageUiTest' --tests '*EmbeddedAiFailureUiTest'
       - name: Upload browser reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -160,10 +160,10 @@ else
 fi
 ANONYMOUS_BODY="$WORKDIR/anonymous.html"
 ANONYMOUS_STATUS=$(curl -s --ipv4 -o "$ANONYMOUS_BODY" -w '%{http_code}' "http://127.0.0.1:${PORT_B}/onboarding")
-if python3 scripts/verification/cluster_assertions.py session "$ANONYMOUS_STATUS" "$ANONYMOUS_BODY" "$EMAIL"; then
-  fail "Unauthenticated request incorrectly accepted as a shared session"
-else
+if python3 scripts/verification/cluster_assertions.py rejected "$ANONYMOUS_STATUS"; then
   pass "Unauthenticated request rejected by the identity assertion"
+else
+  fail "Unauthenticated request was not a valid redirect/denial"
 fi
 
 CSRF=$(grep -oE 'name="_csrf" value="[^"]+"' "$BODY_B" | head -1 | sed 's/.*value="//;s/"//')
@@ -172,10 +172,10 @@ LOGOUT_STATUS=$(curl -s --ipv4 -b "$JAR_A" -o /dev/null -w '%{http_code}' \
 [[ "$LOGOUT_STATUS" == "302" ]] || { fail "Logout was not accepted"; exit 1; }
 LOGGED_OUT_BODY="$WORKDIR/logged-out.html"
 LOGGED_OUT_STATUS=$(curl -s --ipv4 -b "$JAR_A" -o "$LOGGED_OUT_BODY" -w '%{http_code}' "http://127.0.0.1:${PORT_B}/onboarding")
-if python3 scripts/verification/cluster_assertions.py session "$LOGGED_OUT_STATUS" "$LOGGED_OUT_BODY" "$EMAIL"; then
-  fail "Logged-out cookie remained authenticated on instance B"
-else
+if python3 scripts/verification/cluster_assertions.py rejected "$LOGGED_OUT_STATUS"; then
   pass "Logged-out cookie rejected on instance B"
+else
+  fail "Logged-out cookie did not receive a valid redirect/denial on instance B"
 fi
 
 echo "== 6. Scheduler: wait ~100s (5 cron cycles at 20s) and check which instance ran the job =="
