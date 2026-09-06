@@ -3,9 +3,7 @@ package com.salkcoding.oswl.service.scan;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
-import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
-import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.dto.scan.ScanArchiveExportDto;
 import com.salkcoding.oswl.dto.scan.ScanArchiveResult;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
@@ -42,6 +40,7 @@ public class ScanArchivingService {
     private final ScanComponentRepository scanComponentRepository;
     private final DependencyPathRepository dependencyPathRepository;
     private final AuditLogService auditLogService;
+    private final ScanSummaryReader summaryReader;
 
     @Value("${oswl.archive.retain-scans-per-project:20}")
     private int defaultRetainCount;
@@ -111,13 +110,13 @@ public class ScanArchivingService {
     }
 
     private void archiveOneScan(ScanResult scan) {
-        List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
-        int[] security = aggregateSecurity(components);
-        int[] license = aggregateLicense(components);
-        scan.archive(components.size(), security, license);
+        List<Long> componentIds = scanComponentRepository.findIdsByScanResultId(scan.getId());
+        var summary = summaryReader.read(List.of(scan)).get(scan.getId());
+        int[] security = summary.security();
+        int[] license = summary.licenses();
+        scan.archive(componentIds.size(), security, license);
         scanResultRepository.save(scan);
 
-        List<Long> componentIds = scanComponentRepository.findIdsByScanResultId(scan.getId());
         if (!componentIds.isEmpty()) {
             dependencyPathRepository.deleteByScanComponentIdIn(componentIds);
         }
@@ -152,36 +151,4 @@ public class ScanArchivingService {
                 lib.getLicenseName(), cveDtos, dependencyPaths);
     }
 
-    private static int[] aggregateSecurity(List<ScanComponent> components) {
-        int critical = 0, high = 0, medium = 0, low = 0, unscored = 0;
-        for (ScanComponent comp : components) {
-            for (Cve cve : comp.getLibrary().getCves()) {
-                if (cve.getSeverity() == null) { unscored++; continue; }
-                switch (cve.getSeverity()) {
-                    case CRITICAL -> critical++;
-                    case HIGH -> high++;
-                    case MEDIUM -> medium++;
-                    case LOW -> low++;
-                    default -> unscored++;
-                }
-            }
-        }
-        return new int[]{critical, high, medium, low, unscored};
-    }
-
-    private static int[] aggregateLicense(List<ScanComponent> components) {
-        int critical = 0, high = 0, medium = 0, low = 0;
-        for (ScanComponent comp : components) {
-            Library lib = comp.getLibrary();
-            LicenseStatus status = lib.getLicenseStatus();
-            if (status == null) { medium++; continue; }
-            switch (status) {
-                case RESTRICTED -> critical++;
-                case CAUTION -> high++;
-                case UNKNOWN -> medium++;
-                default -> low++;
-            }
-        }
-        return new int[]{critical, high, medium, low};
-    }
 }

@@ -41,6 +41,7 @@
          append into this container via a plain fetch() instead of a full page reload or a
          client-side re-scan of every already-rendered row (the old rowVisible() approach, which
          required shipping and DOM-rendering every component up front). -->
+    <p th:if="${scanArchived == true}" class="p-4 text-sm" th:text="#{securityCenter.archivedSummary}"></p>
     <div id="component-rows-container" class="flex flex-col" th:insert="~{security-center/fragments/table :: rows}"></div>
 
     <!-- Pagination footer: count + "Load more". x-show'd on rowsLoaded so it doesn't flash

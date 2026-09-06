@@ -31,6 +31,7 @@ public class RiskTrendService {
     private final ProjectRepository    projectRepository;
     private final ScanResultRepository scanResultRepository;
     private final LibraryRepository    libraryRepository;
+    private final com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
 
     /**
      * @param scanId the scan the user selected in the version dropdown; null means "latest".
@@ -113,10 +114,10 @@ public class RiskTrendService {
         List<Integer> licUnknown     = new ArrayList<>();
         List<Integer> licPermitted   = new ArrayList<>();
 
+        var summaries = summaryReader.read(scansAsc);
         for (ScanResult scan : scansAsc) {
-            List<Library> libs = libraryRepository.findByScanResultIdWithCves(scan.getId());
-            int[] sec = aggregateSecurity(libs);
-            int[] lic = aggregateLicense(libs);
+            int[] sec = summaries.get(scan.getId()).security();
+            int[] lic = summaries.get(scan.getId()).licenses();
 
             versions.add(scan.getVersion() != null ? scan.getVersion() : "?");
             secCritical.add(sec[0]);
@@ -130,18 +131,17 @@ public class RiskTrendService {
             licPermitted.add(lic[3]);
         }
 
-        List<Library> latestLibs = libraryRepository.findByScanResultIdWithCves(latest.getId());
-        int[] latestSec = aggregateSecurity(latestLibs);
-        int[] latestLic = aggregateLicense(latestLibs);
+        int[] latestSec = summaries.get(latest.getId()).security();
+        int[] latestLic = summaries.get(latest.getId()).licenses();
         int currentSecIssues = latestSec[0] + latestSec[1] + latestSec[2] + latestSec[3] + latestSec[4];
         int currentLicIssues = latestLic[0] + latestLic[1] + latestLic[2] + latestLic[3];
 
         int secDelta = 0;
         int licDelta = 0;
         if (scansDesc.size() >= 2) {
-            List<Library> prevLibs = libraryRepository.findByScanResultIdWithCves(scansDesc.get(1).getId());
-            int[] prevSec = aggregateSecurity(prevLibs);
-            int[] prevLic = aggregateLicense(prevLibs);
+            var previous = summaries.get(scansDesc.get(1).getId());
+            int[] prevSec = previous.security();
+            int[] prevLic = previous.licenses();
             secDelta = currentSecIssues - (prevSec[0] + prevSec[1] + prevSec[2] + prevSec[3] + prevSec[4]);
             licDelta = currentLicIssues - (prevLic[0] + prevLic[1] + prevLic[2] + prevLic[3]);
         }
@@ -164,37 +164,6 @@ public class RiskTrendService {
         model.addAttribute("chartLicCaution",     licCaution);
         model.addAttribute("chartLicUnknown",     licUnknown);
         model.addAttribute("chartLicPermitted",   licPermitted);
-    }
-
-    private int[] aggregateSecurity(List<Library> libraries) {
-        int c = 0, h = 0, m = 0, l = 0, n = 0;
-        for (Library lib : libraries) {
-            for (var cve : lib.getCves()) {
-                if (cve.getSeverity() == null) continue;
-                switch (cve.getSeverity()) {
-                    case CRITICAL -> c++;
-                    case HIGH     -> h++;
-                    case MEDIUM   -> m++;
-                    case LOW      -> l++;
-                    case NONE     -> n++;
-                    default       -> {}
-                }
-            }
-        }
-        return new int[]{c, h, m, l, n};
-    }
-
-    private int[] aggregateLicense(List<Library> libraries) {
-        int c = 0, h = 0, u = 0, l = 0;
-        for (Library lib : libraries) {
-            switch (lib.getLicenseStatus()) {
-                case RESTRICTED -> c++;
-                case CAUTION      -> h++;
-                case UNKNOWN   -> u++;
-                default        -> l++;
-            }
-        }
-        return new int[]{c, h, u, l};
     }
 
     private void addEmptyChartData(Model model) {

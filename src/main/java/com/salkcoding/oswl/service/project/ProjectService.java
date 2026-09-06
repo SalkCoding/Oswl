@@ -45,6 +45,7 @@ public class ProjectService {
     private final CveAlertRepository cveAlertRepository;
     private final LibraryRepository libraryRepository;
     private final TeamService teamService;
+    private final com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
 
     @Transactional(readOnly = true)
     public List<ProjectSummaryDto> findAll() {
@@ -68,31 +69,14 @@ public class ProjectService {
             latestScanByProjectId.putIfAbsent(scan.getProject().getId(), scan);
         }
 
-        // For completed scans only: re-fetch with components+library eagerly joined, then batch
-        // the components' libraries' CVEs — replaces the per-scan components query, the
-        // per-component EAGER library query, and the per-library CVE query with three
-        // fixed-count queries total regardless of how many projects are on this page.
-        List<Long> completedScanIds = latestScanByProjectId.values().stream()
-                .filter(s -> s.getStatus() == ScanStatus.COMPLETED)
-                .map(ScanResult::getId)
-                .toList();
-        // A plain HashMap, not Map.of() — Map.of() throws on a null-key lookup, and
-        // ScanResult::getId can be null for entities Hibernate hasn't yet assigned an id to.
-        Map<Long, ScanResult> hydratedScansById = completedScanIds.isEmpty()
-                ? new HashMap<>()
-                : scanResultRepository.findByIdInWithComponentsAndLibrary(completedScanIds).stream()
-                        .collect(Collectors.toMap(ScanResult::getId, s -> s));
-        if (!completedScanIds.isEmpty()) {
-            // Populates the (already loaded, same persistence context) Library entities' cves
-            // collections; the return value itself isn't needed.
-            libraryRepository.findByScanResultIdInWithCves(completedScanIds);
-        }
+        var summaries = summaryReader.read(latestScanByProjectId.values().stream()
+                .filter(scan -> scan.getStatus() == ScanStatus.COMPLETED).toList());
 
         return projects.stream()
                 .map(p -> {
                     ScanResult latest = latestScanByProjectId.get(p.getId());
-                    ScanResult effective = latest != null ? hydratedScansById.getOrDefault(latest.getId(), latest) : null;
-                    return toSummary(p, effective, alertCounts.getOrDefault(p.getId(), 0L));
+                    return toSummary(p, latest, alertCounts.getOrDefault(p.getId(), 0L),
+                            latest == null ? null : summaries.get(latest.getId()));
                 })
                 .collect(Collectors.toList());
     }
@@ -287,7 +271,8 @@ public class ProjectService {
 
     private static final DateTimeFormatter IMPORT_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
-    private ProjectSummaryDto toSummary(Project project, ScanResult latestScan, long newCveAlerts) {
+    private ProjectSummaryDto toSummary(Project project, ScanResult latestScan, long newCveAlerts,
+            com.salkcoding.oswl.service.scan.ScanSummaryReader.Summary summary) {
         String importedAt = project.getImportedAt() != null
                 ? project.getImportedAt().format(IMPORT_FMT)
                 : null;
@@ -328,8 +313,8 @@ public class ProjectService {
 
         // For completed scans: aggregate full security/license data
         if (status == ScanStatus.COMPLETED) {
-            int[] sec = aggregateSecurity(latestScan);
-            int[] lic = aggregateLicense(latestScan);
+            int[] sec = summary.security();
+            int[] lic = summary.licenses();
             String lastScanned = latestScan.getScannedAt() != null
                     ? latestScan.getScannedAt().toLocalDate().toString().replace("-", ".")
                     : "-";
@@ -371,37 +356,6 @@ public class ProjectService {
                 .teamName(teamName)
                 .tags(tags)
                 .build();
-    }
-
-    private int[] aggregateSecurity(com.salkcoding.oswl.domain.entity.scan.ScanResult scan) {
-        int critical = 0, high = 0, medium = 0, low = 0, none = 0;
-        for (var comp : scan.getComponents()) {
-            for (var cve : comp.getLibrary().getCves()) {
-                if (cve.getSeverity() == null) continue;
-                switch (cve.getSeverity()) {
-                    case CRITICAL -> critical++;
-                    case HIGH     -> high++;
-                    case MEDIUM   -> medium++;
-                    case LOW      -> low++;
-                    case NONE     -> none++;
-                    default       -> {}
-                }
-            }
-        }
-        return new int[]{critical, high, medium, low, none};
-    }
-
-    private int[] aggregateLicense(com.salkcoding.oswl.domain.entity.scan.ScanResult scan) {
-        int critical = 0, high = 0, unknown = 0, low = 0;
-        for (var comp : scan.getComponents()) {
-            switch (comp.getLibrary().getLicenseStatus()) {
-                case RESTRICTED -> critical++;
-                case CAUTION      -> high++;
-                case UNKNOWN   -> unknown++;
-                default        -> low++;
-            }
-        }
-        return new int[]{critical, high, unknown, low};
     }
 
     @Transactional

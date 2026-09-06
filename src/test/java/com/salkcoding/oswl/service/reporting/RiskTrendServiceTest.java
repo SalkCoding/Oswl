@@ -39,6 +39,7 @@ class RiskTrendServiceTest {
     @Mock ScanResultRepository scanResultRepository;
     @Mock LibraryRepository    libraryRepository;
     @Mock AiAnalysisService    aiAnalysisService;
+    @Mock com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
 
     @InjectMocks
     RiskTrendService riskTrendService;
@@ -99,7 +100,8 @@ class RiskTrendServiceTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.findRecentCompleted(1L, 10)).thenReturn(List.of(scan));
         when(scanResultRepository.findCompletedByProjectId(1L)).thenReturn(List.of(scan));
-        when(libraryRepository.findByScanResultIdWithCves(10L)).thenReturn(List.of(lib));
+        when(summaryReader.read(org.mockito.ArgumentMatchers.anyList())).thenReturn(java.util.Map.of(10L,
+                new com.salkcoding.oswl.service.scan.ScanSummaryReader.Summary(new int[]{1,1,0,0,0}, new int[]{1,0,0,0})));
 
         Model model = new ConcurrentModel();
         riskTrendService.populateModel(1L, null, model);
@@ -144,8 +146,9 @@ class RiskTrendServiceTest {
         // findRecentCompleted returns newest first
         when(scanResultRepository.findRecentCompleted(1L, 10)).thenReturn(List.of(newer, older));
         when(scanResultRepository.findCompletedByProjectId(1L)).thenReturn(List.of(newer, older));
-        when(libraryRepository.findByScanResultIdWithCves(2L)).thenReturn(List.of(lib2)); // newer has 2 issues
-        when(libraryRepository.findByScanResultIdWithCves(1L)).thenReturn(List.of(lib1)); // older has 1 issue
+        when(summaryReader.read(org.mockito.ArgumentMatchers.anyList())).thenReturn(java.util.Map.of(
+                1L, new com.salkcoding.oswl.service.scan.ScanSummaryReader.Summary(new int[]{1,0,0,0,0}, new int[]{0,0,0,1}),
+                2L, new com.salkcoding.oswl.service.scan.ScanSummaryReader.Summary(new int[]{0,1,1,0,0}, new int[]{0,0,0,1})));
 
         Model model = new ConcurrentModel();
         riskTrendService.populateModel(1L, null, model);
