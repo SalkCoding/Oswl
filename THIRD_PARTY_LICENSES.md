@@ -835,3 +835,14 @@ Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thym
 
    END OF TERMS AND CONDITIONS
 ```
+
+## Additional rule and browser notification libraries
+
+Versions are resolved in the generated OSS manifest and displayed on `/oss-notices`.
+
+- **RE2/J**: BSD 3-Clause. [Upstream license/project](https://github.com/google/re2j/blob/re2j-1.8/LICENSE).
+- **web-push**: MIT. [Upstream license/project](https://github.com/web-push-libs/webpush-java).
+- **Bouncy Castle**: MIT. [Upstream license/project](https://www.bouncycastle.org/licence.html).
+- **jose4j**: Apache 2.0. [Upstream license/project](https://bitbucket.org/b_c/jose4j).
+
+RE2/J derives from the Go RE2 implementation, copyright 2009 The Go Authors. Bouncy Castle is copyright 2000–2026 The Legion of the Bouncy Castle Inc.; its license is interpreted as MIT by the publisher. The distributed dependency JARs retain their upstream notices.

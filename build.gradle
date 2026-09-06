@@ -535,9 +535,14 @@ ext.trackedOssCoordinates = [
 	springSaml2Provider    : 'org.springframework.security:spring-security-saml2-service-provider',
 	springSessionJdbc      : 'org.springframework.session:spring-session-jdbc',
 	shedlock               : 'net.javacrumbs.shedlock:shedlock-spring',
+	re2j                   : 'com.google.re2j:re2j',
+	webPush                : 'nl.martijndwars:web-push',
+	bouncyCastle           : 'org.bouncycastle:bcprov-jdk18on',
+	jose4j                 : 'org.bitbucket.b_c:jose4j',
 ]
 
 tasks.register('generateOssManifest') {
+	inputs.file('build.gradle')
 	description = 'Resolves runtime dependency versions and writes the single OSS version manifest ' +
 			'consumed by the /oss-notices page and the THIRD_PARTY_LICENSES.md sync task.'
 	group = 'documentation'
