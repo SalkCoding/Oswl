@@ -14,6 +14,20 @@ import java.util.Optional;
 import java.time.LocalDateTime;
 
 public interface ScanComponentRepository extends JpaRepository<ScanComponent, Long> {
+    interface SourceCandidate {
+        Long getId();
+        String getEcosystem();
+        String getName();
+    }
+
+    @Query("SELECT sc.id AS id, l.ecosystem AS ecosystem, l.name AS name FROM ScanComponent sc JOIN sc.library l WHERE sc.scanResult.id = :scanId AND UPPER(l.ecosystem) IN ('PYPI', 'NPM')")
+    List<SourceCandidate> findSourceCandidates(@Param("scanId") Long scanId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE ScanComponent sc SET sc.reachability = :reachability, sc.reachabilityEvidence = :evidence, sc.reachabilityAnalysis = :analysis WHERE sc.id = :id")
+    int updateSourceAnalysis(@Param("id") Long id,
+            @Param("reachability") com.salkcoding.oswl.domain.enums.Reachability reachability,
+            @Param("evidence") String evidence, @Param("analysis") String analysis);
 
     /**
      * All ScanComponents for a given scan, with library and its CVEs fetch-joined so the

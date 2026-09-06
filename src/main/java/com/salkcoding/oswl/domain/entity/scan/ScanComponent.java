@@ -129,6 +129,9 @@ public class ScanComponent {
     @Builder.Default
     private List<DependencyPath> dependencyPaths = new ArrayList<>();
 
+    @Column(name = "reachability_analysis", columnDefinition = "TEXT")
+    private String reachabilityAnalysis;
+
     // ── Mutation helpers ─────────────────────────────────────────
 
     public void markReviewed(boolean reviewed) {

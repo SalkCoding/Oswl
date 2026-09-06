@@ -119,6 +119,7 @@ public class QuickImportService {
     private final ScanTimingRecorder scanTimingRecorder;
     private final CloneCleanupService cloneCleanupService;
     private final com.salkcoding.oswl.service.secretscan.SecretIacScanService secretIacScanService;
+    private final com.salkcoding.oswl.service.reachability.SourceReachabilityService sourceReachabilityService;
     /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
     private final com.salkcoding.oswl.service.metrics.OswlMetrics oswlMetrics;
 
@@ -912,6 +913,10 @@ public class QuickImportService {
             // 6b. Secret / IaC misconfiguration scan — runs while the clone still exists,
             // best-effort only, never fails the import.
             secretIacScanService.scanAndPersist(cloneDir, scanResult.getId());
+
+            // Source references use available checkout files without executing repository code.
+            throwIfCanceled(jobId);
+            sourceReachabilityService.analyzeAndPersist(cloneDir, scanResult.getId());
 
             // 7. Wait for async enrichment (vulnerability analysis + AI) ──
             advanceJob(jobId, Phase.ENRICHING, project.getId(), project.getName(),
