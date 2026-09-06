@@ -14,6 +14,11 @@ const PROGRESS_DISMISS_MS = 2 * 60 * 1000;
 const COMPLETE_DISMISS_MS = 60 * 1000;
 const ETA_MAX_MS = 2 * 60 * 60 * 1000;
 const ETA_MIN_SAMPLE_MS = 5000;
+const SSE_HEARTBEAT_TIMEOUT_MS = 25 * 1000;
+const STATUS_POLL_BASE_MS = 2000;
+const STATUS_RETRY_MAX_MS = 30 * 1000;
+const SSE_RECONNECT_BASE_MS = 1500;
+const SSE_RECONNECT_MAX_MS = 30 * 1000;
 
 /** Bundle accessor: a missing key surfaces as the key name itself (see oswl-i18n.js). */
 function _qi(key) {
@@ -68,9 +73,38 @@ function quickImportPage() {
         /* ── Background scan watchers (one EventSource per project) ── */
         _scanWatchers: new Map(),
         _nowTickTimer: null,
+        _pageHideHandler: null,
 
 
         /* ─────────────────────────────────────────── */
+
+        init() {
+            this._pageHideHandler = () => this._disposeWatchers();
+            window.addEventListener('pagehide', this._pageHideHandler);
+        },
+
+        destroy() {
+            if (this._pageHideHandler) {
+                window.removeEventListener('pagehide', this._pageHideHandler);
+                this._pageHideHandler = null;
+            }
+            this._disposeWatchers();
+        },
+
+        _disposeWatchers() {
+            this._stopNowTickTimer();
+            this.activeJobs.forEach(job => {
+                this._clearProgressDismiss(job);
+                this._stopJobWatch(job);
+            });
+            this.completedResults.forEach(result => {
+                this._clearCompleteDismiss(result);
+                if (result._copyFeedbackTimer) clearTimeout(result._copyFeedbackTimer);
+                result._copyFeedbackTimer = null;
+            });
+            this._scanWatchers.forEach(watcher => watcher.close());
+            this._scanWatchers.clear();
+        },
 
         /** 1s heartbeat so elapsed/ETA texts on job cards re-render. Guarded so re-entry can't stack timers. */
         _ensureNowTickTimer() {
@@ -442,6 +476,13 @@ function quickImportPage() {
                     _eventSource: null,
                     _pollTimer: null,
                     _pollInFlight: false,
+                    _pollFailures: 0,
+                    _sseFailures: 0,
+                    _sseHeartbeatTimer: null,
+                    _sseReconnectTimer: null,
+                    _watchStopped: false,
+                    watchError: '',
+                    watchErrorKind: null,
                     _etaAnchorPct: null,
                     _etaAnchorAtEpochMs: null,
                     revealedApiToken: null,
@@ -455,62 +496,187 @@ function quickImportPage() {
         },
 
         _startJobWatch(tracker) {
-            // Poll immediately (pre–multi-job behavior); SSE is an optional fast path.
-            if (!tracker._pollTimer) {
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            tracker._watchStopped = false;
+            if (tracker._eventSource || tracker._sseReconnectTimer) return;
+            if (typeof EventSource === 'undefined') {
                 this._startPollingFallback(tracker);
+                return;
             }
-            if (tracker._eventSource || typeof EventSource === 'undefined') {
+            this._connectJobStream(tracker);
+        },
+
+        _connectJobStream(tracker) {
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            if (tracker._watchStopped || tracker._eventSource || this._isTerminalPhase(this._normalizePhase(tracker.phase))) {
                 return;
             }
             try {
                 const es = new EventSource('/api/quick-import/job/' + tracker.jobId + '/stream');
                 tracker._eventSource = es;
+                // Also covers a connection that neither opens nor reports an error promptly.
+                this._armSseHeartbeat(tracker);
+                es.onopen = () => {
+                    const current = this._findTracker(tracker.jobId);
+                    if (current && current._eventSource === es) this._markSseHealthy(current);
+                };
                 es.addEventListener('job-update', (e) => {
                     try {
+                        const current = this._findTracker(tracker.jobId);
+                        if (!current || current._eventSource !== es) return;
+                        this._markSseHealthy(current);
                         const job = this._normalizeJob(JSON.parse(e.data));
-                        this._applyJobUpdate(tracker, job);
+                        this._applyJobUpdate(current, job);
                     } catch (err) {
                         console.error('[QuickImport] SSE parse error:', err);
                     }
                 });
-                es.onerror = () => {
-                    es.close();
-                    // _syncTracker replaces activeJobs entries, so this closure's
-                    // tracker may be stale; clear the ref on the live tracker.
+                es.addEventListener('heartbeat', () => {
                     const current = this._findTracker(tracker.jobId);
-                    if (current) current._eventSource = null;
+                    if (current && current._eventSource === es) this._markSseHealthy(current);
+                });
+                es.onerror = () => {
+                    const current = this._findTracker(tracker.jobId);
+                    if (!current || current._eventSource !== es) return;
+                    this._closeJobStream(current);
+                    if (current._watchStopped) return;
+                    this._startPollingFallback(current);
+                    this._scheduleSseReconnect(current);
                 };
-            } catch (_) { /* polling already active */ }
+            } catch (err) {
+                console.error('[QuickImport] SSE connection failed:', err);
+                this._startPollingFallback(tracker);
+                this._scheduleSseReconnect(tracker);
+            }
+        },
+
+        _markSseHealthy(tracker) {
+            tracker._sseFailures = 0;
+            tracker._pollFailures = 0;
+            tracker.watchError = '';
+            tracker.watchErrorKind = null;
+            this._clearPollTimer(tracker);
+            this._clearSseReconnect(tracker);
+            this._armSseHeartbeat(tracker);
+        },
+
+        _armSseHeartbeat(tracker) {
+            this._clearSseHeartbeat(tracker);
+            tracker._sseHeartbeatTimer = setTimeout(() => {
+                const current = this._findTracker(tracker.jobId);
+                if (!current || current._watchStopped) return;
+                current._sseHeartbeatTimer = null;
+                this._closeJobStream(current);
+                current.watchError = _qi('statusUnavailable');
+                current.watchErrorKind = 'unavailable';
+                this._startPollingFallback(current);
+                this._scheduleSseReconnect(current);
+            }, SSE_HEARTBEAT_TIMEOUT_MS);
+        },
+
+        _scheduleSseReconnect(tracker) {
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            if (tracker._watchStopped || tracker._eventSource || tracker._sseReconnectTimer
+                    || typeof EventSource === 'undefined') return;
+            tracker._sseFailures = (tracker._sseFailures || 0) + 1;
+            const base = Math.min(
+                SSE_RECONNECT_MAX_MS,
+                SSE_RECONNECT_BASE_MS * (2 ** Math.min(tracker._sseFailures - 1, 5))
+            );
+            tracker._sseReconnectTimer = setTimeout(() => {
+                const current = this._findTracker(tracker.jobId);
+                if (!current) return;
+                current._sseReconnectTimer = null;
+                this._connectJobStream(current);
+            }, this._jitter(base));
         },
 
         _startPollingFallback(tracker) {
-            if (tracker._pollTimer) return;
-            tracker._pollInFlight = false;
-            const poll = () => this._pollJob(tracker);
-            poll();
-            tracker._pollTimer = setInterval(() => {
-                if (!tracker._pollInFlight) poll();
-            }, 1500);
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            if (tracker._watchStopped || tracker._eventSource || tracker._pollTimer || tracker._pollInFlight) return;
+            this._schedulePoll(tracker, 0);
+        },
+
+        _schedulePoll(tracker, delayMs) {
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            if (tracker._watchStopped || tracker._eventSource || tracker._pollTimer
+                    || this._isTerminalPhase(this._normalizePhase(tracker.phase))) return;
+            tracker._pollTimer = setTimeout(() => {
+                const current = this._findTracker(tracker.jobId);
+                if (!current) return;
+                current._pollTimer = null;
+                this._pollJob(current);
+            }, delayMs);
+        },
+
+        _jitter(delayMs) {
+            return Math.round(delayMs * (0.8 + Math.random() * 0.4));
+        },
+
+        _isAuthenticationResponse(res) {
+            if (res.status === 401 || res.status === 403) return true;
+            if (!res.redirected || !res.url) return false;
+            try { return new URL(res.url).pathname === '/login'; }
+            catch (_) { return false; }
+        },
+
+        _setWatchError(tracker, kind, messageKey) {
+            tracker.watchErrorKind = kind;
+            tracker.watchError = _qi(messageKey);
         },
 
         async _pollJob(tracker) {
-            if (tracker._pollInFlight) return;
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            if (tracker._watchStopped || tracker._eventSource || tracker._pollInFlight) return;
             tracker._pollInFlight = true;
             try {
                 const res = await fetch('/api/quick-import/job/' + tracker.jobId);
-                if (res.status === 404) {
-                    this._stopJobWatch(tracker);
-                    this._appendLogToJob(tracker, 'error', _qi('sessionExpired'));
+                if (this._isAuthenticationResponse(res)) {
+                    this._setWatchError(tracker, 'authentication', 'trackingUnauthorized');
+                    this._stopJobWatch(tracker, true, true);
                     return;
                 }
-                if (!res.ok) return;
+                if (res.status === 404) {
+                    this._setWatchError(tracker, 'missing', 'jobMissing');
+                    this._stopJobWatch(tracker, true, true);
+                    return;
+                }
+                if (!res.ok) {
+                    tracker._pollFailures = (tracker._pollFailures || 0) + 1;
+                    this._setWatchError(tracker, 'unavailable', 'statusUnavailable');
+                    this._schedulePoll(tracker, this._pollRetryDelay(tracker));
+                    this._scheduleSseReconnect(tracker);
+                    return;
+                }
                 const job = this._normalizeJob(await res.json());
+                tracker._pollFailures = 0;
+                tracker.watchError = '';
+                tracker.watchErrorKind = null;
                 this._applyJobUpdate(tracker, job);
+                const current = this._findTracker(tracker.jobId);
+                if (current && !this._isTerminalPhase(this._normalizePhase(current.phase))) {
+                    this._schedulePoll(current, this._jitter(STATUS_POLL_BASE_MS));
+                    this._scheduleSseReconnect(current);
+                }
             } catch (err) {
                 console.error('[QuickImport] Poll error:', err);
+                const current = this._findTracker(tracker.jobId) || tracker;
+                current._pollFailures = (current._pollFailures || 0) + 1;
+                this._setWatchError(current, 'unavailable', 'statusUnavailable');
+                this._schedulePoll(current, this._pollRetryDelay(current));
+                this._scheduleSseReconnect(current);
             } finally {
-                tracker._pollInFlight = false;
+                const current = this._findTracker(tracker.jobId) || tracker;
+                current._pollInFlight = false;
             }
+        },
+
+        _pollRetryDelay(tracker) {
+            const base = Math.min(
+                STATUS_RETRY_MAX_MS,
+                STATUS_POLL_BASE_MS * (2 ** Math.min(Math.max((tracker._pollFailures || 1) - 1, 0), 4))
+            );
+            return this._jitter(base);
         },
 
         _applyJobUpdate(tracker, job) {
@@ -733,14 +899,43 @@ function quickImportPage() {
             tracker.progressLog = [...tracker.progressLog, { status, text }];
         },
 
-        _stopJobWatch(tracker) {
+        _clearPollTimer(tracker) {
             if (tracker._pollTimer) {
-                clearInterval(tracker._pollTimer);
+                clearTimeout(tracker._pollTimer);
                 tracker._pollTimer = null;
             }
+        },
+
+        _clearSseHeartbeat(tracker) {
+            if (!tracker._sseHeartbeatTimer) return;
+            clearTimeout(tracker._sseHeartbeatTimer);
+            tracker._sseHeartbeatTimer = null;
+        },
+
+        _clearSseReconnect(tracker) {
+            if (!tracker._sseReconnectTimer) return;
+            clearTimeout(tracker._sseReconnectTimer);
+            tracker._sseReconnectTimer = null;
+        },
+
+        _closeJobStream(tracker) {
+            this._clearSseHeartbeat(tracker);
             if (tracker._eventSource) {
+                tracker._eventSource.onerror = null;
                 tracker._eventSource.close();
                 tracker._eventSource = null;
+            }
+        },
+
+        _stopJobWatch(tracker, permanent = true, preserveWatchError = false) {
+            tracker = this._findTracker(tracker.jobId) || tracker;
+            tracker._watchStopped = permanent;
+            this._clearPollTimer(tracker);
+            this._clearSseReconnect(tracker);
+            this._closeJobStream(tracker);
+            if (!preserveWatchError) {
+                tracker.watchError = '';
+                tracker.watchErrorKind = null;
             }
         },
 
@@ -915,13 +1110,17 @@ function quickImportPage() {
             try {
                 await navigator.clipboard.writeText(key);
                 const idx = this.completedResults.findIndex(r => r.jobId === result.jobId);
+                let visibleResult = result;
                 if (idx >= 0) {
-                    this.completedResults.splice(idx, 1, { ...result, keyCopied: true });
+                    visibleResult = { ...result, keyCopied: true };
+                    this.completedResults.splice(idx, 1, visibleResult);
                 }
-                setTimeout(() => {
+                visibleResult._copyFeedbackTimer = setTimeout(() => {
                     const i = this.completedResults.findIndex(r => r.jobId === result.jobId);
                     if (i >= 0) {
-                        this.completedResults.splice(i, 1, { ...this.completedResults[i], keyCopied: false });
+                        this.completedResults.splice(i, 1, {
+                            ...this.completedResults[i], keyCopied: false, _copyFeedbackTimer: null
+                        });
                     }
                 }, 2000);
             } catch (err) {

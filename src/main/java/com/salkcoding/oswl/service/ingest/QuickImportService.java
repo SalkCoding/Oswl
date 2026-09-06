@@ -1388,6 +1388,7 @@ public class QuickImportService {
     }
 
     public void maintainDurableJobs() {
+        sendStreamHeartbeats();
         if (durableJobs == null) return;
         for (String id : List.copyOf(jobs.keySet())) {
             QuickImportJobStatus cached = jobs.get(id);
@@ -1407,6 +1408,19 @@ public class QuickImportService {
             }
         }
         dispatchQueue();
+    }
+
+    /** Keeps healthy SSE connections distinguishable from stalled proxies without polling job state. */
+    private void sendStreamHeartbeats() {
+        for (var entry : jobEmitters.entrySet()) {
+            for (SseEmitter emitter : entry.getValue()) {
+                try {
+                    emitter.send(SseEmitter.event().name("heartbeat").data("ok"));
+                } catch (Exception e) {
+                    removeEmitter(entry.getKey(), emitter);
+                }
+            }
+        }
     }
 
     /** Retains active work; terminal snapshots expire relative to completion, not admission. */

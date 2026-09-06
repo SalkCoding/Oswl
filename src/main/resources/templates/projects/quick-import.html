@@ -317,6 +317,12 @@
                         <span><span th:text="#{quickImport.progress.elapsed}">Elapsed</span> <span x-text="elapsedText(job)"></span></span>
                         <span x-show="etaText(job)" x-cloak x-text="etaText(job)"></span>
                     </div>
+                    <p x-show="job.watchError" x-cloak role="status"
+                       class="m-0 rounded-[8px] border px-[10px] py-[8px] text-[12px] leading-[1.5]"
+                       :class="job.watchErrorKind === 'unavailable'
+                           ? 'border-amber-200 bg-amber-50 text-amber-800'
+                           : 'border-red-200 bg-red-50 text-red-700'"
+                       x-text="job.watchError"></p>
                     <!-- cache-hit badge (hidden on first scans with 0 hits) -->
                     <div x-show="cacheBadgeText(job)" x-cloak class="flex">
                         <span class="inline-flex items-center gap-[4px] text-[11px] font-medium text-[#00a093] rounded-full px-[8px] py-[2px]"
@@ -649,6 +655,9 @@
         invalidUrl:          /*[[#{quickImport.error.invalidUrl}]]*/ 'Please enter a valid URL.',
         urlProtocol:         /*[[#{quickImport.error.urlProtocol}]]*/ 'URL must use http:// or https://.',
         sessionExpired:      /*[[#{quickImport.error.sessionExpired}]]*/ 'Import session expired. The server may have been restarted — please try again.',
+        trackingUnauthorized: /*[[#{quickImport.status.trackingUnauthorized}]]*/ 'Import tracking stopped because your session expired or access changed. Sign in again to continue.',
+        jobMissing:          /*[[#{quickImport.status.jobMissing}]]*/ 'This import job is no longer available. Refresh the page or start a new import.',
+        statusUnavailable:   /*[[#{quickImport.status.unavailable}]]*/ 'Import status is temporarily unavailable. Retrying with a slower interval…',
         phaseQueued:         /*[[#{quickImport.phase.QUEUED}]]*/ 'Queued',
         queueNext:           /*[[#{quickImport.queue.next}]]*/ 'Starting soon (slot {0})\u2026',
         queueWaiting:        /*[[#{quickImport.queue.waiting}]]*/ 'Waiting in queue (#{0})\u2026',
