@@ -148,11 +148,23 @@
                  x-transition
                  style="display: none;"
                  class="absolute left-0 top-[36px] z-[9999] w-max min-w-[260px] max-w-[320px] rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
-                <template x-if="views.length === 0 && !savingView">
+                <template x-if="viewsLoading">
+                    <p class="text-[12px] text-[#849197] px-[10px] py-[8px]" th:text="#{securityCenter.views.loading}">Loading saved views…</p>
+                </template>
+                <template x-if="!viewsLoading && viewsError">
+                    <div class="flex flex-col gap-[8px] rounded-[8px] border border-red-200 bg-red-50 px-[10px] py-[9px]" role="alert">
+                        <p class="m-0 text-[12px] leading-[1.5] text-red-700" x-text="viewsError"></p>
+                        <button type="button" @click="loadViews()"
+                                class="self-start text-[12px] font-semibold text-red-700 underline underline-offset-2"
+                                th:text="#{common.retry}">Retry</button>
+                    </div>
+                </template>
+                <template x-if="!viewsLoading && !viewsError && views.length === 0 && !savingView">
                     <p class="text-[12px] text-[#849197] px-[10px] py-[8px]" th:text="#{securityCenter.views.empty}">No saved views yet.</p>
                 </template>
                 <template x-for="view in views" :key="view.id">
-                    <div class="flex items-center gap-[4px] rounded-[8px] px-[10px] py-[6px] hover:bg-[var(--grayscale-5)] transition-colors group">
+                    <div x-show="!viewsLoading && !viewsError"
+                         class="flex items-center gap-[4px] rounded-[8px] px-[10px] py-[6px] hover:bg-[var(--grayscale-5)] transition-colors group">
                         <button type="button" @click="applyView(view)" class="flex-1 min-w-0 text-left flex items-center gap-[6px]">
                             <span class="text-[13px] text-[var(--grayscale-100)] truncate" x-text="view.name"></span>
                             <span x-show="view.shared" class="shrink-0 text-[10px] px-[6px] py-[1px] rounded-full bg-[var(--primary-10)] text-[var(--primary-120)]" th:text="#{securityCenter.views.sharedBadge}">Shared</span>
@@ -166,14 +178,14 @@
                     </div>
                 </template>
 
-                <div class="my-[6px] border-t border-[var(--grayscale-20)]"></div>
+                <div x-show="!viewsLoading && !viewsError" class="my-[6px] border-t border-[var(--grayscale-20)]"></div>
 
-                <template x-if="!savingView">
+                <template x-if="!viewsLoading && !viewsError && !savingView">
                     <button type="button" @click="savingView = true"
                             class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--primary-120)] hover:bg-[var(--grayscale-5)] transition-colors"
                             th:text="#{securityCenter.views.save}">Save current view</button>
                 </template>
-                <template x-if="savingView">
+                <template x-if="!viewsLoading && !viewsError && savingView">
                     <div class="flex flex-col gap-[8px] px-[6px] py-[4px]">
                         <input type="text" x-model="newViewName" @keydown.enter="saveCurrentView()"
                                th:placeholder="#{securityCenter.views.namePlaceholder}"

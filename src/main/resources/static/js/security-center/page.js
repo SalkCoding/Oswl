@@ -46,10 +46,17 @@ function securityCenterPage() {
           currentPage: 0,
           rowsFetchToken: 0,
           views: [],
+          viewsLoading: true,
+          viewsError: null,
+          viewsRequestToken: 0,
           viewsOpen: false,
           savingView: false,
           newViewName: '',
           newViewShared: false,
+          _viewStateRevision: 0,
+          _pendingViewId: null,
+          _applyingView: false,
+          _searchDebounceTimer: null,
           scanStatus: window.securityCenterData.scanStatus,
           latestScanId: window.securityCenterData.latestScanId,
           currentScanId: window.securityCenterData.currentScanId,
@@ -331,12 +338,28 @@ function securityCenterPage() {
           },
           // ── Saved views ───────────────────────────────────────────────
           async loadViews() {
+              const token = ++this.viewsRequestToken;
               const projectId = document.body.dataset.projectId;
+              this.viewsLoading = true;
+              this.viewsError = null;
               try {
-                  const r = await fetch('/api/projects/' + projectId + '/saved-views', { headers: oswlJsonHeaders() });
-                  if (!r.ok) return;
-                  this.views = await r.json();
-              } catch (e) { /* leave the list empty */ }
+                  const views = await OswlHttp.json('/api/projects/' + projectId + '/saved-views', {
+                      headers: oswlJsonHeaders()
+                  });
+                  if (token !== this.viewsRequestToken) return false;
+                  this.views = Array.isArray(views) ? views : [];
+                  if (this._pendingViewId) {
+                      if (this._viewStateRevision === 0) this.applyViewFromUrl();
+                      this._pendingViewId = null;
+                  }
+                  return true;
+              } catch (e) {
+                  if (token !== this.viewsRequestToken) return false;
+                  this.viewsError = window.securityCenterData.i18n.viewsLoadFailed;
+                  return false;
+              } finally {
+                  if (token === this.viewsRequestToken) this.viewsLoading = false;
+              }
           },
           currentViewState() {
               return { filters: this.filters, sortMode: this.sortMode, searchQuery: this.searchQuery };
@@ -344,10 +367,26 @@ function securityCenterPage() {
           applyView(view) {
               let state;
               try { state = JSON.parse(view.filtersJson); } catch (e) { return; }
-              if (state.filters) this.filters = Object.assign({}, this.filters, state.filters);
-              if (state.sortMode) this.applySort(state.sortMode);
+              this._applyingView = true;
+              if (state.filters) {
+                  const nextFilters = { ...this.filters };
+                  for (const key of Object.keys(nextFilters)) {
+                      if (typeof state.filters[key] === 'boolean') nextFilters[key] = state.filters[key];
+                  }
+                  this.filters = nextFilters;
+              }
+              if (['risk', 'name', 'license'].includes(state.sortMode)) this.sortMode = state.sortMode;
               if (typeof state.searchQuery === 'string') this.searchQuery = state.searchQuery;
+              if (this._searchDebounceTimer) {
+                  clearTimeout(this._searchDebounceTimer);
+                  this._searchDebounceTimer = null;
+              }
+              this.clearSelected();
               this.viewsOpen = false;
+              this.$nextTick(() => {
+                  this._applyingView = false;
+                  this.refetchRows();
+              });
           },
           async saveCurrentView() {
               const name = this.newViewName.trim();
@@ -390,7 +429,8 @@ function securityCenterPage() {
               navigator.clipboard?.writeText(url.toString());
           },
           applyViewFromUrl() {
-              const viewId = new URLSearchParams(window.location.search).get('view');
+              const viewId = this._pendingViewId
+                  || new URLSearchParams(window.location.search).get('view');
               if (!viewId) return;
               const match = this.views.find(v => String(v.id) === viewId);
               if (match) this.applyView(match);
@@ -408,15 +448,25 @@ function securityCenterPage() {
               this.loadedComponentCount = document.querySelectorAll('.component-row').length;
               this.rowsLoaded = true;
 
-              this.$watch('filters', () => this.refetchRows());
-              this.$watch('sortMode', () => this.refetchRows());
-              let searchDebounce = null;
+              this._pendingViewId = new URLSearchParams(window.location.search).get('view');
+              const refetchForCriteriaChange = () => {
+                  if (this._applyingView) return;
+                  this._viewStateRevision++;
+                  this.refetchRows();
+              };
+              this.$watch('filters', refetchForCriteriaChange);
+              this.$watch('sortMode', refetchForCriteriaChange);
               this.$watch('searchQuery', () => {
-                  clearTimeout(searchDebounce);
-                  searchDebounce = setTimeout(() => this.refetchRows(), 300);
+                  if (this._applyingView) return;
+                  this._viewStateRevision++;
+                  clearTimeout(this._searchDebounceTimer);
+                  this._searchDebounceTimer = setTimeout(() => {
+                      this._searchDebounceTimer = null;
+                      this.refetchRows();
+                  }, 300);
               });
 
-              this.loadViews().then(() => this.applyViewFromUrl());
+              this.loadViews();
           }
       };
 }
