@@ -67,7 +67,7 @@ public class AiCallTrace {
 
     public void logAssistantMessage(Logger log, String providerTag, String operation,
                                     String content, Map<?, ?> message) {
-        if (!log.isDebugEnabled()) {
+        if (!log.isDebugEnabled() || !settings.isLogResponseExcerpt()) {
             return;
         }
         if (message != null) {
@@ -80,7 +80,7 @@ public class AiCallTrace {
                 }
             }
         }
-        if (settings.isLogResponseExcerpt() && content != null && !content.isBlank()) {
+        if (content != null && !content.isBlank()) {
             log.debug("[AI][{}] response excerpt ({}): {}", providerTag, operation, excerpt(content));
         }
     }

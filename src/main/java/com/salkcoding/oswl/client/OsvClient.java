@@ -164,8 +164,8 @@ public class OsvClient {
                 return Collections.nCopies(queries.size(), new OsvResult(List.of()));
             }
 
-            log.debug("[OsvClient] querybatch request size={} valid={} queries={}",
-                    queries.size(), validIndices.size(), queries);
+            log.debug("[OsvClient] querybatch request size={} valid={}",
+                    queries.size(), validIndices.size());
 
             Map<String, Object> response = restClient.post()
                     .uri("/v1/querybatch")
@@ -174,8 +174,6 @@ public class OsvClient {
                     .retrieve()
                     .body(Map.class);
             recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
-
-            log.debug("[OsvClient] querybatch response raw={}", response);
 
             if (response == null || !response.containsKey("results")) {
                 log.debug("[OsvClient] querybatch response is empty or missing the 'results' key");

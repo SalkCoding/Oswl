@@ -43,9 +43,9 @@ logging:
   level:
     root: INFO
     com.salkcoding.oswl: INFO
-    com.salkcoding.oswl.service.QuickImportService: DEBUG
-    com.salkcoding.oswl.service.ScanIngestService: INFO
-    com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
+    com.salkcoding.oswl.service.ingest.QuickImportService: DEBUG
+    com.salkcoding.oswl.service.ingest.ScanIngestService: DEBUG
+    com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService: DEBUG
     com.salkcoding.oswl.service.ai: DEBUG
     com.salkcoding.oswl.client: DEBUG
     com.salkcoding.oswl.auth.security: INFO
@@ -64,8 +64,10 @@ oswl:
   ai:
     debug:
       heartbeat-seconds: 10
-      log-prompt-excerpt: true
-      log-response-excerpt: true
+      # Keep request timing/heartbeat metadata at DEBUG without logging source-derived prompts,
+      # model reasoning, or response bodies. Developers can opt in explicitly when needed.
+      log-prompt-excerpt: ${OSWL_AI_DEBUG_LOG_PROMPT:false}
+      log-response-excerpt: ${OSWL_AI_DEBUG_LOG_RESPONSE:false}
   # encryption.key: set OSWL_ENCRYPTION_KEY in .env (see .env.example). No repo default.
   clone:
     temp-dir: ""
