@@ -93,9 +93,10 @@
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#956917" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span class="text-[11px] font-bold text-[#956917] tracking-[-0.11px]" th:text="#{componentDetail.typosquat.label}">Possible typosquat</span>
             </span>
-            <!-- Bytecode call-graph reachability — same colors/keys as the Security
-                 Center table badge, so the verdict reads identically in both places. -->
-            <span th:if="${ecosystem == 'MAVEN' or ecosystem == 'GRADLE'}"
+            <!-- Reachability (bytecode call-graph for Java, import-graph for Python/npm) — same
+                 colors/keys as the Security Center table badge, so the verdict reads identically
+                 in both places. -->
+            <span th:if="${ecosystem == 'MAVEN' or ecosystem == 'GRADLE' or ecosystem == 'PYPI' or ecosystem == 'NPM'}"
                   th:classappend="${reachability == 'REACHABLE'} ? 'bg-[rgba(51,209,183,0.14)] text-[#0d6a5b] border-[rgba(51,209,183,0.35)]' :
                                    (${reachability == 'NOT_REACHABLE'} ? 'bg-[rgba(94,107,112,0.1)] text-[#5e6b70] border-[rgba(94,107,112,0.2)]' :
                                    'bg-[rgba(245,189,38,0.14)] text-[#956917] border-[rgba(245,189,38,0.4)]')"
@@ -420,6 +421,13 @@
 
     <!-- Reachability evidence — only meaningful for a REACHABLE verdict, since
          NOT_REACHABLE/UNKNOWN have nothing to point to (absence of evidence, not evidence). -->
+    <p th:if="${reachabilityAnalysis != null}" class="text-sm text-[var(--grayscale-60)]"
+       th:text="#{componentDetail.sourceAnalysis}"></p>
+    <div th:if="${reachabilityAnalysis != null}" class="text-xs text-[var(--grayscale-60)] space-y-1">
+        <p th:text="${#messages.msg('componentDetail.sourceFiles', reachabilityAnalysis.language(), reachabilityAnalysis.fileCount())}"></p>
+        <p th:text="${reachabilityAnalysis.partial()} ? #{componentDetail.sourcePartial} : #{componentDetail.sourceSubset}"></p>
+        <p th:text="${#messages.msg('componentDetail.sourceReason.' + reachabilityAnalysis.reason())}"></p>
+    </div>
     <section th:if="${reachability == 'REACHABLE' and not #lists.isEmpty(reachabilityEvidence)}"
              class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
         <div class="flex items-center gap-[8px] mb-[14px]">

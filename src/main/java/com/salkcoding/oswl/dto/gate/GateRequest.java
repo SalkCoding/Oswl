@@ -22,8 +22,8 @@ public record GateRequest(
         Boolean failOnLicenseViolation,
         @Schema(description = "Consider only findings absent from the previous completed scan", example = "true")
         Boolean onlyNew,
-        @Schema(description = "Fail only on CVEs whose library is reachable per bytecode call-graph analysis " +
-                "(Java only; non-Java components and unanalyzed Java components are never blocking under this option)",
+        @Schema(description = "Opt-in CVE filter: evaluate libraries referenced by bytecode or supported source imports. " +
+                "UNKNOWN is excluded; static references do not prove runtime execution. Default false includes UNKNOWN.",
                 example = "false")
         Boolean onlyReachable,
         @Schema(description = "Fail on any CRITICAL/HIGH-severity secret finding", example = "false")

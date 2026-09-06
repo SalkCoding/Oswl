@@ -149,6 +149,8 @@ oswl:
     # mvnw/gradlew need the full source tree. Servers without partial-clone support fall back
     # to a full shallow clone automatically.
     sparse-enabled: ${OSWL_CLONE_SPARSE_ENABLED:true}
+    # Fetch source for reference analysis without authorizing repository build execution.
+    include-source: ${OSWL_CLONE_INCLUDE_SOURCE:false}
   quick-import:
     # When true, Quick Import may execute build tools from the cloned repository
     # (mvnw / gradlew / dotnet) for full transitive dependency resolution.

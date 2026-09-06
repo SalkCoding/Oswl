@@ -171,10 +171,9 @@ public class GatePolicyService {
                         "package confirmed malicious (OSV MAL- advisory)", isNew));
             }
 
-            // "Only reachable" is a noise-cut for CVE findings only (license violations don't
-            // depend on whether vulnerable code is called). Components never analyzed for
-            // reachability (non-Java, or Java without a configured bytecode root) stay UNKNOWN
-            // and are excluded here — this option is opt-in and Java-only by design.
+            // Opt-in reference filtering excludes UNKNOWN CVE findings; it is not a safety proof.
+            // Both bytecode references and supported source imports qualify. License/malware
+            // findings are independent of this filter. The default evaluates UNKNOWN as well.
             boolean reachabilityGatePasses = !onlyReachable || sc.getReachability() == Reachability.REACHABLE;
 
             if (reachabilityGatePasses) {
@@ -367,7 +366,7 @@ public class GatePolicyService {
         if (t.failOnEpss() != null) md.append(String.format(", EPSS ≥ %.2f", t.failOnEpss()));
         if (t.failOnLicenseViolation()) md.append(", license violations");
         if (t.failOnSecrets()) md.append(", secrets (CRITICAL/HIGH)");
-        if (onlyReachable) md.append(", reachable CVEs only (bytecode call-graph, Java)");
+        if (onlyReachable) md.append(", referenced libraries only (bytecode/source imports; UNKNOWN excluded, execution not proven)");
         md.append("\n\n");
 
         if (!violations.isEmpty()) {

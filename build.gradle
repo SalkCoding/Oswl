@@ -238,6 +238,8 @@ tasks.register('uiTest', Test) {
 	classpath = sourceSets.uiTest.runtimeClasspath
 	useJUnitPlatform()
 	shouldRunAfter test
+	// Isolated URL rewrites let pipeline fixtures use their loopback Git server.
+	environment 'GIT_CONFIG_GLOBAL', layout.buildDirectory.file('uitest/git-config').get().asFile.absolutePath
 }
 
 jacoco {

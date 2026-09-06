@@ -206,6 +206,7 @@ public class ComponentDetailService {
         // Reachability verdict + the evidence backing a REACHABLE one (one
         // "yourClass -> libraryClass" line per list entry; empty for NOT_REACHABLE/UNKNOWN).
         model.addAttribute("reachability", sc.getReachability() != null ? sc.getReachability().name() : "UNKNOWN");
+        model.addAttribute("reachabilityAnalysis", com.salkcoding.oswl.dto.scan.SourceAnalysisDetails.fromJson(sc.getReachabilityAnalysis()));
         model.addAttribute("reachabilityEvidence", sc.getReachabilityEvidence() != null
                 ? List.of(sc.getReachabilityEvidence().split("\n"))
                 : List.of());
