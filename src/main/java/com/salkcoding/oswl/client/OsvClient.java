@@ -285,8 +285,11 @@ public class OsvClient {
 
         // Extract the fixed version from affected[].ranges[].events[fixed]
         String fixVersion = null;
+        Set<String> fixedVersions = new LinkedHashSet<>();
+        int rangeCount = 0;
+        int introducedCount = 0;
+        boolean openEnded = false;
         Object affectedObj = vuln.get("affected");
-        outer:
         if (affectedObj instanceof List<?> affected) {
             for (Object aff : affected) {
                 if (!(aff instanceof Map<?, ?> affMap)) continue;
@@ -296,19 +299,29 @@ public class OsvClient {
                 if (!(rangesObj instanceof List<?> ranges)) continue;
                 for (Object range : ranges) {
                     if (!(range instanceof Map<?, ?> rangeMap)) continue;
+                    if ("GIT".equals(rangeMap.get("type"))) continue;
                     Object eventsObj = rangeMap.get("events");
                     if (!(eventsObj instanceof List<?> events)) continue;
+                    rangeCount++;
+                    boolean open = false;
                     for (Object event : events) {
                         if (!(event instanceof Map<?, ?> eventMap)) continue;
+                        if (eventMap.containsKey("introduced")) { introducedCount++; open = true; }
                         Object fixed = eventMap.get("fixed");
                         if (fixed instanceof String fs && !fs.isBlank()) {
-                            fixVersion = fs;
-                            break outer;
+                            fixedVersions.add(fs);
+                            open = false;
                         }
                     }
+                    openEnded |= open;
                 }
             }
         }
+
+        // Ecosystem-specific ordering is needed to choose among disjoint ranges. Never
+        // recommend an earlier fix when the advisory includes a later vulnerable interval.
+        if (rangeCount == 1 && introducedCount <= 1 && !openEnded && fixedVersions.size() == 1)
+            fixVersion = fixedVersions.iterator().next();
 
         Double score = null; String vector = null;
         if (vuln.get("severity") instanceof List<?> severities) {

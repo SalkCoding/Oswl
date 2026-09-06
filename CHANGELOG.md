@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Omit OSV fixed-version hints for ambiguous or open-ended affected ranges instead of recommending an older fix.
 - Serialized unknown-version library creation and browser push subscription limits, event deduplication and delivery claims across instances. Requires migration V35 on migrated databases.
 - Counted portfolio KEV findings by distinct CVE rows and kept duplicated occurrences open until all are addressed.
 - Preserved OSV advisory severity and CVSS through online detail lookup, offline enrichment and high-risk monitoring notifications.

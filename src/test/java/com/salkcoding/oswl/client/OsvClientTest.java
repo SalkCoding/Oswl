@@ -96,4 +96,20 @@ class OsvClientTest {
         assertThat(vuln.fixVersion()).isEqualTo("2");
     }
 
+    @Test void openEndedLaterRangeDoesNotRecommendAnOlderFix() {
+        var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","affected",List.of(Map.of(
+                "package",Map.of("name","target","ecosystem","npm"),
+                "ranges",List.of(Map.of("type","SEMVER","events",List.of(Map.of("introduced","0"),Map.of("fixed","1.0.0"),Map.of("introduced","2.0.0"))))))),
+                new OsvClient.OsvQuery("npm","target","2.1.0"));
+        assertThat(vuln.fixVersion()).isNull();
+    }
+
+    @Test void ambiguousAffectedRangesDoNotRecommendAnOlderFix() {
+        var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","affected",List.of(Map.of(
+                "package",Map.of("name","target","ecosystem","npm"),
+                "ranges",List.of(Map.of("type","SEMVER","events",List.of(Map.of("introduced","0"),Map.of("fixed","1.0.0"),Map.of("introduced","2.0.0"),Map.of("fixed","2.1.0"))))))),
+                new OsvClient.OsvQuery("npm","target","2.0.5"));
+        assertThat(vuln.fixVersion()).isNull();
+    }
+
 }
