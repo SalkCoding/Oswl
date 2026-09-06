@@ -24,8 +24,12 @@ public record GateResultDto(
         List<Violation> violations,
         String summary,
         String commentMarkdown,
-        GitHubResult github
+        GitHubResult github,
+        Coverage coverage
 ) {
+    /** Stored lookup evidence, not a guarantee of current upstream completeness or safety. */
+    public record Coverage(int totalComponents, long unanalysedComponents,
+                           boolean scanCompleted, boolean detailsAvailable, boolean complete) {}
     /** The gate thresholds that were applied (echoed for transparency in the comment). */
     public record Thresholds(
             String failOnSeverity,
@@ -37,7 +41,7 @@ public record GateResultDto(
 
     /** One reason the gate would fail (or a notable finding when the gate passes). */
     public record Violation(
-            String type,          // CVE | LICENSE | MALICIOUS | SECRET
+            String type,          // CVE | LICENSE | MALICIOUS | SECRET | COVERAGE
             String id,            // CVE/GHSA id, or license name
             String component,     // name@version
             String severity,      // CVE severity or LICENSE status

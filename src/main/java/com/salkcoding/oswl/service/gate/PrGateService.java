@@ -100,6 +100,6 @@ public class PrGateService {
                 result.passed(), result.exitCode(), result.projectName(), result.scanId(),
                 result.scanVersion(), result.baselineVersion(), result.onlyNew(), result.onlyReachable(),
                 result.thresholds(), result.evaluatedCount(), result.newVulnerabilityCount(),
-                result.violations(), result.summary(), result.commentMarkdown(), ghResult);
+                result.violations(), result.summary(), result.commentMarkdown(), ghResult, result.coverage());
     }
 }

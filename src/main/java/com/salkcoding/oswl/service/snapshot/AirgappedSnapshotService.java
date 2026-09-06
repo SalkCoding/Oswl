@@ -212,6 +212,11 @@ public class AirgappedSnapshotService {
 
     // ── Offline lookups (used by the client fallbacks) ───────────────────
 
+    @Transactional(readOnly = true)
+    public Set<String> findUnresolvedKeys(Collection<String> keys) {
+        return findPayloads(SOURCE_UNRESOLVED, keys).keySet();
+    }
+
     /** OSV vulns per component key; absent keys are unresolved, unlike a stored empty result. */
     @Transactional(readOnly = true)
     public Map<String, List<SnapshotVuln>> findOsvVulns(Collection<String> componentKeys) {
@@ -587,7 +592,8 @@ public class AirgappedSnapshotService {
             for (JsonNode v : node.path("vulns")) {
                 if (!v.isObject()) continue;
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
-                        text(v, "summary"), text(v, "fixVersion"), text(v, "cweId")));
+                        text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
+                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence")));
             }
             buffer.add(new ParsedLine(key, objectMapper.writeValueAsString(vulns), false));
         } catch (Exception e) {
@@ -773,6 +779,8 @@ public class AirgappedSnapshotService {
         int exportedLibraries = 0;
 
         StringBuilder osv = new StringBuilder();
+        StringBuilder unresolved = new StringBuilder();
+        int unresolvedRecords = 0;
         StringBuilder githubAdvisory = new StringBuilder();
         StringBuilder nvd = new StringBuilder();
         StringBuilder depsdev = new StringBuilder();
@@ -794,6 +802,9 @@ public class AirgappedSnapshotService {
                 String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
                 if (key == null) continue;
                 List<Cve> cves = lib.getCves();
+                if (!lib.isVulnerabilitiesAnalyzed()) {
+                    unresolvedRecords += appendVulnLines(unresolved, lib, List.of());
+                }
 
                 // Vulnerability records split by upstream source so the offline clients can each
                 // read the source they were built for. CVEs with no recorded source are treated as
@@ -808,13 +819,13 @@ public class AirgappedSnapshotService {
                     if (hasSources && srcs.contains(CveSource.GITHUB_ADVISORY)) ghCves.add(c);
                     if (hasSources && srcs.contains(CveSource.NVD)) nvdCves.add(c);
                 }
-                if (!osvCves.isEmpty()) {
+                if (!osvCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("OSV")))) {
                     osvRecords += appendVulnLines(osv, lib, osvCves);
                 }
-                if (!ghCves.isEmpty()) {
+                if (!ghCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("GITHUB_ADVISORY")))) {
                     githubAdvisoryRecords += appendVulnLines(githubAdvisory, lib, ghCves);
                 }
-                if (!nvdCves.isEmpty()) {
+                if (!nvdCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("NVD")))) {
                     nvdRecords += appendVulnLines(nvd, lib, nvdCves);
                 }
 
@@ -918,6 +929,7 @@ public class AirgappedSnapshotService {
         meta.put("builder", "oswl-airgapped-export");
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, SOURCE_OSV, osvRecords, asOf);
+        putSourceMeta(sources, SOURCE_UNRESOLVED, unresolvedRecords, asOf);
         putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, asOf);
         putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), asOf);
         putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, asOf);
@@ -926,6 +938,7 @@ public class AirgappedSnapshotService {
         putSourceMeta(sources, SOURCE_KEV, kev.size(), asOf);
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, osvRecords);
+        putFileMeta(files, "unresolved.jsonl", unresolved.toString(), unresolvedRecords);
         putFileMeta(files, "depsdev.jsonl", depsdevContent, versionRecords + advisories.size());
         putFileMeta(files, "github-advisory.jsonl", githubAdvisoryContent, githubAdvisoryRecords);
         putFileMeta(files, "nvd.jsonl", nvdContent, nvdRecords);
@@ -937,6 +950,7 @@ public class AirgappedSnapshotService {
             try (ZipOutputStream zos = new ZipOutputStream(baos, StandardCharsets.UTF_8)) {
                 writeZipEntry(zos, "meta.json", writeJson(meta));
                 writeZipEntry(zos, "osv.jsonl", osvContent);
+                writeZipEntry(zos, "unresolved.jsonl", unresolved.toString());
                 writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
                 writeZipEntry(zos, "github-advisory.jsonl", githubAdvisoryContent);
                 writeZipEntry(zos, "nvd.jsonl", nvdContent);

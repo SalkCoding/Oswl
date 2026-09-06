@@ -452,6 +452,14 @@
         </div>
 
         <div class="flex flex-col gap-[12px]">
+            <dl th:if="${vulnerabilityLookupOutcomes != null}" class="text-[13px] text-[var(--grayscale-80)]">
+                <dt class="font-bold" th:text="#{componentDetail.lookup.title}">Latest lookup status</dt>
+                <dd th:text="${vulnerabilityLookupAt}"></dd>
+                <th:block th:each="outcome : ${vulnerabilityLookupOutcomes}">
+                    <dt class="font-bold" th:text="${outcome.key}"></dt>
+                    <dd th:text="#{${'componentDetail.lookup.' + outcome.value}}"></dd>
+                </th:block>
+            </dl>
             <p th:if="${#lists.isEmpty(cves) and vulnerabilitiesAnalyzed}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]" th:text="#{componentDetail.cve.empty}">No security vulnerabilities detected for this component.</p>
             <p th:if="${#lists.isEmpty(cves) and !vulnerabilitiesAnalyzed}" class="text-[13px] text-[var(--grayscale-60)] py-[8px]" th:text="#{securityCenter.table.notAnalyzedTooltip}">Vulnerability analysis is unavailable.</p>
             <div th:each="cve, it : ${cves}"

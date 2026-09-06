@@ -40,6 +40,7 @@ public class GitHubAdvisoryClient {
     private static final String QUERY = """
             query($ecosystem: SecurityAdvisoryEcosystem, $package: SecurityAdvisoryPackageName, $first: Int!) {
               securityVulnerabilities(ecosystem: $ecosystem, package: $package, first: $first) {
+                pageInfo { hasNextPage }
                 nodes {
                   advisory {
                     identifiers { type value }
@@ -109,9 +110,13 @@ public class GitHubAdvisoryClient {
     public record GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
                                   Double cvssScore, String cvss3Vector, String fixVersion) {}
 
+    public boolean canLookup(String ecosystem) {
+        return !airgapped && token != null && !token.isBlank() && toGitHubEcosystem(ecosystem) != null;
+    }
+
     /**
      * Looks up advisories for a single package/version. Returns an empty list when the ecosystem
-     * is not supported by GitHub Advisory, the client is air-gapped, or the call fails.
+     * is not supported by GitHub Advisory or the client is air-gapped. Failed requests throw.
      */
     public List<GitHubAdvisory> findByPackage(String ecosystem, String name, String version) {
         if (airgapped) {
@@ -133,7 +138,7 @@ public class GitHubAdvisoryClient {
         } catch (Exception e) {
             recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.warn("[GitHubAdvisory] Lookup failed for {}:{} — {}", name, version, e.getMessage());
-            return List.of();
+            throw new IllegalStateException("GitHub Advisory lookup unavailable", e);
         }
     }
 
@@ -153,7 +158,7 @@ public class GitHubAdvisoryClient {
 
     /**
      * Offline path: looks up GitHub Advisory-derived CVEs by component key.
-     * Returns a map keyed by the input component keys; absent keys mean "no known vulnerabilities".
+     * Returns stored results only; absent keys have no completed lookup evidence.
      */
     public Map<String, List<GitHubAdvisory>> findByComponentKeys(Collection<String> componentKeys) {
         if (!airgapped || componentKeys == null || componentKeys.isEmpty()) {
@@ -165,7 +170,7 @@ public class GitHubAdvisoryClient {
         for (String key : componentKeys) {
             List<AirgappedSnapshotService.SnapshotVuln> vulns = found.get(key);
             if (vulns == null) {
-                result.put(key, List.of());
+                continue;
             } else {
                 result.put(key, vulns.stream()
                         .map(v -> new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(),
@@ -194,22 +199,24 @@ public class GitHubAdvisoryClient {
                 .retrieve()
                 .body(Map.class);
 
-        if (response == null) return List.of();
+        if (response == null) throw new IllegalStateException("Empty GraphQL response");
         Object errors = response.get("errors");
         if (errors instanceof List<?> errorList && !errorList.isEmpty()) {
-            log.warn("[GitHubAdvisory] GraphQL errors: {}", errorList.get(0));
-            return List.of();
+            throw new IllegalStateException("GraphQL response contains errors");
         }
         Object data = response.get("data");
-        if (!(data instanceof Map<?, ?> dataMap)) return List.of();
+        if (!(data instanceof Map<?, ?> dataMap)) throw new IllegalStateException("Missing GraphQL data");
         Object sv = dataMap.get("securityVulnerabilities");
-        if (!(sv instanceof Map<?, ?> svMap)) return List.of();
+        if (!(sv instanceof Map<?, ?> svMap)) throw new IllegalStateException("Missing vulnerability connection");
+        if (svMap.get("pageInfo") instanceof Map<?, ?> pageInfo && Boolean.TRUE.equals(pageInfo.get("hasNextPage")))
+            throw new IllegalStateException("Incomplete advisory pagination");
         Object nodes = svMap.get("nodes");
-        if (!(nodes instanceof List<?> nodeList)) return List.of();
+        if (!(nodes instanceof List<?> nodeList)) throw new IllegalStateException("Missing advisory nodes");
 
         List<GitHubAdvisory> result = new ArrayList<>();
         for (Object nodeObj : nodeList) {
-            if (!(nodeObj instanceof Map<?, ?> node)) continue;
+            if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
+                throw new IllegalStateException("Malformed advisory node");
             String range = (String) node.get("vulnerableVersionRange");
             if (!isVersionAffected(version, range)) continue;
             result.add(parseAdvisoryNode(node));

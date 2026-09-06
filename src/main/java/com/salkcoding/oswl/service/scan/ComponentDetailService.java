@@ -182,7 +182,9 @@ public class ComponentDetailService {
         model.addAttribute("componentId", componentId);
 
         model.addAttribute("componentName", lib.getName());
-        model.addAttribute("vulnerabilitiesAnalyzed", lib.getFetchedAt() != null);
+        model.addAttribute("vulnerabilitiesAnalyzed", lib.isVulnerabilitiesAnalyzed());
+        model.addAttribute("vulnerabilityLookupOutcomes", lib.getVulnerabilityLookupOutcomes());
+        model.addAttribute("vulnerabilityLookupAt", lib.getVulnerabilityLookupAt());
         model.addAttribute("componentVersion", lib.getVersion() != null ? lib.getVersion() : "-");
         model.addAttribute("reviewed", sc.isReviewed());
         model.addAttribute("patchability", patchabilityLabel(lib.computePatchability()));

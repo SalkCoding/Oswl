@@ -124,6 +124,7 @@ public class OsvClient {
             if (key != null) distinctKeys.add(key);
         }
         Map<String, List<SnapshotVuln>> found = snapshotService.findOsvVulns(distinctKeys);
+        Set<String> unresolved = snapshotService.findUnresolvedKeys(distinctKeys);
 
         List<OsvResult> results = new ArrayList<>(queries.size());
         int hits = 0;
@@ -135,7 +136,7 @@ public class OsvClient {
                 hits++;
                 results.add(new OsvResult(vulns.stream()
                         .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId()))
-                        .toList()));
+                        .toList(), !unresolved.contains(key)));
             }
         }
         log.debug("[OsvClient] air-gapped querybatch size={} snapshotHits={} totalVulns={}",
@@ -145,6 +146,10 @@ public class OsvClient {
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
+
+    public Set<String> findUnresolvedComponentKeys(java.util.Collection<String> keys) {
+        return airgapped ? snapshotService.findUnresolvedKeys(keys) : Set.of();
+    }
 
     @SuppressWarnings("unchecked")
     private List<OsvResult> doQueryBatch(List<OsvQuery> queries) {

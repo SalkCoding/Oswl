@@ -14,6 +14,8 @@ import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.dto.gate.GateResultDto;
 import com.salkcoding.oswl.dto.gate.GateResultDto.Thresholds;
 import com.salkcoding.oswl.dto.gate.GateResultDto.Violation;
+import com.salkcoding.oswl.dto.gate.GateResultDto.Coverage;
+import com.salkcoding.oswl.domain.enums.ScanStatus;
 import com.salkcoding.oswl.exception.ConflictException;
 import com.salkcoding.oswl.domain.entity.scan.ScanFinding;
 import com.salkcoding.oswl.domain.enums.ScanFindingType;
@@ -149,6 +151,17 @@ public class GatePolicyService {
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
 
         List<Violation> violations = new ArrayList<>();
+        long unanalysed = components.stream().filter(c -> !c.getLibrary().isVulnerabilitiesAnalyzed()).count();
+        boolean scanCompleted = scan.getStatus() == ScanStatus.COMPLETED;
+        boolean detailsAvailable = !scan.isArchived();
+        Coverage coverage = new Coverage(components.size(), unanalysed, scanCompleted, detailsAvailable,
+                scanCompleted && detailsAvailable && unanalysed == 0);
+        if (!coverage.complete()) {
+            violations.add(new Violation("COVERAGE", "INCOMPLETE_ANALYSIS", "scan", "UNKNOWN", null, false,
+                    "Cannot establish complete stored lookup coverage: scanCompleted=" + scanCompleted
+                            + ", detailsAvailable=" + detailsAvailable + ", unanalysedComponents=" + unanalysed,
+                    false));
+        }
         int evaluated = 0;
         int newVulnCount = 0;
 
@@ -265,7 +278,7 @@ public class GatePolicyService {
                 passed, passed ? 0 : 1,
                 project.getName(), scan.getId(), scanVersion, baselineVersion,
                 onlyNew, onlyReachable, thresholds, evaluated, newVulnCount, violations,
-                summary, comment, null);
+                summary, comment, null, coverage);
     }
 
     // ── Baseline key collection ──────────────────────────────────────────
@@ -323,6 +336,7 @@ public class GatePolicyService {
     // ── Formatting ───────────────────────────────────────────────────────
 
     private static int violationRank(Violation v) {
+        if ("COVERAGE".equals(v.type())) return -2;
         if ("MALICIOUS".equals(v.type())) return -1;
         if ("SECRET".equals(v.type())) return 0;
         if ("LICENSE".equals(v.type())) return 5;
@@ -347,7 +361,9 @@ public class GatePolicyService {
         long sec = violations.stream().filter(v -> "SECRET".equals(v.type())).count();
         String malPart = mal > 0 ? mal + " confirmed-malicious package(s), " : "";
         String secPart = sec > 0 ? sec + " secret finding(s), " : "";
-        return "Security gate failed — " + malPart + secPart + cve + " vulnerability finding(s) and "
+        String coveragePart = violations.stream().anyMatch(v -> "COVERAGE".equals(v.type()))
+                ? "incomplete analysis coverage, " : "";
+        return "Security gate failed — " + coveragePart + malPart + secPart + cve + " vulnerability finding(s) and "
                 + lic + " license violation(s) breach the policy.";
     }
 

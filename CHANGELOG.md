@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Persist vulnerability lookup outcomes and block CI gates when analysis coverage is incomplete; retain unresolved snapshot evidence and NVD CVSS v4 metrics. Backend regression: 971 tests, 0 failures/errors, 8 opt-in skips; detection/auth browser scenarios: 4 passed.
 * **verification:** Recorded UI/operations evidence and narrowed remaining roadmap work. Backend suite: 963 tests, 956 passed, 7 optional skips; subsequent OSV/enrichment: 37 passed; browser: 16 plus 1 AI scenario passed; cluster predicates: 4 passed. Added browser and pure cluster checks to CI without running remote jobs. Real providers, PostgreSQL/LB, devices, model startup and unexecuted state combinations remain explicit in [the report](docs/ko/Ui-Operations-Verification.md).
 * **detection:** OSV transport failures, invalid/partial responses and absent offline data remain unresolved; they no longer create a successful fetch timestamp. Component detail distinguishes unanalysed data from zero findings in all three languages. Real parse/ingest/enrich/browser/gate fixtures cover malicious, clean, unsupported and unavailable results. Gate completeness policy and live-source coverage remain open (roadmap 27).
 * **embedded AI:** Publish background download errors, clear them on retry, bound download bytes and serialize admission; interruption stops fallback and removes partial output. Five local HTTP/checksum/concurrency tests and a browser failure/retry test pass while preserving existing models. Actual GGUF download/startup remains unverified (roadmap 26).

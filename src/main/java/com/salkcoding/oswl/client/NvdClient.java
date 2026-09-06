@@ -81,7 +81,7 @@ public class NvdClient {
 
     /**
      * Queries live NVD by exact CPE name. Returns an empty list when the CPE is blank,
-     * the client is air-gapped, or the request fails.
+     * or the client is air-gapped. Failed/malformed lookups throw so callers retain incomplete coverage.
      */
     public List<NvdCve> findByCpeName(String cpeName, MatchConfidence confidence) {
         if (airgapped || cpeName == null || cpeName.isBlank()) {
@@ -92,9 +92,11 @@ public class NvdClient {
             return parseBody(doRequest(url), confidence);
         } catch (Exception e) {
             log.warn("[NVD] CPE lookup failed for {}: {}", cpeName, e.getMessage());
-            return List.of();
+            throw new IllegalStateException("NVD lookup unavailable", e);
         }
     }
+
+    public boolean isAirgapped() { return airgapped; }
 
     /**
      * Offline path: looks up NVD-derived CVEs by component key.
@@ -110,7 +112,7 @@ public class NvdClient {
         for (String key : componentKeys) {
             List<AirgappedSnapshotService.SnapshotVuln> vulns = found.get(key);
             if (vulns == null) {
-                result.put(key, List.of());
+                continue;
             } else {
                 result.put(key, vulns.stream()
                         .map(v -> new NvdCve(v.cveId(), v.summary(),
@@ -188,16 +190,18 @@ public class NvdClient {
 
     @SuppressWarnings("unchecked")
     private List<NvdCve> parseBody(Map<String, Object> body, MatchConfidence confidence) {
-        if (body == null) return List.of();
+        if (body == null) throw new IllegalArgumentException("Missing NVD response");
         Object vulns = body.get("vulnerabilities");
-        if (!(vulns instanceof List<?> list)) return List.of();
+        if (!(vulns instanceof List<?> list)) throw new IllegalArgumentException("Missing NVD vulnerabilities");
+        if (body.get("totalResults") instanceof Number total && total.longValue() > list.size())
+            throw new IllegalArgumentException("NVD response requires additional pages");
         List<NvdCve> result = new ArrayList<>();
         for (Object item : list) {
-            if (!(item instanceof Map<?, ?> v)) continue;
+            if (!(item instanceof Map<?, ?> v)) throw new IllegalArgumentException("Invalid NVD item");
             Map<String, Object> cve = (Map<String, Object>) v.get("cve");
-            if (cve == null) continue;
+            if (cve == null) throw new IllegalArgumentException("Missing NVD CVE");
             String id = (String) cve.get("id");
-            if (id == null) continue;
+            if (id == null) throw new IllegalArgumentException("Missing NVD identifier");
             Cvss cvss = extractCvss(cve);
             result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence));
         }
@@ -221,7 +225,9 @@ public class NvdClient {
     private static Cvss extractCvss(Map<String, Object> cve) {
         Object metrics = cve.get("metrics");
         if (!(metrics instanceof Map<?, ?> m)) return Cvss.empty();
-        Cvss cvss = fromMetricArray(m.get("cvssMetricV31"));
+        Cvss cvss = fromMetricArray(m.get("cvssMetricV40"));
+        if (cvss != null) return cvss;
+        cvss = fromMetricArray(m.get("cvssMetricV31"));
         if (cvss != null) return cvss;
         cvss = fromMetricArray(m.get("cvssMetricV30"));
         return cvss != null ? cvss : Cvss.empty();

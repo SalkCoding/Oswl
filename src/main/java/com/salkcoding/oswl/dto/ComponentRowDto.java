@@ -57,6 +57,11 @@ public class ComponentRowDto {
             + "(e.g. its ecosystem has no OSV mapping) — zero CVEs then means 'not analyzed', not 'clean'", example = "true")
     private final boolean vulnerabilitiesAnalyzed;
 
+    @Schema(description = "Latest attempted lookup result per source: RESOLVED, UNAVAILABLE, UNSUPPORTED or NOT_CONFIGURED; null for legacy cache")
+    private final java.util.Map<String, String> vulnerabilityLookupOutcomes;
+
+    private final java.time.LocalDateTime vulnerabilityLookupAt;
+
     @Schema(description = "Patchability status", example = "patchable", allowableValues = {"patchable", "non-patchable", "unknown"})
     private final String patchability;
 

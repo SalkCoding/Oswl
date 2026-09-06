@@ -70,7 +70,8 @@ class DetectionCoverageUiTest extends UiTestBase {
             assertThat(status).isEqualTo(ScanStatus.COMPLETED);
             var component = components.findByScanResultId(scanId).getFirst();
             var result = gate.evaluate(project.getId(), GatePolicyService.GateOptions.defaults());
-            assertThat(result.passed()).isEqualTo(!scenario.equals("malicious"));
+            assertThat(result.passed()).isEqualTo(scenario.equals("clean"));
+            assertThat(result.coverage().complete()).isEqualTo(scenario.equals("clean") || scenario.equals("malicious"));
             page.navigate(url("/projects/" + project.getId() + "/security-center?lang=en"));
             if (scenario.equals("unsupported") || scenario.equals("unavailable")) {
                 assertThat(component.getLibrary().getFetchedAt()).isNull();

@@ -56,7 +56,7 @@ final class NvdSource {
                         vulns.add(toSnapshotVuln(nvd));
                     }
                 }
-                if (!vulns.isEmpty()) {
+                if (!candidates.isEmpty()) {
                     result.put(key, vulns);
                 }
             } catch (Exception e) {
@@ -64,7 +64,7 @@ final class NvdSource {
                         + ": " + e.getMessage());
             }
         }
-        System.err.println("[oswl-vdb] nvd: " + result.size() + " component(s) with CVEs");
+        System.err.println("[oswl-vdb] nvd: " + result.size() + " component(s) with completed queries");
         return new Result(result);
     }
 
