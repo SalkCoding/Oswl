@@ -64,6 +64,8 @@ class ProjectServiceTest {
     @Mock
     TeamService teamService;
 
+    @Mock com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
+
     @InjectMocks
     ProjectService projectService;
 
@@ -79,17 +81,13 @@ class ProjectServiceTest {
         when(cveAlertRepository.countUnacknowledgedByProjectIds(ids)).thenReturn(List.of());
     }
 
-    /**
-     * Stubs the batched scan lookups findAll() now uses in place of the old per-project
-     * findLatestByProjectId(Long) call. findByIdInWithComponentsAndLibrary is only stubbed for
-     * COMPLETED scans, matching the production code's own skip-if-empty short circuit.
-     */
-    private void stubLatestScan(ScanResult scan) {
+    private void stubLatestScan(ScanResult scan, int[]... counts) {
         when(scanResultRepository.findLatestByProjectIds(anyCollection()))
                 .thenReturn(scan == null ? List.of() : List.of(scan));
         if (scan != null && scan.getStatus() == ScanStatus.COMPLETED) {
-            when(scanResultRepository.findByIdInWithComponentsAndLibrary(anyCollection()))
-                    .thenReturn(List.of(scan));
+            when(summaryReader.read(org.mockito.ArgumentMatchers.anyList())).thenReturn(java.util.Map.of(scan.getId(),
+                    new com.salkcoding.oswl.service.scan.ScanSummaryReader.Summary(
+                            counts.length > 0 ? counts[0] : new int[5], counts.length > 1 ? counts[1] : new int[4])));
         }
     }
 
@@ -140,14 +138,14 @@ class ProjectServiceTest {
                 .scanResult(null).library(lib)
                 .build();
 
-        ScanResult scan = ScanResult.builder()
+        ScanResult scan = ScanResult.builder().id(10L)
                 .project(project).version("1.0.0").status(ScanStatus.COMPLETED)
                 .components(List.of(comp))
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 1, 0, 0));
 
         stubAccessible(project);
-        stubLatestScan(scan);
+        stubLatestScan(scan, new int[]{1,1,1,1,0}, new int[]{0,0,0,1});
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -178,14 +176,14 @@ class ProjectServiceTest {
                         .licenseStatus(LicenseStatus.PERMITTED).build())
                 .build();
 
-        ScanResult scan = ScanResult.builder()
+        ScanResult scan = ScanResult.builder().id(10L)
                 .project(project).version("2.0").status(ScanStatus.COMPLETED)
                 .components(List.of(violation, warn, ok))
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 4, 10, 0));
 
         stubAccessible(project);
-        stubLatestScan(scan);
+        stubLatestScan(scan, new int[5], new int[]{1,1,0,1});
 
         ProjectSummaryDto result = projectService.findAll().getFirst();
 
@@ -200,7 +198,7 @@ class ProjectServiceTest {
     void findAll_formatsLastScannedDate() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        ScanResult scan = ScanResult.builder()
+        ScanResult scan = ScanResult.builder().id(10L)
                 .project(project).version("1.0").status(ScanStatus.COMPLETED)
                 .build();
         scan.setScannedAt(LocalDateTime.of(2026, 4, 15, 12, 0));
@@ -230,7 +228,7 @@ class ProjectServiceTest {
     void findAll_returnsScanningStatus_whenScanInProgress() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        ScanResult scanning = ScanResult.builder()
+        ScanResult scanning = ScanResult.builder().id(10L)
                 .project(project).version("2.0").status(ScanStatus.SCANNING)
                 .build();
         scanning.setScannedAt(LocalDateTime.now());
@@ -250,7 +248,7 @@ class ProjectServiceTest {
     void findAll_returnsFailedStatus_whenScanFailed() {
         Project project = Project.builder().id(1L).name("P1").build();
 
-        ScanResult failed = ScanResult.builder()
+        ScanResult failed = ScanResult.builder().id(10L)
                 .project(project).version("1.5").status(ScanStatus.FAILED)
                 .build();
         failed.setScannedAt(LocalDateTime.now());
