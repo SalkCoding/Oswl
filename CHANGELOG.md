@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix opt-in JDBC session activation on Boot 4. Two real JVMs passed cross-instance login/logout, single-session enforcement and forced restart with durable H2 writes; expired job fixtures retained cancellation and terminated without duplicate scans. Two observed scheduler cycles had one owner; the one-minute lock explains skipped 20-second triggers. Actual Dgs/Express/Maui/Rails checkout parsing also passed without fixture skips. PostgreSQL/LB and remote CI remain separate.
 - Add bounded OCI registry/layout inspection with manifest/layer checksums, whiteout composition, installed Alpine/Debian/Ubuntu source package collection and optional exact-version OSV queries. Seven Python checks passed; the pinned Alpine 3.16.0 image yielded ten packages and known BusyBox/musl/OpenSSL/zlib advisories without executing the image.
 - Add opt-in browser alerts for new high-risk vulnerabilities and failed gates, with encrypted owned subscriptions, fresh authorization checks, persistent bounded retries, expiration cleanup and a navigation-restricted service worker. Eight service/crypto tests, SQL migration constraints, service-worker checks and four organization browser scenarios passed; live push-provider delivery remains unverified.
 - Add an organization risk briefing with prioritized follow-up, coverage caveats and a printable five-project summary. Both service and controller enforce organization-view access. Three combined organization/onboarding browser scenarios passed, including three languages, narrow viewport and axe checks.

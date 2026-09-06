@@ -17,6 +17,10 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 - [`ops/verify-restore.sh`](ops/verify-restore.sh): interactive verification against a freshly restored instance. Requires Bash, curl, access to the instance and email OTP login. Follow the [restore guide](../docs/en/Backup-And-Restore.md); this is not an unattended health check.
 - [`oswl-vdb/oswl-vdb.sh`](oswl-vdb/oswl-vdb.sh) and [`oswl-vdb/oswl-vdb.ps1`](oswl-vdb/oswl-vdb.ps1): wrappers for building, verifying and inspecting offline vulnerability bundles through Gradle. Their existing public paths are retained. See the [offline deployment guide](../docs/en/Production-Deployment-Checklist.md#71-air-gapped--offline-snapshot-v104).
 
+## Local verification
+
+[`verification/verify-h2-cluster.py`](verification/verify-h2-cluster.py) runs the verified two-JVM H2 session/restart/lease rehearsal. See [scope, commands and limitations](../docs/en/Local-Cluster-Rehearsal.md).
+
 ## Verification drafts
 
 [`verification/verify-multi-instance.sh`](verification/verify-multi-instance.sh) is an incomplete local multi-instance harness. Its default execution block is intentional, and a successful run is not evidence of production session/scheduler correctness. It requires a built JAR and local tools and uses unique temporary data under `build/cluster-verification.*`. It is not part of CI. Its identity and per-observed-cycle predicates have independent regression checks: `python -m unittest discover -s scripts/verification -p test_cluster_assertions.py`. Predicate success does not establish PostgreSQL/LB or process-failover behavior.

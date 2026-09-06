@@ -17,6 +17,8 @@ English is the default documentation entry point. Start with the [English docume
 
 - [Container image inspection (English)](en/Container-Image-Inspection.md)
 
+- [Local cluster rehearsal (English)](en/Local-Cluster-Rehearsal.md)
+
 ## Where files belong
 
 Document bodies live in `en/`, `ko/`, or `ja/` according to their actual language. Keep matching filenames for translations and prefer links to pages in the same language. Some developer references currently exist in only one language; link to that version with its language identified instead of creating empty translations.
