@@ -3,7 +3,6 @@
 <body>
 <div th:fragment="tab"
      x-data="webhooksTab()"
-     x-init="init()"
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
@@ -12,13 +11,17 @@
         <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.webhooks.description}">Send alerts to Slack or Teams via incoming webhooks.</p>
     </div>
 
+    <p x-show="loading" role="status" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</p>
+
     <!-- API Error Banner -->
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
-         x-text="apiError"></div>
+         ><span x-text="apiError"></span>
+        <button type="button" x-show="!loaded" :disabled="loading" @click="load()" class="ml-[12px] text-[12px] font-semibold underline" th:text="#{common.retry}">Retry</button>
+    </div>
 
     <!-- Settings Panel -->
-    <div data-dirty-scope="webhooks"
+    <div :inert="!loaded || loading" :aria-busy="loading" data-dirty-scope="webhooks"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
 
         <!-- Provider -->
@@ -142,7 +145,7 @@
                       x-text="testing ? _webhooksI18n.testing : _webhooksI18n.test"></span>
             </button>
             <button type="button"
-                    :disabled="saving"
+                    :disabled="saving || !loaded || loading"
                     @click="save()"
                     class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[#00756b] hover:bg-[#00665e] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 <svg x-show="!saving" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>

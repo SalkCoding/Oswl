@@ -12,17 +12,19 @@
         <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.cache.description}">Configure caching policies for library vulnerability data.</p>
     </div>
 
+    <p x-show="loading" role="status" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</p>
+
     <!-- API Error -->
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
         <span x-text="apiError"></span>
-        <button type="button" @click="apiError = null; load()"
+        <button type="button" x-show="!loaded" :disabled="loading" @click="load()"
                 class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
                 th:text="#{common.retry}">Retry</button>
     </div>
 
     <!-- Policy card -->
-    <div data-dirty-scope="cache"
+    <div :inert="!loaded || loading" :aria-busy="loading" data-dirty-scope="cache"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.cache.policy.heading}">Automatic Cache Policy</h3>
 
@@ -96,7 +98,7 @@
                     <button @click="clearConfirm=false" class="text-[12px] font-bold text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)] px-[10px] py-[6px] rounded-[6px] border border-[var(--grayscale-20)] transition-colors" th:text="#{common.cancel}">Cancel</button>
                 </div>
             </div>
-            <button @click="save()" :disabled="saving"
+            <button @click="save()" :disabled="saving || !loaded || loading"
                     class="bg-[#00756b] hover:bg-[#00665e] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span x-text="saving ? _cacheI18n.saving : _cacheI18n.save"></span>

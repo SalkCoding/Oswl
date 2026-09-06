@@ -6,6 +6,7 @@ return {
         headerText: '',
         showCoverPage: false
     },
+    loaded: false, loading: false,
     saving: false,
     apiError: null,
     loadError: false,
@@ -23,6 +24,8 @@ return {
     },
 
     async load() {
+        if (this.loading) return;
+        this.loading = true; this.loaded = false; this.apiError = null;
         try {
             const r = await fetch('/api/settings/report-branding', { headers: oswlJsonHeaders() });
             if (!r.ok) { this.apiError = _fetchErr(r, _reportsI18n.backendError); this.loadError = true; return; }
@@ -31,8 +34,9 @@ return {
             this.form.logoDataUri = d.logoDataUri || '';
             this.form.headerText = d.headerText || '';
             this.form.showCoverPage = !!d.showCoverPage;
-            this.loadError = false;
+            this.loadError = false; this.loaded = true;
         } catch (e) { this.apiError = _reportsI18n.backendError; this.loadError = true; }
+        finally { this.loading = false; }
     },
 
     onLogoSelected(event) {
@@ -54,6 +58,7 @@ return {
     },
 
     async save() {
+        if (!this.loaded || this.loading || this.saving) return;
         const dirtyRevision = window.OswlDirty?.revision('reports');
         this.saving = true;
         this.apiError = null;

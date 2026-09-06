@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **settings:** Failed initial loads cannot overwrite Reports/Webhooks/Cache with defaults; retry restores saved values and failed/overlapping saves preserve newer edits. Removed duplicate Alpine init calls and return real 403 HTML/JSON for membership and permission denials. Verified 60 language/page paths, read-only/no-permission accounts, injected 500/403/network failures and actual beforeunload (roadmap 22).
 * **accessibility:** Settings use responsive headers and contained table scrolling; corrected button contrast and accessible input/filter names. All 12 settings tabs passed Tab/Escape, 390px document-width and serious/critical axe checks in Japanese Chromium. Physical devices remain unverified (roadmap 23).
 * **verification:** External Dgs/Express/Maui/Rails and manifest parity checks now require readable nonempty manifests and explain missing-fixture skips. Empty checkout and valid-input controls passed; remote PR CI remains pending (roadmap 33).
 * **verification:** Added opt-in H2 5k/50k-component and 100-project JDBC/heap/HTML/DOM measurements, actual bound EXPLAIN ANALYZE capture, and an isolated 2 GiB Gradle verification budget. Final targeted backend 76 and UI 9 tests passed; PostgreSQL plans and operational worst cases remain open. See [measurement methods, raw evidence and limits](docs/ko/Performance-Verification.md) (roadmap 17–21).

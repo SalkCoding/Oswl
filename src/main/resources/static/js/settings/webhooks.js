@@ -9,6 +9,7 @@ return {
         notifyScanFailure: true,
         notifyWaiverExpiry: true
     },
+    loaded: false, loading: false,
     saving: false,
     testing: false,
     testStatus: null,
@@ -33,6 +34,8 @@ return {
     },
 
     async load() {
+        if (this.loading) return;
+        this.loading = true; this.loaded = false; this.apiError = null;
         try {
             const r = await fetch('/api/settings/webhooks');
             if (!r.ok) { this.apiError = _fetchErr(r, _webhooksI18n.backendError); return; }
@@ -43,11 +46,14 @@ return {
             if (d.notifyGateFailure != null)   this.form.notifyGateFailure   = d.notifyGateFailure;
             if (d.notifyScanFailure != null)   this.form.notifyScanFailure   = d.notifyScanFailure;
             if (d.notifyWaiverExpiry != null)  this.form.notifyWaiverExpiry  = d.notifyWaiverExpiry;
+            this.loaded = true;
             // URL is never returned; keep the input empty so the user can change it.
         } catch (e) { this.apiError = _webhooksI18n.backendError; }
+        finally { this.loading = false; }
     },
 
     async save() {
+        if (!this.loaded || this.loading || this.saving) return;
         const dirtyRevision = window.OswlDirty?.revision('webhooks');
         this.saving = true;
         this.apiError = null;

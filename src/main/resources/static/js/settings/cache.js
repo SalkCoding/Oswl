@@ -4,6 +4,7 @@ function cacheTab() {
         customAmount: 7, customUnit: 'day',
         unitDropdownOpen: false,
         items: [],
+        loaded: false, loading: false,
         saving: false, apiError: null, toast: null, clearConfirm: false,
         csrf() { return window.OswlCsrf ? window.OswlCsrf.token() : ''; },
         headers() { return oswlJsonHeaders(); },
@@ -15,6 +16,8 @@ function cacheTab() {
             return hours + ' ' + _cacheI18n.hours;
         },
         async load() {
+            if (this.loading) return;
+            this.loading = true; this.loaded = false; this.apiError = null;
             try {
                 const r = await fetch('/api/settings/cache');
                 if (r.status === 401) { location.href = '/login'; return; }
@@ -32,7 +35,9 @@ function cacheTab() {
                         else { this.customAmount = h; this.customUnit = 'hour'; }
                     }
                 }
+                this.loaded = true;
             } catch(e) { this.apiError = _cacheI18n.loadFailed; }
+            finally { this.loading = false; }
         },
         ttlSecondsForPolicy() {
             if (this.policy === 'always') return 1;
@@ -47,6 +52,7 @@ function cacheTab() {
             return `Cache policy set to ${this.customAmount} ${unit}.`;
         },
         async save() {
+            if (!this.loaded || this.loading || this.saving) return;
             const dirtyRevision = window.OswlDirty?.revision('cache');
             this.saving = true; this.apiError = null;
             const label = this.savedPolicyLabel(); // capture before any await
@@ -64,7 +70,8 @@ function cacheTab() {
                 }));
                 if (window.OswlDirty) window.OswlDirty.clear('cache', dirtyRevision);
                 this.showToast(label);
-            } finally { this.saving = false; }
+            } catch (e) { this.apiError = _cacheI18n.saveFailed; }
+            finally { this.saving = false; }
         },
         async clearAll() {
             const dirtyRevision = window.OswlDirty?.revision('cache');
