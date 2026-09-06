@@ -7,6 +7,8 @@
 
     <main class="flex-1 w-full flex flex-col gap-[24px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[24px] md:py-[40px] pb-[80px]">
 
+        <a th:href="@{/org-dashboard/summary}" class="underline text-[var(--primary-120)]" th:text="#{orgSummary.title}">Organization risk briefing</a>
+
         <!-- Posture totals -->
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-[16px] w-full">
             <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">

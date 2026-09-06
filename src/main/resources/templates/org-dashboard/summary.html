@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}">
+<head th:replace="~{fragments/head :: head(#{orgSummary.title})}"></head>
+<body class="org-summary-page bg-white text-[var(--grayscale-100)]">
+<style>
+    html:has(body.org-summary-page), body.org-summary-page {min-width: 0;}
+    .org-summary {max-width: 960px; margin: 0 auto; padding: 32px 24px;}
+    .org-summary h1 {font-size: 28px; font-weight: 700; line-height: 1.3;}
+    .org-summary h2 {font-size: 18px; font-weight: 700; margin-bottom: 12px;}
+    .org-summary section {margin-top: 24px;}
+    .org-summary table {width: 100%; border-collapse: collapse; font-size: 13px;}
+    .org-summary th, .org-summary td {padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--grayscale-20); overflow-wrap: anywhere;}
+    .org-summary .action {padding: 12px 0; border-bottom: 1px solid var(--grayscale-20);}
+    @media print { @page {size: A4; margin: 14mm;} .org-summary {max-width: none; padding: 0;} .summary-controls {display: none;} .org-summary section {break-inside: avoid;} a {color: inherit; text-decoration: none;} }
+</style>
+<main class="org-summary">
+    <nav class="summary-controls flex justify-between gap-4 mb-6" th:aria-label="#{orgSummary.actions}">
+        <a th:href="@{/org-dashboard}" class="underline py-2" th:text="#{orgSummary.back}">Organization dashboard</a>
+        <button type="button" onclick="window.print()" class="px-4 py-2 border rounded" th:text="#{orgSummary.print}">Print / Save PDF</button>
+    </nav>
+    <header class="border-b-4 border-[var(--primary-120)] pb-5">
+        <h1 th:text="#{orgSummary.title}">Organization risk briefing</h1>
+        <p class="mt-2 text-[13px]" th:text="#{orgSummary.generated(${generatedAt})}"></p>
+    </header>
+    <section aria-labelledby="summary-actions">
+        <h2 id="summary-actions" th:text="#{orgSummary.actions}">Decisions and follow-up</h2>
+        <dl>
+            <div class="action"><dt class="font-bold" th:text="#{orgSummary.kev(${kevUnaddressed})}"></dt><dd class="text-[14px] mt-1" th:text="#{orgSummary.kevAction}"></dd></div>
+            <div class="action"><dt class="font-bold" th:text="#{orgSummary.high(${securityCritical},${securityHigh})}"></dt><dd class="text-[14px] mt-1" th:text="#{orgSummary.highAction}"></dd></div>
+            <div class="action"><dt class="font-bold" th:text="#{orgSummary.license(${licenseViolations})}"></dt><dd class="text-[14px] mt-1" th:text="#{orgSummary.licenseAction}"></dd></div>
+        </dl>
+    </section>
+    <section aria-labelledby="summary-coverage">
+        <h2 id="summary-coverage" th:text="#{orgSummary.coverage}">Coverage and interpretation</h2>
+        <p th:text="#{orgSummary.scanned(${scannedProjects},${totalProjects})}"></p>
+        <p class="text-[13px] mt-2" th:text="#{orgSummary.caveat}"></p>
+    </section>
+    <section aria-labelledby="summary-projects">
+        <h2 id="summary-projects" th:text="#{orgSummary.projects}">Priority projects</h2>
+        <p th:if="${#lists.isEmpty(priorityProjects)}" th:text="#{orgSummary.empty}">Run a project scan to populate this briefing.</p>
+        <div class="overflow-x-auto" th:unless="${#lists.isEmpty(priorityProjects)}">
+            <table>
+                <caption class="sr-only" th:text="#{orgSummary.projects}"></caption>
+                <thead><tr><th scope="col" th:text="#{orgSummary.project}"></th><th scope="col" th:text="#{orgSummary.lastScan}"></th><th scope="col" th:text="#{riskTrend.legend.critical}"></th><th scope="col" th:text="#{riskTrend.legend.high}"></th><th scope="col" th:text="#{orgSummary.kevShort}"></th></tr></thead>
+                <tbody><tr th:each="project : ${priorityProjects}"><th scope="row"><a class="underline" th:href="@{/projects/{id}/security-center(id=${project.id})}" th:text="${project.name}"></a></th><td th:text="${project.lastScanned}"></td><td th:text="${project.securityCritical}"></td><td th:text="${project.securityHigh}"></td><td th:text="${project.kevUnaddressed}"></td></tr></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add an organization risk briefing with prioritized follow-up, coverage caveats and a printable five-project summary. Both service and controller enforce organization-view access. Three combined organization/onboarding browser scenarios passed, including three languages, narrow viewport and axe checks.
 - Add an inline administrator-only teammate form to onboarding, including role selection, temporary password clearing and retryable failures; reject deleted role selections and redact temporary passwords in DTO output. Real account creation/duplicate-error browser verification passed.
 - Add administrator-managed, versioned custom secret/IaC rules using RE2/J with bounded input/time/findings and explicit incomplete-scan findings. Six unit/integration tests verify no matched-secret output, invalid/expensive patterns, permission denial, stale publication and disabling rules.
 - Add scoped CocoaPods Specs v2 bundles with original metadata, provenance/checksums, transactional validation and offline repository/license resolution. Four integration tests include actual Podfile ingestion, owned CVE detection, missing-spec UNKNOWN and export/import lookup equivalence. No upstream Specs dataset is redistributed.
