@@ -64,7 +64,7 @@ VEX は検出結果そのものではなく、**トリアージの判断**を伝
 
 ### コンプライアンスレポートパック
 
-`GET /security-center/compliance-report` は印刷用レポートを描画します。コンポーネント一覧、ライセンス義務、NOTICE 文、深刻度別の未対応項目が含まれます。ブラウザの *印刷 → PDF として保存* を使ってください。プレビュー表示時に印刷ダイアログが自動で開かないため、出力前に内容を確認できます。
+`GET /projects/{projectId}/security-center/compliance-report` は印刷用レポートを描画します。コンポーネント一覧、ライセンス義務、NOTICE 文、深刻度別の未対応項目が含まれます。ブラウザの *印刷 → PDF として保存* を使ってください。プレビュー表示時に印刷ダイアログが自動で開かないため、出力前に内容を確認できます。
 
 ---
 
@@ -88,7 +88,7 @@ VEX は検出結果そのものではなく、**トリアージの判断**を伝
 
 リクエストに GitHub の対象を指定すると、判定結果が **Check Run** と PR コメントとしても投稿されます。
 
-リクエスト形式の詳細とパイプライン例は [CLI 連携](../CLI-Integration.md) を参照してください。
+リクエスト形式の詳細とパイプライン例は [CLI 連携](CLI-Integration.md) を参照してください。
 
 ---
 
@@ -154,7 +154,7 @@ VEX は検出結果そのものではなく、**トリアージの判断**を伝
 | バンドルの書き出し | `GET /api/admin/snapshot/export` |
 | バンドルの状態 | `GET /api/admin/snapshot` |
 
-インターネットに接続された端末で書き出し、バンドルを持ち込んで取り込みます。スナップショットに無いコンポーネントは「脆弱性なし」ではなく**データなし**として扱われます。[組み込み AI](../Embedded-AI.md) サイドカーと組み合わせれば、ネットワークを切断した状態でもスキャン・トリアージ・AI 分析まで動作します。
+インターネットに接続された端末で書き出し、バンドルを持ち込んで取り込みます。スナップショットに無いコンポーネントは「脆弱性なし」ではなく**データなし**として扱われます。[組み込み AI](Embedded-AI.md) サイドカーと組み合わせれば、ネットワークを切断した状態でもスキャン・トリアージ・AI 分析まで動作します。
 
 ---
 
@@ -164,7 +164,7 @@ VEX は検出結果そのものではなく、**トリアージの判断**を伝
 |---|---|
 | **Prometheus メトリクス** | `/actuator/prometheus` — micrometer で公開、管理者権限が必要 |
 | **ヘルス／情報** | `/actuator/health`、`/actuator/info` |
-| **Flyway マイグレーション** | `OSWL_FLYWAY_ENABLED=true` でオプトイン（`baseline-on-migrate`）。既定は `ddl-auto` のまま — [DB スキーマ](../Database-Schema.md) 参照 |
+| **Flyway マイグレーション** | `OSWL_FLYWAY_ENABLED=true` でオプトイン（`baseline-on-migrate`）。既定は `ddl-auto` のまま — [DB スキーマ](Database-Schema.md) 参照 |
 | **OIDC シングルサインオン** | `application-prod.yaml` の `spring.security.oauth2.client` ブロックのコメントを解除し、`OSWL_OIDC_CLIENT_ID` / `OSWL_OIDC_CLIENT_SECRET` / `OSWL_OIDC_ISSUER_URI` を設定（Okta、Entra ID など任意の OIDC プロバイダー）。プロバイダーが登録されている場合のみログイン画面に SSO ボタンが表示されます。 |
 | **監査ログの SIEM エクスポート** | `GET /api/admin/audit-logs/export?format=jsonl\|cef` — 既存の監査ログフィルターをそのまま使用し、`AUDIT_LOG_EXPORT` 権限が必要です。エクスポート自体も監査記録されます。 |
 

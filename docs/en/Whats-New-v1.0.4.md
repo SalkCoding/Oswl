@@ -64,7 +64,7 @@ Upload a third-party CycloneDX file to scan components you don't build yourself 
 
 ### Compliance report pack
 
-`GET /security-center/compliance-report` renders a print-ready report: component inventory, licence obligations, NOTICE text, and open findings by severity. Use your browser's *Print → Save as PDF*. The preview no longer opens the print dialog automatically, so you can review it before exporting.
+`GET /projects/{projectId}/security-center/compliance-report` renders a print-ready report: component inventory, licence obligations, NOTICE text, and open findings by severity. Use your browser's *Print → Save as PDF*. The preview no longer opens the print dialog automatically, so you can review it before exporting.
 
 ---
 

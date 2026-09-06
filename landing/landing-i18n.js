@@ -4,10 +4,14 @@
     const STORAGE_KEY = 'oswl-landing-locale';
     const SUPPORTED = ['en', 'ko', 'ja'];
 
+    function readStoredLocale() {
+        try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
+    }
+
     function detectLocale() {
         const param = new URLSearchParams(location.search).get('lang');
         if (SUPPORTED.includes(param)) return param;
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = readStoredLocale();
         if (SUPPORTED.includes(stored)) return stored;
         const browser = (navigator.language || '').toLowerCase();
         if (browser.startsWith('ko')) return 'ko';
@@ -20,6 +24,16 @@
     }
 
     let currentLocale = 'en';
+    let requestId = 0;
+    let activeRequest;
+
+    function updateLanguageButtons() {
+        document.querySelectorAll('[data-set-lang]').forEach(btn => {
+            const selected = btn.getAttribute('data-set-lang') === currentLocale;
+            btn.classList.toggle('active', selected);
+            btn.setAttribute('aria-current', selected ? 'true' : 'false');
+        });
+    }
 
     function applyMessages(messages) {
         document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -43,48 +57,51 @@
         const title = get(messages, 'meta.title');
         if (title) document.title = title;
 
-        document.querySelectorAll('[data-set-lang]').forEach(btn => {
-            const lang = btn.getAttribute('data-set-lang');
-            btn.classList.toggle('active', lang === currentLocale);
-            btn.setAttribute('aria-current', lang === currentLocale ? 'true' : 'false');
-        });
+        updateLanguageButtons();
     }
 
     async function loadAndApply(locale) {
-        currentLocale = locale;
-        document.documentElement.lang = locale;
-
+        const id = ++requestId;
+        if (activeRequest) activeRequest.abort();
+        const controller = new AbortController();
+        activeRequest = controller;
+        const timeout = setTimeout(() => controller.abort(), 8000);
         try {
-            const res = await fetch(`i18n/${locale}.json`);
+            const res = await fetch(`i18n/${locale}.json`, { signal: controller.signal });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            applyMessages(await res.json());
+            const messages = await res.json();
+            if (id !== requestId) return;
+            currentLocale = locale;
+            document.documentElement.lang = locale;
+            applyMessages(messages);
+            try { localStorage.setItem(STORAGE_KEY, locale); } catch (_) { /* Storage is optional. */ }
+            try {
+                const url = new URL(location.href);
+                url.searchParams.delete('lang');
+                history.replaceState(null, '', url.pathname + url.search + url.hash);
+            } catch (_) { /* The selected language still works without history access. */ }
         } catch (e) {
-            console.warn('[landing-i18n] Failed to load locale:', locale, e);
+            if (id === requestId) {
+                // Keep the last complete language, or the readable English HTML on first load.
+                console.warn('[landing-i18n] Failed to load locale:', locale, e);
+            }
         } finally {
-            document.documentElement.classList.remove('i18n-pending');
+            clearTimeout(timeout);
+            if (id === requestId) activeRequest = null;
         }
     }
 
     function setLocale(locale) {
         if (!SUPPORTED.includes(locale)) return;
-        localStorage.setItem(STORAGE_KEY, locale);
         loadAndApply(locale);
     }
 
-    async function init() {
-        const param = new URLSearchParams(location.search).get('lang');
-        if (SUPPORTED.includes(param)) {
-            localStorage.setItem(STORAGE_KEY, param);
-            const u = new URL(location.href);
-            u.searchParams.delete('lang');
-            history.replaceState(null, '', u.pathname + u.search + u.hash);
-        }
-
-        await loadAndApply(detectLocale());
-
+    function init() {
+        updateLanguageButtons();
         document.querySelectorAll('[data-set-lang]').forEach(btn => {
             btn.addEventListener('click', () => setLocale(btn.getAttribute('data-set-lang')));
         });
+        loadAndApply(detectLocale());
     }
 
     if (document.readyState === 'loading') {

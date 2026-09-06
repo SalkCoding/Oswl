@@ -84,7 +84,7 @@ The separate `aiStatus` field tracks background AI enrichment (`NOT_APPLICABLE`,
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/github/connect` | Connect a GitHub PAT |
-| `DELETE` | `/api/github/disconnect` | Remove GitHub connection |
+| `POST` | `/api/github/disconnect` | Remove GitHub connection |
 | `GET` | `/api/github/status` | Connection status |
 | `GET` | `/api/github/accounts` | List authenticated accounts |
 | `GET` | `/api/github/repos` | List accessible repositories |
@@ -99,7 +99,6 @@ The separate `aiStatus` field tracks background AI enrichment (`NOT_APPLICABLE`,
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth` | API key | Validate API key (legacy) |
 | `GET` | `/api/scan/ping` | API key | Connectivity and key validity check |
 | `GET` | `/api/scan/manifest-rules` | API key | Manifest file collection rules (same as `/scripts/manifest-rules.json`) |
 | `POST` | `/api/scan/parse` | API key | Parse a manifest zip archive (CLI step 1) |
@@ -117,7 +116,7 @@ The separate `aiStatus` field tracks background AI enrichment (`NOT_APPLICABLE`,
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | Bulk CVE status update |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | Download the CVE list as CSV (`?scanId=`, `?format=csv`) |
 | `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — Open one upgrade PR for all selected components |
-| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — Print-ready compliance report |
+| `GET` | `/projects/{projectId}/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — Print-ready compliance report |
 
 ### SBOM / VEX / SARIF (v1.0.4)
 
@@ -249,8 +248,8 @@ All endpoints require the `SYSTEM_ADMIN` role (or the `SETTINGS_SNAPSHOT_MANAGE`
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/admin/cli-keys` | List global CLI keys |
-| `POST` | `/api/admin/cli-keys` | Create global key |
+| `GET` | `/api/admin/cli-keys` | List CLI keys across projects |
+| `POST` | `/api/admin/cli-keys` | Issue a project-scoped key (`projectId` required) |
 | `PATCH` | `/api/admin/cli-keys/{keyId}/toggle` | Enable / disable key |
 
 ---
@@ -279,7 +278,7 @@ All endpoints require the `SYSTEM_ADMIN` role (or the `SETTINGS_SNAPSHOT_MANAGE`
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI usage stats — today's calls/tokens/estimated cost, daily cap, and the last 7 days, read from the daily aggregate table |
 | `GET` | `/api/settings/ai/usage/events` | `SETTINGS_AI_MANAGE` | Recent AI call events, newest first (`?page=`, `?size=`, default size `10`). Only the last **100** events are retained (FIFO), so at most 10 pages exist |
 | `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | Embedded AI status (`running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`, and while a default-model download is in flight: `downloading`, `downloadedBytes`, `downloadTotalBytes`) |
-| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | Start the llama.cpp sidecar (optional model file name; auto-fallback across candidates, 400 with reason on failure). On a fresh install with no `.gguf` present, downloads the Apache-2.0 Qwen3-1.7B model in the background instead and returns immediately (`downloading: true`) — poll `GET .../embedded` for progress |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | Start the llama.cpp sidecar (optional model file name; auto-fallback across candidates, 400 with reason on failure). On a fresh install with no `.gguf` present, downloads the Apache-2.0 Qwen3.5-2B Q4_K_M model in the background instead and returns immediately (`downloading: true`) — poll `GET .../embedded` for progress |
 | `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | Stop the sidecar and deactivate the LOCAL provider |
 | `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | Save folder/model overrides `{ "dir", "model" }` (null keeps current, blank clears; 400 if dir missing) |
 

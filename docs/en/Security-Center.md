@@ -89,7 +89,7 @@ The **Export** dropdown in the action toolbar produces standards-based artifacts
 | SBOM (CycloneDX) | `GET /api/projects/{projectId}/sbom` | CycloneDX 1.6 JSON |
 | VEX | `GET /api/projects/{projectId}/vex` | CycloneDX VEX — carries your triage decisions |
 | SARIF | `GET /api/projects/{projectId}/sarif` | SARIF 2.1.0, uploadable to GitHub code scanning |
-| Compliance report | `GET /security-center/compliance-report` | Print-ready HTML (use *Print → Save as PDF*) |
+| Compliance report | `GET /projects/{projectId}/security-center/compliance-report` | Print-ready HTML (use *Print → Save as PDF*) |
 | CVE / license CSV | — | Current filtered view |
 
 Bulk actions also include **Create upgrade PR**, which opens one pull request bumping every selected component to its fix version.

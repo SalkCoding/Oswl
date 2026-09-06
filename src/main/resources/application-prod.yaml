@@ -1,4 +1,4 @@
-# Production profile — see docs/Production-Deployment-Checklist.md
+# Production profile — see docs/en/Production-Deployment-Checklist.md
 # Required env: DB_URL, DB_USERNAME, DB_PASSWORD, OSWL_ENCRYPTION_KEY
 # Bind: SERVER_ADDRESS (default 127.0.0.1). Expose via reverse proxy only unless you accept 0.0.0.0 risk.
 

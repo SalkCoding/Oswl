@@ -36,7 +36,7 @@ embedded-ai/
 - [Gemma model card](https://huggingface.co/google/gemma-4-E2B-it)
 - [Gemma GGUF, pinned revision](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/tree/0314792d7f1f7e229411f620751375812bb9faf2)
 - [llama.cpp releases](https://github.com/ggml-org/llama.cpp/releases)
-- [License notices](../THIRD_PARTY_LICENSES.md#embedded-ai-runtime-and-models)
+- [License notices](../../THIRD_PARTY_LICENSES.md#embedded-ai-runtime-and-models)
 
 The configured directory is the root, not a family folder. OsWL scans `model/` and one family subfolder. Legacy root-level GGUF and root/bin runtime locations remain supported. Use unique filenames: the managed tree wins over same-named legacy weights. Projectors (`mmproj*`), draft weights (`mtp-*`), importance matrices and files resolving outside the root are excluded.
 

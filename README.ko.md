@@ -199,9 +199,11 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ## 문서
 
-프로젝트에 처음 합류했다면 [개발자 온보딩](docs/Developer-Onboarding.md)에서 현재 아키텍처, 기능별 흐름, 첫 코드 변경과 검증 순서를 확인하세요.
+프로젝트에 처음 합류했다면 [개발자 온보딩](docs/ko/Developer-Onboarding.md)에서 현재 아키텍처, 기능별 흐름, 첫 코드 변경과 검증 순서를 확인하세요.
 
-한국어 문서는 [`docs/ko/`](docs/ko/) 폴더에서 확인할 수 있습니다. 영문 문서는 [`docs/`](docs/), 일본어 문서는 [`docs/ja/`](docs/ja/)에서, 그리고 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) (`main` push 시 `docs/`에서 자동 동기화)에서도 제공됩니다.
+한국어 문서는 [`docs/ko/`](docs/ko/Home.md), 영어 문서는 [`docs/en/`](docs/en/Home.md), 일본어 문서는 [`docs/ja/`](docs/ja/Home.md)에 있습니다. [문서 인덱스](docs/README.md)와 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki)는 영어를 기본으로 안내하며, Wiki는 `main` push 시 `docs/en/`에서 자동 동기화됩니다.
+
+폴더 역할: [`deploy/`](deploy/README.md)는 Docker 빌드·실행 설정과 Grafana 자산, [`scripts/`](scripts/README.md)는 개발·운영 도구, [`docs/`](docs/README.md)는 안내 문서, [`landing/`](landing/index.html)은 Pages 소개 사이트입니다. 앱 코드와 패키징되는 설정은 `src/`, GitHub 자동화는 `.github/`에 있습니다.
 
 | 페이지 | 설명 |
 |---|---|

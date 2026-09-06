@@ -74,8 +74,8 @@ public class OswlStartupWarnings implements ApplicationListener<ApplicationReady
                 {}
                 {}
                 
-                 Copy .env.example → .env (local) or .env.prod.example → .env.prod (production).
-                 See docs/Production-Deployment-Checklist.md
+                 Copy deploy/docker/.env.example → .env (local) or deploy/docker/.env.prod.example → .env.prod (production).
+                 See docs/en/Production-Deployment-Checklist.md
                 {}
                 """,
                 SEPARATOR,

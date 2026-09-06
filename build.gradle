@@ -140,7 +140,7 @@ tasks.named('bootRun') {
 	dependsOn compileLocalJava
 	doFirst {
 		def os = org.gradle.internal.os.OperatingSystem.current()
-		def script = os.isWindows() ? file('scripts/check-java.ps1') : file('scripts/check-java.sh')
+		def script = os.isWindows() ? file('scripts/dev/check-java.ps1') : file('scripts/dev/check-java.sh')
 		if (script.exists()) {
 			def cmd = os.isWindows()
 					? ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath]

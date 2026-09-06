@@ -1,6 +1,6 @@
 # Database schema and migrations
 
-OsWL stores all application data in PostgreSQL (`prod`) or H2 file-mode (`local`). JPA entities under `domain/entity/` are the **source of truth** for the live schema.
+OsWL stores all application data in PostgreSQL (`prod`) or H2 file-mode (`local`). JPA entities under `domain/entity/`, `auth/entity/` are the **source of truth** for the live schema.
 
 ---
 
@@ -16,7 +16,9 @@ When upgrading a production database, apply SQL scripts from `src/main/resources
 
 ### Flyway (v1.0.4, opt-in)
 
-`OSWL_FLYWAY_ENABLED=true` hands schema management to Flyway (`baseline-on-migrate` on, so an existing database is baselined rather than rejected). Generate a baseline matching your current schema before enabling it. The default is `false`, which keeps the `ddl-auto` behaviour above.
+`OSWL_FLYWAY_ENABLED=true` enables the versioned migrations in `src/main/resources/db/migration/`; it defaults to `false`. The repository already provides `V1__baseline.sql` and subsequent migrations. On an empty PostgreSQL database, Flyway runs V1 and then the later versions before Hibernate validation. For an existing database without Flyway history, `baseline-on-migrate` records version 1 without executing V1, then runs V2 onward. Back up and compare the existing schema with these migrations before enabling it; manually applied changes can conflict with later migrations. Do not regenerate or edit a migration already applied to a shared database. If managing SQL manually, apply all required changes for the target version in order; the short list of legacy scripts below is not a complete fresh-install schema.
+
+The migration directory also covers the current schema beyond v1.0.4: organizations and teams (V11), SAML/SCIM (V13), webhooks (V14), CVE sources and C/C++ metadata (V15–V16), policy inheritance and exceptions (V17, V28), reachability and evidence (V18, V29–V30), audit integrity (V19), UI preferences and onboarding (V20, V23–V24), secret/IaC findings (V21), scan archiving (V22), report branding (V25), cache counters and invalidation (V26–V27), and durable import jobs (V31). Use the actual migration files as the complete ordered inventory. Some migrations are not idempotent; do not blindly rerun them.
 
 ### Columns added in v1.0.4
 
@@ -73,7 +75,7 @@ Run **once** when moving to a release that removed legacy schema:
 | `project_versions.imported_at`, `last_updated_at` | Unused timestamps |
 | `projects.updated_at`, `version`, `last_scanned_at` | Denormalized fields; UI reads latest `scan_results` instead |
 
-See [Production deployment checklist](Production-Deployment-Checklist.md) §8.
+See [Production deployment checklist](Production-Deployment-Checklist.md) §9.
 
 ---
 
@@ -94,7 +96,7 @@ libraries (shared)
 
 airgapped_snapshot_entries ── airgapped_snapshot_meta  (offline snapshot store)
 
-users, role_templates, audit_logs, cache_settings, vcs_connections, …
+users, role_templates, audit_logs, cache_settings, user_vcs_connections, …
 ```
 
 - **Project card version / last scan** — derived from the latest `scan_results` row, not `projects.version`.

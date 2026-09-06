@@ -436,9 +436,9 @@ You may obtain a copy of the License at
 
 ---
 
-## Frontend Dependencies (CDN)
+## Vendored Frontend Dependencies
 
-These libraries are loaded at runtime from public CDNs and are not bundled inside the JAR artifact.
+Gradle downloads pinned versions of these libraries into `src/main/resources/static/js/vendor/`. They are packaged in the JAR and served locally from `/js/vendor/`; application pages do not load them from a runtime CDN.
 
 ### Alpine.js
 

@@ -2,11 +2,11 @@
 
 OsWL을 인터넷에 공개하기 전에 확인할 한 페이지 목록입니다. **`prod`를 `local` 기본값**(H2, Swagger, `/data/**`, 커밋된 암호화 키)으로 실행하지 마세요.
 
-## 1. 프로파일 및 빌드
+## 1. 프로필 및 빌드
 
 | 확인 | 조치 |
 |------|------|
-| 프로파일 | `SPRING_PROFILES_ACTIVE=prod` 설정 |
+| 프로필 | `SPRING_PROFILES_ACTIVE=prod` 설정 |
 | JAR | `./gradlew bootJar verifyProdJar`로 빌드 — JAR에 `TestDataController`가 **없어야** 함 |
 | 로컬 전용 코드 | `src/local/java`는 `bootRun`/개발용이며 `bootJar`에 포함되지 않음 |
 
@@ -19,33 +19,31 @@ OsWL을 인터넷에 공개하기 전에 확인할 한 페이지 목록입니다
 | `DB_PASSWORD` | DB 비밀번호 |
 | `OSWL_ENCRYPTION_KEY` | 인스턴스 암호화 키 (`openssl rand -base64 32`) |
 
-`.env.prod.example` → `.env.prod` 복사 후 모든 값 입력. `application-prod.yaml`에는 DB·암호화 **기본값 없음**.
+`deploy/docker/.env.prod.example` → `.env.prod` 복사 후 모든 값 입력. `application-prod.yaml`에는 DB·암호화 **기본값 없음**.
 
-기동 시 누락 변수 등은 로그의 **`OSWL STARTUP WARNINGS`** 블록에 한 번에 출력됩니다. **`prod`에서 `OSWL_ENCRYPTION_KEY`가 없으면 기동 실패** — 출시 전 안정적인 키를 설정하세요. (`local` 프로파일은 개발 전용으로 임시 키를 사용할 수 있습니다.)
+시작 후 설정 경고는 `OSWL STARTUP WARNINGS` 로그 블록에 모아서 출력됩니다. 운영 암호화 키 누락이나 잘못된 DB 설정 등은 이 블록이 출력되기 전에 시작 실패를 일으킬 수 있습니다. 운영에서는 고정된 `OSWL_ENCRYPTION_KEY`를 유지하세요. `local` YAML의 고정 대체 키는 개발 전용이며 운영에서 사용하면 안 됩니다.
 
 ## 3. 네트워크 바인딩
 
-| 확인 | 조치 |
-|------|------|
-| 기본 바인딩 | `SERVER_ADDRESS=127.0.0.1` (`application-prod.yaml`) |
-| 공개 접근 | **nginx / Caddy / Traefik**(또는 클라우드 LB) 앞단, TLS 종료 |
-| 직접 `0.0.0.0` | JVM HTTP 스택 노출을 감수할 때만; 방화벽·위험 문서화 |
+호스트에서 JVM을 직접 실행하면 `application-prod.yaml`의 기본값인 `SERVER_ADDRESS=127.0.0.1`로 바인딩하며, 같은 호스트의 리버스 프록시가 연결할 수 있습니다. **Docker Compose에서는 컨테이너 내부의 `SERVER_ADDRESS=0.0.0.0`**을 사용해야 Docker가 애플리케이션으로 트래픽을 전달할 수 있습니다. 호스트 공개 범위는 별도입니다. `deploy/docker/compose.prod.yml`은 호스트 포트를 **`127.0.0.1:8080:8080`**에만 연결합니다. 운영 예제는 이 컨테이너 설정을 사용하며, 기존 `.env.prod`도 업그레이드 시 확인해야 합니다.
 
-`docker-compose.prod.yml`은 기본 **`127.0.0.1:8080:8080`** 매핑.
-
-프록시가 `X-Forwarded-Proto`를 내면 HSTS·보안 쿠키를 위해 `server.forward-headers-strategy=framework` 사용 (`application.yaml` 기본).
+리버스 프록시에서 TLS를 종료하세요. 제공된 호스트 루프백 포트 매핑을 사용할 때는 Docker 호스트에서 프록시를 실행합니다. 프록시도 컨테이너라면 공유 Docker 네트워크의 서비스 주소로 연결하세요. 전달 헤더는 신뢰하는 프록시에서 온 것만 수용해야 합니다.
 
 ## 4. Docker Compose (운영)
 
+저장소 루트에서 실행합니다. 기존 `.env.prod` 값은 유지하고 새 설치에서만 템플릿을 복사합니다. 두 Compose 파일의 기본 프로젝트명은 `oswl`입니다. 기존 설치가 다른 프로젝트명을 사용했다면 `-p YOUR_EXISTING_PROJECT` 또는 `COMPOSE_PROJECT_NAME`으로 그 이름을 유지해야 기존 볼륨에 연결됩니다. [배포 파일 안내](../../deploy/README.md)를 참고하세요.
+
 ```bash
-cp .env.prod.example .env.prod
+cp deploy/docker/.env.prod.example .env.prod
 # DB_*, OSWL_ENCRYPTION_KEY, SMTP_* 편집
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
 ```
+
+Compose는 `--env-file`로 `.env.prod`를 읽습니다. `java -jar`나 `bootRun`으로 직접 실행할 때는 이 파일을 자동으로 읽지 않으므로, 환경 변수를 내보내거나 서비스 관리 도구에 등록하세요. 운영 환경의 첫 시작 전에 DB 스키마를 준비해야 합니다(§9 참고).
 
 로그 확인: 누락 env 배너 없음, PostgreSQL 연결, H2/Swagger URL 없음.
 
-`docker-compose.prod.yml`은 컨테이너 자체의 stdout/stderr(docker `json-file` 드라이버, 100MB × 10개)와 앱의 자체 회전 파일 로그(`oswl-logs-prod` 볼륨에 마운트) 둘 다 상한을 둡니다 — 후자는 §5 참고.
+`deploy/docker/compose.prod.yml`은 컨테이너 자체의 stdout/stderr(docker `json-file` 드라이버, 100MB × 10개)와 앱의 자체 회전 파일 로그(`oswl-logs-prod` 볼륨에 마운트) 둘 다 상한을 둡니다 — 후자는 §5 참고.
 
 ## 5. 로깅 및 관측
 
@@ -59,7 +57,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### 로그 로테이션 및 요청 상관관계
 
-`local`/`test`는 S2 이전과 동일하게 콘솔 전용입니다. `prod`에서는 `logback-spring.xml`이 회전 파일 로그를 추가로 기록합니다:
+`local`/`test`는  콘솔 전용입니다. `prod`에서는 `logback-spring.xml`이 회전 파일 로그를 추가로 기록합니다:
 
 | 변수 | 기본값 | 용도 |
 |------|--------|------|
@@ -88,7 +86,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 | 변수 | 기본값 | 활성화 시 동작 |
 |---|---|---|
-| `OSWL_FLYWAY_ENABLED` | `false` | `baseline-on-migrate` 기반 버전 마이그레이션. 먼저 전체 베이스라인을 생성해야 합니다 |
+| `OSWL_FLYWAY_ENABLED` | `false` | 제공되는 V1 및 이후 마이그레이션 실행. 기존 스키마는 먼저 검토 |
 | `OSWL_AIRGAPPED_ENABLED` | `false` | 취약점·위협 인텔 조회를 반입된 오프라인 스냅샷에서 처리, 외부 HTTP 없음 |
 | `OSWL_GATE_*` | [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) 참고 | `POST /api/scan/gate`의 기본 임계값 |
 
@@ -111,6 +109,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### 7.1 폐쇄망 / 오프라인 스냅샷 (v1.0.4)
 
+이 모드는 지원되는 취약점·위협 정보 피드를 스냅샷으로 전환하는 기능이며 네트워크 방화벽은 아닙니다. 폐쇄망에서는 VCS, SMTP, 웹훅, 외부 AI 프로바이더도 별도로 설정하세요.
+
 `OSWL_AIRGAPPED_ENABLED=true`로 설정하면 취약점·위협 인텔 조회(OSV, deps.dev, EPSS, CISA KEV)를 실시간 외부 API 대신 반입된 오프라인 스냅샷에서 처리합니다. 보강을 위한 아웃바운드 HTTP는 시도되지 않습니다.
 
 | 단계 | 조치 |
@@ -118,7 +118,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 | 1. 번들 제작 | 인터넷에 연결된 머신에서 `oswl-vdb` 빌더를 실행합니다. 래퍼 스크립트: `scripts/oswl-vdb/oswl-vdb.sh`(Linux/macOS) 또는 `scripts/oswl-vdb/oswl-vdb.ps1`(Windows). 둘 다 `./gradlew vdbBuild --args="..."`를 호출합니다. |
 | 2. 번들 대상 선정 | 타깃 인스턴스가 실제로 스캔한 컴포넌트를 `GET /api/admin/snapshot/wanted-list`(SYSTEM_ADMIN)로 낸 뒤 `build --wanted wanted-list.jsonl`에 넘기세요. 빌더는 전체 업스트림 미러 대신 실제 사용 컴포넌트만 가져옵니다. |
 | 3. 번들 반입 | `POST /api/admin/snapshot/import?mode=replace|merge`(multipart `.zip`). 큰 번들은 `OSWL_AIRGAPPED_IMPORT_DIR` 화이트리스트 디렉터리를 설정한 뒤 `POST /api/admin/snapshot/import-from-path`에 `{"path":"bundle.zip","mode":"merge"}`로 요청하세요. |
-| 4. 모델 배치 (내장 AI 사용 시) | 폐쇄망 호스트는 자동 다운로드를 비활성화합니다. `.gguf` 파일을 `embedded-ai/`에 직접 넣거나 내부 미러를 운영하세요(§8 참고). |
+| 4. 모델 배치(내장 AI 사용 시) | 오프라인 서버를 시작하기 전에 `embedded-ai/llama/`에 실행 파일, `embedded-ai/model/<계열>/`에 검증한 모델을 반입하세요. 내부 미러를 지정해도 에어갭 모드의 다운로드는 비활성화됩니다. §8 참고. |
 
 `oswl-vdb build` 옵션(`VdbBuilderCli` 참고):
 - `--sources osv,epss,kev,depsdev`(기본값 전체).
@@ -147,7 +147,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 OsWL **`prod`는 Hibernate `ddl-auto=validate`** — 기동 시 PostgreSQL을 자동 변경하지 않습니다.
 
-| 프로파일 | 스키마 관리 |
+| 프로필 | 스키마 관리 |
 |----------|-------------|
 | `local` | `ddl-auto: update` — H2가 JPA 엔티티를 따름 |
 | `prod` | `ddl-auto: validate` — 업그레이드 시 SQL 스크립트 수동 실행 |
@@ -165,7 +165,7 @@ OsWL **`prod`는 Hibernate `ddl-auto=validate`** — 기동 시 PostgreSQL을 �
 
 ### Flyway (v1.0.4, 옵트인)
 
-`OSWL_FLYWAY_ENABLED=true`로 설정하면 수동 스크립트 대신 Flyway가 스키마를 관리합니다. `baseline-on-migrate`가 켜져 있어 데이터가 있는 기존 DB도 거부되지 않고 베이스라인 처리되지만, **켜기 전에** 현재 스키마와 일치하는 전체 베이스라인 마이그레이션을 만들어 두어야 합니다. 기본값 `false`에서는 아무것도 달라지지 않습니다.
+`OSWL_FLYWAY_ENABLED=true`로 `src/main/resources/db/migration/`의 버전별 마이그레이션을 활성화합니다. 기본값은 `false`입니다. 저장소에는 이미 `V1__baseline.sql`과 이후 마이그레이션이 있습니다. 빈 PostgreSQL DB에서는 V1부터 순서대로 실행한 후 Hibernate가 스키마를 검증합니다. Flyway 이력이 없는 기존 DB에서는 `baseline-on-migrate`가 V1 실행 없이 버전 1을 기록하고 V2부터 실행합니다. 활성화 전에 백업하고 기존 스키마와 마이그레이션을 비교하세요. 이미 수동 적용한 변경과 후속 마이그레이션이 충돌할 수 있습니다. 공유 DB에 적용한 마이그레이션 파일은 재생성하거나 수정하지 마세요. SQL을 수동 관리한다면 대상 버전에 필요한 변경을 순서대로 모두 적용해야 합니다. 아래의 일부 레거시 스크립트만으로 신규 설치 스키마를 구성할 수는 없습니다.
 
 ### v1.0.4 신규 컬럼
 
@@ -197,7 +197,7 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 ## 11. 운영
 
-- PostgreSQL 백업, `OSWL_ENCRYPTION_KEY`는 시크릿 매니저에 보관(분실 시 VCS 토큰 복호 불가) — 전체 절차와 복구 리허설 스크립트는 [백업 및 복구](Backup-And-Restore) 참고.
+- PostgreSQL 백업, `OSWL_ENCRYPTION_KEY`는 시크릿 매니저에 보관(분실 시 VCS 토큰 복호 불가) — 전체 절차와 복구 리허설 스크립트는 [백업 및 복구](Backup-And-Restore.md) 참고.
 - 유출 시 API 키·SMTP 자격 증명 교체.
 - `local`로 돌리면 안 되는 이미지에 `SPRING_PROFILES_ACTIVE=local` 넣지 않기.
 
@@ -232,4 +232,4 @@ OsWL은 기본적으로 **단일 인스턴스**로 동작합니다 — 인메모
 
 ---
 
-**로컬 개발:** `SPRING_PROFILES_ACTIVE=local`, `.env.example` → `.env`, `OSWL_ENCRYPTION_KEY` 설정, `./gradlew bootRun`. H2, H2 콘솔, Swagger, `GET /data/test`는 이 프로파일에서만.
+**로컬 개발:** `./gradlew bootRun`(PowerShell: `.\gradlew.bat bootRun`)으로 `local` 프로필과 H2를 사용합니다. 로컬 YAML에는 개발 전용 암호화 키가 있으며 필요하면 프로세스 환경 변수로 변경하세요. `.env`는 실행 도구가 명시적으로 읽을 때만 적용됩니다.

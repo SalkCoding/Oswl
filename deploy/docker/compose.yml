@@ -1,10 +1,11 @@
-version: '3.8'
+# Preserve the original Oswl checkout project name; -p / COMPOSE_PROJECT_NAME can override it.
+name: oswl
 services:
   db:
     image: postgres:18
     restart: unless-stopped
     env_file:
-      - .env
+      - ../../.env
     environment:
       POSTGRES_DB: "${POSTGRES_DB:-oswl}"
       POSTGRES_USER: "${POSTGRES_USER:-oswl}"
@@ -18,11 +19,13 @@ services:
       retries: 5
 
   app:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     ports:
       - "8080:8080"
     env_file:
-      - .env
+      - ../../.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

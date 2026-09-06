@@ -1,12 +1,12 @@
 # 데이터베이스 스키마 및 마이그레이션
 
-OsWL 애플리케이션 데이터는 PostgreSQL(`prod`) 또는 H2 파일 모드(`local`)에 저장됩니다. `domain/entity/` 아래 JPA 엔티티가 **실제 스키마의 기준**입니다.
+OsWL 애플리케이션 데이터는 PostgreSQL(`prod`) 또는 H2 파일 모드(`local`)에 저장됩니다. `domain/entity/`, `auth/entity/` 아래 JPA 엔티티가 **실제 스키마의 기준**입니다.
 
 ---
 
-## 프로파일별 동작
+## 프로필별 동작
 
-| 프로파일 | `ddl-auto` | 의미 |
+| 프로필 | `ddl-auto` | 의미 |
 |----------|------------|------|
 | `local` | `update` | 엔티티 변경 시 H2 스키마가 자동 반영 |
 | `prod` | `validate` | PostgreSQL이 엔티티와 다르면 기동 실패 — **자동 마이그레이션 없음** |
@@ -16,7 +16,9 @@ OsWL 애플리케이션 데이터는 PostgreSQL(`prod`) 또는 H2 파일 모드(
 
 ### Flyway (v1.0.4, 옵트인)
 
-`OSWL_FLYWAY_ENABLED=true`로 설정하면 스키마 관리를 Flyway에 위임합니다(`baseline-on-migrate` 활성 — 기존 DB는 거부되지 않고 베이스라인 처리). 켜기 전에 현재 스키마와 일치하는 베이스라인을 생성하세요. 기본값 `false`에서는 위의 `ddl-auto` 동작이 그대로 유지됩니다.
+`OSWL_FLYWAY_ENABLED=true`로 `src/main/resources/db/migration/`의 버전별 마이그레이션을 활성화합니다. 기본값은 `false`입니다. 저장소에는 이미 `V1__baseline.sql`과 이후 마이그레이션이 있습니다. 빈 PostgreSQL DB에서는 V1부터 순서대로 실행한 후 Hibernate가 스키마를 검증합니다. Flyway 이력이 없는 기존 DB에서는 `baseline-on-migrate`가 V1 실행 없이 버전 1을 기록하고 V2부터 실행합니다. 활성화 전에 백업하고 기존 스키마와 마이그레이션을 비교하세요. 이미 수동 적용한 변경과 후속 마이그레이션이 충돌할 수 있습니다. 공유 DB에 적용한 마이그레이션 파일은 재생성하거나 수정하지 마세요. SQL을 수동 관리한다면 대상 버전에 필요한 변경을 순서대로 모두 적용해야 합니다. 아래의 일부 레거시 스크립트만으로 신규 설치 스키마를 구성할 수는 없습니다.
+
+현재 스키마에는 v1.0.4 이후 변경도 포함됩니다. 조직·팀(V11), SAML/SCIM(V13), 웹훅(V14), CVE 출처와 C/C++ 메타데이터(V15–V16), 정책 상속·예외(V17, V28), 도달 가능성 및 근거(V18, V29–V30), 감사 로그 무결성(V19), UI 설정·온보딩(V20, V23–V24), 시크릿·IaC 탐지(V21), 스캔 아카이빙(V22), 보고서 브랜딩(V25), 캐시 집계·무효화(V26–V27), 영속적 가져오기 작업(V31)입니다. 전체 적용 순서는 실제 마이그레이션 파일을 기준으로 확인하세요. 일부 마이그레이션은 재실행을 허용하지 않으므로 무조건 반복 실행하면 안 됩니다.
 
 ### v1.0.4에서 추가된 컬럼
 
@@ -73,7 +75,7 @@ PostgreSQL에 `psql`, DBeaver, CI 마이그레이션 등으로 실행합니다. 
 | `project_versions.imported_at`, `last_updated_at` | 미사용 타임스탬프 |
 | `projects.updated_at`, `version`, `last_scanned_at` | 비정규화; UI는 최신 `scan_results` 사용 |
 
-[운영 배포 체크리스트](Production-Deployment-Checklist.md) §8 참고.
+[운영 배포 체크리스트](Production-Deployment-Checklist.md) §9 참고.
 
 ---
 
@@ -94,7 +96,7 @@ libraries (공유)
 
 airgapped_snapshot_entries ── airgapped_snapshot_meta  (오프라인 스냅샷 저장소)
 
-users, role_templates, audit_logs, cache_settings, vcs_connections, …
+users, role_templates, audit_logs, cache_settings, user_vcs_connections, …
 ```
 
 - **프로젝트 카드 버전 / 마지막 스캔** — `projects.version`이 아니라 최신 `scan_results`에서 계산.

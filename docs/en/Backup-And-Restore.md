@@ -2,7 +2,7 @@
 
 The most common real-world incident isn't losing PostgreSQL — it's losing `OSWL_ENCRYPTION_KEY` while the database backup is fine. Every VCS access token, AI provider API key, Jira API token, and SMTP mail password stored in the database is encrypted with that key. Lose the key and the database restores perfectly but every one of those secrets is permanently unreadable — every VCS connection, AI provider, and Jira integration has to be reconfigured from scratch.
 
-This page is the operator-facing counterpart to [Production deployment](Production-Deployment-Checklist) — read that first for how the app is deployed; this page is specifically about backing it up and proving a restore actually works.
+This page is the operator-facing counterpart to [Production deployment](Production-Deployment-Checklist.md) — read that first for how the app is deployed; this page is specifically about backing it up and proving a restore actually works.
 
 ---
 
@@ -10,11 +10,11 @@ This page is the operator-facing counterpart to [Production deployment](Producti
 
 | Item | Where | Why it matters |
 |---|---|---|
-| PostgreSQL database | `docker-compose.prod.yml` volume `db-data-prod`, or your managed PostgreSQL instance | All application data: projects, scans, findings, users, encrypted secrets. |
+| PostgreSQL database | `deploy/docker/compose.prod.yml` volume `db-data-prod`, or your managed PostgreSQL instance | All application data: projects, scans, findings, users, encrypted secrets. |
 | `OSWL_ENCRYPTION_KEY` | Wherever you inject it (`.env.prod`, secrets manager) | Decrypts every VCS token / AI API key / Jira token / SMTP password in the database. **Without it, the database backup above is useless for anything requiring those secrets.** |
 | Offline snapshot store | `OSWL_AIRGAPPED_IMPORT_DIR` (if air-gapped mode is used) | Re-importing after a restore is possible without this, but you lose your import history and have to re-fetch/re-verify bundles. |
-| Embedded AI model directory | `OSWL_EMBEDDED_AI_DIR` (default `embedded-ai/`) | Re-downloadable (see [Embedded AI](Embedded-AI)) — back up only if you're air-gapped and can't re-fetch it. |
-| Configuration files | `.env.prod`, `docker-compose.prod.yml`, any `application-prod.yaml` overrides | Without these, you know the *data* is fine but not how the instance was actually configured (SMTP host, HSTS settings, feature flags). |
+| Embedded AI model directory | `OSWL_EMBEDDED_AI_DIR` (default `embedded-ai/`) | Re-downloadable (see [Embedded AI](Embedded-AI.md)) — back up only if you're air-gapped and can't re-fetch it. |
+| Configuration files | `.env.prod`, `deploy/docker/compose.prod.yml`, any `application-prod.yaml` overrides | Without these, you know the *data* is fine but not how the instance was actually configured (SMTP host, HSTS settings, feature flags). |
 
 Everything else (`OSWL_LOG_DIR` file logs, Quick Import clone temp dirs) is disposable — do not back it up.
 
@@ -47,7 +47,7 @@ Back up `OSWL_ENCRYPTION_KEY` **in a separate secrets manager**, not alongside t
 OSWL_VERIFY_EMAIL=you@example.com \
 OSWL_VERIFY_PASSWORD='...' \
 OSWL_VERIFY_PROJECT_ID=1 \
-./scripts/verify-restore.sh https://your-instance.example.com
+./scripts/ops/verify-restore.sh https://your-instance.example.com
 ```
 
 The script is interactive (it pauses for your email OTP code, same as any real login) and checks:

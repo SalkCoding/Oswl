@@ -8,14 +8,14 @@
 #
 # This is an interactive drill script (a human runs it during a DR rehearsal), not an
 # unattended health check — logging in still goes through real email OTP 2FA, so it pauses to
-# ask you for the code. See docs/Backup-And-Restore.md for the full restore procedure this
+# ask you for the code. See docs/en/Backup-And-Restore.md for the full restore procedure this
 # script verifies the end of.
 #
 # Usage:
 #   OSWL_VERIFY_EMAIL=admin@example.com \
 #   OSWL_VERIFY_PASSWORD='...' \
 #   OSWL_VERIFY_PROJECT_ID=1 \
-#   ./scripts/verify-restore.sh [base-url, default http://localhost:8080]
+#   ./scripts/ops/verify-restore.sh [base-url, default http://localhost:8080]
 
 set -euo pipefail
 

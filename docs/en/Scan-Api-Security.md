@@ -30,7 +30,7 @@ All other routes keep normal CSRF protection for the UI.
 |------|------------------|
 | 1 | **Project API key** in `Authorization: Bearer …` |
 | 2 | **Submitter** email and password in the JSON body |
-| 3 | Submitter has **`SCAN_SUBMIT`** (role template permission) and is in **`project_members`** for that project |
+| 3 | Submitter has **`SCAN_SUBMIT`** and project access through direct project membership or a team grant. |
 
 See [Authorization layers](Authorization-Layers.md) for how role templates differ from project membership.
 

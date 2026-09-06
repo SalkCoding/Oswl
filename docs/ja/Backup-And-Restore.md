@@ -2,7 +2,7 @@
 
 実務で最も多いインシデントは PostgreSQL の喪失ではなく、**DB バックアップは無事なのに `OSWL_ENCRYPTION_KEY` だけを紛失する**ケースです。DB に保存されているすべての VCS アクセストークン、AI プロバイダー API キー、Jira API トークン、SMTP メールパスワードはこのキーで暗号化されています。キーを失うと、DB は完璧に復元されても、その中のシークレットはすべて永久に復号できなくなります — すべての VCS 接続、AI プロバイダー、Jira 連携をゼロから再設定する必要が出てきます。
 
-このページは [本番デプロイ](Production-Deployment-Checklist) の運用者向けの対になるページです — デプロイ方法はまずそちらを読んでください。このページはバックアップと、「復旧が実際に機能するか」の検証だけに焦点を当てています。
+このページは [本番デプロイ](Production-Deployment-Checklist.md) の運用者向けの対になるページです — デプロイ方法はまずそちらを読んでください。このページはバックアップと、「復旧が実際に機能するか」の検証だけに焦点を当てています。
 
 ---
 
@@ -10,11 +10,11 @@
 
 | 項目 | 場所 | 重要な理由 |
 |---|---|---|
-| PostgreSQL データベース | `docker-compose.prod.yml` の `db-data-prod` ボリューム、またはマネージド PostgreSQL インスタンス | プロジェクト、スキャン、検出結果、ユーザー、暗号化されたシークレットなど、すべてのアプリケーションデータ。 |
+| PostgreSQL データベース | `deploy/docker/compose.prod.yml` の `db-data-prod` ボリューム、またはマネージド PostgreSQL インスタンス | プロジェクト、スキャン、検出結果、ユーザー、暗号化されたシークレットなど、すべてのアプリケーションデータ。 |
 | `OSWL_ENCRYPTION_KEY` | 注入方法による（`.env.prod`、シークレットマネージャーなど） | DB に保存されたすべての VCS トークン／AI API キー／Jira トークン／SMTP パスワードを復号します。**これがなければ、上記の DB バックアップはこれらのシークレットが必要な用途には使えません。** |
 | オフラインスナップショットストア | `OSWL_AIRGAPPED_IMPORT_DIR`（閉域網モード使用時） | 復旧後の再インポートはこれがなくても可能ですが、インポート履歴が失われ、バンドルを再取得・再検証する必要があります。 |
-| 内蔵 AI モデルディレクトリ | `OSWL_EMBEDDED_AI_DIR`（既定値 `embedded-ai/`） | 再ダウンロード可能（[内蔵 AI](Embedded-AI) を参照） — 閉域網で再ダウンロードできない場合のみバックアップしてください。 |
-| 設定ファイル | `.env.prod`、`docker-compose.prod.yml`、`application-prod.yaml` のオーバーライド | これがないと、データは無事でもインスタンスが実際どう設定されていたか（SMTP ホスト、HSTS 設定、機能フラグなど）が分かりません。 |
+| 内蔵 AI モデルディレクトリ | `OSWL_EMBEDDED_AI_DIR`（既定値 `embedded-ai/`） | 再ダウンロード可能（[内蔵 AI](Embedded-AI.md) を参照） — 閉域網で再ダウンロードできない場合のみバックアップしてください。 |
+| 設定ファイル | `.env.prod`、`deploy/docker/compose.prod.yml`、`application-prod.yaml` のオーバーライド | これがないと、データは無事でもインスタンスが実際どう設定されていたか（SMTP ホスト、HSTS 設定、機能フラグなど）が分かりません。 |
 
 それ以外（`OSWL_LOG_DIR` のファイルログ、Quick Import のクローン一時ディレクトリ）は使い捨てなのでバックアップ不要です。
 
@@ -47,7 +47,7 @@ pg_dump -Fc -h <host> -U <user> -d <database> -f oswl-$(date +%Y%m%d).dump
 OSWL_VERIFY_EMAIL=you@example.com \
 OSWL_VERIFY_PASSWORD='...' \
 OSWL_VERIFY_PROJECT_ID=1 \
-./scripts/verify-restore.sh https://your-instance.example.com
+./scripts/ops/verify-restore.sh https://your-instance.example.com
 ```
 
 このスクリプトは対話形式です（実際のログインと同様、メール OTP コードの入力を待ちます）。以下を確認します:

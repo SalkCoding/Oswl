@@ -89,6 +89,8 @@ ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 
 ---
 
+The manifest archive follows `/scripts/manifest-rules.json`. It can include build configuration, wrapper files, and `buildSrc` Java/Kotlin files as well as dependency manifests; review the collection rules before sending a repository’s files.
+
 ## Prerequisites
 
 1. A **project** registered in OsWL.
@@ -108,12 +110,12 @@ ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 | `POST` | `/api/scan` | API key + user password | Submit scan for enrichment |
 | `GET` | `/api/scan/{scanId}/status` | Session | Poll scan status (UI) |
 | `POST` | `/api/scan/gate` | API key | **v1.0.4** — PR / CI security gate; returns a verdict with `exitCode` |
-| `GET` | `/api/projects/{projectId}/sbom` | Session / key | **v1.0.4** — CycloneDX 1.6 SBOM |
-| `GET` | `/api/projects/{projectId}/vex` | Session / key | **v1.0.4** — CycloneDX VEX |
-| `GET` | `/api/projects/{projectId}/sarif` | Session / key | **v1.0.4** — SARIF 2.1.0 |
+| `GET` | `/api/projects/{projectId}/sbom` | Session | **v1.0.4** — CycloneDX 1.6 SBOM |
+| `GET` | `/api/projects/{projectId}/vex` | Session | **v1.0.4** — CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | Session | **v1.0.4** — SARIF 2.1.0 |
 | `POST` | `/api/sbom/import` | Session | **v1.0.4** — Import a third-party CycloneDX file |
 
-> The CLI endpoints authenticate with the `Authorization: Bearer` header only — no session cookie or CSRF token is required. `POST /api/scan`, `POST /api/scan/parse`, and `GET /api/scan/ping` are exempt from the browser CSRF checks; every other route keeps normal CSRF protection. See [Scan API Security](Scan-Api-Security.md).
+> CLI requests send a project API key in `Authorization: Bearer`; `POST /api/scan` additionally verifies the submitting user’s email, password, permission, and project access. `POST /api/scan`, `POST /api/scan/parse`, and `POST /api/scan/gate` do not require a browser session or CSRF token. `GET /api/scan/ping` verifies the key. See [Scan API Security](Scan-Api-Security.md).
 
 ---
 
@@ -127,9 +129,9 @@ POST /api/projects/{projectId}/keys
 
 UI: project → **Settings (⚙)** → **CLI** → **Generate Key**.
 
-### Admin global keys
+### Administrator key management
 
-**Settings → Admin → CLI Keys** — see [API Reference](API-Reference.md).
+Administrators can list and revoke CLI keys across projects and issue a key for a specified `projectId`. Scan keys remain project-scoped; the separate SCIM token scope does not authorize scan submission.
 
 ---
 
@@ -255,7 +257,7 @@ Server-side defaults (all overridable per request):
 | `onlyReachable` | `OSWL_GATE_ONLY_REACHABLE` | `false` |
 | `failOnSecrets` | `OSWL_GATE_FAIL_ON_SECRETS` | `false` |
 
-`onlyNew` compares against the previous completed scan as a baseline, so pre-existing debt never blocks a merge. `onlyReachable` (**v1.0.5**) additionally requires bytecode call-graph analysis to have found the vulnerable library actually referenced by the project — a further noise cut on top of severity/KEV/EPSS. It only applies to Java/Gradle components with a configured bytecode root (`oswl.reachability.bytecode-root`); everything else is UNKNOWN and never blocks under this option, so leave it off unless your projects are Java. Supply a GitHub target in the request and the verdict is also posted as a Check Run and PR comment.
+`onlyNew` filters previously observed CVE and license findings using a baseline. It does not guarantee a passing gate: confirmed malware, secret findings when enabled, and other applicable rules can still fail it. `onlyReachable` filters CVE findings to components with a `REACHABLE` result from supported bytecode or source-reference analysis. `UNKNOWN` CVE findings are excluded when this option is enabled; absence of a reference is not proof that a vulnerability cannot be exploited. License and malware checks are independent of this filter. Review coverage before enabling it. A configured GitHub target can receive a Check Run and PR comment.
 
 A confirmed-malicious package (an OSV `MAL-` advisory) always blocks, regardless of every threshold above and regardless of `onlyNew`/`onlyReachable` — the only way to unblock one is an approved policy exception (waiver, **v1.0.5**, see `/api/policies/exceptions`).
 

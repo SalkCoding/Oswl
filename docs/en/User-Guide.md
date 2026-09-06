@@ -96,7 +96,7 @@ Use **Administration → Offline Snapshot** to import a bundle, export the curre
 
 ## Embedded AI Model
 
-OsWL's built-in local AI runs a llama.cpp sidecar and defaults to the **Qwen3 1.7B** GGUF model. On first boot, OsWL prefetches the default model in the background (configurable with `oswl.ai.embedded.auto-download-on-boot`; disabled in air-gapped mode) so that enabling embedded AI in Settings is faster. The default download uses OsWL's own GitHub Release asset with a fallback to the original Hugging Face repository, and every download is verified against a SHA-256 checksum. You can also place any compatible `.gguf` file in the configured embedded-AI directory. See [Embedded AI](Embedded-AI.md) for installation and troubleshooting.
+Embedded AI runs a separately installed llama.cpp runtime with **Qwen3.5-2B Q4_K_M** as the default download. **Gemma 4 E2B** is optional and installed manually. The runtime belongs in `embedded-ai/llama/`, and models in `embedded-ai/model/<family>/`. Boot-time prefetch downloads only; it does not start the server or activate LOCAL. The default download uses a pinned Hugging Face revision with SHA-256 and size verification; no fallback mirror is configured by default. Air-gapped mode disables downloads. Use Settings to stop, select and save a model, then start again. See [Embedded AI](Embedded-AI.md) for current requirements and configuration.
 
 ---
 

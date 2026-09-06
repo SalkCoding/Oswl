@@ -5,18 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OsWL - Enterprise SCA Platform</title>
     <meta name="description" data-i18n-attr="content:meta.description" content="OsWL is an enterprise-grade Software Composition Analysis platform that continuously tracks CVE vulnerabilities and license risks across your open source dependencies.">
-    <style>html.i18n-pending body { visibility: hidden; }</style>
-    <script>
-        (function () {
-            var p = new URLSearchParams(location.search).get('lang');
-            var s = localStorage.getItem('oswl-landing-locale');
-            var nav = (navigator.language || '').toLowerCase();
-            if (p === 'ko' || (p !== 'en' && s === 'ko') || (!p && !s && nav.startsWith('ko'))) {
-                document.documentElement.classList.add('i18n-pending');
-            }
-        })();
-    </script>
-    <script src="/landing-i18n.js"></script>
+    <script src="/landing-i18n.js" defer></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/tailwind.css">
@@ -28,7 +17,7 @@
                 document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
             }
             window.oswlApplyTheme = applyTheme;
-            applyTheme(localStorage.getItem('oswl-theme'));
+            try { applyTheme(localStorage.getItem('oswl-theme')); } catch (_) { applyTheme('dark'); }
         })();
     </script>
 
@@ -272,7 +261,7 @@
 
         /* ── Feature cards ── */
         .features-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px;
         }
         .feature-card {
             background: var(--bg-card); border: 1px solid var(--border);
@@ -353,6 +342,10 @@
         .dot-r { background: #ff5f57; } .dot-y { background: #febc2e; } .dot-g { background: #28c840; }
         .demo-ttl { font-size: 12px; font-weight: 600; color: var(--text-muted); }
         .risk-table { width: 100%; border-collapse: collapse; }
+        .risk-table-scroll { overflow-x: auto; }
+        .risk-table-scroll .risk-table { min-width: 480px; }
+        .risk-table a { text-decoration: underline; text-underline-offset: 3px; }
+        .demo-note { padding: 0 20px 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
         .risk-table th {
             padding: 10px 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
             text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: left;
@@ -445,19 +438,24 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+            .fade-up { opacity: 1; transform: none; }
+        }
     </style>
 </head>
-<body>
+<body id="top">
 
 <!-- NAV -->
 <nav id="main-nav">
     <div class="nav-inner">
-        <a href="#" class="nav-logo">
+        <a href="#top" class="nav-logo">
             <img src="/icon/icon-logo.svg" alt="OsWL" class="logo-dark">
             <img src="/graphic/symbol_w.svg" alt="OsWL" class="logo-light" style="width:32px;height:32px;">
             <span class="nav-logo-text">OsWL</span>
         </a>
         <div class="nav-links">
+            <a href="https://github.com/SalkCoding/Oswl/blob/main/docs/en/Home.md" class="nav-link" data-i18n="nav.docs" data-i18n-attr="href:nav.docsUrl">Documentation</a>
             <a href="#features" class="nav-link" data-i18n="nav.features">Features</a>
             <a href="#platform" class="nav-link" data-i18n="nav.platform">Platform</a>
             <a href="#how-it-works" class="nav-link" data-i18n="nav.howItWorks">How It Works</a>
@@ -486,15 +484,10 @@
             <span class="hero-badge-dot"></span>
             <span data-i18n="hero.badge">Enterprise SCA Platform</span>
         </div>
-        <h1 class="hero-title fade-up fade-up-d1" data-i18n-html="hero.title">
-            Know Every Vulnerability<br>in Your <span class="gradient-text">Open Source Stack</span>
-        </h1>
-        <p class="hero-subtitle fade-up fade-up-d2" data-i18n="hero.subtitle">
-            OsWL continuously scans your dependencies for CVEs, license obligations, and transitive risks &mdash;
-            giving security and compliance teams complete SBOM visibility from a single self-hosted platform.
-        </p>
+        <h1 class="hero-title fade-up fade-up-d1" data-i18n-html="hero.title">Understand Dependency Risks<br>in Your <span class="gradient-text">Open Source Stack</span></h1>
+        <p class="hero-subtitle fade-up fade-up-d2" data-i18n="hero.subtitle">Track CVEs, license obligations, and dependency risks from one self-hosted platform. Scan repositories or submit dependencies from CI, then review findings with your security and compliance teams.</p>
         <div class="hero-actions fade-up fade-up-d3">
-            <a href="https://github.com/SalkCoding/Oswl/releases" class="btn-primary" data-i18n="hero.ctaPrimary">Install Now</a>
+            <a href="https://github.com/SalkCoding/Oswl/blob/main/docs/en/Getting-Started.md" data-i18n-attr="href:hero.installUrl" class="btn-primary" data-i18n="hero.ctaPrimary">Install Now</a>
             <a href="#platform" class="btn-secondary" data-i18n="hero.ctaSecondary">See the Platform</a>
         </div>
     </div>
@@ -505,11 +498,11 @@
     <div class="stats-inner">
         <div style="text-align:center">
             <div class="stat-value" data-i18n="stats.multiSource">Multi-source</div>
-            <div class="stat-label" data-i18n="stats.multiSourceLabel">GHSA &middot; OSV Advisories</div>
+            <div class="stat-label" data-i18n="stats.multiSourceLabel">OSV · GitHub Advisory · NVD</div>
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
-            <div class="stat-value">8</div>
+            <div class="stat-value">8+</div>
             <div class="stat-label" data-i18n="stats.ecosystemsLabel">Package Ecosystems</div>
         </div>
         <div class="stat-divider"></div>
@@ -519,13 +512,13 @@
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
-            <div class="stat-value">CVSS 3.x</div>
+            <div class="stat-value">CVSS 3.x / 4.0</div>
             <div class="stat-label" data-i18n="stats.cvssLabel">Scoring Supported</div>
         </div>
         <div class="stat-divider"></div>
         <div style="text-align:center">
             <div class="stat-value" data-i18n="stats.gitNative">Git-native</div>
-            <div class="stat-label" data-i18n="stats.gitNativeLabel">GitHub &middot; GitLab &middot; Bitbucket</div>
+            <div class="stat-label" data-i18n="stats.gitNativeLabel">GitHub · GitLab · Bitbucket</div>
         </div>
     </div>
 </div>
@@ -535,7 +528,7 @@
     <div class="section-inner">
         <p class="section-label" data-i18n="features.label">Core Capabilities</p>
         <h2 class="section-title" data-i18n-html="features.title">End-to-End Software<br>Composition Analysis</h2>
-        <p class="section-subtitle" data-i18n="features.subtitle">From dependency ingestion to remediation, OsWL covers the full SCA lifecycle with enterprise-grade accuracy and auditability.</p>
+        <p class="section-subtitle" data-i18n="features.subtitle">Collect dependencies, assess findings, and track remediation with project access controls and audit logs.</p>
 
         <div class="features-grid">
             <div class="feature-card">
@@ -543,8 +536,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.cveTitle">CVE Vulnerability Tracking</div>
-                <p class="feature-desc" data-i18n="features.cveDesc">On-demand enrichment from deps.dev and OSV. Every component is cross-referenced against CVSS 3.x scores and patch availability, and a reminder banner surfaces when a deferred component's grace period expires.</p>
-                <span class="feature-tag" data-i18n="features.cveTag">deps.dev &middot; OSV &middot; GHSA</span>
+                <p class="feature-desc" data-i18n="features.cveDesc">Enrich scanned components with vulnerability data, available CVSS scores, and known fix versions. Track review decisions and see a reminder when a component’s deferral period ends.</p>
+                <span class="feature-tag" data-i18n="features.cveTag">deps.dev · OSV · GHSA</span>
             </div>
 
             <div class="feature-card">
@@ -552,8 +545,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.licenseTitle">License Risk Management</div>
-                <p class="feature-desc" data-i18n="features.licenseDesc">Automatic SPDX classification of OSS licenses &mdash; copyleft, permissive, proprietary &mdash; with obligation rules, conflict detection, and NOTICE / SPDX SBOM export per scan.</p>
-                <span class="feature-tag" data-i18n="features.licenseTag">GPL &middot; LGPL &middot; Apache &middot; MIT &middot; AGPL &middot; MPL</span>
+                <p class="feature-desc" data-i18n="features.licenseDesc">Classify detected SPDX license identifiers against your license policy, review obligations and potential conflicts, and export NOTICE files or SPDX SBOMs for each scan.</p>
+                <span class="feature-tag" data-i18n="features.licenseTag">GPL · LGPL · Apache · MIT · AGPL · MPL</span>
             </div>
 
             <div class="feature-card">
@@ -570,8 +563,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.transitiveTitle">Transitive Dependency Traversal</div>
-                <p class="feature-desc" data-i18n="features.transitiveDesc">Uncover vulnerabilities hidden deep in your dependency graph. DependencyPath analysis traces both direct and transitive exposure across every supported manifest.</p>
-                <span class="feature-tag" data-i18n="features.transitiveTag">Maven &middot; npm &middot; PyPI &middot; Go &middot; Cargo &middot; NuGet &middot; RubyGems &middot; Composer (+ Conan inventory-only)</span>
+                <p class="feature-desc" data-i18n="features.transitiveDesc">Trace direct and transitive dependencies when supported lock files or graph data provide paths. Coverage depends on the ecosystem and input; a manifest alone may not contain the complete dependency graph.</p>
+                <span class="feature-tag" data-i18n="features.transitiveTag">Maven · npm · PyPI · Go · Cargo · NuGet · RubyGems · Composer</span>
             </div>
 
             <div class="feature-card">
@@ -579,8 +572,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.gitTitle">Git-Native Repository Integration</div>
-                <p class="feature-desc" data-i18n="features.gitDesc">Connect GitHub, GitLab, or Bitbucket via Personal Access Token. Quick Import queues bulk repository imports with a cancel button for jobs still running, and every scan keeps branch-aware snapshots and per-project history out of the box.</p>
-                <span class="feature-tag" data-i18n="features.gitTag">GitHub &middot; GitLab &middot; Bitbucket</span>
+                <p class="feature-desc" data-i18n="features.gitDesc">Connect supported GitHub, GitLab, or Bitbucket credentials, or import a public repository URL. Queue repository imports, cancel active jobs, and retain branch information and scan history for each project.</p>
+                <span class="feature-tag" data-i18n="features.gitTag">GitHub · GitLab · Bitbucket</span>
             </div>
 
             <div class="feature-card">
@@ -588,8 +581,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.cliTitle">CLI &amp; CI/CD Pipeline Scanning</div>
-                <p class="feature-desc" data-i18n="features.cliDesc">Integrate OsWL into any build pipeline with a single CLI command. Only parsed manifest metadata is uploaded &mdash; no source code leaves your build host. Bearer-token API keys per project or organization-wide.</p>
-                <span class="feature-tag" data-i18n="features.cliTag">Manifest-only upload</span>
+                <p class="feature-desc" data-i18n="features.cliDesc">Submit scans from local projects or CI. The CLI uploads selected dependency manifests and build files for server-side parsing, then submits components with a project-scoped API key and the submitting user’s credentials.</p>
+                <span class="feature-tag" data-i18n="features.cliTag">Build-input upload</span>
             </div>
 
             <div class="feature-card">
@@ -597,8 +590,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.sbomTitle">CycloneDX SBOM &amp; VEX</div>
-                <p class="feature-desc" data-i18n="features.sbomDesc">Export a CycloneDX 1.6 SBOM, a VEX document carrying your triage decisions, or a SARIF report for code-scanning dashboards. Import third-party CycloneDX files to scan components you don&rsquo;t build yourself.</p>
-                <span class="feature-tag" data-i18n="features.sbomTag">CycloneDX 1.6 &middot; VEX &middot; SARIF 2.1.0</span>
+                <p class="feature-desc" data-i18n="features.sbomDesc">Export a CycloneDX 1.6 SBOM, a VEX document carrying your triage decisions, or a SARIF report for code-scanning dashboards. Import third-party CycloneDX files to scan components you don’t build yourself.</p>
+                <span class="feature-tag" data-i18n="features.sbomTag">CycloneDX 1.6 · VEX · SARIF 2.1.0</span>
             </div>
 
             <div class="feature-card">
@@ -606,8 +599,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.gateTitle">Policy Gates for Pull Requests</div>
-                <p class="feature-desc" data-i18n="features.gateDesc">Define severity, license, and KEV thresholds per project, then let the gate pass or fail each scan. Results publish back to GitHub as a check run and PR comment, new findings are compared against a baseline so existing debt never blocks a merge, and any finding can be escalated to a linked Jira issue.</p>
-                <span class="feature-tag" data-i18n="features.gateTag">Baseline diff &middot; GitHub check run</span>
+                <p class="feature-desc" data-i18n="features.gateDesc">Evaluate scan results against severity, license, and KEV policies. Use a baseline to assess newly introduced findings when needed. CI integrations can publish GitHub checks and PR comments, and Jira integration links findings to issues.</p>
+                <span class="feature-tag" data-i18n="features.gateTag">Baseline diff · GitHub check run</span>
             </div>
 
             <div class="feature-card">
@@ -615,8 +608,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.orgTitle">Organization Dashboard</div>
-                <p class="feature-desc" data-i18n="features.orgDesc">One view across every project: KEV-listed and actively exploited CVEs first, EPSS exploit probability for ranking the rest, license warnings, and an audit-log export for your SIEM.</p>
-                <span class="feature-tag" data-i18n="features.orgTag">CISA KEV &middot; EPSS &middot; SIEM export</span>
+                <p class="feature-desc" data-i18n="features.orgDesc">Review vulnerability and license totals across projects, including unaddressed KEV-listed findings. Projects are ranked by severity counts. Organization and team membership control access; audit logs can be exported separately.</p>
+                <span class="feature-tag" data-i18n="features.orgTag">Project risk totals · Teams · Audit export</span>
             </div>
 
             <div class="feature-card">
@@ -624,8 +617,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.embeddedAiTitle">Embedded, Offline AI Insights</div>
-                <p class="feature-desc" data-i18n="features.embeddedAiDesc">A built-in llama.cpp sidecar starts and stops from Settings, running Qwen3 1.7B Q4_K_M locally (Gemma 3 1B on low-spec hardware) &mdash; CPU-only, no API key, and nothing leaves the host. Insights honor your chosen reasoning effort and are tracked in the same usage log as every cloud provider.</p>
-                <span class="feature-tag" data-i18n="features.embeddedAiTag">llama.cpp &middot; CPU-only &middot; Zero internet</span>
+                <p class="feature-desc" data-i18n="features.embeddedAiDesc">Run local inference with a separately installed llama.cpp runtime. Qwen3.5-2B Q4_K_M is the default download; Gemma 4 E2B is an optional manual installation. CPU-only defaults require no cloud API key. Prepare the runtime and model in advance for offline use.</p>
+                <span class="feature-tag" data-i18n="features.embeddedAiTag">llama.cpp · CPU default · Local inference</span>
             </div>
 
             <div class="feature-card">
@@ -633,36 +626,50 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="12" x2="2" y2="12"/><path stroke-linecap="round" stroke-linejoin="round" d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
                 </div>
                 <div class="feature-title" data-i18n="features.airgappedTitle">Air-Gapped &amp; Offline-Ready</div>
-                <p class="feature-desc" data-i18n="features.airgappedDesc">Import versioned OSV, deps.dev, EPSS, and KEV snapshot bundles &mdash; checksummed and provenance-stamped &mdash; to keep vulnerability intelligence current with zero outbound internet access. A wanted-list export tells you exactly which components the next bundle needs to cover, and every finding shows its data-as-of date.</p>
-                <span class="feature-tag" data-i18n="features.airgappedTag">Checksum &middot; Provenance &middot; Wanted-list export</span>
+                <p class="feature-desc" data-i18n="features.airgappedDesc">Import checksummed OSV, deps.dev, EPSS, and KEV snapshot bundles for offline data lookups. Export a wanted list to target the next bundle and check its data freshness. Configure repository, email, webhook, and AI connections separately for an isolated deployment.</p>
+                <span class="feature-tag" data-i18n="features.airgappedTag">Checksum · Provenance · Wanted-list export</span>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
                 </div>
-                <div class="feature-title" data-i18n="features.remediationTitle">One-Click Remediation PRs</div>
-                <p class="feature-desc" data-i18n="features.remediationDesc">Bump a vulnerable dependency straight from the Security Center &mdash; OsWL opens a version-bump PR or MR against GitHub, GitLab, or Bitbucket, with reviewers and a change summary attached. Run it in batch to open one PR per patchable component across an entire scan in a single action.</p>
-                <span class="feature-tag" data-i18n="features.remediationTag">GitHub &middot; GitLab &middot; Bitbucket &middot; Batch upgrade</span>
+                <div class="feature-title" data-i18n="features.remediationTitle">Dependency Upgrade PRs</div>
+                <p class="feature-desc" data-i18n="features.remediationDesc">Create version-bump PRs or MRs for supported manifests in connected GitHub, GitLab, and Bitbucket repositories. Batch actions attempt one PR per eligible component and report individual outcomes. Repository permissions and a supported version edit are required; reviewer assignment depends on the provider.</p>
+                <span class="feature-tag" data-i18n="features.remediationTag">GitHub · GitLab · Bitbucket · Batch upgrade</span>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 </div>
-                <div class="feature-title" data-i18n="features.supplyChainTitle">Supply-Chain Attack Detection</div>
-                <p class="feature-desc" data-i18n="features.supplyChainDesc">Every resolved package name is screened for typosquatting &mdash; edit-distance and confusable-character matching against a per-ecosystem popular-package list &mdash; plus lightweight dependency-confusion signals like internal-looking names resolved from a public registry. Flagged packages surface as a verify-origin warning, never a silent block.</p>
-                <span class="feature-tag" data-i18n="features.supplyChainTag">Typosquat detection &middot; Dependency confusion</span>
+                <div class="feature-title" data-i18n="features.supplyChainTitle">Supply-Chain Risk Signals</div>
+                <p class="feature-desc" data-i18n="features.supplyChainDesc">Flag suspicious package-name similarities and dependency-confusion patterns for review. These heuristics do not prove an attack or establish package provenance. Confirmed malware advisories are tracked separately and can fail the security gate.</p>
+                <span class="feature-tag" data-i18n="features.supplyChainTag">Typosquat detection · Dependency confusion</span>
             </div>
 
             <div class="feature-card">
                 <div class="feature-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                 </div>
-                <div class="feature-title" data-i18n="features.ssoTitle">Enterprise SSO via OIDC</div>
-                <p class="feature-desc" data-i18n="features.ssoDesc">Sign in through Okta, Entra ID, or any OpenID Connect provider &mdash; SSO activates automatically once an OIDC client is configured. Logins skip the email OTP step since the identity provider already authenticated the user, while every existing role and permission rule still applies.</p>
-                <span class="feature-tag" data-i18n="features.ssoTag">Okta &middot; Entra ID &middot; Any OIDC provider</span>
+                <div class="feature-title" data-i18n="features.ssoTitle">SSO &amp; User Provisioning</div>
+                <p class="feature-desc" data-i18n="features.ssoDesc">Configure OIDC or SAML 2.0 single sign-on and SCIM 2.0 provisioning. Map identity-provider users to OsWL accounts and manage group assignments. Integration setup and account provisioning are required; OsWL roles and project access still apply.</p>
+                <span class="feature-tag" data-i18n="features.ssoTag">OIDC · SAML 2.0 · SCIM 2.0</span>
             </div>
+            <div class="feature-card">
+                <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3m8-16h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M14 8l-4 8"/></svg></div>
+                <div class="feature-title" data-i18n="features.sourceTitle">Source &amp; Bytecode References</div>
+                <p class="feature-desc" data-i18n="features.sourceDesc">Inspect Java bytecode references and supported Python or JavaScript source imports when the corresponding inputs are provided. Evidence and coverage help explain findings. A reference does not prove execution, and incomplete analysis remains unknown.</p>
+                <span class="feature-tag" data-i18n="features.sourceTag">Java · Python · JavaScript · Coverage evidence</span>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3m8-16h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M14 8l-4 8"/></svg></div>
+                <div class="feature-title" data-i18n="features.secretTitle">Secret &amp; IaC Findings</div>
+                <p class="feature-desc" data-i18n="features.secretDesc">Inspect collected Quick Import files for secret patterns and infrastructure configuration issues. Review locations and rules alongside vulnerability findings. Coverage depends on collected files and enabled scanners; full source checkout is a separate option.</p>
+                <span class="feature-tag" data-i18n="features.secretTag">Collected files · Rule-based findings</span>
+            </div>
+
         </div>
     </div>
 </section>
@@ -670,26 +677,26 @@
 <!-- SCREENSHOTS -->
 <section class="section section-alt" id="platform">
     <div class="section-inner">
-        <p class="section-label" data-i18n="platform.label">Live Platform</p>
-        <h2 class="section-title" data-i18n-html="platform.title">Built for Security &amp;<br>Compliance Teams</h2>
-        <p class="section-subtitle" data-i18n="platform.subtitle">Every screen is engineered for actionability &mdash; from CVE triage to remediation tracking, no context switching required.</p>
+        <p class="section-label" data-i18n="platform.label">Product Screenshots</p>
+        <h2 class="section-title" data-i18n-html="platform.title">Built for Security &<br>Compliance Teams</h2>
+        <p class="section-subtitle" data-i18n="platform.subtitle">Explore example screens for vulnerability review, project management, license analysis, and risk trends. Screenshots use sample data.</p>
 
-        <div class="screenshot-tabs">
-            <button class="tab-btn active" onclick="showTab('sc',this)" data-i18n="platform.tabSc">Security Center</button>
-            <button class="tab-btn" onclick="showTab('projects',this)" data-i18n="platform.tabProjects">Projects</button>
-            <button class="tab-btn" onclick="showTab('license',this)" data-i18n="platform.tabLicense">License Analysis</button>
-            <button class="tab-btn" onclick="showTab('risk',this)" data-i18n="platform.tabRisk">Risk Trend</button>
+        <div class="screenshot-tabs" role="tablist" data-i18n-attr="aria-label:platform.label" aria-label="Product Screenshots">
+            <button class="tab-btn active" type="button" role="tab" id="screenshot-tab-sc" aria-controls="tab-sc" aria-selected="true" tabindex="0" onclick="showTab('sc',this)" data-i18n="platform.tabSc">Security Center</button>
+            <button class="tab-btn" type="button" role="tab" id="screenshot-tab-projects" aria-controls="tab-projects" aria-selected="false" tabindex="-1" onclick="showTab('projects',this)" data-i18n="platform.tabProjects">Projects</button>
+            <button class="tab-btn" type="button" role="tab" id="screenshot-tab-license" aria-controls="tab-license" aria-selected="false" tabindex="-1" onclick="showTab('license',this)" data-i18n="platform.tabLicense">License Analysis</button>
+            <button class="tab-btn" type="button" role="tab" id="screenshot-tab-risk" aria-controls="tab-risk" aria-selected="false" tabindex="-1" onclick="showTab('risk',this)" data-i18n="platform.tabRisk">Risk Trend</button>
         </div>
-        <div class="screenshot-frame active" id="tab-sc">
+        <div class="screenshot-frame active" id="tab-sc" role="tabpanel" aria-labelledby="screenshot-tab-sc">
             <img src="/img/screenshots/security-center.png" data-i18n-attr="alt:platform.altSc;src:platform.srcSc" alt="OsWL Security Center &mdash; CVE triage with CVSS scores">
         </div>
-        <div class="screenshot-frame" id="tab-projects">
+        <div class="screenshot-frame" id="tab-projects" role="tabpanel" aria-labelledby="screenshot-tab-projects" hidden>
             <img src="/img/screenshots/projects.png" data-i18n-attr="alt:platform.altProjects;src:platform.srcProjects" alt="OsWL Projects Dashboard &mdash; multi-project risk overview">
         </div>
-        <div class="screenshot-frame" id="tab-license">
+        <div class="screenshot-frame" id="tab-license" role="tabpanel" aria-labelledby="screenshot-tab-license" hidden>
             <img src="/img/screenshots/license.png" data-i18n-attr="alt:platform.altLicense;src:platform.srcLicense" alt="OsWL License Analysis &mdash; copyleft and compliance risk tracking">
         </div>
-        <div class="screenshot-frame" id="tab-risk">
+        <div class="screenshot-frame" id="tab-risk" role="tabpanel" aria-labelledby="screenshot-tab-risk" hidden>
             <img src="/img/screenshots/risk-trend.png" data-i18n-attr="alt:platform.altRisk;src:platform.srcRisk" alt="OsWL Risk Trend &mdash; scan-over-scan security posture">
         </div>
     </div>
@@ -704,9 +711,7 @@
             <div>
                 <p class="section-label" data-i18n="vuln.label">Vulnerability Intelligence</p>
                 <h2 class="section-title" style="font-size:clamp(24px,3vw,38px);" data-i18n-html="vuln.title">Prioritize What<br>Actually Matters</h2>
-                <p style="font-size:15px; line-height:1.7; color:var(--text-secondary); margin:0 0 28px;" data-i18n="vuln.desc">
-                    OsWL surfaces exploitable, patchable vulnerabilities first. CVSS scores, exploit maturity, and fix availability are enriched automatically from deps.dev and OSV advisory feeds.
-                </p>
+                <p style="font-size:15px; line-height:1.7; color:var(--text-secondary); margin:0 0 28px;" data-i18n="vuln.desc">Use CVSS severity, EPSS probability, KEV listings, and known fix versions to prioritize review. Available signals depend on the advisory sources and component coverage; they do not prove exploitability in your deployment.</p>
                 <div style="display:flex; flex-direction:column; gap:12px;">
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:#e62727;flex-shrink:0;"></div>
@@ -714,7 +719,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:var(--secondary);flex-shrink:0;"></div>
-                        <span data-i18n-html="vuln.bullet2"><strong style="color:var(--text-primary)">Fix version surfaced</strong> &mdash; know if a patched release exists before triaging</span>
+                        <span data-i18n-html="vuln.bullet2"><strong style="color:var(--text-primary)">Fix version surfaced</strong> — know if a patched release exists before triaging</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:#f47a29;flex-shrink:0;"></div>
@@ -722,7 +727,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <div style="width:6px;height:6px;border-radius:50%;background:#f5bd26;flex-shrink:0;"></div>
-                        <span data-i18n-html="vuln.bullet4"><strong style="color:var(--text-primary)">Bulk status updates</strong> &mdash; mark findings reviewed or ignored in one action</span>
+                        <span data-i18n-html="vuln.bullet4"><strong style="color:var(--text-primary)">Bulk status updates</strong> — mark findings reviewed or ignored in one action</span>
                     </div>
                 </div>
             </div>
@@ -731,74 +736,75 @@
                     <div class="traffic-lights">
                         <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
                     </div>
-                    <span class="demo-ttl" data-i18n="vuln.demoTitle">backend-api &middot; v3.2.0 &mdash; Security Center</span>
+                    <span class="demo-ttl" data-i18n="vuln.demoTitle">Example findings · CVSS 3.x</span>
                 </div>
+                <div class="risk-table-scroll" tabindex="0" role="region" aria-label="Example findings" data-i18n-attr="aria-label:vuln.demoTitle">
                 <table class="risk-table">
                     <thead><tr><th data-i18n="table.component">Component</th><th data-i18n="table.cveId">CVE ID</th><th data-i18n="table.cvss">CVSS</th><th data-i18n="table.severity">Severity</th></tr></thead>
                     <tbody>
                         <tr>
-                            <td><strong>jackson-databind</strong><br><span style="font-size:11px;color:var(--text-muted)">2.13.4.2</span></td>
-                            <td style="font-family:monospace;font-size:12px">CVE-2022-42003</td>
-                            <td><span class="cvss cvss-c">9.8</span></td>
-                            <td><span class="sev sev-c" data-i18n="severity.critical">Critical</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>spring-webmvc</strong><br><span style="font-size:11px;color:var(--text-muted)">5.3.27</span></td>
-                            <td style="font-family:monospace;font-size:12px">CVE-2023-20861</td>
-                            <td><span class="cvss cvss-h">8.6</span></td>
-                            <td><span class="sev sev-h" data-i18n="severity.high">High</span></td>
-                        </tr>
-                        <tr>
-                            <td><strong>commons-io</strong><br><span style="font-size:11px;color:var(--text-muted)">2.11.0</span></td>
-                            <td style="font-family:monospace;font-size:12px">CVE-2024-22011</td>
+                            <td><strong>jackson-databind</strong><br><span style="font-size:11px;color:var(--text-muted)">2.13.4</span></td>
+                            <td style="font-family:monospace;font-size:12px"><a href="https://nvd.nist.gov/vuln/detail/CVE-2022-42003">CVE-2022-42003</a></td>
                             <td><span class="cvss cvss-h">7.5</span></td>
                             <td><span class="sev sev-h" data-i18n="severity.high">High</span></td>
                         </tr>
                         <tr>
-                            <td><strong>logback-classic</strong><br><span style="font-size:11px;color:var(--text-muted)">1.2.11</span></td>
-                            <td style="font-family:monospace;font-size:12px">CVE-2023-6378</td>
-                            <td><span class="cvss cvss-m">6.2</span></td>
+                            <td><strong>logback-classic</strong><br><span style="font-size:11px;color:var(--text-muted)">1.4.11</span></td>
+                            <td style="font-family:monospace;font-size:12px"><a href="https://www.cve.org/CVERecord?id=CVE-2023-6378">CVE-2023-6378</a></td>
+                            <td><span class="cvss cvss-h">7.1</span></td>
+                            <td><span class="sev sev-h" data-i18n="severity.high">High</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>spring-expression</strong><br><span style="font-size:11px;color:var(--text-muted)">5.3.25</span></td>
+                            <td style="font-family:monospace;font-size:12px"><a href="https://nvd.nist.gov/vuln/detail/CVE-2023-20861">CVE-2023-20861</a></td>
+                            <td><span class="cvss cvss-m">6.5</span></td>
                             <td><span class="sev sev-m" data-i18n="severity.medium">Medium</span></td>
                         </tr>
                         <tr>
                             <td><strong>guava</strong><br><span style="font-size:11px;color:var(--text-muted)">31.1-jre</span></td>
-                            <td style="font-family:monospace;font-size:12px">CVE-2023-2976</td>
+                            <td style="font-family:monospace;font-size:12px"><a href="https://www.cve.org/CVERecord?id=CVE-2023-2976">CVE-2023-2976</a></td>
                             <td><span class="cvss cvss-m">5.5</span></td>
+                            <td><span class="sev sev-m" data-i18n="severity.medium">Medium</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>commons-io</strong><br><span style="font-size:11px;color:var(--text-muted)">2.11.0</span></td>
+                            <td style="font-family:monospace;font-size:12px"><a href="https://nvd.nist.gov/vuln/detail/CVE-2024-47554">CVE-2024-47554</a></td>
+                            <td><span class="cvss cvss-m">4.3</span></td>
                             <td><span class="sev sev-m" data-i18n="severity.medium">Medium</span></td>
                         </tr>
                     </tbody>
                 </table>
+                </div>
+                <p class="demo-note" data-i18n="vuln.demoNote">Illustrative findings, not an OsWL project scan. CVE links identify the source records; scores can differ by source.</p>
             </div>
         </div>
 
         <!-- License Section -->
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start;" class="two-col">
             <div class="license-grid">
-                <div class="lic-card"><div class="lic-name">GPL-2.0-only</div><div class="lic-type" data-i18n="licCard.gpl2Type">Copyleft &middot; Strong</div><span class="lic-risk lr-restricted" data-i18n="licCard.restricted">Restricted</span></div>
-                <div class="lic-card"><div class="lic-name">LGPL-2.1-only</div><div class="lic-type" data-i18n="licCard.lgplType">Copyleft &middot; Weak</div><span class="lic-risk lr-caution" data-i18n="licCard.caution">Caution</span></div>
+                <div class="lic-card"><div class="lic-name">GPL-2.0-only</div><div class="lic-type" data-i18n="licCard.gpl2Type">Copyleft · Strong</div><span class="lic-risk lr-restricted" data-i18n="licCard.restricted">Restricted</span></div>
+                <div class="lic-card"><div class="lic-name">LGPL-2.1-only</div><div class="lic-type" data-i18n="licCard.lgplType">Copyleft · Weak</div><span class="lic-risk lr-caution" data-i18n="licCard.caution">Caution</span></div>
                 <div class="lic-card"><div class="lic-name">Apache-2.0</div><div class="lic-type" data-i18n="licCard.apacheType">Permissive</div><span class="lic-risk lr-permitted" data-i18n="licCard.permitted">Permitted</span></div>
                 <div class="lic-card"><div class="lic-name">MIT</div><div class="lic-type" data-i18n="licCard.mitType">Permissive</div><span class="lic-risk lr-permitted" data-i18n="licCard.permitted">Permitted</span></div>
-                <div class="lic-card"><div class="lic-name">MPL-2.0</div><div class="lic-type" data-i18n="licCard.mplType">Copyleft &middot; File-level</div><span class="lic-risk lr-caution" data-i18n="licCard.caution">Caution</span></div>
+                <div class="lic-card"><div class="lic-name">MPL-2.0</div><div class="lic-type" data-i18n="licCard.mplType">Copyleft · File-level</div><span class="lic-risk lr-caution" data-i18n="licCard.caution">Caution</span></div>
                 <div class="lic-card"><div class="lic-name">Proprietary</div><div class="lic-type" data-i18n="licCard.proprietaryType">Commercial</div><span class="lic-risk lr-unknown" data-i18n="licCard.unknown">Unknown</span></div>
             </div>
             <div>
                 <p class="section-label" data-i18n="license.label">License Intelligence</p>
                 <h2 class="section-title" style="font-size:clamp(24px,3vw,38px);" data-i18n-html="license.title">Eliminate<br>Compliance Blind Spots</h2>
-                <p style="font-size:15px; line-height:1.7; color:var(--text-secondary); margin:0 0 28px;" data-i18n="license.desc">
-                    Automatically classify every SPDX license across your dependency tree. Identify copyleft obligations, license conflicts, and components that need manual legal review before they reach production.
-                </p>
+                <p style="font-size:15px; line-height:1.7; color:var(--text-secondary); margin:0 0 28px;" data-i18n="license.desc">Compare detected SPDX license identifiers with your policy and review obligations in the context of use and distribution. The example classifications are policy outcomes, not a legal approval.</p>
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <span class="lic-risk lr-restricted" style="font-size:10px;flex-shrink:0;" data-i18n="licCard.restricted">Restricted</span>
-                        <span data-i18n="license.bullet1">Copyleft licenses requiring full source disclosure</span>
+                        <span data-i18n="license.bullet1">Copyleft obligations depend on how software is used and distributed</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <span class="lic-risk lr-caution" style="font-size:10px;flex-shrink:0;" data-i18n="licCard.caution">Caution</span>
-                        <span data-i18n="license.bullet2">Weak copyleft or dual-licensed &mdash; legal review recommended</span>
+                        <span data-i18n="license.bullet2">Review weak copyleft and dual-license terms in context</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; color:var(--text-secondary); font-size:14px;">
                         <span class="lic-risk lr-permitted" style="font-size:10px;flex-shrink:0;" data-i18n="licCard.permitted">Permitted</span>
-                        <span data-i18n="license.bullet3">Permissive licenses &mdash; safe for commercial use</span>
+                        <span data-i18n="license.bullet3">Permissive licenses still have terms and notice requirements</span>
                     </div>
                 </div>
             </div>
@@ -818,12 +824,12 @@
             <div>
                 <div class="step-num">01</div>
                 <h3 class="step-title" data-i18n="workflow.step1Title">Connect Your Repository</h3>
-                <p class="step-desc" data-i18n="workflow.step1Desc">Add a GitHub, GitLab, or Bitbucket Personal Access Token. OsWL discovers repositories and branches and imports manifests &mdash; no source code upload required.</p>
+                <p class="step-desc" data-i18n="workflow.step1Desc">Connect a supported VCS account to browse repositories, or enter a public repository URL. Quick Import collects supported files on the OsWL server; build execution is disabled by default.</p>
             </div>
             <div>
                 <div class="step-num">02</div>
                 <h3 class="step-title" data-i18n="workflow.step2Title">Run a Dependency Scan</h3>
-                <p class="step-desc" data-i18n="workflow.step2Desc">OsWL parses your lock files and build manifests, resolves the transitive dependency graph, and cross-references every component against deps.dev, OSV, and your license policy.</p>
+                <p class="step-desc" data-i18n="workflow.step2Desc">OsWL parses supported lock files and build manifests, resolves the dependency data they provide, and enriches components with vulnerability and license information.</p>
             </div>
             <div>
                 <div class="step-num">03</div>
@@ -833,7 +839,7 @@
             <div>
                 <div class="step-num">04</div>
                 <h3 class="step-title" data-i18n="workflow.step4Title">Automate in CI/CD</h3>
-                <p class="step-desc" data-i18n="workflow.step4Desc">Gate pull requests with the OsWL CLI. Bearer-token API keys enable automated scanning in any pipeline &mdash; Jenkins, GitHub Actions, GitLab CI, or custom build servers.</p>
+                <p class="step-desc" data-i18n="workflow.step4Desc">Submit scans from CI with a project API key and submitter credentials, then evaluate completed results through the gate API or CLI. Configure your pipeline to enforce the returned verdict.</p>
             </div>
         </div>
     </div>
@@ -843,9 +849,9 @@
 <section class="cta-section">
     <div class="cta-glow"></div>
     <h2 class="cta-title" data-i18n-html="cta.title">Secure Your<br><span class="shimmer-text">Open Source Stack</span></h2>
-    <p class="cta-sub" data-i18n="cta.sub">Deploy OsWL on-premise and gain full SBOM visibility across every project, team, and dependency in your organization.</p>
+    <p class="cta-sub" data-i18n="cta.sub">Deploy OsWL on your own infrastructure to review scanned dependencies, track remediation, and manage project access in one place.</p>
     <div class="cta-actions">
-        <a href="https://github.com/SalkCoding/Oswl/releases" class="btn-primary" data-i18n="cta.primary">Start Now &rarr;</a>
+        <a href="https://github.com/SalkCoding/Oswl/blob/main/docs/en/Getting-Started.md" data-i18n-attr="href:hero.installUrl" class="btn-primary" data-i18n="cta.primary">Start Now →</a>
         <a href="#how-it-works" class="btn-secondary" data-i18n="cta.secondary">See How It Works</a>
     </div>
 </section>
@@ -859,7 +865,8 @@
             <span class="footer-logo-text">OsWL</span>
         </div>
         <div class="footer-copy">
-            <span data-i18n="footer.copyright">Copyright &copy; 2026 OsWL, Licensed under the MIT License.</span>
+            <span data-i18n="footer.copyright">Copyright © 2026 OsWL, Licensed under the MIT License.</span>
+            &middot; <a href="https://github.com/SalkCoding/Oswl/blob/main/docs/en/Home.md" class="footer-link" data-i18n="nav.docs" data-i18n-attr="href:nav.docsUrl">Documentation</a>
             &middot; <a href="/oss-notices" class="footer-link" data-i18n="footer.ossNotices">Open Source Notices</a>
             &middot;
             <span class="lang-switch" data-i18n-attr="aria-label:footer.langLabel" aria-label="Language">
@@ -877,8 +884,8 @@
     // Theme toggle (page UI only; favicon follows OS prefers-color-scheme via <link media>)
     document.getElementById('theme-toggle').addEventListener('click', () => {
         const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('oswl-theme', next);
         window.oswlApplyTheme(next);
+        try { localStorage.setItem('oswl-theme', next); } catch (_) { /* Storage is optional. */ }
     });
 
     // Nav scroll
@@ -892,7 +899,23 @@
         const el = document.getElementById('tab-' + id);
         if (el) el.classList.add('active');
         btn.classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+            b.tabIndex = b === btn ? 0 : -1;
+        });
+        document.querySelectorAll('.screenshot-frame').forEach(f => { f.hidden = f !== el; });
     }
+
+    document.querySelector('.screenshot-tabs').addEventListener('keydown', event => {
+        const tabs = [...document.querySelectorAll('.tab-btn')];
+        const index = tabs.indexOf(event.target);
+        if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+            : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        tabs[next].click();
+        tabs[next].focus();
+    });
 
     // Scroll-in animations
     const io = new IntersectionObserver(entries => {
@@ -907,7 +930,7 @@
         });
     }, { threshold: 0.1 });
 
-    document.querySelectorAll('.feature-card, .step-num, .lic-card').forEach(el => {
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelectorAll('.feature-card, .step-num, .lic-card').forEach(el => {
         el.style.opacity = '0';
         el.style.transform = 'translateY(20px)';
         el.style.transition = 'opacity 0.55s ease, transform 0.55s ease';

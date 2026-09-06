@@ -237,7 +237,7 @@ v1.0.4 のアクションコードはフィルター UI で **モニタリング
 | `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | セキュリティゲート評価数 |
 | `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | 外部データソースへの呼び出し数 |
 
-これらのメトリクスを網羅する Grafana ダッシュボードが [`docs/grafana/oswl-dashboard.json`](../grafana/oswl-dashboard.json) に同梱されています。**Dashboards → New → Import** からインポートすると Prometheus データソースの選択を求められるため、JSON の編集は不要です。
+これらのメトリクスを網羅する Grafana ダッシュボードが [`deploy/observability/grafana/oswl-dashboard.json`](../../deploy/observability/grafana/oswl-dashboard.json) に同梱されています。**Dashboards → New → Import** からインポートすると Prometheus データソースの選択を求められるため、JSON の編集は不要です。
 
 ---
 
@@ -314,7 +314,7 @@ CVE／ライセンス要約用の LLM プロバイダーとエンリッチメン
 
 各プロバイダーのモデル欄は自由入力コンボボックスです: ドロップダウンには現行モデルが提案として表示されますが、アカウントがアクセス可能な任意のモデル ID を直接入力できます。
 
-同じタブの**内蔵 AI（組み込みローカルモデル）**カードは、バンドルされた llama.cpp の `llama-server` サイドカー（CPU 専用、localhost 専用、API キー不要）を実行し、LOCAL プロバイダーとして登録します。既定でバンドルされているモデルは**Qwen3 1.7B**（初回使用時にダウンロード）で、カードには**モデルのドロップダウン**（フォルダ内の任意の `.gguf`、または自動優先順位）、**保存**付きの**フォルダの上書き**（永続化され、実行中に変更するとサイドカーが停止）、最初の選択が起動に失敗した場合に次に利用可能なモデルへ切り替える**自動フォールバック**があります。[内蔵 AI](Embedded-AI.md)を参照してください。
+内蔵 AI は別途インストールした llama.cpp を使用し、既定のダウンロードモデルは **Qwen3.5-2B Q4_K_M** です。**Gemma 4 E2B** は任意で手動インストールします。実行ファイルは `embedded-ai/llama/`、モデルは `embedded-ai/model/<系列>/` に配置します。起動時の事前取得はダウンロードのみで、サーバーの起動や LOCAL の有効化は行いません。既定の取得先は Hugging Face の固定リビジョンで、SHA-256 とサイズを検証します。既定の代替ミラーはなく、エアギャップモードではダウンロードしません。モデルを変更する場合は設定で停止し、モデルを選択・保存してから再度開始します。最新の要件と設定は[内蔵 AI](Embedded-AI.md)を参照してください。
 
 同時に**アクティブ**にできるプロバイダーは 1 つだけです。タブには次も表示されます:
 

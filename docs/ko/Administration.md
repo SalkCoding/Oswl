@@ -235,7 +235,7 @@ v1.0.4의 작업 코드는 필터 UI에서 **모니터링**(`MONITOR.*`), **연�
 | `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | 시큐리티 게이트 평가 수 |
 | `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | 외부 데이터 소스 호출 수 |
 
-이 메트릭들을 다루는 Grafana 대시보드가 [`docs/grafana/oswl-dashboard.json`](../grafana/oswl-dashboard.json)에 포함되어 있습니다. **Dashboards → New → Import**로 임포트하면 Prometheus 데이터소스를 선택하라는 prompt가 표시되므로 JSON을 직접 수정할 필요가 없습니다.
+이 메트릭들을 다루는 Grafana 대시보드가 [`deploy/observability/grafana/oswl-dashboard.json`](../../deploy/observability/grafana/oswl-dashboard.json)에 포함되어 있습니다. **Dashboards → New → Import**로 임포트하면 Prometheus 데이터소스를 선택하라는 prompt가 표시되므로 JSON을 직접 수정할 필요가 없습니다.
 
 ---
 
@@ -312,7 +312,7 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 
 각 프로바이더의 모델 입력란은 자유 입력 콤보박스입니다: 드롭다운에는 현재 모델이 제안으로 표시되지만, 계정에서 접근 가능한 어떤 모델 ID든 직접 입력할 수 있습니다.
 
-같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 기본으로 번들되는 모델은 **Qwen3 1.7B**(최초 사용 시 다운로드)이며, 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
+내장 AI는 별도로 설치한 llama.cpp 실행 파일을 사용하며, 기본 다운로드 모델은 **Qwen3.5-2B Q4_K_M**입니다. **Gemma 4 E2B**는 선택적으로 직접 설치합니다. 실행 파일은 `embedded-ai/llama/`, 모델은 `embedded-ai/model/<계열>/`에 둡니다. 부팅 시 미리 받기는 다운로드만 수행하며 서버 실행이나 LOCAL 활성화는 하지 않습니다. 기본 다운로드는 Hugging Face의 고정 리비전을 사용하고 SHA-256 및 크기를 검증합니다. 기본 대체 미러는 없으며, 에어갭 모드에서는 다운로드하지 않습니다. 모델을 바꾸려면 설정에서 중지한 뒤 모델을 선택·저장하고 다시 시작하세요. 최신 요구 사항과 설정은 [내장 AI](Embedded-AI.md)를 참고하세요.
 
 활성 제공업체는 **하나**만 둘 수 있습니다. 탭에서 추가로 설정할 수 있는 항목:
 

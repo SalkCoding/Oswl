@@ -2,7 +2,7 @@
 
 실무에서 가장 흔한 사고는 PostgreSQL 손실이 아니라 **DB 백업은 멀쩡한데 `OSWL_ENCRYPTION_KEY`만 잃어버리는 경우**입니다. DB에 저장된 모든 VCS 접근 토큰, AI 공급자 API 키, Jira API 토큰, SMTP 메일 비밀번호는 이 키로 암호화되어 있습니다. 키를 잃으면 DB는 완벽히 복원되지만 그 안의 시크릿은 전부 영구적으로 복호화할 수 없게 됩니다 — 모든 VCS 연결, AI 공급자, Jira 연동을 처음부터 다시 설정해야 합니다.
 
-이 문서는 [운영 배포](Production-Deployment-Checklist)의 운영자용 짝입니다 — 배포 방법은 그쪽을 먼저 읽고, 이 문서는 백업과 "복구가 실제로 되는지" 검증하는 것에만 집중합니다.
+이 문서는 [운영 배포](Production-Deployment-Checklist.md)의 운영자용 짝입니다 — 배포 방법은 그쪽을 먼저 읽고, 이 문서는 백업과 "복구가 실제로 되는지" 검증하는 것에만 집중합니다.
 
 ---
 
@@ -10,11 +10,11 @@
 
 | 항목 | 위치 | 중요한 이유 |
 |---|---|---|
-| PostgreSQL 데이터베이스 | `docker-compose.prod.yml`의 `db-data-prod` 볼륨, 또는 관리형 PostgreSQL 인스턴스 | 프로젝트·스캔·발견 사항·사용자·암호화된 시크릿 등 모든 애플리케이션 데이터. |
+| PostgreSQL 데이터베이스 | `deploy/docker/compose.prod.yml`의 `db-data-prod` 볼륨, 또는 관리형 PostgreSQL 인스턴스 | 프로젝트·스캔·발견 사항·사용자·암호화된 시크릿 등 모든 애플리케이션 데이터. |
 | `OSWL_ENCRYPTION_KEY` | 주입 방식에 따라 다름(`.env.prod`, 시크릿 매니저 등) | DB에 저장된 모든 VCS 토큰/AI API 키/Jira 토큰/SMTP 비밀번호를 복호화합니다. **이게 없으면 위 DB 백업은 이런 시크릿이 필요한 용도로는 쓸모없습니다.** |
 | 오프라인 스냅샷 저장소 | `OSWL_AIRGAPPED_IMPORT_DIR` (폐쇄망 모드 사용 시) | 복구 후 재임포트는 이것 없이도 가능하지만, 임포트 이력이 사라져 번들을 다시 받고 검증해야 합니다. |
-| 임베디드 AI 모델 디렉터리 | `OSWL_EMBEDDED_AI_DIR` (기본값 `embedded-ai/`) | 재다운로드 가능([내장 AI](Embedded-AI) 참고) — 폐쇄망이라 재다운로드가 안 될 때만 백업하세요. |
-| 설정 파일 | `.env.prod`, `docker-compose.prod.yml`, `application-prod.yaml` 오버라이드 | 이게 없으면 데이터는 멀쩡해도 인스턴스가 실제로 어떻게 설정되어 있었는지(SMTP 호스트, HSTS 설정, 기능 플래그 등) 알 수 없습니다. |
+| 임베디드 AI 모델 디렉터리 | `OSWL_EMBEDDED_AI_DIR` (기본값 `embedded-ai/`) | 재다운로드 가능([내장 AI](Embedded-AI.md) 참고) — 폐쇄망이라 재다운로드가 안 될 때만 백업하세요. |
+| 설정 파일 | `.env.prod`, `deploy/docker/compose.prod.yml`, `application-prod.yaml` 오버라이드 | 이게 없으면 데이터는 멀쩡해도 인스턴스가 실제로 어떻게 설정되어 있었는지(SMTP 호스트, HSTS 설정, 기능 플래그 등) 알 수 없습니다. |
 
 그 외(`OSWL_LOG_DIR`의 파일 로그, Quick Import 클론 임시 디렉터리)는 소모성이므로 백업하지 마세요.
 
@@ -47,7 +47,7 @@ pg_dump -Fc -h <host> -U <user> -d <database> -f oswl-$(date +%Y%m%d).dump
 OSWL_VERIFY_EMAIL=you@example.com \
 OSWL_VERIFY_PASSWORD='...' \
 OSWL_VERIFY_PROJECT_ID=1 \
-./scripts/verify-restore.sh https://your-instance.example.com
+./scripts/ops/verify-restore.sh https://your-instance.example.com
 ```
 
 이 스크립트는 대화형입니다(실제 로그인과 동일하게 이메일 OTP 코드 입력을 기다립니다) 아래를 확인합니다:

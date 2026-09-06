@@ -18,7 +18,7 @@
 # Requires: a built boot jar (`./gradlew bootJar`), curl. Uses its own throwaway H2 DB under
 # build/cluster-verification — never touches the developer's own ./oswl-db.
 #
-# Usage: ./scripts/verify-multi-instance.sh
+# Usage: ./scripts/verification/verify-multi-instance.sh
 
 set -euo pipefail
 
@@ -29,7 +29,7 @@ if [[ "${OSWL_ALLOW_DRAFT_CLUSTER_CHECK:-0}" != "1" ]]; then
   exit 2
 fi
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 PASS=0

@@ -19,33 +19,31 @@ Use this one-page list before exposing OsWL on the internet. **Do not run `prod`
 | `DB_PASSWORD` | Database password |
 | `OSWL_ENCRYPTION_KEY` | Instance encryption key (generate with `openssl rand -base64 32`) |
 
-Copy `.env.prod.example` → `.env.prod` and fill every value. **No defaults** for DB or encryption in `application-prod.yaml`.
+Copy `deploy/docker/.env.prod.example` → `.env.prod` and fill every value. **No defaults** for DB or encryption in `application-prod.yaml`.
 
-On startup, missing variables and other config issues are printed in **one `OSWL STARTUP WARNINGS` block** in the log (after the application is ready). In **`prod`**, if `OSWL_ENCRYPTION_KEY` is missing, the application **fails to start** — set a stable key before go-live. (The `local` profile may use a temporary key for development only.)
+After startup, configuration warnings are grouped in the `OSWL STARTUP WARNINGS` log block. Some invalid settings, including a missing production encryption key or datasource configuration, can fail startup before this block appears. Keep a stable `OSWL_ENCRYPTION_KEY` in production. The `local` YAML supplies a stable development-only fallback; never use that key in production.
 
 ## 3. Network binding
 
-| Check | Action |
-|-------|--------|
-| Default bind | `SERVER_ADDRESS=127.0.0.1` (see `application-prod.yaml`) |
-| Public access | Put **nginx / Caddy / Traefik** (or cloud LB) in front; terminate TLS there |
-| Direct `0.0.0.0` | Only if you accept exposing the JVM HTTP stack; document the risk and firewall |
+For a JVM running directly on the host, `application-prod.yaml` defaults to `SERVER_ADDRESS=127.0.0.1`. A reverse proxy on the same host can connect to it. For **Docker Compose**, set `SERVER_ADDRESS=0.0.0.0` **inside the container** so Docker can forward traffic to the application. This does not publish every host interface: `deploy/docker/compose.prod.yml` separately binds the host port to **`127.0.0.1:8080:8080`**. The production sample uses this container setting. Existing `.env.prod` files must be checked when upgrading.
 
-`docker-compose.prod.yml` maps **`127.0.0.1:8080:8080`** so the container is not published on all interfaces by default.
-
-Set `server.forward-headers-strategy=framework` (default in `application.yaml`) when the proxy sends `X-Forwarded-Proto` for HSTS and secure cookies.
+Terminate TLS at your reverse proxy. With the supplied host-loopback port mapping, run the proxy on the Docker host; a proxy in another container should use the service address on a shared Docker network. Accept forwarded headers only from a trusted proxy.
 
 ## 4. Docker Compose (production)
 
+Run from the repository root. Keep existing `.env.prod` values; copy the template only for a new installation. Both Compose files default to project name `oswl`. If the previous installation used another project name, keep it with `-p YOUR_EXISTING_PROJECT` or `COMPOSE_PROJECT_NAME` so it reconnects the existing volumes. See the [deployment file guide](../../deploy/README.md).
+
 ```bash
-cp .env.prod.example .env.prod
+cp deploy/docker/.env.prod.example .env.prod
 # Edit DB_*, OSWL_ENCRYPTION_KEY, SMTP_*
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
 ```
+
+Compose reads `.env.prod` through `--env-file`. A direct `java -jar` or `bootRun` launch does not automatically load this file: export the variables or configure them in the service manager. Prepare the database schema before first production startup (see §9).
 
 Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 
-`docker-compose.prod.yml` caps both the container's own stdout/stderr (docker `json-file` driver, 100MB × 10 files) and the app's own rotating file log (mounted to the `oswl-logs-prod` volume) — see §5 for the latter.
+`deploy/docker/compose.prod.yml` caps both the container's own stdout/stderr (docker `json-file` driver, 100MB × 10 files) and the app's own rotating file log (mounted to the `oswl-logs-prod` volume) — see §5 for the latter.
 
 ## 5. Logging and observability
 
@@ -59,7 +57,7 @@ Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
 
 ### Log rotation and request correlation
 
-`local`/`test` are console-only, unchanged from before S2. In `prod`, `logback-spring.xml` additionally writes a rolling file log:
+`local`/`test` are console-only. In `prod`, `logback-spring.xml` additionally writes a rolling file log:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -88,8 +86,8 @@ All default to **off** — enable deliberately.
 
 | Variable | Default | Effect when enabled |
 |---|---|---|
-| `OSWL_FLYWAY_ENABLED` | `false` | Versioned migrations with `baseline-on-migrate`; generate a full baseline first |
-| `OSWL_AIRGAPPED_ENABLED` | `false` | All vulnerability / threat-intel lookups served from an imported offline snapshot; no outbound HTTP — full offline procedure in §9 |
+| `OSWL_FLYWAY_ENABLED` | `false` | Run the supplied V1 baseline and later migrations; review existing schemas first |
+| `OSWL_AIRGAPPED_ENABLED` | `false` | All vulnerability / threat-intel lookups served from an imported offline snapshot; no outbound HTTP — full offline procedure in §7.1 |
 | `OSWL_GATE_*` | see [What's New](Whats-New-v1.0.4.md) | Default thresholds for `POST /api/scan/gate` |
 
 Continuous monitoring is the exception: `OSWL_MONITORING_ENABLED` defaults to **`true`** (nightly OSV re-query at 03:00, `OSWL_MONITORING_CRON`). It sends e-mail to project members, so confirm SMTP is configured before first launch — or set it to `false`.
@@ -111,6 +109,8 @@ Defaults are production-safe — override only when you have a reason.
 
 ### 7.1 Air-gapped / offline snapshot (v1.0.4)
 
+This mode redirects supported vulnerability and threat-intelligence feeds to the snapshot; it is not a network firewall. Configure VCS, SMTP, webhooks, and external AI providers separately for an isolated environment.
+
 Set `OSWL_AIRGAPPED_ENABLED=true` so vulnerability/threat-intel lookups (OSV, deps.dev, EPSS, CISA KEV) are served from an imported offline snapshot instead of live external APIs. No outbound HTTP is attempted for enrichment.
 
 | Step | Action |
@@ -118,7 +118,7 @@ Set `OSWL_AIRGAPPED_ENABLED=true` so vulnerability/threat-intel lookups (OSV, de
 | 1. Build bundle | On an internet-connected machine, run the `oswl-vdb` builder. Wrapper scripts: `scripts/oswl-vdb/oswl-vdb.sh` (Linux/macOS) or `scripts/oswl-vdb/oswl-vdb.ps1` (Windows). Both invoke `./gradlew vdbBuild --args="..."`. |
 | 2. Target the bundle | Export the components this instance actually scans with `GET /api/admin/snapshot/wanted-list` (SYSTEM_ADMIN), then pass it to `build --wanted wanted-list.jsonl`. The builder fetches only those ecosystem/name/version tuples instead of a full upstream mirror. |
 | 3. Import bundle | `POST /api/admin/snapshot/import?mode=replace|merge` (multipart `.zip`). For large bundles, use `POST /api/admin/snapshot/import-from-path` with `{"path":"bundle.zip","mode":"merge"}` after setting `OSWL_AIRGAPPED_IMPORT_DIR` to a whitelist directory. |
-| 4. Place model (if using Embedded AI) | Air-gapped hosts disable auto-download. Place the `.gguf` file in `embedded-ai/` manually or host it on an internal mirror (see §8). |
+| 4. Place model (if using Embedded AI) | Provision the runtime in `embedded-ai/llama/` and verified weights in `embedded-ai/model/<family>/` before starting the offline host. Downloads remain disabled even if an internal mirror is configured; see §8. |
 
 `oswl-vdb build` options (see `VdbBuilderCli`):
 - `--sources osv,epss,kev,depsdev` (default all).
@@ -165,7 +165,7 @@ After running migrations, restart the app and confirm `validate` passes.
 
 ### Flyway (v1.0.4, opt-in)
 
-Set `OSWL_FLYWAY_ENABLED=true` to manage the schema with Flyway instead of hand-run scripts. `baseline-on-migrate` is enabled, so an existing populated database is baselined rather than rejected — but generate a full baseline migration that matches your current schema **before** turning it on. Left at the default `false`, nothing changes.
+`OSWL_FLYWAY_ENABLED=true` enables the versioned migrations in `src/main/resources/db/migration/`; it defaults to `false`. The repository already provides `V1__baseline.sql` and subsequent migrations. On an empty PostgreSQL database, Flyway runs V1 and then the later versions before Hibernate validation. For an existing database without Flyway history, `baseline-on-migrate` records version 1 without executing V1, then runs V2 onward. Back up and compare the existing schema with these migrations before enabling it; manually applied changes can conflict with later migrations. Do not regenerate or edit a migration already applied to a shared database. If managing SQL manually, apply all required changes for the target version in order; the short list of legacy scripts below is not a complete fresh-install schema.
 
 ### v1.0.4 columns
 
@@ -197,7 +197,7 @@ Only needed if you're moving to a **multi-instance** deployment (see §12). Adds
 
 ## 11. Operations
 
-- Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens) — see [Backup and restore](Backup-And-Restore) for the full procedure and a restore-rehearsal script.
+- Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens) — see [Backup and restore](Backup-And-Restore.md) for the full procedure and a restore-rehearsal script.
 - Rotate API keys and SMTP credentials on compromise.
 - Keep `SPRING_PROFILES_ACTIVE` out of images that should never run as `local`.
 
@@ -232,4 +232,4 @@ Set both together for a real multi-instance deployment — enabling only one lea
 
 ---
 
-**Local development:** `SPRING_PROFILES_ACTIVE=local`, copy `.env.example` → `.env`, set `OSWL_ENCRYPTION_KEY`, run `./gradlew bootRun`. H2 file DB, H2 console, Swagger, and `GET /data/test` are available only in this profile.
+**Local development:** Run `./gradlew bootRun` (PowerShell: `.\gradlew.bat bootRun`) for the `local` profile and H2. The local YAML supplies a development-only encryption key; override it through the process environment if needed. `.env` is only loaded when the launcher explicitly reads it.

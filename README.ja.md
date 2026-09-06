@@ -199,7 +199,9 @@ Library  (プロジェクト間で共有 — group:artifact@version)
 
 ## ドキュメント
 
-日本語ドキュメントは [`docs/ja/`](docs/ja/) フォルダで確認できます。英語ドキュメントは [`docs/`](docs/) フォルダ、韓国語ドキュメントは [`docs/ko/`](docs/ko/) フォルダ、および [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki)（`main` への push 時に `docs/` から自動同期）で提供されています。
+日本語ドキュメントは [`docs/ja/`](docs/ja/Home.md)、英語は [`docs/en/`](docs/en/Home.md)、韓国語は [`docs/ko/`](docs/ko/Home.md) にあります。[ドキュメント索引](docs/README.md)と [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki) は英語を既定の入口とし、Wiki は `main` への push 時に `docs/en/` から自動同期されます。
+
+フォルダの役割: [`deploy/`](deploy/README.md) は Docker のビルド・実行設定と Grafana アセット、[`scripts/`](scripts/README.md) は開発・運用ツール、[`docs/`](docs/README.md) はガイド、[`landing/`](landing/index.html) は Pages の紹介サイトです。アプリと同梱設定は `src/`、GitHub 自動化は `.github/` にあります。
 
 | ページ | 説明 |
 |---|---|

@@ -8,7 +8,7 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 
 ## 탐색
 
-처음 합류한 개발자는 [개발자 온보딩](../Developer-Onboarding.md)부터 읽으세요. 전체 아키텍처와 데이터 관계, 기능별 실행 흐름, 코드 탐색과 검증 방법을 연결합니다.
+처음 합류한 개발자는 [개발자 온보딩](Developer-Onboarding.md)부터 읽으세요. 전체 아키텍처와 데이터 관계, 기능별 실행 흐름, 코드 탐색과 검증 방법을 연결합니다.
 
 | 페이지 | 내용 |
 |---|---|
@@ -26,13 +26,13 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 | [관리](Administration.md) | 사용자 관리, 역할, 감사 로그, 보안 및 SMTP 설정 |
 | [권한 레이어](Authorization-Layers.md) | 역할 템플릿 vs 프로젝트 멤버십 |
 | [프로젝트 접근 제어](Project-Access-Control.md) | ACL 기술 참고 |
-| [운영 배포 체크리스트](Production-Deployment-Checklist.md) | `prod` 프로파일 출시 전 점검 |
+| [운영 배포 체크리스트](Production-Deployment-Checklist.md) | `prod` 프로필 출시 전 점검 |
 | [데이터베이스 스키마](Database-Schema.md) | `ddl-auto` 전략 및 `db/` 마이그레이션 |
 | [스캔 API 보안](Scan-Api-Security.md) | CLI 스캔 제출 보호 개요 |
 | [API 레퍼런스](API-Reference.md) | 전체 REST 엔드포인트 목록 |
 | [용어사전](Glossary.md) | OsWL 모든 용어 정의 |
 
-> 영어 문서는 [`docs/`](../Home.md)에, 일본어 문서는 [`docs/ja/`](../ja/Home.md)에 있습니다.
+> 영어 문서는 [`docs/en/`](../en/Home.md)에, 일본어 문서는 [`docs/ja/`](../ja/Home.md)에 있습니다.
 
 ---
 
@@ -66,8 +66,8 @@ OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 �
 
 ## 도움 받기
 
-* **Swagger UI** (로컬 프로파일만): `http://localhost:8080/swagger-ui.html`
-* **H2 콘솔** (로컬 프로파일만): `http://localhost:8080/h2-console`
+* **Swagger UI** (로컬 프로필만): `http://localhost:8080/swagger-ui.html`
+* **H2 콘솔** (로컬 프로필만): `http://localhost:8080/h2-console`
 * **이슈**: [GitHub Issues](https://github.com/SalkCoding/Oswl/issues)
 
 운영 환경에서는 API 문서와 H2 콘솔이 비활성화됩니다. 이 문서와 [API 레퍼런스](API-Reference.md)를 참고하세요.

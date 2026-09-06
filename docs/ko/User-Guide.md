@@ -96,7 +96,7 @@ OsWL은 입력 컨텍스트 해시로 AI 요약을 캐싱하므로, 재스캔 �
 
 ## 내장 AI 모델
 
-OsWL의 내장 로컬 AI는 llama.cpp 사이드카를 실행하며, 기본 모델로 **Qwen3 1.7B** GGUF를 사용합니다. 최초 부팅 시 `oswl.ai.embedded.auto-download-on-boot` 설정이 켜져 있고 에어갭 모드가 아니라면 기본 모델을 백그라운드에서 미리 다운로드해, Settings에서 시작을 누를 때 대기 시간을 줄입니다. 기본 다운로드는 OsWL 자체 GitHub Release 자산을 사용하며 실패하면 원본 Hugging Face 저장소로 폴백합니다. 모든 다운로드는 SHA-256 체크섬으로 검증됩니다. 설정된 embedded-ai 디렉터리에 호환되는 임의의 `.gguf` 파일을 직접 넣을 수도 있습니다. 설치 및 문제 해결은 [Embedded AI](Embedded-AI.md)를 참조하세요.
+내장 AI는 별도로 설치한 llama.cpp 실행 파일을 사용하며, 기본 다운로드 모델은 **Qwen3.5-2B Q4_K_M**입니다. **Gemma 4 E2B**는 선택적으로 직접 설치합니다. 실행 파일은 `embedded-ai/llama/`, 모델은 `embedded-ai/model/<계열>/`에 둡니다. 부팅 시 미리 받기는 다운로드만 수행하며 서버 실행이나 LOCAL 활성화는 하지 않습니다. 기본 다운로드는 Hugging Face의 고정 리비전을 사용하고 SHA-256 및 크기를 검증합니다. 기본 대체 미러는 없으며, 에어갭 모드에서는 다운로드하지 않습니다. 모델을 바꾸려면 설정에서 중지한 뒤 모델을 선택·저장하고 다시 시작하세요. 최신 요구 사항과 설정은 [내장 AI](Embedded-AI.md)를 참고하세요.
 
 ---
 

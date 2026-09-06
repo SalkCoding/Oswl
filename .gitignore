@@ -53,6 +53,11 @@ src/main/resources/static/js/**/*.min.js
 _site/
 
 ### Etc ###
+__pycache__/
+.env
+.env.*
+!.env.example
+!.env.prod.example
 cookies.txt
 server.log
 *.log

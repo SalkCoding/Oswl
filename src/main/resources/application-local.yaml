@@ -58,7 +58,7 @@ logging:
 
 oswl:
   encryption:
-    # Stable local default so VCS tokens survive restarts. Override with OSWL_ENCRYPTION_KEY in .env.
+    # Stable local default so VCS tokens survive restarts. Override with the OSWL_ENCRYPTION_KEY process environment variable.
     # (32-byte key, Base64) — dev-only; never use in production.
     key: ${OSWL_ENCRYPTION_KEY:b3N3bC1sb2NhbC1kZXYtZW5jcnlwdGlvbi1rZXkhITA=}
   ai:
@@ -68,6 +68,5 @@ oswl:
       # model reasoning, or response bodies. Developers can opt in explicitly when needed.
       log-prompt-excerpt: ${OSWL_AI_DEBUG_LOG_PROMPT:false}
       log-response-excerpt: ${OSWL_AI_DEBUG_LOG_RESPONSE:false}
-  # encryption.key: set OSWL_ENCRYPTION_KEY in .env (see .env.example). No repo default.
   clone:
     temp-dir: ""

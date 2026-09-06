@@ -6,9 +6,11 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 
 ---
 
+**English** | [한국어](../ko/Home.md) | [日本語](../ja/Home.md)
+
 ## Navigation
 
-For new developers: [Developer onboarding (Korean)](Developer-Onboarding.md) explains the current architecture, data model, feature flows, and code entry points.
+For new developers: [Developer onboarding (Korean)](../ko/Developer-Onboarding.md) explains the current architecture, data model, feature flows, and code entry points.
 
 | Page | What you'll find |
 |---|---|
@@ -27,12 +29,14 @@ For new developers: [Developer onboarding (Korean)](Developer-Onboarding.md) exp
 | [Authorization layers](Authorization-Layers.md) | Role templates vs project membership (who can access what) |
 | [Project access control](Project-Access-Control.md) | Technical ACL reference for developers |
 | [Production deployment](Production-Deployment-Checklist.md) | Pre-launch checklist for `prod` profile |
+| [Backup and restore](Backup-And-Restore.md) | Backup scope, restore procedure, verification |
+| [UI states checklist](Ui-States-Checklist.md) | Developer reference for asynchronous UI states |
 | [Database schema](Database-Schema.md) | `ddl-auto` strategy and `src/main/resources/db/` migrations |
 | [Scan API security](Scan-Api-Security.md) | How CLI scan submission is protected |
 | [API Reference](API-Reference.md) | Full REST endpoint catalogue |
 | [Glossary](Glossary.md) | Definitions of all OsWL terms |
 
-> Korean documentation lives in [`docs/ko/`](ko/Home.md); Japanese documentation lives in [`docs/ja/`](ja/Home.md).
+> Korean documentation lives in [`docs/ko/`](../ko/Home.md); Japanese documentation lives in [`docs/ja/`](../ja/Home.md).
 
 ---
 
