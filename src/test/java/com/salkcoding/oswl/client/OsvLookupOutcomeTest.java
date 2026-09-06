@@ -49,4 +49,23 @@ class OsvLookupOutcomeTest {
         assertThat(client.queryBatch(List.of(new OsvClient.OsvQuery("PyPI", "fixture", "1"))).getFirst().resolved()).isFalse();
         server.verify();
     }
+    @Test void batchIdsAreHydratedOnceAndDetailFailureRetainsIncompleteFinding() {
+        for (boolean success : List.of(true, false)) {
+            var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+            var server = MockRestServiceServer.bindTo(builder).build();
+            var client = new OsvClient(); ReflectionTestUtils.setField(client, "restClient", builder.build());
+            server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
+                    "{\"results\":[{\"vulns\":[{\"id\":\"GHSA-fixture\"}]},{\"vulns\":[{\"id\":\"GHSA-fixture\"}]}]}", MediaType.APPLICATION_JSON));
+            server.expect(requestTo("https://api.osv.dev/v1/vulns/GHSA-fixture")).andRespond(success ? withSuccess(
+                    "{\"id\":\"GHSA-fixture\",\"aliases\":[\"CVE-2026-0001\"],\"severity\":[{\"type\":\"CVSS_V3\",\"score\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H\"}]}", MediaType.APPLICATION_JSON) : withServerError());
+            var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "a", "1"), new OsvClient.OsvQuery("npm", "b", "1")));
+            assertThat(result).allMatch(r -> r.resolved() == success && r.vulns().size() == 1);
+            if (success) {
+                assertThat(result.getFirst().vulns().getFirst().effectiveSeverity()).isEqualTo(com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL);
+                assertThat(result.getFirst().vulns().getFirst().cvssScore()).isEqualTo(9.8);
+            }
+            server.verify();
+        }
+    }
+
 }

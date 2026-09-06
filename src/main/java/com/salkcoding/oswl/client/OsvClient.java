@@ -19,9 +19,9 @@ import java.util.Set;
 /**
  * REST API client for OSV.dev.
  *
- * Uses only the querybatch endpoint (POST /v1/querybatch) —
+ * Discovers affected IDs with the querybatch endpoint (POST /v1/querybatch) —
  * repeated single-item calls to /v1/query are intentionally avoided.
- * Up to 1,000 queries can be sent in a single batch call, with no rate limit.
+ * Fetches deduplicated advisory details within a bounded per-call request/time budget.
  *
  * Air-gapped mode: when constructed with a snapshot store and the air-gapped flag,
  * queries are answered from the offline snapshot instead of HTTP (components absent
@@ -82,7 +82,18 @@ public class OsvClient {
             String cveId,
             String summary,
             String fixVersion,
-            String cweId) {}
+            String cweId,
+            com.salkcoding.oswl.domain.enums.RiskLevel severity,
+            Double cvssScore,
+            String cvssVector) {
+        public OsvVuln(String osvId, String cveId, String summary, String fixVersion, String cweId) {
+            this(osvId, cveId, summary, fixVersion, cweId, null, null, null);
+        }
+        public com.salkcoding.oswl.domain.enums.RiskLevel effectiveSeverity() {
+            if (osvId != null && osvId.startsWith("MAL-")) return com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL;
+            return severity != null ? severity : com.salkcoding.oswl.domain.enums.RiskLevel.NONE;
+        }
+    }
 
     /** Result set for a single query, aligned with the input batch index. */
     public record OsvResult(List<OsvVuln> vulns, boolean resolved) {
@@ -105,9 +116,10 @@ public class OsvClient {
 
         List<OsvResult> allResults = new ArrayList<>(queries.size());
 
+        DetailBudget details = new DetailBudget();
         for (int i = 0; i < queries.size(); i += MAX_BATCH_SIZE) {
             List<OsvQuery> chunk = queries.subList(i, Math.min(i + MAX_BATCH_SIZE, queries.size()));
-            allResults.addAll(doQueryBatch(chunk));
+            allResults.addAll(doQueryBatch(chunk, details));
         }
         return allResults;
     }
@@ -135,7 +147,7 @@ public class OsvClient {
             } else {
                 hits++;
                 results.add(new OsvResult(vulns.stream()
-                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId()))
+                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId(), risk(v.severity(), v.cvssScore()), v.cvssScore(), v.cvss3Vector()))
                         .toList(), !unresolved.contains(key)));
             }
         }
@@ -152,7 +164,7 @@ public class OsvClient {
     }
 
     @SuppressWarnings("unchecked")
-    private List<OsvResult> doQueryBatch(List<OsvQuery> queries) {
+    private List<OsvResult> doQueryBatch(List<OsvQuery> queries, DetailBudget details) {
         try {
             // Map.of() rejects null values — pre-filter queries with null fields
             // and track original indices to realign the result list.
@@ -191,6 +203,8 @@ public class OsvClient {
             List<OsvResult> parsed = new ArrayList<>(rawResults.size());
 
             for (Object rawResult : rawResults) {
+                if (parsed.size() >= validIndices.size()) break;
+                OsvQuery query = queries.get(validIndices.get(parsed.size()));
                 if (!(rawResult instanceof Map<?, ?> resultMap)) {
                     parsed.add(OsvResult.unresolved());
                     continue;
@@ -208,7 +222,9 @@ public class OsvClient {
                 boolean resolved = !resultMap.containsKey("next_page_token");
                 for (Object vulnObj : vulnList) {
                     if (vulnObj instanceof Map<?, ?> vuln && vuln.get("id") instanceof String id && !id.isBlank()) {
-                        vulns.add(parseVuln((Map<String, Object>) vuln));
+                        Map<String, Object> detail = loadDetail(id, details);
+                        vulns.add(parseVuln(detail != null ? detail : (Map<String, Object>) vuln, query));
+                        if (detail == null) resolved = false;
                     } else resolved = false;
                 }
                 parsed.add(new OsvResult(vulns, resolved));
@@ -249,12 +265,14 @@ public class OsvClient {
         return message != null && (message.contains("429") || message.contains("403"));
     }
 
-    private OsvVuln parseVuln(Map<String, Object> vuln) {
+    OsvVuln parseVuln(Map<String, Object> vuln) { return parseVuln(vuln, null); }
+
+    OsvVuln parseVuln(Map<String, Object> vuln, OsvQuery query) {
         String osvId  = (String) vuln.get("id");
         String summary = (String) vuln.get("summary");
 
         // Extract the CVE ID from aliases
-        String cveId = null;
+        String cveId = osvId != null && osvId.startsWith("CVE-") ? osvId : null;
         Object aliasesObj = vuln.get("aliases");
         if (aliasesObj instanceof List<?> aliases) {
             cveId = aliases.stream()
@@ -262,7 +280,7 @@ public class OsvClient {
                     .map(String.class::cast)
                     .filter(a -> a.startsWith("CVE-"))
                     .findFirst()
-                    .orElse(null);
+                    .orElse(cveId);
         }
 
         // Extract the fixed version from affected[].ranges[].events[fixed]
@@ -272,6 +290,8 @@ public class OsvClient {
         if (affectedObj instanceof List<?> affected) {
             for (Object aff : affected) {
                 if (!(aff instanceof Map<?, ?> affMap)) continue;
+                if (query != null && (!(affMap.get("package") instanceof Map<?, ?> pkg)
+                        || !query.name().equals(pkg.get("name")) || !query.ecosystem().equals(pkg.get("ecosystem")))) continue;
                 Object rangesObj = affMap.get("ranges");
                 if (!(rangesObj instanceof List<?> ranges)) continue;
                 for (Object range : ranges) {
@@ -290,7 +310,51 @@ public class OsvClient {
             }
         }
 
-        return new OsvVuln(osvId, cveId, summary, fixVersion, extractCweId(vuln));
+        Double score = null; String vector = null;
+        if (vuln.get("severity") instanceof List<?> severities) {
+            for (String prefix : List.of("CVSS:4.0/", "CVSS:3.")) {
+                for (Object raw : severities) {
+                    if (!(raw instanceof Map<?, ?> entry) || !(entry.get("score") instanceof String value) || !value.startsWith(prefix)) continue;
+                    Double parsed = value.startsWith("CVSS:4.0/")
+                            ? com.salkcoding.oswl.service.cvss.CvssV4Calculator.baseScore(value)
+                            : com.salkcoding.oswl.service.cvss.CvssV3Calculator.baseScore(value);
+                    if (parsed != null && (score == null || parsed > score)) { score = parsed; vector = value; }
+                }
+                if (score != null) break;
+            }
+        }
+        String severity = vuln.get("database_specific") instanceof Map<?, ?> db && db.get("severity") instanceof String value ? value : null;
+        return new OsvVuln(osvId, cveId, summary, fixVersion, extractCweId(vuln), risk(severity, score), score, vector);
+    }
+
+    private static final class DetailBudget {
+        final Map<String, Map<String, Object>> cache = new java.util.HashMap<>();
+        long deadline;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> loadDetail(String id, DetailBudget budget) {
+        if (budget.cache.containsKey(id)) return budget.cache.get(id);
+        if (budget.deadline == 0) budget.deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+        if (budget.cache.size() >= 256 || System.nanoTime() >= budget.deadline || Thread.currentThread().isInterrupted()) return null;
+        Map<String, Object> detail = null;
+        try {
+            var response = restClient.get().uri("/v1/vulns/{id}", id).retrieve().body(Map.class);
+            if (response != null && id.equals(response.get("id"))) detail = response;
+        } catch (RestClientException e) {
+            recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
+            log.warn("[OsvClient] advisory detail unavailable; retaining ID with incomplete coverage");
+        }
+        budget.cache.put(id, detail);
+        return detail;
+    }
+
+    private static com.salkcoding.oswl.domain.enums.RiskLevel risk(String label, Double score) {
+        var levels = com.salkcoding.oswl.domain.enums.RiskLevel.values();
+        if (score != null && Double.isFinite(score) && score >= 0 && score <= 10)
+            return levels[score >= 9 ? 0 : score >= 7 ? 1 : score >= 4 ? 2 : score > 0 ? 3 : 4];
+        try { return label == null ? null : com.salkcoding.oswl.domain.enums.RiskLevel.valueOf(label.toUpperCase(java.util.Locale.ROOT)); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     /**

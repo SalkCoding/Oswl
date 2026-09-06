@@ -26,6 +26,7 @@ class CocoaPodsSnapshotTest {
     @Autowired com.salkcoding.oswl.repository.scan.ScanResultRepository scans;
     @Autowired com.salkcoding.oswl.repository.scan.ScanComponentRepository components;
     @Autowired com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
+    @Autowired com.salkcoding.oswl.service.gate.GatePolicyService gate;
     private final ObjectMapper mapper = new ObjectMapper();
     @BeforeEach void clean() { entries.deleteAllInBatch(); metadata.deleteAllInBatch(); }
 
@@ -44,7 +45,7 @@ class CocoaPodsSnapshotTest {
 
     @Test void podfileReachesActualOfflineEnrichmentAndMissingSpecRemainsUnanalysed() throws Exception {
         var spec = spec("EndToEndPod", "1.0", "MIT");
-        String osv = "{\"ecosystem\":\"SwiftURL\",\"name\":\"github.com/fixture/EndToEndPod\",\"version\":\"1.0\",\"vulns\":[{\"cveId\":\"CVE-2026-0002\",\"summary\":\"Owned test fixture\"}]}";
+        String osv = "{\"ecosystem\":\"SwiftURL\",\"name\":\"github.com/fixture/EndToEndPod\",\"version\":\"1.0\",\"vulns\":[{\"cveId\":\"CVE-2026-0002\",\"summary\":\"Owned test fixture\",\"severity\":\"CRITICAL\",\"cvssScore\":9.3}]}";
         service.importBundle(new ByteArrayInputStream(bundle(Map.of("cocoapods-specs.jsonl",mapper.writeValueAsString(spec),"osv.jsonl",osv))));
         var parsed = new com.salkcoding.oswl.service.ingest.parser.CocoaPodsLockParser().parsePodfileLockLines(List.of("PODS:","  - EndToEndPod (1.0)","  - MissingSpecPod (1.0)"),"fixture");
         var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Offline pods").build());
@@ -57,6 +58,12 @@ class CocoaPodsSnapshotTest {
         assertThat(found.isVulnerabilitiesAnalyzed()).isTrue();
         assertThat(found.getLicenseName()).isEqualTo("MIT");
         assertThat(cves.findAll().stream().filter(c -> c.getLibrary().getId().equals(found.getId())).map(c -> c.getCveId())).contains("CVE-2026-0002");
+        var stored = cves.findAll().stream().filter(c -> c.getLibrary().getId().equals(found.getId())).findFirst().orElseThrow();
+        assertThat(stored.getSeverity()).isEqualTo(com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL);
+        assertThat(stored.getCvssScore()).isEqualTo(9.3);
+        var decision = gate.evaluate(project.getId(), new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(scan,"HIGH",null,null,false,false,false,null));
+        assertThat(decision.passed()).isFalse();
+        assertThat(decision.violations()).anyMatch(v -> "CVE-2026-0002".equals(v.id()));
         var missing = rows.stream().filter(c->c.getLibrary().getName().equals("MissingSpecPod")).findFirst().orElseThrow().getLibrary();
         assertThat(missing.isVulnerabilitiesAnalyzed()).isFalse();
         assertThat(missing.getVulnerabilityLookupOutcomes()).containsEntry("OSV","UNSUPPORTED");
@@ -86,6 +93,8 @@ class CocoaPodsSnapshotTest {
         service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl",findings,"nvd.jsonl",findings,"unresolved.jsonl",unresolved))));
         var result = new OsvClient(service,true).queryBatch(List.of(new OsvClient.OsvQuery("Maven","fixture","1"))).getFirst();
         assertThat(result.vulns()).hasSize(1);
+        assertThat(result.vulns().getFirst().cvssScore()).isEqualTo(9.3);
+        assertThat(result.vulns().getFirst().effectiveSeverity()).isEqualTo(com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL);
         assertThat(result.resolved()).isFalse();
         assertThat(service.findNvdVulns(List.of(key)).get(key).getFirst().cvssScore()).isEqualTo(9.3);
         var nvd = new NvdClient(service,true,"",Duration.ofMillis(1),Duration.ofMillis(1));

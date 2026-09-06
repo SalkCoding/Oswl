@@ -83,4 +83,17 @@ class OsvClientTest {
 
         assertThat(result.vulns()).containsExactly(vuln);
     }
+    @Test void cvssV4AndFixVersionBelongToTheQueriedPackage() {
+        String vector="CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N";
+        var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","severity",List.of(Map.of("score",vector)),
+                "affected",List.of(
+                    Map.of("package",Map.of("name","other","ecosystem","npm"),"ranges",List.of(Map.of("events",List.of(Map.of("fixed","99"))))),
+                    Map.of("package",Map.of("name","target","ecosystem","npm"),"ranges",List.of(Map.of("events",List.of(Map.of("fixed","2"))))))),
+                new OsvClient.OsvQuery("npm","target","1"));
+        assertThat(vuln.cvssVector()).isEqualTo(vector);
+        assertThat(vuln.cvssScore()).isEqualTo(9.3);
+        assertThat(vuln.cveId()).isEqualTo("CVE-2026-0001");
+        assertThat(vuln.fixVersion()).isEqualTo("2");
+    }
+
 }
