@@ -104,13 +104,15 @@ public class QuickImportService {
     private final GitCloneExecutor gitCloneExecutor;
     private final UserVcsConnectionRepository vcsConnectionRepository;
     private final UserRepository userRepository;
-    private final org.springframework.core.env.Environment environment;
     private final AuditLogService auditLogService;
     private final EncryptionService encryptionService;
     private final ProjectService projectService;
     private final ApiKeyService apiKeyService;
     private final ScanIngestService scanIngestService;
     private final ScanResultRepository scanResultRepository;
+    private final ImportJobStore durableJobs;
+    private final org.springframework.core.env.Environment environment;
+    private final ConcurrentHashMap<String, Phase> publishedPhases = new ConcurrentHashMap<>();
     private final GitHubService gitHubService;
     private final BitbucketCloudClient bitbucketCloudClient;
     private final EnrichmentProgressHolder enrichmentProgressHolder;
@@ -137,6 +139,7 @@ public class QuickImportService {
     /** FIFO queue waiting for a worker slot. */
     private final Deque<PendingImport> pendingQueue = new java.util.concurrent.ConcurrentLinkedDeque<>();
     private final AtomicInteger runningImports = new AtomicInteger(0);
+    private final ConcurrentHashMap<String, Long> streamOwners = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CopyOnWriteArrayList<SseEmitter>> jobEmitters = new ConcurrentHashMap<>();
     /** jobId → normalized repoUrl#branch, used to reject duplicate concurrent imports. */
     private final ConcurrentHashMap<String, String> jobRepoKeys = new ConcurrentHashMap<>();
@@ -255,7 +258,7 @@ public class QuickImportService {
         String repoLabel = extractRepoLabel(repoUrl);
         int queuePosition = pendingQueue.size() + runningImports.get() + 1;
 
-        jobs.put(jobId, baseJobBuilder(jobId)
+        QuickImportJobStatus initial = baseJobBuilder(jobId)
                 .phase(Phase.QUEUED)
                 .message(null)
                 .messageKey(null)
@@ -264,7 +267,9 @@ public class QuickImportService {
                 .queuePosition(queuePosition)
                 .percent(0)
                 .startedAtEpochMs(System.currentTimeMillis())
-                .build());
+                .build();
+        if (durableJobs != null) durableJobs.reserve(initial, userId, importKey(repoUrl, branch), maxQueuedPerUser, bypassQueueCap);
+        jobs.put(jobId, initial);
         jobCreatedAt.put(jobId, Instant.now());
         jobOwners.put(jobId, userId);
         userJobIds.computeIfAbsent(userId, id -> new CopyOnWriteArrayList<>()).add(jobId);
@@ -313,6 +318,9 @@ public class QuickImportService {
     }
 
     public List<QuickImportJobStatus> listJobsForUser(Long userId) {
+        if (durableJobs != null) return durableJobs.list(userId).stream()
+                .map(snapshot -> jobs.containsKey(snapshot.getJobId())
+                        ? sanitizeApiToken(snapshot.getJobId(), resolveJobStatus(snapshot.getJobId())) : snapshot).toList();
         CopyOnWriteArrayList<String> ids = userJobIds.get(userId);
         if (ids == null || ids.isEmpty()) return List.of();
         return ids.stream()
@@ -322,12 +330,14 @@ public class QuickImportService {
     }
 
     public QuickImportJobsResponse listJobsSnapshot(Long userId) {
+        List<QuickImportJobStatus> statuses = listJobsForUser(userId);
         return QuickImportJobsResponse.builder()
-                .jobs(listJobsForUser(userId))
-                .activeSlotsUsed(runningImports.get())
+                .jobs(statuses)
+                .activeSlotsUsed(durableJobs == null ? runningImports.get() : durableJobs.activeWorkers())
                 .maxConcurrentSlots(maxConcurrentImports)
-                .userQueuedCount(countUserQueuedJobs(userId))
-                .userRunningCount(countUserRunningJobs(userId))
+                .userQueuedCount((int) statuses.stream().filter(j -> j.getPhase() == Phase.QUEUED).count())
+                .userRunningCount((int) statuses.stream().filter(j -> j.getPhase() != Phase.QUEUED
+                        && j.getPhase() != Phase.DONE && j.getPhase() != Phase.FAILED).count())
                 .maxQueuedSlots(maxQueuedPerUser)
                 .build();
     }
@@ -336,6 +346,7 @@ public class QuickImportService {
         if (!isJobOwner(jobId, userId)) {
             throw new IllegalArgumentException("Job not found");
         }
+        streamOwners.put(jobId, userId);
         SseEmitter emitter = new SseEmitter(Duration.ofMinutes(30).toMillis());
         jobEmitters.computeIfAbsent(jobId, k -> new CopyOnWriteArrayList<>()).add(emitter);
         emitter.onCompletion(() -> removeEmitter(jobId, emitter));
@@ -344,7 +355,7 @@ public class QuickImportService {
         try {
             // SSE follows the same reveal-once policy as HTTP polling: the full apiToken
             // is delivered only on the first DONE frame, then masked.
-            QuickImportJobStatus status = sanitizeApiToken(jobId, resolveJobStatus(jobId));
+            QuickImportJobStatus status = getJobStatus(jobId, userId);
             emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
         } catch (Exception e) {
             emitter.completeWithError(e);
@@ -357,6 +368,10 @@ public class QuickImportService {
             while (runningImports.get() < maxConcurrentImports && !pendingQueue.isEmpty()) {
                 PendingImport task = pendingQueue.poll();
                 if (task == null) break;
+                if (durableJobs != null && !durableJobs.claim(task.jobId(), maxConcurrentImports)) {
+                    if (durableJobs.ownsLease(task.jobId())) { pendingQueue.addFirst(task); break; }
+                    continue;
+                }
                 runningImports.incrementAndGet();
                 refreshQueuePositions();
                 Thread.ofVirtual().name("quick-import-" + task.jobId()).start(() -> executeImport(task));
@@ -389,6 +404,13 @@ public class QuickImportService {
         } finally {
             // canceledJobs is intentionally NOT cleared here — it must survive until the job is
             // evicted so late background writes and status polling stay blocked.
+            if (durableJobs != null) {
+                try { durableJobs.release(jobId); }
+                catch (Exception e) {
+                    durableJobs.retryRelease(jobId);
+                    log.warn("[QuickImport] Slot release deferred to maintenance for {}", jobId);
+                }
+            }
             runningImports.decrementAndGet();
             refreshQueuePositions();
             dispatchQueue();
@@ -403,7 +425,11 @@ public class QuickImportService {
     public synchronized boolean cancelJob(String jobId, Long requestingUserId) {
         if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) return false;
         QuickImportJobStatus status = jobs.get(jobId);
-        if (status == null) return false;
+        if (durableJobs != null && !durableJobs.cancel(jobId, requestingUserId)) return false;
+        if (status == null) {
+            auditLogService.log("QUICK_IMPORT.CANCEL", "PROJECT", null, null, "jobId=" + jobId + " remote=true");
+            return durableJobs != null;
+        }
         Phase phase = status.getPhase();
         if (phase == Phase.DONE || phase == Phase.FAILED) return false;
 
@@ -436,7 +462,7 @@ public class QuickImportService {
     }
 
     private void throwIfCanceled(String jobId) {
-        if (canceledJobs.contains(jobId)) {
+        if (canceledJobs.contains(jobId) || (durableJobs != null && !durableJobs.ownsLease(jobId))) {
             throw new ImportCanceledException();
         }
     }
@@ -449,17 +475,29 @@ public class QuickImportService {
         if (requestingUserId == null || !isJobOwner(jobId, requestingUserId)) {
             return null;
         }
+        if (!jobs.containsKey(jobId) && durableJobs != null) return durableJobs.read(jobId, requestingUserId);
         return sanitizeApiToken(jobId, resolveJobStatus(jobId));
     }
 
     private boolean isJobOwner(String jobId, Long userId) {
         Long owner = jobOwners.get(jobId);
-        return owner != null && owner.equals(userId);
+        return owner != null && owner.equals(userId)
+                || durableJobs != null && durableJobs.read(jobId, userId) != null;
     }
 
     private synchronized QuickImportJobStatus resolveJobStatus(String jobId) {
         QuickImportJobStatus job = jobs.get(jobId);
         if (job == null) return null;
+        if (durableJobs != null) {
+            QuickImportJobStatus persisted = durableJobs.read(jobId, jobOwners.get(jobId));
+            if (persisted != null && (persisted.getPhase() == Phase.FAILED
+                    || persisted.getPhase() == Phase.DONE && job.getPhase() != Phase.DONE)) {
+                jobs.put(jobId, persisted);
+                jobFinishedAt.putIfAbsent(jobId, Instant.now());
+                if (persisted.getPhase() == Phase.FAILED) canceledJobs.add(jobId);
+                return persisted;
+            }
+        }
 
         // Canceled jobs keep their stored terminal status — never resurrect ENRICHING → DONE.
         if (canceledJobs.contains(jobId)) {
@@ -885,7 +923,13 @@ public class QuickImportService {
             ScanPayload payload = dependencyManifestParserService.buildScanPayload(deps, scanVersion);
             long ingestStartMs = System.currentTimeMillis();
             try {
-                scanResult = scanIngestService.ingest(project.getId(), payload);
+                throwIfCanceled(jobId);
+                scanResult = durableJobs != null
+                        ? durableJobs.fenced(jobId, () -> scanIngestService.ingest(project.getId(), payload))
+                        : scanIngestService.ingest(project.getId(), payload);
+                Long persistedScanId = scanResult.getId();
+                patchJobQuiet(jobId, b -> b.scanResultId(persistedScanId));
+                if (durableJobs != null) durableJobs.publish(jobs.get(jobId));
             } catch (Exception ingestEx) {
                 // The project will appear on the Projects page with a "No scan data" indicator.
                 // The user can re-import to retry.
@@ -912,6 +956,7 @@ public class QuickImportService {
 
             // 6b. Secret / IaC misconfiguration scan — runs while the clone still exists,
             // best-effort only, never fails the import.
+            throwIfCanceled(jobId);
             secretIacScanService.scanAndPersist(cloneDir, scanResult.getId());
 
             // Source references use available checkout files without executing repository code.
@@ -1261,7 +1306,7 @@ public class QuickImportService {
         return count;
     }
 
-    private void refreshQueuePositions() {
+    private synchronized void refreshQueuePositions() {
         int position = runningImports.get() + 1;
         for (PendingImport pending : pendingQueue) {
             QuickImportJobStatus job = jobs.get(pending.jobId());
@@ -1311,6 +1356,10 @@ public class QuickImportService {
         QuickImportJobStatus stored = jobs.get(jobId);
         if (stored != null && (stored.getPhase() == Phase.DONE || stored.getPhase() == Phase.FAILED))
             jobFinishedAt.putIfAbsent(jobId, Instant.now());
+        if (durableJobs != null && stored != null && publishedPhases.get(jobId) != stored.getPhase()) {
+            durableJobs.publish(stored);
+            publishedPhases.put(jobId, stored.getPhase());
+        }
         CopyOnWriteArrayList<SseEmitter> emitters = jobEmitters.get(jobId);
         if (emitters == null || emitters.isEmpty()) return;
         Long owner = jobOwners.get(jobId);
@@ -1331,10 +1380,35 @@ public class QuickImportService {
 
     private void removeEmitter(String jobId, SseEmitter emitter) {
         CopyOnWriteArrayList<SseEmitter> list = jobEmitters.get(jobId);
-        if (list != null) list.remove(emitter);
+        if (list != null) {
+            list.remove(emitter);
+            if (list.isEmpty() && jobEmitters.remove(jobId, list)) streamOwners.remove(jobId);
+        }
     }
 
-    /** Removes jobs older than 30 minutes from memory. Runs every 5 minutes. */
+    public void maintainDurableJobs() {
+        if (durableJobs == null) return;
+        for (String id : List.copyOf(jobs.keySet())) {
+            QuickImportJobStatus cached = jobs.get(id);
+            if (cached == null || cached.getPhase() == Phase.FAILED
+                    || cached.getPhase() == Phase.DONE && isTerminalAiStatus(cached.getAiStatus())) continue;
+            QuickImportJobStatus status = resolveJobStatus(id);
+            if (status != null) durableJobs.publish(status);
+        }
+        for (var entry : streamOwners.entrySet()) {
+            if (jobs.containsKey(entry.getKey())) continue;
+            QuickImportJobStatus status = durableJobs.read(entry.getKey(), entry.getValue());
+            for (SseEmitter emitter : jobEmitters.getOrDefault(entry.getKey(), new CopyOnWriteArrayList<>())) {
+                try {
+                    if (status == null) emitter.complete();
+                    else emitter.send(SseEmitter.event().name("job-update").data(status, MediaType.APPLICATION_JSON));
+                } catch (Exception e) { removeEmitter(entry.getKey(), emitter); }
+            }
+        }
+        dispatchQueue();
+    }
+
+    /** Retains active work; terminal snapshots expire relative to completion, not admission. */
     @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MINUTES)
     public synchronized void evictExpiredJobs() {
         Instant cutoff = Instant.now().minus(Duration.ofMinutes(30));
@@ -1353,6 +1427,8 @@ public class QuickImportService {
 
     /** Drops all in-memory references for a job (status, SSE, per-user index). */
     private void purgeJobFromMemory(String jobId) {
+        publishedPhases.remove(jobId);
+        streamOwners.remove(jobId);
         disposeJobEmitters(jobId);
         Long ownerId = jobOwners.get(jobId);
         if (ownerId != null) {

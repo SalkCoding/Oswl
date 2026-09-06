@@ -9,7 +9,11 @@ import java.util.List;
 @Schema(description = "Quick Import job status snapshot")
 @Getter
 @Builder(toBuilder = true)
+@com.fasterxml.jackson.databind.annotation.JsonDeserialize(builder = QuickImportJobStatus.QuickImportJobStatusBuilder.class)
 public class QuickImportJobStatus {
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    @com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder(withPrefix = "")
+    public static class QuickImportJobStatusBuilder {}
 
     @Schema(description = "Import pipeline phase")
     public enum Phase {
