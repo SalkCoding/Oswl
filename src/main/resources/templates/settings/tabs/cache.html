@@ -37,7 +37,7 @@
                     </div>
                 </div>
                 <div x-show="policy==='custom'" class="pl-[28px] flex items-center gap-[8px]">
-                    <input type="number" min="1" x-model.number="customAmount"
+                    <input type="number" min="1" x-model.number="customAmount" th:aria-label="#{settings.cache.policy.custom}"
                            class="w-[80px] px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[8px] text-[13px] focus:outline-none focus:border-[#33D1B7]"/>
                     <!-- Custom dropdown for time unit -->
                     <div class="relative" @click.away="unitDropdownOpen=false" @keydown.escape.stop="unitDropdownOpen=false">
@@ -97,7 +97,7 @@
                 </div>
             </div>
             <button @click="save()" :disabled="saving"
-                    class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
+                    class="bg-[#00756b] hover:bg-[#00665e] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span x-text="saving ? _cacheI18n.saving : _cacheI18n.save"></span>
             </button>

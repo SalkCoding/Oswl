@@ -33,7 +33,7 @@
 
         <div class="flex justify-end">
             <button type="button" @click="openNewPolicy()"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px] tracking-[-0.13px] transition-colors"
+                    class="bg-[#00756b] hover:bg-[#00665e] px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px] tracking-[-0.13px] transition-colors"
                     th:text="#{settings.policy.newPolicy}">+ New Policy</button>
         </div>
 
@@ -152,7 +152,7 @@
                         class="px-[14px] py-[8px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-70)] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)]"
                         th:text="#{common.cancel}">Cancel</button>
                 <button type="button" @click="savePolicy()"
-                        class="bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]"
+                        class="bg-[#00756b] hover:bg-[#00665e] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]"
                         th:text="#{common.save}">Save</button>
             </div>
         </div>
@@ -215,7 +215,7 @@
                 </template>
             </select>
             <button type="button" x-show="waiverProjectId" @click="openNewWaiver()"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                    class="bg-[#00756b] hover:bg-[#00665e] px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
                     th:text="#{settings.policy.waivers.newException}">+ Request Waiver</button>
         </div>
 
@@ -252,7 +252,7 @@
             </div>
             <div class="flex gap-[10px] justify-end">
                 <button type="button" @click="waiverFormOpen = false; if (window.OswlDirty) window.OswlDirty.clear('policy-waiver')" class="px-[14px] py-[8px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-70)] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)]" th:text="#{common.cancel}">Cancel</button>
-                <button type="button" @click="submitWaiver()" class="bg-[#00A093] hover:bg-[#008f83] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]" th:text="#{settings.policy.waivers.submit}">Request Waiver</button>
+                <button type="button" @click="submitWaiver()" class="bg-[#00756b] hover:bg-[#00665e] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]" th:text="#{settings.policy.waivers.submit}">Request Waiver</button>
             </div>
         </div>
 
@@ -313,7 +313,7 @@
                 <h3 class="font-bold text-[15px] text-black" th:text="#{settings.policy.sync.exportAll}">Export all policies (YAML)</h3>
             </div>
             <button type="button" @click="exportAll()" :disabled="exportingAll"
-                    class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px] shrink-0"
+                    class="bg-[#00756b] hover:bg-[#00665e] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px] shrink-0"
                     th:text="#{settings.policy.sync.exportAll}">Export all policies (YAML)</button>
         </div>
 
@@ -325,7 +325,7 @@
             <div x-show="importResult" x-cloak class="text-[13px] text-emerald-700" x-text="importResult"></div>
             <div class="flex justify-end">
                 <button type="button" @click="importYaml()" :disabled="importing || !importText.trim()"
-                        class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                        class="bg-[#00756b] hover:bg-[#00665e] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
                         th:text="#{settings.policy.sync.import.submit}">Import</button>
             </div>
         </div>
@@ -362,7 +362,7 @@
             <div x-show="gitopsResult" x-cloak class="text-[13px]" :class="gitopsOk ? 'text-emerald-700' : 'text-red-700'" x-text="gitopsResult"></div>
             <div class="flex justify-end">
                 <button type="button" @click="gitopsSync()" :disabled="gitopsSyncing || !gitops.projectId || !gitops.repositoryUrl"
-                        class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                        class="bg-[#00756b] hover:bg-[#00665e] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
                         th:text="#{settings.policy.sync.gitops.submit}">Sync Now</button>
             </div>
         </div>

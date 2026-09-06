@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{settings.pageTitle})}"></head>
-<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
+<body class="settings-page flex flex-col min-h-screen bg-[var(--grayscale-5)]">
 <script th:inline="javascript">
     // 설정 페이지 최초 진입 시 이전 URL 저장 (탭 이동해도 덮어쓰지 않음)
     (function () {
@@ -42,7 +42,7 @@
     </div>
 </nav>
 
-<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] max-w-[1440px] mx-auto">
+<main class="w-full min-w-0 overflow-x-auto flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] max-w-[1440px] mx-auto">
 
     <div th:if="${#lists.isEmpty(accessibleTabs)}"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]"

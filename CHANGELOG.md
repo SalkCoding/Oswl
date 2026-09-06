@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **accessibility:** Settings use responsive headers and contained table scrolling; corrected button contrast and accessible input/filter names. All 12 settings tabs passed Tab/Escape, 390px document-width and serious/critical axe checks in Japanese Chromium. Physical devices remain unverified (roadmap 23).
 * **verification:** External Dgs/Express/Maui/Rails and manifest parity checks now require readable nonempty manifests and explain missing-fixture skips. Empty checkout and valid-input controls passed; remote PR CI remains pending (roadmap 33).
 * **verification:** Added opt-in H2 5k/50k-component and 100-project JDBC/heap/HTML/DOM measurements, actual bound EXPLAIN ANALYZE capture, and an isolated 2 GiB Gradle verification budget. Final targeted backend 76 and UI 9 tests passed; PostgreSQL plans and operational worst cases remain open. See [measurement methods, raw evidence and limits](docs/ko/Performance-Verification.md) (roadmap 17–21).
 * **settings:** Extracted eleven settings scripts, removed duplicate Alpine initialization and corrected settings/Quick Import script order. Fixed admin/AI contrast findings. Verified 11-tab request/DOM/heap measurements, 1,100-row repeated load-more, 5k/50k repository filtering, 100 scan versions, mobile keyboard/axe and existing UI flows (9 UI scenarios, roadmap 21).
