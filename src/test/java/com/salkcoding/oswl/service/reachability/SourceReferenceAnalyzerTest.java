@@ -25,7 +25,7 @@ class SourceReferenceAnalyzerTest {
 
     @Test void ignoresCommentsStringsAndPrunesExcludedDirectories() throws Exception {
         Files.writeString(root.resolve("app.py"), "# import fake\ns = \"import fake\"\nimport real\n");
-        Files.writeString(root.resolve("app.js"), "// require('fake')\nconst s = \"require('fake')\"; require('real'); export {x} from '@scope/pkg/sub';");
+        Files.writeString(root.resolve("app.js"), "// require('fake')\nconst s = \"require('fake')\"; const re = /require('fake')/; require('real'); export {x} from '@scope/pkg/sub';");
         Files.createDirectories(root.resolve("node_modules/hidden"));
         Files.writeString(root.resolve("node_modules/hidden/app.py"), "import fake");
         var index = analyzer.index(root);

@@ -36,10 +36,10 @@ public class SourceReferenceAnalyzer {
 
     // "import X", "import X.Y.Z", "import X as x", "import X, Y, Z" — captures the whole
     // comma-separated tail so mergeImportTail can split it (a single regex can't repeat-capture).
-    private static final Pattern PY_IMPORT_LINE = Pattern.compile("(?m)^\\s*import\\s+(.+)$");
+    private static final Pattern PY_IMPORT_LINE = Pattern.compile("(?m)^[\\t ]*import[\\t ]+(.+)$");
     // "from X import Y" / "from X.Y import Z" — a leading '.' (relative import) is excluded by
     // requiring the first character to be a letter or underscore.
-    private static final Pattern PY_FROM_LINE = Pattern.compile("(?m)^\\s*from\\s+([A-Za-z_][\\w.]*)\\s+import\\s");
+    private static final Pattern PY_FROM_LINE = Pattern.compile("(?m)^[\\t ]*from[\\t ]+([A-Za-z_][\\w.]*)[\\t ]+import[\\t ]");
 
     public record ReferenceEvidence(String referencingFile, String importedName) {}
 

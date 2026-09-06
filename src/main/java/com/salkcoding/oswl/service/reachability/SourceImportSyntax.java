@@ -45,6 +45,22 @@ final class SourceImportSyntax {
             if (c == '/' && i+1 < text.length() && text.charAt(i+1) == '*') {
                 int end = text.indexOf("*/", i+2); i = end < 0 ? text.length() : end+2; continue;
             }
+            if (c == '/') {
+                // Treat a slash-delimited span conservatively as a regex literal. Ambiguous
+                // division expressions may lose evidence, but regex examples must not add it.
+                int end = i + 1;
+                boolean inClass = false;
+                for (; end < text.length() && text.charAt(end) != '\n'; end++) {
+                    char next = text.charAt(end);
+                    if (next == '\\') { end++; continue; }
+                    if (next == '[') inClass = true;
+                    if (next == ']') inClass = false;
+                    if (next == '/' && !inClass) break;
+                }
+                if (end < text.length() && text.charAt(end) == '/') {
+                    tokens.add(new Token("", true)); i = end + 1; continue;
+                }
+            }
             if (c == '\'' || c == '"' || c == '`') {
                 char quote = c; StringBuilder value = new StringBuilder(); i++;
                 boolean escaped = false;
