@@ -30,6 +30,7 @@ public class SecretIacScanService {
 
     private final SecretScanner secretScanner;
     private final IacScanner iacScanner;
+    private final CustomRuleScanner customRuleScanner;
     private final ScanFindingRepository scanFindingRepository;
     private final ScanResultRepository scanResultRepository;
 
@@ -47,6 +48,7 @@ public class SecretIacScanService {
             List<ScanFindingCandidate> candidates = new ArrayList<>();
             candidates.addAll(secretScanner.scan(cloneDir));
             candidates.addAll(iacScanner.scan(cloneDir));
+            candidates.addAll(customRuleScanner.scan(cloneDir));
             if (candidates.isEmpty()) return;
 
             ScanResult ref = scanResultRepository.getReferenceById(scanResultId);

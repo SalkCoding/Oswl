@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add administrator-managed, versioned custom secret/IaC rules using RE2/J with bounded input/time/findings and explicit incomplete-scan findings. Six unit/integration tests verify no matched-secret output, invalid/expensive patterns, permission denial, stale publication and disabling rules.
 - Add scoped CocoaPods Specs v2 bundles with original metadata, provenance/checksums, transactional validation and offline repository/license resolution. Four integration tests include actual Podfile ingestion, owned CVE detection, missing-spec UNKNOWN and export/import lookup equivalence. No upstream Specs dataset is redistributed.
 - Verify real isolated GGUF download/checksum, runtime inference and forced-process restart; exercise server-side session and OTP expiry in browser tests. Evidence: Ui-Operations-Verification.md.
 - Persist vulnerability lookup outcomes and block CI gates when analysis coverage is incomplete; retain unresolved snapshot evidence and NVD CVSS v4 metrics. Backend regression: 971 tests, 0 failures/errors, 8 opt-in skips; detection/auth browser scenarios: 4 passed.
