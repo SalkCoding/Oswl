@@ -25,7 +25,7 @@ import java.util.Set;
  *
  * Air-gapped mode: when constructed with a snapshot store and the air-gapped flag,
  * queries are answered from the offline snapshot instead of HTTP (components absent
- * from the snapshot resolve as "no vulnerabilities").
+ * from the snapshot remain unresolved).
  */
 @Slf4j
 public class OsvClient {
@@ -85,13 +85,16 @@ public class OsvClient {
             String cweId) {}
 
     /** Result set for a single query, aligned with the input batch index. */
-    public record OsvResult(List<OsvVuln> vulns) {}
+    public record OsvResult(List<OsvVuln> vulns, boolean resolved) {
+        public OsvResult(List<OsvVuln> vulns) { this(vulns, true); }
+        public static OsvResult unresolved() { return new OsvResult(List.of(), false); }
+    }
 
     // ── Public API ───────────────────────────────────────────────────────
 
     /**
      * Sends components in batches of up to 1,000 and returns results aligned with the input list.
-     * An empty OsvResult(vulns = []) means the component has no vulnerabilities.
+     * Only a resolved empty result means the lookup returned no findings; failures remain unresolved.
      */
     public List<OsvResult> queryBatch(List<OsvQuery> queries) {
         if (queries.isEmpty()) return Collections.emptyList();
@@ -127,7 +130,7 @@ public class OsvClient {
         for (String key : keys) {
             List<SnapshotVuln> vulns = key != null ? found.get(key) : null;
             if (vulns == null) {
-                results.add(new OsvResult(List.of()));
+                results.add(OsvResult.unresolved());
             } else {
                 hits++;
                 results.add(new OsvResult(vulns.stream()
@@ -161,7 +164,7 @@ public class OsvClient {
             }
 
             if (requestBody.isEmpty()) {
-                return Collections.nCopies(queries.size(), new OsvResult(List.of()));
+                return Collections.nCopies(queries.size(), OsvResult.unresolved());
             }
 
             log.debug("[OsvClient] querybatch request size={} valid={}",
@@ -175,31 +178,35 @@ public class OsvClient {
                     .body(Map.class);
             recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
 
-            if (response == null || !response.containsKey("results")) {
+            if (response == null || !(response.get("results") instanceof List<?> rawResults)) {
                 log.debug("[OsvClient] querybatch response is empty or missing the 'results' key");
-                return Collections.nCopies(queries.size(), new OsvResult(List.of()));
+                return Collections.nCopies(queries.size(), OsvResult.unresolved());
             }
 
-            List<Object> rawResults = (List<Object>) response.get("results");
             List<OsvResult> parsed = new ArrayList<>(rawResults.size());
 
             for (Object rawResult : rawResults) {
                 if (!(rawResult instanceof Map<?, ?> resultMap)) {
-                    parsed.add(new OsvResult(List.of()));
+                    parsed.add(OsvResult.unresolved());
                     continue;
                 }
                 Object vulnsObj = resultMap.get("vulns");
+                if (vulnsObj != null && !(vulnsObj instanceof List<?>)) {
+                    parsed.add(OsvResult.unresolved());
+                    continue;
+                }
                 if (!(vulnsObj instanceof List<?> vulnList) || vulnList.isEmpty()) {
-                    parsed.add(new OsvResult(List.of()));
+                    parsed.add(new OsvResult(List.of(), !resultMap.containsKey("next_page_token")));
                     continue;
                 }
                 List<OsvVuln> vulns = new ArrayList<>();
+                boolean resolved = !resultMap.containsKey("next_page_token");
                 for (Object vulnObj : vulnList) {
-                    if (vulnObj instanceof Map<?, ?> vuln) {
+                    if (vulnObj instanceof Map<?, ?> vuln && vuln.get("id") instanceof String id && !id.isBlank()) {
                         vulns.add(parseVuln((Map<String, Object>) vuln));
-                    }
+                    } else resolved = false;
                 }
-                parsed.add(new OsvResult(vulns));
+                parsed.add(new OsvResult(vulns, resolved));
             }
             log.debug("[OsvClient] querybatch parsed results count={} totalVulns={}",
                     parsed.size(),
@@ -207,7 +214,7 @@ public class OsvClient {
 
             // Expand to queries.size() to preserve alignment and insert empty results for null versions
             OsvResult[] finalResults = new OsvResult[queries.size()];
-            java.util.Arrays.fill(finalResults, new OsvResult(List.of()));
+            java.util.Arrays.fill(finalResults, OsvResult.unresolved());
             for (int i = 0; i < validIndices.size() && i < parsed.size(); i++) {
                 finalResults[validIndices.get(i)] = parsed.get(i);
             }
@@ -219,7 +226,7 @@ public class OsvClient {
         } catch (RestClientException e) {
             recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.error("[OsvClient] querybatch failed: {}", e.getMessage());
-            return Collections.nCopies(queries.size(), new OsvResult(List.of()));
+            return Collections.nCopies(queries.size(), OsvResult.unresolved());
         }
     }
 

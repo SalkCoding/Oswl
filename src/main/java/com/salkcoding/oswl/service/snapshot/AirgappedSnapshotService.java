@@ -212,7 +212,7 @@ public class AirgappedSnapshotService {
 
     // ── Offline lookups (used by the client fallbacks) ───────────────────
 
-    /** OSV vulns per component key; absent keys mean "no known vulnerabilities". */
+    /** OSV vulns per component key; absent keys are unresolved, unlike a stored empty result. */
     @Transactional(readOnly = true)
     public Map<String, List<SnapshotVuln>> findOsvVulns(Collection<String> componentKeys) {
         Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();

@@ -452,7 +452,8 @@
         </div>
 
         <div class="flex flex-col gap-[12px]">
-            <p th:if="${#lists.isEmpty(cves)}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]" th:text="#{componentDetail.cve.empty}">No security vulnerabilities detected for this component.</p>
+            <p th:if="${#lists.isEmpty(cves) and vulnerabilitiesAnalyzed}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]" th:text="#{componentDetail.cve.empty}">No security vulnerabilities detected for this component.</p>
+            <p th:if="${#lists.isEmpty(cves) and !vulnerabilitiesAnalyzed}" class="text-[13px] text-[var(--grayscale-60)] py-[8px]" th:text="#{securityCenter.table.notAnalyzedTooltip}">Vulnerability analysis is unavailable.</p>
             <div th:each="cve, it : ${cves}"
                  x-data="{ open: false }"
                  class="bg-white border border-[var(--grayscale-15)] rounded-[10px] overflow-hidden">

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* **detection:** OSV transport failures, invalid/partial responses and absent offline data remain unresolved; they no longer create a successful fetch timestamp. Component detail distinguishes unanalysed data from zero findings in all three languages. Real parse/ingest/enrich/browser/gate fixtures cover malicious, clean, unsupported and unavailable results. Gate completeness policy and live-source coverage remain open (roadmap 27).
 * **embedded AI:** Publish background download errors, clear them on retry, bound download bytes and serialize admission; interruption stops fallback and removes partial output. Five local HTTP/checksum/concurrency tests and a browser failure/retry test pass while preserving existing models. Actual GGUF download/startup remains unverified (roadmap 26).
 * **cluster verification:** Validate protected identity without following redirects, add anonymous/logout controls and check duplicate scheduler execution per observed cron cycle. Four pure predicate tests and Bash syntax pass. The runtime draft remains gated until process/schema/session and PostgreSQL rehearsal are performed (roadmap 25).
 * **onboarding:** Browser fixtures verify GitHub/GitLab/Bitbucket permission failures, retry and secret-input clearing, plus webhook network failure/retry. No external credentials or deliveries were used; real provider verification remains open (roadmap 24).
