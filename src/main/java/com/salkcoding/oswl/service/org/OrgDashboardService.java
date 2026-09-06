@@ -1,8 +1,6 @@
 package com.salkcoding.oswl.service.org;
 
-import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.project.Project;
-import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.dto.OrgProjectRiskDto;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
@@ -44,6 +42,7 @@ public class OrgDashboardService {
     private final ProjectRepository       projectRepository;
     private final ScanResultRepository    scanResultRepository;
     private final LibraryRepository       libraryRepository;
+    private final com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
@@ -83,11 +82,7 @@ public class OrgDashboardService {
             scansAscByProject.put(project.getId(), asc);
         }
 
-        // Every scan the page aggregates: each project's latest scan plus every scan the trend
-        // walk can reference as-of a weekly bucket boundary. Batch-loading their components,
-        // libraries, and CVEs up front (2 queries total, same hydration pattern as
-        // ProjectService.findAll) keeps the aggregations below from issuing per-scan component
-        // queries and per-CVE Cve.sources selects.
+        // Aggregate only scans referenced by the latest posture or a weekly trend bucket.
         Set<Long> aggregateScanIds = new HashSet<>();
         latestScanByProject.values().forEach(scan -> aggregateScanIds.add(scan.getId()));
         LocalDate today = LocalDate.now();
@@ -99,7 +94,9 @@ public class OrgDashboardService {
                 if (asOf != null) aggregateScanIds.add(asOf.getId());
             }
         }
-        Map<Long, List<ScanComponent>> componentsByScanId = loadComponentsByScanId(aggregateScanIds);
+        List<ScanResult> selectedScans = completedByProject.values().stream().flatMap(List::stream)
+                .filter(scan -> aggregateScanIds.contains(scan.getId())).toList();
+        Map<Long, Posture> postureByScanId = loadPosture(selectedScans);
 
         // ── Org-wide posture totals + worst-project ranking ──────────────
         int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secUnscored = 0;
@@ -118,10 +115,10 @@ public class OrgDashboardService {
                 continue;
             }
 
-            List<ScanComponent> components = componentsByScanId.getOrDefault(latest.getId(), List.of());
-            int[] sec = aggregateSecurity(components);
-            int[] lic = aggregateLicense(components);
-            int[] kev = aggregateKev(components);
+            Posture posture = postureByScanId.getOrDefault(latest.getId(), new Posture());
+            int[] sec = posture.security;
+            int[] lic = posture.licenses;
+            int[] kev = posture.kev;
 
             secCritical += sec[0]; secHigh   += sec[1]; secMedium += sec[2];
             secLow      += sec[3]; secUnscored += sec[4];
@@ -170,24 +167,31 @@ public class OrgDashboardService {
         model.addAttribute("kevUnaddressed", kevUnaddressed);
         model.addAttribute("projectRows", rows);
 
-        addTrendModel(model, projects, scansAscByProject, componentsByScanId);
+        addTrendModel(model, projects, scansAscByProject, postureByScanId);
     }
 
-    /**
-     * Batch-loads the components (each with its EAGER library) of every scan the page aggregates,
-     * then hydrates those libraries' CVEs — and each CVE's EAGER {@code sources} collection — in
-     * one more query. Mirrors {@code ProjectService.findAll}'s hydration: the second query's
-     * return value isn't needed, it initializes collections on the already persistence-context-
-     * loaded Library entities.
-     */
-    private Map<Long, List<ScanComponent>> loadComponentsByScanId(Set<Long> scanIds) {
-        if (scanIds.isEmpty()) return Map.of();
-        Map<Long, List<ScanComponent>> byScanId = new HashMap<>();
-        for (ScanResult scan : scanResultRepository.findByIdInWithComponentsAndLibrary(scanIds)) {
-            byScanId.put(scan.getId(), scan.getComponents());
+    private static final class Posture {
+        final int[] security = new int[5];
+        final int[] licenses = new int[4];
+        final int[] kev = new int[2];
+    }
+
+    private Map<Long, Posture> loadPosture(List<ScanResult> scans) {
+        Map<Long, Posture> result = new HashMap<>();
+        if (scans.isEmpty()) return result;
+        summaryReader.read(scans).forEach((id, summary) -> {
+            Posture posture = new Posture();
+            System.arraycopy(summary.security(), 0, posture.security, 0, 5);
+            System.arraycopy(summary.licenses(), 0, posture.licenses, 0, 4);
+            result.put(id, posture);
+        });
+        List<Long> scanIds = scans.stream().filter(scan -> !scan.isArchived()).map(ScanResult::getId).toList();
+        if (scanIds.isEmpty()) return result;
+        for (Object[] row : libraryRepository.countPortfolioKev(scanIds)) {
+            result.get((Long) row[0]).kev[0] = Math.toIntExact(((Number) row[1]).longValue());
+            result.get((Long) row[0]).kev[1] = Math.toIntExact(((Number) row[2]).longValue());
         }
-        libraryRepository.findByScanResultIdInWithCves(scanIds);
-        return byScanId;
+        return result;
     }
 
     // ── Org-wide vulnerability trend (weekly buckets) ────────────────────
@@ -199,7 +203,7 @@ public class OrgDashboardService {
      */
     private void addTrendModel(Model model, List<Project> projects,
                                Map<Long, List<ScanResult>> scansAscByProject,
-                               Map<Long, List<ScanComponent>> componentsByScanId) {
+                               Map<Long, Posture> postureByScanId) {
         List<String>  labels      = new ArrayList<>();
         List<Integer> trCritical  = new ArrayList<>();
         List<Integer> trHigh      = new ArrayList<>();
@@ -222,7 +226,7 @@ public class OrgDashboardService {
                         bucketEndExclusive);
                 if (asOf == null) continue;
                 int[] sec = secCountsByScanId.computeIfAbsent(asOf.getId(),
-                        scanId -> aggregateSecurity(componentsByScanId.getOrDefault(scanId, List.of())));
+                        scanId -> postureByScanId.getOrDefault(scanId, new Posture()).security);
                 c += sec[0]; h += sec[1]; m += sec[2]; l += sec[3]; n += sec[4];
             }
             trCritical.add(c); trHigh.add(h); trMedium.add(m); trLow.add(l); trUnscored.add(n);
@@ -246,51 +250,4 @@ public class OrgDashboardService {
         return chosen;
     }
 
-    // ── Aggregations (mirrors RiskTrendService / ComplianceReportService) ─
-
-    private int[] aggregateSecurity(List<ScanComponent> components) {
-        int c = 0, h = 0, m = 0, l = 0, n = 0;
-        for (ScanComponent sc : components) {
-            for (Cve cve : sc.getLibrary().getCves()) {
-                if (cve.getSeverity() == null) { n++; continue; }
-                switch (cve.getSeverity()) {
-                    case CRITICAL -> c++;
-                    case HIGH     -> h++;
-                    case MEDIUM   -> m++;
-                    case LOW      -> l++;
-                    case NONE     -> n++;
-                    default       -> {}
-                }
-            }
-        }
-        return new int[]{c, h, m, l, n};
-    }
-
-    private int[] aggregateLicense(List<ScanComponent> components) {
-        int violations = 0, warnings = 0, unknown = 0, permitted = 0;
-        for (ScanComponent sc : components) {
-            switch (sc.getLibrary().getLicenseStatus()) {
-                case RESTRICTED -> violations++;
-                case CAUTION    -> warnings++;
-                case UNKNOWN    -> unknown++;
-                default         -> permitted++;
-            }
-        }
-        return new int[]{violations, warnings, unknown, permitted};
-    }
-
-    /** [0] = total KEV-listed CVEs, [1] = KEV-listed CVEs on un-triaged (not reviewed/deferred) components. */
-    private int[] aggregateKev(List<ScanComponent> components) {
-        int total = 0, unaddressed = 0;
-        for (ScanComponent sc : components) {
-            boolean triaged = sc.isDeferred() || sc.isReviewed();
-            for (Cve cve : sc.getLibrary().getCves()) {
-                if (Boolean.TRUE.equals(cve.getKevListed())) {
-                    total++;
-                    if (!triaged) unaddressed++;
-                }
-            }
-        }
-        return new int[]{total, unaddressed};
-    }
 }

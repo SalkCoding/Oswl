@@ -14,6 +14,17 @@ import java.util.Optional;
 import java.time.LocalDateTime;
 
 public interface ScanComponentRepository extends JpaRepository<ScanComponent, Long> {
+    @Query("""
+            SELECT new com.salkcoding.oswl.dto.scan.VersionDiffComponent(l.name, l.version,
+                MIN(CASE c.severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1
+                    WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 ELSE 4 END))
+            FROM ScanComponent sc JOIN sc.library l LEFT JOIN l.cves c
+            WHERE sc.scanResult.id = :scanId
+            GROUP BY sc.id, l.name, l.version
+            ORDER BY sc.id
+            """)
+    List<com.salkcoding.oswl.dto.scan.VersionDiffComponent> findVersionDiffComponents(@Param("scanId") Long scanId);
+
     interface SourceCandidate {
         Long getId();
         String getEcosystem();

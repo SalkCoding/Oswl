@@ -53,6 +53,7 @@ class OrgDashboardServiceQueryCountTest {
     @Autowired LibraryRepository libraryRepository;
     @Autowired EntityManagerFactory entityManagerFactory;
     @Autowired PlatformTransactionManager transactionManager;
+    @Autowired com.salkcoding.oswl.service.scan.ScanArchivingService archiveService;
 
     @AfterEach
     void cleanup() {
@@ -124,16 +125,32 @@ class OrgDashboardServiceQueryCountTest {
         assertThat(rows).extracting(OrgProjectRiskDto::getName)
                 .contains("D2-OrgDash-1", "D2-OrgDash-2", "D2-OrgDash-3");
 
-        // Fixed at 4 for this fixture (project list: 1, findCompletedByProjectIdIn: 1,
-        // findByIdInWithComponentsAndLibrary: 1, findByScanResultIdInWithCves: 1) — down from a
-        // measured 25 before the batching fix (one findCompletedByProjectId per project, one
-        // components query per latest scan and per trend-referenced scan, and one EAGER
-        // Cve.sources select per CVE). The key property this test protects is that the count
-        // does NOT scale with project, scan, component, or CVE count — it stays at this fixed
-        // number whether there are 3 projects or 300. Locked with headroom (8) rather than exact
-        // equality so an unrelated added query elsewhere doesn't make this flaky, while a real
-        // regression (a new per-row query) still blows well past it.
+        // Project/history metadata and three aggregate queries; component/CVE entity graphs
+        // must remain unloaded even when the number of findings grows.
+        assertThat(stats.getEntityStatistics(ScanComponent.class.getName()).getLoadCount()).isZero();
+        assertThat(stats.getEntityStatistics(Cve.class.getName()).getLoadCount()).isZero();
         assertThat(queries).as("OrgDashboardService.populateModel() prepared-statement count")
                 .isLessThanOrEqualTo(8);
+    }
+
+    @Test void archivedHistoryRetainsPostureWithoutCountingDuplicateComponentsTwice() {
+        Project project = seedProject("D2-OrgDash-archive", 2);
+        // Shared libraries can appear through several dependency paths in the same scan.
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            var managed = projectRepository.findById(project.getId()).orElseThrow();
+            for (var scan : managed.getScanResults()) {
+                scan.getComponents().add(ScanComponent.builder().scanResult(scan)
+                        .library(scan.getComponents().getFirst().getLibrary()).build());
+            }
+        });
+        Model before = new ExtendedModelMap();
+        orgDashboardService.populateModel(before);
+        @SuppressWarnings("unchecked")
+        List<OrgProjectRiskDto> rows = (List<OrgProjectRiskDto>) before.getAttribute("projectRows");
+        assertThat(rows.stream().filter(row -> row.getId().equals(project.getId())).findFirst().orElseThrow().getSecurityHigh()).isEqualTo(2);
+        archiveService.archiveProject(project.getId(), 1);
+        Model after = new ExtendedModelMap();
+        orgDashboardService.populateModel(after);
+        assertThat(after.getAttribute("chartSecHigh")).isEqualTo(before.getAttribute("chartSecHigh"));
     }
 }

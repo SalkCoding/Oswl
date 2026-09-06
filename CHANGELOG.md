@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* **performance:** Version Diff now reads coordinate/severity projections; Org Dashboard uses batch summaries and archived counters. Verified duplicate-component and archive equivalence, zero component/CVE graph loads, and 2/10/100-scan measurements (roadmap 18).
+
 ## [1.0.3](https://github.com/SalkCoding/Oswl/releases/tag/v1.0.3) (2026-07-19)
 
 User-feedback release — applies the remaining findings from the 5-person usability test
