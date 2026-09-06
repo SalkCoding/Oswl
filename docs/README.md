@@ -11,6 +11,7 @@ English is the default documentation entry point. Start with the [English docume
 - [API reference](en/API-Reference.md)
 - [Developer onboarding (Korean)](ko/Developer-Onboarding.md)
 - [Architecture and optimization (Korean)](ko/Architecture-Optimization.md)
+- [Roadmap final audit (Korean)](ko/Roadmap-Final-Audit.md)
 - [UI states checklist (English)](en/Ui-States-Checklist.md)
 
 - [Browser security alerts (English)](en/Browser-Security-Alerts.md)
