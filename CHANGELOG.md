@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Serialized unknown-version library creation and browser push subscription limits, event deduplication and delivery claims across instances. Requires migration V35 on migrated databases.
 - Counted portfolio KEV findings by distinct CVE rows and kept duplicated occurrences open until all are addressed.
 - Preserved OSV advisory severity and CVSS through online detail lookup, offline enrichment and high-risk monitoring notifications.
 - Fixed nested dialog focus restoration and stale global search responses after clearing or closing search.

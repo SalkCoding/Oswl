@@ -33,6 +33,7 @@ public class WebPushService {
     private final WebPushTransport transport;
     private final AuditLogService audit;
     private final MessageSource messages;
+    private final com.salkcoding.oswl.repository.DatabaseMutationLockRepository mutationLocks;
     private final ObjectMapper mapper=new ObjectMapper();
 
     @Transactional(readOnly=true)
@@ -53,6 +54,7 @@ public class WebPushService {
         if (!principal.hasPermission(Permission.SECURITY_CENTER_VIEW)) throw new AccessDeniedException("Security Center permission required");
         if (!transport.enabled()) throw new InvalidRequestException("Browser push is not configured or is disabled offline");
         transport.validate(request);
+        lockMutations();
         cleanup();
         try {
             String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(request.endpoint().getBytes(StandardCharsets.UTF_8)));
@@ -71,6 +73,7 @@ public class WebPushService {
 
     @Transactional
     public void unsubscribe(Long id) {
+        lockMutations();
         var sub=subscriptions.findById(id).orElse(null);
         if (sub==null) return;
         if (!sub.getUserId().equals(current().getUserId())) throw new AccessDeniedException("Subscription owner required");
@@ -81,6 +84,7 @@ public class WebPushService {
     @Transactional
     public void enqueue(Long projectId,String type,String eventKey) {
         if (!transport.enabled() || projectId==null || eventKey==null || !Set.of("NEW_HIGH_RISK","GATE_FAILURE").contains(type)) return;
+        lockMutations();
         for(var sub:subscriptions.findAll(PageRequest.of(0,1000))) {
             if (sub.getExpiresAt().isBefore(LocalDateTime.now()) || !canRead(sub.getUserId(),projectId)) continue;
             WebPushSubscriptionRequest prefs;
@@ -96,8 +100,9 @@ public class WebPushService {
 
     @Transactional
     public WebPushAttempt prepare(Long id) {
+        lockMutations();
         var delivery=deliveries.findById(id).orElse(null);
-        if (delivery==null || delivery.isFinished()) return null;
+        if (delivery==null || delivery.isFinished() || delivery.getNextAttempt().isAfter(LocalDateTime.now())) return null;
         if (delivery.getAttempts()>=3) {delivery.setFinished(true);return null;}
         var sub=subscriptions.findById(delivery.getSubscriptionId()).orElse(null);
         if (sub==null || sub.getExpiresAt().isBefore(LocalDateTime.now()) || delivery.getExpiresAt().isBefore(LocalDateTime.now()) || !canRead(sub.getUserId(),delivery.getProjectId())) {
@@ -116,6 +121,7 @@ public class WebPushService {
 
     @Transactional
     public void complete(Long id,int status) {
+        lockMutations();
         var delivery=deliveries.findById(id).orElse(null); if(delivery==null)return;
         delivery.setLastStatus(status);
         delivery.setFinished((status>=200 && status<300) || status==404 || status==410 || delivery.getAttempts()>=3);
@@ -126,6 +132,7 @@ public class WebPushService {
     }
 
     @Transactional public void cleanup() {
+        lockMutations();
         var now=LocalDateTime.now();
         deliveries.deleteByExpiresAtBefore(now);
         for(var sub:subscriptions.findByExpiresAtBefore(now)) {
@@ -133,6 +140,7 @@ public class WebPushService {
             subscriptions.delete(sub);
         }
     }
+    private void lockMutations() { mutationLocks.lock(com.salkcoding.oswl.repository.DatabaseMutationLockRepository.WEB_PUSH); }
     private WebPushSubscriptionRequest decode(WebPushSubscription sub) {
         try{return mapper.readValue(encryption.decrypt(sub.getEncryptedSubscription()),WebPushSubscriptionRequest.class);}
         catch(Exception e){throw new InvalidRequestException("Stored browser subscription is unreadable");}

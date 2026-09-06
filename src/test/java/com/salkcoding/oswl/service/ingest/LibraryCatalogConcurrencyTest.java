@@ -18,7 +18,10 @@ class LibraryCatalogConcurrencyTest {
     @Autowired LibraryRepository libraries;
     @Autowired PlatformTransactionManager transactions;
 
-    @Test void concurrentFirstInsertReusesTheWinnerAndLeavesBothTransactionsUsable() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(strings = "1")
+    void concurrentFirstInsertReusesTheWinnerAndLeavesBothTransactionsUsable(String version) throws Exception {
         String name = "concurrent-" + UUID.randomUUID();
         var barrier = new CyclicBarrier(2);
         try (var workers = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -26,8 +29,8 @@ class LibraryCatalogConcurrencyTest {
                 assertThat(libraries.findByName(name)).isEmpty();
                 try { barrier.await(10, TimeUnit.SECONDS); }
                 catch (Exception e) { throw new IllegalStateException(e); }
-                catalog.ensurePresent(List.of(Library.builder().name(name).version("1").ecosystem("NPM").build()));
-                var winner = libraries.findByNameAndVersionAndEcosystem(name, "1", "NPM").orElseThrow();
+                catalog.ensurePresent(List.of(Library.builder().name(name).version(version).ecosystem("NPM").build()));
+                var winner = libraries.findByNameAndVersionAndEcosystem(name, version, "NPM").orElseThrow();
                 // A follow-up write and commit would fail if the losing INSERT had poisoned the transaction.
                 winner.updateLicense("MIT", List.of("MIT"), com.salkcoding.oswl.domain.enums.LicenseStatus.PERMITTED);
                 libraries.saveAndFlush(winner);

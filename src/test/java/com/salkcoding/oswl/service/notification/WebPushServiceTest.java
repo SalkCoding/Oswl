@@ -61,7 +61,7 @@ class WebPushServiceTest {
     @Test void retriesStopAfterThreeAttemptsAndGoneEndpointsExpire() {
         Long subscription=subscribe();service.enqueue(project.getId(),"GATE_FAILURE","GATE:retry");
         Long id=deliveries.findAll().getFirst().getId();
-        for(int i=0;i<3;i++){assertThat(service.prepare(id)).isNotNull();service.complete(id,503);}
+        for(int i=0;i<3;i++){makeDue(id);assertThat(service.prepare(id)).isNotNull();service.complete(id,503);}
         assertThat(service.prepare(id)).isNull();
         service.enqueue(project.getId(),"GATE_FAILURE","GATE:gone");
         Long gone=deliveries.findAll().stream().filter(d->d.getEventKey().equals("GATE:gone")).findFirst().orElseThrow().getId();
@@ -79,7 +79,7 @@ class WebPushServiceTest {
     @Test void abandonedAttemptsAreBoundedAndExpiredSubscriptionsAreReclaimed() {
         Long sub=subscribe();service.enqueue(project.getId(),"GATE_FAILURE","GATE:abandoned");
         Long id=deliveries.findAll().getFirst().getId();
-        for(int i=0;i<3;i++) assertThat(service.prepare(id)).isNotNull();
+        for(int i=0;i<3;i++) {makeDue(id); assertThat(service.prepare(id)).isNotNull();}
         assertThat(service.prepare(id)).isNull();
         var expired=subscriptions.findById(sub).orElseThrow();
         expired.setExpiresAt(java.time.LocalDateTime.now().minusSeconds(1));subscriptions.saveAndFlush(expired);
@@ -93,4 +93,39 @@ class WebPushServiceTest {
         service.enqueue(project.getId(),"GATE_FAILURE","GATE:valid-after-broken");
         assertThat(deliveries.count()).isEqualTo(1);
     }
+    private void makeDue(Long id) {
+        var delivery=deliveries.findById(id).orElseThrow();
+        delivery.setNextAttempt(java.time.LocalDateTime.now().minusSeconds(1)); deliveries.saveAndFlush(delivery);
+    }
+    @Test void concurrentEnqueueIsIdempotentAndOnlyOneWorkerClaimsADelivery() throws Exception {
+        subscribe();
+        try(var workers=java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var barrier=new java.util.concurrent.CyclicBarrier(2);
+            java.util.concurrent.Callable<Void> enqueue=()->{barrier.await();service.enqueue(project.getId(),"GATE_FAILURE","GATE:race");return null;};
+            var a=workers.submit(enqueue); var b=workers.submit(enqueue);
+            a.get(10,java.util.concurrent.TimeUnit.SECONDS);b.get(10,java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(deliveries.count()).isEqualTo(1);
+            Long id=deliveries.findAll().getFirst().getId();
+            java.util.concurrent.Callable<Boolean> claim=()->{barrier.await();return service.prepare(id)!=null;};
+            var c=workers.submit(claim);var d=workers.submit(claim);
+            assertThat(List.of(c.get(10,java.util.concurrent.TimeUnit.SECONDS),d.get(10,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);
+            assertThat(deliveries.findById(id).orElseThrow().getAttempts()).isEqualTo(1);
+        }
+    }
+    @Test void concurrentSubscriptionsCannotExceedTheAccountLimit() throws Exception {
+        for(int i=0;i<9;i++) service.subscribe(new WebPushSubscriptionRequest("https://fcm.googleapis.com/fcm/send/limit-"+i,"key","auth",true,true,"en"));
+        try(var workers=java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var barrier=new java.util.concurrent.CyclicBarrier(2);
+            java.util.concurrent.Callable<Boolean> add=()->{
+                login(owner);
+                try {barrier.await();service.subscribe(new WebPushSubscriptionRequest("https://fcm.googleapis.com/fcm/send/"+UUID.randomUUID(),"key","auth",true,true,"en"));return true;}
+                catch(com.salkcoding.oswl.exception.InvalidRequestException e){return false;}
+                finally{SecurityContextHolder.clearContext();}
+            };
+            var a=workers.submit(add);var b=workers.submit(add);
+            assertThat(List.of(a.get(10,java.util.concurrent.TimeUnit.SECONDS),b.get(10,java.util.concurrent.TimeUnit.SECONDS))).containsExactlyInAnyOrder(true,false);
+            assertThat(subscriptions.countByUserId(owner.getId())).isEqualTo(10);
+        }
+    }
+
 }
