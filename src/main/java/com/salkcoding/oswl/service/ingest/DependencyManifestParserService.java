@@ -1,43 +1,30 @@
 package com.salkcoding.oswl.service.ingest;
 
+import com.salkcoding.oswl.service.ingest.parser.*;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.service.git.CloneRootPathGuard;
 import com.salkcoding.oswl.service.manifest.ManifestCollectRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.yaml.snakeyaml.LoaderOptions;
-import org.yaml.snakeyaml.Yaml;
-import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -65,16 +52,8 @@ public class DependencyManifestParserService {
     @Value("${oswl.quick-import.allow-build-exec:false}")
     private boolean allowBuildExec;
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    /**
-     * Loader for conda-lock.yml — the file comes from a cloned (untrusted) repository, so
-     * {@code SafeConstructor} restricts deserialization to plain Java types, the same guard
-     * used for user-supplied policy YAML in {@code PolicyService}.
-     */
-    private static final Yaml SAFE_YAML = new Yaml(new SafeConstructor(new LoaderOptions()));
     /** Console tools (mvnw, gradlew, npm) write human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
     private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
-    private static final Set<String> MANIFEST_SKIP_DIRS = ManifestCollectRules.SKIP_DIRS;
 
     /**
      * Every ecosystem tag this parser can emit on a {@code ComponentPayload}. Kept as an explicit
@@ -423,89 +402,24 @@ public class DependencyManifestParserService {
 
     /** Returns text content of the first direct child element with the given tag name, or null. */
     private String getDirectChildText(Element parent, String tag) {
-        Element c = getDirectChild(parent, tag);
-        return c != null ? c.getTextContent().trim() : null;
+        return new MavenPomParser(bomVersionResolver).getDirectChildText(parent, tag);
     }
 
     /** Returns the first direct child element with the given tag name, or null. */
     private Element getDirectChild(Element parent, String tag) {
-        NodeList nl = parent.getChildNodes();
-        for (int i = 0; i < nl.getLength(); i++) {
-            if (nl.item(i) instanceof Element e && tag.equals(e.getTagName())) return e;
-        }
-        return null;
+        return new MavenPomParser(bomVersionResolver).getDirectChild(parent, tag);
     }
 
     /** Resolves ${prop} placeholders against the given property map. Returns unchanged if unresolved. */
     private String resolveProp(String raw, Map<String, String> props) {
-        if (raw == null || !raw.contains("${")) return raw;
-        Matcher m = Pattern.compile("\\$\\{([^}]+)}").matcher(raw);
-        StringBuilder sb = new StringBuilder();
-        while (m.find()) {
-            String key = m.group(1);
-            String val = props.get(key);
-            m.appendReplacement(sb, Matcher.quoteReplacement(val != null ? val : m.group(0)));
-        }
-        m.appendTail(sb);
-        return sb.toString();
+        return new MavenPomParser(bomVersionResolver).resolveProp(raw, props);
     }
 
     // ── Multi-manifest helpers ─────────────────────────────────────────────
 
     /** Parses a single {@code pom.xml}'s direct dependencies, tagging non-runtime scope (test/provided/system). */
     private List<ScanPayload.ComponentPayload> parseSingleMavenPom(Path pomFile, Path projectDir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            dbf.setNamespaceAware(false);
-            Document doc = dbf.newDocumentBuilder().parse(pomFile.toFile());
-            doc.getDocumentElement().normalize();
-            Element project = doc.getDocumentElement();
-            Map<String, String> props = new HashMap<>();
-            String projectVersion = getDirectChildText(project, "version");
-            Element parent = getDirectChild(project, "parent");
-            if (parent != null) {
-                String parentVersion = getDirectChildText(parent, "version");
-                if (projectVersion == null) projectVersion = parentVersion;
-                String parentGroup = getDirectChildText(parent, "groupId");
-                if (parentGroup != null) props.put("project.parent.groupId", parentGroup);
-                if (parentVersion != null) props.put("project.parent.version", parentVersion);
-            }
-            if (projectVersion != null) {
-                props.put("project.version", projectVersion);
-                props.put("version", projectVersion);
-                props.put("pom.version", projectVersion);
-            }
-            Element properties = getDirectChild(project, "properties");
-            if (properties != null) {
-                NodeList children = properties.getChildNodes();
-                for (int i = 0; i < children.getLength(); i++) {
-                    if (children.item(i) instanceof Element pe) {
-                        props.put(pe.getTagName(), pe.getTextContent().trim());
-                    }
-                }
-            }
-            Element depsRoot = getDirectChild(project, "dependencies");
-            if (depsRoot == null) return comps;
-            NodeList deps = depsRoot.getChildNodes();
-            for (int i = 0; i < deps.getLength(); i++) {
-                if (!(deps.item(i) instanceof Element dep) || !"dependency".equals(dep.getTagName())) continue;
-                String groupId    = resolveProp(getDirectChildText(dep, "groupId"), props);
-                String artifactId = resolveProp(getDirectChildText(dep, "artifactId"), props);
-                String version    = resolveProp(getDirectChildText(dep, "version"), props);
-                String scope      = getDirectChildText(dep, "scope");
-                if (groupId == null || artifactId == null) continue;
-                // Non-runtime scopes are tagged (not dropped) so the UI can badge and default-filter them.
-                comps.add(buildComponent(groupId + ":" + artifactId, version, "MAVEN")
-                        .withScope(normalizeMavenScope(scope)));
-            }
-            log.debug("[DependencyParser][Maven] Parsed {} deps from {}", comps.size(), pomFile);
-            comps = bomVersionResolver.enrichComponentVersions(projectDir, comps);
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Maven] Failed to parse {}: {}", pomFile, e.getMessage());
-        }
-        return comps;
+        return new MavenPomParser(bomVersionResolver).parseSingleMavenPom(pomFile, projectDir, repoName);
     }
 
     /**
@@ -574,9 +488,7 @@ public class DependencyManifestParserService {
      * @param byFileName basename → paths (e.g. "pom.xml"), each list sorted by path string
      * @param bySuffix   suffix → paths (e.g. ".csproj"), each list sorted by path string
      */
-    private record ManifestIndex(Path root,
-                                 Map<String, List<Path>> byFileName,
-                                 Map<String, List<Path>> bySuffix) {}
+
 
     /**
      * Walks the tree under {@code root} exactly once and indexes every file whose
@@ -586,90 +498,22 @@ public class DependencyManifestParserService {
      * iteration order is deterministic.
      */
     private ManifestIndex buildIndex(Path root) {
-        Map<String, List<Path>> byFileName = new HashMap<>();
-        Map<String, List<Path>> bySuffix = new HashMap<>();
-        final Path rootReal;
-        try {
-            rootReal = new CloneRootPathGuard(root).root();
-        } catch (IOException e) {
-            log.warn("[DependencyParser] buildIndex: invalid clone root '{}': {}", root, e.getMessage());
-            return new ManifestIndex(root, byFileName, bySuffix);
-        }
-        try {
-            Files.walkFileTree(rootReal, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(@NonNull Path dir, @NonNull BasicFileAttributes attrs) {
-                    if (!dir.equals(rootReal)) {
-                        Path rel = rootReal.relativize(dir);
-                        for (int i = 0; i < rel.getNameCount(); i++) {
-                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.SKIP_SUBTREE;
-                            }
-                        }
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(@NonNull Path file, @NonNull BasicFileAttributes attrs) {
-                    try {
-                        Path fileReal = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
-                        if (!fileReal.startsWith(rootReal)) {
-                            return FileVisitResult.CONTINUE;
-                        }
-                        Path rel = rootReal.relativize(fileReal);
-                        for (int i = 0; i < rel.getNameCount() - 1; i++) {
-                            if (MANIFEST_SKIP_DIRS.contains(rel.getName(i).toString())) {
-                                return FileVisitResult.CONTINUE;
-                            }
-                        }
-                        String name = fileReal.getFileName().toString();
-                        if (ManifestCollectRules.EXACT_FILE_NAMES.contains(name)) {
-                            byFileName.computeIfAbsent(name, k -> new ArrayList<>()).add(fileReal);
-                        }
-                        for (String suffix : ManifestCollectRules.FILE_SUFFIXES) {
-                            if (name.endsWith(suffix)) {
-                                bySuffix.computeIfAbsent(suffix, k -> new ArrayList<>()).add(fileReal);
-                            }
-                        }
-                    } catch (IOException e) {
-                        log.debug("[DependencyParser] skip file '{}': {}", file, e.getMessage());
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            log.warn("[DependencyParser] buildIndex error under '{}': {}", root, e.getMessage());
-        }
-        Comparator<Path> byPath = Comparator.comparing(Path::toString);
-        byFileName.values().forEach(paths -> paths.sort(byPath));
-        bySuffix.values().forEach(paths -> paths.sort(byPath));
-        return new ManifestIndex(rootReal, byFileName, bySuffix);
+        return new ManifestDiscovery().buildIndex(root);
     }
 
     /** Returns indexed paths for the given exact basenames, merged and sorted by path string. */
     private List<Path> indexByNames(ManifestIndex index, String... fileNames) {
-        List<Path> result = new ArrayList<>();
-        for (String name : fileNames) {
-            result.addAll(index.byFileName().getOrDefault(name, List.of()));
-        }
-        result.sort(Comparator.comparing(Path::toString));
-        return result;
+        return new ManifestDiscovery().indexByNames(index, fileNames);
     }
 
     /** Returns indexed paths whose basename ends with {@code suffix} (already path-sorted). */
     private List<Path> indexBySuffix(ManifestIndex index, String suffix) {
-        return index.bySuffix().getOrDefault(suffix, List.of());
+        return new ManifestDiscovery().indexBySuffix(index, suffix);
     }
 
     /** Mirrors the legacy {@code Files.walk(dir, 8)} depth limit on top of the shared index. */
     private boolean hasCsprojFiles(ManifestIndex index) {
-        for (Path p : indexBySuffix(index, ".csproj")) {
-            if (index.root().relativize(p).getNameCount() <= 8) {
-                return true;
-            }
-        }
-        return false;
+        return new ManifestDiscovery().hasCsprojFiles(index);
     }
 
     /** Merges {@code src} into {@code target}, deduplicating on name+version+ecosystem. */
@@ -692,56 +536,7 @@ public class DependencyManifestParserService {
      * Maven ecosystem components (Gradle uses Maven coordinates).
      */
     private List<ScanPayload.ComponentPayload> parseVersionCatalogs(Path dir, String repoName, ManifestIndex index) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        List<Path> catalogs = new ArrayList<>();
-        // Original logic used Files.walk(dir, 3); keep that depth limit on top of the shared index.
-        for (Path p : indexBySuffix(index, ".versions.toml")) {
-            if (index.root().relativize(p).getNameCount() <= 3) {
-                catalogs.add(p);
-            }
-        }
-        if (catalogs.isEmpty()) { log.debug("[DependencyParser][Gradle] No *.versions.toml in '{}'", repoName); return comps; }
-        for (Path catalog : catalogs) {
-            try {
-                List<String> lines = Files.readAllLines(catalog, StandardCharsets.UTF_8);
-                Map<String, String> versions = new LinkedHashMap<>();
-                boolean inVersions = false, inLibraries = false;
-                for (String rawLine : lines) {
-                    String line = rawLine.trim();
-                    if (line.isEmpty() || line.startsWith("#")) continue;
-                    if (line.equals("[versions]"))  { inVersions = true;  inLibraries = false; continue; }
-                    if (line.equals("[libraries]")) { inLibraries = true; inVersions = false;  continue; }
-                    if (line.startsWith("["))       { inVersions = false; inLibraries = false; continue; }
-                    if (inVersions) {
-                        Matcher vm = Pattern.compile("^([\\w.\\-]+)\\s*=\\s*[\"']([^\"']+)[\"']").matcher(line);
-                        if (vm.find()) versions.put(vm.group(1), vm.group(2));
-                    } else if (inLibraries) {
-                        // Short form: alias = "group:artifact:version"
-                        Matcher shortM = Pattern.compile(
-                                "^[\\w.\\-]+\\s*=\\s*[\"']([\\w.\\-]+:[\\w.\\-]+):([\\w.+\\-]+)[\"']").matcher(line);
-                        if (shortM.find()) { comps.add(buildComponent(shortM.group(1), shortM.group(2), "MAVEN")); continue; }
-                        // Table form: alias = { module = "g:a", version.ref = "key" | version = "x" }
-                        Matcher tableM = Pattern.compile("^[\\w.\\-]+\\s*=\\s*\\{(.+)\\}").matcher(line);
-                        if (tableM.find()) {
-                            String body = tableM.group(1);
-                            Matcher modM = Pattern.compile("module\\s*=\\s*[\"']([\\w.\\-]+:[\\w.\\-]+)[\"']").matcher(body);
-                            if (modM.find()) {
-                                String module = modM.group(1); String version = null;
-                                Matcher vRefM = Pattern.compile("version\\.ref\\s*=\\s*[\"']([\\w.\\-]+)[\"']").matcher(body);
-                                Matcher vM    = Pattern.compile("(?<![.\\w])version\\s*=\\s*[\"']([\\w.+\\-]+)[\"']").matcher(body);
-                                if (vRefM.find()) version = versions.get(vRefM.group(1));
-                                else if (vM.find()) version = vM.group(1);
-                                if (version != null && !version.isBlank()) comps.add(buildComponent(module, version, "MAVEN"));
-                            }
-                        }
-                    }
-                }
-                log.info("[DependencyParser][Gradle] Version catalog {} → {} entries", catalog.getFileName(), comps.size());
-            } catch (Exception e) {
-                log.warn("[DependencyParser][Gradle] Failed to parse {}: {}", catalog, e.getMessage());
-            }
-        }
-        return comps;
+        return new VersionCatalogParser().parseVersionCatalogs(dir, repoName, index);
     }
 
     /**
@@ -797,73 +592,16 @@ public class DependencyManifestParserService {
 
     /** Parse package-lock.json — supports lockfileVersion 1 (npm 5/6), 2 and 3 (npm 7+). */
     private List<ScanPayload.ComponentPayload> parseNpmLock(Path dir, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("package-lock.json").toFile());
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-
-            if (root.has("packages")) {
-                // lockfileVersion 2/3 (npm 7+): "packages" → { "node_modules/x": { version, ... } }
-                root.path("packages").properties().forEach(e -> {
-                    String pkgPath = e.getKey();
-                    if (pkgPath.isEmpty()) return; // skip root entry
-                    String name = pkgPath.startsWith("node_modules/")
-                            ? pkgPath.substring("node_modules/".length())
-                            : pkgPath;
-                    String version = e.getValue().path("version").asText(null);
-                    if (name.isBlank() || version == null || version.isBlank()) return;
-                    if (seen.add(name + ":" + version)) {
-                        comps.add(buildComponent(name, version, "NPM"));
-                    }
-                });
-            } else if (root.has("dependencies")) {
-                // lockfileVersion 1 (npm 5/6): flat + nested "dependencies" tree
-                Deque<Map.Entry<String, JsonNode>> queue = new ArrayDeque<>(root.path("dependencies").properties());
-                while (!queue.isEmpty()) {
-                    Map.Entry<String, JsonNode> entry = queue.poll();
-                    String name    = entry.getKey();
-                    JsonNode val   = entry.getValue();
-                    String version = val.path("version").asText(null);
-                    if (version != null && !version.isBlank() && seen.add(name + ":" + version)) {
-                        comps.add(buildComponent(name, version, "NPM"));
-                    }
-                    if (val.has("dependencies")) {
-                        queue.addAll(val.path("dependencies").properties());
-                    }
-                }
-            }
-            log.info("[DependencyParser][npm] Parsed {} components from package-lock.json in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][npm] Failed to parse package-lock.json for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new NpmManifestParser().parseNpmLock(dir, repoName);
     }
 
     /** Fallback: parse package.json declared deps only (no transitive). */
     private ParseResult parseNpmPackageJson(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("package.json").toFile());
-            JsonNode deps    = root.path("dependencies");
-            JsonNode devDeps = root.path("devDependencies");
-
-            addNpmDeps(comps, deps, null);
-            addNpmDeps(comps, devDeps, "dev");
-            log.info("[DependencyParser][npm] Parsed {} components from package.json in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[DependencyParser][npm] Failed to parse package.json: {}", e.getMessage());
-        }
-        return new ParseResult("NPM", comps);
+        return new NpmManifestParser().parseNpmPackageJson(dir, repoName);
     }
 
     private void addNpmDeps(List<ScanPayload.ComponentPayload> comps, JsonNode depsNode, String scope) {
-        if (depsNode == null || depsNode.isMissingNode()) return;
-        depsNode.properties().forEach(entry -> {
-            String name    = entry.getKey();
-            String version = entry.getValue().asText().replaceAll("^[~^>=<]+ *", "");
-            comps.add(buildComponent(name, version, "NPM").withScope(scope));
-        });
+        new NpmManifestParser().addNpmDeps(comps, depsNode, scope);
     }
 
     /**
@@ -873,44 +611,7 @@ public class DependencyManifestParserService {
      * multiple resolved versions — we keep all distinct (name, version) pairs.
      */
     private List<ScanPayload.ComponentPayload> parseYarnLock(Path dir, String repoName) {
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("yarn.lock"), StandardCharsets.UTF_8);
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            List<String> pendingNames = new ArrayList<>();
-            for (String raw : lines) {
-                if (raw.isEmpty() || raw.startsWith("#")) continue;
-                // Header: starts at column 0 and ends with ':'
-                if (!Character.isWhitespace(raw.charAt(0)) && raw.endsWith(":")) {
-                    pendingNames.clear();
-                    String header = raw.substring(0, raw.length() - 1);
-                    for (String desc : header.split(",")) {
-                        String d = desc.trim();
-                        if (d.startsWith("\"") && d.endsWith("\"")) d = d.substring(1, d.length() - 1);
-                        // Strip @version: name is everything before the last '@' (but keep leading '@' for scoped)
-                        int at = d.lastIndexOf('@');
-                        if (at <= 0) continue;
-                        pendingNames.add(d.substring(0, at));
-                    }
-                } else if (!pendingNames.isEmpty() && raw.startsWith("  version")) {
-                    Matcher m = Pattern.compile("version[:\\s]+\"?([^\"\\s]+)\"?").matcher(raw);
-                    if (m.find()) {
-                        String version = m.group(1);
-                        for (String name : pendingNames) {
-                            if (seen.add(name + ":" + version)) {
-                                comps.add(buildComponent(name, version, "NPM"));
-                            }
-                        }
-                    }
-                    pendingNames.clear();
-                }
-            }
-            log.info("[DependencyParser][npm] Parsed {} components from yarn.lock in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][npm] Failed to parse yarn.lock for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new NpmManifestParser().parseYarnLock(dir, repoName);
     }
 
     /**
@@ -918,35 +619,7 @@ public class DependencyManifestParserService {
      * {@code /name@version} or {@code 'name@version'}) and older v5 ({@code /name/version}).
      */
     private List<ScanPayload.ComponentPayload> parsePnpmLock(Path dir, String repoName) {
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("pnpm-lock.yaml"), StandardCharsets.UTF_8);
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            boolean inSection = false;
-            // Modern pnpm v6+: '@scope/pkg@1.2.3':  or  /@scope/pkg@1.2.3:
-            // Older pnpm v5  : /@scope/pkg/1.2.3:   or  /pkg/1.2.3:
-            Pattern modern = Pattern.compile("^\\s{2}'?/?((?:@[^@/'\\s]+/)?[^@/'\\s]+)@([^()'\\s]+?)(?:\\([^)]+\\))?'?:\\s*$");
-            Pattern legacy = Pattern.compile("^\\s{2}/((?:@[^/]+/)?[^/]+)/([0-9][^/_'\\s]+)(?:_[^:'\\s]*)?:\\s*$");
-            for (String line : lines) {
-                if (line.startsWith("packages:") || line.startsWith("snapshots:")) { inSection = true; continue; }
-                if (inSection && !line.isEmpty() && !Character.isWhitespace(line.charAt(0))) { inSection = false; }
-                if (!inSection) continue;
-                Matcher m = modern.matcher(line);
-                if (!m.matches()) m = legacy.matcher(line);
-                if (m.matches()) {
-                    String name = m.group(1);
-                    String version = m.group(2);
-                    if (seen.add(name + ":" + version)) {
-                        comps.add(buildComponent(name, version, "NPM"));
-                    }
-                }
-            }
-            log.info("[DependencyParser][npm] Parsed {} components from pnpm-lock.yaml in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][npm] Failed to parse pnpm-lock.yaml for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new NpmManifestParser().parsePnpmLock(dir, repoName);
     }
 
     /**
@@ -1148,235 +821,37 @@ public class DependencyManifestParserService {
 
     // Python: requirements.txt fallback (lock files are handled in parseDependencies)
     private ParseResult parsePython(Path dir, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = parseRequirementsFile(dir.resolve("requirements.txt"), repoName);
-        return new ParseResult("PYPI", comps != null ? comps : List.of());
+        return new PythonManifestParser().parsePython(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parseRequirementsFile(Path reqFile, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            if (!Files.isRegularFile(reqFile)) {
-                return List.of();
-            }
-            for (String rawLine : Files.readAllLines(reqFile, StandardCharsets.UTF_8)) {
-                addPythonRequirementLine(rawLine, seen, comps);
-            }
-            log.info("[DependencyParser][Python] Parsed {} components from {} in '{}'",
-                    comps.size(), reqFile.getFileName(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Python] Failed to parse {}: {}", reqFile, e.getMessage());
-            return null;
-        }
+        return new PythonManifestParser().parseRequirementsFile(reqFile, repoName);
     }
 
     /**
      * Parses {@code [project].dependencies} from {@code pyproject.toml} when no lock file is present.
      */
     private List<ScanPayload.ComponentPayload> parsePyprojectToml(Path tomlFile, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            List<String> lines = Files.readAllLines(tomlFile, StandardCharsets.UTF_8);
-            boolean inProject = false;
-            boolean inDepsArray = false;
-            for (String rawLine : lines) {
-                String line = rawLine.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-                if (line.startsWith("[") && line.endsWith("]")) {
-                    inProject = line.equals("[project]");
-                    inDepsArray = false;
-                    continue;
-                }
-                if (!inProject) {
-                    continue;
-                }
-                if (line.startsWith("dependencies") && line.contains("[")) {
-                    inDepsArray = true;
-                    int open = line.indexOf('[');
-                    int close = line.indexOf(']');
-                    if (close > open) {
-                        String inline = line.substring(open + 1, close).trim();
-                        if (!inline.isBlank()) {
-                            for (String part : inline.split(",")) {
-                                addPythonRequirementLine(stripQuotes(part.trim()), seen, comps);
-                            }
-                        }
-                        inDepsArray = !line.endsWith("]");
-                    }
-                    continue;
-                }
-                if (inDepsArray) {
-                    if (line.equals("]")) {
-                        inDepsArray = false;
-                        continue;
-                    }
-                    String dep = line;
-                    if (dep.endsWith(",")) {
-                        dep = dep.substring(0, dep.length() - 1).trim();
-                    }
-                    if (dep.equals("]")) {
-                        inDepsArray = false;
-                        continue;
-                    }
-                    addPythonRequirementLine(stripQuotes(dep), seen, comps);
-                }
-            }
-            log.info("[DependencyParser][Python] Parsed {} components from {} in '{}'",
-                    comps.size(), tomlFile.getFileName(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Python] Failed to parse pyproject.toml {}: {}", tomlFile, e.getMessage());
-            return null;
-        }
+        return new PythonManifestParser().parsePyprojectToml(tomlFile, repoName);
     }
 
     private void addPythonRequirementLine(
             String rawLine, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
-        String line = rawLine.trim();
-        if (line.isEmpty() || line.startsWith("#") || line.startsWith("-")) {
-            return;
-        }
-        int hash = line.indexOf('#');
-        if (hash >= 0) {
-            line = line.substring(0, hash).trim();
-        }
-        int semi = line.indexOf(';');
-        if (semi >= 0) {
-            line = line.substring(0, semi).trim();
-        }
-        if (line.isEmpty()) {
-            return;
-        }
-        Pattern fullForm = Pattern.compile(
-                "^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*(===|==|>=|<=|~=|!=|<|>)\\s*([0-9][^\\s,;#]*)");
-        Pattern bareName = Pattern.compile("^([A-Za-z0-9][\\w.\\-]*?)(?:\\[[^]]*])?\\s*$");
-        String name = null;
-        String version = null;
-        Matcher m = fullForm.matcher(line);
-        if (m.find()) {
-            name = m.group(1);
-            version = m.group(3);
-        } else {
-            Matcher b = bareName.matcher(line);
-            if (b.matches()) {
-                name = b.group(1);
-            }
-        }
-        if (name == null || name.isBlank()) {
-            return;
-        }
-        if (seen.add(name + ":" + (version != null ? version : ""))) {
-            comps.add(buildComponent(name, version, "PYPI"));
-        }
+        new PythonManifestParser().addPythonRequirementLine(rawLine, seen, comps);
     }
 
     private static String stripQuotes(String s) {
-        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
-            return s.substring(1, s.length() - 1);
-        }
-        return s;
+        return PythonManifestParser.stripQuotes(s);
     }
 
     /** Static Cargo.toml fallback when Cargo.lock is absent. */
     private List<ScanPayload.ComponentPayload> parseCargoToml(Path dir, String repoName) {
-        // Static Cargo.toml — handles inline string form and table form:
-        //   foo = "1.0"
-        //   foo = { version = "1.0", features = [...] }
-        //   foo = { git = "..." }   (no version → skip)
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("Cargo.toml"), StandardCharsets.UTF_8);
-            boolean inDeps = false;
-            // Inline-string form: foo = "1.2.3-rc1+build"
-            Pattern inlineP = Pattern.compile("^([\\w\\-]+)\\s*=\\s*[\"']([\\w.+\\-]+)[\"']\\s*$");
-            // Table form: foo = { version = "1.2.3", ... }
-            Pattern tableP  = Pattern.compile("^([\\w\\-]+)\\s*=\\s*\\{[^}]*\\bversion\\s*=\\s*[\"']([\\w.+\\-]+)[\"']");
-            // Sub-table header: [dependencies.foo]
-            Pattern subHeaderP = Pattern.compile("^\\[(?:dev-|build-)?dependencies\\.([\\w\\-]+)]");
-            String pendingSubName = null;
-            Pattern verLineP = Pattern.compile("^version\\s*=\\s*[\"']([\\w.+\\-]+)[\"']");
-            for (String rawLine : lines) {
-                String trimmed = rawLine.trim();
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
-                // Section headers
-                if (trimmed.startsWith("[")) {
-                    if (trimmed.equals("[dependencies]") || trimmed.equals("[dev-dependencies]")
-                            || trimmed.equals("[build-dependencies]")) {
-                        inDeps = true;
-                        pendingSubName = null;
-                        continue;
-                    }
-                    Matcher sh = subHeaderP.matcher(trimmed);
-                    if (sh.find()) {
-                        pendingSubName = sh.group(1);
-                        inDeps = false;
-                        continue;
-                    }
-                    inDeps = false;
-                    pendingSubName = null;
-                    continue;
-                }
-                if (inDeps) {
-                    Matcher t = tableP.matcher(trimmed);
-                    if (t.find()) {
-                        if (seen.add(t.group(1))) comps.add(buildComponent(t.group(1), t.group(2), "CARGO"));
-                        continue;
-                    }
-                    Matcher i = inlineP.matcher(trimmed);
-                    if (i.find()) {
-                        if (seen.add(i.group(1))) comps.add(buildComponent(i.group(1), i.group(2), "CARGO"));
-                    }
-                } else if (pendingSubName != null) {
-                    Matcher v = verLineP.matcher(trimmed);
-                    if (v.find()) {
-                        if (seen.add(pendingSubName)) comps.add(buildComponent(pendingSubName, v.group(1), "CARGO"));
-                        pendingSubName = null;
-                    }
-                }
-            }
-            log.info("[DependencyParser][Cargo] Parsed {} components from Cargo.toml in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[DependencyParser][Cargo] Failed to parse Cargo.toml: {}", e.getMessage());
-        }
-        return comps;
+        return new CargoManifestParser().parseCargoToml(dir, repoName);
     }
 
     /** go.mod fallback when go.sum is absent. */
     private List<ScanPayload.ComponentPayload> parseGoModDeclared(Path dir, String repoName) {
-        // go.mod fallback — we trim each line first, so both block and single patterns
-        // match against the trimmed text.
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("go.mod"), StandardCharsets.UTF_8);
-            boolean inRequire = false;
-            // "require module v1.2.3" (single) and inside a require( … ) block "module v1.2.3"
-            Pattern single = Pattern.compile("^require\\s+(\\S+)\\s+(v\\S+)");
-            Pattern entry  = Pattern.compile("^(\\S+)\\s+(v\\S+)");
-            for (String rawLine : lines) {
-                // Strip end-of-line comments (e.g. "// indirect") before parsing.
-                String t = rawLine;
-                int idx = t.indexOf("//");
-                if (idx >= 0) t = t.substring(0, idx);
-                t = t.trim();
-                if (t.isEmpty()) continue;
-                if (t.startsWith("require (")) { inRequire = true; continue; }
-                if (inRequire && t.equals(")"))                         { inRequire = false; continue; }
-                Matcher m = inRequire ? entry.matcher(t) : single.matcher(t);
-                if (m.find() && seen.add(m.group(1))) {
-                    comps.add(buildComponent(m.group(1), m.group(2), "GO"));
-                }
-            }
-            log.info("[DependencyParser][Go] Parsed {} components from go.mod in '{}'", comps.size(), repoName);
-        } catch (Exception e) {
-            log.error("[DependencyParser][Go] Failed to parse go.mod: {}", e.getMessage());
-        }
-        return comps;
+        return new GoManifestParser().parseGoModDeclared(dir, repoName);
     }
 
     // ── Lock-file & new-ecosystem parsers ──────────────────────────────────
@@ -1386,26 +861,7 @@ public class DependencyManifestParserService {
      * (poetry.lock, uv.lock, Cargo.lock).
      */
     private List<ScanPayload.ComponentPayload> parseTomlPackageLock(Path lockFile, String ecosystem, String repoName) {
-        try {
-            String content = Files.readString(lockFile, StandardCharsets.UTF_8);
-            String[] blocks = content.split("\\[\\[package\\]\\]");
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Pattern nameP = Pattern.compile("\\bname\\s*=\\s*\"([^\"]+)\"");
-            Pattern verP  = Pattern.compile("\\bversion\\s*=\\s*\"([^\"]+)\"");
-            for (int i = 1; i < blocks.length; i++) {
-                Matcher nm = nameP.matcher(blocks[i]);
-                Matcher vm = verP.matcher(blocks[i]);
-                if (nm.find() && vm.find()) {
-                    comps.add(buildComponent(nm.group(1), vm.group(1), ecosystem));
-                }
-            }
-            log.info("[DependencyParser][{}] Parsed {} components from {} in '{}'",
-                    ecosystem, comps.size(), lockFile.getFileName(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser] Failed to parse {}: {}", lockFile.getFileName(), e.getMessage());
-            return null;
-        }
+        return new CargoManifestParser().parseTomlPackageLock(lockFile, ecosystem, repoName);
     }
 
     /**
@@ -1413,28 +869,7 @@ public class DependencyManifestParserService {
      * deduplicating across sections (a package in both lists is kept only once).
      */
     private List<ScanPayload.ComponentPayload> parsePipfileLock(Path dir, String repoName) {
-        try {
-            JsonNode root = new ObjectMapper().readTree(dir.resolve("Pipfile.lock").toFile());
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            for (String section : new String[]{"default", "develop"}) {
-                JsonNode deps = root.path(section);
-                if (deps.isMissingNode()) continue;
-                String scope = "develop".equals(section) ? "dev" : null;
-                deps.properties().forEach(e -> {
-                    String name = e.getKey();
-                    String ver  = e.getValue().path("version").asText("").replaceAll("^==", "");
-                    if (!name.isBlank() && !ver.isBlank() && seen.add(name + ":" + ver)) {
-                        comps.add(buildComponent(name, ver, "PYPI").withScope(scope));
-                    }
-                });
-            }
-            log.info("[DependencyParser][Python] Parsed {} components from Pipfile.lock in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Python] Failed to parse Pipfile.lock: {}", e.getMessage());
-            return null;
-        }
+        return new PythonManifestParser().parsePipfileLock(dir, repoName);
     }
 
     /**
@@ -1442,47 +877,11 @@ public class DependencyManifestParserService {
      * De-duplicates by module path to get one entry per dependency.
      */
     private List<ScanPayload.ComponentPayload> parseGoSum(Path dir, String repoName) {
-        try {
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Pattern p = Pattern.compile("^(\\S+)\\s+(v[^\\s/]+)(?:/go\\.mod)?\\s");
-            for (String line : Files.readAllLines(dir.resolve("go.sum"), StandardCharsets.UTF_8)) {
-                Matcher m = p.matcher(line);
-                if (m.find() && seen.add(m.group(1))) {
-                    comps.add(buildComponent(m.group(1), m.group(2), "GO"));
-                }
-            }
-            log.info("[DependencyParser][Go] Parsed {} components from go.sum in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Go] Failed to parse go.sum: {}", e.getMessage());
-            return null;
-        }
+        return new GoManifestParser().parseGoSum(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName) {
-        try {
-            JsonNode root = new ObjectMapper().readTree(dir.resolve("packages.lock.json").toFile());
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            JsonNode deps = root.path("dependencies");
-            if (!deps.isMissingNode()) {
-                deps.properties().forEach(fw ->
-                    fw.getValue().properties().forEach(pkg -> {
-                        String name = pkg.getKey();
-                        String ver  = pkg.getValue().path("resolved").asText(null);
-                        if (name != null && ver != null && !ver.isBlank() && seen.add(name)) {
-                            comps.add(buildComponent(name, ver, "NUGET"));
-                        }
-                    })
-                );
-            }
-            log.info("[DependencyParser][NuGet] Parsed {} components from packages.lock.json in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][NuGet] Failed to parse packages.lock.json: {}", e.getMessage());
-            return null;
-        }
+        return new NugetManifestParser().parseNuGetLockFile(dir, repoName);
     }
 
     /**
@@ -1554,168 +953,44 @@ public class DependencyManifestParserService {
     }
 
     private List<ScanPayload.ComponentPayload> parseDotNetListJson(String json, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(json);
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            for (JsonNode project : root.path("projects")) {
-                for (JsonNode fw : project.path("frameworks")) {
-                    for (String section : new String[]{"topLevelPackages", "transitivePackages"}) {
-                        for (JsonNode pkg : fw.path(section)) {
-                            String id = pkg.path("id").asText(null);
-                            String ver = pkg.path("resolvedVersion").asText(null);
-                            if (id == null || id.isBlank() || ver == null || ver.isBlank()) {
-                                continue;
-                            }
-                            if (seen.add(id + ":" + ver)) {
-                                comps.add(buildComponent(id, ver, "NUGET"));
-                            }
-                        }
-                    }
-                }
-            }
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][NuGet] Failed to parse dotnet list JSON for '{}': {}", repoName, e.getMessage());
-            return List.of();
-        }
+        return new NugetManifestParser().parseDotNetListJson(json, repoName);
     }
 
     /** Standalone entry point (no shared index): builds a one-off index for {@code dir}. */
     private ParseResult parseNuGetStatic(Path dir, String repoName) {
-        return parseNuGetStatic(dir, repoName, buildIndex(dir));
+        return new NugetManifestParser().parseNuGetStatic(dir, repoName);
     }
 
     private ParseResult parseNuGetStatic(Path dir, String repoName, ManifestIndex index) {
-        Set<String> seen = new LinkedHashSet<>();
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Map<String, String> propsVersions = buildNuGetPropsVersionIndex(index);
-        try {
-            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            dbf.setNamespaceAware(false);
-            for (Path props : indexByNames(index, "Directory.Packages.props")) {
-                mergeDirectoryPackageVersions(dbf, props, propsVersions);
-            }
-            List<Path> targets = new ArrayList<>();
-            targets.addAll(indexBySuffix(index, ".csproj"));
-            targets.addAll(indexByNames(index, "packages.config"));
-            for (Path f : targets) {
-                try {
-                    Document doc = dbf.newDocumentBuilder().parse(f.toFile());
-                    if (f.getFileName().toString().equals("packages.config")) {
-                        mergeNuGetPackageConfig(doc, seen, comps);
-                    } else {
-                        mergeNuGetCsproj(doc, seen, comps, propsVersions);
-                    }
-                } catch (Exception ignored) {}
-            }
-            log.info("[DependencyParser][NuGet] Parsed {} components from {} manifest file(s) in '{}'",
-                    comps.size(), targets.size(), repoName);
-        } catch (Exception e) {
-            log.error("[DependencyParser][NuGet] Failed to parse .csproj/packages.config: {}", e.getMessage());
-        }
-        return new ParseResult("NUGET", comps);
+        return new NugetManifestParser().parseNuGetStatic(dir, repoName, index);
     }
 
     private Map<String, String> buildNuGetPropsVersionIndex(ManifestIndex index) {
-        Map<String, String> propsIndex = new LinkedHashMap<>();
-        Pattern propVersion = Pattern.compile("<([\\w.]+)>\\s*([\\d][^<]*)\\s*</\\1>");
-        for (Path props : indexBySuffix(index, ".props")) {
-            try {
-                String content = Files.readString(props, StandardCharsets.UTF_8);
-                Matcher m = propVersion.matcher(content);
-                while (m.find()) {
-                    String key = m.group(1);
-                    String val = m.group(2).trim();
-                    if (!val.isBlank() && !val.contains("$(")) {
-                        propsIndex.putIfAbsent(key, val);
-                    }
-                }
-            } catch (Exception e) {
-                log.debug("[DependencyParser][NuGet] props scan failed for {}: {}", props, e.getMessage());
-            }
-        }
-        return propsIndex;
+        return new NugetManifestParser().buildNuGetPropsVersionIndex(index);
     }
 
     private void mergeDirectoryPackageVersions(
             DocumentBuilderFactory dbf, Path propsFile, Map<String, String> propsVersions) {
-        try {
-            Document doc = dbf.newDocumentBuilder().parse(propsFile.toFile());
-            NodeList versions = doc.getElementsByTagName("PackageVersion");
-            for (int i = 0; i < versions.getLength(); i++) {
-                Element el = (Element) versions.item(i);
-                String id = el.getAttribute("Include");
-                String ver = el.getAttribute("Version");
-                if (!id.isBlank() && !ver.isBlank()) {
-                    propsVersions.put(id, resolveNuGetProperty(ver, propsVersions));
-                }
-            }
-        } catch (Exception e) {
-            log.debug("[DependencyParser][NuGet] Directory.Packages.props parse failed: {}", e.getMessage());
-        }
+        new NugetManifestParser().mergeDirectoryPackageVersions(dbf, propsFile, propsVersions);
     }
 
     private void mergeNuGetCsproj(
             Document doc, Set<String> seen, List<ScanPayload.ComponentPayload> comps,
             Map<String, String> propsVersions) {
-        NodeList refs = doc.getElementsByTagName("PackageReference");
-        for (int i = 0; i < refs.getLength(); i++) {
-            Element ref = (Element) refs.item(i);
-            if ("Remove".equalsIgnoreCase(ref.getAttribute("Update"))) {
-                continue;
-            }
-            String name = firstNonBlank(ref.getAttribute("Include"), ref.getAttribute("Update"));
-            if (name.isBlank() || name.contains("@(")) {
-                continue;
-            }
-            String ver = firstNonBlank(
-                    ref.getAttribute("Version"),
-                    getDirectChildText(ref, "Version"));
-            ver = resolveNuGetProperty(ver, propsVersions);
-            if (propsVersions.containsKey(name) && (ver == null || ver.isBlank() || ver.startsWith("$("))) {
-                ver = propsVersions.get(name);
-            }
-            String key = name + ":" + (ver != null ? ver : "");
-            if (seen.add(key)) {
-                comps.add(buildComponent(name, ver == null || ver.isBlank() ? null : ver, "NUGET"));
-            }
-        }
+        new NugetManifestParser().mergeNuGetCsproj(doc, seen, comps, propsVersions);
     }
 
     private void mergeNuGetPackageConfig(
             Document doc, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
-        NodeList refs = doc.getElementsByTagName("package");
-        for (int i = 0; i < refs.getLength(); i++) {
-            Element ref = (Element) refs.item(i);
-            String name = firstNonBlank(ref.getAttribute("id"), ref.getAttribute("Include"));
-            String ver = firstNonBlank(ref.getAttribute("version"), ref.getAttribute("Version"));
-            if (!name.isBlank() && seen.add(name + ":" + ver)) {
-                comps.add(buildComponent(name, ver.isBlank() ? null : ver, "NUGET"));
-            }
-        }
+        new NugetManifestParser().mergeNuGetPackageConfig(doc, seen, comps);
     }
 
     private String resolveNuGetProperty(String raw, Map<String, String> propsVersions) {
-        if (raw == null || raw.isBlank()) {
-            return raw;
-        }
-        Matcher m = Pattern.compile("\\$\\(([^)]+)\\)").matcher(raw.trim());
-        if (!m.matches()) {
-            return raw.trim();
-        }
-        String resolved = propsVersions.get(m.group(1));
-        return resolved != null ? resolved : raw.trim();
+        return new NugetManifestParser().resolveNuGetProperty(raw, propsVersions);
     }
 
     private static String firstNonBlank(String... values) {
-        for (String v : values) {
-            if (v != null && !v.isBlank()) {
-                return v.trim();
-            }
-        }
-        return "";
+        return NugetManifestParser.firstNonBlank(values);
     }
 
     private boolean isCommandOnPath(String command) {
@@ -1732,41 +1007,7 @@ public class DependencyManifestParserService {
     }
 
     private List<ScanPayload.ComponentPayload> parseGemfileLock(Path dir, String repoName) {
-        try {
-            Set<String> seen = new LinkedHashSet<>();
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            boolean inSpecs = false;
-            Pattern specLine = Pattern.compile("^ {4}([A-Za-z0-9_.\\-]+)\\s+\\(([^)]+)\\)");
-            for (String line : Files.readAllLines(dir.resolve("Gemfile.lock"), StandardCharsets.UTF_8)) {
-                if (line.equals("  specs:")) { inSpecs = true; continue; }
-                if (inSpecs && !line.startsWith(" ") && !line.isEmpty()) { inSpecs = false; continue; }
-                if (!inSpecs) {
-                    continue;
-                }
-                Matcher m = specLine.matcher(line);
-                if (!m.find()) {
-                    continue;
-                }
-                String name = m.group(1);
-                String version = m.group(2).trim();
-                if (version.startsWith(">=") || version.startsWith(">")
-                        || version.startsWith("<") || version.startsWith("~>")
-                        || version.startsWith("!=") || version.startsWith("=")) {
-                    continue;
-                }
-                if (!version.matches("[0-9].*")) {
-                    continue;
-                }
-                if (seen.add(name + ":" + version)) {
-                    comps.add(buildComponent(name, version, "RUBYGEMS"));
-                }
-            }
-            log.info("[DependencyParser][Ruby] Parsed {} components from Gemfile.lock in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Ruby] Failed to parse Gemfile.lock: {}", e.getMessage());
-            return null;
-        }
+        return new RubyLockParser().parseGemfileLock(dir, repoName);
     }
 
     /**
@@ -1775,41 +1016,16 @@ public class DependencyManifestParserService {
      * {@code vendor/package} form so the purl becomes {@code pkg:composer/<vendor>/<package>@<version>}.
      */
     private List<ScanPayload.ComponentPayload> parseComposerLock(Path dir, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("composer.lock").toFile());
-            return parseComposerLockJson(root, repoName);
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Composer] Failed to parse composer.lock for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new ComposerLockParser().parseComposerLock(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parseComposerLockJson(JsonNode root, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        addComposerPackages(comps, seen, root.path("packages"), null);
-        addComposerPackages(comps, seen, root.path("packages-dev"), "dev");
-        log.info("[DependencyParser][Composer] Parsed {} components from composer.lock in '{}'", comps.size(), repoName);
-        return comps;
+        return new ComposerLockParser().parseComposerLockJson(root, repoName);
     }
 
     private void addComposerPackages(List<ScanPayload.ComponentPayload> comps, Set<String> seen,
                                      JsonNode packages, String scope) {
-        if (packages == null || !packages.isArray()) {
-            return;
-        }
-        for (JsonNode pkg : packages) {
-            String name    = pkg.path("name").asText(null);
-            String version = normalizeComposerVersion(pkg.path("version").asText(null));
-            if (name == null || name.isBlank() || version == null || version.isBlank()) {
-                continue;
-            }
-            if (seen.add(name + ":" + version)) {
-                comps.add(buildComponent(name, version, "COMPOSER")
-                        .withScope(scope)
-                        .withLicenses(extractComposerLicenses(pkg)));
-            }
-        }
+        new ComposerLockParser().addComposerPackages(comps, seen, packages, scope);
     }
 
     /**
@@ -1817,27 +1033,12 @@ public class DependencyManifestParserService {
      * the COMPOSER system, so this manifest field is the only license source for PHP packages.
      */
     private static List<String> extractComposerLicenses(JsonNode pkg) {
-        JsonNode license = pkg.path("license");
-        if (!license.isArray() || license.isEmpty()) {
-            return null;
-        }
-        List<String> licenses = new ArrayList<>();
-        for (JsonNode entry : license) {
-            String value = entry.asText(null);
-            if (value != null && !value.isBlank()) {
-                licenses.add(value.strip());
-            }
-        }
-        return licenses.isEmpty() ? null : licenses;
+        return ComposerLockParser.extractComposerLicenses(pkg);
     }
 
     /** Strips the optional leading "v" from a composer version (composer normalizes v1.2.3 → 1.2.3). */
     private static String normalizeComposerVersion(String version) {
-        if (version != null && version.length() > 1
-                && version.charAt(0) == 'v' && Character.isDigit(version.charAt(1))) {
-            return version.substring(1);
-        }
-        return version;
+        return ComposerLockParser.normalizeComposerVersion(version);
     }
 
     /**
@@ -1847,65 +1048,21 @@ public class DependencyManifestParserService {
      * {@code name} and {@code version} parts are kept (OSV ecosystem "ConanCenter" uses plain names).
      */
     private List<ScanPayload.ComponentPayload> parseConanLock(Path dir, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("conan.lock").toFile());
-            return parseConanLockJson(root, repoName);
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Conan] Failed to parse conan.lock for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new ConanLockParser().parseConanLock(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parseConanLockJson(JsonNode root, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        if (root.has("graph_lock")) {
-            root.path("graph_lock").path("nodes").properties().forEach(e ->
-                    addConanRef(comps, seen, e.getValue().path("ref").asText(null), null));
-        } else {
-            addConanRefs(comps, seen, root.path("requires"), null);
-            addConanRefs(comps, seen, root.path("build_requires"), "dev");
-        }
-        log.info("[DependencyParser][Conan] Parsed {} components from conan.lock in '{}'", comps.size(), repoName);
-        return comps;
+        return new ConanLockParser().parseConanLockJson(root, repoName);
     }
 
     private void addConanRefs(List<ScanPayload.ComponentPayload> comps, Set<String> seen,
                               JsonNode refs, String scope) {
-        if (refs == null || !refs.isArray()) {
-            return;
-        }
-        for (JsonNode ref : refs) {
-            addConanRef(comps, seen, ref.asText(null), scope);
-        }
+        new ConanLockParser().addConanRefs(comps, seen, refs, scope);
     }
 
     private void addConanRef(List<ScanPayload.ComponentPayload> comps, Set<String> seen,
                              String ref, String scope) {
-        if (ref == null || ref.isBlank()) {
-            return;
-        }
-        String r = ref.trim();
-        int hash = r.indexOf('#');
-        if (hash >= 0) {
-            r = r.substring(0, hash); // strip #revision%timestamp
-        }
-        int at = r.indexOf('@');
-        if (at >= 0) {
-            r = r.substring(0, at); // strip @user/channel
-        }
-        int slash = r.indexOf('/');
-        if (slash <= 0 || slash == r.length() - 1) {
-            return;
-        }
-        String name    = r.substring(0, slash).trim();
-        String version = r.substring(slash + 1).trim();
-        if (name.isBlank() || version.isBlank()) {
-            return;
-        }
-        if (seen.add(name + ":" + version)) {
-            comps.add(buildComponent(name, version, "CONAN").withScope(scope));
-        }
+        new ConanLockParser().addConanRef(comps, seen, ref, scope);
     }
 
     /**
@@ -1914,8 +1071,7 @@ public class DependencyManifestParserService {
      * Exactly 2 spaces of indentation — 4-space lines are a pod's own sub-dependencies, not
      * separate locked entries, and are intentionally not matched.
      */
-    private static final Pattern PODFILE_TOP_LEVEL_POD =
-            Pattern.compile("^ {2}- ([A-Za-z0-9_.+-]+)(?:/[A-Za-z0-9_.+-]+)?\\s+\\(([^)]+)\\):?\\s*$");
+
 
     /**
      * Parses {@code Podfile.lock}'s {@code PODS:} section. A subspec entry (e.g.
@@ -1924,41 +1080,11 @@ public class DependencyManifestParserService {
      * only ever needs the base pod name.
      */
     private List<ScanPayload.ComponentPayload> parsePodfileLock(Path dir, String repoName) {
-        try {
-            List<String> lines = Files.readAllLines(dir.resolve("Podfile.lock"), StandardCharsets.UTF_8);
-            return parsePodfileLockLines(lines, repoName);
-        } catch (Exception e) {
-            log.warn("[DependencyParser][CocoaPods] Failed to parse Podfile.lock for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new CocoaPodsLockParser().parsePodfileLock(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parsePodfileLockLines(List<String> lines, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        boolean inPods = false;
-        for (String line : lines) {
-            if (!inPods) {
-                if (line.strip().equals("PODS:")) inPods = true;
-                continue;
-            }
-            if (!line.isEmpty() && !Character.isWhitespace(line.charAt(0))) {
-                break; // reached the next top-level section (DEPENDENCIES:, SPEC REPOS:, ...)
-            }
-            Matcher m = PODFILE_TOP_LEVEL_POD.matcher(line);
-            if (!m.matches()) continue;
-            String name = m.group(1);
-            String version = m.group(2).trim();
-            // A pod pinned to a git ref/branch/podspec path has no released version here
-            // (e.g. "MyPod (from `https://github.com/...`, branch `main`)") — skip it rather
-            // than feed a non-existent version into the Specs trunk lookup.
-            if (!version.matches("[0-9][0-9A-Za-z.+-]*")) continue;
-            if (seen.add(name + ":" + version)) {
-                comps.add(buildComponent(name, version, "COCOAPODS"));
-            }
-        }
-        log.info("[DependencyParser][CocoaPods] Parsed {} components from Podfile.lock in '{}'", comps.size(), repoName);
-        return comps;
+        return new CocoaPodsLockParser().parsePodfileLockLines(lines, repoName);
     }
 
     /**
@@ -1971,48 +1097,16 @@ public class DependencyManifestParserService {
      * {@code UNKNOWN} rather than a false "no vulnerabilities".
      */
     private List<ScanPayload.ComponentPayload> parseCondaLock(Path dir, String repoName) {
-        try (var reader = Files.newBufferedReader(dir.resolve("conda-lock.yml"), StandardCharsets.UTF_8)) {
-            Object parsed = SAFE_YAML.load(reader);
-            if (!(parsed instanceof Map<?, ?> root)) {
-                return null;
-            }
-            return parseCondaLockYaml(root, repoName);
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Conda] Failed to parse conda-lock.yml for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new CondaLockParser(condaPypiMappingService).parseCondaLock(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parseCondaLockYaml(Map<?, ?> root, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        Object packagesObj = root.get("package");
-        if (packagesObj instanceof List<?> packages) {
-            for (Object pkgObj : packages) {
-                if (!(pkgObj instanceof Map<?, ?> pkg)) continue;
-                String name = yamlString(pkg.get("name"));
-                String version = yamlString(pkg.get("version"));
-                String manager = yamlString(pkg.get("manager"));
-                if (name == null || name.isBlank() || version == null || version.isBlank()) continue;
-                if (!seen.add(name.toLowerCase(Locale.ROOT) + ":" + version)) continue;
-
-                if ("pip".equalsIgnoreCase(manager)) {
-                    comps.add(buildComponent(name, version, "PYPI"));
-                    continue;
-                }
-                String pypiName = condaPypiMappingService.resolvePypiName(name);
-                comps.add(pypiName != null
-                        ? buildComponent(pypiName, version, "PYPI")
-                        : buildComponent(name, version, "CONDA"));
-            }
-        }
-        log.info("[DependencyParser][Conda] Parsed {} components from conda-lock.yml in '{}'", comps.size(), repoName);
-        return comps;
+        return new CondaLockParser(condaPypiMappingService).parseCondaLockYaml(root, repoName);
     }
 
     /** SnakeYAML returns scalars as their inferred Java type (String/Integer/Double/Boolean) — normalize to String. */
     private static String yamlString(Object value) {
-        return value == null ? null : String.valueOf(value);
+        return CondaLockParser.yamlString(value);
     }
 
     /**
@@ -2022,58 +1116,11 @@ public class DependencyManifestParserService {
      * entry carrying explicit {@code name}/{@code version} fields.
      */
     private List<ScanPayload.ComponentPayload> parsePixiLock(Path dir, String repoName) {
-        try (var reader = Files.newBufferedReader(dir.resolve("pixi.lock"), StandardCharsets.UTF_8)) {
-            Object parsed = SAFE_YAML.load(reader);
-            if (!(parsed instanceof Map<?, ?> root)) {
-                return null;
-            }
-            return parsePixiLockYaml(root, repoName);
-        } catch (Exception e) {
-            log.warn("[DependencyParser][Conda] Failed to parse pixi.lock for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new CondaLockParser(condaPypiMappingService).parsePixiLock(dir, repoName);
     }
 
     private List<ScanPayload.ComponentPayload> parsePixiLockYaml(Map<?, ?> root, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        if (root.get("environments") instanceof Map<?, ?> environments) {
-            for (Object envObj : environments.values()) {
-                if (!(envObj instanceof Map<?, ?> env)) continue;
-                if (!(env.get("packages") instanceof Map<?, ?> byPlatform)) continue;
-                for (Object listObj : byPlatform.values()) {
-                    if (!(listObj instanceof List<?> entries)) continue;
-                    for (Object entryObj : entries) {
-                        if (!(entryObj instanceof Map<?, ?> entry)) continue;
-                        String name = null;
-                        String version = null;
-                        boolean pypi = entry.get("pypi") != null;
-                        if (pypi) {
-                            name = yamlString(entry.get("name"));
-                            version = yamlString(entry.get("version"));
-                        } else if (entry.get("conda") != null) {
-                            String[] nv = parseCondaPackageNameVersion(yamlString(entry.get("conda")));
-                            if (nv != null) {
-                                name = nv[0];
-                                version = nv[1];
-                            }
-                        }
-                        if (name == null || name.isBlank() || version == null || version.isBlank()) continue;
-                        if (!seen.add(name.toLowerCase(Locale.ROOT) + ":" + version)) continue;
-                        if (pypi) {
-                            comps.add(buildComponent(name, version, "PYPI"));
-                            continue;
-                        }
-                        String pypiName = condaPypiMappingService.resolvePypiName(name);
-                        comps.add(pypiName != null
-                                ? buildComponent(pypiName, version, "PYPI")
-                                : buildComponent(name, version, "CONDA"));
-                    }
-                }
-            }
-        }
-        log.info("[DependencyParser][Conda] Parsed {} components from pixi.lock in '{}'", comps.size(), repoName);
-        return comps;
+        return new CondaLockParser(condaPypiMappingService).parsePixiLockYaml(root, repoName);
     }
 
     /**
@@ -2082,21 +1129,7 @@ public class DependencyManifestParserService {
      * name/version; the conda→PyPI mapping applies exactly as for conda-lock.yml.
      */
     private List<ScanPayload.ComponentPayload> parseCondaExplicitLines(List<String> lines, String repoName) {
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        for (String line : lines) {
-            String url = line.strip();
-            if (url.isEmpty() || url.startsWith("#") || url.startsWith("@")) continue;
-            String[] nv = parseCondaPackageNameVersion(url);
-            if (nv == null) continue;
-            if (!seen.add(nv[0].toLowerCase(Locale.ROOT) + ":" + nv[1])) continue;
-            String pypiName = condaPypiMappingService.resolvePypiName(nv[0]);
-            comps.add(pypiName != null
-                    ? buildComponent(pypiName, nv[1], "PYPI")
-                    : buildComponent(nv[0], nv[1], "CONDA"));
-        }
-        log.info("[DependencyParser][Conda] Parsed {} components from explicit spec in '{}'", comps.size(), repoName);
-        return comps;
+        return new CondaLockParser(condaPypiMappingService).parseCondaExplicitLines(lines, repoName);
     }
 
     /**
@@ -2106,25 +1139,7 @@ public class DependencyManifestParserService {
      * strings never do, so the split happens from the right.
      */
     private static String[] parseCondaPackageNameVersion(String urlOrFilename) {
-        if (urlOrFilename == null) return null;
-        String filename = urlOrFilename;
-        int slash = filename.lastIndexOf('/');
-        if (slash >= 0) filename = filename.substring(slash + 1);
-        if (filename.endsWith(".conda")) {
-            filename = filename.substring(0, filename.length() - ".conda".length());
-        } else if (filename.endsWith(".tar.bz2")) {
-            filename = filename.substring(0, filename.length() - ".tar.bz2".length());
-        } else {
-            return null;
-        }
-        int lastDash = filename.lastIndexOf('-');
-        if (lastDash <= 0) return null;
-        int prevDash = filename.lastIndexOf('-', lastDash - 1);
-        if (prevDash <= 0) return null;
-        String name = filename.substring(0, prevDash);
-        String version = filename.substring(prevDash + 1, lastDash);
-        if (name.isEmpty() || version.isEmpty() || !Character.isDigit(version.charAt(0))) return null;
-        return new String[]{name, version};
+        return CondaLockParser.parseCondaPackageNameVersion(urlOrFilename);
     }
 
     /**
@@ -2134,61 +1149,17 @@ public class DependencyManifestParserService {
      * recognized lock file so the caller can fall back to CycloneDX SBOM parsing.
      */
     public List<ScanPayload.ComponentPayload> parseUploadedLockFile(byte[] content, String label) {
-        try {
-            String text = new String(content, StandardCharsets.UTF_8);
-            String head = text.substring(0, Math.min(text.length(), 200)).stripLeading();
-            if (head.startsWith("{")) {
-                JsonNode root = OBJECT_MAPPER.readTree(content);
-                if (isComposerLockJson(root)) {
-                    return parseComposerLockJson(root, label);
-                }
-                if (isConanLockJson(root)) {
-                    return parseConanLockJson(root, label);
-                }
-                return null;
-            }
-            // XML — the caller's CycloneDX path handles it.
-            if (head.startsWith("<")) {
-                return null;
-            }
-            // Podfile.lock is YAML-shaped but parsed line-wise, same as the repo-walk parser.
-            if (head.startsWith("PODS:")) {
-                return parsePodfileLockLines(text.lines().toList(), label);
-            }
-            // `conda list --explicit` spec file: comment headers, an @EXPLICIT marker, then
-            // one package URL per line. It has no stable filename, so content shape is the
-            // only way it can arrive here.
-            List<String> lines = text.lines().toList();
-            if (lines.stream().anyMatch(l -> l.strip().equals("@EXPLICIT"))) {
-                return parseCondaExplicitLines(lines, label);
-            }
-            // YAML lock files: pixi.lock (environments → per-platform package URLs) or
-            // conda-lock.yml (flat "package" list).
-            Object parsed = SAFE_YAML.load(text);
-            if (parsed instanceof Map<?, ?> root) {
-                if (root.containsKey("environments")) {
-                    return parsePixiLockYaml(root, label);
-                }
-                if (root.get("package") instanceof List<?>) {
-                    return parseCondaLockYaml(root, label);
-                }
-            }
-        } catch (Exception e) {
-            log.debug("[DependencyParser] Uploaded content is not a supported lock file: {}", e.getMessage());
-        }
-        return null;
+        return new UploadedLockFileParser(condaPypiMappingService).parseUploadedLockFile(content, label);
     }
 
     /** composer.lock shape: "packages" array plus a composer-only marker key. */
     private static boolean isComposerLockJson(JsonNode root) {
-        return root.path("packages").isArray()
-                && (root.has("content-hash") || root.has("_readme") || root.has("packages-dev"));
+        return UploadedLockFileParser.isComposerLockJson(root);
     }
 
     /** conan.lock shape: Conan 1.x "graph_lock", or Conan 2.x flat "requires" array + "version". */
     private static boolean isConanLockJson(JsonNode root) {
-        return root.has("graph_lock")
-                || (root.path("requires").isArray() && root.has("version"));
+        return UploadedLockFileParser.isConanLockJson(root);
     }
 
     // ── C/C++ manifest parsers ─────────────────────────────────────────────
@@ -2199,41 +1170,7 @@ public class DependencyManifestParserService {
      * Only the declared name and best-effort version are emitted (vcpkg.json is not a lock file).
      */
     private List<ScanPayload.ComponentPayload> parseVcpkgJson(Path dir, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("vcpkg.json").toFile());
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            JsonNode deps = root.path("dependencies");
-            if (deps.isArray()) {
-                for (JsonNode dep : deps) {
-                    String name = null;
-                    String version = null;
-                    if (dep.isTextual()) {
-                        name = dep.asText(null);
-                    } else if (dep.isObject()) {
-                        name = dep.path("name").asText(null);
-                        if (dep.has("version>=")) {
-                            version = dep.path("version>=").asText(null);
-                        } else if (dep.has("version")) {
-                            version = dep.path("version").asText(null);
-                        } else if (dep.has("baseline")) {
-                            version = dep.path("baseline").asText(null);
-                        }
-                    }
-                    if (name == null || name.isBlank()) continue;
-                    name = name.trim();
-                    version = (version != null && !version.isBlank()) ? version.trim() : null;
-                    if (seen.add(name + ":" + (version != null ? version : ""))) {
-                        comps.add(buildComponent(name, version, "VCPKG"));
-                    }
-                }
-            }
-            log.info("[DependencyParser][vcpkg] Parsed {} components from vcpkg.json in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][vcpkg] Failed to parse vcpkg.json for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new NativeManifestParser().parseVcpkgJson(dir, repoName);
     }
 
     /**
@@ -2242,47 +1179,15 @@ public class DependencyManifestParserService {
      * {@code name} and a version-ish field is emitted.
      */
     private List<ScanPayload.ComponentPayload> parseVcpkgConfigurationJson(Path dir, String repoName) {
-        try {
-            JsonNode root = OBJECT_MAPPER.readTree(dir.resolve("vcpkg-configuration.json").toFile());
-            List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-            Set<String> seen = new LinkedHashSet<>();
-            extractVcpkgRegistryPackages(root, seen, comps);
-            log.info("[DependencyParser][vcpkg] Parsed {} components from vcpkg-configuration.json in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][vcpkg] Failed to parse vcpkg-configuration.json for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new NativeManifestParser().parseVcpkgConfigurationJson(dir, repoName);
     }
 
     private void extractVcpkgRegistryPackages(JsonNode node, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
-        if (node == null || node.isMissingNode()) return;
-        if (node.isArray()) {
-            for (JsonNode item : node) {
-                extractVcpkgRegistryPackage(item, seen, comps);
-                extractVcpkgRegistryPackages(item, seen, comps);
-            }
-        } else if (node.isObject()) {
-            extractVcpkgRegistryPackage(node, seen, comps);
-            node.fields().forEachRemaining(e -> extractVcpkgRegistryPackages(e.getValue(), seen, comps));
-        }
+        new NativeManifestParser().extractVcpkgRegistryPackages(node, seen, comps);
     }
 
     private void extractVcpkgRegistryPackage(JsonNode obj, Set<String> seen, List<ScanPayload.ComponentPayload> comps) {
-        if (!obj.isObject()) return;
-        String name = obj.path("name").asText(null);
-        if (name == null || name.isBlank()) return;
-        String version = null;
-        for (String key : new String[]{"version", "baseline", "version>="}) {
-            if (obj.has(key)) {
-                version = obj.path(key).asText(null);
-                if (version != null && !version.isBlank()) break;
-            }
-        }
-        String v = (version != null && !version.isBlank()) ? version.trim() : null;
-        if (seen.add(name + ":" + (v != null ? v : ""))) {
-            comps.add(buildComponent(name, v, "VCPKG"));
-        }
+        new NativeManifestParser().extractVcpkgRegistryPackage(obj, seen, comps);
     }
 
     /**
@@ -2364,51 +1269,12 @@ public class DependencyManifestParserService {
      * The dependency name is taken from the declaration identifier or the repository/archive basename.
      */
     private List<ScanPayload.ComponentPayload> parseCMakeLists(Path dir, String repoName) {
-        Path cmake = dir.resolve("CMakeLists.txt");
-        if (!Files.isRegularFile(cmake)) return List.of();
-        List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            String content = Files.readString(cmake, StandardCharsets.UTF_8);
-            // Normalize line continuations and remove CMake comments
-            content = content.replaceAll("\\\\\\r?\\n", " ");
-            content = content.replaceAll("#[^\\n]*", " ");
-            parseCMakeCommand(content, "FetchContent_Declare", seen, comps);
-            parseCMakeCommand(content, "ExternalProject_Add", seen, comps);
-            log.info("[DependencyParser][CMake] Parsed {} components from CMakeLists.txt in '{}'", comps.size(), repoName);
-            return comps;
-        } catch (Exception e) {
-            log.warn("[DependencyParser][CMake] Failed to parse CMakeLists.txt for '{}': {}", repoName, e.getMessage());
-            return null;
-        }
+        return new NativeManifestParser().parseCMakeLists(dir, repoName);
     }
 
     private void parseCMakeCommand(String content, String command, Set<String> seen,
                                    List<ScanPayload.ComponentPayload> comps) {
-        // Match command(ident ... ) allowing nested parentheses one level deep.
-        Pattern cmdP = Pattern.compile(
-                "\\b" + Pattern.quote(command) + "\\s*\\(\\s*([A-Za-z0-9_\\-]+)\\s+((?:[^()]|\\([^()]*\\))*)\\)",
-                Pattern.CASE_INSENSITIVE);
-        Matcher m = cmdP.matcher(content);
-        while (m.find()) {
-            String ident = m.group(1);
-            String body = m.group(2);
-            String gitRepo = extractCMakeQuotedArg(body, "GIT_REPOSITORY");
-            String gitTag = extractCMakeQuotedArg(body, "GIT_TAG");
-            String url = extractCMakeQuotedArg(body, "URL");
-            String name = cmakeBasenameFromUrl(gitRepo != null ? gitRepo : url);
-            if (name == null) name = ident;
-            String version = null;
-            if (gitTag != null && !gitTag.isBlank()) {
-                version = normalizeGitTag(gitTag);
-            } else if (url != null && !url.isBlank()) {
-                version = versionFromArchiveUrl(url);
-            }
-            if (version == null || version.isBlank()) continue;
-            if (seen.add(name + ":" + version)) {
-                comps.add(buildComponent(name, version, "VENDORED"));
-            }
-        }
+        new NativeManifestParser().parseCMakeCommand(content, command, seen, comps);
     }
 
     /**
@@ -2427,43 +1293,19 @@ public class DependencyManifestParserService {
     }
 
     private String extractCMakeQuotedArg(String body, String key) {
-        Pattern p = Pattern.compile(
-                "\\b" + Pattern.quote(key) + "\\s+\"([^\"]*)\"",
-                Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(body);
-        return m.find() ? m.group(1) : null;
+        return new NativeManifestParser().extractCMakeQuotedArg(body, key);
     }
 
     private String cmakeBasenameFromUrl(String url) {
-        if (url == null || url.isBlank()) return null;
-        String trimmed = url.replaceAll("\\.git$", "");
-        int slash = trimmed.lastIndexOf('/');
-        if (slash < 0) return trimmed;
-        String base = trimmed.substring(slash + 1);
-        return base.isBlank() ? null : base;
+        return new NativeManifestParser().cmakeBasenameFromUrl(url);
     }
 
     private String normalizeGitTag(String tag) {
-        if (tag == null) return null;
-        String t = tag.trim();
-        if (t.startsWith("v") && t.length() > 1 && Character.isDigit(t.charAt(1))) {
-            return t.substring(1);
-        }
-        return t;
+        return new NativeManifestParser().normalizeGitTag(tag);
     }
 
     private String versionFromArchiveUrl(String url) {
-        if (url == null || url.isBlank()) return null;
-        String base = cmakeBasenameFromUrl(url);
-        if (base == null) return null;
-        // Strip common archive suffixes and look for a version tail: name-1.2.3.tar.gz
-        String withoutExt = base.replaceAll("\\.(tar\\.gz|tar\\.bz2|tar\\.xz|zip|tgz|tbz2|txz)$", "");
-        int dash = withoutExt.lastIndexOf('-');
-        if (dash > 0 && dash < withoutExt.length() - 1) {
-            String candidate = withoutExt.substring(dash + 1);
-            if (candidate.matches("[0-9].*")) return candidate;
-        }
-        return null;
+        return new NativeManifestParser().versionFromArchiveUrl(url);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
@@ -2474,12 +1316,7 @@ public class DependencyManifestParserService {
 
     /** Normalizes a Maven {@code <scope>} to the noise-cut tag; compile/runtime → null (production). */
     private static String normalizeMavenScope(String scope) {
-        if (scope == null || scope.isBlank()) return null;
-        String s = scope.trim().toLowerCase();
-        return switch (s) {
-            case "compile", "runtime", "import" -> null;
-            default -> s; // test, provided, system
-        };
+        return MavenPomParser.normalizeMavenScope(scope);
     }
 
     /** Builds a scan payload from parse results (version label supplied by caller). */
