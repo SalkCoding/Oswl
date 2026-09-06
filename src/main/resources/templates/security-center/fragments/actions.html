@@ -10,8 +10,8 @@
         <div class="relative" @click.outside="bulkActionsOpen = false" @keydown.escape.stop="bulkActionsOpen = false">
             <button type="button"
                     @click="selectedComponents.length > 0 && (bulkActionsOpen = !bulkActionsOpen)"
-                    :disabled="selectedComponents.length === 0"
-                    :aria-expanded="bulkActionsOpen" aria-haspopup="menu" aria-controls="sc-bulk-menu"
+                    :disabled="bulkSaving || selectedComponents.length === 0"
+                    :aria-expanded="bulkActionsOpen" aria-controls="sc-bulk-menu"
                     class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors"
                     :class="selectedComponents.length === 0 ? 'opacity-40 cursor-not-allowed' : (bulkActionsOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)] hover:bg-[var(--grayscale-10)]' : 'hover:bg-[var(--grayscale-10)] cursor-pointer')">
                 <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{common.bulkActions}">Bulk Actions</p>
@@ -19,12 +19,12 @@
             </button>
 
             <div x-show="bulkActionsOpen"
-                 id="sc-bulk-menu" role="menu"
+                 id="sc-bulk-menu"
                  @click.away="bulkActionsOpen = false"
                  x-transition
                  style="display: none;"
                  class="absolute left-0 top-[36px] z-[9999] w-max min-w-full rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
-                <p class="text-[10px] text-[#849197] font-normal tracking-[-0.10px] mb-[8px] px-[10px]" th:text="#{common.applyToSelected}">Apply to selected</p>
+                <p class="text-[10px] text-[var(--grayscale-80)] font-normal tracking-[-0.10px] mb-[8px] px-[10px]" th:text="#{common.applyToSelected}">Apply to selected</p>
                 <button type="button"
                         @click="applyBulkAction('reviewed')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">
@@ -53,7 +53,7 @@
         <div class="relative" @click.outside="exportOpen = false" @keydown.escape.stop="exportOpen = false">
             <button type="button"
                     @click="exportOpen = !exportOpen"
-                    :aria-expanded="exportOpen" aria-haspopup="menu" aria-controls="sc-export-menu"
+                    :aria-expanded="exportOpen" aria-controls="sc-export-menu"
                     class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 w-[104px] transition-colors"
                     :class="exportOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)]' : ''">
                 <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px]" th:text="#{common.export}">Export</p>
@@ -61,7 +61,7 @@
             </button>
 
             <div x-show="exportOpen"
-                 id="sc-export-menu" role="menu"
+                 id="sc-export-menu"
                  @click.away="exportOpen = false"
                  x-transition
                  style="display: none;"
@@ -75,7 +75,7 @@
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">
                     <span th:text="#{common.csv}">CSV</span></button>
                 <div class="my-[6px] border-t border-[var(--grayscale-20)]"></div>
-                <p class="text-[10px] text-[#849197] font-normal tracking-[-0.10px] mb-[4px] px-[10px]" th:text="#{securityCenter.export.cyclonedx}">CycloneDX</p>
+                <p class="text-[10px] text-[var(--grayscale-80)] font-normal tracking-[-0.10px] mb-[4px] px-[10px]" th:text="#{securityCenter.export.cyclonedx}">CycloneDX</p>
                 <button type="button"
                         @click="exportAs('sbom')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">
@@ -135,7 +135,7 @@
         <div class="relative" @click.outside="viewsOpen = false; savingView = false" @keydown.escape.stop="viewsOpen = false; savingView = false">
             <button type="button"
                     @click="viewsOpen = !viewsOpen"
-                    :aria-expanded="viewsOpen" aria-haspopup="menu" aria-controls="sc-views-menu"
+                    :aria-expanded="viewsOpen" aria-controls="sc-views-menu"
                     class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors"
                     :class="viewsOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)]' : ''">
                 <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{securityCenter.views.label}">Views</p>
@@ -143,13 +143,13 @@
             </button>
 
             <div x-show="viewsOpen"
-                 id="sc-views-menu" role="menu"
+                 id="sc-views-menu"
                  @click.away="viewsOpen = false; savingView = false"
                  x-transition
                  style="display: none;"
                  class="absolute left-0 top-[36px] z-[9999] w-max min-w-[260px] max-w-[320px] rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
                 <template x-if="viewsLoading">
-                    <p class="text-[12px] text-[#849197] px-[10px] py-[8px]" th:text="#{securityCenter.views.loading}">Loading saved views…</p>
+                    <p class="text-[12px] text-[var(--grayscale-80)] px-[10px] py-[8px]" th:text="#{securityCenter.views.loading}">Loading saved views…</p>
                 </template>
                 <template x-if="!viewsLoading && viewsError">
                     <div class="flex flex-col gap-[8px] rounded-[8px] border border-red-200 bg-red-50 px-[10px] py-[9px]" role="alert">
@@ -160,7 +160,7 @@
                     </div>
                 </template>
                 <template x-if="!viewsLoading && !viewsError && views.length === 0 && !savingView">
-                    <p class="text-[12px] text-[#849197] px-[10px] py-[8px]" th:text="#{securityCenter.views.empty}">No saved views yet.</p>
+                    <p class="text-[12px] text-[var(--grayscale-80)] px-[10px] py-[8px]" th:text="#{securityCenter.views.empty}">No saved views yet.</p>
                 </template>
                 <template x-for="view in views" :key="view.id">
                     <div x-show="!viewsLoading && !viewsError"

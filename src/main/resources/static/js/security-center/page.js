@@ -4,6 +4,7 @@ function securityCenterPage() {
           activeCompId: null,
           searchQuery: '',
           bulkActionsOpen: false,
+          bulkSaving: false,
           exportOpen: false,
           sortOpen: false,
           sortMode: 'risk',
@@ -43,6 +44,7 @@ function securityCenterPage() {
           loadedComponentCount: 0,
           rowsLoaded: false,
           rowsLoading: false,
+          rowsError: null,
           currentPage: 0,
           rowsFetchToken: 0,
           views: [],
@@ -88,6 +90,7 @@ function securityCenterPage() {
               this.rowsAbort = new AbortController();
               const signal = this.rowsAbort.signal;
               this.rowsLoading = true;
+              this.rowsError = null;
               this.currentPage = 0;
               this.clearSelected();
               try {
@@ -100,7 +103,7 @@ function securityCenterPage() {
                   this.applyRowsMeta(container);
               } catch (e) {
                   if (token === this.rowsFetchToken && !signal.aborted)
-                      alert(window.securityCenterData.i18n[e.kind] || window.securityCenterData.i18n.actionFailed);
+                      this.rowsError = window.securityCenterData.i18n[e.kind] || window.securityCenterData.i18n.actionFailed;
               } finally {
                   if (token === this.rowsFetchToken) this.rowsLoading = false;
               }
@@ -112,6 +115,7 @@ function securityCenterPage() {
               this.rowsAbort = new AbortController();
               const signal = this.rowsAbort.signal;
               this.rowsLoading = true;
+              this.rowsError = null;
               const nextPage = this.currentPage + 1;
               try {
                   const projectId = document.body.dataset.projectId;
@@ -124,7 +128,7 @@ function securityCenterPage() {
                   this.applyRowsMeta(container);
               } catch (e) {
                   if (token === this.rowsFetchToken && !signal.aborted)
-                      alert(window.securityCenterData.i18n[e.kind] || window.securityCenterData.i18n.actionFailed);
+                      this.rowsError = window.securityCenterData.i18n[e.kind] || window.securityCenterData.i18n.actionFailed;
               } finally {
                   if (token === this.rowsFetchToken) this.rowsLoading = false;
               }
@@ -225,54 +229,28 @@ function securityCenterPage() {
               this.sortMode = mode;
               this.sortOpen = false;
           },
-          applyBulkAction(action) {
-              if (!this.selectedComponents.length) return;
+          async applyBulkAction(action) {
+              if (this.bulkSaving || !this.selectedComponents.length || !['reviewed','unreviewed','ignore','unignore'].includes(action)) return;
               const projectId = document.body.dataset.projectId;
               const ids = this.selectedComponents.map(Number);
+              const review = action === 'reviewed' || action === 'unreviewed';
+              const value = action === 'reviewed' || action === 'ignore';
               this.bulkActionsOpen = false;
-
-              const clearSelection = () => {
-                  this.selectedComponents = [];
-                  this.selectAll = false;
-              };
-              // fetch resolves even on 403/500 — treat non-OK and network errors as failure
-              const onFailure = () => alert(window.securityCenterData.i18n.actionFailed);
-
-              if (action === 'reviewed' || action === 'unreviewed') {
-                  const value = action === 'reviewed';
-                  const idStrings = ids.map(String);
-                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
-                      method: 'PATCH',
-                      headers: oswlJsonHeaders(),
-                      body: JSON.stringify({ids: ids, reviewed: value})
-                  }).then(r => {
-                      if (!r.ok) { onFailure(); return; }
-                      window.dispatchEvent(new CustomEvent('bulk-review', {
-                          detail: {ids: idStrings, value: value}
-                      }));
-                      clearSelection();
-                  }).catch(onFailure);
-              } else if (action === 'ignore' || action === 'unignore') {
-                  const value = action === 'ignore';
-                  const idStrings = ids.map(String);
-                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
-                      method: 'PATCH',
-                      headers: oswlJsonHeaders(),
-                      body: JSON.stringify({ids: ids, ignored: value})
-                  }).then(r => {
-                      if (!r.ok) { onFailure(); return; }
-                      window.dispatchEvent(new CustomEvent('bulk-ignore', {
-                          detail: {ids: idStrings, value: value}
-                      }));
-                      // When ignoring, automatically show non-ignored items so the user can see
-                      // the list update in real time — mutating filters triggers the $watch in
-                      // init() that re-fetches the current page from the server.
-                      if (action === 'ignore') {
-                          this.filters.nonIgnored = true;
-                      }
-                      clearSelection();
-                  }).catch(onFailure);
-              }
+              this.bulkSaving = true;
+              try {
+                  const response = await fetch('/projects/' + projectId + '/security-center/bulk-status', {
+                      method: 'PATCH', headers: oswlJsonHeaders(),
+                      body: JSON.stringify({ids, [review ? 'reviewed' : 'ignored']: value})
+                  });
+                  if (!response.ok) throw new Error();
+                  window.dispatchEvent(new CustomEvent(review ? 'bulk-review' : 'bulk-ignore', {
+                      detail: {ids: ids.map(String), value}
+                  }));
+                  this.clearSelected();
+                  await this.refetchRows();
+              } catch (_) {
+                  alert(window.securityCenterData.i18n.actionFailed);
+              } finally { this.bulkSaving = false; }
           },
           async batchUpgradePrs() {
               const projectId = document.body.dataset.projectId;

@@ -132,4 +132,79 @@ class RequestLifecycleUiTest extends UiTestBase {
                 """);
         assertThat(kinds).isEqualTo(Map.of("401", "unauthenticated", "403", "forbidden", "500", "server", "timeout", "timeout"));
     }
+
+    @Test void bulkFailureRetainsSelectionAndRepeatedActionsSendOneRequest() {
+        Long project=seed(2);loginAsTestAdmin();
+        page.navigate(url("/projects/"+project+"/security-center?lang=en"));
+        page.waitForFunction("() => Alpine.$data(document.body).rowsLoaded");
+        page.locator("label").filter(new com.microsoft.playwright.Locator.FilterOptions().setHas(page.locator("input[name=selectedComponent]"))).first().click();
+        page.locator("button[aria-controls=sc-bulk-menu]").click();
+        page.waitForFunction("() => getComputedStyle(document.querySelector('#sc-bulk-menu')).opacity === '1'");
+        assertThat(runAxeScan().getViolations().stream().filter(v->List.of("serious","critical").contains(v.getImpact())).map(v->v.getId()+": "+v.getNodes().stream().map(n->n.getHtml()).toList()).toList()).isEmpty();
+        page.evaluate("""
+            () => {
+                window.__bulkCalls=0;window.__bulkAlerts=0;window.__realFetch=window.fetch;
+                window.alert=()=>window.__bulkAlerts++;
+                window.fetch=(url,options)=>{
+                    if(!String(url).endsWith('/bulk-status'))return window.__realFetch(url,options);
+                    window.__bulkCalls++;
+                    return new Promise(resolve=>setTimeout(()=>resolve(new Response('{}',{status:500})),100));
+                };
+            }
+            """);
+        page.evaluate("() => {const s=Alpine.$data(document.body);return Promise.all([s.applyBulkAction('reviewed'),s.applyBulkAction('reviewed')]);}");
+        assertThat(page.evaluate("() => window.__bulkCalls")).isEqualTo(1);
+        assertThat(page.evaluate("() => window.__bulkAlerts")).isEqualTo(1);
+        assertThat(page.evaluate("() => Alpine.$data(document.body).selectedComponents.length")).isEqualTo(1);
+        page.evaluate("() => window.fetch=window.__realFetch");
+        page.evaluate("() => Alpine.$data(document.body).applyBulkAction('reviewed')");
+        assertThat(page.evaluate("() => Alpine.$data(document.body).selectedComponents.length")).isEqualTo(0);
+    }
+
+    @Test void failedDetailRetriesAndEscapeReturnsFocusToItsRow() {
+        Long project=seed(1);loginAsTestAdmin();
+        page.navigate(url("/projects/"+project+"/security-center?lang=en"));
+        var row=page.locator("a.component-row").first();String id=row.getAttribute("data-comp-id");
+        AtomicBoolean fail=new AtomicBoolean(true);
+        page.route("**/projects/"+project+"/components/"+id,route->{
+            if(fail.get())route.fulfill(new Route.FulfillOptions().setStatus(500).setBody("failed"));else route.resume();
+        });
+        row.focus();row.click();page.locator("#slideout-retry").waitFor();
+        assertThat(runAxeScan().getViolations().stream().filter(v->List.of("serious","critical").contains(v.getImpact())).map(v->v.getId()+": "+v.getNodes().stream().map(n->n.getHtml()).toList()).toList()).isEmpty();
+        fail.set(false);page.locator("#slideout-retry").click();
+        page.waitForFunction("() => document.querySelector('#slideout-content').textContent.includes('request-fixture')");
+        page.keyboard().press("Escape");
+        page.waitForFunction("() => !Alpine.$data(document.body).componentPanelOpen");
+        assertThat(page.evaluate("() => document.activeElement.dataset.compId")).isEqualTo(id);
+    }
+
+    @Test void allFilterQueriesHandleEmptyResultsAndFailedRefreshCanRetry() {
+        Long project=seed(0);loginAsTestAdmin();
+        page.navigate(url("/projects/"+project+"/security-center?lang=en"));
+        page.waitForFunction("() => Alpine.$data(document.body).rowsLoaded");
+        Object empty=page.evaluate("""
+            async () => {
+                const state=Alpine.$data(document.body), result=[];
+                for(const key of Object.keys(state.filters)) {
+                    const parameters=state.buildRowsQueryParams(0);parameters.set(key,'true');
+                    const response=await fetch('/projects/'+document.body.dataset.projectId+'/security-center/rows?'+parameters);
+                    const body=await response.text();
+                    result.push(response.ok && body.includes('data-total-count="0"'));
+                }
+                return result.every(Boolean);
+            }
+            """);
+        assertThat(empty).isEqualTo(true);
+        AtomicBoolean fail=new AtomicBoolean(true);
+        page.route("**/security-center/rows?**",route->{if(fail.get())route.fulfill(new Route.FulfillOptions().setStatus(500).setBody("failed"));else route.resume();});
+        page.evaluate("() => Alpine.$data(document.body).refetchRows()");
+        page.locator("#component-rows-container").waitFor(new com.microsoft.playwright.Locator.WaitForOptions().setState(com.microsoft.playwright.options.WaitForSelectorState.HIDDEN));
+        assertThat(page.locator("#component-rows-container").isVisible()).isFalse();
+        assertThat(page.locator("[role=alert]").filter(new com.microsoft.playwright.Locator.FilterOptions().setHas(page.locator("button"))).isVisible()).isTrue();
+        assertThat(runAxeScan().getViolations().stream().filter(v->List.of("serious","critical").contains(v.getImpact())).map(v->v.getId()+": "+v.getNodes().stream().map(n->n.getHtml()).toList()).toList()).isEmpty();
+        fail.set(false);
+        page.locator("[role=alert] button").click();
+        page.waitForFunction("() => !Alpine.$data(document.body).rowsLoading && !Alpine.$data(document.body).rowsError");
+        assertThat(page.locator("#component-rows-container").isVisible()).isTrue();
+    }
 }

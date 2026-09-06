@@ -63,13 +63,15 @@
     }
 
     global.oswlTrapFocus = function (el) {
-        if (!el) return;
+        if (!el || trapEl === el) return;
         previouslyFocused = document.activeElement;
         trapEl = el;
+        if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
         document.addEventListener('keydown', handleKeydown, true);
         inertBackground(el);
         // A tick lets HTMX-injected content and enter transitions finish rendering first.
         setTimeout(() => {
+            if (trapEl !== el) return;
             const focusables = focusableElements(el);
             (focusables[0] || el).focus();
         }, 50);

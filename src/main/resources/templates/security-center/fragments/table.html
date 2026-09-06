@@ -42,7 +42,13 @@
          client-side re-scan of every already-rendered row (the old rowVisible() approach, which
          required shipping and DOM-rendering every component up front). -->
     <p th:if="${scanArchived == true}" class="p-4 text-sm" th:text="#{securityCenter.archivedSummary}"></p>
-    <div id="component-rows-container" class="flex flex-col" th:insert="~{security-center/fragments/table :: rows}"></div>
+    <div x-show="rowsError" style="display:none" role="alert"
+         class="mx-4 my-3 p-4 border border-red-200 rounded-lg text-[var(--grayscale-100)]">
+        <span x-text="rowsError"></span>
+        <button type="button" @click="refetchRows()" :disabled="rowsLoading"
+                class="ml-3 font-semibold text-[var(--primary-120)] underline" th:text="#{common.retry}">Retry</button>
+    </div>
+    <div id="component-rows-container" x-show="!rowsError" :aria-busy="rowsLoading" class="flex flex-col" th:insert="~{security-center/fragments/table :: rows}"></div>
 
     <!-- Pagination footer: count + "Load more". x-show'd on rowsLoaded so it doesn't flash
          "0 of 0" before the initial x-init fetch (see index.html) populates the real counts. -->

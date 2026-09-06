@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix Security Center duplicate bulk requests, stale filtered results after updates, accessible inline row-refresh failures/retries and detail retry focus restoration. Six RequestLifecycle browser scenarios passed; latest results across the expanded 26-scenario UI set have no failures. Record 993 backend tests (two opt-in/live skips), real image/checkout/model evidence and remaining environment-dependent checks.
 - Verify real Debian and Ubuntu OCI images against OSV and allow an unrelated merged-usr directory link while rejecting a non-directory ancestor required by the selected package DB. Eight Python checks passed; immutable digests and advisory IDs are recorded.
 - Verify the exact 512 MiB expanded snapshot staging boundary in a 128 MiB JVM: the boundary succeeds, one additional byte fails, and staged files are removed in both cases. Keep semantic import, concurrent export and operational retention/partition decisions separate.
 - Fix opt-in JDBC session activation on Boot 4. Two real JVMs passed cross-instance login/logout, single-session enforcement and forced restart with durable H2 writes; expired job fixtures retained cancellation and terminated without duplicate scans. Two observed scheduler cycles had one owner; the one-minute lock explains skipped 20-second triggers. Actual Dgs/Express/Maui/Rails checkout parsing also passed without fixture skips. PostgreSQL/LB and remote CI remain separate.
