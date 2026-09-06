@@ -71,9 +71,14 @@ class RequestLifecycleUiTest extends UiTestBase {
         page.navigate(url("/projects/" + project + "/security-center?lang=en"));
         page.waitForFunction("() => window.Alpine && Alpine.$data(document.body).rowsLoaded");
         assertThat(page.locator("a.component-row").count()).isEqualTo(100);
+        page.locator("label").filter(new com.microsoft.playwright.Locator.FilterOptions()
+                .setHas(page.locator("input[name=selectedComponent]"))).first().click();
+        page.waitForFunction("() => Alpine.$data(document.body).selectedComponents.length === 1");
         page.waitForResponse(r -> r.url().contains("/security-center/rows?"),
                 () -> page.locator("input[x-model='searchQuery']").fill("request-fixture"));
         page.waitForFunction("() => !Alpine.$data(document.body).rowsLoading");
+        assertThat(page.evaluate("() => Alpine.$data(document.body).selectedComponents")).isEqualTo(List.of());
+        assertThat(page.evaluate("() => Alpine.$data(document.body).selectAll")).isEqualTo(false);
         page.locator("button").filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText("Load more")).click();
         page.waitForFunction("() => document.querySelectorAll('a.component-row').length === 101");
         var row = page.locator("a.component-row").last();
