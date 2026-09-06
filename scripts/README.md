@@ -10,6 +10,8 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Operations
 
+- [`oci/scan-image.py`](oci/scan-image.py): immutable OCI registry/layout inspection and optional OSV queries, without executing an image. See [container image inspection](../docs/en/Container-Image-Inspection.md).
+
 - [`vdb/build-cocoapods-specs.py`](vdb/build-cocoapods-specs.py): builds a scoped offline Specs ZIP from operator-supplied podspec files without network access. See [offline CocoaPods Specs](../docs/en/Offline-CocoaPods-Specs.md).
 
 - [`ops/verify-restore.sh`](ops/verify-restore.sh): interactive verification against a freshly restored instance. Requires Bash, curl, access to the instance and email OTP login. Follow the [restore guide](../docs/en/Backup-And-Restore.md); this is not an unattended health check.
