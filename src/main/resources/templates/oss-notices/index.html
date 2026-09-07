@@ -114,7 +114,7 @@
         <div class="flex flex-col gap-[10px]">
             <div class="flex flex-col gap-[2px]">
                 <h2 class="text-[15px] font-bold text-[var(--grayscale-100)] tracking-[-0.15px] m-0" th:text="#{ossNotices.dataSources.title}">External Data Sources</h2>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0 leading-[1.6]" th:text="#{ossNotices.dataSources.subtitle}">OsWL enriches component data live from these public feeds — data, not bundled code. Full attribution detail for each is in THIRD_PARTY_LICENSES.md.</p>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0 leading-[1.6]" th:text="#{ossNotices.dataSources.subtitle}">Sources include remote feeds and bundled reference data. See THIRD_PARTY_LICENSES.md and packaged META-INF notices for attribution and unresolved redistribution terms.</p>
             </div>
 
             <div class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
@@ -206,11 +206,14 @@
         ];
 
         const dataSources = [
-            { slug: 'osv', url: 'https://osv.dev/', license: /*[[#{ossNotices.data.osv.license}]]*/ 'CC-BY 4.0 / CC0 1.0 (varies)', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.osv.name}]]*/ '', usedFor: /*[[#{ossNotices.data.osv.usedFor}]]*/ '' },
+            { slug: 'osv', url: 'https://osv.dev/', license: /*[[#{ossNotices.data.osv.license}]]*/ 'Varies by source, including CC-BY-SA 4.0', licenseGroup: 'other', name: /*[[#{ossNotices.data.osv.name}]]*/ '', usedFor: /*[[#{ossNotices.data.osv.usedFor}]]*/ '' },
             { slug: 'ghsa', url: 'https://github.com/github/advisory-database', license: /*[[#{ossNotices.data.ghsa.license}]]*/ 'CC-BY 4.0', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.ghsa.name}]]*/ '', usedFor: /*[[#{ossNotices.data.ghsa.usedFor}]]*/ '' },
-            { slug: 'epss', url: 'https://www.first.org/epss/', license: /*[[#{ossNotices.data.epss.license}]]*/ 'Free access, attribution requested', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.epss.name}]]*/ '', usedFor: /*[[#{ossNotices.data.epss.usedFor}]]*/ '' },
+            { slug: 'epss', url: 'https://www.first.org/epss/', license: /*[[#{ossNotices.data.epss.license}]]*/ 'Free access, attribution requested', licenseGroup: 'other', name: /*[[#{ossNotices.data.epss.name}]]*/ '', usedFor: /*[[#{ossNotices.data.epss.usedFor}]]*/ '' },
             { slug: 'kev', url: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog', license: /*[[#{ossNotices.data.kev.license}]]*/ 'CC0 1.0 (Public Domain)', licenseGroup: 'cc0', name: /*[[#{ossNotices.data.kev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.kev.usedFor}]]*/ '' },
-            { slug: 'depsdev', url: 'https://deps.dev/', license: /*[[#{ossNotices.data.depsdev.license}]]*/ 'CC-BY 4.0 (generated data)', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.depsdev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.depsdev.usedFor}]]*/ '' },
+            { slug: 'depsdev', url: 'https://deps.dev/', license: /*[[#{ossNotices.data.depsdev.license}]]*/ 'CC-BY 4.0 (generated); upstream terms also apply', licenseGroup: 'other', name: /*[[#{ossNotices.data.depsdev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.depsdev.usedFor}]]*/ '' },
+            { slug: 'nvd', url: 'https://nvd.nist.gov/', license: /*[[#{ossNotices.data.nvd.license}]]*/ 'NIST / CVE source terms; redistribution review pending', licenseGroup: 'other', name: /*[[#{ossNotices.data.nvd.name}]]*/ '', usedFor: /*[[#{ossNotices.data.nvd.usedFor}]]*/ '' },
+            { slug: 'cocoapods', url: 'https://github.com/CocoaPods/Specs', license: /*[[#{ossNotices.data.cocoapods.license}]]*/ 'MIT (specifications; each pod has its own license)', licenseGroup: 'mit', name: /*[[#{ossNotices.data.cocoapods.name}]]*/ '', usedFor: /*[[#{ossNotices.data.cocoapods.usedFor}]]*/ '' },
+            { slug: 'conda', url: 'https://github.com/conda-forge/conda-forge-bot-data/blob/main/License', license: /*[[#{ossNotices.data.conda.license}]]*/ 'Combined BSD-style / BSD 3-Clause / MIT notices', licenseGroup: 'other', name: /*[[#{ossNotices.data.conda.name}]]*/ '', usedFor: /*[[#{ossNotices.data.conda.usedFor}]]*/ '' },
         ];
 
         const allFilters = [

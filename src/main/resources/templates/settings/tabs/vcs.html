@@ -74,13 +74,13 @@
                 <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
                     <button type="button" @click="githubMode = 'cloud'"
                             :class="githubMode === 'cloud'
-                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                ? 'border-[#00B9A3] text-[var(--grayscale-100)] font-bold'
                                 : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
                             th:text="#{settings.vcs.gh.modeCloud}">GitHub.com</button>
                     <button type="button" @click="githubMode = 'enterprise'"
                             :class="githubMode === 'enterprise'
-                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                ? 'border-[#00B9A3] text-[var(--grayscale-100)] font-bold'
                                 : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
                             th:text="#{settings.vcs.gh.modeEnterprise}">GitHub Enterprise</button>
@@ -153,13 +153,13 @@
                 <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
                     <button type="button" @click="gitlabMode = 'cloud'"
                             :class="gitlabMode === 'cloud'
-                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                ? 'border-[#00B9A3] text-[var(--grayscale-100)] font-bold'
                                 : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
                             th:text="#{settings.vcs.gl.modeCloud}">GitLab.com</button>
                     <button type="button" @click="gitlabMode = 'selfhosted'"
                             :class="gitlabMode === 'selfhosted'
-                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                ? 'border-[#00B9A3] text-[var(--grayscale-100)] font-bold'
                                 : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
                             th:text="#{settings.vcs.gl.modeSelfHosted}">Self-hosted</button>
@@ -230,13 +230,13 @@
                 <div class="flex items-center gap-[32px] border-b border-[var(--grayscale-20)] px-[4px]">
                     <button type="button" @click="bitbucketMode = 'cloud'"
                             :class="bitbucketMode === 'cloud'
-                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                ? 'border-[#00B9A3] text-[var(--grayscale-100)] font-bold'
                                 : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
                             th:text="#{settings.vcs.bb.modeCloud}">Bitbucket Cloud</button>
                     <button type="button" @click="bitbucketMode = 'server'"
                             :class="bitbucketMode === 'server'
-                                ? 'border-[#00B9A3] text-[#141616] font-bold'
+                                ? 'border-[#00B9A3] text-[var(--grayscale-100)] font-bold'
                                 : 'border-transparent text-[var(--grayscale-60)] font-normal'"
                             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
                             th:text="#{settings.vcs.bb.modeServer}">Server / Data Center</button>

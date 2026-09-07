@@ -89,10 +89,11 @@
 
         var dirtyStatus = document.getElementById('settings-dirty-status');
         var dirtyText = document.getElementById('settings-dirty-status-text');
+        var dirtySummary = /*[[#{settings.dirty.summary}]]*/ '{0} unsaved change(s)';
         function renderDirty(event) {
             var count = event && event.detail ? event.detail.count : 0;
             dirtyStatus.hidden = count === 0;
-            if (count > 0) dirtyText.textContent = /*[[#{settings.dirty.summary}]]*/ '{0} unsaved change(s)'.replace('{0}', count);
+            if (count > 0) dirtyText.textContent = dirtySummary.replace('{0}', count);
         }
         document.addEventListener('oswl:dirty-change', renderDirty);
         if (window.OswlDirty) renderDirty({ detail: { count: window.OswlDirty.scopes().length } });

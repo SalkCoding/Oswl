@@ -72,7 +72,10 @@ function policyTab() {
                 if (!r.ok) throw new Error('scope options failed');
                 this.scopeOptions = await r.json();
                 this.scopeOptionsLoaded = true;
-                if (this.retryTarget === 'scope') this.retryTarget = null;
+                if (this.retryTarget === 'scope') {
+                    this.apiError = null;
+                    this.retryTarget = null;
+                }
             } catch (e) {
                 this.scopeOptionsFailed = true;
                 this.apiError = _policyI18n.scopeLoadFailed;

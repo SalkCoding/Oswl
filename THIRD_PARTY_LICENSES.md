@@ -38,10 +38,14 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [Qwen3.5-2B (GGUF)](#qwen35-2b-gguf) | Apache 2.0 |
 | [Gemma 4 E2B (GGUF)](#gemma-4-e2b-gguf) | Apache 2.0 |
 | [llama.cpp](#llamacpp) | MIT |
-| [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
+| [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | Source-specific, including CC-BY-SA 4.0 |
+| [GitHub Advisory Database](#github-advisory-database) | CC-BY 4.0 |
+| [NIST NVD](#nist-national-vulnerability-database-nvd) | NIST / CVE source terms; redistribution review pending |
 | [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
 | [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
-| [deps.dev](#depsdev)                                                  | CC-BY 4.0 (generated data) / Apache 2.0 (client repo) |
+| [deps.dev](#depsdev)                                                  | CC-BY 4.0 (generated data); upstream terms for aggregated data |
+| [CocoaPods specifications](#cocoapods-specifications) | MIT for specifications; pod licenses separate |
+| [Bundled Conda mapping](#bundled-conda-to-pypi-name-mapping) | Combined BSD-style / BSD 3-Clause / MIT notices |
 | [CVSS v4.0 Lookup Table (cvss-v4-calculator)](#cvss-v40-lookup-table-cvss-v4-calculator) | BSD 2-Clause |
 
 ---
@@ -619,25 +623,49 @@ SOFTWARE.
 
 ## External Data Sources (Vulnerability / Threat Intelligence Feeds)
 
-Unlike the libraries and models above, the entries below are **data, not code** — consumed live
-by `OsvClient`/`DepsDevClient`/`EpssClient`/`KevCatalogService` when air-gapped mode is off, and
-by the `oswl-vdb` builder CLI (`com.salkcoding.oswl.vdb`) when constructing an offline
-snapshot bundle for air-gapped instances. None of this data is bundled in the git repository or
-build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
+The notices below distinguish remotely acquired data from bundled reference resources.
+Online clients and the `oswl-vdb` builder acquire data under the relevant provider's terms.
+Conda name mappings and the CVSS lookup table are already included in build resources.
+This notice does not grant rights in upstream material or establish that every existing
+snapshot/export preserves the attribution required for redistribution. Preserve record-level
+origin, license links, supplied copyright notices and modification history with redistributed
+data. Review date: 2026-09-07; unresolved permissions are identified explicitly below.
 
 ### OSV (Open Source Vulnerabilities)
 
 - **Website:** https://osv.dev/ · bulk dumps: `https://storage.googleapis.com/osv-vulnerabilities/<ecosystem>/all.zip`
-- **License:** Varies by upstream advisory source, documented per-ecosystem at
-  https://google.github.io/osv.dev/data/. For the ecosystems OsWL supports: **npm, Maven,
-  RubyGems, NuGet** entries originate from the **GitHub Advisory Database (CC-BY 4.0)**; **PyPI**
-  additionally draws from the PyPI Advisory Database and the Python Software Foundation Database
-  (both **CC-BY 4.0**); **Go** from the Go Vulnerability Database (**CC-BY 4.0**); **crates.io**
-  from the RustSec Advisory Database (**CC0 1.0**, public domain).
+- **License:** Varies by original source, not merely by ecosystem. Consult the
+  [OSV source catalog](https://google.github.io/osv.dev/data/) and the source's own license.
+  GitHub Advisory Database, PyPA advisory data and Go `/data/` use CC-BY 4.0.
+  [RustSec](https://github.com/rustsec/advisory-db/blob/main/LICENSE.txt) defaults to CC0,
+  but imported GHSA records use CC-BY 4.0 with record-specific attribution.
+  [Ubuntu Security Notices](https://github.com/canonical/ubuntu-security-notices/blob/main/LICENSE)
+  use CC-BY-SA 4.0. No blanket redistribution clearance for Debian/Alpine-derived data
+  was established in this review. OSV access does not replace upstream permissions.
 - **Used for:** Live per-component vulnerability lookups (`OsvClient`) and, in `oswl-vdb build`,
   bulk re-indexing of the ecosystem `all.zip` dumps into `osv.jsonl` snapshot entries.
-- **Attribution:** CC-BY 4.0 requires attribution to the original source; this notice plus OSV's
-  own `id`/`aliases` fields preserved verbatim in every re-indexed entry satisfy that.
+- **Attribution:** Credit OSV and the original advisory publisher; retain supplied notices,
+  source and license links, and indicate transformations. IDs alone do not establish compliance.
+  Apply CC-BY-SA obligations to qualifying adaptations; do not relabel all data as OsWL's MIT code.
+
+### GitHub Advisory Database
+
+- **Source / license:** [GitHub Advisory Database — CC-BY 4.0](https://github.com/github/advisory-database/blob/main/LICENSE.md).
+- **Used for:** Direct `GitHubAdvisoryClient` queries as well as advisories surfaced through OSV.
+- **Attribution:** GitHub Advisory Database and the contributors identified by the source;
+  preserve advisory URL, license and supplied attribution when sharing transformed records.
+
+### NIST National Vulnerability Database (NVD)
+
+- **Source:** https://nvd.nist.gov/ · API: https://nvd.nist.gov/developers/vulnerabilities
+- **Used for:** CVE details and CPE-based advisory lookup (`NvdClient`).
+- **Terms:** Consult [NIST copyright and licensing statements](https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications)
+  and the applicable NVD/CVE source terms. A U.S. government publisher does not establish a
+  CC0 license for every incorporated third-party record or referenced publication. The NVD-specific
+  terms pages did not expose sufficient content during this review; blanket redistribution
+  permission for every incorporated field remains unverified.
+- **Attribution / non-endorsement:** Data source: NIST NVD. This product uses data from the
+  NVD API but is not endorsed or certified by the NVD.
 
 ### FIRST.org EPSS (Exploit Prediction Scoring System)
 
@@ -648,14 +676,17 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
   **not** shared per that FAQ, only the published per-CVE scores OsWL consumes.
 - **Used for:** Live per-CVE probability-of-exploitation scores (`EpssClient`) and, in
   `oswl-vdb build`, the full bulk CSV.
-- **Attribution:** This notice + preserving FIRST.org as the named source satisfies the
-  attribution request.
+- **Attribution:** FIRST.org EPSS; preserve score date and model version when supplied.
+  Public access and requested attribution do not establish unrestricted dataset redistribution.
+  No explicit SPDX data license or blanket commercial redistribution grant was verified in
+  the published FAQ/data pages; confirm terms before distributing a score database to others.
 
 ### CISA KEV (Known Exploited Vulnerabilities Catalog)
 
 - **Website:** https://www.cisa.gov/known-exploited-vulnerabilities-catalog
-- **License:** **CC0 1.0** (public domain) — a work of the U.S. federal government, mirrored
-  under CC0 at https://github.com/cisagov/kev-data.
+- **License:** **CC0 1.0**, expressly published in the
+  [CISA KEV data repository license](https://github.com/cisagov/kev-data/blob/develop/LICENSE).
+  Linked third-party material and CISA/DHS marks are not licensed by that dedication.
 - **Used for:** Live KEV-listed flagging (`KevCatalogService`) and, in `oswl-vdb build`, the full
   bulk JSON feed.
 
@@ -663,27 +694,47 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
 
 - **Website:** https://deps.dev/ · API: https://docs.deps.dev/api/v3/ · source:
   https://github.com/google/deps.dev
-- **License:** The deps.dev README states: *"deps.dev generates additional data, including
-  resolved dependencies, advisory statistics, associations between entities, etc. This generated
-  data is available under a **CC-BY 4.0** license."* This covers the derived fields OsWL consumes
-  (`licenses`, `advisoryKeys`, resolved version/dependency data). Advisory content itself
-  (GHSA title/CVSS surfaced via `GetAdvisory`) originates from OSV/GHSA and is independently
-  CC-BY 4.0 per the OSV entry above. The raw registry fields deps.dev merely aggregates (not
-  generates) have no independently stated license and inherit whatever terms the origin registry
-  applies. Access to the API itself is governed by the
-  [Google APIs Terms of Service](https://developers.google.com/terms), which explicitly permits
-  caching: *"Clients are expressly permitted to cache data served by the API."* The deps.dev
-  **client repository's own code** (not the data) is Apache 2.0.
+- **License:** The [deps.dev README](https://github.com/google/deps.dev#readme) licenses generated
+  data, including resolved dependencies and advisory statistics, under **CC-BY 4.0**.
+  Aggregated registry/advisory content remains subject to its original terms: do not infer that
+  every `licenses` or `advisoryKeys` field and referenced record has been relicensed.
+  The README permits API caching; API use is also subject to the
+  [Google APIs Terms of Service](https://developers.google.com/terms).
+  The repository's code is Apache 2.0; this does not license the hosted backend or all its data.
 - **Used for:** Live per-version license/advisory-key lookups and Scorecard scores
   (`DepsDevClient`) and, in `oswl-vdb build`, targeted `GetVersion`/`GetAdvisory` calls against a
-  wanted-list — deps.dev has no bulk dump, so this is the only viable ingestion path.
-- **Note:** Given the licensing ambiguity above, treat deps.dev-derived fields (`licenses`,
-  `advisoryKeys`, GHSA advisory title/CVSS) the same way the rest of this codebase already does —
-  as data used to power OsWL's own analysis output, not redistributed as a standalone dataset.
-  wanted-list — deps.dev has no bulk dump, so this is the only viable ingestion path.
-- **Attribution:** This notice + the OSV/GHSA attribution above satisfies CC-BY 4.0 for the
-  generated and advisory data. deps.dev-derived fields are used to power OsWL's own analysis
-  output, not redistributed as a standalone dataset.
+  wanted-list. The provider also documents a BigQuery dataset in its [FAQ](https://docs.deps.dev/faq/);
+  availability is not a grant to redistribute every underlying source.
+- **Attribution:** deps.dev / Google and the original data publishers, source and license URLs,
+  and an indication of transformations. Existing offline snapshots require the same review as
+  other exported data. This notice alone does not certify their attribution completeness.
+
+### CocoaPods specifications
+
+- **Source / license:** [CocoaPods Specs](https://github.com/CocoaPods/Specs#readme) states that
+  the specifications are under the [CocoaPods MIT license](https://github.com/CocoaPods/CocoaPods/blob/master/LICENSE).
+- **Used for:** Repository and package-license metadata (`CocoaPodsSpecsClient`). Retain the
+  applicable MIT copyright and permission notice when redistributing substantial specification
+  content. Each actual pod's source code retains its own license; a podspec is not permission
+  to redistribute the package under MIT.
+
+### Bundled Conda-to-PyPI name mapping
+
+- **Resource:** `src/main/resources/conda/grayskull-pypi-mapping.json`.
+- **Origin:** `mappings/pypi/grayskull_pypi_mapping.json` from `regro/cf-graph-countyfair`, now
+  [conda-forge/conda-forge-bot-data](https://github.com/conda-forge/conda-forge-bot-data).
+  This is not the separate Grayskull program's Apache-licensed source.
+- **License:** The upstream `License` contains a Columbia University BSD-style notice,
+  Tick-my-feedstocks and Rever BSD 3-Clause notices, and a Doctr MIT notice. Preserve the
+  [complete upstream text shipped with OsWL](src/main/resources/META-INF/licenses/conda-forge-bot-data-LICENSE.txt).
+  Do not replace the combined/custom text with an assumed single SPDX identifier.
+- **Copyright:** © 2018 Board of Trustees of Columbia University in the city of New York;
+  © 2017 Peter M. Landwehr; © 2017 Anthony Scopatz; © 2016 Aaron Meurer, Gil Forsyth.
+- **Provenance:** License text retrieved from commit
+  `fd0dfed0d43fbb084f683d2c00473a887b645d69` on 2026-09-07; this is the license revision,
+  **not a verified revision of the bundled mapping**. The mapping's original commit and any
+  additional upstream-data terms remain to be established before claiming complete provenance.
+  Existing mapping SHA-256: `345402a491deabb648ddbb60a5c6708e0d99c69a99d11e5d8cd64a1d495ea2bd`.
 
 ### CVSS v4.0 Lookup Table (cvss-v4-calculator)
 

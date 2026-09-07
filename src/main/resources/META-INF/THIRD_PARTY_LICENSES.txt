@@ -1,3 +1,70 @@
+## Vulnerability Data and Bundled Reference Resources
+
+Reviewed 2026-09-07. These notices identify sources; they are not a blanket
+redistribution grant. Source-specific attribution, supplied copyright notices,
+license links and modification history must accompany redistributed records.
+See the distribution's THIRD_PARTY_LICENSES.md for additional context. Existing
+offline bundles/exports are not certified as attribution-complete by this notice.
+
+OSV: https://osv.dev/ and https://google.github.io/osv.dev/data/
+Data rights vary by original advisory source. GitHub Advisory Database, PyPA
+advisory data and Go /data/ use CC-BY 4.0. RustSec defaults to CC0 with CC-BY 4.0
+exceptions for GHSA imports. Ubuntu Security Notices use CC-BY-SA 4.0.
+Preserve source attribution, license URLs and transformation information.
+Debian/Alpine-derived data redistribution terms remain unverified in this review.
+
+GitHub Advisory Database: https://github.com/github/advisory-database
+CC-BY 4.0: https://github.com/github/advisory-database/blob/main/LICENSE.md
+Used directly and through OSV. Credit the database and source contributors.
+PyPA: https://github.com/pypa/advisory-database/blob/main/LICENSE
+Go: https://github.com/golang/vulndb/blob/master/LICENSE
+RustSec: https://github.com/rustsec/advisory-db/blob/main/LICENSE.txt
+Ubuntu: https://github.com/canonical/ubuntu-security-notices/blob/main/LICENSE
+CC-BY: https://creativecommons.org/licenses/by/4.0/
+CC-BY-SA: https://creativecommons.org/licenses/by-sa/4.0/
+ShareAlike applies where required to shared adaptations; these notices do not
+relicense source data under the license of the OsWL application.
+
+NIST National Vulnerability Database: https://nvd.nist.gov/
+This product uses data from the NVD API but is not endorsed or certified by the NVD.
+Consult NIST/NVD and CVE source terms; no blanket CC0 license for all incorporated
+third-party content was established. NVD-specific redistribution terms require
+further verification; referenced publications retain their own rights.
+
+FIRST.org EPSS: https://www.first.org/epss/faq and https://www.first.org/epss/data
+Public score access, attribution requested. Credit FIRST.org EPSS and retain the
+score date/model version when supplied. An explicit blanket license to redistribute
+a commercial score database was not verified; public access is not such a grant.
+
+CISA KEV: https://github.com/cisagov/kev-data/blob/develop/LICENSE
+CC0 1.0. Credit CISA as source for provenance. Linked third-party material and
+CISA/DHS marks are not covered by that dedication; no endorsement is implied.
+
+deps.dev / Google: https://github.com/google/deps.dev#readme
+Generated data: CC-BY 4.0; aggregated data retains original source terms.
+API caching is permitted by the README; Google API terms also apply:
+https://developers.google.com/terms
+Do not treat every registry/advisory field as newly licensed CC-BY data.
+Credit deps.dev and original publishers; retain source/license URLs and changes.
+
+CocoaPods specifications: https://github.com/CocoaPods/Specs#readme
+MIT: https://github.com/CocoaPods/CocoaPods/blob/master/LICENSE
+Retain applicable copyright and permission notices when redistributing substantial
+specification content. Each actual pod's code/binary has its own license.
+
+Bundled Conda-to-PyPI mapping: conda/grayskull-pypi-mapping.json
+Origin: regro/cf-graph-countyfair, now conda-forge/conda-forge-bot-data,
+mappings/pypi/grayskull_pypi_mapping.json. This is distinct from the Grayskull program.
+Copyright (c) 2018, Board of Trustees of Columbia University in the city of New York.
+Copyright (c) 2017, Peter M. Landwehr (Tick-my-feedstocks).
+Copyright (c) 2017, Anthony Scopatz (Rever).
+Copyright (c) 2016 Aaron Meurer, Gil Forsyth (Doctr).
+The full combined upstream License (BSD-style, BSD 3-Clause and MIT notices)
+is included unchanged at META-INF/licenses/conda-forge-bot-data-LICENSE.txt.
+License revision: fd0dfed0d43fbb084f683d2c00473a887b645d69, retrieved 2026-09-07.
+This is not a verified source revision of the bundled JSON. Its original revision
+and any additional upstream-data terms remain to be established.
+
 ## Embedded AI Runtime and Models
 
 Runtime binaries and model weights are optional downloads, excluded from the source repository,
