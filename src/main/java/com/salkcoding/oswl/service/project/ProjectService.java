@@ -29,7 +29,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -97,9 +96,8 @@ public class ProjectService {
 
     @Transactional(readOnly = true)
     public List<TrashProjectDto> findTrash() {
-        var accessible = Set.copyOf(projectAccessService.accessibleProjectIds());
         return projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
-                .filter(p -> accessible.contains(p.getId()))
+                .filter(p -> projectAccessService.canViewProject(p.getId()))
                 .map(this::toTrash)
                 .collect(Collectors.toList());
     }
@@ -230,9 +228,8 @@ public class ProjectService {
 
     @Transactional
     public void permanentDeleteAll() {
-        var accessible = Set.copyOf(projectAccessService.accessibleProjectIds());
         List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
-                .filter(p -> accessible.contains(p.getId()))
+                .filter(p -> projectAccessService.canViewProject(p.getId()))
                 .toList();
         trash.forEach(p -> auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
                 p.getId().toString(), p.getName(), "bulk=all"));

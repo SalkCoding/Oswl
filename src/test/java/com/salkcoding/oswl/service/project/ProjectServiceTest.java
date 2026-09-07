@@ -271,7 +271,7 @@ class ProjectServiceTest {
         deleted.softDelete();
 
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc()).thenReturn(List.of(deleted));
-        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(1L));
+        when(projectAccessService.canViewProject(1L)).thenReturn(true);
 
         List<TrashProjectDto> result = projectService.findTrash();
 
@@ -290,7 +290,7 @@ class ProjectServiceTest {
         p.softDelete();  // just deleted → 30 daysLeft → "yellow"
 
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc()).thenReturn(List.of(p));
-        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(2L));
+        when(projectAccessService.canViewProject(2L)).thenReturn(true);
 
         TrashProjectDto dto = projectService.findTrash().getFirst();
 
@@ -397,7 +397,8 @@ class ProjectServiceTest {
         p2.softDelete();
         when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc())
                 .thenReturn(List.of(p1, p2));
-        when(projectAccessService.accessibleProjectIds()).thenReturn(List.of(1L, 2L));
+        when(projectAccessService.canViewProject(1L)).thenReturn(true);
+        when(projectAccessService.canViewProject(2L)).thenReturn(true);
 
         projectService.permanentDeleteAll();
 
@@ -477,5 +478,18 @@ class ProjectServiceTest {
 
         verify(projectVersionRepository, never()).save(any());
         verify(projectVersionRepository, never()).findMaxVersionNumber(any());
+    }
+    @Test
+    void trashListingAndEmptyingExcludeProjectsWithoutAccess() {
+        Project allowed = Project.builder().id(1L).name("Allowed").deletedAt(LocalDateTime.now()).build();
+        Project denied = Project.builder().id(2L).name("Denied").deletedAt(LocalDateTime.now()).build();
+        when(projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc()).thenReturn(List.of(allowed, denied));
+        when(projectAccessService.canViewProject(1L)).thenReturn(true);
+        when(projectAccessService.canViewProject(2L)).thenReturn(false);
+
+        assertThat(projectService.findTrash()).extracting(TrashProjectDto::getId).containsExactly(1L);
+        projectService.permanentDeleteAll();
+        verify(projectRepository).deleteAll(List.of(allowed));
+        verify(projectAccessService, never()).accessibleProjectIds();
     }
 }

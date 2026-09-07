@@ -310,4 +310,24 @@ class RequestLifecycleUiTest extends UiTestBase {
         assertThat(download.suggestedFilename()).startsWith("oswl-scan-archive-export-p1-").endsWith(".json");
         assertThat(java.nio.file.Files.readString(download.path())).contains("immutable", "42");
     }
+    @Test void deletedProjectAppearsInTrashAndCanBeRestored() {
+        Long project = seed(0);
+        loginAsTestAdmin();
+        page.navigate(url("/projects?lang=en"));
+        assertThat(page.evaluate("""
+                async id => (await fetch('/projects/' + id, {method: 'DELETE'})).status
+                """, project.toString())).isEqualTo(204);
+        page.reload();
+        page.keyboard().press("Escape");
+        var trashCard = page.locator(".trash-card[data-trash-id='" + project + "']");
+        page.locator("button").filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText("Trash")).click();
+        com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(trashCard).isVisible();
+        assertThat(page.locator(".project-card[data-project-id='" + project + "']").count()).isZero();
+        assertThat(page.evaluate("""
+                async id => (await fetch('/projects/' + id + '/restore', {method: 'POST'})).status
+                """, project.toString())).isEqualTo(204);
+        page.reload();
+        assertThat(trashCard.count()).isZero();
+        assertThat(projects.findById(project).orElseThrow().getDeletedAt()).isNull();
+    }
 }
