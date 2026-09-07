@@ -23,7 +23,7 @@
                         class="text-[var(--grayscale-70)] hover:text-[var(--grayscale-100)] text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] transition-colors"
                         th:text="#{settings.diagnostics.btn.copy}">Copy for support</button>
                 <button @click="run()" :disabled="running"
-                        class="bg-[#00756b] hover:bg-[#00665e] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
                         x-text="running ? _diagI18n.running : _diagI18n.run">Run diagnostics</button>
             </div>
         </div>
@@ -97,7 +97,7 @@
 
             <div class="flex flex-wrap items-center gap-[12px]">
                 <button @click="previewExport()" :disabled="!projectId || previewing || archiving"
-                        class="bg-[#00756b] hover:bg-[#00665e] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
                         x-text="previewing ? _archI18n.previewing : _archI18n.preview">Preview &amp; Download export</button>
                 <button @click="archiveNow()" :disabled="!projectId || previewing || archiving"
                         class="bg-[#b91c1c] hover:bg-[#991b1b] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"

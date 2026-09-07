@@ -25,7 +25,7 @@
                 <template x-for="f in filters" :key="f.key">
                     <button type="button" @click="activeFilter = f.key"
                             :class="activeFilter === f.key
-                                ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold border-[rgba(0,176,160,0.25)]'
+                                ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold border-[rgba(0,176,160,0.25)]'
                                 : 'bg-white text-[var(--grayscale-60)] font-medium border-[var(--grayscale-20)] hover:border-[var(--grayscale-40)] hover:text-[var(--grayscale-80)]'"
                             class="inline-flex items-center gap-[5px] px-[13px] py-[7px] rounded-[8px] text-[13px] tracking-[-0.13px] border transition-all cursor-pointer">
                         <span x-text="f.label"></span>

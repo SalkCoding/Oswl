@@ -127,7 +127,7 @@
                         :class="tab === 'all' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.all}">ALL</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'all' ? 'bg-[rgba(51,209,183,0.1)] text-[#007970]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'all' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${totalCount}">0</span>
                 </button>
                 <button type="button"
@@ -136,7 +136,7 @@
                         :class="tab === 'added' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.added}">Added</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'added' ? 'bg-[rgba(51,209,183,0.1)] text-[#007970]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'added' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${addedCount}">0</span>
                 </button>
                 <button type="button"
@@ -145,7 +145,7 @@
                         :class="tab === 'removed' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.removed}">Removed</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'removed' ? 'bg-[rgba(51,209,183,0.1)] text-[#007970]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'removed' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${removedCount}">0</span>
                 </button>
                 <button type="button"
@@ -154,7 +154,7 @@
                         :class="tab === 'updated' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.updated}">Updated</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'updated' ? 'bg-[rgba(51,209,183,0.1)] text-[#007970]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'updated' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${updatedCount}">0</span>
                 </button>
                 <button type="button"
@@ -163,7 +163,7 @@
                         :class="tab === 'newThreat' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.newThreats}">New Threats</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'newThreat' ? 'bg-[rgba(51,209,183,0.1)] text-[#007970]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'newThreat' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
                           th:text="${newThreatCount}">0</span>
                 </button>
             </div>
