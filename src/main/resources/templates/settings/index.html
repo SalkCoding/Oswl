@@ -26,9 +26,13 @@
     <div class="max-w-[1440px] mx-auto px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] flex items-center justify-between gap-[32px] pt-[17px] pb-[16px] overflow-x-auto">
         <div class="flex items-center gap-[32px]">
             <th:block th:each="t, tStat : ${accessibleTabs}">
+                <span th:if="${tStat.first or t.group != accessibleTabs[tStat.index - 1].group}"
+                      class="settings-nav-group text-[11px] font-bold text-[var(--grayscale-50)] px-[8px] py-[4px]"
+                      th:text="${t.group == 'access' ? #messages.msg('settings.group.access') : (t.group == 'policy' ? #messages.msg('settings.group.policy') : (t.group == 'connections' ? #messages.msg('settings.group.connections') : #messages.msg('settings.group.operations')))}">Access</span>
                 <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
                 <a th:href="@{/settings(tab=${t.key})}"
-                   th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[#007970] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
+                   th:aria-current="${t.key == activeTab} ? 'page' : null"
+                   th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-140)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
                    class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
                    th:text="#{${t.labelKey}}">Tab</a>
                 <!-- 점 구분자 (4px 원) -->
@@ -41,6 +45,14 @@
            th:text="#{settings.onboarding.rerun}">↻ Revisit onboarding</a>
     </div>
 </nav>
+
+<div id="settings-dirty-status" hidden role="status"
+     class="w-full max-w-[1440px] mx-auto mt-[16px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px]">
+    <div class="flex items-center gap-[8px] rounded-[8px] border border-[var(--risk-high)] bg-[rgba(244,122,41,0.08)] px-[12px] py-[8px] text-[12px] text-[var(--grayscale-80)]">
+        <span aria-hidden="true">●</span>
+        <span id="settings-dirty-status-text">Unsaved changes</span>
+    </div>
+</div>
 
 <main class="w-full min-w-0 overflow-x-auto flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] max-w-[1440px] mx-auto">
 
@@ -70,5 +82,21 @@
 
 <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        var active = document.querySelector('.settings-page nav a[aria-current="page"]');
+        if (active) active.scrollIntoView({ block: 'nearest', inline: 'center' });
+
+        var dirtyStatus = document.getElementById('settings-dirty-status');
+        var dirtyText = document.getElementById('settings-dirty-status-text');
+        function renderDirty(event) {
+            var count = event && event.detail ? event.detail.count : 0;
+            dirtyStatus.hidden = count === 0;
+            if (count > 0) dirtyText.textContent = /*[[#{settings.dirty.summary}]]*/ '{0} unsaved change(s)'.replace('{0}', count);
+        }
+        document.addEventListener('oswl:dirty-change', renderDirty);
+        if (window.OswlDirty) renderDirty({ detail: { count: window.OswlDirty.scopes().length } });
+    });
+</script>
 </body>
 </html>

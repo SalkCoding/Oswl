@@ -17,6 +17,9 @@
          x-text="apiError"></div>
     <button type="button" x-show="!loaded && !loading" @click="load()"
             class="px-3 py-2 underline" th:text="#{common.retry}">Retry</button>
+    <p x-show="loading" x-cloak class="text-[13px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</p>
+
+    <fieldset :disabled="!loaded || loading" :class="(!loaded || loading) ? 'opacity-60' : ''" class="contents">
 
     <!-- ─────────────────────────────────────────────────────────────── -->
     <!-- Section 1: Mail Server                                         -->
@@ -249,6 +252,8 @@
             </button>
         </div>
     </div>
+
+    </fieldset>
 
     <!-- Toast -->
     <div x-show="toastVisible" x-cloak

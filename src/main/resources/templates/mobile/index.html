@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{mobile.pageTitle})}"></head>
-<body class="min-h-screen bg-[var(--grayscale-5)]">
+<body class="mobile-page min-h-screen bg-[var(--grayscale-5)]">
 
 <div x-data="mobileDashboard()" class="max-w-[480px] mx-auto min-h-screen flex flex-col">
 
@@ -34,10 +34,14 @@
                     </p>
                     <div class="flex gap-[8px] pt-[4px]">
                         <button type="button" @click="approve(w)"
-                                class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-semibold rounded-[8px] py-[9px]"
+                                :disabled="isBusy('approve-' + w.id)"
+                                :aria-busy="isBusy('approve-' + w.id)"
+                                class="flex-1 bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-semibold rounded-[8px] py-[9px] disabled:opacity-50 disabled:cursor-wait"
                                 th:text="#{mobile.waivers.approve}">Approve</button>
                         <button type="button" @click="revoke(w)"
-                                class="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-[13px] font-semibold rounded-[8px] py-[9px]"
+                                :disabled="isBusy('revoke-' + w.id)"
+                                :aria-busy="isBusy('revoke-' + w.id)"
+                                class="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-[13px] font-semibold rounded-[8px] py-[9px] disabled:opacity-50 disabled:cursor-wait"
                                 th:text="#{mobile.waivers.revoke}">Revoke</button>
                     </div>
                 </div>
@@ -57,7 +61,9 @@
                     <div class="flex items-center justify-between gap-[8px]">
                         <span class="font-semibold text-[13px] text-[var(--grayscale-90)]" x-text="group.projectName"></span>
                         <button type="button" @click="acknowledge(group)"
-                                class="text-[12px] font-semibold text-[var(--primary-120)] hover:underline shrink-0"
+                                :disabled="isBusy('ack-' + group.projectId)"
+                                :aria-busy="isBusy('ack-' + group.projectId)"
+                                class="text-[12px] font-semibold text-[var(--primary-120)] hover:underline shrink-0 disabled:opacity-50 disabled:cursor-wait"
                                 th:text="#{mobile.alerts.acknowledgeAll}">Mark all seen</button>
                     </div>
                     <template x-for="a in group.alerts" :key="a.id">
@@ -76,6 +82,12 @@
         </section>
 
     </main>
+
+    <div x-show="errorMessage" x-cloak role="alert"
+         class="mx-[16px] mb-[16px] p-[12px] rounded-[8px] border border-red-200 bg-red-50 text-[12px] text-red-700 flex items-center gap-[10px]">
+        <span class="flex-1" x-text="errorMessage"></span>
+        <button type="button" @click="retryLast()" class="font-semibold underline shrink-0" th:text="#{mobile.action.retry}">Retry</button>
+    </div>
 
     <!-- Toast -->
     <div x-show="toastVisible" x-cloak
@@ -110,6 +122,9 @@
             alertGroups: _mobileAlertGroups,
             toastVisible: false,
             toastMsg: '',
+            pendingActions: {},
+            errorMessage: '',
+            lastAction: null,
 
             showToast(msg) {
                 this.toastMsg = msg;
@@ -125,37 +140,70 @@
                     default: return 'var(--risk-unknown)';
                 }
             },
+            isBusy(key) { return !!this.pendingActions[key]; },
+            retryLast() {
+                if (this.lastAction) this.lastAction();
+            },
+            beginAction(key, retry) {
+                if (this.isBusy(key)) return false;
+                this.pendingActions[key] = true;
+                this.lastAction = retry;
+                this.errorMessage = '';
+                return true;
+            },
+            failAction(message, retry) {
+                this.errorMessage = message;
+                this.lastAction = retry;
+            },
+            endAction(key) {
+                delete this.pendingActions[key];
+            },
             async approve(w) {
+                const key = 'approve-' + w.id;
+                if (!this.beginAction(key, () => this.approve(w))) return;
                 try {
                     const r = await fetch('/api/policies/exceptions/' + w.id + '/approve', { method: 'POST' });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.showToast(_mobileI18n.approveFailed); return; }
+                    if (!r.ok) { this.failAction(_mobileI18n.approveFailed, () => this.approve(w)); return; }
                     this.waiverList = this.waiverList.filter(x => x.id !== w.id);
+                    this.errorMessage = '';
                     this.showToast(_mobileI18n.approved);
                 } catch (e) {
-                    this.showToast(_mobileI18n.approveFailed);
+                    this.failAction(_mobileI18n.approveFailed, () => this.approve(w));
+                } finally {
+                    this.endAction(key);
                 }
             },
             async revoke(w) {
+                const key = 'revoke-' + w.id;
+                if (!this.beginAction(key, () => this.revoke(w))) return;
                 try {
                     const r = await fetch('/api/policies/exceptions/' + w.id + '/revoke', { method: 'POST' });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.showToast(_mobileI18n.revokeFailed); return; }
+                    if (!r.ok) { this.failAction(_mobileI18n.revokeFailed, () => this.revoke(w)); return; }
                     this.waiverList = this.waiverList.filter(x => x.id !== w.id);
+                    this.errorMessage = '';
                     this.showToast(_mobileI18n.revoked);
                 } catch (e) {
-                    this.showToast(_mobileI18n.revokeFailed);
+                    this.failAction(_mobileI18n.revokeFailed, () => this.revoke(w));
+                } finally {
+                    this.endAction(key);
                 }
             },
             async acknowledge(group) {
+                const key = 'ack-' + group.projectId;
+                if (!this.beginAction(key, () => this.acknowledge(group))) return;
                 try {
                     const r = await fetch('/projects/' + group.projectId + '/cve-alerts/acknowledge', { method: 'POST' });
                     if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.showToast(_mobileI18n.ackFailed); return; }
+                    if (!r.ok) { this.failAction(_mobileI18n.ackFailed, () => this.acknowledge(group)); return; }
                     this.alertGroups = this.alertGroups.filter(g => g.projectId !== group.projectId);
+                    this.errorMessage = '';
                     this.showToast(_mobileI18n.acknowledged);
                 } catch (e) {
-                    this.showToast(_mobileI18n.ackFailed);
+                    this.failAction(_mobileI18n.ackFailed, () => this.acknowledge(group));
+                } finally {
+                    this.endAction(key);
                 }
             }
         };

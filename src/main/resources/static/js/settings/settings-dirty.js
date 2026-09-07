@@ -27,11 +27,18 @@
         return container ? container.getAttribute('data-dirty-scope') : null;
     }
 
+    function notify() {
+        document.dispatchEvent(new CustomEvent('oswl:dirty-change', {
+            detail: { scopes: Array.from(dirtyScopes), count: dirtyScopes.size }
+        }));
+    }
+
     window.OswlDirty = {
         mark(scope) {
             if (!scope) return;
             revisions.set(scope, (revisions.get(scope) || 0) + 1);
             dirtyScopes.add(scope);
+            notify();
         },
         revision(scope) { return revisions.get(scope) || 0; },
         clear(scope, savedRevision) {
@@ -39,9 +46,11 @@
                 return false;
             }
             dirtyScopes.delete(scope);
+            notify();
             return true;
         },
-        clearAll() { dirtyScopes.clear(); },
+        clearAll() { dirtyScopes.clear(); notify(); },
+        scopes() { return Array.from(dirtyScopes); },
         isDirty() { return dirtyScopes.size > 0; }
     };
 

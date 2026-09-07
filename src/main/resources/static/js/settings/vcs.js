@@ -1,6 +1,6 @@
 function vcsTab() {
     return {
-        subTab: initialSettingsSection('github'),
+        subTab: initialSettingsSection('github', ['github', 'gitlab', 'atlassian']),
         connections: [],
         loading: true,
         slideout: false,
@@ -46,6 +46,10 @@ function vcsTab() {
         },
 
         async init() {
+            onSettingsSectionPopstate(() => {
+                const section = initialSettingsSection('github', ['github', 'gitlab', 'atlassian']);
+                if (this.subTab !== section) this.subTab = section;
+            });
             await this.loadConnections();
         },
         async loadConnections() {

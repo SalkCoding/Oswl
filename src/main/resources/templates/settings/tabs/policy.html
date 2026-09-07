@@ -15,13 +15,13 @@
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
         <span x-text="apiError"></span>
-        <button type="button" @click="apiError = null"
+        <button type="button" @click="retry()" :disabled="!retryTarget || scopeOptionsLoading"
                 class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
                 th:text="#{common.retry}">Retry</button>
     </div>
 
     <!-- Sub-tabs -->
-    <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+    <div role="tablist" th:aria-label="#{settings.policy.heading}" class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
         <div th:replace="~{fragments/settings-subtabs :: subtabButton('policies', #{settings.policy.subtab.policies})}"></div>
         <div th:replace="~{fragments/settings-subtabs :: subtabButton('waivers', #{settings.policy.subtab.waivers})}"></div>
         <div th:replace="~{fragments/settings-subtabs :: subtabButton('sync', #{settings.policy.subtab.sync})}"></div>
@@ -59,6 +59,9 @@
                             <option :value="String(opt.id)" x-text="opt.name"></option>
                         </template>
                     </select>
+                    <p x-show="scopeOptionsLoading" class="text-[12px] text-[var(--grayscale-50)]" th:text="#{common.loading}">Loading…</p>
+                    <p x-show="scopeOptionsFailed" class="text-[12px] text-red-700" th:text="#{settings.policy.scopeOptions.error}">Scope options could not be loaded. Retry to try again.</p>
+                    <p x-show="scopeOptionsLoaded && !scopeOptionsFailed && !scopeOptionsFor(form.scopeType).length" class="text-[12px] text-[var(--grayscale-50)]" th:text="#{settings.policy.scopeOptions.empty}">No available scope options.</p>
                 </div>
                 <div class="flex flex-col gap-[6px]" x-show="form.scopeType === 'ORGANIZATION'">
                     <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.scopeId}">Applies to</label>
@@ -462,6 +465,7 @@
         gitopsSuccess:     /*[[#{settings.policy.sync.gitops.success}]]*/ 'Synced — project policy updated.',
         gitopsFailed:      /*[[#{settings.policy.sync.gitops.failed}]]*/ 'GitOps sync failed.',
         effectiveLoadFailed: /*[[#{settings.policy.sync.effective.loadFailed}]]*/ 'Failed to resolve the effective policy.'
+        ,scopeLoadFailed:    /*[[#{settings.policy.scopeOptions.error}]]*/ 'Could not load policy scopes. Retry to try again.'
     };
     </script>
     <script th:src="@{/js/settings/policy.min.js}"></script>

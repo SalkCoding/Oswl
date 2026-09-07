@@ -10,7 +10,7 @@ function aiTab() {
         // Sub-tab: 'provider' | 'context' | 'prompts'. Restored from the URL's `section`
         // query param so a documentation link like /settings?tab=ai&section=prompts opens
         // directly on that panel.
-        subTab: initialSettingsSection('provider'),
+        subTab: initialSettingsSection('provider', ['provider', 'context', 'prompts']),
         _contextLoaded: false, _promptsLoaded: false, _providerLoaded: false,
         forms: {
             OPENAI:    { apiKey: '', modelName: 'gpt-5.6-terra',   baseUrl: '' },
@@ -103,7 +103,7 @@ function aiTab() {
             const [scaled, unit] = n < 1000000 ? [n / 1000, 'K'] : [n / 1000000, 'M'];
             // 3 significant digits: 9.87K, 98.7K, 987K
             const decimals = scaled < 10 ? 2 : (scaled < 100 ? 1 : 0);
-            return scaled.toFixed(decimals).replace(/\.?0+$/, '') + unit;
+            return scaled.toFixed(decimals).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') + unit;
         },
 
         /** Full count with thousands separators — used as the title of an abbreviated value. */
@@ -178,6 +178,10 @@ function aiTab() {
         },
 
         async init() {
+            onSettingsSectionPopstate(() => {
+                const section = initialSettingsSection('provider', ['provider', 'context', 'prompts']);
+                if (this.subTab !== section) this.subTab = section;
+            });
             // A stale error from the previously selected provider would be misleading once
             // the user switches — clear it as soon as the selection changes.
             this.$watch('mode', () => { this.apiError = null; this.apiErrorHint = null; });
@@ -410,14 +414,19 @@ function aiTab() {
                     method: 'POST',
                     headers: this.headers()
                 });
-                if (r.ok) {
-                    this.embedded = await r.json();
-                    // Stopping the sidecar deactivates the LOCAL provider server-side, so
-                    // nothing is serving calls until another entry is saved.
-                    this.activeProviderKind = 'OFF';
-                    this.showToast(_aiI18n.embeddedStopped);
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    this.embeddedError = data.message || _aiI18n.embeddedStopFailed;
+                    return;
                 }
-            } catch (e) { /* keep state */ } finally {
+                this.embedded = data;
+                // Stopping the sidecar deactivates the LOCAL provider server-side, so
+                // nothing is serving calls until another entry is saved.
+                this.activeProviderKind = 'OFF';
+                this.showToast(_aiI18n.embeddedStopped);
+            } catch (e) {
+                this.embeddedError = _aiI18n.embeddedStopFailed;
+            } finally {
                 this.embeddedBusy = false;
             }
         },

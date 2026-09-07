@@ -16,8 +16,13 @@
     -->
     <button type="button" th:fragment="subtabButton(key, label)"
             th:attr="data-section=${key}"
+            role="tab"
             @click="selectSubTab($el.dataset.section)"
-            :class="subTab === $el.dataset.section ? 'border-[#00B9A3] text-[#141616] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
+            :aria-selected="subTab === $el.dataset.section"
+            :tabindex="subTab === $el.dataset.section ? 0 : -1"
+            @keydown.arrow-right.prevent="(() => { const tabs = [...$el.parentElement.querySelectorAll('[data-section]')]; tabs[(tabs.indexOf($el) + 1) % tabs.length].focus(); })()"
+            @keydown.arrow-left.prevent="(() => { const tabs = [...$el.parentElement.querySelectorAll('[data-section]')]; tabs[(tabs.indexOf($el) - 1 + tabs.length) % tabs.length].focus(); })()"
+            :class="subTab === $el.dataset.section ? 'border-[var(--brand-primary)] text-[var(--grayscale-100)] font-bold' : 'border-transparent text-[var(--grayscale-60)] font-normal'"
             class="px-[8px] py-[12px] text-[14px] border-b-[2px] transition-colors"
             th:text="${label}">Tab</button>
 

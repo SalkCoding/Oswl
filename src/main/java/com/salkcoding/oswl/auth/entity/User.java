@@ -62,7 +62,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "theme", nullable = false, length = 20)
     @Builder.Default
-    private UserThemeMode theme = UserThemeMode.SYSTEM;
+    private UserThemeMode theme = UserThemeMode.LIGHT;
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)

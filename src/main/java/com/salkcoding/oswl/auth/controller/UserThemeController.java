@@ -28,7 +28,7 @@ public class UserThemeController implements UserThemeControllerSpec {
     public ResponseEntity<Map<String, String>> getTheme(
             @AuthenticationPrincipal OswlUserPrincipal principal) {
         if (principal == null) {
-            return ResponseEntity.status(401).body(Map.of("theme", UserThemeMode.SYSTEM.name()));
+            return ResponseEntity.status(401).body(Map.of("theme", UserThemeMode.LIGHT.name()));
         }
         UserThemeMode mode = userThemeService.getTheme(principal.getUserId());
         return ResponseEntity.ok(Map.of("theme", mode.name()));

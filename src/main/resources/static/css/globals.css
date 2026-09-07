@@ -23,14 +23,23 @@
     --grayscale-10:  #f3f5f6;
     --grayscale-5:   #fafbfb;
 
+    /* Text-safe accents stay separate from the brighter brand mint used for
+       indicators, charts, and decorative emphasis. */
     --primary-140:   #007e76;
     --primary-120:   #007e74;
     --primary-100:   #007e73;
     --primary-80:    #1d7e6e;
     --primary-40:    #99ebd9;
     --primary-20:    #d3fcf3;
+    --primary-10:    #e9faf6;
+    --primary-5:     #f4fdfb;
+    --brand-primary: #00a093;
+    --brand-primary-hover: #009086;
+    --primary-button-bg: #007e74;
+    --primary-button-hover: #00665e;
 
     --secondary-100: #22efc3;
+    --secondary-120: #18c7a5;
     --secondary-80:  #33d1b7;
     --secondary-60:  #00a093;
     --secondary-20:  #d3fcf3;
@@ -53,6 +62,9 @@
     --border-default: #dbe4e7;
 
     --copy-info:      #00659c;
+    --grayscale-45:   #718087;
+    --grayscale-25:   #d1dce0;
+    --grayscale-3:    #fcfdfd;
 }
 
 [data-theme="dark"],
@@ -84,8 +96,15 @@
     --primary-80:    #6ee3cc;
     --primary-40:    #b3f3e6;
     --primary-20:    #e0fbf6;
+    --primary-10:    #173b3a;
+    --primary-5:     #122b2a;
+    --brand-primary: #33d1b7;
+    --brand-primary-hover: #4ddac1;
+    --primary-button-bg: #007e74;
+    --primary-button-hover: #00665e;
 
     --secondary-100: #22efc3;
+    --secondary-120: #18c7a5;
     --secondary-80:  #33d1b7;
     --secondary-60:  #00a093;
     --secondary-20:  #d3fcf3;
@@ -108,6 +127,9 @@
     --border-default: #2a353a;
 
     --copy-info:      #4db8ff;
+    --grayscale-45:   #7e8e94;
+    --grayscale-25:   #374449;
+    --grayscale-3:    #101619;
 }
 
 html {
@@ -154,6 +176,76 @@ a { color: inherit; text-decoration: none; }
 .dark .thin-scrollbar::-webkit-scrollbar-thumb { background: #425055; }
 [data-theme="dark"] .thin-scrollbar::-webkit-scrollbar-thumb:hover,
 .dark .thin-scrollbar::-webkit-scrollbar-thumb:hover { background: #5e6b70; }
+
+/* Fixed white/black utility classes predate the theme engine. Keep their
+   semantics while making legacy cards, dialogs, and form controls use the
+   same surface/copy pair as the rest of the page. */
+[data-theme="dark"] .bg-white,
+.dark .bg-white { background-color: var(--surface) !important; }
+[data-theme="dark"] .text-black,
+.dark .text-black { color: var(--grayscale-100) !important; }
+[data-theme="dark"] [class*="bg-[var(--primary-120)]"],
+[data-theme="dark"] [class*="bg-[var(--primary-100)]"],
+[data-theme="dark"] [class*="bg-[#00756b]"],
+[data-theme="dark"] [class*="bg-[#00A093]"],
+[data-theme="dark"] [class*="bg-[#007970]"],
+[data-theme="dark"] [class*="bg-[#00B9A3]"],
+.dark [class*="bg-[var(--primary-120)]"],
+.dark [class*="bg-[var(--primary-100)]"],
+.dark [class*="bg-[#00756b]"],
+.dark [class*="bg-[#00A093]"],
+.dark [class*="bg-[#007970]"],
+.dark [class*="bg-[#00B9A3]"] {
+    background-color: var(--primary-button-bg) !important;
+    color: #ffffff !important;
+}
+[data-theme="dark"] [class*="hover:bg-[var(--primary-100)]"]:hover,
+[data-theme="dark"] [class*="hover:bg-[#00665e]"]:hover,
+.dark [class*="hover:bg-[var(--primary-100)]"]:hover,
+.dark [class*="hover:bg-[#00665e]"]:hover { background-color: var(--primary-button-hover) !important; }
+[data-theme="dark"] input:not([class*="bg-transparent"]),
+[data-theme="dark"] textarea:not([class*="bg-transparent"]),
+[data-theme="dark"] select,
+.dark input:not([class*="bg-transparent"]),
+.dark textarea:not([class*="bg-transparent"]),
+.dark select {
+    color: var(--grayscale-100);
+    background-color: var(--surface);
+    color-scheme: dark;
+}
+input::placeholder, textarea::placeholder { color: var(--grayscale-50); opacity: 1; }
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder { color: var(--grayscale-50); }
+
+/* Small metadata is still useful, but it should not carry the primary
+   decision or become illegible on a high-DPI display. */
+[class*="text-[10px]"], [class*="text-[11px]"] { line-height: 1.4; }
+[class*="text-[10px]"] { font-size: 11px !important; }
+[class*="text-[11px]"] { font-size: 12px !important; }
+
+@media print {
+    :root, [data-theme="dark"], .dark {
+        color-scheme: light;
+        --grayscale-100: #141616;
+        --grayscale-90: #272d30;
+        --grayscale-80: #333e42;
+        --grayscale-70: #425055;
+        --grayscale-60: #5e6b70;
+        --grayscale-50: #667278;
+        --grayscale-40: #60737c;
+        --grayscale-30: #c5cfd3;
+        --grayscale-20: #dbe4e7;
+        --grayscale-15: #e8eef0;
+        --grayscale-10: #f3f5f6;
+        --grayscale-5: #fafbfb;
+        --surface: #ffffff;
+        --surface-soft: #f3f5f6;
+        --surface-elevated: #ffffff;
+        --border-default: #dbe4e7;
+    }
+}
 
 .risk-graph-bar {
     display: flex;
@@ -329,9 +421,33 @@ a { color: inherit; text-decoration: none; }
 /* Settings navigation and wide data tables scroll within the viewport on small screens. */
 html:has(body.settings-page), body.settings-page { min-width: 0; }
 html:has(body.onboarding-page), body.onboarding-page { min-width: 0; }
+html:has(body.mobile-page), body.mobile-page { min-width: 0; width: 100%; }
+html:has(body.notification-page), body.notification-page { min-width: 0; }
+.oswl-theme-status {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 200;
+    max-width: min(360px, calc(100vw - 40px));
+    padding: 10px 14px;
+    border: 1px solid var(--risk-high);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--grayscale-100);
+    box-shadow: 0 8px 24px rgba(0, 29, 53, 0.16);
+    font-size: 13px;
+    line-height: 1.4;
+}
 @media (max-width: 767px) {
     .settings-page > header { height: auto; min-height: 64px; flex-wrap: wrap; padding: 12px 16px; gap: 16px; }
     .settings-page > header > div { min-width: 0; flex-wrap: wrap; gap: 16px; }
     .settings-page > header > div:last-child { width: 100%; justify-content: space-between; }
     .settings-page > header button span { white-space: normal; overflow-wrap: anywhere; }
+    .settings-page [class*="w-[440px]"] { width: 100%; max-width: calc(100vw - 32px); }
+    .settings-page [class*="w-[130px]"], .settings-page [class*="w-[110px]"] { width: 100%; }
+    .settings-page [class*="pl-[126px]"] { padding-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }

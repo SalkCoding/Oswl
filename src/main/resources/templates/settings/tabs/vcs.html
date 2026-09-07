@@ -29,7 +29,7 @@
     <div x-show="loading" class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center" th:text="#{common.loading}">Loading...</div>
 
     <!-- Sub-tabs: one per provider, so a docs link like /settings?tab=vcs&section=gitlab opens directly on it. -->
-    <div x-show="!loading" x-cloak class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+    <div x-show="!loading" x-cloak role="tablist" th:aria-label="#{settings.vcs.heading}" class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
         <div th:replace="~{fragments/settings-subtabs :: subtabButton('github', #{settings.vcs.provider.github})}"></div>
         <div th:replace="~{fragments/settings-subtabs :: subtabButton('gitlab', #{settings.vcs.provider.gitlab})}"></div>
         <div th:replace="~{fragments/settings-subtabs :: subtabButton('atlassian', #{settings.vcs.provider.atlassian})}"></div>

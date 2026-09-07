@@ -49,6 +49,12 @@
         </div>
     </div>
 
+    <!-- Data retention is intentionally separated from diagnostics checks: it is a destructive
+         data-management operation, not a health probe. -->
+    <div class="border-t border-[var(--grayscale-20)] pt-[4px]">
+        <h3 class="font-bold text-[16px] text-[var(--grayscale-90)]" th:text="#{settings.diagnostics.archive.domainHeading}">Data retention</h3>
+    </div>
+
     <!-- Scan archiving (SYSTEM_ADMIN only — the whole diagnostics tab already is) -->
     <div x-data="scanArchivingPanel()" x-init="loadProjects()"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[16px]">

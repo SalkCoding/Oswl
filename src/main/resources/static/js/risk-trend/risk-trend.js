@@ -242,25 +242,59 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
     };
 
+    const charts = [];
     const ctxSecurity = document.getElementById('securityRiskChart');
     if (ctxSecurity) {
-        new Chart(ctxSecurity, {
+        charts.push(new Chart(ctxSecurity, {
             type: 'line',
             data: { labels: versions, datasets: createDatasets('security') },
             options: commonOptions
-        });
+        }));
         setupChartTableToggle('securityRiskTableToggle', 'securityRiskChartTable', 'securityRiskChart',
             i18n.xAxis || 'Version', versions, createDatasets('security'), i18n.chartSecurity || 'Security Risk', i18n);
     }
 
     const ctxLicense = document.getElementById('licenseRiskChart');
     if (ctxLicense) {
-        new Chart(ctxLicense, {
+        charts.push(new Chart(ctxLicense, {
             type: 'line',
             data: { labels: versions, datasets: createDatasets('license') },
             options: commonOptions
-        });
+        }));
         setupChartTableToggle('licenseRiskTableToggle', 'licenseRiskChartTable', 'licenseRiskChart',
             i18n.xAxis || 'Version', versions, createDatasets('license'), i18n.chartLicense || 'License Risk', i18n);
     }
+
+    const refreshTheme = () => {
+        const colors = {
+            critical: themeVar('--risk-critical', '#e62727'),
+            high: themeVar('--risk-high', '#f47a29'),
+            medium: themeVar('--risk-medium', '#f5bd26'),
+            low: themeVar('--risk-low', '#97a5ab'),
+            unknown: themeVar('--risk-unknown', '#d0d9dd'),
+            caution: themeVar('--risk-caution', '#f59126'),
+            permitted: themeVar('--risk-permitted', '#84dca5')
+        };
+        const axis = themeVar('--grayscale-50', '#5e6b70');
+        const tick = themeVar('--grayscale-60', '#425055');
+        const grid = themeVar('--grayscale-15', '#dce4e7');
+        const point = themeVar('--surface', '#ffffff');
+        commonOptions.scales.x.title.color = axis;
+        commonOptions.scales.x.ticks.color = tick;
+        commonOptions.scales.y.title.color = axis;
+        commonOptions.scales.y.ticks.color = tick;
+        commonOptions.scales.y.grid.color = grid;
+        commonOptions.elements.point.borderColor = point;
+        charts.forEach(chart => {
+            const colorsForChart = chart.canvas.id === 'licenseRiskChart'
+                ? [colors.critical, colors.caution, colors.permitted, colors.unknown]
+                : [colors.critical, colors.high, colors.medium, colors.low, colors.unknown];
+            chart.data.datasets.forEach((dataset, index) => {
+                dataset.borderColor = colorsForChart[index];
+                dataset.backgroundColor = colorsForChart[index];
+            });
+            chart.update('none');
+        });
+    };
+    if (window.OswlTheme) window.OswlTheme.subscribe(refreshTheme);
 });

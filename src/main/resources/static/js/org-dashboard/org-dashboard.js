@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridColor = themeVar('--grayscale-15', '#dce4e7');
     const pointBorder = themeVar('--surface', '#ffffff');
 
-    new Chart(canvas, {
+    const chart = new Chart(canvas, {
         type: 'line',
         data: {
             labels: data.labels,
@@ -183,6 +183,33 @@ document.addEventListener('DOMContentLoaded', () => {
             interaction: { mode: 'nearest', axis: 'x', intersect: false }
         }
     });
+
+    const refreshTheme = () => {
+        const colors = {
+            critical: themeVar('--risk-critical', '#e62727'),
+            high: themeVar('--risk-high', '#f47a29'),
+            medium: themeVar('--risk-medium', '#f5bd26'),
+            low: themeVar('--risk-low', '#97a5ab'),
+            unknown: themeVar('--risk-unknown', '#d0d9dd')
+        };
+        const axis = themeVar('--grayscale-50', '#5e6b70');
+        const tick = themeVar('--grayscale-60', '#425055');
+        const grid = themeVar('--grayscale-15', '#dce4e7');
+        const point = themeVar('--surface', '#ffffff');
+        const seriesColors = [colors.critical, colors.high, colors.medium, colors.low, colors.unknown];
+        chart.data.datasets.forEach((dataset, index) => {
+            dataset.borderColor = seriesColors[index];
+            dataset.backgroundColor = seriesColors[index];
+        });
+        chart.options.scales.x.title.color = axis;
+        chart.options.scales.x.ticks.color = tick;
+        chart.options.scales.y.title.color = axis;
+        chart.options.scales.y.ticks.color = tick;
+        chart.options.scales.y.grid.color = grid;
+        chart.options.elements.point.borderColor = point;
+        chart.update('none');
+    };
+    if (window.OswlTheme) window.OswlTheme.subscribe(refreshTheme);
 
     // "View as table" toggle: swaps the canvas for a lazily built data table and back.
     const tableContainer = document.getElementById('orgVulnTrendChartTable');

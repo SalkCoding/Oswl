@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" th:content="${_csrf.token}" th:if="${_csrf != null}">
+    <meta name="theme-save-error" th:content="#{topbar.theme.saveFailed}">
     <title th:text="${pageTitle != null ? 'OsWL - ' + pageTitle : 'OsWL'}">OsWL</title>
 
     <link rel="icon" th:href="@{/graphic/symbol_w.svg}" type="image/svg+xml" media="(prefers-color-scheme: light)">
@@ -14,7 +15,7 @@
     <script>
         (function () {
             try {
-                var mode = (localStorage.getItem('oswl-theme') || 'SYSTEM').toUpperCase();
+                var mode = (localStorage.getItem('oswl-theme') || 'LIGHT').toUpperCase();
                 var dark = mode === 'DARK' || (mode === 'SYSTEM' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 document.documentElement.classList.toggle('dark', dark);
                 document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

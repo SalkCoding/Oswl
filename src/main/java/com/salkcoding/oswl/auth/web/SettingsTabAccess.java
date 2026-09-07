@@ -16,6 +16,8 @@ public class SettingsTabAccess {
         private String icon;     // emoji
         /** i18n message key resolved in the template (e.g. settings.tab.admin). */
         private String labelKey;
+        /** User-facing task group used by the settings navigation, not an authorization boundary. */
+        private String group;
     }
 
     public static List<TabSpec> accessibleTabsFor(OswlUserPrincipal principal) {
@@ -31,47 +33,47 @@ public class SettingsTabAccess {
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.AUDIT_LOG_VIEW)
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.AUDIT_LOG_EXPORT)
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_SNAPSHOT_MANAGE)) {
-            tabs.add(new TabSpec("admin", "🔐", "settings.tab.admin"));
+            tabs.add(new TabSpec("admin", "🔐", "settings.tab.admin", "access"));
         }
         if (principal.isSystemAdmin()
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_SECURITY_MANAGE)) {
-            tabs.add(new TabSpec("security", "🛡️", "settings.tab.security"));
+            tabs.add(new TabSpec("security", "🛡️", "settings.tab.security", "access"));
         }
         if (principal.isSystemAdmin()
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.LICENSE_POLICY_MANAGE)) {
-            tabs.add(new TabSpec("license-policy", "📋", "settings.tab.licensePolicy"));
+            tabs.add(new TabSpec("license-policy", "📋", "settings.tab.licensePolicy", "policy"));
         }
         if (principal.isSystemAdmin()
                 || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.POLICY_MANAGE)) {
-            tabs.add(new TabSpec("policy", "📜", "settings.tab.policy"));
+            tabs.add(new TabSpec("policy", "📜", "settings.tab.policy", "policy"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_AI_MANAGE)) {
-            tabs.add(new TabSpec("ai", "🤖", "settings.tab.ai"));
+            tabs.add(new TabSpec("ai", "🤖", "settings.tab.ai", "policy"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_VCS_MANAGE)) {
-            tabs.add(new TabSpec("vcs", "🔗", "settings.tab.vcs"));
+            tabs.add(new TabSpec("vcs", "🔗", "settings.tab.vcs", "connections"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CLI_KEY_MANAGE)) {
-            tabs.add(new TabSpec("cli", "🔑", "settings.tab.cli"));
+            tabs.add(new TabSpec("cli", "🔑", "settings.tab.cli", "connections"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_CACHE_MANAGE)) {
-            tabs.add(new TabSpec("cache", "⚡", "settings.tab.cache"));
+            tabs.add(new TabSpec("cache", "⚡", "settings.tab.cache", "operations"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_WEBHOOK_MANAGE)) {
-            tabs.add(new TabSpec("webhooks", "🔔", "settings.tab.webhooks"));
+            tabs.add(new TabSpec("webhooks", "🔔", "settings.tab.webhooks", "connections"));
         }
         if (principal.isSystemAdmin() || principal.hasPermission(com.salkcoding.oswl.auth.enums.Permission.SETTINGS_REPORTING_MANAGE)) {
-            tabs.add(new TabSpec("reports", "🖨️", "settings.tab.reports"));
+            tabs.add(new TabSpec("reports", "🖨️", "settings.tab.reports", "operations"));
         }
         // Read-only infra/connectivity checks — SYSTEM_ADMIN only (no delegated permission,
         // unlike the other tabs: it surfaces DB/SMTP/AI/VCS reachability details in one place).
         if (principal.isSystemAdmin()) {
-            tabs.add(new TabSpec("diagnostics", "🩺", "settings.tab.diagnostics"));
+            tabs.add(new TabSpec("diagnostics", "🩺", "settings.tab.diagnostics", "operations"));
         }
         // Config export/import — SYSTEM_ADMIN only, mirrors the admin tab's own
         // security posture (role templates, license policy) rather than a delegatable permission.
         if (principal.isSystemAdmin()) {
-            tabs.add(new TabSpec("config-transfer", "📦", "settings.tab.configTransfer"));
+            tabs.add(new TabSpec("config-transfer", "📦", "settings.tab.configTransfer", "operations"));
         }
         return tabs;
     }

@@ -1,10 +1,14 @@
 function policyTab() {
     return {
-        subTab: initialSettingsSection('policies'),
+        subTab: initialSettingsSection('policies', ['policies', 'waivers', 'sync']),
         apiError: null,
+        retryTarget: null,
         toastVisible: false, toastMsg: '',
 
         scopeOptions: { organization: null, teams: [], projects: [] },
+        scopeOptionsLoading: false,
+        scopeOptionsLoaded: false,
+        scopeOptionsFailed: false,
         policies: [],
         policiesLoading: false,
         formOpen: false,
@@ -39,6 +43,10 @@ function policyTab() {
         },
 
         init() {
+            onSettingsSectionPopstate(() => {
+                const section = initialSettingsSection('policies', ['policies', 'waivers', 'sync']);
+                if (this.subTab !== section) this.subTab = section;
+            });
             this.loadScopeOptions();
             this.loadPolicies();
         },
@@ -47,12 +55,31 @@ function policyTab() {
             syncSettingsSection(key);
         },
 
+        retry() {
+            if (this.retryTarget === 'scope') return this.loadScopeOptions();
+            if (this.retryTarget === 'exceptions') return this.loadExceptions(false);
+            if (this.retryTarget === 'effective') return this.loadEffective();
+            return this.loadPolicies();
+        },
+
         async loadScopeOptions() {
+            if (this.scopeOptionsLoading) return;
+            this.scopeOptionsLoading = true;
+            this.scopeOptionsFailed = false;
             try {
                 const r = await fetch('/api/policies/scope-options');
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (r.ok) this.scopeOptions = await r.json();
-            } catch (e) { /* scope selects stay empty — non-fatal */ }
+                if (!r.ok) throw new Error('scope options failed');
+                this.scopeOptions = await r.json();
+                this.scopeOptionsLoaded = true;
+                if (this.retryTarget === 'scope') this.retryTarget = null;
+            } catch (e) {
+                this.scopeOptionsFailed = true;
+                this.apiError = _policyI18n.scopeLoadFailed;
+                this.retryTarget = 'scope';
+            } finally {
+                this.scopeOptionsLoading = false;
+            }
         },
 
         async loadPolicies() {
@@ -61,10 +88,12 @@ function policyTab() {
             try {
                 const r = await fetch('/api/policies');
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.loadFailed); return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.loadFailed); this.retryTarget = 'policies'; return; }
                 this.policies = await r.json();
+                if (this.retryTarget === 'policies') this.retryTarget = null;
             } catch (e) {
                 this.apiError = _policyI18n.loadFailed;
+                this.retryTarget = 'policies';
             } finally {
                 this.policiesLoading = false;
             }
@@ -189,10 +218,12 @@ function policyTab() {
             try {
                 const r = await fetch('/api/policies/exceptions/' + this.waiverProjectId);
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.waiverLoadFailed); return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.waiverLoadFailed); this.retryTarget = 'exceptions'; return; }
                 this.exceptions = await r.json();
+                if (this.retryTarget === 'exceptions') this.retryTarget = null;
             } catch (e) {
                 this.apiError = _policyI18n.waiverLoadFailed;
+                this.retryTarget = 'exceptions';
             } finally {
                 this.exceptionsLoading = false;
             }
@@ -318,10 +349,12 @@ function policyTab() {
             try {
                 const r = await fetch('/api/policies/effective/' + this.effectiveProjectId);
                 if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.effectiveLoadFailed); return; }
+                if (!r.ok) { this.apiError = _fetchErr(r, _policyI18n.effectiveLoadFailed); this.retryTarget = 'effective'; return; }
                 this.effective = await r.json();
+                if (this.retryTarget === 'effective') this.retryTarget = null;
             } catch (e) {
                 this.apiError = _policyI18n.effectiveLoadFailed;
+                this.retryTarget = 'effective';
             } finally {
                 this.effectiveLoading = false;
             }

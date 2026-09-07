@@ -19,13 +19,14 @@ public class UserThemeService {
     public UserThemeMode getTheme(Long userId) {
         return userRepository.findById(userId)
                 .map(User::getTheme)
-                .orElse(UserThemeMode.SYSTEM);
+                .map(theme -> theme != null ? theme : UserThemeMode.LIGHT)
+                .orElse(UserThemeMode.LIGHT);
     }
 
     @Transactional
     public void updateTheme(OswlUserPrincipal principal, UserThemeMode mode) {
         if (mode == null) {
-            mode = UserThemeMode.SYSTEM;
+            mode = UserThemeMode.LIGHT;
         }
         User user = userRepository.findById(principal.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));

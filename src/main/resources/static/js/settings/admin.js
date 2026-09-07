@@ -5,7 +5,7 @@ function adminTab() {
         // directly on it. Falls back to the same default as before otherwise.
         subTab: (function() {
             const fallback = _adminAccess.systemAdmin ? 'users' : (_adminAccess.auditView ? 'audit' : 'snapshot');
-            const requested = initialSettingsSection(null);
+            const requested = initialSettingsSection(null, ['users', 'templates', 'audit', 'snapshot']);
             const allowedFor = {
                 users: _adminAccess.systemAdmin,
                 templates: _adminAccess.systemAdmin,
@@ -130,6 +130,14 @@ function adminTab() {
         },
 
         async init() {
+            onSettingsSectionPopstate(() => {
+                const fallback = _adminAccess.systemAdmin ? 'users' : (_adminAccess.auditView ? 'audit' : 'snapshot');
+                const requested = initialSettingsSection(null, ['users', 'templates', 'audit', 'snapshot']);
+                const allowed = { users: _adminAccess.systemAdmin, templates: _adminAccess.systemAdmin,
+                    audit: _adminAccess.auditView || _adminAccess.systemAdmin,
+                    snapshot: _adminAccess.snapshotManage || _adminAccess.systemAdmin };
+                if (requested && allowed[requested]) this.subTab = requested; else this.subTab = fallback;
+            });
             // Users, templates and permissions are all SYSTEM_ADMIN-only APIs; skip them
             // entirely for a delegated user and open their panel instead.
             if (_adminAccess.systemAdmin) {

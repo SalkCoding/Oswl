@@ -25,7 +25,7 @@ public class OswlUserPrincipal extends User {
     private final UserThemeMode theme;
 
     /**
-     * Backward-compatible constructor; defaults the UI theme to SYSTEM so existing
+     * Backward-compatible constructor; defaults the UI theme to LIGHT so existing
      * call sites (including tests) keep compiling without changes.
      */
     public OswlUserPrincipal(Long userId,
@@ -39,7 +39,7 @@ public class OswlUserPrincipal extends User {
                              Set<Permission> permissions,
                              boolean mustChangePassword) {
         this(userId, email, passwordHash, displayName, systemAdmin, enabled,
-                authorities, roleTemplateIds, permissions, mustChangePassword, UserThemeMode.SYSTEM);
+                authorities, roleTemplateIds, permissions, mustChangePassword, UserThemeMode.LIGHT);
     }
 
     public OswlUserPrincipal(Long userId,
@@ -60,7 +60,7 @@ public class OswlUserPrincipal extends User {
         this.roleTemplateIds = roleTemplateIds;
         this.permissions = permissions;
         this.mustChangePassword = mustChangePassword;
-        this.theme = theme != null ? theme : UserThemeMode.SYSTEM;
+        this.theme = theme != null ? theme : UserThemeMode.LIGHT;
     }
 
     public boolean hasPermission(Permission permission) {

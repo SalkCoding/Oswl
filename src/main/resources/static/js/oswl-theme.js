@@ -10,6 +10,7 @@
     var STORAGE_KEY = 'oswl-theme';
     var SYSTEM_QUERY = '(prefers-color-scheme: dark)';
     var MODES = ['LIGHT', 'DARK', 'SYSTEM'];
+    var serverSyncVersion = 0;
 
     function readStorage() {
         try {
@@ -45,8 +46,8 @@
     }
 
     function normalize(mode) {
-        var m = String(mode || 'SYSTEM').toUpperCase();
-        return MODES.indexOf(m) >= 0 ? m : 'SYSTEM';
+        var m = String(mode || 'LIGHT').toUpperCase();
+        return MODES.indexOf(m) >= 0 ? m : 'LIGHT';
     }
 
     var currentMode = normalize(readStorage());
@@ -83,12 +84,30 @@
 
         // Sync to server for signed-in users.
         if (options.sync !== false && typeof fetch !== 'undefined') {
+            var requestVersion = ++serverSyncVersion;
             fetch('/api/my/theme', {
                 method: 'POST',
                 headers: window.oswlJsonHeaders ? window.oswlJsonHeaders() : { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ theme: normalized })
+            }).then(function (response) {
+                if (!response.ok && requestVersion === serverSyncVersion) throw new Error('theme save failed');
             }).catch(function () {
-                // Offline or unauthenticated: localStorage already holds the choice.
+                if (requestVersion !== serverSyncVersion) return;
+                var message = (document.querySelector('meta[name="theme-save-error"]') || {}).content
+                    || 'Theme preference could not be saved. This device will keep using your selection.';
+                var event = new CustomEvent('oswl:theme-error', { detail: { message: message } });
+                document.dispatchEvent(event);
+                var status = document.getElementById('oswl-theme-status');
+                if (!status) {
+                    status = document.createElement('div');
+                    status.id = 'oswl-theme-status';
+                    status.setAttribute('role', 'status');
+                    status.className = 'oswl-theme-status';
+                    document.body.appendChild(status);
+                }
+                status.textContent = message;
+                status.hidden = false;
+                global.setTimeout(function () { status.hidden = true; }, 6000);
             });
         }
     }
@@ -117,10 +136,14 @@
     // Sync with the server preference on every page load.
     if (typeof fetch !== 'undefined') {
         document.addEventListener('DOMContentLoaded', function () {
+            var loadVersion = serverSyncVersion;
             fetch('/api/my/theme', { method: 'GET', cache: 'no-store' })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) throw new Error('theme load failed');
+                    return r.json();
+                })
                 .then(function (data) {
-                    if (data && data.theme) {
+                    if (loadVersion === serverSyncVersion && data && data.theme) {
                         setMode(data.theme, { sync: false, force: false });
                     }
                 })

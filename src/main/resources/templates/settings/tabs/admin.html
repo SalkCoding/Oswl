@@ -188,7 +188,7 @@
          snapshot are delegatable, so this tab can be reached by a non-admin holding only those.
          Each button is gated by the same permission its API enforces — otherwise a delegated user
          lands on a panel whose every request 403s. -->
-    <div class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+    <div role="tablist" th:aria-label="#{settings.admin.heading}" class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
         <th:block sec:authorize="hasRole('SYSTEM_ADMIN')">
             <div th:replace="~{fragments/settings-subtabs :: subtabButton('users', #{settings.admin.heading})}"></div>
         </th:block>

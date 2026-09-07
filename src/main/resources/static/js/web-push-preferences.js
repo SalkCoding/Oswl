@@ -4,6 +4,8 @@ function webPushPreferences() {
         configured: false, loaded: false, busy: false, error: '', active: false, id: null, publicKey: '', newHighRisk: true, gateFailure: true,
         async init() { await this.load(); },
         async load() {
+            if (this.busy) return;
+            this.busy = true;
             this.loaded = false; this.error = ''; this.active = false; this.id = null;
             try {
                 const response = await fetch('/api/my/web-push');
@@ -22,6 +24,7 @@ function webPushPreferences() {
                 }
                 this.loaded = true;
             } catch (_) { this.error = _pushI18n.failed; }
+            finally { this.busy = false; }
         },
         async enable() {
             if (this.busy || !this.loaded || !this.configured || !this.supported) return;
@@ -46,7 +49,7 @@ function webPushPreferences() {
             finally { this.busy = false; }
         },
         async disable() {
-            if (this.busy) return;
+            if (this.busy || !this.loaded || !this.supported) return;
             this.busy = true; this.error = '';
             try {
                 if (this.id !== null) {
