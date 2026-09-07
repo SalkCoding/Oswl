@@ -279,7 +279,7 @@ html:has(body.notification-page), body.notification-page { min-width: 0; }
 
 /* Shared controls follow the light OsWL palette and preserve keyboard focus. */
 :where(button, a, [role="button"]):focus:not(:focus-visible) { outline: none; }
-:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--primary-120); outline-offset: 3px; }
+:where(button, a, [tabindex]):not(input):not(select):not(textarea):focus-visible { outline: 2px solid var(--primary-120); outline-offset: 3px; }
 .oswl-search-trigger { width: clamp(150px, 17vw, 240px); min-height: 36px; }
 .notification-page > footer { margin-top: auto; }
 .notification-card { font-size: 14px; line-height: 1.6; }
@@ -304,3 +304,10 @@ html:has(body.notification-page), body.notification-page { min-width: 0; }
 .settings-page input[type=file]::file-selector-button { background: white; border: 1px solid var(--grayscale-20); color: var(--primary-120); border-radius: 6px; padding: 8px 16px; margin-right: 12px; cursor: pointer; }
 
 .oswl-checkbox:checked::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid white; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+
+/* Inputs already use a border on the field or its wrapper; avoid a second inner ring. */
+:where(input, select, textarea):focus-visible { outline: none; }
+:where(input, select, textarea):focus { border-color: var(--primary-120); }
+.oswl-field:has([aria-invalid="true"]) { border-color: var(--risk-critical); }
+.oswl-save-feedback { font-size: 13px; color: var(--grayscale-70); }
+.oswl-save-feedback.is-error { color: #b42318; }

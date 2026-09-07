@@ -461,9 +461,8 @@
                  x-data="{ open: false }"
                  class="bg-white border border-[var(--grayscale-15)] rounded-[10px] overflow-hidden">
 
-                <button type="button"
-                        @click="open = !open"
-                        class="w-full flex items-center gap-[12px] px-[20px] py-[16px] text-left">
+                <div class="w-full flex items-center gap-[12px] px-[20px] py-[16px]">
+                <button type="button" @click="open = !open" :aria-expanded="open" class="flex items-center gap-[12px] text-left shrink-0">
                     <svg width="19" height="17" viewBox="0 0 19 17" fill="none" xmlns="http://www.w3.org/2000/svg"
                          class="w-[14px] h-[14px] transition-transform duration-200 shrink-0" :class="open ? 'rotate-180' : ''" aria-hidden="true">
                         <path d="M13.2578 4H5.74222C4.78379 4 4.21212 5.06818 4.74376 5.86564L8.50154 11.5023C8.97653 12.2148 10.0235 12.2148 10.4985 11.5023L14.2562 5.86564C14.7879 5.06817 14.2162 4 13.2578 4Z" fill="#00A093"/>
@@ -473,7 +472,16 @@
                                           : (${cve.severity == 'MEDIUM'} ? 'bg-[var(--risk-medium)]'
                                           : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-30)]' : 'bg-[var(--risk-unknown)]')))"
                           class="w-[6px] h-[6px] rounded-full shrink-0"></span>
-                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] shrink-0 w-[190px] truncate" th:text="${cve.id}" th:title="${cve.id}">CVE-2024-11053</p>
+                    <p class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] shrink-0 truncate" th:text="${cve.id}" th:title="${cve.id}">CVE-2024-11053</p>
+                </button>
+                <a th:if="${#strings.startsWith(cve.id, 'CVE-')}"
+                   th:href="@{https://nvd.nist.gov/vuln/detail/{id}(id=${cve.id})}"
+                   th:aria-label="#{componentDetail.cve.openNvd(${cve.id})}" th:title="#{componentDetail.cve.openNvd(${cve.id})}"
+                   target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 p-[4px] rounded-[4px] text-[var(--grayscale-60)] hover:text-[var(--primary-120)]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 3h7v7M21 3 10 14"/><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg>
+                </a>
+                <button type="button" @click="open = !open" :aria-expanded="open" class="flex flex-1 min-w-0 items-center gap-[12px] text-left">
+
                     <!-- Collapsed: single truncated line. Expanded: full title wraps so nothing is hidden. -->
                     <p class="flex-1 min-w-0 text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]"
                        :class="open ? 'whitespace-normal break-words' : 'truncate'"
@@ -493,6 +501,7 @@
                               th:text="'CVSS ' + ${#numbers.formatDecimal(cve.cvssScore, 1, 1)}">CVSS 9.8</span>
                     </span>
                 </button>
+                </div>
 
                 <div x-show="open" x-collapse
                      class="px-[20px] pb-[20px] flex flex-col gap-[16px]">

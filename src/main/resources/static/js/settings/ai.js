@@ -85,6 +85,7 @@ function aiTab() {
             { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
         ],
         savingProvider: false, savingEnrichment: false, testing: false,
+        parameterErrors: {}, saveFeedback: '',
         apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '', toastKind: 'success', _toastTimer: null,
         usageStats: null,
         usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
@@ -579,15 +580,27 @@ function aiTab() {
             finally { this.savingProvider = false; }
         },
 
+        parameterEdited(key) {
+            delete this.parameterErrors[key];
+            this.saveFeedback = '';
+            this.apiError = null;
+        },
         validParameters() {
+            this.parameterErrors = {};
+            this.saveFeedback = '';
             for (const [key, min, max, integer] of [['temperature', 0, 2, false], ['maxTokens', 256, 8192, true], ['dailyCallCap', 0, 1000000, true]]) {
                 const raw = this.preferences[key];
                 if (raw === null || raw === '') { this.preferences[key] = null; continue; }
                 const value = Number(raw);
                 if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
-                    this.apiError = _aiI18n.invalidParameters; return false;
+                    this.parameterErrors[key] = _aiI18n[key + 'Invalid'];
+                    continue;
                 }
                 this.preferences[key] = value;
+            }
+            if (Object.keys(this.parameterErrors).length) {
+                this.apiError = _aiI18n.invalidParameters;
+                return false;
             }
             return true;
         },
@@ -610,6 +623,8 @@ function aiTab() {
                         window.OswlDirty.clear('ai-context', contextRevision);
                         window.OswlDirty.clear('ai-prompts', promptsRevision);
                     }
+                    this.saveFeedback = !window.OswlDirty || (window.OswlDirty.revision('ai-context') === contextRevision
+                        && window.OswlDirty.revision('ai-prompts') === promptsRevision) ? _aiI18n.enrichmentSaved : '';
                     this.showToast(_aiI18n.enrichmentSaved);
                     return;
                 }
@@ -629,7 +644,9 @@ function aiTab() {
                     window.OswlDirty.clear('ai-context', contextRevision);
                     window.OswlDirty.clear('ai-prompts', promptsRevision);
                 }
-                this.showToast(_aiI18n.enrichmentSaved);
+                this.saveFeedback = !window.OswlDirty || (window.OswlDirty.revision('ai-context') === contextRevision
+                        && window.OswlDirty.revision('ai-prompts') === promptsRevision) ? _aiI18n.enrichmentSaved : '';
+                    this.showToast(_aiI18n.enrichmentSaved);
             } catch (e) { this.apiError = String(e); }
             finally { this.savingEnrichment = false; }
         },

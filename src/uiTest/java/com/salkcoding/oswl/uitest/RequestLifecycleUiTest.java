@@ -330,4 +330,60 @@ class RequestLifecycleUiTest extends UiTestBase {
         assertThat(trashCard.count()).isZero();
         assertThat(projects.findById(project).orElseThrow().getDeletedAt()).isNull();
     }
+    @Test void aiParameterFeedbackStaysBesideSaveAndInputsHaveNoInnerOutline() throws Exception {
+        AtomicInteger writes = new AtomicInteger();
+        page.route("**/api/settings/ai", route -> {
+            if (route.request().method().equals("PUT")) writes.incrementAndGet();
+            route.fulfill(new Route.FulfillOptions().setStatus(200).setContentType("application/json")
+                    .setBody("{\"provider\":\"LOCAL\",\"active\":true,\"modelName\":\"fixture\",\"activeProviderKind\":\"LOCAL\"}"));
+        });
+        page.navigate(url("/login?lang=en"));
+        page.locator("input[type=email]").focus();
+        assertThat(page.locator("input[type=email]").evaluate("e => getComputedStyle(e).outlineStyle")).isEqualTo("none");
+        loginAsTestAdmin();
+        page.navigate(url("/settings?tab=ai&section=context&lang=en"));
+        page.waitForFunction("() => Alpine.$data(document.querySelector('[x-data=\"aiTab()\"]'))._contextLoaded");
+        page.locator("#ai-temperature").fill("0.5");
+        assertThat(page.locator("#ai-temperature").evaluate("e => getComputedStyle(e).outlineStyle")).isEqualTo("none");
+        page.locator("#ai-maxTokens").fill("999999");
+        var save = page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("Save").setExact(true));
+        save.click();
+        com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(page.locator("#ai-maxTokens-error")).isVisible();
+        assertThat(writes).hasValue(0);
+        assertThat(page.locator(".oswl-save-feedback").first().innerText()).contains("Not saved");
+        java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/ui-review"));
+        page.locator("#settings-dirty-status").screenshot(new com.microsoft.playwright.Locator.ScreenshotOptions()
+                .setPath(java.nio.file.Path.of("build/ui-review/unsaved-changes.png")));
+        page.getByText("Model parameters", new Page.GetByTextOptions().setExact(true)).locator("..")
+                .screenshot(new com.microsoft.playwright.Locator.ScreenshotOptions().setPath(java.nio.file.Path.of("build/ui-review/invalid-parameters.png")));
+        page.locator("#ai-maxTokens").fill("1200");
+        save.click();
+        page.waitForFunction("() => document.querySelector('.oswl-save-feedback').textContent.includes('settings saved')");
+        assertThat(writes).hasValue(1);
+        assertThat(page.evaluate("() => window.OswlDirty.isDirty()")).isEqualTo(false);
+        java.nio.file.Files.createDirectories(java.nio.file.Path.of("build/ui-review"));
+        page.getByText("Model parameters", new Page.GetByTextOptions().setExact(true)).locator("..")
+                .screenshot(new com.microsoft.playwright.Locator.ScreenshotOptions().setPath(java.nio.file.Path.of("build/ui-review/model-parameters.png")));
+        page.keyboard().press("Control+k");
+        page.locator("input[x-ref=searchInput]").waitFor();
+        page.locator("input[x-ref=searchInput]").focus();
+        assertThat(page.locator("input[x-ref=searchInput]").evaluate("e => getComputedStyle(e).outlineStyle")).isEqualTo("none");
+    }
+    @Test void vulnerabilityHeaderLinksToNvdWithoutNestingInteractiveControls() {
+        var library = Library.builder().name("nvd-fixture").version("1.0").ecosystem("NPM").build();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .cveId("CVE-2026-29063").severity(RiskLevel.HIGH).cvssScore(7.5).build());
+        library = libraries.save(library);
+        var project = projects.save(Project.builder().name("NVD fixture").build());
+        var scan = scans.save(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED).build());
+        components.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        loginAsTestAdmin();
+        page.navigate(url("/projects/" + project.getId() + "/security-center?lang=en"));
+        page.locator("a.component-row").first().click();
+        var link = page.locator("a[href='https://nvd.nist.gov/vuln/detail/CVE-2026-29063']");
+        com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(link).isVisible();
+        assertThat(link.getAttribute("target")).isEqualTo("_blank");
+        assertThat(link.evaluate("e => e.closest('button') === null")).isEqualTo(true);
+    }
 }

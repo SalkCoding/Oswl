@@ -712,39 +712,43 @@
             </div>
             <div class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature" th:placeholder="#{settings.ai.defaultTemperature}"
+                    <label for="ai-temperature" class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</label>
+                    <div class="oswl-field flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" max="2" step="0.05" id="ai-temperature" x-model.number="preferences.temperature" @input="parameterEdited('temperature')" :aria-invalid="!!parameterErrors.temperature" aria-describedby="ai-temperature-error" th:placeholder="#{settings.ai.defaultTemperature}"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.temperature}">Lower means more repeatable, factual output; higher means more varied wording. Triage notes read best at 0.1–0.3 (0–2).</p>
+                <p id="ai-temperature-error" x-show="parameterErrors.temperature" x-cloak x-text="parameterErrors.temperature" class="text-[13px] text-[#b42318] pl-[126px]" role="alert"></p>
                 <!-- Anthropic's current models reject sampling parameters outright, so the client
                      never sends this value for them — say so rather than let it look applied. -->
                 <p x-show="mode === 'ANTHROPIC'" x-cloak
                    class="text-[12px] text-amber-700 tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]"
                    th:text="#{settings.ai.hint.temperature.anthropic}">Not used by Anthropic — current Claude models reject a temperature setting, so response style is steered by the prompt instead.</p>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens" step="1" th:placeholder="#{settings.ai.defaultMaxTokens}"
+                    <label for="ai-maxTokens" class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</label>
+                    <div class="oswl-field flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="256" max="8192" id="ai-maxTokens" x-model.number="preferences.maxTokens" @input="parameterEdited('maxTokens')" :aria-invalid="!!parameterErrors.maxTokens" aria-describedby="ai-maxTokens-error" step="1" th:placeholder="#{settings.ai.defaultMaxTokens}"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" x-model.number="preferences.dailyCallCap"
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>
+                <p id="ai-maxTokens-error" x-show="parameterErrors.maxTokens" x-cloak x-text="parameterErrors.maxTokens" class="text-[13px] text-[#b42318] pl-[126px]" role="alert"></p>                <div class="flex items-center gap-[16px]">
+                    <label for="ai-dailyCallCap" class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</label>
+                    <div class="oswl-field flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" id="ai-dailyCallCap" x-model.number="preferences.dailyCallCap" @input="parameterEdited('dailyCallCap')" :aria-invalid="!!parameterErrors.dailyCallCap" aria-describedby="ai-dailyCallCap-error"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
                 <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
+                <p id="ai-dailyCallCap-error" x-show="parameterErrors.dailyCallCap" x-cloak x-text="parameterErrors.dailyCallCap" class="text-[13px] text-[#b42318] pl-[126px]" role="alert"></p>
             </div>
         </div>
 
         <!-- Each card saves the whole enrichment payload; the button is repeated per card
              so an edit is never stranded behind a save further down the page. -->
         <div class="flex gap-[12px] items-center justify-end">
+            <span class="oswl-save-feedback" :class="{'is-error': !!apiError}" role="status" aria-live="polite" x-text="savingEnrichment ? _aiI18n.saving : (apiError ? (Object.keys(parameterErrors).length ? _aiI18n.checkFields : _aiI18n.saveFailed) : saveFeedback)"></span>
             <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
                     class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -811,6 +815,7 @@
         <!-- Each card saves the whole enrichment payload; the button is repeated per card
              so an edit is never stranded behind a save further down the page. -->
         <div class="flex gap-[12px] items-center justify-end">
+            <span class="oswl-save-feedback" :class="{'is-error': !!apiError}" role="status" aria-live="polite" x-text="savingEnrichment ? _aiI18n.saving : (apiError ? (Object.keys(parameterErrors).length ? _aiI18n.checkFields : _aiI18n.saveFailed) : saveFeedback)"></span>
             <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
                     class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -897,6 +902,10 @@
 
     <script th:inline="javascript">
     const _aiI18n = {
+        temperatureInvalid: /*[[#{settings.ai.temperatureInvalid}]]*/ 'Enter a number from 0 to 2.',
+        maxTokensInvalid: /*[[#{settings.ai.maxTokensInvalid}]]*/ 'Enter an integer from 256 to 8192.',
+        dailyCallCapInvalid: /*[[#{settings.ai.dailyCallCapInvalid}]]*/ 'Enter an integer from 0 to 1000000.',
+        checkFields: /*[[#{settings.ai.checkFields}]]*/ 'Not saved. Check the highlighted fields.',
         invalidParameters: /*[[#{settings.ai.invalidParameters}]]*/ 'Check parameter limits.',
         testConnection: /*[[#{settings.ai.btn.testConnection}]]*/ 'Test Connection',
         testing:        /*[[#{settings.ai.btn.testing}]]*/ 'Testing\u2026',
@@ -959,7 +968,7 @@
     };
     </script>
 
-    <script th:src="@{/js/settings/ai.min.js(v='1.0.5.1-ui2')}"></script>
+    <script th:src="@{/js/settings/ai.min.js(v='1.0.5.1-ui4')}"></script>
 </div>
 </body>
 </html>
