@@ -3,7 +3,7 @@
 <body>
 <div th:fragment="tab"
      x-data="configTransferTab()"
-     class="flex flex-col gap-[20px]">
+     class="config-transfer-panel flex flex-col gap-[20px]">
 
     <!-- Heading -->
     <div class="flex flex-col gap-[8px]">
@@ -35,7 +35,7 @@
                class="text-[13px] file:mr-[12px] file:py-[8px] file:px-[16px] file:rounded-[8px] file:border-0 file:bg-[var(--grayscale-10)] file:text-[13px] file:font-medium file:cursor-pointer cursor-pointer" />
 
         <div x-show="preview" x-cloak class="flex flex-col gap-[12px] pt-[8px] border-t border-[var(--grayscale-10)]">
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-[12px] text-[13px]">
+            <div class="config-transfer-preview grid grid-cols-1 sm:grid-cols-2 gap-[12px] text-[13px]">
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.roleTemplates}">Role templates</span>: <span x-text="preview ? (preview.roleTemplatesCreated + preview.roleTemplatesUpdated) : 0"></span></div>
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.licensePolicy}">License policy</span>: <span x-text="preview ? (preview.licensePolicyCreated + preview.licensePolicyUpdated) : 0"></span></div>
                 <div><span class="text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.field.aiSettings}">AI settings</span>: <span x-text="preview ? (preview.aiSettingsCreated + preview.aiSettingsUpdated) : 0"></span></div>
@@ -68,8 +68,14 @@
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="opacity-100 translate-y-0"
          x-transition:leave-end="opacity-0 translate-y-2"
-         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         role="status" class="oswl-toast pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
          style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
         <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
     </div>
 
@@ -87,7 +93,7 @@
         skippedUnresolvedPolicies: /*[[#{settings.configTransfer.skippedUnresolvedPolicies}]]*/ '{0} policy(ies) were skipped — their scope could not be matched by name on this instance.'
     };
     </script>
-    <script th:src="@{/js/settings/config-transfer.min.js}"></script>
+    <script th:src="@{/js/settings/config-transfer.min.js(v='1.0.5.1-ui2')}"></script>
 </div>
 </body>
 </html>

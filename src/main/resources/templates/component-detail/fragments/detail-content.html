@@ -42,7 +42,7 @@
                 <h1 class="font-bold text-[28px] text-[var(--grayscale-100)] tracking-[-0.28px] leading-[1.3]"
                     th:text="${componentName}">Android Arch-Common</h1>
                 <p class="font-medium text-[18px] text-[var(--grayscale-60)] tracking-[-0.18px] leading-[1.3]"
-                   th:text="'v ' + ${componentVersion}">v 2.2.0-beta01</p>
+                   th:text="${componentVersion != null and !#strings.isEmpty(componentVersion)} ? ${'v ' + componentVersion} : #{componentDetail.version.unresolved}">v 2.2.0-beta01</p>
             </div>
             <button type="button" @click="$dispatch('close-component-panel')"
                class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] w-[32px] h-[32px] rounded-[7px] flex items-center justify-center hover:bg-[var(--grayscale-10)]"
@@ -63,7 +63,7 @@
                       th:classappend="${reviewed} ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'"
                       th:text="${reviewed} ? (${reviewedByName} != null ? #{componentDetail.status.reviewedBy(${reviewedByName})} : #{componentDetail.status.reviewed}) : #{componentDetail.status.notReviewed}">Not Reviewed</span>
             </span>
-            <span class="bg-[var(--grayscale-10)] flex items-center px-[12px] py-[4px] rounded-[40px]">
+            <span class="tag tag-count">
                 <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                       th:text="${projectsCount} + ' ' + (${projectsCount} == 1 ? #{common.project} : #{common.projects})">7 Projects</span>
             </span>
@@ -99,31 +99,27 @@
             <span th:if="${ecosystem == 'MAVEN' or ecosystem == 'GRADLE' or ecosystem == 'PYPI' or ecosystem == 'NPM'}"
                   th:classappend="${reachability == 'REACHABLE'} ? 'bg-[rgba(51,209,183,0.14)] text-[#0d6a5b] border-[rgba(51,209,183,0.35)]' :
                                    (${reachability == 'NOT_REACHABLE'} ? 'bg-[rgba(94,107,112,0.1)] text-[#5e6b70] border-[rgba(94,107,112,0.2)]' :
-                                   'bg-[rgba(245,189,38,0.14)] text-[#956917] border-[rgba(245,189,38,0.4)]')"
+                                   'bg-[var(--grayscale-5)] text-[var(--grayscale-60)] border-[var(--grayscale-20)]')"
                   class="flex items-center px-[12px] py-[4px] rounded-[40px] border"
                   th:title="${reachability == 'REACHABLE'} ? #{securityCenter.reachability.tooltip.reachable} :
                             (${reachability == 'NOT_REACHABLE'} ? #{securityCenter.reachability.tooltip.notReachable} :
                             #{securityCenter.reachability.tooltip.unknown})">
-                <span class="text-[11px] font-semibold uppercase tracking-[0.3px]"
+                <span class="text-[11px] font-normal tracking-[-0.11px]"
                       th:text="${reachability == 'REACHABLE'} ? #{securityCenter.filter.reachable} :
                                (${reachability == 'NOT_REACHABLE'} ? #{securityCenter.filter.notReachable} :
-                               #{securityCenter.filter.unknown})">Reachable</span>
+                               #{securityCenter.filter.unknownReachability})">Reachable</span>
             </span>
-            <!-- Jira issue link / create action (#10)
-                 The "create" state is an action, not a status, so it is styled as a solid Jira-blue
-                 button rather than another pale pill — previously it was visually indistinguishable
-                 from the read-only badges around it. The "created" state keeps the tinted-pill
-                 shape (it is a status) but gains the Jira glyph and an external-link cue. -->
+            <!-- Jira issue link and action -->
             <a th:if="${jiraIssueUrl != null}" th:href="${jiraIssueUrl}" target="_blank" rel="noopener"
                class="flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px] no-underline transition-colors hover:bg-[rgba(0,82,204,0.14)]"
-               style="background:rgba(0,82,204,0.08);border:1px solid rgba(0,82,204,0.45)"
+               style="background:var(--grayscale-5);border:1px solid var(--grayscale-20)"
                th:title="#{componentDetail.jira.openTooltip}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0052cc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--primary-120)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                 </svg>
-                <span class="text-[11px] font-bold tracking-[-0.11px]" style="color:#0052cc"
+                <span class="text-[11px] font-bold tracking-[-0.11px]" style="color:var(--primary-120)"
                       th:text="'Jira ' + ${jiraIssueKey}">Jira SEC-1</span>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0052cc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70" aria-hidden="true">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--primary-120)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-70" aria-hidden="true">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
                 </svg>
             </a>
@@ -131,10 +127,9 @@
                     x-data="{ busy: false }"
                     :disabled="busy"
                     @click="busy = true; fetch('/projects/' + $el.closest('#component-detail-content').dataset.projectId + '/components/' + $el.closest('#component-detail-content').dataset.componentId + '/jira-ticket', { method:'POST', headers: oswlJsonHeaders() })
-                            .then(async r => { const b = await r.json().catch(()=>({})); if (r.ok && b.issueUrl) { window.location.reload(); } else { $dispatch('oswl-ai-toast', { message: b.error || $el.dataset.failed, kind: 'error' }); busy = false; } })
+                            .then(async r => { const b = await r.json().catch(()=>({})); if (r.ok && b.issueUrl) { window.location.reload(); } else { $dispatch('oswl-ai-toast', { message: $el.dataset.failed, kind: 'error' }); busy = false; } })
                             .catch(() => { $dispatch('oswl-ai-toast', { message: $el.dataset.failed, kind: 'error' }); busy = false; })"
-                    class="flex items-center gap-[6px] px-[12px] py-[5px] rounded-[40px] text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-wait hover:bg-[#0747a6]"
-                    style="background:#0052cc;border:1px solid #0747a6"
+                    class="oswl-button-secondary disabled:opacity-60 disabled:cursor-wait"
                     th:attr="data-label=#{componentDetail.jira.create}, data-busy-label=#{componentDetail.jira.creating}, data-failed=#{componentDetail.jira.failed}"
                     th:title="#{componentDetail.jira.createTooltip}">
                 <svg x-show="!busy" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -781,7 +776,7 @@
                 </svg>
                 <p class="text-[13px] text-black tracking-[-0.13px]" th:text="${componentName}">component-name</p>
                 <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                      th:text="'v' + ${componentVersion}">v1.0.0</span>
+                      th:text="${componentVersion != null and !#strings.isEmpty(componentVersion)} ? ${'v' + componentVersion} : #{componentDetail.version.unresolved}">v1.0.0</span>
                 <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${dependencyInfo}">Direct Dep.</span>
                 <span th:if="${hasVulnerabilities}"
@@ -842,7 +837,7 @@
             <!-- How it is used *here* — ecosystem, version, and how many projects share it. -->
             <p class="text-[12px] text-[var(--grayscale-60)]">
                 <span th:text="${ecosystem}">MAVEN</span> ·
-                <th:block th:text="#{componentDetail.desc.inUse(${componentVersion}, ${projectsCount})}">v2.2.0 in use across 7 projects</th:block>
+                <th:block th:if="${componentVersion != null and !#strings.isEmpty(componentVersion)}" th:text="#{componentDetail.desc.inUse(${componentVersion}, ${projectsCount})}">v2.2.0 in use across 7 projects</th:block>
             </p>
 
             <p th:if="${hasVulnerabilities}">

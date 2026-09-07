@@ -75,10 +75,11 @@
                             <span th:text="#{settings.cli.status.inactive}">Inactive</span>
                         </span>
                     </td>
-                    <td class="px-[16px] py-[12px]">
+                    <td class="px-[16px] py-[12px] whitespace-nowrap">
+                        <button type="button" @click="deleteKey(k)" class="inline-flex align-middle text-[13px] text-[var(--grayscale-60)] hover:text-[var(--risk-critical)] mr-[12px]" th:text="#{common.delete}">Delete</button>
                         <button @click="toggleKey(k)"
                                 :title="k.active ? _cliI18n.deactivate : _cliI18n.activate"
-                                class="text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]">
+                                class="inline-flex align-middle text-[var(--grayscale-60)] hover:text-[var(--grayscale-100)]">
                             <!-- Moon icon = deactivate (active key) -->
                             <svg x-show="k.active" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                             <!-- Sun icon = activate (inactive key) -->
@@ -181,6 +182,8 @@
 
     <script th:inline="javascript">
     const _cliI18n = {
+        deleteConfirm: /*[[#{settings.cli.delete.confirm}]]*/ 'Delete key {0}?',
+        deleteFailed: /*[[#{settings.cli.delete.failed}]]*/ 'Could not delete key.',
         selectProject: /*[[#{settings.cli.slideout.label.selectProject}]]*/ 'Select a project',
         deactivate:  /*[[#{settings.cli.key.action.deactivate}]]*/ 'Deactivate',
         activate:    /*[[#{settings.cli.key.action.activate}]]*/ 'Activate',
@@ -191,7 +194,7 @@
         updateFailed:/*[[#{settings.cli.error.updateFailed}]]*/ 'Failed to update key.'
     };
     </script>
-    <script th:src="@{/js/settings/cli.min.js}"></script>
+    <script th:src="@{/js/settings/cli.min.js(v='1.0.5.1-ui2')}"></script>
 </div>
 </body>
 </html>

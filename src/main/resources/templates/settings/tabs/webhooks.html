@@ -65,16 +65,10 @@
         </div>
 
         <!-- Enabled toggle -->
-        <label class="flex items-center gap-[10px] cursor-pointer relative">
-            <input type="checkbox" x-model="form.enabled" class="sr-only"/>
-            <div class="w-[18px] h-[18px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
-                 :class="form.enabled ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
-                     :class="form.enabled ? 'opacity-100' : 'opacity-0'"
-                     class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <span class="font-medium text-[14px] text-[var(--grayscale-80)]" th:text="#{settings.webhooks.enabled.label}">Enable webhook notifications</span>
-        </label>
+        <div class="flex items-center justify-between gap-[16px]">
+            <span id="webhook-enabled-label" class="font-medium text-[14px] text-[var(--grayscale-80)]" th:text="#{settings.webhooks.enabled.label}"></span>
+            <button type="button" role="switch" :aria-checked="form.enabled" aria-labelledby="webhook-enabled-label" data-dirty-mark @click="form.enabled = !form.enabled" class="oswl-switch" :class="form.enabled ? 'is-on' : ''"><span></span></button>
+        </div>
 
         <!-- Event toggles -->
         <div class="flex flex-col gap-[12px]">
@@ -163,7 +157,7 @@
         </div>
 
         <!-- Filters -->
-        <div class="flex flex-wrap gap-[10px] items-center">
+        <div class="oswl-filter-row">
             <select x-model="historyFilter.status" th:aria-label="#{settings.webhooks.history.col.status}" @change="loadHistory()"
                     class="bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)]">
                 <option value="" th:text="#{settings.webhooks.history.filter.all}">All statuses</option>
@@ -179,7 +173,7 @@
                 <option value="WAIVER_EXPIRY" th:text="#{settings.webhooks.history.event.waiverExpiry}">Waiver expiry</option>
             </select>
             <button type="button" @click="loadHistory()"
-                    class="text-[13px] font-medium text-[var(--primary-120)] hover:underline"
+                    class="oswl-button-secondary"
                     th:text="#{common.refresh}">Refresh</button>
         </div>
 
@@ -268,7 +262,7 @@ const _webhooksI18n = {
     urlRequired:   /*[[#{settings.webhooks.error.urlRequired}]]*/ 'Enter a webhook URL to test.'
 };
 </script>
-<script th:src="@{/js/settings/webhooks.min.js}"></script>
+<script th:src="@{/js/settings/webhooks.min.js(v='1.0.5.1-ui2')}"></script>
 </div>
 </body>
 </html>

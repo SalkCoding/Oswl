@@ -193,6 +193,15 @@ public class ApiKeyService {
         return key;
     }
 
+    @Transactional
+    public void delete(Long keyId) {
+        ApiKey key = apiKeyRepository.findWithProjectById(keyId)
+                .orElseThrow(() -> new IllegalArgumentException("ApiKey not found: " + keyId));
+        auditLogService.log("CLI_KEY.DELETE", "CLI_KEY", keyId.toString(),
+                key.getLabel() != null ? key.getLabel() : "-", null);
+        apiKeyRepository.delete(key);
+    }
+
     private String generateToken() {
         byte[] bytes = new byte[TOKEN_BYTES];
         secureRandom.nextBytes(bytes);

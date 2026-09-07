@@ -12,6 +12,12 @@ function diagnosticsTab() {
                 default: return 'bg-[rgba(234,179,8,0.12)] text-[#a16207]';
             }
         },
+        detailText(r) {
+            if (r.id !== 'disk') return r.detail;
+            const parts = Object.fromEntries((r.detail || '').split(', ').map(p => { const i = p.indexOf('='); return [p.slice(0, i), p.slice(i + 1)]; }));
+            const gib = value => (Number(value) / 1073741824).toLocaleString(document.documentElement.lang, {maximumFractionDigits: 1}) + ' GiB';
+            return _diagI18n.diskSpace.replace('{0}', gib(parts.freeBytes)).replace('{1}', gib(parts.totalBytes)).replace('{2}', parts.freePercent) + '\n' + (parts.path || '');
+        },
         async run() {
             this.running = true; this.apiError = null;
             try {
@@ -28,7 +34,7 @@ function diagnosticsTab() {
         copyForSupport() {
             const lines = this.results.map(r => `[${r.status}] ${r.label} — ${r.detail}`);
             const text = lines.join('\n');
-            navigator.clipboard.writeText(text).then(() => this.showToast(_diagI18n.copied));
+            navigator.clipboard.writeText(text).then(() => this.showToast(_diagI18n.copied)).catch(() => { this.apiError = _diagI18n.copyFailed; });
         }
     };
 }
@@ -75,13 +81,16 @@ function scanArchivingPanel() {
                     scans: data.length,
                     components: data.reduce((sum, s) => sum + (s.components ? s.components.length : 0), 0)
                 };
+                if (data.length === 0) { this.exportDownloaded = false; return; }
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'oswl-scan-archive-export-p' + this.projectId + '-' + new Date().toISOString().slice(0, 10) + '.json';
+                document.body.appendChild(a);
                 a.click();
-                URL.revokeObjectURL(url);
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
                 this.exportDownloaded = true;
             } catch (e) {
                 this.archError = _archI18n.loadFailed;

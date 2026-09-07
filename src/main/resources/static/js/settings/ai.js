@@ -528,6 +528,7 @@ function aiTab() {
         },
 
         async saveProvider() {
+            if (!this.validParameters()) return;
             // Embedded AI has no Save: its Start button both activates it and health-checks
             // the sidecar. The button is hidden for that mode; this is the belt-and-braces.
             if (this.mode === 'EMBEDDED') return;
@@ -578,7 +579,20 @@ function aiTab() {
             finally { this.savingProvider = false; }
         },
 
+        validParameters() {
+            for (const [key, min, max, integer] of [['temperature', 0, 2, false], ['maxTokens', 256, 8192, true], ['dailyCallCap', 0, 1000000, true]]) {
+                const raw = this.preferences[key];
+                if (raw === null || raw === '') { this.preferences[key] = null; continue; }
+                const value = Number(raw);
+                if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+                    this.apiError = _aiI18n.invalidParameters; return false;
+                }
+                this.preferences[key] = value;
+            }
+            return true;
+        },
         async saveEnrichment() {
+            if (!this.validParameters()) return;
             const contextRevision = window.OswlDirty?.revision('ai-context');
             const promptsRevision = window.OswlDirty?.revision('ai-prompts');
             this.savingEnrichment = true; this.apiError = null; this.apiErrorHint = null;

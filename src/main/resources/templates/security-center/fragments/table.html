@@ -46,18 +46,18 @@
          class="mx-4 my-3 p-4 border border-red-200 rounded-lg text-[var(--grayscale-100)]">
         <span x-text="rowsError"></span>
         <button type="button" @click="refetchRows()" :disabled="rowsLoading"
-                class="ml-3 font-semibold text-[var(--primary-120)] underline" th:text="#{common.retry}">Retry</button>
+                class="ml-3 font-semibold text-[var(--text-accent)] underline" th:text="#{common.retry}">Retry</button>
     </div>
     <div id="component-rows-container" x-show="!rowsError" :aria-busy="rowsLoading" class="flex flex-col" th:insert="~{security-center/fragments/table :: rows}"></div>
 
     <!-- Pagination footer: count + "Load more". x-show'd on rowsLoaded so it doesn't flash
          "0 of 0" before the initial x-init fetch (see index.html) populates the real counts. -->
     <div x-show="rowsLoaded" class="flex items-center justify-center gap-[12px] py-[20px] border-t border-[var(--grayscale-20)]" style="display:none;">
-        <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px]"
+        <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
            x-text="window.securityCenterData.i18n.showingCount.replace('{0}', loadedComponentCount).replace('{1}', totalComponentCount)">Showing 100 of 5,000</p>
         <button type="button" x-show="hasMoreComponents" @click="loadMoreRows()"
                 :disabled="rowsLoading"
-                class="text-[12px] font-semibold text-[var(--primary-120)] hover:underline disabled:opacity-50"
+                class="text-[12px] font-semibold text-[var(--text-accent)] hover:underline disabled:opacity-50"
                 th:text="#{securityCenter.table.loadMore}" style="display:none;">Load more</button>
     </div>
 
@@ -115,7 +115,7 @@
                        x-model="selectedComponents"
                        name="selectedComponent"
                        th:value="${comp.id}"
-                       th:aria-label="#{common.selectItem(${comp.name + ' ' + comp.version})}">
+                       th:aria-label="#{common.selectItem(${comp.name + (comp.version != null ? ' ' + comp.version : '')})}">
                 <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                      :class="selectedComponents.some(v => String(v) === $el.closest('[data-row-id]').dataset.rowId) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
@@ -177,7 +177,7 @@
                                    #{securityCenter.reachability.tooltip.unknown})"
                          th:text="${comp.reachability == 'REACHABLE'} ? #{securityCenter.filter.reachable} :
                                    (${comp.reachability == 'NOT_REACHABLE'} ? #{securityCenter.filter.notReachable} :
-                                   #{securityCenter.filter.unknown})">Reachable</span>
+                                   #{securityCenter.filter.unknownReachability})">Reachable</span>
                 </p>
                 <p class="shrink-0 font-normal text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] leading-[1.3] min-w-[140px]"
                    th:text="${comp.dependencyInfo}">Direct (6) + Transitive (1)</p>
@@ -198,7 +198,7 @@
                   class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-low)] rounded-[4px] items-center justify-center text-[11px] font-medium text-white tracking-[-0.11px]"
                   th:text="${comp.securityLow >= 1000} ? ${#numbers.formatDecimal(comp.securityLow / 1000.0, 1, 1)} + 'k' : ${comp.securityLow}">1.1k</span>
             <span th:if="${comp.securityUnscored > 0}"
-                  class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-50)] tracking-[-0.11px]"
+                  class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-60)] tracking-[-0.11px]"
                   th:text="${comp.securityUnscored}">3</span>
             <!-- Zero CVEs but never actually queried (unmapped ecosystem): distinguish from "clean". -->
             <span th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0 and !comp.vulnerabilitiesAnalyzed}"
@@ -222,7 +222,7 @@
                            th:text="${comp.patchability == 'patchable'} ? #{common.patchable} : (${comp.patchability == 'non-patchable'} ? #{common.nonPatchable} : #{common.unknown})">Patchable</p>
                     </span>
                     <p th:if="${comp.patchability == 'patchable' and comp.recommendedFixVersion != null}"
-                       class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] pl-[14px]"
+                       class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] pl-[14px]"
                        th:text="'→ v' + ${comp.recommendedFixVersion}">→ v2.17.0</p>
                 </span>
             </th:block>
@@ -245,7 +245,7 @@
                         <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{common.outdated}">Outdated</p>
                     </span>
                     <p th:if="${comp.latestVersion != null}"
-                       class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] pl-[14px]"
+                       class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] pl-[14px]"
                        th:text="'→ v' + ${comp.latestVersion}">→ v2.17.0</p>
                 </span>
                 <span th:if="${comp.deprecated == null and comp.isLatestVersion == null}"

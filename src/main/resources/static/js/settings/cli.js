@@ -71,6 +71,14 @@ function cliTab() {
                 await this.loadKeys();
             } catch(e) { this.apiError = _cliI18n.updateFailed; }
         },
+        async deleteKey(k) {
+            if (!window.confirm(_cliI18n.deleteConfirm.replace('{0}', k.label || k.projectName || ''))) return;
+            try {
+                const r = await fetch('/api/admin/cli-keys/' + k.id, {method: 'DELETE', headers: this.headers()});
+                if (!r.ok) { this.apiError = _fetchErr(r, _cliI18n.deleteFailed); return; }
+                await this.loadKeys();
+            } catch (_) { this.apiError = _cliI18n.deleteFailed; }
+        },
         copyToken() {
             if (this.newTokenBanner) navigator.clipboard.writeText(this.newTokenBanner);
         }

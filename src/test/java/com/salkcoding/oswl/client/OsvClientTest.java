@@ -104,12 +104,24 @@ class OsvClientTest {
         assertThat(vuln.fixVersion()).isNull();
     }
 
-    @Test void ambiguousAffectedRangesDoNotRecommendAnOlderFix() {
+    @Test void disjointAffectedRangesChooseFixForInstalledVersion() {
         var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","affected",List.of(Map.of(
                 "package",Map.of("name","target","ecosystem","npm"),
                 "ranges",List.of(Map.of("type","SEMVER","events",List.of(Map.of("introduced","0"),Map.of("fixed","1.0.0"),Map.of("introduced","2.0.0"),Map.of("fixed","2.1.0"))))))),
                 new OsvClient.OsvQuery("npm","target","2.0.5"));
-        assertThat(vuln.fixVersion()).isNull();
+        assertThat(vuln.fixVersion()).isEqualTo("2.1.0");
+    }
+
+
+    @Test void immutableFixMatchesInstalledReleaseLine() {
+        var affected = List.of(Map.of("package", Map.of("name", "immutable", "ecosystem", "npm"),
+                "ranges", List.of(Map.of("type", "SEMVER", "events", List.of(
+                        Map.of("introduced", "0"), Map.of("fixed", "3.8.3"),
+                        Map.of("introduced", "4.0.0"), Map.of("fixed", "4.3.7"),
+                        Map.of("introduced", "5.0.0"), Map.of("fixed", "5.1.5"))))));
+        var advisory = Map.<String, Object>of("id", "GHSA-wf6x-7x77-mvgw", "affected", affected);
+        assertThat(client.parseVuln(advisory, new OsvClient.OsvQuery("npm", "immutable", "5.1.4")).fixVersion()).isEqualTo("5.1.5");
+        assertThat(client.parseVuln(advisory, new OsvClient.OsvQuery("npm", "immutable", "4.3.6")).fixVersion()).isEqualTo("4.3.7");
     }
 
 }

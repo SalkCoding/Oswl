@@ -117,4 +117,13 @@ class ApiKeyServiceTest {
         when(apiKeyRepository.findByProjectIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
         assertThat(apiKeyService.findByProject(1L)).isEmpty();
     }
+
+    @Test void deleteRemovesOnlyRequestedKeyAndAuditsIt() {
+        ApiKey key = ApiKey.builder().id(10L).label("build").project(project(1L)).build();
+        when(apiKeyRepository.findWithProjectById(10L)).thenReturn(Optional.of(key));
+        apiKeyService.delete(10L);
+        verify(apiKeyRepository).delete(key);
+        verify(auditLogService).log("CLI_KEY.DELETE", "CLI_KEY", "10", "build", null);
+    }
+
 }

@@ -74,6 +74,12 @@ public class AdminCliKeyController implements AdminCliKeyControllerSpec {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{keyId}")
+    public ResponseEntity<Void> delete(@PathVariable Long keyId) {
+        apiKeyService.delete(keyId);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Internal ─────────────────────────────────────────────────────────────
 
     private GlobalApiKeyResponse toGlobalResponse(ApiKey key) {

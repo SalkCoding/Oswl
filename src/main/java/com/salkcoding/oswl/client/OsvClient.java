@@ -322,6 +322,10 @@ public class OsvClient {
         // recommend an earlier fix when the advisory includes a later vulnerable interval.
         if (rangeCount == 1 && introducedCount <= 1 && !openEnded && fixedVersions.size() == 1)
             fixVersion = fixedVersions.iterator().next();
+        if (query != null && affectedObj instanceof List<?> affected) {
+            String matchedFix = fixForInstalledVersion(affected, query);
+            if (matchedFix != null) fixVersion = matchedFix;
+        }
 
         Double score = null; String vector = null;
         if (vuln.get("severity") instanceof List<?> severities) {
@@ -338,6 +342,55 @@ public class OsvClient {
         }
         String severity = vuln.get("database_specific") instanceof Map<?, ?> db && db.get("severity") instanceof String value ? value : null;
         return new OsvVuln(osvId, cveId, summary, fixVersion, extractCweId(vuln), risk(severity, score), score, vector);
+    }
+
+    private record VersionInterval(String introduced, String fixed) {}
+
+    /** Select a fix in the installed release's interval, never a fix from an older release line. */
+    private static String fixForInstalledVersion(List<?> affected, OsvQuery query) {
+        if (!numericRelease(query.version())) return null;
+        List<VersionInterval> intervals = new ArrayList<>();
+        for (Object raw : affected) {
+            if (!(raw instanceof Map<?, ?> entry) || !(entry.get("package") instanceof Map<?, ?> pkg)
+                    || !query.name().equals(pkg.get("name")) || !query.ecosystem().equals(pkg.get("ecosystem"))
+                    || !(entry.get("ranges") instanceof List<?> ranges)) continue;
+            for (Object rawRange : ranges) {
+                if (!(rawRange instanceof Map<?, ?> range) || "GIT".equals(range.get("type"))
+                        || !(range.get("events") instanceof List<?> events)) continue;
+                String introduced = null;
+                for (Object rawEvent : events) {
+                    if (!(rawEvent instanceof Map<?, ?> event)) continue;
+                    if (event.get("introduced") instanceof String value) introduced = value;
+                    if (event.containsKey("last_affected") || event.containsKey("limit")) return null;
+                    if (event.get("fixed") instanceof String fixed && introduced != null) {
+                        if (!numericRelease(introduced) || !numericRelease(fixed)) return null;
+                        intervals.add(new VersionInterval(introduced, fixed));
+                        introduced = null;
+                    }
+                }
+                if (introduced != null) {
+                    if (!numericRelease(introduced)) return null;
+                    intervals.add(new VersionInterval(introduced, null));
+                }
+            }
+        }
+        try {
+            return intervals.stream().filter(i -> containsVersion(i, query.version()) && i.fixed() != null)
+                    .map(VersionInterval::fixed)
+                    .filter(candidate -> intervals.stream().noneMatch(i -> containsVersion(i, candidate)))
+                    .min(com.salkcoding.oswl.vdb.SimpleVersionComparator::compare).orElse(null);
+        } catch (IllegalArgumentException unsupported) {
+            return null;
+        }
+    }
+
+    private static boolean containsVersion(VersionInterval interval, String version) {
+        return com.salkcoding.oswl.vdb.SimpleVersionComparator.compare(version, interval.introduced()) >= 0
+                && (interval.fixed() == null || com.salkcoding.oswl.vdb.SimpleVersionComparator.compare(version, interval.fixed()) < 0);
+    }
+
+    private static boolean numericRelease(String value) {
+        return value != null && value.matches("[vV]?[0-9]+(?:\\.[0-9]+)*");
     }
 
     private static final class DetailBudget {

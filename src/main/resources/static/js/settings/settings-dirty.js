@@ -57,6 +57,8 @@
     // Native inputs/textareas/selects (including sr-only ones behind custom styling).
     ['input', 'change'].forEach((type) => {
         document.addEventListener(type, (e) => {
+            // Alpine dispatches synthetic change events while initializing x-model.
+            if (!e.isTrusted) return;
             const t = e.target;
             if (!(t instanceof Element)) return;
             if (t.closest('[data-dirty-ignore]')) return;
@@ -66,6 +68,7 @@
 
     // Custom click-based controls (radio images, listbox options, toggle pills).
     document.addEventListener('click', (e) => {
+        if (!e.isTrusted) return;
         const t = e.target;
         if (!(t instanceof Element)) return;
         const trigger = t.closest('[data-dirty-mark]');

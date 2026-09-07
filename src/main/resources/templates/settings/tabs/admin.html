@@ -1112,7 +1112,7 @@
                         class="mt-auto px-[14px] py-[9px] bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 disabled:cursor-not-allowed text-white text-[13px] font-bold rounded-[8px] transition-colors"
                         x-text="snapshotImporting ? _snapshotI18n.importing : _snapshotI18n.importButton"></button>
                 <button type="button" @click="snapshotShowPathImport = !snapshotShowPathImport"
-                        class="text-[11px] text-left text-[var(--secondary-100)] hover:underline" x-text="_snapshotI18n.importFromPathToggle"></button>
+                        class="oswl-button-secondary self-start" x-text="_snapshotI18n.importFromPathToggle"></button>
                 <div x-show="snapshotShowPathImport" x-cloak class="flex flex-col gap-[8px] pt-[6px] border-t border-[var(--grayscale-10)]">
                     <input type="text" x-model="snapshotImportPath" :placeholder="_snapshotI18n.importFromPathPlaceholder"
                            class="px-[10px] py-[6px] border border-[var(--grayscale-20)] rounded-[6px] text-[12px] focus:outline-none focus:border-[var(--primary-120)]"/>
@@ -1331,7 +1331,7 @@
         </div>
     </div>
 
-    <script th:src="@{/js/settings/admin.min.js}"></script>
+    <script th:src="@{/js/settings/admin.min.js(v='1.0.5.1-ui2')}"></script>
 </div>
 </body>
 </html>

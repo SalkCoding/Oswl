@@ -113,8 +113,14 @@ public class AiPreferencesService {
         int cve = clamp(cveLimit, 1, 50, defaultCveLimit);
         int lic = clamp(licenseLimit, 1, 50, defaultLicenseLimit);
         String severities = normalizeCveSeverities(cveSeverities);
-        Double temp = temperature != null ? clampDouble(temperature, 0.0, 2.0) : null;
-        Integer tokens = maxTokens != null ? clamp(maxTokens, 256, 8192, 1200) : null;
+        if (temperature != null && (!Double.isFinite(temperature) || temperature < 0 || temperature > 2)) {
+            throw new InvalidRequestException("Temperature must be between 0 and 2.");
+        }
+        if (maxTokens != null && (maxTokens < 256 || maxTokens > 8192)) {
+            throw new InvalidRequestException("Max tokens must be between 256 and 8192.");
+        }
+        Double temp = temperature;
+        Integer tokens = maxTokens;
         int cap = Math.max(0, dailyCallCap);
         DeploymentProfile profile = defaultDeploymentProfile != null
                 ? defaultDeploymentProfile

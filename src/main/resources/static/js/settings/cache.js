@@ -11,7 +11,7 @@ function cacheTab() {
         showToast(msg) { this.toast = msg; setTimeout(()=> this.toast = null, 2500); },
         formatTtl(hours) {
             if (!hours || hours <= 0) return _cacheI18n.policyAlways;
-            if (hours >= 24*365*10) return 'Permanent';
+            if (hours >= 24*365*10) return _cacheI18n.permanent;
             if (hours % 24 === 0) return (hours/24) + ' ' + _cacheI18n.days;
             return hours + ' ' + _cacheI18n.hours;
         },
@@ -49,7 +49,7 @@ function cacheTab() {
             if (this.policy === 'always') return _cacheI18n.policyAlways;
             if (this.policy === 'permanent') return _cacheI18n.policyPermanent;
             const unit = this.customUnit === 'day' ? _cacheI18n.days : _cacheI18n.hours;
-            return `Cache policy set to ${this.customAmount} ${unit}.`;
+            return _cacheI18n.savedCustom.replace('{0}', this.customAmount).replace('{1}', unit);
         },
         async save() {
             if (!this.loaded || this.loading || this.saving) return;

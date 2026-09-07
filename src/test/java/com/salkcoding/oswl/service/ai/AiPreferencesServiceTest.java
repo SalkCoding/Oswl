@@ -58,4 +58,17 @@ class AiPreferencesServiceTest {
 
         assertThat(saved.getCveSeverities()).isEqualTo("CRITICAL,HIGH");
     }
+
+    @Test void rejectsInvalidModelParametersWithoutSaving() {
+        for (double temperature : new double[]{-0.1, 2.1, Double.NaN, Double.POSITIVE_INFINITY}) {
+            assertThatThrownBy(() -> service.save("en", 10, 8, "HIGH", temperature, 1200, 0, null, null))
+                    .isInstanceOf(InvalidRequestException.class);
+        }
+        for (int tokens : new int[]{-1, 0, 255, 8193}) {
+            assertThatThrownBy(() -> service.save("en", 10, 8, "HIGH", 0.15, tokens, 0, null, null))
+                    .isInstanceOf(InvalidRequestException.class);
+        }
+        verify(repository, never()).save(any());
+    }
+
 }

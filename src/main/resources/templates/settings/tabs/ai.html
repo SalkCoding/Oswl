@@ -714,7 +714,7 @@
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature"
+                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature" th:placeholder="#{settings.ai.defaultTemperature}"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
@@ -727,7 +727,7 @@
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
                     <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens"
+                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens" step="1" th:placeholder="#{settings.ai.defaultMaxTokens}"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
@@ -842,20 +842,7 @@
                      page rather than a raw browser checkbox. -->
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.autoBackfillShort}">Automatic</span>
-                    <div class="flex gap-[8px] flex-1 max-w-[400px]">
-                        <button type="button" data-dirty-mark @click="preferences.autoBackfillInsights = false"
-                                class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
-                                :class="!preferences.autoBackfillInsights
-                                    ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
-                                    : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
-                                th:text="#{settings.ai.autoBackfill.off}">Off</button>
-                        <button type="button" data-dirty-mark @click="preferences.autoBackfillInsights = true"
-                                class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
-                                :class="preferences.autoBackfillInsights
-                                    ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
-                                    : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
-                                th:text="#{settings.ai.autoBackfill.on}">On</button>
-                    </div>
+                    <button type="button" role="switch" th:aria-label="#{settings.ai.label.autoBackfill}" :aria-checked="preferences.autoBackfillInsights" data-dirty-mark @click="preferences.autoBackfillInsights = !preferences.autoBackfillInsights" class="oswl-switch" :class="preferences.autoBackfillInsights ? 'is-on' : ''"><span></span></button>
                 </div>
                 <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.autoBackfill}">Off by default. When on, saving a provider or a new prompt language re-runs the AI for recent scans in the background, which costs one API call per scan.</p>
             </div>
@@ -910,6 +897,7 @@
 
     <script th:inline="javascript">
     const _aiI18n = {
+        invalidParameters: /*[[#{settings.ai.invalidParameters}]]*/ 'Check parameter limits.',
         testConnection: /*[[#{settings.ai.btn.testConnection}]]*/ 'Test Connection',
         testing:        /*[[#{settings.ai.btn.testing}]]*/ 'Testing\u2026',
         save:           /*[[#{common.save}]]*/ 'Save',
@@ -971,7 +959,7 @@
     };
     </script>
 
-    <script th:src="@{/js/settings/ai.min.js}"></script>
+    <script th:src="@{/js/settings/ai.min.js(v='1.0.5.1-ui2')}"></script>
 </div>
 </body>
 </html>

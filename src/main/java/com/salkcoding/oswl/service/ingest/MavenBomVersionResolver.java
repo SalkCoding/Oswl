@@ -11,6 +11,7 @@ import org.w3c.dom.NodeList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,6 +59,10 @@ public class MavenBomVersionResolver {
             "\\s*\\(?[\"']([\\w.\\-]+:[\\w.\\-]+)(?::([\\w.+\\-]+))?[\"']",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PROP_REF = Pattern.compile("\\$\\{([^}]+)}");
+    private static final Pattern RICH_VERSION = Pattern.compile(
+            "\\s*\\)?\\s*\\{\\s*version\\s*\\{\\s*(?:strictly|require|prefer)\\s*\\(\\s*[\"']([^\"']+)[\"']");
+    private static final Pattern PLATFORM_BOM = Pattern.compile(
+            "(?:enforcedPlatform|platform)\\s*\\(\\s*[\"']([^\"']+)[\"']\\s*\\)");
 
     private final RestClient restClient;
     private final PomFetcher pomFetcher;
@@ -82,6 +87,7 @@ public class MavenBomVersionResolver {
         try {
             mergeVersionCatalogs(projectDir, index);
             mergeGradleProperties(projectDir, index);
+            mergeGradleConstraints(projectDir, index);
             mergeGradleBomHints(projectDir, index);
             mergeMavenPomHints(projectDir, index);
         } catch (Exception e) {
@@ -260,6 +266,8 @@ public class MavenBomVersionResolver {
                     resolveMavenBomCoordinate(kotlinBom.group(1), gradleVars)
                             .ifPresent(bomCoords::add);
                 }
+                Matcher platform = PLATFORM_BOM.matcher(content);
+                while (platform.find()) resolveMavenBomCoordinate(platform.group(1), gradleVars).ifPresent(bomCoords::add);
             } catch (Exception e) {
                 log.debug("[BOM] Failed to read {}: {}", file, e.getMessage());
             }
@@ -429,7 +437,7 @@ public class MavenBomVersionResolver {
         try {
             Document doc = parseXml(pomBytes.get());
             Element project = doc.getDocumentElement();
-            Map<String, String> props = extractProperties(project);
+            Map<String, String> props = effectiveProperties(project, new HashSet<>(), 0);
 
             Element parent = directChild(project, "parent");
             if (parent != null) {
@@ -514,6 +522,28 @@ public class MavenBomVersionResolver {
         return props;
     }
 
+    private Map<String, String> effectiveProperties(Element project, Set<String> visited, int depth) {
+        Map<String, String> props = new HashMap<>();
+        Element parent = directChild(project, "parent");
+        if (parent != null && depth < MAX_BOM_DEPTH) {
+            String g = text(directChild(parent, "groupId"));
+            String a = text(directChild(parent, "artifactId"));
+            String v = text(directChild(parent, "version"));
+            if (g != null && a != null && v != null && !isUnresolvedPlaceholder(v) && visited.add(g + ":" + a + ":" + v)) {
+                try {
+                    Optional<byte[]> bytes = pomFetcher.fetch(g, a, v);
+                    if (bytes.isPresent()) props.putAll(effectiveProperties(parseXml(bytes.get()).getDocumentElement(), visited, depth + 1));
+                } catch (Exception e) {
+                    log.debug("[BOM] Parent properties unavailable for {}:{}:{}", g, a, v);
+                }
+            }
+        }
+        props.putAll(extractProperties(project));
+        String version = text(directChild(project, "version"));
+        if (version != null) { props.put("project.version", version); props.put("pom.version", version); }
+        return props;
+    }
+
     private String resolveProp(String raw, Map<String, String> props) {
         if (raw == null || !raw.contains("${")) {
             return raw;
@@ -526,7 +556,14 @@ public class MavenBomVersionResolver {
             m.appendReplacement(sb, Matcher.quoteReplacement(val != null ? val : m.group(0)));
         }
         m.appendTail(sb);
-        return sb.toString();
+        String resolved = sb.toString();
+        for (int i = 0; i < MAX_BOM_DEPTH && resolved.contains("${"); i++) {
+            Matcher nested = PROP_REF.matcher(resolved);
+            String next = nested.replaceAll(match -> Matcher.quoteReplacement(props.getOrDefault(match.group(1), match.group(0))));
+            if (next.equals(resolved)) break;
+            resolved = next;
+        }
+        return resolved;
     }
 
     private Element directChild(Element parent, String tag) {
@@ -584,7 +621,7 @@ public class MavenBomVersionResolver {
     }
 
     private static void put(Map<String, String> index, String groupId, String artifactId, String version) {
-        if (groupId == null || artifactId == null || version == null || version.isBlank()) {
+        if (groupId == null || artifactId == null || version == null || version.isBlank() || isUnresolvedPlaceholder(version)) {
             return;
         }
         index.putIfAbsent(groupId + ":" + artifactId, version);
@@ -639,6 +676,27 @@ public class MavenBomVersionResolver {
             }
         }
         return comps;
+    }
+
+    private void mergeGradleConstraints(Path projectDir, Map<String, String> index) {
+        Map<String, String> variables = buildGradleVariableContext(projectDir);
+        for (Path file : findGradleBuildFiles(projectDir)) {
+            try {
+                String content = Files.readString(file, StandardCharsets.UTF_8);
+                Matcher dependency = GRADLE_DEP.matcher(content);
+                while (dependency.find()) {
+                    Matcher rich = RICH_VERSION.matcher(content).region(dependency.end(), content.length());
+                    if (rich.lookingAt()) {
+                        String version = resolveGradleExpression(rich.group(1), variables);
+                        if (version != null && version.matches("[0-9]+(?:\\.[0-9]+)*(?:-[A-Za-z0-9.-]+)?")) {
+                            put(index, dependency.group(2), version);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                log.debug("[BOM] Gradle constraints unavailable in {}", file);
+            }
+        }
     }
 
     /** Maps a Gradle configuration keyword to a dependency scope for noise-cut filtering. */

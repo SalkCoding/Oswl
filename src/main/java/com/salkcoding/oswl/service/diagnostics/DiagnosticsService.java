@@ -63,11 +63,12 @@ public class DiagnosticsService {
         results.add(fromHealth("db", "Database", dbHealthIndicator::health));
         results.add(fromHealth("disk", "Disk space", diskSpaceHealthIndicator::health));
         results.add(fromHealth("sidecar", "Embedded AI sidecar", embeddedSidecarHealthIndicator::health));
-        results.add(fromHealth("snapshot", "Air-gapped snapshot freshness", snapshotFreshnessHealthIndicator::health));
+        results.add(airgapped ? fromHealth("snapshot", "Air-gapped snapshot freshness", snapshotFreshnessHealthIndicator::health)
+                : new DiagnosticCheckResult("snapshot", "Air-gapped snapshot freshness", "SKIPPED", "Air-gapped mode disabled", 0));
         results.add(aiCheck());
         results.add(smtpCheck());
         results.addAll(vcsChecks(userId));
-        results.add(outboundProbe("osv", "OSV API", "https://api.osv.dev/v1/vulns/CVE-1900-0001"));
+        results.add(outboundProbe("osv", "OSV API", "https://api.osv.dev/v1/vulns/GHSA-jfh8-c2jp-5v3q"));
         results.add(outboundProbe("depsdev", "deps.dev API", "https://api.deps.dev/v3/systems/npm/packages/left-pad"));
         results.add(outboundProbe("epss", "FIRST.org EPSS API", "https://api.first.org/data/v1/epss?cve=CVE-1900-0001"));
         results.add(outboundProbe("kev", "CISA KEV catalog",
@@ -120,7 +121,8 @@ public class DiagnosticsService {
         AiConnectionTestResult result = aiAnalysisService.testConnectionDetailed(active);
         long tookMs = System.currentTimeMillis() - start;
         String label = "AI provider (" + active.getProvider() + ")";
-        return new DiagnosticCheckResult("ai", label, result.success() ? "UP" : "DOWN", result.message(), tookMs);
+        return new DiagnosticCheckResult("ai", label, !result.success() ? "DOWN"
+                : result.hint() != null && !result.hint().isBlank() ? "UNKNOWN" : "UP", result.message(), tookMs);
     }
 
     // ── SMTP ─────────────────────────────────────────────────────────────
@@ -176,13 +178,11 @@ public class DiagnosticsService {
         requestFactory.setReadTimeout(PROBE_READ_TIMEOUT);
         RestClient client = RestClient.builder().requestFactory(requestFactory).build();
         try {
-            // Any HTTP response — including 4xx from a deliberately made-up lookup key — proves
-            // the host is reachable and TLS/DNS resolve correctly. Only a transport-level
-            // failure (timeout, refused, unknown host, TLS handshake) means the source is down.
+            // A usable API response is required; transport reachability alone is insufficient.
             client.get().uri(url).retrieve().toBodilessEntity();
             return new DiagnosticCheckResult(id, label, "UP", "Reachable", System.currentTimeMillis() - start);
         } catch (org.springframework.web.client.HttpStatusCodeException httpError) {
-            return new DiagnosticCheckResult(id, label, "UP", "Reachable (HTTP " + httpError.getStatusCode().value() + ")",
+            return new DiagnosticCheckResult(id, label, "DOWN", "HTTP " + httpError.getStatusCode().value(),
                     System.currentTimeMillis() - start);
         } catch (Exception e) {
             return new DiagnosticCheckResult(id, label, "DOWN", safeMessage(e), System.currentTimeMillis() - start);

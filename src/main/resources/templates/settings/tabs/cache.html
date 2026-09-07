@@ -127,6 +127,8 @@
 
     <script th:inline="javascript">
     const _cacheI18n = {
+        savedCustom: /*[[#{settings.cache.policy.savedCustom}]]*/ 'Cache duration: {0} {1}.',
+        permanent: /*[[#{settings.cache.policy.permanent}]]*/ 'Permanent',
         hours:           /*[[#{settings.cache.ttl.hours}]]*/ 'hour(s)',
         days:            /*[[#{settings.cache.ttl.days}]]*/ 'day(s)',
         saving:          /*[[#{common.saving}]]*/ 'Saving…',
@@ -138,7 +140,7 @@
         cleared:         /*[[#{settings.cache.cleared}]]*/ 'All cache has been cleared.'
     };
     </script>
-    <script th:src="@{/js/settings/cache.min.js}"></script>
+    <script th:src="@{/js/settings/cache.min.js(v='1.0.5.1-ui2')}"></script>
 </div>
 </body>
 </html>

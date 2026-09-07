@@ -195,4 +195,39 @@ class MavenBomVersionResolverTest {
         .containsEntry("org.springframework.boot:spring-boot-starter-web", "3.5.5")
         .containsEntry("org.jetbrains.kotlin:kotlin-reflect", "1.9.25");
   }
+
+  @Test void inheritsParentPropertiesAndResolvesNestedVersions(@TempDir Path dir) throws Exception {
+    Files.writeString(dir.resolve("build.gradle"), """
+        dependencyManagement { imports { mavenBom 'example:child-bom:1' } }
+        dependencies { implementation 'com.fasterxml.jackson.module:jackson-module-parameter-names' }
+        """);
+    String parent = """
+        <project><properties><jackson.version>2.20.0</jackson.version></properties></project>
+        """;
+    String child = """
+        <project><parent><groupId>example</groupId><artifactId>parent</artifactId><version>1</version></parent>
+        <properties><module.version>${jackson.version}</module.version></properties>
+        <dependencyManagement><dependencies><dependency>
+        <groupId>com.fasterxml.jackson.module</groupId><artifactId>jackson-module-parameter-names</artifactId>
+        <version>${module.version}</version></dependency></dependencies></dependencyManagement></project>
+        """;
+    var resolver = new MavenBomVersionResolver((g,a,v) -> Optional.of((a.equals("parent") ? parent : child).getBytes(StandardCharsets.UTF_8)));
+    assertThat(resolver.parseGradleDeclaredWithBom(dir)).extracting(ScanPayload.ComponentPayload::getVersion).containsExactly("2.20.0");
+  }
+
+  @Test void resolvesGradleRichVersionConstraints(@TempDir Path dir) throws Exception {
+    Files.writeString(dir.resolve("build.gradle.kts"), """
+        dependencies {
+          constraints {
+            api("com.graphql-java:java-dataloader") { version { require("3.3.0") } }
+            api("com.graphql-java:graphql-java-extended-validation") { version { require("22.0") } }
+          }
+          implementation("com.graphql-java:java-dataloader")
+          implementation("com.graphql-java:graphql-java-extended-validation")
+        }
+        """);
+    var resolver = new MavenBomVersionResolver((g,a,v) -> Optional.empty());
+    assertThat(resolver.parseGradleDeclaredWithBom(dir)).extracting(ScanPayload.ComponentPayload::getVersion)
+        .containsExactly("3.3.0", "22.0");
+  }
 }

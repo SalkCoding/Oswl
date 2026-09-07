@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.uitest;
 
 import com.microsoft.playwright.Route;
+import com.microsoft.playwright.Page;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.scan.*;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
@@ -250,4 +251,63 @@ class RequestLifecycleUiTest extends UiTestBase {
             """)).isEqualTo(true);
     }
 
+
+    @Test void settingsInitializationDoesNotCountAsAnEditButUserInputDoes() {
+        page.route("**/api/settings/cache", route -> route.fulfill(new Route.FulfillOptions()
+                .setStatus(200).setContentType("application/json")
+                .setBody("[{\"cacheKey\":\"DEPS_DEV\",\"ttlHours\":48}]")));
+        loginAsTestAdmin();
+        page.navigate(url("/settings?tab=cache&lang=en"));
+        page.waitForFunction("() => Alpine.$data(document.querySelector('[x-data=\"cacheTab()\"]')).loaded");
+        assertThat(page.evaluate("() => window.OswlDirty.isDirty()")).isEqualTo(false);
+        page.locator("input[type=number]").fill("3");
+        assertThat(page.evaluate("() => window.OswlDirty.isDirty()")).isEqualTo(true);
+    }
+
+    @Test void invalidAiParametersAreRejectedBeforeSending() {
+        AtomicInteger writes = new AtomicInteger();
+        page.route("**/api/settings/ai", route -> {
+            if (route.request().method().equals("PUT")) writes.incrementAndGet();
+            route.fulfill(new Route.FulfillOptions().setStatus(200).setContentType("application/json")
+                    .setBody("{\"provider\":\"LOCAL\",\"active\":true,\"modelName\":\"fixture\",\"activeProviderKind\":\"LOCAL\"}"));
+        });
+        loginAsTestAdmin();
+        page.navigate(url("/settings?tab=ai&section=context&lang=en"));
+        page.waitForFunction("() => Alpine.$data(document.querySelector('[x-data=\"aiTab()\"]'))._contextLoaded");
+        page.getByPlaceholder("Default: 0.15").fill("99");
+        page.getByPlaceholder("Default: 1200").fill("8193");
+        page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("Save").setExact(true)).click();
+        assertThat(writes).hasValue(0);
+        assertThat(page.locator("[x-text=apiError]").innerText()).contains("256");
+    }
+
+    @Test void emptyArchiveExportExplainsWhyNoFileIsDownloaded() {
+        page.route("**/api/admin/projects", route -> route.fulfill(new Route.FulfillOptions().setStatus(200)
+                .setContentType("application/json").setBody("[{\"id\":1,\"name\":\"Archive fixture\"}]")));
+        page.route("**/archive-scans/export", route -> route.fulfill(new Route.FulfillOptions().setStatus(200)
+                .setContentType("application/json").setBody("[]")));
+        AtomicInteger downloads = new AtomicInteger();
+        page.onDownload(download -> downloads.incrementAndGet());
+        loginAsTestAdmin();
+        page.navigate(url("/settings?tab=diagnostics&lang=en"));
+        page.locator("select").selectOption("1");
+        page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("Export older scans").setExact(true)).click();
+        page.waitForCondition(() -> page.locator("[x-text='previewText()']").innerText().contains("No scans to export"));
+        assertThat(downloads).hasValue(0);
+    }
+    @Test void archiveExportDownloadsTheReturnedScanDetails() throws Exception {
+        page.route("**/api/admin/projects", route -> route.fulfill(new Route.FulfillOptions().setStatus(200)
+                .setContentType("application/json").setBody("[{\"id\":1,\"name\":\"Archive fixture\"}]")));
+        page.route("**/archive-scans/export", route -> route.fulfill(new Route.FulfillOptions().setStatus(200)
+                .setContentType("application/json").setBody("[{\"id\":42,\"components\":[{\"name\":\"immutable\"}]}]")));
+        loginAsTestAdmin();
+        page.navigate(url("/settings?tab=diagnostics&lang=en"));
+        page.locator("select").selectOption("1");
+        var download = page.waitForDownload(() -> page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("Export older scans").setExact(true)).click());
+        assertThat(download.suggestedFilename()).startsWith("oswl-scan-archive-export-p1-").endsWith(".json");
+        assertThat(java.nio.file.Files.readString(download.path())).contains("immutable", "42");
+    }
 }
