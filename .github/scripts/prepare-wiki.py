@@ -8,6 +8,7 @@ Uses only the Python standard library. Run from any directory:
 import argparse
 from pathlib import Path
 import re
+import subprocess
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 
@@ -82,7 +83,10 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', args.repository):
         parser.error('repository must be owner/repository')
-    sources = sorted(SOURCE.glob('*.md'))
+    # Exclude local-only documents retained outside version control.
+    tracked = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard',
+                                       'docs/en/*.md'], cwd=ROOT, text=True).splitlines()
+    sources = sorted({ROOT / name for name in tracked if (ROOT / name).is_file()})
     names = {source.name for source in sources}
     if not {'Home.md', '_Sidebar.md'} <= names or 'README.md' in names:
         parser.error('English docs must include Home.md and _Sidebar.md, without a competing README.md')

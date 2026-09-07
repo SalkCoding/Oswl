@@ -21,7 +21,7 @@
         <p class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.configTransfer.export.description}">Downloads a JSON file. It never contains secrets, API keys, or passwords.</p>
         <div>
             <button @click="exportBundle()" :disabled="exporting"
-                    class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
                     x-text="exporting ? _cfgI18n.exporting : _cfgI18n.export">Export</button>
         </div>
     </div>
@@ -54,7 +54,7 @@
             </div>
             <div>
                 <button @click="applyImport()" :disabled="applying"
-                        class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
                         x-text="applying ? _cfgI18n.applying : _cfgI18n.apply">Apply import</button>
             </div>
         </div>
@@ -93,7 +93,7 @@
         skippedUnresolvedPolicies: /*[[#{settings.configTransfer.skippedUnresolvedPolicies}]]*/ '{0} policy(ies) were skipped — their scope could not be matched by name on this instance.'
     };
     </script>
-    <script th:src="@{/js/settings/config-transfer.min.js(v='1.0.5.1-ui2')}"></script>
+    <script th:src="@{/js/settings/config-transfer.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

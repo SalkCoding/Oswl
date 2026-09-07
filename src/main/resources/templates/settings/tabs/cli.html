@@ -89,18 +89,18 @@
                 </tr>
             </template>
             <tr x-show="keys.length===0 && !loading">
-                <td colspan="7" class="px-[16px] py-[48px] text-center text-[var(--grayscale-50)]"
+                <td colspan="7" class="px-[16px] py-[48px] text-center text-[var(--grayscale-60)]"
                     th:text="#{settings.cli.keys.empty}">No API keys created yet. Click "Create New Key" to get started.</td>
             </tr>
             <tr x-show="loading">
-                <td colspan="7" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]" th:text="#{common.loading}">Loading...</td>
+                <td colspan="7" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)] text-[12px]" th:text="#{common.loading}">Loading...</td>
             </tr>
             </tbody>
         </table>
     </div>
 
     <!-- Footer notice -->
-    <p class="mt-[20px] text-[12px] text-[var(--grayscale-50)] flex items-center gap-[6px]">
+    <p class="mt-[20px] text-[12px] text-[var(--grayscale-60)] flex items-center gap-[6px]">
         <img th:src="@{/icon/icon-info2.svg}" class="w-[16px] h-[16px] flex-shrink-0" alt="" aria-hidden="true">
         <span th:text="#{settings.cli.footer}">API keys are only shown once. If you lose a key, generate a new one.</span>
     </p>
@@ -149,12 +149,12 @@
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <button type="button" @click="form.projectId = null; open = false"
                                     class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
-                                    :class="!form.projectId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'"
+                                    :class="!form.projectId ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)]'"
                                     x-text="_cliI18n.selectProject"></button>
                             <template x-for="p in projects" :key="p.id">
                                 <button type="button" @click="form.projectId = p.id; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[12px] transition-colors"
-                                        :class="form.projectId === p.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="form.projectId === p.id ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="p.name"></button>
                             </template>
                         </div>
@@ -194,7 +194,7 @@
         updateFailed:/*[[#{settings.cli.error.updateFailed}]]*/ 'Failed to update key.'
     };
     </script>
-    <script th:src="@{/js/settings/cli.min.js(v='1.0.5.1-ui2')}"></script>
+    <script th:src="@{/js/settings/cli.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

@@ -48,3 +48,13 @@ The two configurations retain different PostgreSQL major versions. Changing betw
 The [CI workflow](../.github/workflows/ci-cd.yml) publishes the production JAR to GitHub Releases. It does not publish a Docker image or deploy an application server. [Pages](../.github/workflows/pages.yml) publishes the landing site, and [Wiki sync](../.github/workflows/wiki-sync.yml) publishes English documentation.
 
 [English deployment guide](../docs/en/Production-Deployment-Checklist.md) | [한국어 배포 가이드](../docs/ko/Production-Deployment-Checklist.md) | [日本語デプロイガイド](../docs/ja/Production-Deployment-Checklist.md)
+
+## Release artifacts
+
+The release version is declared in `build.gradle`. OsWL uses exact numeric versions, including four-part hotfix versions such as `1.0.5.1`; release tags use the `v` prefix.
+
+Before tagging a reviewed commit, run `python .github/scripts/validate-release.py --tag v1.0.5.1`, the CI checks, and `./gradlew bootJar verifyProdJar`. The production artifact is `build/libs/oswl-1.0.5.1.jar`. The validator checks the changelog, SARIF version, translated release notes and landing/application translation keys.
+
+To publish the reviewed commit, create an annotated `v1.0.5.1` tag and push that tag to GitHub. The CI/CD workflow runs backend and browser checks for the tag, requires its version to match `build.gradle`, then creates a draft release, attaches the JAR and `SHA256SUMS`, and publishes it. A failed build or validation does not publish a release. Reruns can resume a draft; published assets are never overwritten automatically. Branch pushes and manual CI dispatches do not publish releases.
+
+Pages and Wiki remain separate workflows on `main`; publishing a binary release does not deploy a server or update those sites. See [release notes](../docs/en/Whats-New-v1.0.5.1.md) for upgrade requirements and data limitations.

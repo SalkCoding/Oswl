@@ -99,7 +99,7 @@
                 </div>
             </div>
             <button @click="save()" :disabled="saving || !loaded || loading"
-                    class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] inline-flex items-center gap-[6px] disabled:opacity-60 transition-colors">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span x-text="saving ? _cacheI18n.saving : _cacheI18n.save"></span>
             </button>
@@ -140,7 +140,7 @@
         cleared:         /*[[#{settings.cache.cleared}]]*/ 'All cache has been cleared.'
     };
     </script>
-    <script th:src="@{/js/settings/cache.min.js(v='1.0.5.1-ui2')}"></script>
+    <script th:src="@{/js/settings/cache.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

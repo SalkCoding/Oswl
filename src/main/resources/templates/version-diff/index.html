@@ -31,7 +31,7 @@
                             @click="selectFrom($el.dataset.scanId, $el.dataset.version); open = false"
                             class="w-full flex items-center justify-between px-[12px] py-[8px] text-[13px] text-[var(--grayscale-80)] hover:bg-[var(--grayscale-5)] transition text-left">
                         <span th:text="${v.version}">-</span>
-                        <span th:text="${v.scannedAt}" class="text-[11px] text-[var(--grayscale-40)]">-</span>
+                        <span th:text="${v.scannedAt}" class="text-[11px] text-[var(--grayscale-60)]">-</span>
                     </button>
                 </th:block>
             </div>
@@ -58,7 +58,7 @@
                             @click="selectTo($el.dataset.scanId, $el.dataset.version); open = false"
                             class="w-full flex items-center justify-between px-[12px] py-[8px] text-[13px] text-[var(--grayscale-80)] hover:bg-[var(--grayscale-5)] transition text-left">
                         <span th:text="${v.version}">-</span>
-                        <span th:text="${v.scannedAt}" class="text-[11px] text-[var(--grayscale-40)]">-</span>
+                        <span th:text="${v.scannedAt}" class="text-[11px] text-[var(--grayscale-60)]">-</span>
                     </button>
                 </th:block>
             </div>
@@ -69,10 +69,10 @@
         <!-- Total changes badge -->
         <span th:if="${totalCount > 0}"
               th:text="#{versionDiff.changesFound(${totalCount})}"
-              class="text-[14px] font-semibold text-[var(--primary-120)] tracking-[-0.14px]">0 changes found</span>
+              class="text-[14px] font-semibold text-[var(--text-accent)] tracking-[-0.14px]">0 changes found</span>
         <span th:if="${totalCount == 0}"
               th:text="#{versionDiff.noChangesFound}"
-              class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">No changes found</span>
+              class="text-[14px] font-medium text-[var(--grayscale-60)] tracking-[-0.14px]">No changes found</span>
     </div>
 
     <main class="flex-1 px-[16px] sm:px-[24px] md:px-[40px] lg:px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[24px] md:py-[40px] flex flex-col gap-[32px]">
@@ -111,7 +111,7 @@
             <svg class="w-[15px] h-[15px] text-[var(--primary-100)] shrink-0 mt-[2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
             </svg>
-            <p class="text-[13px] text-[var(--primary-120)] tracking-[-0.13px] m-0 leading-relaxed"
+            <p class="text-[13px] text-[var(--text-accent)] tracking-[-0.13px] m-0 leading-relaxed"
                th:text="${diffAiInsight}">AI diff insight</p>
         </div>
 
@@ -127,7 +127,7 @@
                         :class="tab === 'all' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.all}">ALL</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'all' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'all' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'"
                           th:text="${totalCount}">0</span>
                 </button>
                 <button type="button"
@@ -136,7 +136,7 @@
                         :class="tab === 'added' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.added}">Added</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'added' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'added' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'"
                           th:text="${addedCount}">0</span>
                 </button>
                 <button type="button"
@@ -145,7 +145,7 @@
                         :class="tab === 'removed' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.removed}">Removed</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'removed' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'removed' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'"
                           th:text="${removedCount}">0</span>
                 </button>
                 <button type="button"
@@ -154,7 +154,7 @@
                         :class="tab === 'updated' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.updated}">Updated</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'updated' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'updated' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'"
                           th:text="${updatedCount}">0</span>
                 </button>
                 <button type="button"
@@ -163,7 +163,7 @@
                         :class="tab === 'newThreat' ? 'font-bold text-[var(--grayscale-100)] border-[var(--primary-100)]' : 'font-medium text-[var(--grayscale-70)] border-transparent hover:text-[var(--grayscale-80)]'">
                     <span th:text="#{versionDiff.tab.newThreats}">New Threats</span>
                     <span class="text-[12px] tracking-[-0.12px] px-[5px] rounded-[100px] flex items-center justify-center min-w-[18px] h-[18px]"
-                          :class="tab === 'newThreat' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-50)]'"
+                          :class="tab === 'newThreat' ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)]' : 'bg-[var(--grayscale-10)] text-[var(--grayscale-60)]'"
                           th:text="${newThreatCount}">0</span>
                 </button>
             </div>
@@ -182,7 +182,7 @@
 
             <!-- Table rows -->
             <div th:if="${#lists.isEmpty(diffRows)}"
-                 class="flex flex-col items-center gap-[12px] py-[80px] text-[var(--grayscale-40)]">
+                 class="flex flex-col items-center gap-[12px] py-[80px] text-[var(--grayscale-60)]">
                 <img th:src="@{/icon/icon-info2.svg}" class="w-[48px] h-[48px] opacity-40" alt="" aria-hidden="true">
                 <p class="text-[14px] font-medium" th:text="#{versionDiff.noChanges.detail}">No differences found between the two versions.</p>
             </div>
@@ -190,19 +190,19 @@
             <div th:unless="${#lists.isEmpty(diffRows)}">
                 <!-- A category tab with zero entries: say so instead of showing a blank table body -->
                 <div th:if="${addedCount == 0}" x-show="tab === 'added'" x-cloak
-                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-60)]">
                     <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
                 </div>
                 <div th:if="${removedCount == 0}" x-show="tab === 'removed'" x-cloak
-                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-60)]">
                     <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
                 </div>
                 <div th:if="${updatedCount == 0}" x-show="tab === 'updated'" x-cloak
-                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-60)]">
                     <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
                 </div>
                 <div th:if="${newThreatCount == 0}" x-show="tab === 'newThreat'" x-cloak
-                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-40)]">
+                     class="flex flex-col items-center gap-[12px] py-[60px] text-[var(--grayscale-60)]">
                     <p class="text-[13px] font-medium" th:text="#{versionDiff.tabEmpty}">No entries in this category.</p>
                 </div>
                 <div th:each="row, stat : ${diffRows}"
@@ -228,7 +228,7 @@
                         <span class="text-[13px] font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate"
                               th:text="${row.fromName != null ? row.fromName : '-'}">-</span>
                         <span th:if="${row.fromVersion != null}"
-                              class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] shrink-0"
+                              class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] shrink-0"
                               th:text="${row.fromVersion}">-</span>
                         <span th:if="${row.fromRiskLevel != null and row.fromRiskLevel != 'NONE'}"
                               class="ml-auto shrink-0 inline-flex items-center gap-[8px] px-[12px] py-[4px] rounded-[40px] text-[11px] font-normal tracking-[-0.11px] text-[var(--grayscale-80)] border"
@@ -256,7 +256,7 @@
                         <span class="text-[13px] font-medium text-[var(--grayscale-80)] tracking-[-0.13px] truncate"
                               th:text="${row.toName != null ? row.toName : '-'}">-</span>
                         <span th:if="${row.toVersion != null}"
-                              class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] shrink-0"
+                              class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] shrink-0"
                               th:text="${row.toVersion}">-</span>
                         <span th:if="${row.toRiskLevel != null and row.toRiskLevel != 'NONE'}"
                               class="shrink-0 inline-flex items-center gap-[8px] px-[12px] py-[4px] rounded-[40px] text-[11px] font-normal tracking-[-0.11px] text-[var(--grayscale-80)] border"

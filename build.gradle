@@ -8,9 +8,8 @@ plugins {
 }
 
 group = 'com.salkcoding'
-// x-release-please-start-version
-version = '1.0.4'
-// x-release-please-end
+// Release tags and the production JAR use this exact version, including hotfix revisions.
+version = '1.0.5.1'
 
 java {
 	toolchain {
@@ -64,7 +63,7 @@ dependencies {
     }
     implementation 'org.bouncycastle:bcprov-jdk18on'
     implementation 'org.bitbucket.b_c:jose4j:0.9.6'
-	// Bytecode call-graph analysis (ROADMAP A2)
+	// Bytecode call-graph analysis
 	implementation 'org.ow2.asm:asm:9.7'
 
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -117,7 +116,7 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 
-	// Headless-browser UI/accessibility verification (ROADMAP v1.0.5.1 — V1). Java-native: no
+	// Headless-browser UI/accessibility verification. Java-native: no
 	// package.json/npm needed, same "standalone binary, self-managed" spirit as the Tailwind CLI
 	// and esbuild downloads below — Playwright's own CLI fetches its browser binaries on demand.
 	uiTestImplementation 'com.microsoft.playwright:playwright:1.52.0'

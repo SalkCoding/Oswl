@@ -92,7 +92,7 @@ public class SarifExportService {
         ObjectNode driver = run.putObject("tool").putObject("driver");
         driver.put("name", "OsWL");
         driver.put("informationUri", "https://github.com/SalkCoding/Oswl");
-        driver.put("version", "1.0.4");
+        driver.put("version", "1.0.5.1");
         ArrayNode rules = driver.putArray("rules");
 
         ArrayNode results = run.putArray("results");

@@ -71,6 +71,10 @@ class AuthExpiryUiTest extends UiTestBase {
         @Bean SessionStore sessionStore() { return new SessionStore(); }
         @Bean FilterRegistrationBean<Filter> captureSession(SessionStore store) {
             Filter filter = (request, response, chain) -> {
+                // Pending-auth expiry needs a session even when anonymous login renders without one.
+                if (((HttpServletRequest) request).getRequestURI().equals("/login")) {
+                    ((HttpServletRequest) request).getSession(true);
+                }
                 chain.doFilter(request, response);
                 HttpSession session = ((HttpServletRequest) request).getSession(false);
                 if (session != null) store.values.put(session.getId(), session);

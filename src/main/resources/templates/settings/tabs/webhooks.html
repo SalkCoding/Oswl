@@ -56,12 +56,12 @@
                         :aria-label="showUrl ? $el.dataset.hide : $el.dataset.show"
                         th:data-hide="#{common.hideValue}"
                         th:data-show="#{common.showValue}"
-                        class="shrink-0 text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors">
+                        class="shrink-0 text-[var(--grayscale-60)] hover:text-[var(--grayscale-80)] transition-colors">
                     <svg x-show="!showUrl" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     <svg x-show="showUrl" x-cloak width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                 </button>
             </div>
-            <p class="text-[12px] text-[var(--grayscale-50)] m-0" th:text="#{settings.webhooks.url.help}">Leave blank to keep the existing URL. The URL is encrypted at rest.</p>
+            <p class="text-[12px] text-[var(--grayscale-60)] m-0" th:text="#{settings.webhooks.url.help}">Leave blank to keep the existing URL. The URL is encrypted at rest.</p>
         </div>
 
         <!-- Enabled toggle -->
@@ -141,7 +141,7 @@
             <button type="button"
                     :disabled="saving || !loaded || loading"
                     @click="save()"
-                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[var(--primary-120)] hover:bg-[var(--primary-140)] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 <svg x-show="!saving" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <svg x-show="saving" x-cloak class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 <span x-text="saving ? _webhooksI18n.saving : _webhooksI18n.save"></span>
@@ -178,7 +178,7 @@
         </div>
 
         <!-- Loading -->
-        <div x-show="historyLoading" class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center" th:text="#{common.loading}">Loading…</div>
+        <div x-show="historyLoading" class="text-[13px] text-[var(--grayscale-60)] py-[20px] text-center" th:text="#{common.loading}">Loading…</div>
 
         <!-- Load failure — without this a failed fetch renders as "No deliveries yet",
              which reads as "nothing happened" rather than "something went wrong". -->
@@ -192,7 +192,7 @@
 
         <!-- Empty -->
         <div x-show="!historyLoading && !historyError && history.length === 0" x-cloak
-             class="text-[13px] text-[var(--grayscale-50)] py-[20px] text-center"
+             class="text-[13px] text-[var(--grayscale-60)] py-[20px] text-center"
              th:text="#{settings.webhooks.history.empty}">No deliveries yet.</div>
 
         <!-- Table -->
@@ -262,7 +262,7 @@ const _webhooksI18n = {
     urlRequired:   /*[[#{settings.webhooks.error.urlRequired}]]*/ 'Enter a webhook URL to test.'
 };
 </script>
-<script th:src="@{/js/settings/webhooks.min.js(v='1.0.5.1-ui2')}"></script>
+<script th:src="@{/js/settings/webhooks.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

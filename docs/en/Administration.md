@@ -1,5 +1,7 @@
 # Administration
 
+[What's new in 1.0.5.1](Whats-New-v1.0.5.1.md)
+
 This page covers all admin-only features: user management, role templates, audit logs, security settings, and SMTP configuration.
 
 > All actions on this page require **System Admin** privileges unless noted otherwise.

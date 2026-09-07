@@ -4,21 +4,17 @@
 
 English is the default documentation entry point. Start with the [English documentation home](en/Home.md), or choose a language above.
 
+- [Release notes for 1.0.5.1](en/Whats-New-v1.0.5.1.md)
 - [Getting started](en/Getting-Started.md)
 - [User guide](en/User-Guide.md)
 - [Production deployment](en/Production-Deployment-Checklist.md)
 - [Backup and restore](en/Backup-And-Restore.md)
 - [API reference](en/API-Reference.md)
-- [Developer onboarding (Korean)](ko/Developer-Onboarding.md)
-- [Architecture and optimization (Korean)](ko/Architecture-Optimization.md)
-- [Roadmap final audit (Korean)](ko/Roadmap-Final-Audit.md)
-- [UI states checklist (English)](en/Ui-States-Checklist.md)
 
 - [Browser security alerts (English)](en/Browser-Security-Alerts.md)
 
 - [Container image inspection (English)](en/Container-Image-Inspection.md)
 
-- [Local cluster rehearsal (English)](en/Local-Cluster-Rehearsal.md)
 
 ## Where files belong
 

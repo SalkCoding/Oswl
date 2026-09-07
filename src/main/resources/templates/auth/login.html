@@ -27,7 +27,7 @@
         <!-- Brand block -->
         <div class="flex flex-col items-center">
             <img th:src="@{/icon/icon-logo-card.svg}" class="w-[90px] h-[124px] mb-[6px]" alt="OsWL" aria-hidden="true">
-            <p class="font-extrabold text-[32px] text-[var(--primary-120)] tracking-[-0.32px] leading-[1.3]">OsWL</p>
+            <p class="font-extrabold text-[32px] text-[var(--text-accent)] tracking-[-0.32px] leading-[1.3]">OsWL</p>
             <p class="mt-[16px] text-[16px] font-normal text-[var(--grayscale-70)] tracking-[-0.16px] leading-[1.3]" th:text="#{auth.login.subtitle}">Open Source Watch List</p>
         </div>
 
@@ -56,7 +56,7 @@
                     <input id="login-email" type="email" name="email" autocomplete="email" required
                            th:placeholder="#{auth.login.placeholder.email}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
-                                  placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
+                                  placeholder:text-[var(--grayscale-60)] tracking-[-0.13px] leading-[1.3]"/>
                 </div>
             </div>
 
@@ -70,7 +70,7 @@
                            name="password" autocomplete="current-password" required
                            th:placeholder="#{auth.login.placeholder.password}"
                            class="flex-1 min-w-0 bg-transparent outline-none border-0 text-[13px] text-[var(--grayscale-100)]
-                                  placeholder:text-[var(--grayscale-40)] tracking-[-0.13px] leading-[1.3]"/>
+                                  placeholder:text-[var(--grayscale-60)] tracking-[-0.13px] leading-[1.3]"/>
                     <button type="button" tabindex="-1" @click="showPwd = !showPwd"
                             :aria-label="showPwd ? $el.dataset.hide : $el.dataset.show"
                             th:data-hide="#{auth.login.hide.password}"
@@ -109,7 +109,7 @@
 
             <!-- Submit -->
             <button type="submit"
-                    class="w-full bg-[var(--primary-120)] hover:bg-[var(--primary-100)]
+                    class="w-full bg-[var(--text-accent)] hover:bg-[var(--primary-100)]
                            text-white font-bold text-[14px] tracking-[-0.14px] leading-[1.3]
                            rounded-[8px] px-[14px] py-[9px] transition-colors"
                     th:text="#{auth.login.btn.signin}">Sign In</button>
@@ -119,7 +119,7 @@
         <div th:if="${ssoEnabled}" class="w-full mt-[16px]">
             <div class="flex items-center gap-[10px] mb-[14px]">
                 <span class="flex-1 h-px bg-[var(--grayscale-20)]"></span>
-                <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" th:text="#{auth.login.sso.or}">or</span>
+                <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]" th:text="#{auth.login.sso.or}">or</span>
                 <span class="flex-1 h-px bg-[var(--grayscale-20)]"></span>
             </div>
             <a href="/oauth2/authorization/oidc"

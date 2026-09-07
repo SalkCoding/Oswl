@@ -256,7 +256,7 @@
                                         <template x-for="r in (u.roleTemplates||[])" :key="r.id">
                                             <span class="inline-flex items-center px-[12px] py-[4px] rounded-[40px] bg-[rgba(94,107,112,0.07)] text-[var(--grayscale-80)] text-[11px] font-normal" x-text="r.name"></span>
                                         </template>
-                                        <span x-show="!(u.roleTemplates||[]).length" class="text-[var(--grayscale-50)] text-[12px]">—</span>
+                                        <span x-show="!(u.roleTemplates||[]).length" class="text-[var(--grayscale-60)] text-[12px]">—</span>
                                     </span>
                                 </template>
                             </td>
@@ -300,8 +300,8 @@
                             </td>
                         </tr>
                     </template>
-                    <tr x-show="users.length===0 && !initialLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.users.noUsers}">No users.</td></tr>
-                    <tr x-show="initialLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]" th:text="#{common.loading}">Loading…</td></tr>
+                    <tr x-show="users.length===0 && !initialLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)]" th:text="#{settings.admin.users.noUsers}">No users.</td></tr>
+                    <tr x-show="initialLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)] text-[12px]" th:text="#{common.loading}">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -361,11 +361,11 @@
                                          class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                                         <button type="button" @click="invite.templateId = null; open = false"
                                                 class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                                :class="!invite.templateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'" x-text="_adminI18n.selectRole"></button>
+                                                :class="!invite.templateId ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)]'" x-text="_adminI18n.selectRole"></button>
                                         <template x-for="t in templates" :key="t.id">
                                             <button type="button" @click="invite.templateId = t.id; open = false"
                                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                                    :class="invite.templateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                    :class="invite.templateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                                     x-text="t.name"></button>
                                         </template>
                                     </div>
@@ -393,9 +393,9 @@
                             <div x-show="inviteError" x-cloak class="bg-red-50 border border-red-200 text-red-700 text-[12px] rounded-[6px] px-[10px] py-[7px]" x-text="inviteError"></div>
                             <div class="flex items-center gap-[10px]">
                                 <button @click="submitInvite()"
-                                        class="flex-1 bg-[var(--primary-120)] hover:opacity-90 transition-opacity text-white text-[14px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.invite.btn.send}">Send Invite</button>
+                                        class="flex-1 bg-[var(--text-accent)] hover:opacity-90 transition-opacity text-white text-[14px] font-bold py-[10px] rounded-[8px]" th:text="#{settings.admin.invite.btn.send}">Send Invite</button>
                                 <button @click="closeSidebar()"
-                                        class="flex-1 bg-white border border-[#c5cfd3] hover:bg-[var(--grayscale-5)] text-[var(--primary-120)] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors" th:text="#{common.cancel}">Cancel</button>
+                                        class="flex-1 bg-white border border-[#c5cfd3] hover:bg-[var(--grayscale-5)] text-[var(--text-accent)] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors" th:text="#{common.cancel}">Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -426,9 +426,9 @@
                                 <span x-show="editingNameError" x-text="editingNameError" class="text-[11px] text-red-500 font-normal"></span>
                             </div>
                             <label class="flex flex-col gap-[5px] text-[12px] font-bold text-[var(--grayscale-80)]">
-                                <span th:text="#{settings.admin.invite.label.email}">Email</span> <span class="text-[var(--grayscale-50)] font-normal" th:text="#{settings.admin.editUser.label.emailNotEditable}">(Not editable)</span>
+                                <span th:text="#{settings.admin.invite.label.email}">Email</span> <span class="text-[var(--grayscale-60)] font-normal" th:text="#{settings.admin.editUser.label.emailNotEditable}">(Not editable)</span>
                                 <input type="email" :value="editingUser?.email" disabled
-                                       class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-50)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
+                                       class="px-[12px] py-[8px] border border-[var(--grayscale-10)] rounded-[8px] text-[13px] font-normal text-[var(--grayscale-60)] bg-[var(--grayscale-5)] cursor-not-allowed"/>
                             </label>
                             <div class="flex flex-col gap-[5px] text-[12px] font-normal text-[var(--grayscale-80)]"><span th:text="#{settings.admin.invite.label.role}">Role</span>
                                 <div class="relative" x-data="{ open: false }" @keydown.escape.stop="open = false">
@@ -436,7 +436,7 @@
                                             :aria-expanded="open" aria-haspopup="listbox" aria-controls="edit-role-menu"
                                             class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none transition-colors cursor-pointer"
                                             :class="open ? 'border-[var(--primary-120)]' : ''">
-                                        <span :class="editingTemplateId ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)] font-normal'"
+                                        <span :class="editingTemplateId ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-60)] font-normal'"
                                               x-text="editingTemplateId ? (templates.find(t=>t.id===editingTemplateId)||{name:_adminI18n.noRole}).name : _adminI18n.noRole"></span>
                                         <svg :class="open ? 'rotate-180' : ''" class="transition-transform duration-150 text-[var(--grayscale-60)] shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                                     </button>
@@ -445,12 +445,12 @@
                                          class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                                         <button type="button" @click="editingTemplateId = null; open = false"
                                                 class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                                :class="!editingTemplateId ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)] hover:bg-[var(--grayscale-5)]'"
+                                                :class="!editingTemplateId ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)]'"
                                                 x-text="_adminI18n.noRole"></button>
                                         <template x-for="t in templates" :key="t.id">
                                             <button type="button" @click="editingTemplateId = t.id; open = false"
                                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                                    :class="editingTemplateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                    :class="editingTemplateId === t.id ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                                     x-text="t.name"></button>
                                         </template>
                                     </div>
@@ -484,7 +484,7 @@
                     <template x-for="opt in [10, 20, 50]" :key="opt">
                         <button type="button" @click="pageSize = opt; page = 1; psOpen = false"
                                 class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
-                                :class="pageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                :class="pageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                 x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
                     </template>
                 </div>
@@ -501,7 +501,7 @@
                     </button>
                 </div>
                 <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
-                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="page"></span>
+                    <span class="text-[16px] font-bold text-[var(--text-accent)] leading-tight" x-text="page"></span>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <button @click="page=Math.min(totalPages,page+1)" :disabled="page===totalPages" th:aria-label="#{common.pagination.next}"
@@ -587,7 +587,7 @@
                             </td>
                         </tr>
                     </template>
-                    <tr x-show="templates.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.roleTemplate.noTemplates}">No templates.</td></tr>
+                    <tr x-show="templates.length===0"><td colspan="4" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)]" th:text="#{settings.admin.roleTemplate.noTemplates}">No templates.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -609,7 +609,7 @@
                     <template x-for="opt in [10, 20, 50]" :key="opt">
                         <button type="button" @click="tplPageSize = opt; tplPage = 1; tplPsOpen = false"
                                 class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
-                                :class="tplPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                :class="tplPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                 x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
                     </template>
                 </div>
@@ -620,7 +620,7 @@
                     <button @click="tplPage=Math.max(1,tplPage-1)" :disabled="tplPage===1" th:aria-label="#{common.pagination.previous}" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
                 </div>
                 <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
-                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="tplPage"></span>
+                    <span class="text-[16px] font-bold text-[var(--text-accent)] leading-tight" x-text="tplPage"></span>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <button @click="tplPage=Math.min(tplTotalPages,tplPage+1)" :disabled="tplPage===tplTotalPages" th:aria-label="#{common.pagination.next}" class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
@@ -667,9 +667,9 @@
                             </label>
                             <div class="flex flex-col gap-[8px]">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                    <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-60)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
                                     <button type="button" @click="toggleAllPermissions()"
-                                            class="text-[11px] font-normal bg-[#e5faf5] text-[var(--primary-120)] px-[7px] py-[2px] rounded-[4px] hover:bg-[#cdf5ec] transition-colors"
+                                            class="text-[11px] font-normal bg-[#e5faf5] text-[var(--text-accent)] px-[7px] py-[2px] rounded-[4px] hover:bg-[#cdf5ec] transition-colors"
                                            x-text="allSelected() ? _adminI18n.clearAll : _adminI18n.selectAll"></button>
                                 </div>
                                 <div class="grid grid-cols-2 gap-[12px] max-h-[380px] overflow-y-auto border border-[var(--grayscale-20)] rounded-[8px] p-[12px]">
@@ -678,7 +678,7 @@
                                             <div class="flex items-center justify-between">
                                                 <span class="text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--grayscale-70)]" x-text="gName"></span>
                                                 <button type="button" @click="toggleGroup(group)"
-                                                        class="text-[10px] font-normal bg-[#e5faf5] text-[var(--primary-120)] px-[5px] py-[1px] rounded-[3px] hover:bg-[#cdf5ec] transition-colors"
+                                                        class="text-[10px] font-normal bg-[#e5faf5] text-[var(--text-accent)] px-[5px] py-[1px] rounded-[3px] hover:bg-[#cdf5ec] transition-colors"
                                                        x-text="groupAllSelected(group) ? _adminI18n.clear : _adminI18n.select"></button>
                                             </div>
                                             <div class="flex flex-col gap-[2px]">
@@ -713,7 +713,7 @@
                 </template>
             </div>
         </div>
-        <p class="text-[11px] text-[var(--grayscale-50)] flex items-center gap-[4px]">
+        <p class="text-[11px] text-[var(--grayscale-60)] flex items-center gap-[4px]">
             <span th:text="#{settings.admin.template.builtIn}">Built-in templates cannot be deleted.</span>
         </p>
     </div>
@@ -796,7 +796,7 @@
                             class="flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] w-[160px] cursor-pointer transition-colors"
                             :class="actorDropdownOpen ? 'border-[var(--primary-120)]' : ''">
                         <span class="truncate"
-                              :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
+                              :class="auditFilter.actorEmail ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-60)]'"
                               x-text="auditFilter.actorEmail || _adminI18n.allUsers"></span>
                         <img src="/icon/icon-triangle-down.svg" :class="actorDropdownOpen ? 'rotate-180' : ''"
                              class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
@@ -813,22 +813,22 @@
                             <button type="button"
                                     @click="auditFilter.actorEmail=''; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                    :class="!auditFilter.actorEmail ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'" th:text="#{settings.admin.auditLog.filter.allUsers}">All Users</button>
+                                    :class="!auditFilter.actorEmail ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'" th:text="#{settings.admin.auditLog.filter.allUsers}">All Users</button>
                             <template x-for="u in filteredAuditUsers" :key="u.id">
                                 <button type="button"
                                         @click="auditFilter.actorEmail=u.email; actorDropdownOpen=false; actorSearchQuery=''; loadAudit(0)"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors flex items-center gap-[8px]"
-                                        :class="auditFilter.actorEmail===u.email ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'">
+                                        :class="auditFilter.actorEmail===u.email ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'">
                                     <div class="w-[22px] h-[22px] rounded-full inline-flex items-center justify-center text-[10px] font-bold text-white shrink-0"
                                          :style="`background-color: ${avatarColor(u.displayName||u.email)}`"
                                          x-text="(u.displayName||u.email||'?').trim().charAt(0).toUpperCase()"></div>
                                     <div class="flex flex-col min-w-0">
                                         <span class="truncate" x-text="u.displayName || u.email"></span>
-                                        <span x-show="u.displayName" class="text-[11px] text-[var(--grayscale-50)] truncate" x-text="u.email"></span>
+                                        <span x-show="u.displayName" class="text-[11px] text-[var(--grayscale-60)] truncate" x-text="u.email"></span>
                                     </div>
                                 </button>
                             </template>
-                            <div x-show="filteredAuditUsers.length===0" class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.filter.noUsersFound}">No users found</div>
+                            <div x-show="filteredAuditUsers.length===0" class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.admin.auditLog.filter.noUsersFound}">No users found</div>
                         </div>
                     </div>
                 </div>
@@ -840,7 +840,7 @@
                             class="flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] w-[180px] cursor-pointer transition-colors"
                             :class="actionDropdownOpen ? 'border-[var(--primary-120)]' : ''">
                         <span class="truncate text-[12px]"
-                              :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-50)]'"
+                              :class="auditFilter.action ? 'text-[var(--grayscale-100)]' : 'text-[var(--grayscale-60)]'"
                               x-text="auditFilter.action || _adminI18n.allActions"></span>
                         <img src="/icon/icon-triangle-down.svg" :class="actionDropdownOpen ? 'rotate-180' : ''"
                              class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
@@ -852,16 +852,16 @@
                             <button type="button"
                                     @click="auditFilter.action=''; actionDropdownOpen=false; loadAudit(0)"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                    :class="!auditFilter.action ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'" th:text="#{settings.admin.auditLog.filter.allActions}">All Actions</button>
+                                    :class="!auditFilter.action ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'" th:text="#{settings.admin.auditLog.filter.allActions}">All Actions</button>
                             <template x-for="group in actionGroups" :key="group.label">
                                 <div>
-                                    <div class="px-[12px] py-[4px] text-[10px] font-bold text-[var(--grayscale-50)] uppercase tracking-wider bg-[var(--grayscale-5)] border-t border-[var(--grayscale-10)]"
+                                    <div class="px-[12px] py-[4px] text-[10px] font-bold text-[var(--grayscale-60)] uppercase tracking-wider bg-[var(--grayscale-5)] border-t border-[var(--grayscale-10)]"
                                          x-text="group.label"></div>
                                     <template x-for="item in group.items" :key="item">
                                         <button type="button"
                                                 @click="auditFilter.action=item; actionDropdownOpen=false; loadAudit(0)"
                                                 class="w-full text-left px-[12px] py-[8px] pl-[16px] text-[12px] font-mono transition-colors"
-                                                :class="auditFilter.action===item ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                                :class="auditFilter.action===item ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                                 x-text="item"></button>
                                     </template>
                                 </div>
@@ -872,17 +872,17 @@
             </div>
             <div class="flex items-center gap-[8px] flex-wrap">
                 <a :href="auditExportUrl('csv')"
-                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--text-accent)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     <span th:text="#{settings.admin.auditLog.btn.export}">Export CSV</span>
                 </a>
                 <a :href="auditExportUrl('jsonl')"
-                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--text-accent)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     <span th:text="#{settings.admin.auditLog.btn.exportJsonl}">JSONL (SIEM)</span>
                 </a>
                 <a :href="auditExportUrl('cef')"
-                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--primary-120)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
+                   class="inline-flex items-center gap-[6px] px-[14px] py-[8px] rounded-[8px] border border-[var(--primary-120)] bg-[rgba(51,209,183,0.08)] text-[var(--text-accent)] text-[13px] font-bold hover:bg-[rgba(51,209,183,0.14)] transition-colors no-underline">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     <span th:text="#{settings.admin.auditLog.btn.exportCef}">CEF (SIEM)</span>
                 </a>
@@ -914,7 +914,7 @@
                         <td class="px-[16px] py-[10px]">
                             <div class="flex flex-col gap-[2px]">
                                 <span class="text-[var(--grayscale-100)] font-medium text-[13px]" x-text="l.actorDisplayName || l.actorEmail"></span>
-                                <span x-show="l.actorDisplayName" class="text-[var(--grayscale-50)] text-[11px]" x-text="l.actorEmail"></span>
+                                <span x-show="l.actorDisplayName" class="text-[var(--grayscale-60)] text-[11px]" x-text="l.actorEmail"></span>
                             </div>
                         </td>
                         <td class="px-[16px] py-[10px]">
@@ -925,7 +925,7 @@
                         </td>
                         <td class="px-[16px] py-[10px]">
                             <div class="flex items-center gap-[6px] flex-wrap">
-                                <span class="text-[11px] font-semibold text-[var(--grayscale-50)] uppercase tracking-wide" x-text="l.targetType"></span>
+                                <span class="text-[11px] font-semibold text-[var(--grayscale-60)] uppercase tracking-wide" x-text="l.targetType"></span>
                                 <span x-show="l.targetName" class="w-[3px] h-[3px] rounded-full bg-[var(--grayscale-30)] shrink-0"></span>
                                 <span x-show="l.targetName" class="text-[var(--grayscale-80)] text-[13px]" x-text="l.targetName"></span>
                             </div>
@@ -943,8 +943,8 @@
                         </td>
                     </tr>
                 </template>
-                <tr x-show="auditLogs.length===0 && !auditLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]" th:text="#{settings.admin.auditLog.noRecords}">No audit records.</td></tr>
-                <tr x-show="auditLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)] text-[12px]" th:text="#{common.loading}">Loading…</td></tr>
+                <tr x-show="auditLogs.length===0 && !auditLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)]" th:text="#{settings.admin.auditLog.noRecords}">No audit records.</td></tr>
+                <tr x-show="auditLoading"><td colspan="6" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)] text-[12px]" th:text="#{common.loading}">Loading…</td></tr>
                 </tbody>
             </table>
         </div>
@@ -966,7 +966,7 @@
                     <template x-for="opt in [20, 50, 100]" :key="opt">
                         <button type="button" @click="auditPageSize = opt; auditPsOpen = false; loadAudit(0)"
                                 class="w-full text-left px-[12px] py-[9px] text-[11px] transition-colors"
-                                :class="auditPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                :class="auditPageSize === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                 x-text="_adminI18n.showCount.replace('{0}', opt)"></button>
                     </template>
                 </div>
@@ -983,7 +983,7 @@
                     </button>
                 </div>
                 <div class="w-[24px] flex items-center justify-center bg-[#e5faf5] rounded-[4px] py-[2px]">
-                    <span class="text-[16px] font-bold text-[var(--primary-120)] leading-tight" x-text="auditPage + 1"></span>
+                    <span class="text-[16px] font-bold text-[var(--text-accent)] leading-tight" x-text="auditPage + 1"></span>
                 </div>
                 <div class="flex items-center gap-[12px]">
                     <button @click="loadAudit(Math.min(auditTotalPages-1,auditPage+1))" :disabled="auditPage>=auditTotalPages-1" th:aria-label="#{common.pagination.next}"
@@ -1026,14 +1026,14 @@
                     <span class="text-[12px] font-semibold"
                           :class="{'text-[#00a34e]': stalenessLevel()==='fresh', 'text-[#b45309]': stalenessLevel()==='warn', 'text-[#b91c1c]': stalenessLevel()==='critical'}"
                           x-text="stalenessLabel()"></span>
-                    <span class="text-[12px] text-[var(--grayscale-50)]">(<span x-text="_snapshotI18n.statusAsOf"></span> <span x-text="snapshotOldestAsOf"></span>)</span>
+                    <span class="text-[12px] text-[var(--grayscale-60)]">(<span x-text="_snapshotI18n.statusAsOf"></span> <span x-text="snapshotOldestAsOf"></span>)</span>
                 </div>
             </div>
-            <div x-show="!snapshotOldestAsOf" class="text-[13px] text-[var(--grayscale-50)]" x-text="_snapshotI18n.statusNoData"></div>
+            <div x-show="!snapshotOldestAsOf" class="text-[13px] text-[var(--grayscale-60)]" x-text="_snapshotI18n.statusNoData"></div>
             <div x-show="snapshotOldestAsOf" class="overflow-x-auto">
                 <table class="w-full text-[12px]">
                     <thead>
-                        <tr class="text-[var(--grayscale-50)] text-left border-b border-[var(--grayscale-10)]">
+                        <tr class="text-[var(--grayscale-60)] text-left border-b border-[var(--grayscale-10)]">
                             <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.tableSource"></th>
                             <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.tableRecords"></th>
                             <th class="py-[6px] pr-[12px] font-medium" x-text="_snapshotI18n.statusAsOf"></th>
@@ -1048,7 +1048,7 @@
                                 <td class="py-[7px] pr-[12px] text-[var(--grayscale-70)]" x-text="s.recordCount.toLocaleString()"></td>
                                 <td class="py-[7px] pr-[12px] text-[var(--grayscale-70)]" x-text="s.sourceAsOf || '—'"></td>
                                 <td class="py-[7px] pr-[12px] text-[var(--grayscale-70)]" x-text="s.origin==='derived-from-scan' ? _snapshotI18n.originDerivedFromScan : (s.origin || '—')"></td>
-                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-50)]" x-text="s.importedAt ? s.importedAt.replace('T',' ').slice(0,16) : '—'"></td>
+                                <td class="py-[7px] pr-[12px] text-[var(--grayscale-60)]" x-text="s.importedAt ? s.importedAt.replace('T',' ').slice(0,16) : '—'"></td>
                             </tr>
                         </template>
                     </tbody>
@@ -1291,7 +1291,7 @@
                         </label>
                         <div class="flex flex-col gap-[8px]">
                             <div class="flex items-center justify-between">
-                                <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-50)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
+                                <span class="text-[12px] font-bold text-[var(--grayscale-80)]"><span th:text="#{settings.admin.template.panel.labelPermissions}">Permissions</span> <span class="text-[var(--grayscale-60)] font-normal">(<span x-text="tplForm.permissions.length"></span>/<span x-text="allPermissions.length"></span>)</span></span>
                                 <button type="button" @click="toggleAllPermissions()"
                                         class="text-[12px] font-semibold text-[var(--secondary-100)] hover:underline"
                                         x-text="allSelected() ? _adminI18n.clearAll : _adminI18n.selectAll"></button>
@@ -1331,7 +1331,7 @@
         </div>
     </div>
 
-    <script th:src="@{/js/settings/admin.min.js(v='1.0.5.1-ui2')}"></script>
+    <script th:src="@{/js/settings/admin.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

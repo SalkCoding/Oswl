@@ -1,5 +1,7 @@
 # User Guide
 
+[What's new in 1.0.5.1](Whats-New-v1.0.5.1.md)
+
 This page covers the day-to-day use of the OsWL web dashboard.
 
 You only see projects you are a **member** of (unless you are a **system administrator**). What you can do inside a project depends on your **role template** (Admin / Developer / Viewer). See [Authorization layers](Authorization-Layers.md).

@@ -8,8 +8,8 @@ function showChartPlaceholder(canvasId, title, hint) {
     canvas.style.display = 'none';
     const msg = document.createElement('div');
     msg.className = 'flex flex-col items-center justify-center h-full gap-[8px] text-center';
-    msg.innerHTML = `<p class="text-[14px] font-medium text-[var(--grayscale-40)] tracking-[-0.14px]">${title}</p>` +
-                    (hint ? `<p class="text-[12px] text-[var(--grayscale-30)] tracking-[-0.12px]">${hint}</p>` : '');
+    msg.innerHTML = `<p class="text-[14px] font-medium text-[var(--grayscale-60)] tracking-[-0.14px]">${title}</p>` +
+                    (hint ? `<p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]">${hint}</p>` : '');
     container.appendChild(msg);
 }
 

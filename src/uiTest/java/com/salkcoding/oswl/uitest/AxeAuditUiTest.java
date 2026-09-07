@@ -166,7 +166,8 @@ class AxeAuditUiTest extends UiTestBase {
                         .append(" nodes): ").append(v.getDescription()).append('\n');
                 if (v.getNodes() != null) {
                     v.getNodes().forEach(n -> report.append("     target=")
-                            .append(n.getTarget()).append(" html=").append(n.getHtml()).append('\n'));
+                            .append(n.getTarget()).append(" html=").append(n.getHtml())
+                            .append(" failure=").append(n.getFailureSummary()).append('\n'));
                 }
             });
         }

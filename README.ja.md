@@ -1,5 +1,7 @@
 <div align="center">
 
+**OsWL 1.0.5.1** · [1.0.5.1 の変更点](docs/ja/Whats-New-v1.0.5.1.md)
+
 # 🦉 OsWL
 
 **オープンソース・ソフトウェア・ウォッチリスト — SCA プラットフォーム**

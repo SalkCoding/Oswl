@@ -19,7 +19,6 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Local verification
 
-[`verification/verify-h2-cluster.py`](verification/verify-h2-cluster.py) runs the verified two-JVM H2 session/restart/lease rehearsal. See [scope, commands and limitations](../docs/en/Local-Cluster-Rehearsal.md).
 
 ## Verification drafts
 

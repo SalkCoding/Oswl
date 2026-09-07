@@ -16,12 +16,12 @@
         <legend class="font-bold mb-3" th:text="#{webPush.events}"></legend>
         <label class="flex items-center gap-3 py-2"><input type="checkbox" class="oswl-checkbox" x-model="newHighRisk" /><span th:text="#{webPush.high}"></span></label>
         <label class="flex items-center gap-3 py-2"><input type="checkbox" class="oswl-checkbox" x-model="gateFailure" /><span th:text="#{webPush.gate}"></span></label>
-        <button type="button" @click="enable()" class="bg-[var(--primary-120)] text-white rounded px-4 py-3" th:text="#{webPush.enable}">Enable / save preferences</button>
+        <button type="button" @click="enable()" class="bg-[var(--text-accent)] text-white rounded px-4 py-3" th:text="#{webPush.enable}">Enable / save preferences</button>
     </fieldset>
     <button type="button" @click="disable()" :disabled="busy || !loaded || !supported || !active" class="border rounded px-4 py-3 disabled:opacity-40" th:text="#{webPush.disable}">Unsubscribe this browser</button>
 </main>
 <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 <script th:inline="javascript">const _pushI18n = {failed: /*[[#{webPush.failed}]]*/ 'Request failed. Retry.', denied: /*[[#{webPush.denied}]]*/ 'Allow notifications in browser settings.'};</script>
-<script th:src="@{/js/web-push-preferences.min.js(v='1.0.5.1-ui2')}"></script>
+<script th:src="@{/js/web-push-preferences.min.js(v='1.0.5.1')}"></script>
 </body>
 </html>

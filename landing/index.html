@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,15 +11,8 @@
     <link rel="stylesheet" href="/css/tailwind.css">
     <link rel="icon" href="graphic/symbol_w.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
     <link rel="icon" href="icon/icon-logo.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
-    <script>
-        (function () {
-            function applyTheme(theme) {
-                document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
-            }
-            window.oswlApplyTheme = applyTheme;
-            try { applyTheme(localStorage.getItem('oswl-theme')); } catch (_) { applyTheme('dark'); }
-        })();
-    </script>
+    <meta name="color-scheme" content="only light">
+
 
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -461,18 +454,6 @@
             <a href="#how-it-works" class="nav-link" data-i18n="nav.howItWorks">How It Works</a>
             <a href="https://github.com/SalkCoding/Oswl/releases" class="nav-link" data-i18n="nav.download">Go to Download</a>
         </div>
-        <button class="theme-toggle" id="theme-toggle" data-i18n-attr="aria-label:nav.themeToggle" aria-label="Toggle light/dark theme">
-            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-        </button>
     </div>
 </nav>
 
@@ -482,7 +463,7 @@
     <div class="hero-content">
         <div class="hero-badge fade-up">
             <span class="hero-badge-dot"></span>
-            <span data-i18n="hero.badge">Enterprise SCA Platform</span>
+            <span data-i18n="hero.badge">OsWL 1.0.5.1</span>
         </div>
         <h1 class="hero-title fade-up fade-up-d1" data-i18n-html="hero.title">Understand Dependency Risks<br>in Your <span class="gradient-text">Open Source Stack</span></h1>
         <p class="hero-subtitle fade-up fade-up-d2" data-i18n="hero.subtitle">Track CVEs, license obligations, and dependency risks from one self-hosted platform. Scan repositories or submit dependencies from CI, then review findings with your security and compliance teams.</p>
@@ -881,13 +862,6 @@
 </footer>
 
 <script>
-    // Theme toggle (page UI only; favicon follows OS prefers-color-scheme via <link media>)
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        window.oswlApplyTheme(next);
-        try { localStorage.setItem('oswl-theme', next); } catch (_) { /* Storage is optional. */ }
-    });
-
     // Nav scroll
     const nav = document.getElementById('main-nav');
     window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 24), { passive: true });

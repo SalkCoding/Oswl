@@ -72,3 +72,19 @@ htmlReport
 # Local-only planning/verification artifacts
 /ROADMAP*.md
 /e6verify/
+
+# Local agent guidance and development reports are not release inputs.
+/AGENTS.md
+/CLAUDE.md
+/.cursorrules
+/.agents/
+/docs/**/Architecture-Optimization.md
+/docs/**/Developer-Onboarding.md
+/docs/**/Performance-Verification.md
+/docs/**/Roadmap-Final-Audit.md
+/docs/**/Ui-Operations-Verification.md
+/docs/**/Ui-Ux-Regression-Audit.md
+/docs/**/Ui-States-Checklist.md
+/docs/**/Local-Cluster-Rehearsal.md
+/docs/**/performance-evidence/
+/docs/**/ui-operations-evidence/

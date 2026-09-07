@@ -60,7 +60,7 @@
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M12.9773 7.42085C13.0534 7.48348 13.1163 7.56047 13.1626 7.64744C13.2089 7.73441 13.2376 7.82965 13.2471 7.92772C13.2566 8.02578 13.2466 8.12475 13.2178 8.21898C13.189 8.3132 13.142 8.40082 13.0793 8.47685L9.92231 12.3099C9.79599 12.5357 9.58701 12.7038 9.33931 12.7789C9.10033 12.8588 8.83997 12.8456 8.61031 12.7418C8.46458 12.6741 8.33732 12.5722 8.23931 12.4448C8.1818 12.3714 8.12774 12.2953 8.07731 12.2168L6.87631 10.4159C6.76858 10.2503 6.73048 10.049 6.77027 9.85558C6.81006 9.66215 6.92454 9.49222 7.08886 9.38267C7.25318 9.27313 7.45407 9.23281 7.64793 9.27048C7.84179 9.30814 8.01297 9.42075 8.12431 9.58385L9.06431 10.9939L11.9213 7.52385C11.9839 7.44772 12.0608 7.38466 12.1477 7.33828C12.2347 7.2919 12.3299 7.26311 12.428 7.25354C12.526 7.24398 12.625 7.25383 12.7193 7.28254C12.8135 7.31124 12.9012 7.35824 12.9773 7.42085Z" fill="currentColor"/>
                 </svg>
                 <span class="text-[11px] tracking-[-0.11px]"
-                      th:classappend="${reviewed} ? 'text-[var(--primary-120)]' : 'text-[var(--grayscale-80)]'"
+                      th:classappend="${reviewed} ? 'text-[var(--text-accent)]' : 'text-[var(--grayscale-80)]'"
                       th:text="${reviewed} ? (${reviewedByName} != null ? #{componentDetail.status.reviewedBy(${reviewedByName})} : #{componentDetail.status.reviewed}) : #{componentDetail.status.notReviewed}">Not Reviewed</span>
             </span>
             <span class="tag tag-count">
@@ -272,7 +272,7 @@
             <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]" th:text="#{componentDetail.deprecated.hint}">No known CVEs, but this version is no longer maintained. Upgrade to a supported release.</p>
             <div class="pt-[6px]">
                 <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--text-accent)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                     <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                 </button>
@@ -297,7 +297,7 @@
                     <!-- VCS 연결 + latestVersion 있음 → Create PR 버튼 활성 -->
                     <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
                             th:if="${canCreatePr and prTargetVersion != null}"
-                            class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                            class="bg-[var(--text-accent)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
                     </button>
@@ -310,13 +310,13 @@
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
                     </button>
                     <button type="button" @click="modal = 'defer'"
-                            class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                            class="bg-white border border-[rgba(245,189,38,0.4)] hover:bg-[rgba(245,189,38,0.04)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--text-accent)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                     </button>
                 </div>
                 <p th:if="${!canCreatePr}"
-                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPrSupport}">
+                   class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPrSupport}">
                     CLI import projects do not support automatic PR creation.
                 </p>
             </div>
@@ -331,7 +331,7 @@
             </div>
             <div th:if="${licenseRisk == 'RESTRICTED' or licenseRisk == 'CAUTION'}" class="pt-[0px]">
                 <button type="button" @click="modal = 'defer'"
-                        class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                        class="bg-white border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-5)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--text-accent)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                     <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                     <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                 </button>
@@ -344,7 +344,7 @@
             <p class="text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.5]">
                 <span th:if="${securityFixVersion != null}">
                     <th:block th:text="#{componentDetail.vuln.upgradeHint}">Upgrade to version</th:block>
-                    <span class="font-bold text-[var(--primary-120)]" th:text="${securityFixVersion}">...</span>
+                    <span class="font-bold text-[var(--text-accent)]" th:text="${securityFixVersion}">...</span>
                     <th:block th:text="#{componentDetail.vuln.upgradeHint2}">to resolve known CVEs.</th:block>
                 </span>
                 <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.vuln.noFix}">
@@ -352,7 +352,7 @@
                 </span>
             </p>
             <p th:if="${securityFixVersion == null and latestVersion != null and isLatestVersion == false}"
-               class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.5] m-0">
+               class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.5] m-0">
                 <th:block th:text="#{componentDetail.vuln.latestReleaseHint}">Latest release:</th:block>
                 <span class="font-medium text-[var(--grayscale-70)]" th:text="'v' + ${latestVersion}">v2.0.0</span>
                 <th:block th:text="#{componentDetail.vuln.latestReleaseHint2}">— may not address the known CVEs.</th:block>
@@ -380,7 +380,7 @@
                     <!-- GitHub + patch available → active button -->
                     <button type="button" @click="modal = 'patch'; $dispatch('open-patch-modal')"
                             th:if="${canCreatePr and prTargetVersion != null}"
-                            class="bg-[var(--primary-120)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                            class="bg-[var(--text-accent)] hover:bg-[var(--primary-80)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-white font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-wrench.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
                     </button>
@@ -393,21 +393,21 @@
                         <span th:text="#{componentDetail.btn.applyPatch}">Apply Patch (Create PR)</span>
                     </button>
                     <button type="button" @click="modal = 'defer'"
-                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-10)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--primary-120)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
+                            class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] hover:bg-[var(--grayscale-10)] flex flex-1 items-center justify-center gap-[6px] px-[16px] py-[12px] rounded-[8px] text-[var(--text-accent)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
                         <img th:src="@{/icon/icon-hourglass.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                         <span th:text="#{componentDetail.btn.deferException}">Defer (Exception)</span>
                     </button>
                 </div>
                 <p th:if="${canCreatePr and securityFixVersion == null and prTargetVersion != null}"
-                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.prLatestHint}">
+                   class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.prLatestHint}">
                     PR will upgrade to the latest release (may not resolve all CVEs).
                 </p>
                 <p th:if="${canCreatePr and prTargetVersion == null}"
-                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPatchNow}">
+                   class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] text-center" th:text="#{componentDetail.vuln.noPatchNow}">
                     No patch version available at this time.
                 </p>
                 <p th:if="${!canCreatePr}"
-                   class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px] text-center">
+                   class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] text-center">
                     <span th:text="#{componentDetail.vuln.noPrSupport}">CLI import projects do not support automatic PR creation.</span>
                 </p>
             </div>
@@ -477,7 +477,7 @@
                 <a th:if="${#strings.startsWith(cve.id, 'CVE-')}"
                    th:href="@{https://nvd.nist.gov/vuln/detail/{id}(id=${cve.id})}"
                    th:aria-label="#{componentDetail.cve.openNvd(${cve.id})}" th:title="#{componentDetail.cve.openNvd(${cve.id})}"
-                   target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 p-[4px] rounded-[4px] text-[var(--grayscale-60)] hover:text-[var(--primary-120)]">
+                   target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 p-[4px] rounded-[4px] text-[var(--grayscale-60)] hover:text-[var(--text-accent)]">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 3h7v7M21 3 10 14"/><path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg>
                 </a>
                 <button type="button" @click="open = !open" :aria-expanded="open" class="flex flex-1 min-w-0 items-center gap-[12px] text-left">
@@ -546,7 +546,7 @@
                         </span>
                         <span>
                             <span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'">Fix:</span>
-                            <span th:class="${cve.fixVersion} ? 'text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-50)]'"
+                            <span th:class="${cve.fixVersion} ? 'text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-60)]'"
                                   th:text="${cve.fixVersion} ?: #{componentDetail.cve.noFix}">2.2.1-alpha01</span>
                         </span>
                         <span th:if="${cve.ghsaId}">
@@ -554,7 +554,7 @@
                             <a th:href="'https://github.com/advisories/' + ${cve.ghsaId}"
                                th:text="${cve.ghsaId}"
                                target="_blank" rel="noopener"
-                               class="text-[var(--primary-120)] hover:underline">GHSA-xxxx</a>
+                               class="text-[var(--text-accent)] hover:underline">GHSA-xxxx</a>
                         </span>
                         <span th:if="${cve.cvss3Vector}">
                             <span class="font-medium" th:text="#{componentDetail.cve.cvssVector} + ':'">CVSS Vector:</span>
@@ -563,7 +563,7 @@
                         <span th:if="${cve.environmentalScore != null}" th:title="#{componentDetail.cve.envScore.tooltip}">
                             <span class="font-medium" th:text="#{componentDetail.cve.envScore} + ':'">Environmental Score:</span>
                             <span th:classappend="${cve.environmentalScore > cve.cvssScore} ? 'text-[var(--risk-critical)] font-medium'
-                                                 : (${cve.environmentalScore < cve.cvssScore} ? 'text-[var(--grayscale-50)]' : '')"
+                                                 : (${cve.environmentalScore < cve.cvssScore} ? 'text-[var(--grayscale-60)]' : '')"
                                   th:text="${#numbers.formatDecimal(cve.environmentalScore, 1, 1)}">8.5</span>
                         </span>
                     </div>
@@ -647,7 +647,7 @@
     <!-- Dependency Path -->
     <section class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
         <div class="flex items-center gap-[8px] mb-[14px]">
-            <svg class="w-[20px] h-[20px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="w-[20px] h-[20px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
             </svg>
@@ -668,7 +668,7 @@
                         class="w-full flex items-center gap-[8px] px-[18px] py-[10px] bg-[var(--grayscale-5)] border-b border-[var(--grayscale-15)] text-left transition-colors hover:bg-[var(--grayscale-10)] cursor-pointer">
                     <img th:src="@{/icon/icon-chevron-down.svg}" class="w-[12px] h-[12px] shrink-0 transition-transform duration-200" :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(44%) sepia(8%) saturate(503%) hue-rotate(153deg) brightness(95%) contrast(90%);"> 
                     <span th:if="${path.direct}"
-                          class="inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-[20px] bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] text-[11px] font-semibold text-[var(--primary-120)] tracking-[-0.11px]">
+                          class="inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-[20px] bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] text-[11px] font-semibold text-[var(--text-accent)] tracking-[-0.11px]">
                         <svg class="w-[10px] h-[10px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                         <span th:text="#{componentDetail.badge.direct}">Direct</span>
                     </span>
@@ -677,7 +677,7 @@
                         <svg class="w-[10px] h-[10px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 8 18 11 3 11 3 13 18 13 18 16 22 12"/></svg>
                         <span th:text="#{componentDetail.badge.transitive}">Transitive</span>
                     </span>
-                    <span class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]"
+                    <span class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                           th:text="${path.depth == 2} ? #{componentDetail.depPath.direct}
                                  : (${path.depth - 2 == 1} ? #{componentDetail.depPath.viaIntermediate(${path.depth - 2}, ${path.depth - 1})} : #{componentDetail.depPath.viaIntermediates(${path.depth - 2}, ${path.depth - 1})})">  
                         Direct dependency (depth 1)
@@ -753,7 +753,7 @@
                                       class="shrink-0 bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[8px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]"
                                       th:text="'v' + ${node.version}">v1.0.0</span>
                                 <span th:if="${node.root}"
-                                      class="shrink-0 bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] px-[8px] py-[2px] rounded-[40px] text-[10px] font-semibold text-[var(--primary-120)] tracking-[-0.1px]" th:text="#{componentDetail.badge.yourProject}">
+                                      class="shrink-0 bg-[rgba(0,160,147,0.08)] border border-[rgba(0,160,147,0.2)] px-[8px] py-[2px] rounded-[40px] text-[10px] font-semibold text-[var(--text-accent)] tracking-[-0.1px]" th:text="#{componentDetail.badge.yourProject}">
                                     Your project
                                 </span>
                                 <span th:if="${node.target and !node.root and hasVulnerabilities}"
@@ -774,7 +774,7 @@
             <div class="flex items-center gap-[6px]">
                 <img th:src="@{/icon/icon-folder.svg}" class="w-[20px] h-[20px]" style="filter: brightness(0) saturate(100%) invert(44%) sepia(8%) saturate(503%) hue-rotate(153deg) brightness(95%) contrast(90%);" alt="" aria-hidden="true">
                 <p class="text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="${projectName}">project-name</p>
-                <p class="text-[11px] text-[var(--grayscale-50)] tracking-[-0.11px]" th:text="#{componentDetail.depPath.fallbackOurProject}">(our project)</p>
+                <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px]" th:text="#{componentDetail.depPath.fallbackOurProject}">(our project)</p>
             </div>
             <div class="flex items-center flex-wrap gap-[6px] pl-[20px]">
                 <span class="w-[6px] h-[6px] rounded-full border border-[var(--grayscale-40)]"></span>
@@ -794,7 +794,7 @@
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.badge.problemLib}">Problem Lib</span>
                 </span>
             </div>
-            <p class="text-[11px] text-[var(--grayscale-40)] tracking-[-0.11px] mt-[4px] pl-[2px]" th:text="#{componentDetail.depPath.noPathData}">
+            <p class="text-[11px] text-[var(--grayscale-60)] tracking-[-0.11px] mt-[4px] pl-[2px]" th:text="#{componentDetail.depPath.noPathData}">
                 Full path tree not available — rescan with an updated CLI version to see the complete dependency tree.
             </p>
         </div>
@@ -803,7 +803,7 @@
     <!-- Component Description -->
     <section class="px-[40px] py-[28px]">
         <div class="flex items-center gap-[8px] mb-[14px]">
-            <svg class="w-[20px] h-[20px] text-[var(--primary-120)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="w-[20px] h-[20px] text-[var(--text-accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
                 <line x1="16" y1="13" x2="8" y2="13"/>
@@ -826,7 +826,7 @@
                  class="flex flex-wrap items-center gap-x-[16px] gap-y-[6px] text-[12px]">
                 <a th:if="${componentSourceRepoUrl != null}" th:href="${componentSourceRepoUrl}"
                    target="_blank" rel="noopener noreferrer"
-                   class="flex items-center gap-[5px] text-[var(--primary-120)] hover:underline">
+                   class="flex items-center gap-[5px] text-[var(--text-accent)] hover:underline">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
                     </svg>
@@ -834,7 +834,7 @@
                 </a>
                 <a th:if="${componentHomepage != null}" th:href="${componentHomepage}"
                    target="_blank" rel="noopener noreferrer"
-                   class="flex items-center gap-[5px] text-[var(--primary-120)] hover:underline">
+                   class="flex items-center gap-[5px] text-[var(--text-accent)] hover:underline">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
                         <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
@@ -852,7 +852,7 @@
             <p th:if="${hasVulnerabilities}">
                 <th:block th:text="#{componentDetail.desc.hasVulnerabilities}">This version has known security vulnerabilities.</th:block>
                 <span th:if="${securityFixVersion != null}">
-                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">Upgrading to</th:block> <span class="font-medium text-[var(--primary-120)]" th:text="${securityFixVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">is recommended to resolve the known issues.</th:block>
+                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">Upgrading to</th:block> <span class="font-medium text-[var(--text-accent)]" th:text="${securityFixVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">is recommended to resolve the known issues.</th:block>
                 </span>
                 <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
             </p>

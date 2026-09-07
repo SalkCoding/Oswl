@@ -33,9 +33,9 @@
                 <td class="px-[18px] py-[12px] text-[var(--grayscale-90)]"
                     th:text="${f.type == 'SECRET'} ? #{securityCenter.findings.type.secret} : #{securityCenter.findings.type.iac}">Secret</td>
                 <td class="px-[18px] py-[12px]" th:switch="${f.severity}">
-                    <span th:case="'CRITICAL'" class="text-[11px] font-bold text-[var(--risk-critical)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.critical}">Critical</span>
-                    <span th:case="'HIGH'" class="text-[11px] font-bold text-[var(--risk-high)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.high}">High</span>
-                    <span th:case="'MEDIUM'" class="text-[11px] font-bold text-[var(--semantic-caution)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.medium}">Medium</span>
+                    <span th:case="'CRITICAL'" class="text-[11px] font-bold text-[var(--text-critical)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.critical}">Critical</span>
+                    <span th:case="'HIGH'" class="text-[11px] font-bold text-[var(--text-critical)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.high}">High</span>
+                    <span th:case="'MEDIUM'" class="text-[11px] font-bold text-[var(--text-caution)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.medium}">Medium</span>
                     <span th:case="*" class="text-[11px] font-bold text-[var(--grayscale-60)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.low}">Low</span>
                 </td>
                 <td class="px-[18px] py-[12px] font-mono text-[12px] text-[var(--grayscale-90)]" th:text="${f.ruleId}">generic-api-key</td>

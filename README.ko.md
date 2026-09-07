@@ -1,5 +1,7 @@
 <div align="center">
 
+**OsWL 1.0.5.1** · [1.0.5.1 변경 사항](docs/ko/Whats-New-v1.0.5.1.md)
+
 # 🦉 OsWL
 
 **오픈소스 소프트웨어 감시 목록 — SCA 플랫폼**
@@ -199,7 +201,6 @@ Library  (프로젝트 간 공유 — group:artifact@version)
 
 ## 문서
 
-프로젝트에 처음 합류했다면 [개발자 온보딩](docs/ko/Developer-Onboarding.md)에서 현재 아키텍처, 기능별 흐름, 첫 코드 변경과 검증 순서를 확인하세요.
 
 한국어 문서는 [`docs/ko/`](docs/ko/Home.md), 영어 문서는 [`docs/en/`](docs/en/Home.md), 일본어 문서는 [`docs/ja/`](docs/ja/Home.md)에 있습니다. [문서 인덱스](docs/README.md)와 [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki)는 영어를 기본으로 안내하며, Wiki는 `main` push 시 `docs/en/`에서 자동 동기화됩니다.
 

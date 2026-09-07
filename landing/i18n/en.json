@@ -8,12 +8,11 @@
     "platform": "Platform",
     "howItWorks": "How It Works",
     "download": "Go to Download",
-    "themeToggle": "Toggle light/dark theme",
     "docs": "Documentation",
     "docsUrl": "https://github.com/SalkCoding/Oswl/blob/main/docs/en/Home.md"
   },
   "hero": {
-    "badge": "Enterprise SCA Platform",
+    "badge": "OsWL 1.0.5.1",
     "title": "Understand Dependency Risks<br>in Your <span class=\"gradient-text\">Open Source Stack</span>",
     "subtitle": "Track CVEs, license obligations, and dependency risks from one self-hosted platform. Scan repositories or submit dependencies from CI, then review findings with your security and compliance teams.",
     "ctaPrimary": "Install Now",
@@ -35,7 +34,7 @@
     "title": "End-to-End Software<br>Composition Analysis",
     "subtitle": "Collect dependencies, assess findings, and track remediation with project access controls and audit logs.",
     "cveTitle": "CVE Vulnerability Tracking",
-    "cveDesc": "Enrich scanned components with vulnerability data, available CVSS scores, and known fix versions. Track review decisions and see a reminder when a component’s deferral period ends.",
+    "cveDesc": "Review vulnerability data, available CVSS scores and known fix versions. Open NVD from a CVE and track remediation decisions. Missing fix data does not mean no patch exists.",
     "cveTag": "deps.dev · OSV · GHSA",
     "licenseTitle": "License Risk Management",
     "licenseDesc": "Classify detected SPDX license identifiers against your license policy, review obligations and potential conflicts, and export NOTICE files or SPDX SBOMs for each scan.",

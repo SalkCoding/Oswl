@@ -55,6 +55,8 @@
     --grayscale-3: #fcfdfd;
 
     --text-accent: #00766d;
+    --text-critical: #b42318;
+    --text-caution: #8a5800;
     --copy-info:      #00659c;
 }
 
@@ -293,7 +295,7 @@ html:has(body.notification-page), body.notification-page { min-width: 0; }
 .settings-page select { appearance: none; background: white url('/icon/icon-chevron-down.svg') right 12px center/12px no-repeat; padding: 8px 36px 8px 12px; min-height: 36px; border: 1px solid var(--grayscale-20); border-radius: 6px; color: var(--grayscale-80); font: inherit; font-size: 13px; }
 .oswl-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .oswl-filter-row select { min-width: 180px; }
-.oswl-button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 16px; border: 1px solid var(--grayscale-20); border-radius: 6px; background: white; color: var(--primary-120); font-size: 13px; font-weight: 500; }
+.oswl-button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 16px; border: 1px solid var(--grayscale-20); border-radius: 6px; background: white; color: var(--text-accent); font-size: 13px; font-weight: 500; }
 .oswl-button-secondary:hover { background: var(--grayscale-5); }
 .oswl-toast { max-width: calc(100vw - 32px); }
 .oswl-toast span { white-space: normal; }

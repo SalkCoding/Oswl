@@ -1,5 +1,7 @@
 <div align="center">
 
+**OsWL 1.0.5.1** · [What's new in 1.0.5.1](docs/en/Whats-New-v1.0.5.1.md)
+
 # 🦉 OsWL
 
 **Open-source Software Watchlist — SCA Platform**
@@ -199,7 +201,6 @@ Interactive Swagger UI is available in the **`local` profile** at `http://localh
 
 ## Documentation
 
-New contributors: start with the [Developer onboarding guide (Korean)](docs/ko/Developer-Onboarding.md) for the current architecture, feature flows, and your first code change.
 
 English documentation lives in [`docs/en/`](docs/en/Home.md) and on the [GitHub Wiki](https://github.com/SalkCoding/Oswl/wiki), auto-synced from `docs/en/` on push to `main`. Choose a language through the [documentation index](docs/README.md): [English](docs/en/Home.md), [한국어](docs/ko/Home.md), [日本語](docs/ja/Home.md).
 

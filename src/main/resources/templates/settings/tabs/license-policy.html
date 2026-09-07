@@ -47,7 +47,7 @@
             </thead>
             <tbody>
             <tr x-show="visibleEntries.length === 0 && !fetching" x-cloak>
-                <td colspan="4" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-50)]"
+                <td colspan="4" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-60)]"
                     th:text="#{settings.licensePolicy.search.noResults}">No licenses match your search.</td>
             </tr>
             <template x-for="entry in visibleEntries" :key="entry.spdxId">
@@ -57,7 +57,7 @@
                             <span class="font-mono text-[12px] text-[var(--grayscale-80)]" x-text="entry.spdxId"></span>
                             <a x-show="entry.spdxUrl" :href="entry.spdxUrl" target="_blank" rel="noopener noreferrer"
                                @click.stop=""
-                               class="inline-flex items-center text-[var(--grayscale-50)] hover:text-[var(--primary-120)] shrink-0"
+                               class="inline-flex items-center text-[var(--grayscale-60)] hover:text-[var(--text-accent)] shrink-0"
                                :title="_licensePolicyI18n.viewSpdx">
                                 <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
@@ -89,7 +89,7 @@
                                             data-dirty-mark
                                             @click="entry.status = opt.value; openStatusDropdown = null"
                                             class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                            :class="entry.status === opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                            :class="entry.status === opt.value ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                             x-text="opt.label"></button>
                                 </template>
                             </div>
@@ -97,7 +97,7 @@
                     </td>
                     <td class="px-[18px] py-[12px] w-[120px]">
                         <button type="button" @click="save(entry)"
-                                class="bg-[var(--primary-120)] hover:bg-[var(--primary-140)] px-[8px] py-[6px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[88px] transition-colors cursor-pointer">
+                                class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[8px] py-[6px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[88px] transition-colors cursor-pointer">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                                 <polyline points="17 21 17 13 7 13 7 21"/>
@@ -148,7 +148,7 @@
         viewSpdx:         /*[[#{license.obligations.viewSpdx}]]*/ 'View full SPDX license text'
     };
     </script>
-    <script th:src="@{/js/settings/license-policy.min.js(v='1.0.5.1-ui2')}"></script>
+    <script th:src="@{/js/settings/license-policy.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

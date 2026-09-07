@@ -14,8 +14,8 @@
     const _accessDeniedMsg = /*[[#{common.error.accessDenied}]]*/ 'Access denied. You do not have permission to perform this action.';
     function _fetchErr(r, fallback) { return r.status === 403 ? _accessDeniedMsg : fallback; }
 </script>
-<script th:src="@{/js/settings/settings-subtabs.min.js(v='1.0.5.1-ui2')}"></script>
-<script defer th:src="@{/js/settings/settings-dirty.min.js(v='1.0.5.1-ui2')}"></script>
+<script th:src="@{/js/settings/settings-subtabs.min.js(v='1.0.5.1')}"></script>
+<script defer th:src="@{/js/settings/settings-dirty.min.js(v='1.0.5.1')}"></script>
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
 
@@ -29,7 +29,7 @@
                 <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
                 <a th:href="@{/settings(tab=${t.key})}"
                    th:aria-current="${t.key == activeTab} ? 'page' : null"
-                   th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
+                   th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
                    class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
                    th:text="#{${t.labelKey}}">Tab</a>
                 <!-- 점 구분자 (4px 원) -->

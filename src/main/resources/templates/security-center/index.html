@@ -117,7 +117,7 @@
         }
     };
     </script>
-    <script th:src="@{/js/security-center/page.min.js}"></script>
+    <script th:src="@{/js/security-center/page.min.js(v='1.0.5.1')}"></script>
 
     <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
 
@@ -309,7 +309,7 @@
          </div>
     </div>
 
-    <script th:src="@{/js/security-center/slideout.min.js}"></script>
+    <script th:src="@{/js/security-center/slideout.min.js(v='1.0.5.1')}"></script>
 
     <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 

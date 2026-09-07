@@ -1,3 +1,4 @@
+* [What's new in 1.0.5.1](Whats-New-v1.0.5.1.md)
 **[Home](Home.md)**
 
 [English](Home.md) | [한국어](../ko/Home.md) | [日本語](../ja/Home.md)
@@ -7,7 +8,6 @@
 
 ### Guides
 
-* [Developer onboarding (Korean)](../ko/Developer-Onboarding.md)
 * [Getting Started](Getting-Started.md)
 * [User Guide](User-Guide.md)
 * [Quick Import](Quick-Import.md)
@@ -33,4 +33,3 @@
 ### Reference
 * [API Reference](API-Reference.md)
 * [Glossary](Glossary.md)
-* [UI states checklist](Ui-States-Checklist.md)

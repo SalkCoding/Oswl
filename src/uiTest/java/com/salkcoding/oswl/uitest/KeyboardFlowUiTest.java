@@ -104,7 +104,7 @@ class KeyboardFlowUiTest extends UiTestBase {
                 assertThat(page.locator("#"+toggle)).isFocused();
                 assertThat(page.locator("#"+table+" table")).isVisible();
                 org.assertj.core.api.Assertions.assertThat(page.locator("#"+table+" tbody tr").count()).isGreaterThan(0);
-                org.assertj.core.api.Assertions.assertThat(runAxeScan().getViolations().stream().filter(v->java.util.List.of("serious","critical").contains(v.getImpact())).map(v->v.getId()).toList()).isEmpty();
+                org.assertj.core.api.Assertions.assertThat(runAxeScan().getViolations().stream().filter(v->java.util.List.of("serious","critical").contains(v.getImpact())).flatMap(v->v.getNodes().stream().map(n->v.getId()+" "+n.getHtml()+" "+n.getFailureSummary())).toList()).isEmpty();
                 page.keyboard().press("Enter");assertThat(page.locator("#"+toggle)).hasAttribute("aria-pressed","false");assertThat(page.locator("#"+toggle)).isFocused();
             }
         }

@@ -1,5 +1,7 @@
 # OsWL Documentation
 
+[What's new in 1.0.5.1](Whats-New-v1.0.5.1.md)
+
 Welcome to the **OsWL** (Open-source Software Watchlist) documentation hub.
 
 OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives your team a single place to track CVE vulnerabilities and license compliance across all OSS dependencies — from a single microservice to an entire portfolio of products.
@@ -10,7 +12,6 @@ OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives 
 
 ## Navigation
 
-For new developers: [Developer onboarding (Korean)](../ko/Developer-Onboarding.md) explains the current architecture, data model, feature flows, and code entry points.
 
 | Page | What you'll find |
 |---|---|
@@ -30,7 +31,6 @@ For new developers: [Developer onboarding (Korean)](../ko/Developer-Onboarding.m
 | [Project access control](Project-Access-Control.md) | Technical ACL reference for developers |
 | [Production deployment](Production-Deployment-Checklist.md) | Pre-launch checklist for `prod` profile |
 | [Backup and restore](Backup-And-Restore.md) | Backup scope, restore procedure, verification |
-| [UI states checklist](Ui-States-Checklist.md) | Developer reference for asynchronous UI states |
 | [Database schema](Database-Schema.md) | `ddl-auto` strategy and `src/main/resources/db/` migrations |
 | [Scan API security](Scan-Api-Security.md) | How CLI scan submission is protected |
 | [API Reference](API-Reference.md) | Full REST endpoint catalogue |
