@@ -65,7 +65,9 @@ public class OsvClient {
     public OsvClient(AirgappedSnapshotService snapshotService, boolean airgapped,
                      Duration connectTimeout, Duration readTimeout) {
         this.snapshotService = snapshotService;
-        this.airgapped = airgapped && snapshotService != null;
+        if (airgapped && snapshotService == null)
+            throw new IllegalArgumentException("Air-gapped mode requires a snapshot service");
+        this.airgapped = airgapped;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);

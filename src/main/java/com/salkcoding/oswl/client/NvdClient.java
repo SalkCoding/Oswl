@@ -61,7 +61,9 @@ public class NvdClient {
     public NvdClient(AirgappedSnapshotService snapshotService, boolean airgapped, String apiKey,
                      Duration connectTimeout, Duration readTimeout) {
         this.snapshotService = snapshotService;
-        this.airgapped = airgapped && snapshotService != null;
+        if (airgapped && snapshotService == null)
+            throw new IllegalArgumentException("Air-gapped mode requires a snapshot service");
+        this.airgapped = airgapped;
         this.apiKey = (apiKey != null) ? apiKey.strip() : null;
         this.minIntervalMs = (this.apiKey != null && !this.apiKey.isBlank()) ? AUTH_INTERVAL_MS : UNAUTH_INTERVAL_MS;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();

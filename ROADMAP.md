@@ -61,6 +61,8 @@
 
 ### 5. 망분리·정적 모드의 전체 외부 접속 통제 — P0 · [코드 확인]
 
+- **2026-09-11 클라이언트 초기화 경계:** OSV/GHSA/NVD/deps.dev/EPSS/KEV에서 `airgapped=true`인데 snapshot service가 null이면 온라인 모드로 조용히 바뀌던 생성자를 수정했다. 이제 해당 조합은 초기화 오류이며 망분리 플래그를 false로 강등하지 않는다. 정상 온라인 설정과 저장소가 있는 망분리 설정은 유지한다. CocoaPods는 이미 저장소가 없어도 온라인으로 전환하지 않고 미확인 결과를 반환하므로 이 변경 대상에서 제외했다.
+- **초기화 회귀 검증:** 수정 전 새 12건 중 여섯 클라이언트의 잘못된 설정 거부 검사 6건 실패. 수정 후 Windows/Java 25의 `test --tests '*AirgappedClientInitializationTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest' --tests '*Epss*Test' --tests '*Kev*Test' --tests '*DepsDev*Test' --tests '*Nvd*Test' --tests '*CocoaPodsSnapshotTest'` 239건 통과·실패/오류/skip 0. 로그 `build/roadmap-offline-init-before.log`, `build/roadmap-offline-init-after.log`. 커밋 제목 `fix: reject offline clients without snapshot storage`. 초기화 검사 자체는 원격 요청을 보내지 않았으며 전체 앱의 egress 차단/네트워크 캡처 검증을 대신하지 않는다. 새 외부 데이터/라이브러리·스키마·UI 변경 없음. 정적 모드의 다른 실행 도구·프록시·CA 및 실패 시 전체 흐름 검증은 계속 잔여다.
 - 현재·대상: [DependencyManifestParserService](src/main/java/com/salkcoding/oswl/service/ingest/DependencyManifestParserService.java)의 npm 해석, [MavenBomVersionResolver](src/main/java/com/salkcoding/oswl/service/ingest/MavenBomVersionResolver.java)의 HTTP 경로가 VDB offline 설정과 별개다. npm에는 이미 --ignore-scripts가 있다.
 - [ ] 수정: 정적 수집과 외부 해석 허용 설정을 통일한다. Git/npm/BOM/registry/AI 다운로드/IdP discovery·JWKS/SMTP/webhook 등 출구를 열거하고 내부 mirror·사내 CA·proxy 정책을 적용한다. 자료 부족은 PARTIAL/UNKNOWN으로 남긴다.
 - 선행: 3~4번. 외부 해석 실행은 6번의 격리 후 활성화.

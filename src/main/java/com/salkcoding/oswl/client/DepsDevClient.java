@@ -119,7 +119,9 @@ public class DepsDevClient {
     public DepsDevClient(AirgappedSnapshotService snapshotService, boolean airgapped,
                          Duration connectTimeout, Duration readTimeout, int maxConcurrent) {
         this.snapshotService = snapshotService;
-        this.airgapped = airgapped && snapshotService != null;
+        if (airgapped && snapshotService == null)
+            throw new IllegalArgumentException("Air-gapped mode requires a snapshot service");
+        this.airgapped = airgapped;
         this.requestPermits = new Semaphore(Math.max(1, maxConcurrent));
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);

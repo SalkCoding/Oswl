@@ -45,7 +45,9 @@ public class KevCatalogService {
 
     public KevCatalogService(AirgappedSnapshotService snapshotService, boolean airgapped) {
         this.snapshotService = snapshotService;
-        this.airgapped = airgapped && snapshotService != null;
+        if (airgapped && snapshotService == null)
+            throw new IllegalArgumentException("Air-gapped mode requires a snapshot service");
+        this.airgapped = airgapped;
         if (this.airgapped) {
             log.info("[KEV] Air-gapped mode — KEV catalog served from the offline snapshot store, no outbound HTTP");
         }

@@ -84,7 +84,9 @@ public class GitHubAdvisoryClient {
     public GitHubAdvisoryClient(AirgappedSnapshotService snapshotService, boolean airgapped, String token,
                                 String apiBase, Duration connectTimeout, Duration readTimeout) {
         this.snapshotService = snapshotService;
-        this.airgapped = airgapped && snapshotService != null;
+        if (airgapped && snapshotService == null)
+            throw new IllegalArgumentException("Air-gapped mode requires a snapshot service");
+        this.airgapped = airgapped;
         this.token = (token != null) ? token.strip() : null;
         this.graphqlUrl = resolveGraphqlUrl(apiBase);
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
