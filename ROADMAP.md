@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 후보별 전체 실패 격리:** HTTP 오류/잘못된 응답 구조/깨진 JSON으로 한 CPE 조회가 실패해도 다음 후보 조회를 계속한다. 앞서 받은 발견 결과와 뒤의 정상 결과를 함께 유지하고, 뒤의 응답이 정상 빈 목록이어도 전체 `lookupFailed`는 true로 남긴다. 조회를 다시 성공으로 분류하거나 실패 후보를 매칭 완료로 기록하지 않는다.
+- **회귀 검증:** 실제 HTTP client→source adapter의 중간 후보 실패 및 마지막 후보 발견/빈 응답 6건이 수정 전 모두 실패했다. 수정 후 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 193건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-candidate-failure-before.log`, `build/roadmap-nvd-candidate-failure-after.log`. 커밋 제목 `fix: isolate nvd lookup failures between cpe candidates`. 자체 합성 입력이며 새 외부 자료/라이브러리·UI 변경은 없다. 이번 변경은 대상 테스트와 컴파일로 검증했고 전체 build는 다시 실행하지 않았다. 원천별 권리 조건과 실제 공급자 장애 검증은 기존 잔여 범위를 유지한다.
+
 - **2026-09-11 NVD 부분 응답의 발견 근거 보존:** 추가 페이지가 필요하거나 개별 항목이 잘못된 응답은 정상 행을 담은 `IncompleteLookupException`으로 전달한다. source adapter는 해당 발견 결과와 CPE별 매칭 신뢰도를 유지하면서 조회 미완료를 표시하고 다음 CPE 후보도 계속 확인한다. 잘못된 행 전후의 정상 행 모두 보존하며 부분 응답을 정상 빈 조회로 바꾸지 않는다. 실제 페이지 순회나 count/startIndex metadata 전체 검증을 새로 구현한 변경은 아니다.
 - **누적 빌드:** Windows/Java 25의 `build verifyProdJar` 성공, 전체 3,055건 중 3,046건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nvd-partial-build.log`.
 - **회귀 검증:** 부분 페이지/잘못된 첫 행/잘못된 마지막 행 3건이 수정 전 모두 실패했다. 실제 HTTP client→source adapter→후속 CPE 요청의 발견 ID·매칭 신뢰도·실패 상태를 확인했다. Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*AdvisoryScoreBoundsTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 203건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-partial-before.log`, `build/roadmap-nvd-partial-after.log`. 커밋 제목 `fix: retain nvd findings from incomplete lookups`. 자체 합성 응답이며 새 외부 원문/라이브러리·UI 변경은 없다. NVD/CVE 원천별 이용·재배포 조건과 실환경 공급자 검증의 잔여 범위는 유지한다.

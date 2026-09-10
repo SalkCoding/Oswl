@@ -18,6 +18,34 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class NvdPartialEvidenceTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"http,false", "body,false", "json,false", "http,true", "body,true", "json,true"})
+    void failedCandidateDoesNotHideOtherCandidates(String failure, boolean finalEmpty) {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new NvdClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        ReflectionTestUtils.setField(client, "minIntervalMs", 0L);
+        server.expect(anything()).andRespond(withSuccess("{\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0001\"}}]}", MediaType.APPLICATION_JSON));
+        var failedRequest = server.expect(anything());
+        if (failure.equals("http")) failedRequest.andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withServerError());
+        else failedRequest.andRespond(withSuccess(failure.equals("body") ? "{}" : "invalid-json", MediaType.APPLICATION_JSON));
+        server.expect(anything()).andRespond(withSuccess(finalEmpty ? "{\"totalResults\":0,\"vulnerabilities\":[]}"
+                : "{\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\"}}]}", MediaType.APPLICATION_JSON));
+        var cpe = mock(CpeMatchService.class);
+        when(cpe.inferCpes("fixture", "1.0")).thenReturn(List.of(
+                new CpeNameMapper.CpeCandidate("vendor", "one", "1.0", MatchConfidence.HIGH),
+                new CpeNameMapper.CpeCandidate("vendor", "two", "1.0", MatchConfidence.LOW),
+                new CpeNameMapper.CpeCandidate("vendor", "three", "1.0", MatchConfidence.MEDIUM)));
+        var result = new NvdAdvisorySource(client, cpe).lookup("fixture", "1.0", null, List.of());
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.findings()).extracting(NvdClient.NvdCve::cveId).containsExactlyElementsOf(
+                finalEmpty ? List.of("CVE-2026-0001") : List.of("CVE-2026-0001", "CVE-2026-0002"));
+        assertThat(result.findings().getFirst().matchConfidence()).isEqualTo(MatchConfidence.HIGH);
+        if (!finalEmpty) assertThat(result.findings().getLast().matchConfidence()).isEqualTo(MatchConfidence.MEDIUM);
+        server.verify();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"page", "before", "after"})
     void incompleteCandidateKeepsFindingsAndDoesNotSkipTheNextCandidate(String kind) {
         String good = "{\"cve\":{\"id\":\"CVE-2026-0001\"}}";
