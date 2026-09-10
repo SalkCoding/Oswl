@@ -137,6 +137,10 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 부분 응답의 발견 근거 보존:** 추가 페이지가 필요하거나 개별 항목이 잘못된 응답은 정상 행을 담은 `IncompleteLookupException`으로 전달한다. source adapter는 해당 발견 결과와 CPE별 매칭 신뢰도를 유지하면서 조회 미완료를 표시하고 다음 CPE 후보도 계속 확인한다. 잘못된 행 전후의 정상 행 모두 보존하며 부분 응답을 정상 빈 조회로 바꾸지 않는다. 실제 페이지 순회나 count/startIndex metadata 전체 검증을 새로 구현한 변경은 아니다.
+- **누적 빌드:** Windows/Java 25의 `build verifyProdJar` 성공, 전체 3,055건 중 3,046건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nvd-partial-build.log`.
+- **회귀 검증:** 부분 페이지/잘못된 첫 행/잘못된 마지막 행 3건이 수정 전 모두 실패했다. 실제 HTTP client→source adapter→후속 CPE 요청의 발견 ID·매칭 신뢰도·실패 상태를 확인했다. Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*AdvisoryScoreBoundsTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 203건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-partial-before.log`, `build/roadmap-nvd-partial-after.log`. 커밋 제목 `fix: retain nvd findings from incomplete lookups`. 자체 합성 응답이며 새 외부 원문/라이브러리·UI 변경은 없다. NVD/CVE 원천별 이용·재배포 조건과 실환경 공급자 검증의 잔여 범위는 유지한다.
+
 - **2026-09-11 NVD 불완전 metric의 대체 조회:** CVSS 배열의 첫 항목만 읽던 처리를 바꿔 숫자·객체 구조가 잘못됐거나 유효한 점수/vector/심각도가 모두 없는 항목을 건너뛴다. 상위 CVSS 버전 배열이 모두 불완전하면 기존 버전 우선순위에 따라 다음 버전으로 진행한다. 부분 정보가 있는 관측은 뒤의 다른 관측과 합성하지 않는다. 정상 복수 평가의 공급자 우선순위·상충 보존을 새로 해결한 변경은 아니다.
 - **회귀 검증:** 불완전 첫 항목/하위 버전 대체 10건 중 수정 전 8건 실패를 재현했다. 부분 관측의 혼합 방지 3건을 추가한 뒤 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*AdvisoryScoreBoundsTest' --tests '*VulnerabilityEnrichmentServiceTest'` 94건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-metric-before.log`, `build/roadmap-nvd-metric-after.log`. 커밋 제목 `fix: retain available nvd metrics after incomplete entries`. 자체 합성 파서 입력이며 외부 원문·라이브러리·배포 자료·UI 변경은 없다. 이번에는 대상 테스트와 컴파일을 수행했고 전체 build/실제 공급자 응답을 재검증한 기록은 아니다. 기존 NVD/CVE 원천별 이용·재배포 조건은 변경하지 않는다.
 

@@ -85,6 +85,17 @@ public class NvdClient {
         }
     }
 
+    public static final class IncompleteLookupException extends IllegalStateException {
+        private final List<NvdCve> findings;
+
+        private IncompleteLookupException(List<NvdCve> findings) {
+            super("NVD lookup unavailable");
+            this.findings = List.copyOf(findings);
+        }
+
+        public List<NvdCve> findings() { return findings; }
+    }
+
     /**
      * Queries live NVD by exact CPE name. Returns an empty list when the CPE is blank,
      * or the client is air-gapped. Failed/malformed lookups throw so callers retain incomplete coverage.
@@ -96,6 +107,9 @@ public class NvdClient {
         String url = BASE_URL + "?cpeName=" + URLEncoder.encode(cpeName.strip(), StandardCharsets.UTF_8);
         try {
             return parseBody(doRequest(url), confidence);
+        } catch (IncompleteLookupException e) {
+            log.warn("[NVD] Incomplete CPE lookup; retaining {} findings", e.findings().size());
+            throw e;
         } catch (Exception e) {
             log.warn("[NVD] CPE lookup failed for {}: {}", cpeName, e.getMessage());
             throw new IllegalStateException("NVD lookup unavailable", e);
@@ -203,18 +217,23 @@ public class NvdClient {
         if (body == null) throw new IllegalArgumentException("Missing NVD response");
         Object vulns = body.get("vulnerabilities");
         if (!(vulns instanceof List<?> list)) throw new IllegalArgumentException("Missing NVD vulnerabilities");
-        if (body.get("totalResults") instanceof Number total && total.longValue() > list.size())
-            throw new IllegalArgumentException("NVD response requires additional pages");
+        boolean incomplete = body.get("totalResults") instanceof Number total && total.longValue() > list.size();
         List<NvdCve> result = new ArrayList<>();
         for (Object item : list) {
-            if (!(item instanceof Map<?, ?> v)) throw new IllegalArgumentException("Invalid NVD item");
-            Map<String, Object> cve = (Map<String, Object>) v.get("cve");
-            if (cve == null) throw new IllegalArgumentException("Missing NVD CVE");
-            String id = (String) cve.get("id");
-            if (id == null) throw new IllegalArgumentException("Missing NVD identifier");
-            Cvss cvss = extractCvss(cve);
-            result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence));
+            try {
+                if (!(item instanceof Map<?, ?> v)) throw new IllegalArgumentException("Invalid NVD item");
+                Map<String, Object> cve = (Map<String, Object>) v.get("cve");
+                if (cve == null) throw new IllegalArgumentException("Missing NVD CVE");
+                String id = (String) cve.get("id");
+                if (id == null) throw new IllegalArgumentException("Missing NVD identifier");
+                Cvss cvss = extractCvss(cve);
+                result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence));
+            } catch (RuntimeException e) {
+                log.debug("[NVD] Skipping malformed finding; lookup remains incomplete", e);
+                incomplete = true;
+            }
         }
+        if (incomplete) throw new IncompleteLookupException(result);
         return result;
     }
 
