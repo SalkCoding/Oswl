@@ -9,6 +9,7 @@ import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import com.salkcoding.oswl.vdb.SemVerVersionComparator;
 import com.salkcoding.oswl.vdb.MavenVersionComparator;
 import com.salkcoding.oswl.vdb.Pep440VersionComparator;
+import com.salkcoding.oswl.vdb.GoVersionComparator;
 import com.salkcoding.oswl.vdb.AdvisoryPackageNames;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -239,6 +240,7 @@ public class GitHubAdvisoryClient {
             List<GitHubAdvisory> findings, Map<String, List<String>> ranges) {
         java.util.Comparator<String> comparator = switch (ecosystem) {
             case "NPM" -> SemVerVersionComparator::compare;
+            case "GO" -> GoVersionComparator::compare;
             case "MAVEN" -> MavenVersionComparator::compare;
             case "PIP" -> Pep440VersionComparator::compare;
             default -> null;
@@ -397,6 +399,7 @@ public class GitHubAdvisoryClient {
                 throw new IllegalArgumentException("Unsupported advisory range syntax");
             int cmp = switch (ecosystem) {
                 case "NPM" -> SemVerVersionComparator.compare(normalizedVersion, ver);
+                case "GO" -> GoVersionComparator.compare(normalizedVersion, ver);
                 case "MAVEN" -> MavenVersionComparator.compare(normalizedVersion, ver);
                 case "PIP" -> Pep440VersionComparator.compare(normalizedVersion, ver);
                 default -> SimpleVersionComparator.compare(normalizedVersion, ver);

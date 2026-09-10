@@ -257,6 +257,9 @@
 - 선행: 4단계 공통 계약. 심볼 도달성의 확대는 57번.
 - DoD: go.sum의 오래된 여러 버전과 실제 build list가 다른 사례에서 현행 패키지를 정확히 선택한다. 해석 실패나 checksum-only 입력은 제한 상태다. [Go modules](https://go.dev/ref/mod).
 
+- **2026-09-11 Go 버전 순서 연결:** [Go modules 공식 versions/pseudo-versions 규칙](https://go.dev/ref/mod#versions)을 근거로 기존 자체 SemVer 비교기에 Go 모듈의 `v` 접두사 처리를 결합했다. OSV Go SEMVER/ECOSYSTEM 범위와 공통 fixed 선택, GHSA GO 영향/수정 후보 검증에 같은 비교기를 연결했다. prerelease/pseudo-version은 SemVer 순서로 비교하며 build metadata는 우선순위에 영향을 주지 않는다. 브랜치 이름·축약 버전·비정상 SemVer는 UNKNOWN/비교 실패로 남긴다.
+- **Go 범위 회귀:** prefix 유무, pseudo-version, rc, 정식, incompatible 및 두 자리 minor 8건은 수정 전 모두 실패했다. 수정 후 OSV 영향→fixed 및 GHSA 영향→fixed 선택, 잘못된 concrete version 5건을 포함한 `test --tests '*GoAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 141건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-go-version-before.log`, `build/roadmap-go-version-after.log`. 커밋 제목 `fix: share go module version ordering across advisories`. 공식 규칙에서 도출한 자체 합성 입력이며 외부 코드/데이터/라이브러리를 동봉하지 않았다. 설치된 Go 실행기가 없어 native 실행 oracle 및 실제 Go 공지 대조는 아직 미검증이다. pseudo-version의 실제 commit/timestamp/ancestry 검증, go.sum/build list 구분, 모듈 경로 major 호환, 표준 라이브러리 toolchain 버전과 명시적 versions 목록 alias는 잔여다.
+
 ### 24. Cargo alias·feature·target·source 식별 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [CargoManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/CargoManifestParser.java)의 선언 alias/package·source 처리.
