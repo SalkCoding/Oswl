@@ -245,9 +245,16 @@ public class NvdClient {
 
     @SuppressWarnings("unchecked")
     private static Cvss fromMetricArray(Object metricArray) {
-        if (!(metricArray instanceof List<?> list) || list.isEmpty()) return null;
-        Object first = list.get(0);
-        if (!(first instanceof Map<?, ?> m)) return null;
+        if (!(metricArray instanceof List<?> list)) return null;
+        for (Object entry : list) {
+            Cvss result = fromMetric(entry);
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    private static Cvss fromMetric(Object entry) {
+        if (!(entry instanceof Map<?, ?> m)) return null;
         Object cvssData = m.get("cvssData");
         if (!(cvssData instanceof Map<?, ?> data)) return null;
         Object scoreObj = data.get("baseScore");
@@ -255,10 +262,12 @@ public class NvdClient {
                 ? com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(n.doubleValue()) : null;
         String vector = data.get("vectorString") instanceof String s ? s : null;
         RiskLevel severity = cvssToRiskLevel(score);
+        boolean hasSeverity = false;
         Object sevObj = data.get("baseSeverity");
         if (sevObj instanceof String s) {
             try {
                 RiskLevel parsed = RiskLevel.valueOf(s.toUpperCase());
+                hasSeverity = true;
                 if (severity == RiskLevel.NONE || parsed.ordinal() <= severity.ordinal()) {
                     severity = parsed;
                 }
@@ -266,6 +275,8 @@ public class NvdClient {
                 // keep score-derived severity
             }
         }
+        if (vector != null && vector.isBlank()) vector = null;
+        if (score == null && vector == null && !hasSeverity) return null;
         return new Cvss(severity, score, vector);
     }
 

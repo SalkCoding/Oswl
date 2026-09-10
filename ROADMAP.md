@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 불완전 metric의 대체 조회:** CVSS 배열의 첫 항목만 읽던 처리를 바꿔 숫자·객체 구조가 잘못됐거나 유효한 점수/vector/심각도가 모두 없는 항목을 건너뛴다. 상위 CVSS 버전 배열이 모두 불완전하면 기존 버전 우선순위에 따라 다음 버전으로 진행한다. 부분 정보가 있는 관측은 뒤의 다른 관측과 합성하지 않는다. 정상 복수 평가의 공급자 우선순위·상충 보존을 새로 해결한 변경은 아니다.
+- **회귀 검증:** 불완전 첫 항목/하위 버전 대체 10건 중 수정 전 8건 실패를 재현했다. 부분 관측의 혼합 방지 3건을 추가한 뒤 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*AdvisoryScoreBoundsTest' --tests '*VulnerabilityEnrichmentServiceTest'` 94건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-metric-before.log`, `build/roadmap-nvd-metric-after.log`. 커밋 제목 `fix: retain available nvd metrics after incomplete entries`. 자체 합성 파서 입력이며 외부 원문·라이브러리·배포 자료·UI 변경은 없다. 이번에는 대상 테스트와 컴파일을 수행했고 전체 build/실제 공급자 응답을 재검증한 기록은 아니다. 기존 NVD/CVE 원천별 이용·재배포 조건은 변경하지 않는다.
+
 - **2026-09-11 공급자 간 CVSS 숫자 검증 공통화:** OSV/GHSA/NVD와 deps.dev 결과 객체가 `CvssScore.validOrNull`로 유한한 0~10 점수만 유지한다. GHSA/NVD의 raw 응답에서는 심각도 계산 전에 같은 검증을 수행해 11/무한대 등을 CRITICAL 근거로 쓰지 않는다. 숫자가 잘못돼도 별도 심각도·식별자·수정 후보는 유지한다. offline 변환도 해당 결과 객체를 사용하며 snapshot 원문을 임의 수정하지 않는다.
 - **누적 빌드:** `build verifyProdJar` 성공, 전체 3,033건 중 3,024건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR의 local controller 제외 검사와 실제 ZIP 내 `META-INF/THIRD_PARTY_LICENSES.txt`의 CVSS 고지를 확인했다. 로그 `build/roadmap-advisory-score-build.log`. 실제 공급자 응답/운영 PostgreSQL 검증은 별도다.
 - **회귀 검증:** 결과 객체 및 NVD/GHSA raw 파서의 정상 경계·음수·초과·NaN·무한대 16건 중 수정 전 10건 실패했다. 수정 후 Windows/Java 25의 `test --tests '*AdvisoryScoreBoundsTest' --tests '*DepsDev*Test' --tests '*Osv*Test' --tests '*Nvd*Test' --tests '*GitHubAdvisory*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 285건 통과·실패/오류/skip 0. 로그 `build/roadmap-advisory-score-before.log`, `build/roadmap-advisory-score-after.log`. 커밋 제목 `fix: validate advisory scores before deriving severity`. 자체 합성 입력이며 UI 변경 없음. 숫자 범위 검증은 vector의 문법/수식 일치나 실제 공급자 데이터 완전성을 증명하지 않는다.
