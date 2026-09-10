@@ -542,7 +542,7 @@
                         </span>
                         <span>
                             <span class="font-medium" th:text="#{componentDetail.cve.affects} + ':'">Affects:</span>
-                            <span th:text="${dependencyInfo}">-</span>
+                            <span class="whitespace-pre-wrap break-all" th:text="${dependencyInfo}">-</span>
                         </span>
                         <span>
                             <span class="font-medium" th:text="#{componentDetail.cve.fix} + ':'">Fix:</span>
@@ -786,7 +786,7 @@
                 <p class="text-[13px] text-black tracking-[-0.13px]" th:text="${componentName}">component-name</p>
                 <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
                       th:text="${componentVersion != null and !#strings.isEmpty(componentVersion)} ? ${'v' + componentVersion} : #{componentDetail.version.unresolved}">v1.0.0</span>
-                <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
+                <span class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] px-[10px] py-[2px] rounded-[40px] text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px] min-w-0 max-w-full whitespace-pre-wrap break-all"
                       th:text="${dependencyInfo}">Direct Dep.</span>
                 <span th:if="${hasVulnerabilities}"
                       class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] px-[10px] py-[2px] rounded-[40px] flex items-center gap-[4px]">
