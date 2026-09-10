@@ -31,7 +31,10 @@ public final class OsvFixVersionSelector {
                 if (!ecosystem.equals(pkg.path("ecosystem").asText())) continue;
                 if (!AdvisoryPackageNames.canonical(ecosystem, name).equals(
                         AdvisoryPackageNames.canonical(ecosystem, pkg.path("name").asText()))) continue;
-                if (entry.hasNonNull("versions") && !entry.path("versions").isArray()) return unavailable("MALFORMED_VERSIONS");
+                if (entry.has("versions") && !entry.path("versions").isArray()) return unavailable("MALFORMED_VERSIONS");
+                for (JsonNode version : entry.path("versions")) {
+                    if (!version.isTextual() || version.asText().isBlank()) return unavailable("MALFORMED_VERSIONS");
+                }
                 entries.add(entry);
                 if (!entry.path("ranges").isArray() || entry.path("ranges").isEmpty()) return unavailable("NO_RANGE_EVIDENCE");
                 for (JsonNode range : entry.path("ranges")) {
@@ -63,7 +66,6 @@ public final class OsvFixVersionSelector {
                 for (JsonNode entry : entries) {
                     Set<String> versions = new LinkedHashSet<>();
                     for (JsonNode version : entry.path("versions")) {
-                        if (!version.isTextual()) return unavailable("MALFORMED_VERSIONS");
                         versions.add(version.asText());
                     }
                     excludedFromAll &= OsvRangeEvaluator.evaluate(ecosystem.toUpperCase(java.util.Locale.ROOT), candidate,

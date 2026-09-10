@@ -14,6 +14,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OsvFixVersionSelectorTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "false", "{}", "[1]", "[null]", "[\"\"]", "[\" \"]"})
+    void malformedVersionListsCannotConfirmAFix(String versions) throws Exception {
+        var advisory = mapper.readTree("""
+                {"affected":[{"package":{"ecosystem":"npm","name":"target"},
+                "versions":%s,"ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """.formatted(versions));
+        assertThat(select(advisory, "1.0.0").version()).isNull();
+        assertThat(select(advisory, "1.0.0").reason()).isEqualTo("MALFORMED_VERSIONS");
+    }
+
     @Test
     void ignoresFixesForOtherPackages() {
         var document = document(entry("other", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "99.0.0"))),

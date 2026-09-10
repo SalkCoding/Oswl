@@ -159,6 +159,9 @@
 - **2026-09-10 GHSA fixed 검증:** 전체 페이지의 동일 GHSA/패키지 범위를 수집한 뒤 firstPatchedVersion 후보가 설치 버전보다 높고 모든 해당 범위에서 비영향인지 확인한다. 여러 검증된 후보는 버전 순서상 최소를 선택하며 latest 조회는 없다. 아직 설치 버전에 영향이 없는 다른 분기의 범위도 후보 검증에 포함한다. 부분 응답/HTTP 실패/커서·예산 문제에서는 확인된 finding을 유지하되 fixed를 보류한다. 현재 검증 비교기가 연결된 NPM/Maven/PIP 이외의 fixed도 추측하지 않고 보류하며 다른 생태계 비교기 구현은 계속 필요하다.
 - **GHSA fixed 회귀:** 낮은/동일/여전히 취약한 후보, 정상 후보, 부분 응답, 다른 분기 충돌의 6건 중 수정 전 5건 실패를 확인했다. 후속 페이지가 이전 후보를 무효화하는 검사도 추가했다. Windows/Java 25에서 `.\gradlew.bat test --tests '*GitHubAdvisoryRangeTest' --tests '*VulnerabilityEnrichmentServiceTest'` 65건 통과·실패/skip 0. 로그 `build/roadmap-ghsa-fixes-before.log`, `build/roadmap-ghsa-fixes-after.log`. 커밋 제목 `fix: verify github fix candidates against complete ranges`. 자체 합성 입력이며 새 외부 데이터/라이브러리와 UI 변경 없음. fixed 보류 reason과 공급자 revision의 저장/API 노출, 과거 저장된 잘못된 fixed 정정은 잔여다.
 
+- **2026-09-10 OSV 버전 목록 형식 검증:** 관련 패키지의 versions가 명시적 null/배열 아닌 값이거나 숫자·객체·null·빈 버전 문자열을 포함하면 bulk 수집을 실패 처리한다. asText 변환이나 무시로 정상 비영향 coverage를 만들지 않으며 CLI는 기존 번들을 보존한다. 공통 fixed 선택기도 같은 입력에서 MALFORMED_VERSIONS로 제안을 보류한다. [OSV schema의 versions 문자열 배열 계약](https://ossf.github.io/osv-schema/), 확인 2026-09-10. 필드 생략과 빈 배열은 기존 범위 평가를 유지한다.
+- **형식 회귀:** 신규 형식 회귀 17건 중 수정 전 13건 실패를 확인했다. 실제 임시 ZIP/cache를 읽는 수집 검사, 공통 fixed 선택 검사와 malformed 목록의 CLI 출력 byte 보존 검사를 포함해 `.\gradlew.bat test --tests '*Osv*Test' --tests '*Vdb*Test' --tests '*PyPiAdvisoryComparisonTest'` 102건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-osv-version-shape-before.log`, `build/roadmap-osv-version-shape-after.log`. 커밋 제목 `fix: reject malformed osv version lists`. 자체 합성 입력이며 외부 데이터/라이브러리와 UI 변경 없음. 전체 schema 검증, 목록에 있는 문자열의 모든 생태계별 문법 검증 및 저장된 과거 오판 정정은 잔여다.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [코드 확인]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.

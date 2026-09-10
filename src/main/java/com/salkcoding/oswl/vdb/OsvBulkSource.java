@@ -221,9 +221,17 @@ final class OsvBulkSource {
 
                 JsonNode enumeratedVersions = affected.path("versions");
                 Set<String> enumerated = null;
+                if (!enumeratedVersions.isMissingNode() && !enumeratedVersions.isArray()) {
+                    throw new IOException("OSV versions is not an array; source coverage is unknown");
+                }
                 if (enumeratedVersions.isArray() && enumeratedVersions.size() > 0) {
                     enumerated = new LinkedHashSet<>();
-                    for (JsonNode v : enumeratedVersions) enumerated.add(v.asText());
+                    for (JsonNode v : enumeratedVersions) {
+                        if (!v.isTextual() || v.asText().isBlank()) {
+                            throw new IOException("OSV versions contains an invalid version; source coverage is unknown");
+                        }
+                        enumerated.add(v.asText());
+                    }
                 }
 
                 for (String wantedVersion : versionsWanted) {

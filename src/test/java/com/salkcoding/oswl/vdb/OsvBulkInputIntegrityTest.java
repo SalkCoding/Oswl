@@ -34,6 +34,13 @@ class OsvBulkInputIntegrityTest {
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "false", "{}", "\"1.0.0\"", "[1]", "[null]", "[{}]", "[\"\"]", "[\" \"]", "[\"1.0.0\",false]"})
+    void malformedVersionListsCannotEstablishCoverage(String versions) throws Exception {
+        cache(zip(VALID.replace("[\"1.0.0\"]", versions)), true);
+        assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
+    }
+
     @Test void nonZipResponseIsNotAnEmptySuccessfulDataset() throws Exception {
         cache("<html>upstream error</html>".getBytes(StandardCharsets.UTF_8), true);
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
@@ -57,8 +64,10 @@ class OsvBulkInputIntegrityTest {
         assertThat(result.unresolvedKeys()).isEmpty();
     }
 
-    @Test void failedCollectionDoesNotOverwriteAnExistingBundle() throws Exception {
-        cache(zip("broken"), true);
+    @ParameterizedTest
+    @ValueSource(strings = {"broken", "null", "[false]", "[\"\"]"})
+    void failedCollectionDoesNotOverwriteAnExistingBundle(String invalid) throws Exception {
+        cache(zip(invalid.equals("broken") ? invalid : VALID.replace("[\"1.0.0\"]", invalid)), true);
         Path wanted = directory.resolve("wanted.jsonl");
         Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}\n");
         Path output = directory.resolve("bundle.zip");
