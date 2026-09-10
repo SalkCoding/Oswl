@@ -16,13 +16,34 @@ import static org.mockito.Mockito.*;
 
 class KevLookupStatusTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true"})
+    void downloadingAnOldCatalogDoesNotRefreshItsSourceDate(int age, boolean stale) {
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var client = new KevCatalogService();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        String released = Instant.now().minus(Duration.ofDays(age)).toString();
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        "{\"count\":1,\"catalogVersion\":\"v1\",\"dateReleased\":\"" + released
+                                + "\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-0001\"}]}",
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+        client.refresh();
+        assertThat(client.listingStatus("CVE-2026-0001")).isTrue();
+        assertThat(client.listingStatus("CVE-2026-0002")).isEqualTo(stale ? null : Boolean.FALSE);
+        server.verify();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource(value = {
-            "1;2026-01-01T00:00:00Z;v1;true", "2;2026-01-01T00:00:00Z;v1;false",
+            "1;CURRENT;v1;true", "2;2026-01-01T00:00:00Z;v1;false",
             "0;2026-01-01T00:00:00Z;v1;false", "-1;2026-01-01T00:00:00Z;v1;false",
             "null;2026-01-01T00:00:00Z;v1;false", "1.5;2026-01-01T00:00:00Z;v1;false",
             "1;bad-date;v1;false", "1;2099-01-01T00:00:00Z;v1;false", "1;2026-01-01T00:00:00Z;;false"
     }, delimiter = ';', emptyValue = "")
     void catalogMetadataMustSupportReplacingPriorEvidence(String count, String released, String version, boolean valid) {
+        if ("CURRENT".equals(released)) released = Instant.now().toString();
         var builder = org.springframework.web.client.RestClient.builder();
         var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
         var client = new KevCatalogService();
@@ -37,6 +58,28 @@ class KevLookupStatusTest {
         client.refresh();
         assertThat(client.listingStatus("CVE-2026-0001")).isEqualTo(!valid);
         assertThat(client.listingStatus("CVE-2026-0002")).isEqualTo(valid ? Boolean.TRUE : null);
+        server.verify();
+    }
+
+    @Test void olderReleaseCannotReplacePreviouslyAcceptedMembership() {
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var client = new KevCatalogService();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        for (int age : new int[]{1, 2}) {
+            String released = Instant.now().minus(Duration.ofDays(age)).toString();
+            server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"))
+                    .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                            "{\"count\":1,\"catalogVersion\":\"v1\",\"dateReleased\":\"" + released
+                                    + "\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-000" + age + "\"}]}",
+                            org.springframework.http.MediaType.APPLICATION_JSON));
+        }
+        client.refresh();
+        assertThat(client.listingStatus("CVE-2026-0002")).isFalse();
+        client.refresh();
+        assertThat(client.listingStatus("CVE-2026-0001")).isTrue();
+        assertThat(client.listingStatus("CVE-2026-0002")).isNull();
         server.verify();
     }
 

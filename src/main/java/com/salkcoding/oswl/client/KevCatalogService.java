@@ -28,8 +28,12 @@ public class KevCatalogService {
     private final RestClient restClient = RestClient.create();
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
-    record CatalogState(Set<String> ids, java.time.Instant loadedAt) { }
+    record CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt) {
+        CatalogState(Set<String> ids, java.time.Instant loadedAt) { this(ids, loadedAt, null); }
+    }
     private volatile CatalogState catalog = new CatalogState(Set.of(), null);
+    @org.springframework.beans.factory.annotation.Value("${oswl.airgapped.staleness-warn-days:7}")
+    private int stalenessWarnDays = 7;
     /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
     private volatile OswlMetrics oswlMetrics;
 
@@ -54,8 +58,9 @@ public class KevCatalogService {
     }
 
     @Scheduled(initialDelay = 5_000, fixedDelay = 86_400_000)
-    public void refresh() {
-        catalog = new CatalogState(catalog.ids(), null);
+    public synchronized void refresh() {
+        CatalogState previous = catalog;
+        catalog = new CatalogState(previous.ids(), null, previous.releasedAt());
         if (airgapped) {
             Set<String> ids = snapshotService.loadKevCveIds();
             catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
@@ -79,13 +84,14 @@ public class KevCatalogService {
             if (!(body.get("dateReleased") instanceof String date) || date.length() > 64) return;
             java.time.Instant released = java.time.Instant.parse(date);
             if (released.isAfter(java.time.Instant.now())) return;
+            if (previous.releasedAt() != null && released.isBefore(previous.releasedAt())) return;
             Set<String> ids = ConcurrentHashMap.newKeySet();
             for (Object item : list) {
                 if (!(item instanceof Map<?, ?> map) || !(map.get("cveID") instanceof String cveId)
                         || !cveId.matches("CVE-[0-9]{4}-[0-9]{4,19}")) return;
                 if (!ids.add(cveId)) return;
             }
-            catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
+            catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now(), released);
             log.info("[KEV] Loaded {} known exploited CVE entries", ids.size());
         } catch (Exception e) {
             recordApiCall(OswlMetrics.OUTCOME_FAILURE);
@@ -116,6 +122,13 @@ public class KevCatalogService {
         if (loaded == null || loaded.isAfter(java.time.Instant.now())
                 || loaded.plus(java.time.Duration.ofDays(1)).isBefore(java.time.Instant.now())) return null;
         if (airgapped && snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_KEV)) return null;
+        if (!airgapped) {
+            if (state.releasedAt() == null || stalenessWarnDays < 0) return null;
+            long age = java.time.temporal.ChronoUnit.DAYS.between(
+                    state.releasedAt().atOffset(java.time.ZoneOffset.UTC).toLocalDate(),
+                    java.time.LocalDate.now(java.time.ZoneOffset.UTC));
+            if (age < 0 || age > stalenessWarnDays) return null;
+        }
         return false;
     }
 }
