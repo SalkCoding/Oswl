@@ -342,6 +342,9 @@
 - **2026-09-10 저장된 취약점 읽기 검증:** OSV/GHSA/NVD 저장 payload 읽기를 공통 경로로 연결하고 null 목록, null 원소와 공지 ID가 없는 원소를 포함하는 레코드는 정상 조회 결과에서 제외한다. 명시적인 빈 목록과 구별하며 OSV 클라이언트에서는 해당 키가 미확인으로 남고 다른 정상 키는 계속 처리한다. 기존 DB 값을 임의로 고치거나 삭제하지 않는다. 손상 목록 안의 정상 원소를 별도 finding으로 복구하고 미완료 근거와 함께 전달하는 세밀한 복구는 잔여다.
 - **읽기 회귀와 전체 빌드:** 직접 H2에 저장한 손상 payload 5종 중 수정 전 3종 실패를 확인했다. 세 소스 조회 및 OSV 오프라인 client의 미확인/정상 빈 목록 구별을 포함한 `test --tests '*SnapshotImportTransactionTest' --tests '*CocoaPodsSnapshotTest' --tests '*Osv*Test'` 110건 통과·실패/skip 0. 이후 `build verifyProdJar` 성공: 전체 2,686건 중 2,677건 통과, 기존 환경 의존 skip 9건, 실패/error 0. 운영 JAR에 local 전용 controller가 없는 것도 확인했다. Windows/Java 25, 로그 `build/roadmap-snapshot-read-before.log`, `build/roadmap-snapshot-read-after.log`, `build/roadmap-snapshot-read-build.log`. 커밋 제목 `fix: validate stored vulnerability lists before lookup`. 합성 입력으로 외부 자료/의존성 및 UI 변경 없음. 전체 목표 완료나 실제 공급자 통합 검증을 의미하지 않는다.
 
+- **2026-09-10 메타데이터 downgrade/해시 누락 차단:** meta.json 파싱 실패나 객체 아닌 root는 구형 형식으로 처리하지 않고 반입을 거부한다. 명시적 formatVersion은 정수 1 또는 현재 2만 허용하며 null/문자열/소수/0/미래 버전은 거부한다. v2는 files 객체와 모든 실제 반입 데이터 파일의 64자리 SHA-256을 요구하고 기존 checksum 대조를 수행한다. 메타데이터 부재/버전 미지정 구형 객체 및 명시적 v1은 기존 호환 경로를 유지하므로 별도 legacy 이행/종료 정책은 아직 필요하다.
+- **메타데이터 회귀:** 잘못된 JSON/root/version과 manifest/해시 누락 11건은 수정 전 모두 실패했다. 수정 후 실제 ZIP→서비스 경로에서 반입 거부와 기존 source 보존을 확인했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 32건 중 31건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-meta-before.log`, `build/roadmap-snapshot-meta-after.log`. 커밋 제목 `fix: prevent snapshot metadata integrity downgrades`. 자체 합성 자료, 외부 의존성/데이터 및 UI 변경 없음. 미등록 ZIP 항목, 선언만 있고 없는 파일, lines/records 대조, 서명 신뢰 및 고지 manifest 검증은 잔여다.
+
 ### 35. 오프라인 서명·신뢰 루트·이전 세대 방어 — P0 · [설계]
 
 - 현재·대상: checksum은 파일과 hash를 함께 바꾼 위조를 막지 못한다. 최초 trust root와 signer scope가 필요하다.

@@ -721,10 +721,14 @@ public class AirgappedSnapshotService {
     private BundleMetaV2 parseMetaV2(byte[] metaBytes) {
         try {
             JsonNode root = objectMapper.readTree(metaBytes);
-            int formatVersion = root.path("formatVersion").asInt(1);
-            if (formatVersion < 2) {
-                return null;
-            }
+            if (root == null || !root.isObject()) throw new InvalidRequestException("Snapshot metadata must be an object");
+            JsonNode declaredVersion = root.path("formatVersion");
+            if (declaredVersion.isMissingNode()) return null;
+            if (!declaredVersion.isIntegralNumber() || !declaredVersion.canConvertToInt()
+                    || (declaredVersion.intValue() != 1 && declaredVersion.intValue() != CURRENT_FORMAT_VERSION))
+                throw new InvalidRequestException("Unsupported snapshot formatVersion");
+            if (declaredVersion.intValue() == 1) return null;
+            if (!root.path("files").isObject()) throw new InvalidRequestException("Snapshot v2 requires a files manifest");
             Map<String, BundleSourceMeta> sources = new LinkedHashMap<>();
             root.path("sources").fields().forEachRemaining(e -> {
                 JsonNode s = e.getValue();
@@ -757,8 +761,7 @@ public class AirgappedSnapshotService {
             }
             return new BundleMetaV2(text(root, "mode"), builtAt, text(root, "bundleId"), sources, files);
         } catch (Exception e) {
-            log.warn("[Snapshot] Failed to parse meta.json as v2 — treating bundle as legacy (v1): {}", e.getMessage());
-            return null;
+            throw new InvalidRequestException("Invalid snapshot metadata: " + e.getMessage());
         }
     }
 
@@ -768,7 +771,11 @@ public class AirgappedSnapshotService {
      *         partial/delta bundle covering only some sources) is not an error.
      */
     private void verifyChecksums(BundleMetaV2 meta, Map<String, Path> rawFiles) {
-        if (meta.files() == null) return;
+        rawFiles.keySet().forEach(filename -> {
+            BundleFileMeta fileMeta = meta.files().get(filename);
+            if (fileMeta == null || fileMeta.sha256() == null || !fileMeta.sha256().matches("[0-9a-fA-F]{64}"))
+                throw new InvalidRequestException("Snapshot bundle integrity requires SHA-256 for '" + filename + "'");
+        });
         meta.files().forEach((filename, fileMeta) -> {
             Path content = rawFiles.get(filename);
             if (content == null || fileMeta.sha256() == null) return;

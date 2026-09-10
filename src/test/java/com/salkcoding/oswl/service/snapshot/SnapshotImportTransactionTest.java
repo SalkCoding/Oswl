@@ -76,6 +76,18 @@ class SnapshotImportTransactionTest {
         assertThat(results.get(1).resolved()).isTrue();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"broken", "null", "[]", "{\"formatVersion\":3}",
+            "{\"formatVersion\":0}", "{\"formatVersion\":null}", "{\"formatVersion\":\"2\"}",
+            "{\"formatVersion\":2.5}", "{\"formatVersion\":2}",
+            "{\"formatVersion\":2,\"files\":{}}", "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{}}}"})
+    void invalidMetadataCannotDowngradeOrBypassIntegrity(String meta) throws Exception {
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of(
+                "meta.json", meta, "epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.8}")))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertOldSource();
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();
