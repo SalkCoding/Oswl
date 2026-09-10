@@ -339,6 +339,9 @@
 - **2026-09-10 취약점 목록 반입 검증:** OSV/GHSA/NVD 스냅샷의 누락·null·배열 아닌 vulns와 잘못된 목록 원소/공지 ID 누락을 가져오기 오류로 처리한다. 기존처럼 무시하거나 빈 목록으로 저장하지 않는다. 컴포넌트 identity 누락과 boolean 아닌 삭제 표시도 거부한다. 명시적 빈 배열, 미확인 상태 전용 레코드 및 정상 삭제 형식은 유지한다. 예외를 반입 트랜잭션 밖으로 전달해 실패 시 기존 데이터를 보존한다.
 - **반입 회귀:** 수정 전 6개 오류 입력 모두 거부되지 않았다. 수정 후 실제 ZIP→Spring 서비스→H2 저장소 경로에서 세 소스의 잘못된 목록 거부/기존 payload 보존, 누락 목록 거부, 명시적 빈 목록·unresolved 레코드 허용을 검증했다. `.\gradlew.bat test --tests '*SnapshotImportTransactionTest' --tests '*CocoaPodsSnapshotTest' --tests '*Osv*Test'` 105건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-snapshot-vulns-before.log`, `build/roadmap-snapshot-vulns-after.log`. 커밋 제목 `fix: reject malformed vulnerability snapshot records`. 자체 합성 자료이며 외부 데이터/라이브러리 및 UI 변경 없음. 전체 manifest/schema/고지 검증과 다른 소스의 의미 검증, 이미 저장된 손상 데이터 정정은 잔여다.
 
+- **2026-09-10 저장된 취약점 읽기 검증:** OSV/GHSA/NVD 저장 payload 읽기를 공통 경로로 연결하고 null 목록, null 원소와 공지 ID가 없는 원소를 포함하는 레코드는 정상 조회 결과에서 제외한다. 명시적인 빈 목록과 구별하며 OSV 클라이언트에서는 해당 키가 미확인으로 남고 다른 정상 키는 계속 처리한다. 기존 DB 값을 임의로 고치거나 삭제하지 않는다. 손상 목록 안의 정상 원소를 별도 finding으로 복구하고 미완료 근거와 함께 전달하는 세밀한 복구는 잔여다.
+- **읽기 회귀와 전체 빌드:** 직접 H2에 저장한 손상 payload 5종 중 수정 전 3종 실패를 확인했다. 세 소스 조회 및 OSV 오프라인 client의 미확인/정상 빈 목록 구별을 포함한 `test --tests '*SnapshotImportTransactionTest' --tests '*CocoaPodsSnapshotTest' --tests '*Osv*Test'` 110건 통과·실패/skip 0. 이후 `build verifyProdJar` 성공: 전체 2,686건 중 2,677건 통과, 기존 환경 의존 skip 9건, 실패/error 0. 운영 JAR에 local 전용 controller가 없는 것도 확인했다. Windows/Java 25, 로그 `build/roadmap-snapshot-read-before.log`, `build/roadmap-snapshot-read-after.log`, `build/roadmap-snapshot-read-build.log`. 커밋 제목 `fix: validate stored vulnerability lists before lookup`. 합성 입력으로 외부 자료/의존성 및 UI 변경 없음. 전체 목표 완료나 실제 공급자 통합 검증을 의미하지 않는다.
+
 ### 35. 오프라인 서명·신뢰 루트·이전 세대 방어 — P0 · [설계]
 
 - 현재·대상: checksum은 파일과 hash를 함께 바꾼 위조를 막지 못한다. 최초 trust root와 signer scope가 필요하다.

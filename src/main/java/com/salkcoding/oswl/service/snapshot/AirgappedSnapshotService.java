@@ -229,15 +229,7 @@ public class AirgappedSnapshotService {
     /** OSV vulns per component key; absent keys are unresolved, unlike a stored empty result. */
     @Transactional(readOnly = true)
     public Map<String, List<SnapshotVuln>> findOsvVulns(Collection<String> componentKeys) {
-        Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
-        findPayloads(SOURCE_OSV, componentKeys).forEach((key, payload) -> {
-            try {
-                result.put(key, objectMapper.readValue(payload, new TypeReference<>() {}));
-            } catch (Exception e) {
-                log.warn("[Snapshot] Skipping corrupt osv entry key={}: {}", key, e.getMessage());
-            }
-        });
-        return result;
+        return parseVulnLists(SOURCE_OSV, componentKeys);
     }
 
     /** deps.dev version info per component key; absent keys mean "unresolved". */
@@ -268,7 +260,12 @@ public class AirgappedSnapshotService {
         Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
         findPayloads(source, keys).forEach((key, payload) -> {
             try {
-                result.put(key, objectMapper.readValue(payload, new TypeReference<>() {}));
+                List<SnapshotVuln> vulns = objectMapper.readValue(payload, new TypeReference<>() {});
+                if (vulns == null || vulns.stream().anyMatch(v -> v == null
+                        || (isBlank(v.osvId()) && isBlank(v.cveId())))) {
+                    throw new IllegalArgumentException("Invalid stored vulnerability list");
+                }
+                result.put(key, vulns);
             } catch (Exception e) {
                 log.warn("[Snapshot] Skipping corrupt {} entry key={}: {}", source, key, e.getMessage());
             }

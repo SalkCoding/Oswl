@@ -57,6 +57,25 @@ class SnapshotImportTransactionTest {
         assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).containsExactly("NPM|fixture|1.0.0");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "[null]", "[{}]", "false", "{}"})
+    void corruptStoredVulnerabilitiesRemainUnresolved(String payload) {
+        String key = "NPM|fixture|1.0.0";
+        for (String source : List.of("osv", "github-advisory", "nvd")) {
+            entries.saveAndFlush(SnapshotEntry.builder().source(source).entryKey(key).payload(payload).build());
+            entries.saveAndFlush(SnapshotEntry.builder().source(source).entryKey("NPM|clean|1.0.0").payload("[]").build());
+        }
+        var keys = List.of(key, "NPM|clean|1.0.0");
+        assertThat(service.findOsvVulns(keys)).containsOnly(entry("NPM|clean|1.0.0", List.of()));
+        assertThat(service.findGitHubAdvisoryVulns(keys)).containsOnly(entry("NPM|clean|1.0.0", List.of()));
+        assertThat(service.findNvdVulns(keys)).containsOnly(entry("NPM|clean|1.0.0", List.of()));
+        var results = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "fixture", "1.0.0"),
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "clean", "1.0.0")));
+        assertThat(results.getFirst().resolved()).isFalse();
+        assertThat(results.get(1).resolved()).isTrue();
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();
