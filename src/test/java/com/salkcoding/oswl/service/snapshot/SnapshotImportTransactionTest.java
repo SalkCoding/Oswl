@@ -22,6 +22,26 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
+    void offlineOsvCoverageRequiresDatedRecentSource(int age, boolean resolved) {
+        String emptyKey = AirgappedSnapshotService.componentKey("npm", "empty", "1.0.0");
+        String affectedKey = AirgappedSnapshotService.componentKey("npm", "affected", "1.0.0");
+        entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey(emptyKey).payload("[]").build());
+        entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey(affectedKey)
+                .payload("[{\"osvId\":\"GHSA-fixture\",\"fixVersion\":\"2.0.0\"}]").build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
+                .recordCount(2).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
+        var actual = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "empty", "1.0.0"),
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "affected", "1.0.0")));
+        assertThat(actual).allMatch(result -> result.resolved() == resolved);
+        assertThat(actual.getFirst().vulns()).isEmpty();
+        assertThat(actual.getLast().vulns()).singleElement().extracting(v -> v.osvId()).isEqualTo("GHSA-fixture");
+        assertThat(actual.getLast().vulns().getFirst().fixVersion()).isEqualTo(resolved ? "2.0.0" : null);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void storedFutureSourceDatesCannotReportHealthyFreshness(boolean withValidSource) {
         var today = java.time.LocalDate.now();
@@ -89,6 +109,8 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "[null]", "[{}]", "false", "{}"})
     void corruptStoredVulnerabilitiesRemainUnresolved(String payload) {
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
+                .recordCount(2).importedAt(java.time.LocalDateTime.now()).sourceAsOf(java.time.LocalDate.now()).build());
         String key = "NPM|fixture|1.0.0";
         for (String source : List.of("osv", "github-advisory", "nvd")) {
             entries.saveAndFlush(SnapshotEntry.builder().source(source).entryKey(key).payload(payload).build());

@@ -152,6 +152,7 @@ public class OsvClient {
         }
         Map<String, List<SnapshotVuln>> found = snapshotService.findOsvVulns(distinctKeys);
         Set<String> unresolved = snapshotService.findUnresolvedKeys(distinctKeys);
+        boolean stale = snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_OSV);
 
         List<OsvResult> results = new ArrayList<>(queries.size());
         int hits = 0;
@@ -162,8 +163,8 @@ public class OsvClient {
             } else {
                 hits++;
                 results.add(new OsvResult(vulns.stream()
-                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId(), risk(v.severity(), v.cvssScore()), v.cvssScore(), v.cvss3Vector(), v.fixVersionConflictCandidates()))
-                        .toList(), !unresolved.contains(key)));
+                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), stale ? null : v.fixVersion(), v.cweId(), risk(v.severity(), v.cvssScore()), v.cvssScore(), v.cvss3Vector(), v.fixVersionConflictCandidates()))
+                        .toList(), !stale && !unresolved.contains(key)));
             }
         }
         log.debug("[OsvClient] air-gapped querybatch size={} snapshotHits={} totalVulns={}",

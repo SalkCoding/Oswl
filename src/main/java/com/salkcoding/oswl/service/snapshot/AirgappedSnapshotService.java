@@ -121,6 +121,9 @@ public class AirgappedSnapshotService {
 
     private final SnapshotEntryRepository snapshotEntryRepository;
     private final SnapshotMetaRepository snapshotMetaRepository;
+
+    @org.springframework.beans.factory.annotation.Value("${oswl.airgapped.staleness-warn-days:7}")
+    private int stalenessWarnDays = 7;
     private final LibraryRepository libraryRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManager entityManager;
@@ -350,6 +353,15 @@ public class AirgappedSnapshotService {
                 .map(SnapshotMeta::getSourceAsOf)
                 .min(LocalDate::compareTo)
                 .orElse(null);
+    }
+
+    /** Missing, future, or stale provenance cannot establish current lookup coverage. */
+    @Transactional(readOnly = true)
+    public boolean isSourceStaleOrUndated(String source) {
+        LocalDate today = LocalDate.now();
+        LocalDate asOf = snapshotMetaRepository.findById(source).map(SnapshotMeta::getSourceAsOf).orElse(null);
+        return asOf == null || asOf.isAfter(today) || stalenessWarnDays < 0
+                || java.time.temporal.ChronoUnit.DAYS.between(asOf, today) > stalenessWarnDays;
     }
 
     /**

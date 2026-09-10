@@ -425,6 +425,9 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 OSV 오프라인 조회에 freshness 연결:** source별 저장 기준일을 확인하는 공통 service 검사를 추가하고 OSV snapshot 조회에 연결했다. 기준일 누락·미래 날짜·`oswl.airgapped.staleness-warn-days` 초과(기본 7일)는 `resolved=false`로 반환한다. 빈 결과를 정상 완료로 확정하지 않으며 기존 취약점 기록과 충돌 후보는 보존하고 수정 버전 제안은 보류한다. 경고 임계값 이하의 정상 날짜는 기존 결과를 유지한다. 잘못된 음수 임계값은 신뢰 가능한 freshness로 인정하지 않는다. GHSA/NVD/deps.dev 등 다른 source의 실제 조회 연결과 과거 finding의 별도 이력/후보 모델은 계속 잔여다.
+- **회귀 검증:** 실제 저장 metadata→OSV offline client 경로의 오늘/7일/8일/40일/미래/날짜 미상 6건 중 수정 전 4건 실패했다. 수정 후 취약점 없는 결과의 미확인, 기존 finding 보존 및 fixed 보류를 확인했다. 기존 손상 payload 검사는 정상 이웃 결과를 검증할 수 있도록 오늘 날짜의 source metadata를 제공하고 기대 판정은 유지했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*Osv*Test' --tests '*FixConflictPersistenceTest' --tests '*VulnerabilityEnrichmentServiceTest'` 279건 통과·실패/오류/skip 0. 로그 `build/roadmap-osv-freshness-before.log`, `build/roadmap-osv-freshness-after.log`. 커밋 제목 `fix: preserve uncertainty for stale offline osv results`. 자체 합성 데이터이며 외부 자료/라이브러리·UI 변경 없음. legacy 및 scan-derived 날짜 미상 bundle의 조회도 이제 미확인으로 표시되며 builtAt/importedAt을 원천 날짜로 대체하지 않는다.
+
 - **2026-09-11 저장된 미래 기준일의 조회 검증:** 번들 import 검증 외에 공통 `oldestSourceAsOf()` 조회에서도 미래 날짜를 미확인으로 처리한다. 기존 저장 데이터나 시스템 시각 변경으로 미래 기준일이 생겼을 때 readiness/report의 공통 날짜 근거가 정상 freshness로 쓰이지 않도록 한다. 정상 날짜의 다른 source가 있더라도 최솟값 계산으로 잘못된 source를 숨기지 않는다. 저장된 원문 날짜를 임의 수정하지 않는다.
 - **회귀 검증:** 미래 source 단독/정상 source 혼합 2건 모두 수정 전 실패했다. 수정 후 실제 H2 저장→service 조회→readiness DOWN을 확인했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*SbomExportServiceTest' --tests '*SarifExportServiceTest'` 70건 통과·실패/오류/skip 0. 로그 `build/roadmap-stored-freshness-before.log`, `build/roadmap-stored-freshness-after.log`. 커밋 제목 `fix: reject future stored snapshot freshness dates`. 자체 합성 데이터이며 새 외부 자료/라이브러리·UI 변경은 없다. 원천별 실제 갱신 시점 증거와 모든 API/UI에서의 노후화 판정은 계속 잔여다.
 
