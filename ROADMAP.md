@@ -235,6 +235,9 @@
 
 - **PEP 440 도입 전체 검사:** `.\gradlew.bat build verifyProdJar` 성공, 전체 2,633건 중 2,624건 통과·9건 skip·실패/오류 0. 로그 `build/roadmap-pypi-build.log`. 1,444개 oracle 조합이 각각 parameterized test로 집계되므로 테스트 수 증가를 신규 기능 수나 실데이터 coverage 증가로 해석하지 않는다. 기존 외부 환경/저장소/모델/대형 heap 조건 skip은 통과 근거에서 제외한다.
 
+- **2026-09-10 PyPI versions 목록:** 명시적 OSV versions 목록에서 PEP 440 정규화상 같은 PyPI 버전(1.0/1.0.0, RC 대소문자, rev/post alias)을 인식한다. local과 public 버전은 별도로 비교하며 Maven/다른 SemVer 빌드의 비교 동률을 동일 아티팩트로 확대하지 않는다. PyPI 목록의 해석 불능 버전은 UNKNOWN 근거로 유지한다. fixed 후보가 목록의 동등 버전과 충돌하면 제안하지 않는다. 근거는 위 PyPA version scheme의 정규화와 OSV versions/ranges 합집합 계약이다.
+- **목록 회귀:** 수정 전 6건 중 4건 실패를 확인했다. local/post 구분, 정규화 alias, malformed 및 fixed 충돌 검사를 포함한 `.\gradlew.bat test --tests '*Osv*Test' --tests '*PyPiAdvisoryComparisonTest'` 79건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-pypi-enumerated-before.log`, `build/roadmap-pypi-enumerated-after.log`. 커밋 제목 `fix: match normalized pypi versions in advisory lists`. 자체 합성 입력이며 새 외부 데이터/라이브러리와 UI 변경은 없다. 기관 local patch의 실제 코드 동등성이나 package-name 정규화 검증을 완료했다는 뜻은 아니다.
+
 ### 23. Go checksum 기록을 실제 module graph와 분리 — P1 · [코드 확인/지원 범위별 필수]
 
 - 현재·대상: [GoManifestParser.parseGoSum](src/main/java/com/salkcoding/oswl/service/ingest/parser/GoManifestParser.java)은 이름으로 중복 제거해 첫 버전을 선택한다.

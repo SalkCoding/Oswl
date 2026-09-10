@@ -16,11 +16,22 @@ public final class OsvRangeEvaluator {
     public static Result evaluate(String ecosystem, String version, Set<String> versions, JsonNode ranges) {
         if (version == null || version.isBlank()) return Result.UNKNOWN;
         if (versions != null && versions.contains(version)) return Result.AFFECTED;
+        boolean unknown = false;
+        // PyPI release aliases identify the same version. Do not generalize ordering equality
+        // to Maven artifacts or SemVer builds, which can contain different code.
+        if ("PYPI".equalsIgnoreCase(ecosystem) && versions != null) {
+            for (String listed : versions) {
+                try {
+                    if (Pep440VersionComparator.compare(version, listed) == 0) return Result.AFFECTED;
+                } catch (IllegalArgumentException invalid) {
+                    unknown = true;
+                }
+            }
+        }
         if (ranges == null || ranges.isMissingNode() || ranges.isNull() || (ranges.isArray() && ranges.isEmpty())) {
-            return versions != null && !versions.isEmpty() ? Result.NOT_AFFECTED : Result.UNKNOWN;
+            return !unknown && versions != null && !versions.isEmpty() ? Result.NOT_AFFECTED : Result.UNKNOWN;
         }
         if (!ranges.isArray()) return Result.UNKNOWN;
-        boolean unknown = false;
         for (JsonNode range : ranges) {
             Comparator<String> comparator = comparator(ecosystem, range.path("type").asText());
             if (comparator == null) {

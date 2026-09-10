@@ -16,6 +16,13 @@ class OsvRangeEvaluatorTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @ParameterizedTest
+    @CsvSource({"1.0.0,1.0,AFFECTED", "1.0RC1,1.0rc1,AFFECTED", "1.0rev1,1.0.post1,AFFECTED",
+            "1.0+vendor.1,1.0,NOT_AFFECTED", "1.0,1.0.post1,NOT_AFFECTED", "1.0,invalid,UNKNOWN"})
+    void pypiEnumeratedVersionsRespectVersionIdentity(String installed, String listed, OsvRangeEvaluator.Result expected) {
+        assertThat(OsvRangeEvaluator.evaluate("PYPI", installed, Set.of(listed), null)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
     @CsvSource({"0.5.0,AFFECTED", "1.0.0,NOT_AFFECTED", "1.5.0,NOT_AFFECTED",
             "2.0.0,AFFECTED", "2.9.0,AFFECTED", "3.0.0,NOT_AFFECTED"})
     void reconstructsEveryInterval(String version, OsvRangeEvaluator.Result expected) throws Exception {
