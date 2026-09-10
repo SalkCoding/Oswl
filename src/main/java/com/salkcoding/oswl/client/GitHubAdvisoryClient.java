@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import com.salkcoding.oswl.vdb.SimpleVersionComparator;
+import com.salkcoding.oswl.vdb.SemVerVersionComparator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -218,7 +219,7 @@ public class GitHubAdvisoryClient {
             if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
                 throw new IllegalStateException("Malformed advisory node");
             String range = (String) node.get("vulnerableVersionRange");
-            if (!isVersionAffected(version, range)) continue;
+            if (!isVersionAffected(ghEcosystem, version, range)) continue;
             result.add(parseAdvisoryNode(node));
         }
         return result;
@@ -262,14 +263,17 @@ public class GitHubAdvisoryClient {
         return new GitHubAdvisory(ghsaId, cveId, summary, severity, cvssScore, cvssVector, fixVersion);
     }
 
-    private static boolean isVersionAffected(String version, String range) {
-        if (range == null || range.isBlank()) return true;
+    private static boolean isVersionAffected(String ecosystem, String version, String range) {
+        if (range == null || range.isBlank() || range.length() > 4096)
+            throw new IllegalArgumentException("Missing or unsupported advisory version range");
         String normalizedVersion = version == null ? "" : version.strip();
-        if (normalizedVersion.isEmpty()) return true;
-        String[] parts = range.split(",");
+        if (normalizedVersion.isEmpty() || normalizedVersion.length() > 4096)
+            throw new IllegalArgumentException("Missing or unsupported installed version");
+        String[] parts = range.split(",", -1);
+        boolean affected = true;
         for (String part : parts) {
             String constraint = part.strip();
-            if (constraint.isEmpty()) continue;
+            if (constraint.isEmpty()) throw new IllegalArgumentException("Empty advisory range clause");
             String op;
             String ver;
             if (constraint.startsWith(">=")) { op = ">="; ver = constraint.substring(2).strip(); }
@@ -278,22 +282,22 @@ public class GitHubAdvisoryClient {
             else if (constraint.startsWith("<")) { op = "<"; ver = constraint.substring(1).strip(); }
             else if (constraint.startsWith("=")) { op = "="; ver = constraint.substring(1).strip(); }
             else { op = "="; ver = constraint; }
-            try {
-                int cmp = SimpleVersionComparator.compare(normalizedVersion, ver);
-                boolean ok = switch (op) {
-                    case ">=" -> cmp >= 0;
-                    case "<=" -> cmp <= 0;
-                    case ">" -> cmp > 0;
-                    case "<" -> cmp < 0;
-                    default -> cmp == 0;
-                };
-                if (!ok) return false;
-            } catch (IllegalArgumentException e) {
-                // If we cannot compare, err on the side of surfacing the advisory.
-                return true;
-            }
+            if (ver.isBlank() || ver.chars().anyMatch(c -> Character.isWhitespace(c) || "|<>=~^*".indexOf(c) >= 0))
+                throw new IllegalArgumentException("Unsupported advisory range syntax");
+            int cmp = "NPM".equals(ecosystem)
+                    ? SemVerVersionComparator.compare(normalizedVersion, ver)
+                    : SimpleVersionComparator.compare(normalizedVersion, ver);
+            boolean ok = switch (op) {
+                case ">=" -> cmp >= 0;
+                case "<=" -> cmp <= 0;
+                case ">" -> cmp > 0;
+                case "<" -> cmp < 0;
+                default -> cmp == 0;
+            };
+            // Check every clause before deciding: an early false must not conceal malformed data.
+            affected &= ok;
         }
-        return true;
+        return affected;
     }
 
     private static RiskLevel parseSeverity(String severity) {

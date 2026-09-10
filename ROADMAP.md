@@ -115,6 +115,9 @@
 - DoD: 진단에서 확인한 1.0.0+1 대 1.0.0+2의 -1, alpha 대 정식의 예외가 올바른 SemVer 결과로 바뀐다. 다른 생태계/지원하지 않는 문법을 SemVer로 강제하지 않는다.
 - **2026-09-10 부분 구현:** `SemVerVersionComparator`를 추가해 명시적 OSV SEMVER 범위에만 연결했다. 빌드 메타데이터 무시, prerelease 순서, 큰 숫자 비교, 잘못된 문법 거부와 입력 길이 예산을 적용했다. 22개 자동 검사가 명세의 순서/메타데이터/잘못된 문법/1,501개 prerelease 식별자를 검증했다. `SimpleVersionComparator`의 GHSA 경로와 GHSA 비교 불능→확정 영향 문제는 아직 남아 있으므로 11번 전체 완료가 아니다.
 
+- **2026-09-10 GHSA 실패 보존:** 빈 설치 버전/범위, 빈 clause, 미지원 연산자/범위 문법과 비교 예외를 확정 영향으로 반환하지 않고 lookup 실패로 전파한다. 앞 clause가 false여도 나머지 clause를 확인해 malformed를 정상 비영향으로 숨기지 않는다. NPM의 canonical 버전 비교에는 SemVer 비교기를 적용해 prerelease/build metadata 순서를 바로잡았다. [GitHub SecurityVulnerability 문서](https://docs.github.com/en/graphql/reference/security-advisories#securityvulnerability)의 comma로 결합하는 비교 연산자 계약을 확인했다(2026-09-10). npm dependency range의 전체 문법 지원을 뜻하지 않는다.
+- **GHSA 회귀 검증:** mock GraphQL HTTP→실제 client→`GitHubAdvisorySource` 경로로 10건 검사, 수정 전 7건 실패를 확인했다. 수정 후 Windows/Java 25의 `.\gradlew.bat test --tests '*GitHubAdvisoryRangeTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SemVerVersionComparatorTest'` 62건 통과·실패/skip 0. 로그 `build/roadmap-ghsa-before.log`, `build/roadmap-ghsa-after.log`. 커밋 제목 `fix: preserve unresolved github advisory version ranges`. 자체 합성 응답이며 외부 데이터/라이브러리 추가와 UI 변경은 없다. 다른 생태계의 기존 범용 비교기 교체, 미완료 조회 중 이미 확인한 live findings 보존, 정규화·실제 데이터 대조·fixed 후보 충돌 검사는 여전히 잔여다.
+
 ### 12. OSV 범위·이벤트 의미를 공통 엔진으로 구현 — P0 · [코드 확인]
 
 - 현재·대상: [OsvBulkSource.resolveAffected](src/main/java/com/salkcoding/oswl/vdb/OsvBulkSource.java)의 versions 우선 반환, 마지막 introduced 재사용, last_affected 배타 처리, limit 누락, GIT 일반 비교.
