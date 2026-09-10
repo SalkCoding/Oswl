@@ -137,6 +137,11 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 페이지 건수 검증:** `totalResults`/`startIndex`/`resultsPerPage`가 누락되거나 정수가 아니거나 음수인 응답을 미완료로 남긴다. 현재 단일 페이지 조회에서 startIndex는 0, 총건수는 실제 배열 길이와 일치해야 하며 페이지 크기는 배열보다 작을 수 없다. 잘못된 metadata에서도 정상 취약점 행은 앞서 도입한 부분 결과 경로로 보존한다. timestamp/format/version 및 전체 schema·실제 페이지 순회 검증은 별도 잔여다.
+- **누적 빌드:** `build verifyProdJar` 성공, 전체 3,077건 중 3,068건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nvd-page-metadata-build.log`.
+- **검증·근거:** [NIST 공식 API schema](https://csrc.nist.gov/schema/nvd/api/2.0/cve_api_json_2.0.schema)(확인 2026-09-11, 문서 title 2.2.4)의 필수 정수 필드를 확인했다. 자체 합성 16건 중 수정 전 12건 실패, 수정 후 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*Advisory*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 226건 통과·실패/오류/skip 0. 기존 정상 parser/HTTP fixture에 페이지 metadata를 추가하고 원래 판정 기대값을 유지했다. 로그 `build/roadmap-nvd-page-metadata-before.log`, `build/roadmap-nvd-page-metadata-after.log`. 커밋 제목 `fix: require consistent nvd pagination metadata`.
+- **실제 응답·권리 범위:** [NVD 단일 CVE 조회](https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2021-44228)를 한 번 읽어 resultsPerPage=1/startIndex=0/totalResults=1/실제 행=1을 확인했다. 이는 페이지 metadata 계약의 관찰이며 특정 패키지의 영향 범위나 전체 live CPE 흐름 검증은 아니다. 공지 전문을 fixture나 배포물에 복사하지 않았고 새 라이브러리·UI 변경은 없다. 스키마 확인만으로 NVD/CVE 원천 데이터의 재배포 조건을 승인하지 않는다.
+
 - **2026-09-11 NVD 후보별 전체 실패 격리:** HTTP 오류/잘못된 응답 구조/깨진 JSON으로 한 CPE 조회가 실패해도 다음 후보 조회를 계속한다. 앞서 받은 발견 결과와 뒤의 정상 결과를 함께 유지하고, 뒤의 응답이 정상 빈 목록이어도 전체 `lookupFailed`는 true로 남긴다. 조회를 다시 성공으로 분류하거나 실패 후보를 매칭 완료로 기록하지 않는다.
 - **회귀 검증:** 실제 HTTP client→source adapter의 중간 후보 실패 및 마지막 후보 발견/빈 응답 6건이 수정 전 모두 실패했다. 수정 후 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 193건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-candidate-failure-before.log`, `build/roadmap-nvd-candidate-failure-after.log`. 커밋 제목 `fix: isolate nvd lookup failures between cpe candidates`. 자체 합성 입력이며 새 외부 자료/라이브러리·UI 변경은 없다. 이번 변경은 대상 테스트와 컴파일로 검증했고 전체 build는 다시 실행하지 않았다. 원천별 권리 조건과 실제 공급자 장애 검증은 기존 잔여 범위를 유지한다.
 

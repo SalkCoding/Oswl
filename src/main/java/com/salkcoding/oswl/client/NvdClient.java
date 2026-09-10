@@ -217,7 +217,11 @@ public class NvdClient {
         if (body == null) throw new IllegalArgumentException("Missing NVD response");
         Object vulns = body.get("vulnerabilities");
         if (!(vulns instanceof List<?> list)) throw new IllegalArgumentException("Missing NVD vulnerabilities");
-        boolean incomplete = body.get("totalResults") instanceof Number total && total.longValue() > list.size();
+        Long total = nonNegativeInteger(body.get("totalResults"));
+        Long start = nonNegativeInteger(body.get("startIndex"));
+        Long pageSize = nonNegativeInteger(body.get("resultsPerPage"));
+        boolean incomplete = total == null || total != list.size()
+                || start == null || start != 0 || pageSize == null || pageSize < list.size();
         List<NvdCve> result = new ArrayList<>();
         for (Object item : list) {
             try {
@@ -235,6 +239,12 @@ public class NvdClient {
         }
         if (incomplete) throw new IncompleteLookupException(result);
         return result;
+    }
+
+    private static Long nonNegativeInteger(Object value) {
+        if (!(value instanceof Integer || value instanceof Long)) return null;
+        long number = ((Number) value).longValue();
+        return number >= 0 ? number : null;
     }
 
     @SuppressWarnings("unchecked")

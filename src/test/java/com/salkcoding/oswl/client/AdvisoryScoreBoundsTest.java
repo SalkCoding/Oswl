@@ -36,7 +36,7 @@ class AdvisoryScoreBoundsTest {
         Map<String, Object> cve = Map.of("id", "CVE-2026-0001", "metrics",
                 Map.of("cvssMetricV31", List.of(Map.of("cvssData", Map.of("baseScore", score)))));
         List<NvdClient.NvdCve> nvd = ReflectionTestUtils.invokeMethod(new NvdClient(), "parseBody",
-                Map.of("vulnerabilities", List.of(Map.of("cve", cve))), null);
+                Map.of("totalResults", 1, "startIndex", 0, "resultsPerPage", 1, "vulnerabilities", List.of(Map.of("cve", cve))), null);
         GitHubAdvisoryClient.GitHubAdvisory ghsa = ReflectionTestUtils.invokeMethod(new GitHubAdvisoryClient(),
                 "parseAdvisoryNode", Map.of("advisory", Map.of("cvssSeverities", Map.of("cvssV3", Map.of("score", score)))));
         assertThat(nvd).hasSize(1);

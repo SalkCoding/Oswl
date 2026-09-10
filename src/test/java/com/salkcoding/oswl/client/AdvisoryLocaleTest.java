@@ -59,7 +59,7 @@ class AdvisoryLocaleTest {
             Locale.setDefault(Locale.forLanguageTag(tag));
             var client = new NvdClient();
             List<NvdClient.NvdCve> results = ReflectionTestUtils.invokeMethod(client, "parseBody",
-                    Map.of("vulnerabilities", List.of(Map.of("cve", Map.of("id", "CVE-2026-0001", "metrics",
+                    Map.of("totalResults", 1, "startIndex", 0, "resultsPerPage", 1, "vulnerabilities", List.of(Map.of("cve", Map.of("id", "CVE-2026-0001", "metrics",
                             Map.of("cvssMetricV31", List.of(Map.of("cvssData", Map.of("baseSeverity", "critical")))))))), null);
             assertThat(results.getFirst().severity()).isEqualTo(RiskLevel.CRITICAL);
             RiskLevel offlineSeverity = ReflectionTestUtils.invokeMethod(NvdClient.class, "parseSeverity", "critical");

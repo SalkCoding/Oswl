@@ -25,12 +25,12 @@ class NvdPartialEvidenceTest {
         var client = new NvdClient();
         ReflectionTestUtils.setField(client, "restClient", builder.build());
         ReflectionTestUtils.setField(client, "minIntervalMs", 0L);
-        server.expect(anything()).andRespond(withSuccess("{\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0001\"}}]}", MediaType.APPLICATION_JSON));
+        server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0001\"}}]}", MediaType.APPLICATION_JSON));
         var failedRequest = server.expect(anything());
         if (failure.equals("http")) failedRequest.andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withServerError());
         else failedRequest.andRespond(withSuccess(failure.equals("body") ? "{}" : "invalid-json", MediaType.APPLICATION_JSON));
-        server.expect(anything()).andRespond(withSuccess(finalEmpty ? "{\"totalResults\":0,\"vulnerabilities\":[]}"
-                : "{\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\"}}]}", MediaType.APPLICATION_JSON));
+        server.expect(anything()).andRespond(withSuccess(finalEmpty ? "{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":0,\"vulnerabilities\":[]}"
+                : "{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\"}}]}", MediaType.APPLICATION_JSON));
         var cpe = mock(CpeMatchService.class);
         when(cpe.inferCpes("fixture", "1.0")).thenReturn(List.of(
                 new CpeNameMapper.CpeCandidate("vendor", "one", "1.0", MatchConfidence.HIGH),
@@ -59,8 +59,8 @@ class NvdPartialEvidenceTest {
         var client = new NvdClient();
         ReflectionTestUtils.setField(client, "restClient", builder.build());
         ReflectionTestUtils.setField(client, "minIntervalMs", 0L);
-        server.expect(anything()).andRespond(withSuccess("{\"totalResults\":2,\"vulnerabilities\":[" + rows + "]}", MediaType.APPLICATION_JSON));
-        server.expect(anything()).andRespond(withSuccess("{\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\"}}]}", MediaType.APPLICATION_JSON));
+        server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":2,\"vulnerabilities\":[" + rows + "]}", MediaType.APPLICATION_JSON));
+        server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\"}}]}", MediaType.APPLICATION_JSON));
         var cpe = mock(CpeMatchService.class);
         when(cpe.inferCpes("fixture", "1.0")).thenReturn(List.of(
                 new CpeNameMapper.CpeCandidate("vendor", "one", "1.0", MatchConfidence.HIGH),

@@ -22,7 +22,7 @@ class NvdMetricFallbackTest {
         var metrics = Map.of("cvssMetricV31", List.of(Map.of("cvssData", first),
                 Map.of("cvssData", Map.of("baseScore", 9.8, "vectorString", "next-vector"))));
         List<NvdClient.NvdCve> results = ReflectionTestUtils.invokeMethod(new NvdClient(), "parseBody",
-                Map.of("vulnerabilities", List.of(Map.of("cve", Map.of("id", "CVE-2026-0001", "metrics", metrics)))), null);
+                Map.of("totalResults", 1, "startIndex", 0, "resultsPerPage", 1, "vulnerabilities", List.of(Map.of("cve", Map.of("id", "CVE-2026-0001", "metrics", metrics)))), null);
         assertThat(results.getFirst().cvssScore()).isEqualTo(kind.equals("score") ? Double.valueOf(7.5) : null);
         assertThat(results.getFirst().cvss3Vector()).isEqualTo(kind.equals("vector") ? "first-vector" : null);
         assertThat(results.getFirst().severity()).isEqualTo(kind.equals("vector") ? RiskLevel.NONE : RiskLevel.HIGH);
@@ -44,7 +44,7 @@ class NvdMetricFallbackTest {
                 ? Map.of("cvssMetricV40", List.of(unusable), "cvssMetricV31", List.of(usable))
                 : Map.of("cvssMetricV31", List.of(unusable, usable));
         List<NvdClient.NvdCve> results = ReflectionTestUtils.invokeMethod(new NvdClient(), "parseBody",
-                Map.of("vulnerabilities", List.of(Map.of("cve", Map.of("id", "CVE-2026-0001", "metrics", metrics)))), null);
+                Map.of("totalResults", 1, "startIndex", 0, "resultsPerPage", 1, "vulnerabilities", List.of(Map.of("cve", Map.of("id", "CVE-2026-0001", "metrics", metrics)))), null);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst().cvssScore()).isEqualTo(7.5);
         assertThat(results.getFirst().cvss3Vector()).isEqualTo("available-vector");
