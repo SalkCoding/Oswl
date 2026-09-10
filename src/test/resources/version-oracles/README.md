@@ -1,5 +1,31 @@
 # Concrete version ordering oracles
 
+## NuGet package-name identity
+
+`verify-nuget-names.ps1 -ClassDirectory build/classes/java/main` compares the compiled
+production name canonicalizer with the running .NET `StringComparer.OrdinalIgnoreCase`.
+It generates every BMP character accepted by .NET's word-character regex and checks both
+directions of the equivalence partition: equivalent native names must share a Java key,
+and distinct native names must not share one. Observations and the Java probe are temporary
+files deleted by the script. No runtime binary or casing table is bundled.
+
+On 2026-09-11, .NET 10.0.11 on Windows 10.0.26200 produced 50,419 inputs and 49,273
+native groups. The implementation matched 50,409 inputs and explicitly rejected 10
+characters whose case pairs differ from Java 25's table. These unresolved characters are
+U+019B, U+0264, U+1C89, U+1C8A, U+A7CB, U+A7CC, U+A7CD, U+A7DA, U+A7DB, and U+A7DC.
+Supplementary characters also remain unsupported by the name matcher. This is evidence
+for this runtime, not universal Unicode, provider-search, or cross-platform compatibility.
+Parameterized Java regressions additionally cover multi-character names, combining marks,
+ASCII/non-ASCII separation, Greek sigma variants, and OSV range/fix/bulk consequences.
+
+The [NuGet identity comparer](https://github.com/NuGet/NuGet.Client/blob/977537e19c6be57fead1411e6cf05f936bf1baf4/src/NuGet.Core/NuGet.Packaging/Core/comparers/PackageIdentityComparer.cs)
+uses ordinal case-insensitive name equality; its source carries Apache-2.0 notices.
+The [.NET ordinal implementation](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Private.CoreLib/src/System/Globalization/Ordinal.cs)
+carries MIT notices and selects runtime globalization paths. Only the behavior of installed
+runtime APIs is observed here; upstream implementation text and Unicode tables are not copied.
+
+## Concrete versions
+
 `nuget.csv` contains the full cross product of 30 synthetic version strings (900 comparisons).
 Generated and independently rechecked on 2026-09-11 with official NuGet.Versioning 7.9.0,
 using `NuGetVersion.Parse` and `Math.Sign(VersionComparer.VersionRelease.Compare(left, right))`.
