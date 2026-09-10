@@ -425,6 +425,9 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 KEV 동일 기준일 membership 충돌:** 같은 dateReleased에서 CVE 구성원이 달라진 온라인 응답은 이전 목록을 교체하지 않고 충돌로 보존한다. 단순 배열 순서 변경은 허용한다. 충돌 이후 원래 목록을 다시 받아도 같은 기준일에서는 absence를 확정하지 않으며 기존 positive 기록은 유지한다. 이 상태는 메모리 내 배포일에 연결되며 프로세스 재시작 후 보존·서명·원문 전체 필드 충돌은 여전히 잔여다.
+- **검증:** 변경/순서 변경 2건 중 수정 전 membership 변경 1건 실패를 재현했다. 수정 후 원래 목록 재수신까지 포함해 Windows/Java 25의 `test --tests '*KevLookupStatusTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*ComponentDetailServiceTest'` 108건 통과·실패/오류/skip 0. 로그 `build/roadmap-kev-release-conflict-before.log`, `build/roadmap-kev-release-conflict-after.log`. 커밋 제목 `fix: preserve conflicting kev membership for a release`. 자체 합성 응답이며 새 외부 자료/라이브러리·UI 변경 없음. 더 나중 배포일에 대한 내용 신뢰성은 별도 원천 검증 과제로 남는다.
+
 - **2026-09-11 KEV 배포 기준일과 메모리 내 rollback 방어:** 온라인 목록 상태에 실제 `dateReleased`를 다운로드 시점과 별도로 보존한다. 미등재를 확정하려면 기존 1일 로드 유효기간과 배포일의 경고 임계값(공통 설정 `oswl.airgapped.staleness-warn-days`, 기본 7일)을 모두 만족해야 한다. 배포일은 UTC 날짜로 비교하며 오래된 positive 기록은 보존한다. 이미 수용한 배포일보다 이전 응답은 목록을 교체하지 않고 조회 미확인으로 남긴다. 동시 refresh는 직렬화하고 조회는 불변 상태를 읽는다. 이 방어는 프로세스 메모리 범위이며 재시작 후 high-water mark·동일 배포일의 상충 내용·서명 검증은 잔여다.
 - **검증:** 오늘/7일/8일/40일 배포 목록 4건 중 수정 전 2건 실패했다. 이전 배포일 응답의 membership 덮어쓰기 거부도 추가했고, 기존 정상 metadata fixture는 현재 배포일을 제공하도록 보완했다. Windows/Java 25의 `test --tests '*KevLookupStatusTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*ComponentDetailServiceTest'` 106건 통과·실패/오류/skip 0. 로그 `build/roadmap-kev-release-date-before.log`, `build/roadmap-kev-release-date-after.log`. 커밋 제목 `fix: evaluate kev coverage using the catalog release date`. 앞서 확인한 공식 dateReleased 계약에서 도출한 자체 합성 입력이며 새로운 외부 데이터/코드/라이브러리·UI 변경은 없다.
 

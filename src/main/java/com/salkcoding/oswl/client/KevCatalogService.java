@@ -28,7 +28,10 @@ public class KevCatalogService {
     private final RestClient restClient = RestClient.create();
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
-    record CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt) {
+    record CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt, boolean conflicted) {
+        CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt) {
+            this(ids, loadedAt, releasedAt, false);
+        }
         CatalogState(Set<String> ids, java.time.Instant loadedAt) { this(ids, loadedAt, null); }
     }
     private volatile CatalogState catalog = new CatalogState(Set.of(), null);
@@ -60,7 +63,7 @@ public class KevCatalogService {
     @Scheduled(initialDelay = 5_000, fixedDelay = 86_400_000)
     public synchronized void refresh() {
         CatalogState previous = catalog;
-        catalog = new CatalogState(previous.ids(), null, previous.releasedAt());
+        catalog = new CatalogState(previous.ids(), null, previous.releasedAt(), previous.conflicted());
         if (airgapped) {
             Set<String> ids = snapshotService.loadKevCveIds();
             catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
@@ -90,6 +93,11 @@ public class KevCatalogService {
                 if (!(item instanceof Map<?, ?> map) || !(map.get("cveID") instanceof String cveId)
                         || !cveId.matches("CVE-[0-9]{4}-[0-9]{4,19}")) return;
                 if (!ids.add(cveId)) return;
+            }
+            if (released.equals(previous.releasedAt()) && (previous.conflicted() || !ids.equals(previous.ids()))) {
+                catalog = new CatalogState(previous.ids(), null, previous.releasedAt(), true);
+                log.warn("[KEV] Conflicting membership for the same catalog release; retaining prior evidence");
+                return;
             }
             catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now(), released);
             log.info("[KEV] Loaded {} known exploited CVE entries", ids.size());

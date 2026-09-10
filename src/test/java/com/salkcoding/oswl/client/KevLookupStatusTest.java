@@ -16,6 +16,32 @@ import static org.mockito.Mockito.*;
 
 class KevLookupStatusTest {
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void sameReleaseCannotSilentlyChangeMembership(boolean conflict) {
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var client = new KevCatalogService();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        String released = Instant.now().minusSeconds(60).toString();
+        for (String ids : new String[]{"[1,2]", conflict ? "[2,3]" : "[2,1]", "[1,2]"}) {
+            String rows = ids.equals("[1,2]") ? "[{\"cveID\":\"CVE-2026-0001\"},{\"cveID\":\"CVE-2026-0002\"}]"
+                    : "[{\"cveID\":\"CVE-2026-0002\"},{\"cveID\":\"CVE-2026-000" + (conflict ? "3" : "1") + "\"}]";
+            server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"))
+                    .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                            "{\"count\":2,\"catalogVersion\":\"v1\",\"dateReleased\":\"" + released
+                                    + "\",\"vulnerabilities\":" + rows + "}", org.springframework.http.MediaType.APPLICATION_JSON));
+        }
+        client.refresh();
+        client.refresh();
+        client.refresh();
+        assertThat(client.listingStatus("CVE-2026-0001")).isTrue();
+        assertThat(client.listingStatus("CVE-2026-0002")).isTrue();
+        assertThat(client.listingStatus("CVE-2026-0003")).isEqualTo(conflict ? null : Boolean.FALSE);
+        server.verify();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true"})
     void downloadingAnOldCatalogDoesNotRefreshItsSourceDate(int age, boolean stale) {
         var builder = org.springframework.web.client.RestClient.builder();
