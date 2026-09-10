@@ -173,6 +173,8 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 MERGE 중복 키의 배치 경계 의존 제거:** 같은 신규 컴포넌트 키가 한 500행 저장 배치 안에 두 번 나오면 새 엔티티 두 개를 INSERT하여 무결성 오류가 발생했으나, 경계를 넘으면 기존 ID를 사용해 성공했다. 실제 H2에서 앞선 행 0/499 조건 중 0 조건이 수정 전 실패했다. MERGE 청크를 키별 마지막 전체 레코드로 정리한 뒤 저장하여 입력 순서의 마지막 payload를 사용한다. 두 조건 모두 마지막 OSV 원문·credits·수정 버전 3.0.0, 키당 1행, 기존 EPSS 보존을 확인했다. 스냅샷·CocoaPods·OSV 검사 341건 중 339건 통과·기존 skip 2건·실패/오류 0. 로그 `build/roadmap-snapshot-merge-duplicates-before.log`, `build/roadmap-snapshot-merge-duplicates-after.log`. 커밋 제목 `fix: apply snapshot merge updates consistently across batches`. 3개 언어 관리 문서에 전체 payload 대체 계약을 명시했다. 자체 합성 자료이며 외부 자료·라이브러리·UI 변경 없음. 실제 PostgreSQL·전체 build/UI는 이번에 재실행하지 않았다. 공통 수정의 수집·재내보내기·화면/PR 연결 등 기존 잔여는 유지한다.
+
 - **미래 offline revision 검증:** Windows/Java 25에서 `test --tests '*Osv*Test' --tests '*SnapshotImportTransactionTest' --tests '*VulnerabilityEnrichmentServiceTest'` 410건 중 409건 통과·opt-in skip 1건·실패/오류 0. 상기 미래 revision 수정의 대상/연결 검사 결과다.
 - **2026-09-11 개별 OSV 원문의 미래 revision 차단:** online sameRevision에는 이미 미래 시각 차단이 있었으나 offline 원문 경로는 source 기준일만 검사해 미래 modified를 정상 근거로 사용했다. 동일한 자체 원문을 mock HTTP online과 snapshot client에 넣은 미래 수정/미래 원문의 철회 표시 2건이 수정 전 실패했다. offline도 기존 sameRevision 시각 검사를 재사용하며, 철회/영향 범위 필터 전에 미신뢰 ID를 보존하고 조회 미완료·개별/common fix 미확인으로 남긴다. 과거 정상 revision 대조군은 online/offline의 commonFix 결과가 일치한다. 로그 `build/roadmap-offline-future-revision-before.log`, `build/roadmap-offline-future-revision-after.log`. 커밋 제목 `fix: reject future offline advisory revisions`. 새 외부 데이터/라이브러리·UI 변경 없음. 원문을 삭제하거나 source 날짜를 새로 쓰지 않는다. 원문 수집·재내보내기와 공통 수정의 화면/PR 연결 등 잔여는 유지하며 전체 build/UI는 이번에 재실행하지 않았다.
 

@@ -290,6 +290,8 @@ An **Unresolved (no upstream data)** row appears when the builder was asked for 
 - **Replace** — clears each source present in the bundle before writing.
 - **Merge** — upserts by key and honors deletion markers, so a delta bundle can also remove revoked entries.
 
+For repeated keys in a Merge file, the last record replaces the complete stored payload, including any supplied original advisory. This is independent of internal batch boundaries; it does not combine fields from different revisions. Delete markers retain their position in the input sequence.
+
 Besides file upload, **Import from Path** reads a bundle already on the server's disk. It only accepts files under the directory set in `oswl.airgapped.import-dir` (`OSWL_AIRGAPPED_IMPORT_DIR`), enforced by a realpath check; a blank value disables the endpoint entirely.
 
 ### Wanted-list (build definitions for this instance)

@@ -661,11 +661,14 @@ public class AirgappedSnapshotService {
     }
 
     private void upsertChunk(String source, List<SnapshotEntry> chunk) {
-        Set<String> keys = chunk.stream().map(SnapshotEntry::getEntryKey).collect(Collectors.toSet());
+        // MERGE applies records in input order; collapse repeated keys before inserting new rows.
+        Map<String, SnapshotEntry> latest = new LinkedHashMap<>();
+        chunk.forEach(entry -> latest.put(entry.getEntryKey(), entry));
+        Set<String> keys = latest.keySet();
         Map<String, SnapshotEntry> existing = snapshotEntryRepository.findBySourceAndEntryKeyIn(source, keys).stream()
                 .collect(Collectors.toMap(SnapshotEntry::getEntryKey, Function.identity(), (a, _) -> a));
-        List<SnapshotEntry> toSave = new ArrayList<>(chunk.size());
-        for (SnapshotEntry e : chunk) {
+        List<SnapshotEntry> toSave = new ArrayList<>(latest.size());
+        for (SnapshotEntry e : latest.values()) {
             SnapshotEntry existingRow = existing.get(e.getEntryKey());
             toSave.add(existingRow != null
                     ? SnapshotEntry.builder().id(existingRow.getId()).source(source)

@@ -22,6 +22,33 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 499})
+    void mergeOfRepeatedComponentKeysPreservesLastOriginalAcrossBatchBoundaries(int preceding) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var lines = new ArrayList<String>();
+        for (int i = 0; i < preceding; i++) {
+            lines.add(json.writeValueAsString(Map.of("ecosystem", "npm", "name", "filler-" + i, "version", "1.0.0", "vulns", List.of())));
+        }
+        com.fasterxml.jackson.databind.JsonNode lastOriginal = null;
+        for (int revision = 2; revision <= 3; revision++) {
+            lastOriginal = json.readTree("""
+                    {"id":"OSV-merge","modified":"2026-01-0%sT00:00:00Z","credits":[{"name":"Owned revision %s"}],
+                    "affected":[{"package":{"ecosystem":"npm","name":"fixture"},"ranges":[{"type":"SEMVER",
+                    "events":[{"introduced":"0"},{"fixed":"%s.0.0"}]}]}]}
+                    """.formatted(revision, revision, revision));
+            lines.add(json.writeValueAsString(Map.of("ecosystem", "npm", "name", "fixture", "version", "1.0.0",
+                    "vulns", List.of(Map.of("osvId", "OSV-merge", "fixVersion", revision + ".0.0", "osvAdvisory", lastOriginal)))));
+        }
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", String.join("\n", lines)))), AirgappedSnapshotService.ImportMode.MERGE);
+        String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");
+        var stored = service.findOsvVulns(List.of(key)).get(key);
+        assertThat(stored).hasSize(1);
+        assertThat(stored.getFirst().fixVersion()).isEqualTo("3.0.0");
+        assertThat(stored.getFirst().osvAdvisory()).isEqualTo(lastOriginal);
+        assertThat(entries.countBySource("osv")).isEqualTo(preceding + 1);
+        assertThat(service.findEpssScores(List.of("CVE-OLD"))).containsEntry("CVE-OLD", 0.25);
+    }
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8, 999})
     void suppliedOsvEvidenceSupportsCommonFixParityWithoutRefreshingOldData(int age) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
