@@ -348,6 +348,9 @@
 - **2026-09-10 v2 파일 목록 대조:** ZIP 원본 파일 이름을 staging 동안 보존해 v2의 미등록 파일 및 하위 경로 파일을 거부한다. manifest 파일 집합과 실제 반입 데이터 파일 집합을 동일하게 요구하므로 선언만 있고 없는 파일도 오류다. 일부 소스만 담는 delta 번들은 실제 포함 파일만 선언해야 한다. 구형 번들의 기존 경로 호환 동작은 유지하며 빈 디렉터리는 데이터 파일로 세지 않는다.
 - **파일 목록 회귀:** 누락 선언 파일·미등록 파일·하위 경로 파일의 ZIP→서비스 반입 3건은 수정 전 모두 실패했다. 수정 후 기존 source 보존과 거부를 확인했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 35건 중 34건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-files-before.log`, `build/roadmap-snapshot-files-after.log`. 커밋 제목 `fix: enforce snapshot manifest file inventory`. 자체 합성 입력이며 외부 자료/라이브러리와 UI 변경 없음. 파일별 lines/records 대조, ZIP central directory 완전성, 서명과 고지 manifest는 잔여다.
 
+- **2026-09-10 v2 행 수 검증:** manifest의 파일별 lines를 필수 비음수 정수(int 범위)로 검증한다. 기존 행 길이 사전 검사에서 물리적 행 수를 함께 세어 선언과 다르면 쓰기 트랜잭션 전에 거부한다. 끝의 개행은 추가 빈 행으로 세지 않으며 빈 파일은 0이다. 기존 앱/CLI 생성기는 이미 lines를 출력한다. 해시만 기록하던 정상 테스트 fixture에는 실제 행 수를 추가했으며 파일 목록/해시 오류 테스트가 여전히 해당 오류까지 도달하도록 보완했다.
+- **행 수 회귀:** null·음수·소수·문자열·정수 overflow·실제보다 작거나 큰 값 7건은 수정 전 전부 실패했다. 수정 후 실제 ZIP 반입 거부와 기존 source 보존을 확인했고 정상 export/import 검사도 통과했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 42건 중 41건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-lines-before.log`, `build/roadmap-snapshot-lines-after.log`. 커밋 제목 `fix: validate snapshot file line counts`. 자체 합성 자료이며 외부 의존성/데이터 및 UI 변경 없음. source.records는 delta의 전체 상태 건수와 파일 행 수를 구별해야 하며, 중복/삭제/부분 소스의 레코드 수 의미 검증은 잔여다.
+
 ### 35. 오프라인 서명·신뢰 루트·이전 세대 방어 — P0 · [설계]
 
 - 현재·대상: checksum은 파일과 hash를 함께 바꾼 위조를 막지 못한다. 최초 trust root와 signer scope가 필요하다.

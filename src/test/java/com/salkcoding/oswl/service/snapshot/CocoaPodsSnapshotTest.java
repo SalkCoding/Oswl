@@ -107,7 +107,7 @@ class CocoaPodsSnapshotTest {
     }
     private byte[] bundle(Map<String,String> data) throws Exception {
         Map<String,Object> files = new LinkedHashMap<>();
-        for(var entry:data.entrySet()) files.put(entry.getKey(),Map.of("sha256",sha(entry.getValue())));
+        for(var entry:data.entrySet()) files.put(entry.getKey(),Map.of("sha256",sha(entry.getValue()), "lines", entry.getValue().lines().count()));
         Map<String,String> all = new LinkedHashMap<>(data);
         all.put("meta.json",mapper.writeValueAsString(Map.of("formatVersion",2,"files",files,"sources",Map.of("cocoapods-specs",Map.of("asOf","2026-01-01","origin","owned-fixture")))));
         return zip(all);

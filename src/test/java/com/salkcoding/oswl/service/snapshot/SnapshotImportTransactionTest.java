@@ -94,13 +94,25 @@ class SnapshotImportTransactionTest {
         String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
         String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(line.getBytes(StandardCharsets.UTF_8)));
-        String manifestFiles = "\"epss.jsonl\":{\"sha256\":\"" + hash + "\"}";
-        if (mismatch.equals("missing-declared")) manifestFiles += ",\"osv.jsonl\":{\"sha256\":\"" + hash + "\"}";
+        String manifestFiles = "\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}";
+        if (mismatch.equals("missing-declared")) manifestFiles += ",\"osv.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}";
         var files = new LinkedHashMap<String, String>();
         files.put("meta.json", "{\"formatVersion\":2,\"files\":{" + manifestFiles + "}}");
         files.put(mismatch.equals("nested-entry") ? "nested/epss.jsonl" : "epss.jsonl", line);
         if (mismatch.equals("unknown-entry")) files.put("typo-osv.jsonl", line);
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(files))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertOldSource();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "-1", "1.5", "\"1\"", "2147483648", "0", "2"})
+    void declaredLineCountMustBeValidAndMatchContent(String lines) throws Exception {
+        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(line.getBytes(StandardCharsets.UTF_8)));
+        String meta = "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":" + lines + "}}}";
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", meta, "epss.jsonl", line)))))
                 .isInstanceOf(InvalidRequestException.class);
         assertOldSource();
     }
@@ -125,7 +137,7 @@ class SnapshotImportTransactionTest {
         Set<Path> before = stagedFiles();
         Map<String, String> files = new LinkedHashMap<>();
         files.put("epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.8}\n");
-        files.put("meta.json", "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{\"sha256\":\"wrong\"}}}");
+        files.put("meta.json", "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{\"sha256\":\"wrong\",\"lines\":1}}}");
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(files))))
                 .isInstanceOf(InvalidRequestException.class).hasMessageContaining("integrity");
         assertOldSource();

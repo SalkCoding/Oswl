@@ -417,7 +417,12 @@ public class AirgappedSnapshotService {
                 verifyChecksums(meta, rawFiles);
             }
             // Validate line budgets before a REPLACE is allowed to delete existing source data.
-            rawFiles.values().forEach(file -> SnapshotBundleStager.forEachLine(file, ignored -> {}));
+            rawFiles.forEach((filename, file) -> {
+                long[] lines = {0};
+                SnapshotBundleStager.forEachLine(file, ignored -> lines[0]++);
+                if (meta != null && lines[0] != meta.files().get(filename).lines())
+                    throw new InvalidRequestException("Snapshot line count mismatch for '" + filename + "'");
+            });
             ImportMode mode = requestedMode != null ? requestedMode : resolveModeFromMeta(meta);
             SnapshotBundleStager.checkInterrupted();
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -753,7 +758,10 @@ public class AirgappedSnapshotService {
             Map<String, BundleFileMeta> files = new LinkedHashMap<>();
             root.path("files").fields().forEachRemaining(e -> {
                 JsonNode f = e.getValue();
-                Integer lines = f.path("lines").isNumber() ? f.path("lines").asInt() : null;
+                JsonNode declaredLines = f.path("lines");
+                if (!declaredLines.isIntegralNumber() || !declaredLines.canConvertToInt() || declaredLines.intValue() < 0)
+                    throw new InvalidRequestException("Snapshot integrity requires a nonnegative integer line count");
+                Integer lines = declaredLines.intValue();
                 files.put(e.getKey(), new BundleFileMeta(text(f, "sha256"), lines));
             });
             LocalDateTime builtAt = null;
