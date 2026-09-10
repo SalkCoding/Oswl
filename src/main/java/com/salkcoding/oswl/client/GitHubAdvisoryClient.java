@@ -118,6 +118,7 @@ public class GitHubAdvisoryClient {
     public record GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
                                   Double cvssScore, String cvss3Vector, String fixVersion, java.util.Set<String> fixVersionConflictCandidates) {
         public GitHubAdvisory {
+            cvssScore = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(cvssScore);
             fixVersionConflictCandidates = fixVersionConflictCandidates == null ? java.util.Set.of() : java.util.Set.copyOf(fixVersionConflictCandidates);
             if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
         }
@@ -376,7 +377,7 @@ public class GitHubAdvisoryClient {
             Object cvss = scores instanceof Map<?, ?> severities ? severities.get("cvssV3") : null;
             if (cvss instanceof Map<?, ?> cvssMap) {
                 Object score = cvssMap.get("score");
-                if (score instanceof Number n) cvssScore = n.doubleValue();
+                if (score instanceof Number n) cvssScore = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(n.doubleValue());
                 cvssVector = (String) cvssMap.get("vectorString");
             }
         }

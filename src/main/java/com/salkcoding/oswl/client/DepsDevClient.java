@@ -177,9 +177,7 @@ public class DepsDevClient {
             String cvss3Vector,
             boolean current) {
         public AdvisoryInfo {
-            if (cvss3Score != null && (!Double.isFinite(cvss3Score) || cvss3Score < 0 || cvss3Score > 10)) {
-                cvss3Score = null;
-            }
+            cvss3Score = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(cvss3Score);
         }
 
         public AdvisoryInfo(String ghsaId, String title, List<String> aliases,

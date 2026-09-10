@@ -137,6 +137,11 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 공급자 간 CVSS 숫자 검증 공통화:** OSV/GHSA/NVD와 deps.dev 결과 객체가 `CvssScore.validOrNull`로 유한한 0~10 점수만 유지한다. GHSA/NVD의 raw 응답에서는 심각도 계산 전에 같은 검증을 수행해 11/무한대 등을 CRITICAL 근거로 쓰지 않는다. 숫자가 잘못돼도 별도 심각도·식별자·수정 후보는 유지한다. offline 변환도 해당 결과 객체를 사용하며 snapshot 원문을 임의 수정하지 않는다.
+- **누적 빌드:** `build verifyProdJar` 성공, 전체 3,033건 중 3,024건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR의 local controller 제외 검사와 실제 ZIP 내 `META-INF/THIRD_PARTY_LICENSES.txt`의 CVSS 고지를 확인했다. 로그 `build/roadmap-advisory-score-build.log`. 실제 공급자 응답/운영 PostgreSQL 검증은 별도다.
+- **회귀 검증:** 결과 객체 및 NVD/GHSA raw 파서의 정상 경계·음수·초과·NaN·무한대 16건 중 수정 전 10건 실패했다. 수정 후 Windows/Java 25의 `test --tests '*AdvisoryScoreBoundsTest' --tests '*DepsDev*Test' --tests '*Osv*Test' --tests '*Nvd*Test' --tests '*GitHubAdvisory*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 285건 통과·실패/오류/skip 0. 로그 `build/roadmap-advisory-score-before.log`, `build/roadmap-advisory-score-after.log`. 커밋 제목 `fix: validate advisory scores before deriving severity`. 자체 합성 입력이며 UI 변경 없음. 숫자 범위 검증은 vector의 문법/수식 일치나 실제 공급자 데이터 완전성을 증명하지 않는다.
+- **근거·고지:** FIRST의 [CVSS 3.1 명세](https://www.first.org/cvss/v3.1/specification-document)와 [4.0 명세](https://www.first.org/cvss/v4.0/specification-document)(확인 2026-09-11)에서 0~10 범위를 확인했다. CVSS 소유/사용 허가와 점수·vector 게시 조건을 `META-INF/THIRD_PARTY_LICENSES.txt`에 고지했다. 이번에 FIRST 구현 코드/데이터를 복사하거나 공급자 자료를 새로 반입하지 않았다. CVSS 이용 조건은 각 advisory DB의 재배포 권한과 별개이며, 모든 화면·내보내기의 vector 제공과 명세 준수는 아직 개별 검증이 필요하다.
+
 - **2026-09-11 deps.dev CVSS 점수 경계 통일:** 온라인 HTTP와 오프라인 공지 결과가 공유하는 `AdvisoryInfo`에서 유한한 0~10 점수만 유지한다. 범위 초과·NaN·무한대는 null로 처리하며 0으로 보정하지 않는다. 공지 ID/alias와 발견 근거는 보존한다. [공식 GetAdvisory 계약](https://docs.deps.dev/api/v3/#getadvisory)(확인 2026-09-11)의 점수 범위를 적용했다.
 - **회귀 검증:** HTTP/오프라인 정상 경계·누락·음수·10 초과·숫자 overflow 및 저장 NaN/무한대 11건 중 수정 전 7건 실패했다. 수정 후 Windows/Java 25의 `test --tests '*DepsDev*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 187건 통과·실패/오류/skip 0. 로그 `build/roadmap-depsdev-score-before.log`, `build/roadmap-depsdev-score-after.log`. 커밋 제목 `fix: withhold invalid deps dev cvss scores`. 이번 변경은 대상 테스트와 컴파일로 검증했으며 전체 build/UI 검사를 다시 실행한 기록은 아니다. 자체 합성 응답만 사용하고 외부 공지 전문/라이브러리를 도입하지 않았다. 기존 원천별 이용/재배포 조건을 변경하지 않는다. 다른 공급자의 숫자 검증 및 vector와 점수의 수학적 일치 검증은 잔여다.
 

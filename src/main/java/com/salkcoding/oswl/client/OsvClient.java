@@ -94,6 +94,7 @@ public class OsvClient {
             Double cvssScore,
             String cvssVector, Set<String> fixVersionConflictCandidates) {
         public OsvVuln {
+            cvssScore = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(cvssScore);
             fixVersionConflictCandidates = fixVersionConflictCandidates == null ? Set.of() : Set.copyOf(fixVersionConflictCandidates);
             if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
         }

@@ -8,6 +8,14 @@ META-INF/licenses/maven-artifact-LICENSE.txt
 META-INF/licenses/maven-artifact-NOTICE.txt
 Project: https://maven.apache.org/ref/3.9.15/maven-artifact/
 
+## Common Vulnerability Scoring System (CVSS)
+
+CVSS is owned by FIRST.Org, Inc. and used by permission.
+Specification: https://www.first.org/cvss/v3.1/specification-document
+FIRST requires attribution and publication of the scoring vector with the score,
+following the specification's guidelines. Advisory data retains its own source
+terms; this acknowledgement does not grant redistribution rights to that data.
+
 ## Vulnerability Data and Bundled Reference Resources
 
 Reviewed 2026-09-07. These notices identify sources; they are not a blanket

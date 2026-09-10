@@ -79,7 +79,11 @@ public class NvdClient {
 
     /** One NVD CVE returned for a CPE lookup. */
     public record NvdCve(String cveId, String description, RiskLevel severity,
-                         Double cvssScore, String cvss3Vector, MatchConfidence matchConfidence) {}
+                         Double cvssScore, String cvss3Vector, MatchConfidence matchConfidence) {
+        public NvdCve {
+            cvssScore = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(cvssScore);
+        }
+    }
 
     /**
      * Queries live NVD by exact CPE name. Returns an empty list when the CPE is blank,
@@ -247,7 +251,8 @@ public class NvdClient {
         Object cvssData = m.get("cvssData");
         if (!(cvssData instanceof Map<?, ?> data)) return null;
         Object scoreObj = data.get("baseScore");
-        Double score = (scoreObj instanceof Number n) ? n.doubleValue() : null;
+        Double score = (scoreObj instanceof Number n)
+                ? com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(n.doubleValue()) : null;
         String vector = data.get("vectorString") instanceof String s ? s : null;
         RiskLevel severity = cvssToRiskLevel(score);
         Object sevObj = data.get("baseSeverity");
