@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestClient;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +28,8 @@ public class KevCatalogService {
     private final RestClient restClient = RestClient.create();
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
-    private volatile Set<String> kevCveIds = Set.of();
+    record CatalogState(Set<String> ids, java.time.Instant loadedAt) { }
+    private volatile CatalogState catalog = new CatalogState(Set.of(), null);
     /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
     private volatile OswlMetrics oswlMetrics;
 
@@ -55,9 +55,10 @@ public class KevCatalogService {
 
     @Scheduled(initialDelay = 5_000, fixedDelay = 86_400_000)
     public void refresh() {
+        catalog = new CatalogState(catalog.ids(), null);
         if (airgapped) {
             Set<String> ids = snapshotService.loadKevCveIds();
-            kevCveIds = Collections.unmodifiableSet(ids);
+            catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
             log.info("[KEV] Air-gapped mode — loaded {} known exploited CVE entries from the offline snapshot", ids.size());
             return;
         }
@@ -73,14 +74,11 @@ public class KevCatalogService {
             if (!(vulns instanceof List<?> list)) return;
             Set<String> ids = ConcurrentHashMap.newKeySet();
             for (Object item : list) {
-                if (item instanceof Map<?, ?> map) {
-                    Object cveId = map.get("cveID");
-                    if (cveId != null && !cveId.toString().isBlank()) {
-                        ids.add(cveId.toString().strip().toUpperCase());
-                    }
-                }
+                if (!(item instanceof Map<?, ?> map) || !(map.get("cveID") instanceof String cveId)
+                        || !cveId.matches("CVE-[0-9]{4}-[0-9]{4,}")) return;
+                ids.add(cveId);
             }
-            kevCveIds = Collections.unmodifiableSet(ids);
+            catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
             log.info("[KEV] Loaded {} known exploited CVE entries", ids.size());
         } catch (Exception e) {
             recordApiCall(OswlMetrics.OUTCOME_FAILURE);
@@ -97,7 +95,20 @@ public class KevCatalogService {
     }
 
     public boolean isListed(String cveId) {
-        if (cveId == null || !cveId.startsWith("CVE-")) return false;
-        return kevCveIds.contains(cveId.strip().toUpperCase());
+        return Boolean.TRUE.equals(listingStatus(cveId));
+    }
+
+    /** Null means current absence cannot be established; retained positive evidence stays listed. */
+    public Boolean listingStatus(String cveId) {
+        if (cveId == null) return null;
+        String id = cveId.strip().toUpperCase(java.util.Locale.ROOT);
+        if (!id.matches("CVE-[0-9]{4}-[0-9]{4,}")) return null;
+        CatalogState state = catalog;
+        if (state.ids().contains(id)) return true;
+        java.time.Instant loaded = state.loadedAt();
+        if (loaded == null || loaded.isAfter(java.time.Instant.now())
+                || loaded.plus(java.time.Duration.ofDays(1)).isBefore(java.time.Instant.now())) return null;
+        if (airgapped && snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_KEV)) return null;
+        return false;
     }
 }

@@ -425,6 +425,9 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 KEV 미확인 저장 경계:** 기존 nullable `Cve.kevListed`까지 null을 전달하도록 KEV 조회/`setThreatIntel`/스캔 보강/구성요소 상세 갱신을 연결했다. `listingStatus`는 아직 로드하지 않았거나 마지막 성공 로드가 1일을 넘겼거나 offline source 기준일이 미확인이면 미등재를 false로 확정하지 않는다. 기존 목록에서 확인한 등재 기록은 보존한다. 잘못된 목록 항목이 있는 온라인 응답은 기존 목록을 교체하지 않으며 조회 근거는 미완료로 둔다. 목록과 로드 시점은 한 상태로 교체해 독자가 서로 다른 세대를 조합하지 않도록 했다. 기존 boolean `isListed`는 호환용으로 남겼고 두 실제 저장 소비자는 nullable 조회를 사용한다. DB 열은 이미 nullable이므로 스키마 변경은 없다.
+- **검증:** 신규 API 연결 후 미로드/만료/정상·오래된 offline 목록/잘못된 HTTP 응답/기존 positive 보존/null 엔티티 저장 검사를 추가했다. Windows/Java 25에서 `test --tests '*KevLookupStatusTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*ComponentDetailServiceTest'` 92건 통과·실패/오류/skip 0. 로그 `build/roadmap-kev-status-after.log`. 커밋 제목 `fix: preserve unknown kev membership through threat intel updates`. 자체 합성 입력이며 새 외부 자료/라이브러리·화면 코드 변경은 없다. 실제 feed의 dateReleased/count 완전성·서명·행별 원출처 시점, 철회된 과거 positive의 별도 이력과 UI에서 null 표시의 종단 검증은 잔여다. 로드 시점이 원천 데이터 기준일을 증명한다고 주장하지 않는다.
+
 - **2026-09-11 deps.dev/EPSS 누적 검증:** `4b12898`까지 포함해 Windows/Java 25에서 `.\gradlew.bat build verifyProdJar` 성공. 전체 2,953건 중 2,944건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-metadata-freshness-build.log`. 커밋 제목 `docs: record offline metadata freshness regression build`. 별도 UI/실제 PostgreSQL/라이브 공급자 검증은 수행하지 않았다. KEV 미확인과 미등재의 구분, deps.dev 공지 상세 기준일, source별 지원 계약은 잔여다.
 
 - **2026-09-11 EPSS 오프라인 freshness 연결:** EPSS source의 기준일이 미상·미래·경고 임계값 초과면 현재 점수 조회에서 제외한다. 0으로 대체하지 않으며 snapshot 원본은 보존한다. 기존 스캔 `applyThreatIntel` 경로가 반환 map에서 누락된 점수를 null로 전달함을 코드로 확인했다. 원천별 날짜·모델 revision의 화면 전달과 모든 재평가 경로의 종단 검증은 잔여다.

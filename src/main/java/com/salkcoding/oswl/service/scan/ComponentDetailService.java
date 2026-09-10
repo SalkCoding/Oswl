@@ -99,7 +99,7 @@ public class ComponentDetailService {
         if (cve.getCveId() != null) {
             var epss = epssClient.fetchScores(List.of(cve.getCveId()));
             cve.setThreatIntel(epss.get(cve.getCveId().toUpperCase()),
-                    kevCatalogService.isListed(cve.getCveId()));
+                    kevCatalogService.listingStatus(cve.getCveId()));
             cveRepository.save(cve);
         }
 
