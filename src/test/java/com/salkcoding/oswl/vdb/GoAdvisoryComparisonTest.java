@@ -9,6 +9,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class GoAdvisoryComparisonTest {
     @ParameterizedTest
+    @CsvSource({"v1.2.3,1.2.3,AFFECTED", "1.2.3,v1.2.3,AFFECTED",
+            "v1.2.3+incompatible,1.2.3,NOT_AFFECTED", "v1.2.3,1.2.4,NOT_AFFECTED",
+            "v1.2.3,master,UNKNOWN"})
+    void enumeratedGoVersionsRespectPrefixIdentity(String installed, String listed, OsvRangeEvaluator.Result expected) {
+        assertThat(OsvRangeEvaluator.evaluate("GO", installed, java.util.Set.of(listed), null)).isEqualTo(expected);
+    }
+
+    @org.junit.jupiter.api.Test
+    void anEnumeratedAliasCanInvalidateAFixCandidate() throws Exception {
+        var advisory = new ObjectMapper().readTree("""
+                {"affected":[{"package":{"ecosystem":"Go","name":"example.org/module"},"versions":["v1.2.4"],
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"1.2.4"}]}]}]}
+                """);
+        assertThat(OsvFixVersionSelector.select(advisory, "Go", "example.org/module", "v1.2.3").version()).isNull();
+    }
+
+    @ParameterizedTest
     @CsvSource({"v1.2.3,true", "1.2.3,true", "v1.2.4-0.20260101000000-abcdefabcdef,true",
             "v1.2.4-rc.1,true", "v1.2.4,false", "1.2.4,false", "v1.2.4+incompatible,false", "v1.10.0,false"})
     void goOrderingIsSharedByOsvAndGithub(String installed, boolean affected) throws Exception {

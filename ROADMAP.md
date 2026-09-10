@@ -260,6 +260,9 @@
 - **2026-09-11 Go 버전 순서 연결:** [Go modules 공식 versions/pseudo-versions 규칙](https://go.dev/ref/mod#versions)을 근거로 기존 자체 SemVer 비교기에 Go 모듈의 `v` 접두사 처리를 결합했다. OSV Go SEMVER/ECOSYSTEM 범위와 공통 fixed 선택, GHSA GO 영향/수정 후보 검증에 같은 비교기를 연결했다. prerelease/pseudo-version은 SemVer 순서로 비교하며 build metadata는 우선순위에 영향을 주지 않는다. 브랜치 이름·축약 버전·비정상 SemVer는 UNKNOWN/비교 실패로 남긴다.
 - **Go 범위 회귀:** prefix 유무, pseudo-version, rc, 정식, incompatible 및 두 자리 minor 8건은 수정 전 모두 실패했다. 수정 후 OSV 영향→fixed 및 GHSA 영향→fixed 선택, 잘못된 concrete version 5건을 포함한 `test --tests '*GoAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 141건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-go-version-before.log`, `build/roadmap-go-version-after.log`. 커밋 제목 `fix: share go module version ordering across advisories`. 공식 규칙에서 도출한 자체 합성 입력이며 외부 코드/데이터/라이브러리를 동봉하지 않았다. 설치된 Go 실행기가 없어 native 실행 oracle 및 실제 Go 공지 대조는 아직 미검증이다. pseudo-version의 실제 commit/timestamp/ancestry 검증, go.sum/build list 구분, 모듈 경로 major 호환, 표준 라이브러리 toolchain 버전과 명시적 versions 목록 alias는 잔여다.
 
+- **2026-09-11 Go 목록 identity 보완:** 명시적 OSV versions에서도 Go 모듈의 `v` 접두사 유무를 동일 버전으로 비교한다. 입력의 SemVer 문법은 검증하고 잘못된 목록 버전은 UNKNOWN 근거로 유지한다. 단순 우선순위 동률로 build metadata까지 동일 아티팩트로 확대하지 않는다. 공통 fixed 선택기는 이 목록 판정으로 취약 버전 alias와 충돌하는 후보를 보류한다.
+- **Go 목록 회귀:** 양방향 접두사 alias, build 구별, 비영향, malformed 목록과 fixed 충돌의 신규 6건 중 수정 전 4건 실패를 확인했다. `test --tests '*GoAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 147건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-go-list-before.log`, `build/roadmap-go-list-after.log`. 커밋 제목 `fix: match go version prefixes in advisory lists`. 자체 합성 자료로 외부 데이터/의존성 및 UI 변경 없음. 실제 Go 공지/native oracle와 module graph·원천 아티팩트 일치 검증은 잔여다.
+
 ### 24. Cargo alias·feature·target·source 식별 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [CargoManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/CargoManifestParser.java)의 선언 alias/package·source 처리.

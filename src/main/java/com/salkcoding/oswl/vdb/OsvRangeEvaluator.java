@@ -17,6 +17,15 @@ public final class OsvRangeEvaluator {
         if (version == null || version.isBlank()) return Result.UNKNOWN;
         if (versions != null && versions.contains(version)) return Result.AFFECTED;
         boolean unknown = false;
+        if ("GO".equalsIgnoreCase(ecosystem) && versions != null) {
+            for (String listed : versions) {
+                try {
+                    if (GoVersionComparator.sameVersion(version, listed)) return Result.AFFECTED;
+                } catch (IllegalArgumentException invalid) {
+                    unknown = true;
+                }
+            }
+        }
         // PyPI release aliases identify the same version. Do not generalize ordering equality
         // to Maven artifacts or SemVer builds, which can contain different code.
         if ("PYPI".equalsIgnoreCase(ecosystem) && versions != null) {
