@@ -345,6 +345,9 @@
 - **2026-09-10 메타데이터 downgrade/해시 누락 차단:** meta.json 파싱 실패나 객체 아닌 root는 구형 형식으로 처리하지 않고 반입을 거부한다. 명시적 formatVersion은 정수 1 또는 현재 2만 허용하며 null/문자열/소수/0/미래 버전은 거부한다. v2는 files 객체와 모든 실제 반입 데이터 파일의 64자리 SHA-256을 요구하고 기존 checksum 대조를 수행한다. 메타데이터 부재/버전 미지정 구형 객체 및 명시적 v1은 기존 호환 경로를 유지하므로 별도 legacy 이행/종료 정책은 아직 필요하다.
 - **메타데이터 회귀:** 잘못된 JSON/root/version과 manifest/해시 누락 11건은 수정 전 모두 실패했다. 수정 후 실제 ZIP→서비스 경로에서 반입 거부와 기존 source 보존을 확인했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 32건 중 31건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-meta-before.log`, `build/roadmap-snapshot-meta-after.log`. 커밋 제목 `fix: prevent snapshot metadata integrity downgrades`. 자체 합성 자료, 외부 의존성/데이터 및 UI 변경 없음. 미등록 ZIP 항목, 선언만 있고 없는 파일, lines/records 대조, 서명 신뢰 및 고지 manifest 검증은 잔여다.
 
+- **2026-09-10 v2 파일 목록 대조:** ZIP 원본 파일 이름을 staging 동안 보존해 v2의 미등록 파일 및 하위 경로 파일을 거부한다. manifest 파일 집합과 실제 반입 데이터 파일 집합을 동일하게 요구하므로 선언만 있고 없는 파일도 오류다. 일부 소스만 담는 delta 번들은 실제 포함 파일만 선언해야 한다. 구형 번들의 기존 경로 호환 동작은 유지하며 빈 디렉터리는 데이터 파일로 세지 않는다.
+- **파일 목록 회귀:** 누락 선언 파일·미등록 파일·하위 경로 파일의 ZIP→서비스 반입 3건은 수정 전 모두 실패했다. 수정 후 기존 source 보존과 거부를 확인했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 35건 중 34건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-files-before.log`, `build/roadmap-snapshot-files-after.log`. 커밋 제목 `fix: enforce snapshot manifest file inventory`. 자체 합성 입력이며 외부 자료/라이브러리와 UI 변경 없음. 파일별 lines/records 대조, ZIP central directory 완전성, 서명과 고지 manifest는 잔여다.
+
 ### 35. 오프라인 서명·신뢰 루트·이전 세대 방어 — P0 · [설계]
 
 - 현재·대상: checksum은 파일과 hash를 함께 바꾼 위조를 막지 못한다. 최초 trust root와 signer scope가 필요하다.

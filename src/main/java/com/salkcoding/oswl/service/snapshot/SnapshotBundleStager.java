@@ -18,9 +18,11 @@ final class SnapshotBundleStager implements AutoCloseable {
     private static final long BUNDLE_LIMIT = 512L * 1024 * 1024;
     private static final int LINE_LIMIT = 1024 * 1024;
     private final Map<String, Path> files = new LinkedHashMap<>();
+    private final Set<String> entryNames = new LinkedHashSet<>();
     private final List<Path> temporaryFiles = new ArrayList<>();
 
     Map<String, Path> files() { return files; }
+    Set<String> entryNames() { return Collections.unmodifiableSet(entryNames); }
 
     void read(InputStream input, Set<String> known) throws IOException {
         long bundleBytes = 0;
@@ -31,6 +33,7 @@ final class SnapshotBundleStager implements AutoCloseable {
             while ((entry = zip.getNextEntry()) != null) {
                 checkInterrupted();
                 if (++entries > 128) throw new InvalidRequestException("Snapshot bundle has too many ZIP entries.");
+                if (!entry.isDirectory()) entryNames.add(entry.getName());
                 String name = entry.getName().substring(entry.getName().lastIndexOf('/') + 1);
                 boolean recognized = !entry.isDirectory() && (name.equals("meta.json") || known.contains(name));
                 Path file = null;

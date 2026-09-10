@@ -88,6 +88,23 @@ class SnapshotImportTransactionTest {
         assertOldSource();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing-declared", "unknown-entry", "nested-entry"})
+    void versionTwoFileInventoryMustMatchTheArchive(String mismatch) throws Exception {
+        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(line.getBytes(StandardCharsets.UTF_8)));
+        String manifestFiles = "\"epss.jsonl\":{\"sha256\":\"" + hash + "\"}";
+        if (mismatch.equals("missing-declared")) manifestFiles += ",\"osv.jsonl\":{\"sha256\":\"" + hash + "\"}";
+        var files = new LinkedHashMap<String, String>();
+        files.put("meta.json", "{\"formatVersion\":2,\"files\":{" + manifestFiles + "}}");
+        files.put(mismatch.equals("nested-entry") ? "nested/epss.jsonl" : "epss.jsonl", line);
+        if (mismatch.equals("unknown-entry")) files.put("typo-osv.jsonl", line);
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(files))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertOldSource();
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();

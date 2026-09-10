@@ -409,7 +409,13 @@ public class AirgappedSnapshotService {
             BundleMetaV2 meta = metaFile == null ? null : parseMetaV2(Files.readAllBytes(metaFile));
             if (rawFiles.containsKey("cocoapods-specs.jsonl") && meta == null)
                 throw new InvalidRequestException("CocoaPods specs require a version 2 bundle with checksums");
-            if (meta != null) verifyChecksums(meta, rawFiles);
+            if (meta != null) {
+                Set<String> expectedEntries = new LinkedHashSet<>(rawFiles.keySet());
+                expectedEntries.add("meta.json");
+                if (!staged.entryNames().equals(expectedEntries))
+                    throw new InvalidRequestException("Snapshot v2 contains unrecognized or nested file entries");
+                verifyChecksums(meta, rawFiles);
+            }
             // Validate line budgets before a REPLACE is allowed to delete existing source data.
             rawFiles.values().forEach(file -> SnapshotBundleStager.forEachLine(file, ignored -> {}));
             ImportMode mode = requestedMode != null ? requestedMode : resolveModeFromMeta(meta);
@@ -766,11 +772,12 @@ public class AirgappedSnapshotService {
     }
 
     /**
-     * @throws InvalidRequestException on any checksum mismatch — called before any store
-     *         mutation. A file listed in {@code meta.json} but absent from this bundle (a
-     *         partial/delta bundle covering only some sources) is not an error.
+     * @throws InvalidRequestException on a file inventory or checksum mismatch before any store
+     *         mutation. Partial/delta bundles declare only the data files they actually include.
      */
     private void verifyChecksums(BundleMetaV2 meta, Map<String, Path> rawFiles) {
+        if (!meta.files().keySet().equals(rawFiles.keySet()))
+            throw new InvalidRequestException("Snapshot manifest files do not match the archive");
         rawFiles.keySet().forEach(filename -> {
             BundleFileMeta fileMeta = meta.files().get(filename);
             if (fileMeta == null || fileMeta.sha256() == null || !fileMeta.sha256().matches("[0-9a-fA-F]{64}"))
@@ -778,7 +785,6 @@ public class AirgappedSnapshotService {
         });
         meta.files().forEach((filename, fileMeta) -> {
             Path content = rawFiles.get(filename);
-            if (content == null || fileMeta.sha256() == null) return;
             String actual = SnapshotBundleStager.checksum(content);
             if (!fileMeta.sha256().equalsIgnoreCase(actual)) {
                 throw new InvalidRequestException("Snapshot bundle integrity check failed for '" + filename
