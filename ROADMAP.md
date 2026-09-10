@@ -600,6 +600,9 @@
 
 ### 41. OsWL 배포물·CLI·룰·모델의 공급망 증거 — P1 · [설계]
 
+- **2026-09-11 검증 자료의 운영 JAR 혼입 차단:** `verifyProdJar`가 기존 local 클래스 외에 `advisories/`, `version-oracles/` 테스트 자료 경로도 거부한다. JAR 루트와 BOOT-INF/classes 양쪽에서 검사한다. 실제 파일은 test resources에 유지하며 원천별 별도 라이선스 자료를 의도 없이 제품 데이터로 배포하지 않는다. 커밋 제목 `build: reject advisory verification fixtures in production jars`.
+- **검증:** 최근 NuGet 별칭·실제 공지·DB 왕복을 포함한 `build verifyProdJar`가 Windows/Java 25에서 성공했다. 전체 4,060건 중 4,050건 통과·10건 skip·실패/오류 0이며 skip은 기존 환경 의존 9건과 기본 비활성 OSV live 검사 1건이다. 로그 `build/roadmap-nuget-cumulative-build.log`. 이후 새 guard로 루트/BOOT-INF 경로 × 공지/정답 자료의 합성 JAR 4개가 모두 지정 오류로 거부되고 정상 운영 JAR은 통과했다. 로그 `build/fixture-guard-0.log`~`build/fixture-guard-3.log`, `build/roadmap-fixture-guard.log`. 실제 ZIP entry 검사에서도 해당 자료와 NuGet.Versioning.dll이 0개였다. 이는 독립 DLL의 모든 이름이나 중첩 JAR 내부까지 검사하는 전체 공급망 보증이 아니다. 전체 서명/SBOM/provenance와 다른 배포물 검증은 잔여다.
+
 - 현재·대상: [ci-cd.yml](.github/workflows/ci-cd.yml), [build.gradle](build.gradle), CLI installer와 선택 AI 자산.
 - [ ] 수정: JAR/CLI/image/rule별 digest·서명·SBOM·provenance를 생성하고 action/도구 고정·Gradle dependency verification·릴리즈 권한을 점검한다. 오프라인 검증 도구와 필요한 metadata/룰/모델/신뢰 자료·고지를 함께 배포한다.
 - 선행: 1~2·9·35번.

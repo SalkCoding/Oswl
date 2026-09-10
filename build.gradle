@@ -184,7 +184,7 @@ tasks.named('bootJar') {
 
 tasks.register('verifyProdJar') {
 	group = 'verification'
-	description = 'Fails if local-only classes (e.g. TestDataController) are packaged in bootJar.'
+	description = 'Fails if local-only classes or advisory verification fixtures are packaged in bootJar.'
 	dependsOn bootJar, compileLocalJava
 	doLast {
 		def jarFile = providers.gradleProperty('verifyJar').isPresent()
@@ -202,12 +202,15 @@ tasks.register('verifyProdJar') {
 			def entry
 			while ((entry = zip.nextEntry) != null) {
 				def classPath = entry.name.replaceFirst('^BOOT-INF/classes/', '')
+				if (classPath.startsWith('version-oracles/') || classPath.startsWith('advisories/')) {
+					throw new GradleException("Production JAR must not contain verification fixtures: ${entry.name}")
+				}
 				if (forbidden.contains(classPath)) {
 					throw new GradleException("Production JAR must not contain ${entry.name}. Use src/local/java and bootRun classpath only.")
 				}
 			}
 		}
-		logger.lifecycle("verifyProdJar: OK — no local-only controllers in ${jarFile.name}")
+		logger.lifecycle("verifyProdJar: OK — no local-only classes or verification fixtures in ${jarFile.name}")
 	}
 }
 
