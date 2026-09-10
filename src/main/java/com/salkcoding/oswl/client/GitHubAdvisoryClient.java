@@ -121,7 +121,7 @@ public class GitHubAdvisoryClient {
 
         private IncompleteLookupException(List<GitHubAdvisory> findings) {
             super("GitHub Advisory lookup is incomplete");
-            this.findings = List.copyOf(findings);
+            this.findings = findings.stream().map(finding -> withFix(finding, null)).toList();
         }
 
         public List<GitHubAdvisory> findings() { return findings; }
@@ -201,6 +201,7 @@ public class GitHubAdvisoryClient {
 
     private List<GitHubAdvisory> query(String ghEcosystem, String name, String version) throws Exception {
         List<GitHubAdvisory> findings = new ArrayList<>();
+        Map<String, List<String>> ranges = new LinkedHashMap<>();
         java.util.Set<String> cursors = new java.util.HashSet<>();
         String cursor = null;
         boolean incomplete = false;
@@ -217,10 +218,11 @@ public class GitHubAdvisoryClient {
                 throw partial;
             }
             findings.addAll(fetched.findings());
+            fetched.ranges().forEach((id, values) -> ranges.computeIfAbsent(id, unused -> new ArrayList<>()).addAll(values));
             incomplete |= fetched.incomplete();
             if (fetched.nextCursor() == null) {
                 if (incomplete) throw new IncompleteLookupException(findings);
-                return findings;
+                return confirmedFixes(ghEcosystem, version, findings, ranges);
             }
             if (!cursors.add(fetched.nextCursor())) throw new IncompleteLookupException(findings);
             cursor = fetched.nextCursor();
@@ -228,7 +230,41 @@ public class GitHubAdvisoryClient {
         throw new IncompleteLookupException(findings);
     }
 
-    private record AdvisoryPage(List<GitHubAdvisory> findings, boolean incomplete, String nextCursor) { }
+    private static GitHubAdvisory withFix(GitHubAdvisory finding, String fixed) {
+        return new GitHubAdvisory(finding.ghsaId(), finding.cveId(), finding.summary(), finding.severity(),
+                finding.cvssScore(), finding.cvss3Vector(), fixed);
+    }
+
+    private static List<GitHubAdvisory> confirmedFixes(String ecosystem, String installed,
+            List<GitHubAdvisory> findings, Map<String, List<String>> ranges) {
+        java.util.Comparator<String> comparator = switch (ecosystem) {
+            case "NPM" -> SemVerVersionComparator::compare;
+            case "MAVEN" -> MavenVersionComparator::compare;
+            case "PIP" -> Pep440VersionComparator::compare;
+            default -> null;
+        };
+        Map<String, String> chosen = new LinkedHashMap<>();
+        if (comparator != null) {
+            for (GitHubAdvisory finding : findings) {
+                String candidate = finding.fixVersion();
+                if (candidate == null || candidate.isBlank()) continue;
+                try {
+                    if (comparator.compare(candidate, installed) <= 0) continue;
+                    List<String> evidence = ranges.get(finding.ghsaId());
+                    if (evidence == null || evidence.isEmpty()
+                            || evidence.stream().anyMatch(range -> isVersionAffected(ecosystem, candidate, range))) continue;
+                    String prior = chosen.get(finding.ghsaId());
+                    if (prior == null || comparator.compare(candidate, prior) < 0) chosen.put(finding.ghsaId(), candidate);
+                } catch (IllegalArgumentException unsupported) {
+                    // Findings remain valid even when a proposed fix cannot be established.
+                }
+            }
+        }
+        return findings.stream().map(finding -> withFix(finding, chosen.get(finding.ghsaId()))).toList();
+    }
+
+    private record AdvisoryPage(List<GitHubAdvisory> findings, boolean incomplete, String nextCursor,
+                                Map<String, List<String>> ranges) { }
 
     @SuppressWarnings("unchecked")
     private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) {
@@ -267,6 +303,7 @@ public class GitHubAdvisoryClient {
         if (!(nodes instanceof List<?> nodeList)) throw new IllegalStateException("Missing advisory nodes");
 
         List<GitHubAdvisory> result = new ArrayList<>();
+        Map<String, List<String>> ranges = new LinkedHashMap<>();
         for (Object nodeObj : nodeList) {
             try {
                 if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
@@ -284,16 +321,18 @@ public class GitHubAdvisoryClient {
                     continue;
                 }
                 String range = (String) node.get("vulnerableVersionRange");
-                if (!isVersionAffected(ghEcosystem, version, range)) continue;
                 GitHubAdvisory advisory = parseAdvisoryNode(node);
                 if (advisory.ghsaId() == null || advisory.ghsaId().isBlank())
                     throw new IllegalArgumentException("Missing advisory identity");
+                boolean affected = isVersionAffected(ghEcosystem, version, range);
+                ranges.computeIfAbsent(advisory.ghsaId(), unused -> new ArrayList<>()).add(range);
+                if (!affected) continue;
                 result.add(advisory);
             } catch (IllegalArgumentException | ClassCastException | java.time.DateTimeException invalid) {
                 incomplete = true;
             }
         }
-        return new AdvisoryPage(result, incomplete, nextCursor);
+        return new AdvisoryPage(result, incomplete, nextCursor, ranges);
     }
 
     @SuppressWarnings("unchecked")

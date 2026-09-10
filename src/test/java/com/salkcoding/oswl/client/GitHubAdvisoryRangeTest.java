@@ -18,6 +18,55 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GitHubAdvisoryRangeTest {
     @org.junit.jupiter.api.Test
+    void laterPageCanInvalidateAnEarlierFixCandidate() throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var first = mapper.readTree(page("GHSA-fixture", true, "next"));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) first.path("data").path("securityVulnerabilities").path("nodes").get(0))
+                .putObject("firstPatchedVersion").put("identifier", "2.0.0");
+        String second = page("GHSA-fixture", false, "end").replace("< 2.0.0", ">= 2.0.0, < 3.0.0");
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(first), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(second, MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.findings()).hasSize(1);
+        assertThat(result.findings().getFirst().fixVersion()).isNull();
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"0.9.0;false;false;null", "1.0.0;false;false;null", "1.5.0;false;false;null",
+            "2.0.0;false;false;2.0.0", "2.0.0;true;false;null", "2.0.0;false;true;null"}, delimiter = ';', nullValues = "null")
+    void fixCandidatesNeedCompleteNonAffectedEvidence(String candidate, boolean partial, boolean conflict, String expected) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", partial, ""));
+        var nodes = (com.fasterxml.jackson.databind.node.ArrayNode) response.path("data").path("securityVulnerabilities").path("nodes");
+        var node = (com.fasterxml.jackson.databind.node.ObjectNode) nodes.get(0);
+        node.putObject("firstPatchedVersion").put("identifier", candidate);
+        if (conflict) {
+            var other = node.deepCopy();
+            other.put("vulnerableVersionRange", ">= 2.0.0, < 3.0.0");
+            other.putObject("firstPatchedVersion").put("identifier", "3.0.0");
+            nodes.add(other);
+        }
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isEqualTo(partial);
+        assertThat(result.findings()).hasSize(1);
+        assertThat(result.findings().getFirst().fixVersion()).isEqualTo(expected);
+        server.verify();
+    }
+
+    @org.junit.jupiter.api.Test
     void pypiNameAliasesUseTheSameQueryAndResponseIdentity() throws Exception {
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();
