@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestClient;
 
 import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -78,17 +79,25 @@ public class EpssClient {
             if (!(data instanceof List<?> rows)) return Map.of();
 
             Map<String, Double> result = new LinkedHashMap<>();
+            var unresolved = new HashSet<String>();
             for (Object row : rows) {
                 if (row instanceof Map<?, ?> map) {
                     Object cve = map.get("cve");
                     Object epss = map.get("epss");
-                    if (cve != null && epss != null) {
+                    if (cve instanceof String cveId) {
+                        String key = cveId.strip().toUpperCase(java.util.Locale.ROOT);
+                        if (!ids.contains(key) || unresolved.contains(key)) continue;
                         try {
+                            if (epss == null) throw new NumberFormatException("Missing EPSS score");
                             double score = Double.parseDouble(epss.toString());
-                            if (Double.isFinite(score) && score >= 0 && score <= 1)
-                                result.put(cve.toString().strip().toUpperCase(java.util.Locale.ROOT), score);
+                            if (!Double.isFinite(score) || score < 0 || score > 1)
+                                throw new NumberFormatException("Invalid EPSS probability");
+                            Double previous = result.putIfAbsent(key, score);
+                            if (previous != null && previous.doubleValue() != score)
+                                throw new NumberFormatException("Conflicting EPSS scores");
                         } catch (NumberFormatException ignored) {
-                            // skip malformed row
+                            result.remove(key);
+                            unresolved.add(key);
                         }
                     }
                 }

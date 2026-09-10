@@ -328,6 +328,9 @@
 - **2026-09-11 EPSS bulk 근거 검증:** [FIRST 데이터 안내](https://www.first.org/epss/data)의 일별 CSV URL에서 앞 두 줄만 메모리로 읽어 `score_date:2026-09-10T12:00:22Z`와 `cve,epss,percentile` 헤더를 확인했다. 실제 점수 행을 fixture/배포 자료로 도입하지 않았다. 파서는 헤더와 3개 열을 검증하고, score_date의 날짜/offset timestamp를 완전히 파싱한다. 누락·손상·미래·서로 다른 기준일과 점수가 없는 데이터셋은 수집 실패이며 오늘 날짜로 대체하지 않는다. 현재 일별 수집 경로의 계약이며 날짜 주석이 없는 초기 EPSS v1 역사 파일 지원을 의미하지 않는다.
 - **bulk 근거 회귀:** 날짜/헤더/빈 파일 오류 8건은 수정 전 모두 실패했다. 정상 날짜·UTC Z·offset timestamp의 원 기준일 보존과 기존 점수/보강 검사까지 `test --tests '*Epss*Test' --tests '*Vdb*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 59건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-evidence-before.log`, `build/roadmap-epss-evidence-after.log`. 커밋 제목 `fix: require dated complete epss input`. 자체 합성 gzip 입력이며 새 외부 데이터/의존성 및 UI 변경 없음. FIRST 안내는 bulk CSV 사용 방식과 필드 의미의 근거이며 고객 재배포 조건의 미확인 상태는 유지한다. 중복 CVE 점수 충돌, 전체 데이터 건수/원천 서명 및 live 부분 실패 상태 전파는 잔여다.
 
+- **2026-09-11 EPSS 중복 충돌/요청 대조:** live 결과는 요청한 CVE ID와 일치하는 행만 반영한다. 같은 CVE의 서로 다른 점수나 잘못된 점수가 있으면 이번 응답에서 해당 ID를 미확인으로 유지하며 나중 행으로 다시 확정하지 않는다. 동일한 점수의 중복은 하나로 합친다. bulk도 다른 중복 점수를 마지막 값으로 덮어쓰지 않고 수집 실패로 처리한다.
+- **충돌 회귀:** 순서를 뒤집은 충돌·잘못된 값 뒤 정상 값/반대 순서·동일 중복과 미요청 ID 검사 8건 중 수정 전 7건 실패를 확인했다. mock HTTP 및 실제 임시 gzip/cache 경로와 기존 보강 테스트를 포함해 `test --tests '*Epss*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 67건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-conflicts-before.log`, `build/roadmap-epss-conflicts-after.log`. 커밋 제목 `fix: preserve uncertainty for conflicting epss scores`. 자체 합성 입력, 외부 자료/의존성 및 UI 변경 없음. 오프라인 번들 반입의 중복 의미, live API 전체 실패 상태/점수 기준일 전파와 저장된 과거 점수 정정은 잔여다.
+
 ### 33. 조회 캐시와 전체 advisory 로컬 판정 구분 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [AirgappedSnapshotService](src/main/java/com/salkcoding/oswl/service/snapshot/AirgappedSnapshotService.java)의 기존 조회 결과 export는 전체 원천 DB가 아니다.

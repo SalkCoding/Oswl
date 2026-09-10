@@ -52,7 +52,10 @@ final class EpssSource {
                     double score = Double.parseDouble(parts[1].strip());
                     if (!Double.isFinite(score) || score < 0 || score > 1)
                         throw new NumberFormatException("Invalid EPSS probability");
-                    scores.put(parts[0].strip().toUpperCase(Locale.ROOT), score);
+                    String key = parts[0].strip().toUpperCase(Locale.ROOT);
+                    Double previous = scores.putIfAbsent(key, score);
+                    if (previous != null && previous.doubleValue() != score)
+                        throw new IOException("Conflicting EPSS scores for the same CVE");
                 } catch (NumberFormatException invalid) {
                     throw new IOException("Invalid EPSS score; source coverage is unknown", invalid);
                 }

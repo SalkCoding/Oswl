@@ -13,6 +13,24 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class EpssClientTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0.2,0.8", "0.8,0.2", "NaN,0.8", "0.8,NaN", "0.2,0.2"})
+    void conflictingDuplicatesStayUnresolvedAndUnrequestedIdsAreExcluded(String first, String second) {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new EpssClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.first.org/data/v1/epss?cve=CVE-2026-0001"))
+                .andRespond(withSuccess("{\"data\":[{\"cve\":\"CVE-2026-0001\",\"epss\":\"" + first
+                        + "\"},{\"cve\":\"CVE-2026-0001\",\"epss\":\"" + second
+                        + "\"},{\"cve\":\"CVE-2026-0001\",\"epss\":\"0.2\"},"
+                        + "{\"cve\":\"CVE-2026-9999\",\"epss\":\"0.9\"}]}", MediaType.APPLICATION_JSON));
+        var result = client.fetchScores(List.of("CVE-2026-0001"));
+        if (first.equals(second)) assertThat(result).containsOnly(org.assertj.core.api.Assertions.entry("CVE-2026-0001", 0.2));
+        else assertThat(result).isEmpty();
+        server.verify();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"NaN", "Infinity", "-Infinity", "-0.1", "1.1", "broken", "0", "0.5", "1"})
     void validatesScoresWhilePreservingOtherRows(String score) {
         var builder = RestClient.builder();

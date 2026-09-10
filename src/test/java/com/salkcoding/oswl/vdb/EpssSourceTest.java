@@ -14,6 +14,21 @@ class EpssSourceTest {
     @TempDir Path directory;
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0.2,0.8", "0.8,0.2", "0.2,0.2"})
+    void conflictingDuplicateScoresFailCollection(String first, String second) throws Exception {
+        try (var output = new GZIPOutputStream(Files.newOutputStream(directory.resolve("epss_scores-current.csv.gz")))) {
+            output.write(("#score_date:2026-01-01\ncve,epss,percentile\nCVE-2026-0001," + first
+                    + ",0.5\nCVE-2026-0001," + second + ",0.5\n").getBytes(StandardCharsets.UTF_8));
+        }
+        if (first.equals(second)) {
+            org.assertj.core.api.Assertions.assertThat(new EpssSource().fetch(new HttpCache(directory, true)).scores())
+                    .containsOnly(org.assertj.core.api.Assertions.entry("CVE-2026-0001", 0.2));
+        } else {
+            assertThatThrownBy(() -> new EpssSource().fetch(new HttpCache(directory, true))).isInstanceOf(IOException.class);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", "cve,epss,percentile\nCVE-2026-0001,0.5,0.5",
             "#score_date:2026-01-01\ncve,epss,percentile",
             "#score_date:broken\ncve,epss,percentile\nCVE-2026-0001,0.5,0.5",
