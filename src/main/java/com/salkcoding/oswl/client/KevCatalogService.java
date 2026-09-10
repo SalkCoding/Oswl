@@ -72,11 +72,18 @@ public class KevCatalogService {
             if (body == null) return;
             Object vulns = body.get("vulnerabilities");
             if (!(vulns instanceof List<?> list)) return;
+            Object count = body.get("count");
+            if (!(count instanceof Integer || count instanceof Long)
+                    || ((Number) count).longValue() != list.size()) return;
+            if (!(body.get("catalogVersion") instanceof String version) || version.isBlank()) return;
+            if (!(body.get("dateReleased") instanceof String date) || date.length() > 64) return;
+            java.time.Instant released = java.time.Instant.parse(date);
+            if (released.isAfter(java.time.Instant.now())) return;
             Set<String> ids = ConcurrentHashMap.newKeySet();
             for (Object item : list) {
                 if (!(item instanceof Map<?, ?> map) || !(map.get("cveID") instanceof String cveId)
-                        || !cveId.matches("CVE-[0-9]{4}-[0-9]{4,}")) return;
-                ids.add(cveId);
+                        || !cveId.matches("CVE-[0-9]{4}-[0-9]{4,19}")) return;
+                if (!ids.add(cveId)) return;
             }
             catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
             log.info("[KEV] Loaded {} known exploited CVE entries", ids.size());

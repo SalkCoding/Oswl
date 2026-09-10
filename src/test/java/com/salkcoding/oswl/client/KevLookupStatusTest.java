@@ -16,6 +16,31 @@ import static org.mockito.Mockito.*;
 
 class KevLookupStatusTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "1;2026-01-01T00:00:00Z;v1;true", "2;2026-01-01T00:00:00Z;v1;false",
+            "0;2026-01-01T00:00:00Z;v1;false", "-1;2026-01-01T00:00:00Z;v1;false",
+            "null;2026-01-01T00:00:00Z;v1;false", "1.5;2026-01-01T00:00:00Z;v1;false",
+            "1;bad-date;v1;false", "1;2099-01-01T00:00:00Z;v1;false", "1;2026-01-01T00:00:00Z;;false"
+    }, delimiter = ';', emptyValue = "")
+    void catalogMetadataMustSupportReplacingPriorEvidence(String count, String released, String version, boolean valid) {
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var client = new KevCatalogService();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        ReflectionTestUtils.setField(client, "catalog", new KevCatalogService.CatalogState(Set.of("CVE-2026-0001"), Instant.now()));
+        String body = "{\"count\":" + count + ",\"dateReleased\":\"" + released + "\",\"catalogVersion\":\""
+                + (version == null ? "" : version) + "\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-0002\"}]}";
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(body,
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+        client.refresh();
+        assertThat(client.listingStatus("CVE-2026-0001")).isEqualTo(!valid);
+        assertThat(client.listingStatus("CVE-2026-0002")).isEqualTo(valid ? Boolean.TRUE : null);
+        server.verify();
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void absentMembershipRequiresFreshCoverageAndPositiveEvidenceSurvives(boolean stale) {
         var snapshots = mock(AirgappedSnapshotService.class);
