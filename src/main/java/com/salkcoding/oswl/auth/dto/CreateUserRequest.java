@@ -22,6 +22,8 @@ public class CreateUserRequest {
 
     @Schema(description = "Temporary password the user must change on first login", example = "Temp@1234")
     @NotBlank @Size(min = 8)
+    @lombok.ToString.Exclude
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String temporaryPassword;
 
     @Schema(description = "IDs of role templates to assign (empty = no roles)", example = "[1, 3]")

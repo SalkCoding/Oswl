@@ -1,4 +1,5 @@
 :root {
+    color-scheme: only light;
     --background-dark:  #001d35;
     --background-light: #ffffff;
 
@@ -17,7 +18,7 @@
 
     --primary-140:   #009086;
     --primary-120:   #00a093;
-    --primary-100:   #00b0a0;
+    --primary-100:   #00b9a3;
     --primary-80:    #33d1b7;
     --primary-40:    #99ebd9;
     --primary-20:    #d3fcf3;
@@ -41,8 +42,21 @@
 
     --surface:        #ffffff;
     --surface-soft:   #f3f5f6;
+    --surface-elevated: #ffffff;
     --border-default: #dbe4e7;
 
+    --primary-10: #e9faf6;
+    --primary-5: #f4fdfb;
+    --brand-primary: #00a093;
+    --brand-primary-hover: #009086;
+    --secondary-120: #18c7a5;
+    --grayscale-45: #718087;
+    --grayscale-25: #d1dce0;
+    --grayscale-3: #fcfdfd;
+
+    --text-accent: #00766d;
+    --text-critical: #b42318;
+    --text-caution: #8a5800;
     --copy-info:      #00659c;
 }
 
@@ -245,3 +259,57 @@ a { color: inherit; text-decoration: none; }
 }
 .tag-status-scanning .tag-dot,
 .tag-status-analyzing .tag-dot { background: var(--risk-medium); }
+
+/* Settings navigation and wide data tables scroll within the viewport on small screens. */
+html:has(body.settings-page), body.settings-page { min-width: 0; }
+html:has(body.onboarding-page), body.onboarding-page { min-width: 0; }
+html:has(body.mobile-page), body.mobile-page { min-width: 0; width: 100%; }
+html:has(body.notification-page), body.notification-page { min-width: 0; }
+@media (max-width: 767px) {
+    .settings-page > header { height: auto; min-height: 64px; flex-wrap: wrap; padding: 12px 16px; gap: 16px; }
+    .settings-page > header > div { min-width: 0; flex-wrap: wrap; gap: 16px; }
+    .settings-page > header > div:last-child { width: 100%; justify-content: space-between; }
+    .settings-page > header button span { white-space: normal; overflow-wrap: anywhere; }
+    .settings-page [class*="w-[440px]"] { width: 100%; max-width: calc(100vw - 32px); }
+    .settings-page [class*="w-[130px]"], .settings-page [class*="w-[110px]"] { width: 100%; }
+    .settings-page [class*="pl-[126px]"] { padding-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+/* Shared controls follow the light OsWL palette and preserve keyboard focus. */
+:where(button, a, [role="button"]):focus:not(:focus-visible) { outline: none; }
+:where(button, a, [tabindex]):not(input):not(select):not(textarea):focus-visible { outline: 2px solid var(--primary-120); outline-offset: 3px; }
+.oswl-search-trigger { width: clamp(150px, 17vw, 240px); min-height: 36px; }
+.notification-page > footer { margin-top: auto; }
+.notification-card { font-size: 14px; line-height: 1.6; }
+.notification-card fieldset:disabled { opacity: .55; }
+.oswl-checkbox { appearance: none; width: 16px; height: 16px; flex-shrink: 0; border: 1px solid var(--grayscale-40); border-radius: 4px; background: white; }
+.oswl-checkbox:checked { background: var(--primary-120); position: relative; border-color: var(--primary-120); }
+.oswl-switch { width: 36px; height: 20px; padding: 2px; border-radius: 10px; background: var(--grayscale-30); flex-shrink: 0; }
+.oswl-switch > span { display: block; width: 16px; height: 16px; background: white; border-radius: 50%; transition: transform .15s; }
+.oswl-switch.is-on { background: var(--primary-120); }
+.oswl-switch.is-on > span { transform: translateX(16px); }
+.settings-page select { appearance: none; background: white url('/icon/icon-chevron-down.svg') right 12px center/12px no-repeat; padding: 8px 36px 8px 12px; min-height: 36px; border: 1px solid var(--grayscale-20); border-radius: 6px; color: var(--grayscale-80); font: inherit; font-size: 13px; }
+.oswl-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.oswl-filter-row select { min-width: 180px; }
+.oswl-button-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 16px; border: 1px solid var(--grayscale-20); border-radius: 6px; background: white; color: var(--text-accent); font-size: 13px; font-weight: 500; }
+.oswl-button-secondary:hover { background: var(--grayscale-5); }
+.oswl-toast { max-width: calc(100vw - 32px); }
+.oswl-toast span { white-space: normal; }
+
+.config-transfer-panel > div { max-width: 960px; }
+.config-transfer-preview > div { display: flex; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--grayscale-10); padding: 10px 0; }
+.settings-page input[type=file] { max-width: 100%; color: var(--grayscale-70); font-size: 13px; }
+.settings-page input[type=file]::file-selector-button { background: white; border: 1px solid var(--grayscale-20); color: var(--primary-120); border-radius: 6px; padding: 8px 16px; margin-right: 12px; cursor: pointer; }
+
+.oswl-checkbox:checked::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid white; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+
+/* Inputs already use a border on the field or its wrapper; avoid a second inner ring. */
+:where(input, select, textarea):focus-visible { outline: none; }
+:where(input, select, textarea):focus { border-color: var(--primary-120); }
+.oswl-field:has([aria-invalid="true"]) { border-color: var(--risk-critical); }
+.oswl-save-feedback { font-size: 13px; color: var(--grayscale-70); }
+.oswl-save-feedback.is-error { color: #b42318; }

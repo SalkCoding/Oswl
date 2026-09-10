@@ -1,14 +1,14 @@
 package com.salkcoding.oswl.demo;
 
-import com.salkcoding.oswl.domain.entity.Library;
-import com.salkcoding.oswl.service.SupplyChainHeuristicsService;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
+import com.salkcoding.oswl.service.vulnerability.SupplyChainHeuristicsService;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Development-only scratch verifier ({@code src/local/java} — not in the production bootJar)
- * for the roadmap #16 supply-chain heuristics.
+ * for the supply-chain heuristics.
  *
  * <p>Run after {@code ./gradlew compileJava compileLocalJava processResources}:
  * <pre>

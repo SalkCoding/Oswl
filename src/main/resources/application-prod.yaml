@@ -1,11 +1,11 @@
-# Production profile — see docs/Production-Deployment-Checklist.md
+# Production profile — see docs/en/Production-Deployment-Checklist.md
 # Required env: DB_URL, DB_USERNAME, DB_PASSWORD, OSWL_ENCRYPTION_KEY
 # Bind: SERVER_ADDRESS (default 127.0.0.1). Expose via reverse proxy only unless you accept 0.0.0.0 risk.
 
 server:
   address: ${SERVER_ADDRESS:127.0.0.1}
 
-# ── OIDC SSO (roadmap #13) — uncomment and fill in to enable Okta / Entra / any OIDC provider ──
+# ── OIDC SSO — uncomment and fill in to enable Okta / Entra / any OIDC provider ──
 # When configured, a "Sign in with SSO" option appears on /login; the verified email is mapped to
 # an existing OsWL user (provisioning-gated). Leaving this out keeps email + OTP as the only login.
 # spring:
@@ -21,6 +21,30 @@ server:
 #         provider:
 #           oidc:
 #             issuer-uri: ${OSWL_OIDC_ISSUER_URI}   # e.g. https://your-tenant.okta.com or https://login.microsoftonline.com/<tenant>/v2.0
+
+# ── SAML 2.0 SSO — uncomment and fill in to enable Okta / Entra ID / AD FS ──
+# When configured, a "Sign in with SSO" option appears on /login; the verified email is mapped
+# to an existing OsWL user, or a disabled account is auto-provisioned for SCIM activation.
+# SP metadata is exposed at /saml2/service-provider-metadata/{registrationId}.
+# spring:
+#   security:
+#     saml2:
+#       relyingparty:
+#         registration:
+#           oswl:
+#             signing.credentials:
+#               - private-key-location: ${OSWL_SAML_SP_PRIVATE_KEY}
+#                 certificate-location: ${OSWL_SAML_SP_CERTIFICATE}
+#             identityprovider:
+#               metadata-uri: ${OSWL_SAML_IDP_METADATA_URL}   # e.g. https://your-tenant.okta.com/app/your-app/sso/saml/metadata
+#               verification.credentials:
+#                 - certificate-location: ${OSWL_SAML_IDP_CERTIFICATE}
+
+# ── SCIM 2.0 provisioning ──
+# Groups pushed by the IdP map to either Team (default) or RoleTemplate.
+# oswl:
+#   scim:
+#     group-mapping: TEAM   # TEAM | ROLE_TEMPLATE
 
 springdoc:
   api-docs:
@@ -39,10 +63,26 @@ management:
     health:
       enabled: true
       show-details: never
+      # Separate liveness/readiness probes. Liveness covers core infrastructure only;
+      # readiness covers everything an operator needs before routing traffic to this instance.
+      group:
+        liveness:
+          include: ping,db,diskSpace
+          show-details: when-authorized
+        readiness:
+          include: db,diskSpace,snapshotFreshness,aiProvider,embeddedSidecar
+          show-details: when-authorized
     prometheus:
       enabled: true
     info:
       enabled: true
+  health:
+    # Use the custom OsWL DbHealthIndicator / DiskSpaceHealthIndicator instead of the
+    # auto-configured ones, so thresholds and monitored paths match the application config.
+    db:
+      enabled: false
+    diskspace:
+      enabled: false
   prometheus:
     metrics:
       export:

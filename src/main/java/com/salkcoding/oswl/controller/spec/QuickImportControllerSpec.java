@@ -131,7 +131,8 @@ public interface QuickImportControllerSpec {
     @Operation(summary = "Subscribe to Quick Import job updates (SSE)",
             description = """
                     Server-Sent Events stream. Each event is named `job-update` with a JSON `QuickImportJobStatus` body.
-                    The server sends the current status immediately on connect, then on each state change.
+                    The server sends the current status immediately on connect, then on each state change, plus
+                    lightweight `heartbeat` events so clients can detect a stalled connection before polling.
                     """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "SSE stream (`text/event-stream`)",

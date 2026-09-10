@@ -1,8 +1,11 @@
 name: CI/CD
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
+    tags: ['v[0-9]*']
   workflow_dispatch:
 
 concurrency:
@@ -10,9 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+  contents: read
 
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Djava.net.preferIPv4Stack=true
@@ -36,82 +37,76 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
 
+      - name: Validate release version, notes, and translation keys
+        run: python3 .github/scripts/validate-release.py
+
       - name: Build, test, and verify production JAR
         run: ./gradlew --no-daemon clean test bootJar verifyProdJar
 
-      - name: Verify THIRD_PARTY_LICENSES.md version sync (H3)
-        # Catches a build.gradle dependency bump whose THIRD_PARTY_LICENSES.md **Version:**
-        # lines were never re-synced (./gradlew syncThirdPartyLicenseVersions). This workflow
-        # is push-triggered on main only (no PR trigger configured), so this catches drift
-        # that already landed on main rather than blocking it pre-merge — still useful as a
-        # release-please gate: a broken doc sync fails the build before release-please runs.
+      - name: Check cluster result predicates without starting servers
+        run: |
+          python3 -m unittest discover -s scripts/verification -p test_cluster_assertions.py
+          bash -n scripts/verification/verify-multi-instance.sh
+
+      - name: Verify THIRD_PARTY_LICENSES.md version sync
         run: |
           ./gradlew --no-daemon syncThirdPartyLicenseVersions
           git diff --exit-code THIRD_PARTY_LICENSES.md
 
-  release-please:
-    name: Version & Release
-    needs: build
+  ui:
+    name: Browser smoke and accessibility
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Release Please
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-  publish:
-    name: Publish JAR
-    needs: [build, release-please]
-    if: needs.release-please.outputs.release_created == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout release tag
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
           cache: gradle
+      - name: Run browser checks
+        run: ./gradlew --no-daemon uiTest --tests '*SmokeUiTest' --tests '*KeyboardFlowUiTest' --tests '*AxeAuditUiTest' --tests '*RequestLifecycleUiTest' --tests '*QuickImportSourceReachabilityUiTest' --tests '*SettingsModulesUiTest' --tests '*SettingsFailureUiTest' --tests '*UiStateMatrixUiTest' --tests '*OnboardingFailureUiTest' --tests '*DetectionCoverageUiTest' --tests '*EmbeddedAiFailureUiTest' --tests '*OrganizationWorkflowUiTest' --tests '*AuthExpiryUiTest'
+      - name: Upload browser reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-reports
+          path: build/reports/tests/uiTest
 
+  publish:
+    name: Publish tagged release
+    needs: [build, ui]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Validate exact tag and prepare release notes
+        run: python3 .github/scripts/validate-release.py --tag "$GITHUB_REF_NAME" --notes-output build/release-notes.md
       - name: Build production JAR
         run: ./gradlew --no-daemon bootJar verifyProdJar
-
-      - name: Resolve JAR path
-        id: jar
-        run: |
-          VERSION=$(./gradlew -q properties | awk '/^version:/ {print $2}')
-          JAR_PATH="build/libs/oswl-${VERSION}.jar"
-          if [ ! -f "$JAR_PATH" ]; then
-            echo "::error::JAR not found at ${JAR_PATH}"
-            ls -la build/libs/ || true
-            exit 1
-          fi
-          echo "path=${JAR_PATH}" >> "$GITHUB_OUTPUT"
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Upload JAR to GitHub Release
+      - name: Publish JAR and checksum
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
-            "${{ steps.jar.outputs.path }}" \
-            --clobber
-          echo "Uploaded oswl-${{ steps.jar.outputs.version }}.jar to ${{ needs.release-please.outputs.tag_name }}"
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          JAR="build/libs/oswl-${VERSION}.jar"
+          test -f "$JAR"
+          (cd build/libs && sha256sum "oswl-${VERSION}.jar" > SHA256SUMS)
+          if gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft' > build/release-is-draft; then
+            if [ "$(cat build/release-is-draft)" != "true" ]; then
+              echo "Release is already published; existing assets will not be overwritten."
+              exit 0
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+              --title "OsWL ${VERSION}" --notes-file build/release-notes.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" "$JAR" build/libs/SHA256SUMS --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest

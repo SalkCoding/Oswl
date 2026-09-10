@@ -1,5 +1,7 @@
 # 管理
 
+[1.0.5.1 の変更点](Whats-New-v1.0.5.1.md)
+
 このページでは管理者専用の機能をすべて扱います: ユーザー管理、ロールテンプレート、監査ログ、セキュリティ設定、SMTP 設定。
 
 > 特に断りのない限り、このページのすべての操作には**システム管理者**権限が必要です。
@@ -221,6 +223,24 @@ v1.0.4 のアクションコードはフィルター UI で **モニタリング
 
 3 つとも管理者権限が必要です。Prometheus のスクレイプ設定は `application-prod.yaml` の `management` 配下にあります。
 
+### ビジネスメトリクス & Grafana
+
+デフォルトの JVM/HTTP メーターに加えて、OsWL は以下のビジネスメトリクスを記録します（すべて `/actuator/prometheus` で公開。Prometheus 名表記 — ドットはアンダースコアに変換されます）:
+
+| メトリクス | 型 | タグ | 説明 |
+|---|---|---|---|
+| `oswl_scan_duration_seconds` | Timer | `outcome` (`completed`\|`failed`) | スキャンパイプライン全体の所要時間 |
+| `oswl_quickimport_queue_depth` | Gauge | — | ワーカースロット待ちの Quick Import ジョブ数 |
+| `oswl_quickimport_running` | Gauge | — | 現在実行中の Quick Import ジョブ数 |
+| `oswl_components_ingested_total` | Counter | `ecosystem` | スキャン取り込みで保存されたコンポーネント数 |
+| `oswl_ai_calls_total` | Counter | `provider` | 記録された AI 呼び出し数 |
+| `oswl_ai_tokens_total` | Counter | `provider`, `direction` (`in`\|`out`) | AI プロンプト/完了トークン数 |
+| `oswl_ai_cost_usd_total` | Counter | `provider` | AI 推定コスト (USD) |
+| `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | セキュリティゲート評価数 |
+| `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | 外部データソースへの呼び出し数 |
+
+これらのメトリクスを網羅する Grafana ダッシュボードが [`deploy/observability/grafana/oswl-dashboard.json`](../../deploy/observability/grafana/oswl-dashboard.json) に同梱されています。**Dashboards → New → Import** からインポートすると Prometheus データソースの選択を求められるため、JSON の編集は不要です。
+
 ---
 
 ## オフラインスナップショットバンドル（v1.0.4）
@@ -296,7 +316,7 @@ CVE／ライセンス要約用の LLM プロバイダーとエンリッチメン
 
 各プロバイダーのモデル欄は自由入力コンボボックスです: ドロップダウンには現行モデルが提案として表示されますが、アカウントがアクセス可能な任意のモデル ID を直接入力できます。
 
-同じタブの**内蔵 AI（組み込みローカルモデル）**カードは、バンドルされた llama.cpp の `llama-server` サイドカー（CPU 専用、localhost 専用、API キー不要）を実行し、LOCAL プロバイダーとして登録します。既定でバンドルされているモデルは**Qwen3 1.7B**（初回使用時にダウンロード）で、カードには**モデルのドロップダウン**（フォルダ内の任意の `.gguf`、または自動優先順位）、**保存**付きの**フォルダの上書き**（永続化され、実行中に変更するとサイドカーが停止）、最初の選択が起動に失敗した場合に次に利用可能なモデルへ切り替える**自動フォールバック**があります。[内蔵 AI](Embedded-AI.md)を参照してください。
+内蔵 AI は別途インストールした llama.cpp を使用し、既定のダウンロードモデルは **Qwen3.5-2B Q4_K_M** です。**Gemma 4 E2B** は任意で手動インストールします。実行ファイルは `embedded-ai/llama/`、モデルは `embedded-ai/model/<系列>/` に配置します。起動時の事前取得はダウンロードのみで、サーバーの起動や LOCAL の有効化は行いません。既定の取得先は Hugging Face の固定リビジョンで、SHA-256 とサイズを検証します。既定の代替ミラーはなく、エアギャップモードではダウンロードしません。モデルを変更する場合は設定で停止し、モデルを選択・保存してから再度開始します。最新の要件と設定は[内蔵 AI](Embedded-AI.md)を参照してください。
 
 同時に**アクティブ**にできるプロバイダーは 1 つだけです。タブには次も表示されます:
 
@@ -354,3 +374,49 @@ AI カードには本日の呼び出し件数、トークン合計、推定コ�
 | **クリア** | `POST /api/settings/cache/clear?cacheKey=…` | クリア時刻以前に取得されたライブラリは、次回のスキャンで古いものとして扱われる |
 
 変更は `CACHE.UPDATE_TTL` と `CACHE.CLEAR` として監査記録されます。
+
+---
+
+## SAML 2.0 SSO および SCIM 2.0 プロビジョニング
+
+OsWL は、Okta、Entra ID、オンプレミス AD FS を利用する企業向けに SAML 2.0 シングルサインオンをサポートしています。SAML IdP が設定されると、`/login` に **SSO でサインイン** オプションが表示されます。
+
+### SAML セットアップ
+
+1. SP 署名鍵ペアを生成します（任意ですが推奨）:
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -keyout oswl-saml-sp.key -out oswl-saml-sp.crt -nodes -days 3650 -subj "/CN=oswl"
+   ```
+2. `application-prod.yaml` の SAML ブロックのコメントを外し、環境変数を設定します:
+   | 環境変数 | 用途 |
+   |---|---|
+   | `OSWL_SAML_IDP_METADATA_URL` | IdP メタデータ URL（例: Okta/Entra アプリメタデータ） |
+   | `OSWL_SAML_IDP_CERTIFICATE` | IdP 署名証明書ファイルのパス |
+   | `OSWL_SAML_SP_PRIVATE_KEY` | SP 秘密鍵ファイルのパス |
+   | `OSWL_SAML_SP_CERTIFICATE` | SP 証明書ファイルのパス |
+3. IdP に SP メタデータを登録します。メタデータエンドポイントは以下です:
+   ```
+   https://<your-oswl-host>/saml2/service-provider-metadata/oswl
+   ```
+4. IdP が email クレーム（NameID または `email`/`mail` 属性）を送信することを確認します。
+
+> SAML ログインでは、IdP がすでにユーザーを認証しているため、メール OTP ステップをスキップします。既存の OsWL アカウントと一致しないメールアドレスは、SCIM が有効化してロールを割り当てられるよう、無効化されたローカルアカウントとして自動作成されます。
+
+### SCIM 2.0 プロビジョニング
+
+SCIM を使用すると、IdP のユーザー ライフサイクルを OsWL と同期できます。
+
+| リソース | エンドポイント | 備考 |
+|---|---|---|
+| Users | `/scim/v2/Users` | GET/POST/PUT/PATCH/DELETE |
+| Groups | `/scim/v2/Groups` | GET/POST/PUT/PATCH/DELETE |
+
+**認証:** すべての SCIM リクエストに `Authorization: Bearer <scim_token>` を含める必要があります。専用 SCIM トークンは `ApiKeyService#issueScimToken` でプログラム的に発行します。SCIM トークンは `api_keys` テーブルに保存されますが、スコープは `SCIM` であり、通常の CLI スキャン API では拒否されます。
+
+**グループ マッピング:** `oswl.scim.group-mapping`（環境変数: `OSWL_SCIM_GROUP_MAPPING`）で SCIM グループの表現方法を選択します:
+- `TEAM`（既定）— 各 SCIM グループは Team になり、メンバーは TeamMember 行になります。
+- `ROLE_TEMPLATE` — 各 SCIM グループは RoleTemplate になり、メンバーにはそのロール テンプレートが割り当てられます。
+
+**ユーザー無効化:** `DELETE /scim/v2/Users/{id}` は OsWL 上で `active=false` に設定します。SCIM 経由ではユーザーを物理的に削除しないため、監査の帰属情報が保持されます。
+
+**監査アクション:** SCIM 操作は `SCIM.USER_CREATE`、`SCIM.USER_UPDATE`、`SCIM.USER_DEACTIVATE`、`SCIM.GROUP_CREATE`、`SCIM.GROUP_UPDATE`、`SCIM.GROUP_DELETE`、`SCIM.GROUP_MEMBER_ADD`、`SCIM.GROUP_MEMBER_REMOVE`、`SCIM.AUTH_FAILURE`、`SCIM_KEY.CREATE` として記録されます。SAML ログイン イベントは `SAML.LOGIN_SUCCESS` および `SAML.LOGIN_FAILURE` として記録されます。

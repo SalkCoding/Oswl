@@ -83,4 +83,45 @@ class OsvClientTest {
 
         assertThat(result.vulns()).containsExactly(vuln);
     }
+    @Test void cvssV4AndFixVersionBelongToTheQueriedPackage() {
+        String vector="CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N";
+        var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","severity",List.of(Map.of("score",vector)),
+                "affected",List.of(
+                    Map.of("package",Map.of("name","other","ecosystem","npm"),"ranges",List.of(Map.of("events",List.of(Map.of("fixed","99"))))),
+                    Map.of("package",Map.of("name","target","ecosystem","npm"),"ranges",List.of(Map.of("events",List.of(Map.of("fixed","2"))))))),
+                new OsvClient.OsvQuery("npm","target","1"));
+        assertThat(vuln.cvssVector()).isEqualTo(vector);
+        assertThat(vuln.cvssScore()).isEqualTo(9.3);
+        assertThat(vuln.cveId()).isEqualTo("CVE-2026-0001");
+        assertThat(vuln.fixVersion()).isEqualTo("2");
+    }
+
+    @Test void openEndedLaterRangeDoesNotRecommendAnOlderFix() {
+        var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","affected",List.of(Map.of(
+                "package",Map.of("name","target","ecosystem","npm"),
+                "ranges",List.of(Map.of("type","SEMVER","events",List.of(Map.of("introduced","0"),Map.of("fixed","1.0.0"),Map.of("introduced","2.0.0"))))))),
+                new OsvClient.OsvQuery("npm","target","2.1.0"));
+        assertThat(vuln.fixVersion()).isNull();
+    }
+
+    @Test void disjointAffectedRangesChooseFixForInstalledVersion() {
+        var vuln=client.parseVuln(Map.of("id","CVE-2026-0001","affected",List.of(Map.of(
+                "package",Map.of("name","target","ecosystem","npm"),
+                "ranges",List.of(Map.of("type","SEMVER","events",List.of(Map.of("introduced","0"),Map.of("fixed","1.0.0"),Map.of("introduced","2.0.0"),Map.of("fixed","2.1.0"))))))),
+                new OsvClient.OsvQuery("npm","target","2.0.5"));
+        assertThat(vuln.fixVersion()).isEqualTo("2.1.0");
+    }
+
+
+    @Test void immutableFixMatchesInstalledReleaseLine() {
+        var affected = List.of(Map.of("package", Map.of("name", "immutable", "ecosystem", "npm"),
+                "ranges", List.of(Map.of("type", "SEMVER", "events", List.of(
+                        Map.of("introduced", "0"), Map.of("fixed", "3.8.3"),
+                        Map.of("introduced", "4.0.0"), Map.of("fixed", "4.3.7"),
+                        Map.of("introduced", "5.0.0"), Map.of("fixed", "5.1.5"))))));
+        var advisory = Map.<String, Object>of("id", "GHSA-wf6x-7x77-mvgw", "affected", affected);
+        assertThat(client.parseVuln(advisory, new OsvClient.OsvQuery("npm", "immutable", "5.1.4")).fixVersion()).isEqualTo("5.1.5");
+        assertThat(client.parseVuln(advisory, new OsvClient.OsvQuery("npm", "immutable", "4.3.6")).fixVersion()).isEqualTo("4.3.7");
+    }
+
 }

@@ -7,20 +7,22 @@
 
     <main class="flex-1 w-full flex flex-col gap-[24px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[24px] md:py-[40px] pb-[80px]">
 
+        <a th:href="@{/org-dashboard/summary}" class="underline text-[var(--text-accent)]" th:text="#{orgSummary.title}">Organization risk briefing</a>
+
         <!-- Posture totals -->
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-[16px] w-full">
             <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
                 <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.summary.projects}">Projects</p>
                 <p class="font-bold text-[28px] text-[var(--grayscale-100)] tracking-[-0.28px] leading-[1.2] m-0"
                    th:text="${totalProjects}">0</p>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0"
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0"
                    th:text="#{orgDashboard.summary.scannedProjects(${scannedProjects}, ${totalProjects})}">0 of 0 projects scanned</p>
             </div>
             <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
                 <p class="text-[13px] font-medium text-[var(--grayscale-60)] tracking-[-0.13px] m-0" th:text="#{orgDashboard.summary.vulnerabilities}">Vulnerabilities</p>
                 <p class="font-bold text-[28px] text-[var(--risk-critical)] tracking-[-0.28px] leading-[1.2] m-0"
                    th:text="${totalVulnerabilities}">0</p>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0">
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0">
                     <span class="text-[var(--risk-critical)] font-semibold" th:text="${securityCritical}">0</span>
                     <span th:text="#{riskTrend.legend.critical}">Critical</span>
                     <span class="mx-[4px]">·</span>
@@ -34,12 +36,12 @@
                     <!-- What is KEV? → CISA catalog -->
                     <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" rel="noopener noreferrer"
                        th:title="#{help.kev.tooltip}" th:aria-label="#{help.kev.tooltip}"
-                       class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-[var(--grayscale-30)] text-[10px] font-bold text-[var(--grayscale-50)] hover:text-[var(--primary-120)] hover:border-[var(--primary-120)] no-underline transition-colors shrink-0">?</a>
+                       class="inline-flex items-center justify-center w-[15px] h-[15px] rounded-full border border-[var(--grayscale-30)] text-[10px] font-bold text-[var(--grayscale-60)] hover:text-[var(--text-accent)] hover:border-[var(--primary-120)] no-underline transition-colors shrink-0">?</a>
                 </p>
                 <p class="font-bold text-[28px] tracking-[-0.28px] leading-[1.2] m-0"
                    th:classappend="${kevUnaddressed > 0} ? 'text-[var(--risk-critical)]' : 'text-[var(--grayscale-100)]'"
                    th:text="${kevUnaddressed}">0</p>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0"
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0"
                    th:text="#{orgDashboard.summary.kevTotal(${kevTotal})}">0 KEV-listed CVEs in total</p>
             </div>
             <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[20px] flex flex-col gap-[6px]">
@@ -47,7 +49,7 @@
                 <p class="font-bold text-[28px] tracking-[-0.28px] leading-[1.2] m-0"
                    th:classappend="${licenseViolations > 0} ? 'text-[var(--risk-critical)]' : 'text-[var(--grayscale-100)]'"
                    th:text="${licenseViolations}">0</p>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0"
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] m-0"
                    th:text="#{orgDashboard.summary.licenseWarnings(${licenseHigh})}">0 warnings</p>
             </div>
         </section>
@@ -85,9 +87,16 @@
                     <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{riskTrend.legend.unscored}">Unscored</p>
                 </div>
             </div>
-            <div class="relative w-full" style="height: 300px;">
-                <canvas id="orgVulnTrendChart"></canvas>
+            <div class="flex justify-end">
+                <button type="button" id="orgVulnTrendTableToggle"
+                        class="text-[13px] font-medium text-[var(--text-accent)] hover:underline"
+                        aria-pressed="false" th:text="#{riskTrend.chart.viewAsTable}">View as table</button>
             </div>
+            <div class="relative w-full" style="height: 300px;">
+                <canvas id="orgVulnTrendChart" role="img" th:attr="aria-label=#{orgDashboard.trend.heading}"></canvas>
+            </div>
+            <!-- Text alternative to the canvas above, populated on demand by org-dashboard.js -->
+            <div id="orgVulnTrendChartTable" class="hidden overflow-x-auto custom-scrollbar"></div>
         </section>
 
         <!-- Worst-project ranking -->
@@ -119,14 +128,14 @@
                             <td class="px-[16px] py-[12px] text-[var(--grayscale-60)]" th:text="${stat.count}">1</td>
                             <td class="px-[16px] py-[12px]">
                                 <a th:href="@{|/projects/${row.id}/security-center|}"
-                                   class="font-semibold text-[var(--primary-120)] hover:underline no-underline"
+                                   class="font-semibold text-[var(--text-accent)] hover:underline no-underline"
                                    th:text="${row.name}">Project</a>
                             </td>
                             <td class="px-[16px] py-[12px] text-[var(--grayscale-70)]"
                                 th:text="${row.scanned ? row.version : '-'}">-</td>
                             <td class="px-[16px] py-[12px] text-[var(--grayscale-70)] whitespace-nowrap">
                                 <span th:if="${row.scanned}" th:text="${row.lastScanned}">2026.05.01</span>
-                                <span th:unless="${row.scanned}" class="text-[var(--grayscale-40)]" th:text="#{orgDashboard.ranking.noScan}">No scan</span>
+                                <span th:unless="${row.scanned}" class="text-[var(--grayscale-60)]" th:text="#{orgDashboard.ranking.noScan}">No scan</span>
                             </td>
                             <td class="px-[16px] py-[12px] text-right font-semibold text-[var(--risk-critical)]" th:text="${row.securityCritical}">0</td>
                             <td class="px-[16px] py-[12px] text-right text-[var(--risk-high)]" th:text="${row.securityHigh}">0</td>
@@ -141,7 +150,7 @@
                                 th:text="${row.kevUnaddressed}">0</td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(projectRows)}">
-                            <td colspan="11" class="px-[16px] py-[40px] text-center text-[var(--grayscale-50)]"
+                            <td colspan="11" class="px-[16px] py-[40px] text-center text-[var(--grayscale-60)]"
                                 th:text="#{orgDashboard.ranking.noProjects}">No projects yet.</td>
                         </tr>
                     </tbody>
@@ -151,7 +160,7 @@
 
     </main>
 
-    <script th:src="@{/js/vendor/chart.umd.min.js}"></script>
+    <script defer th:src="@{/js/vendor/chart.umd.min.js}"></script>
     <script th:inline="javascript">
     /*<![CDATA[*/
     window.orgDashboardData = {
@@ -172,11 +181,14 @@
         high:     /*[[#{riskTrend.legend.high}]]*/ 'High',
         medium:   /*[[#{riskTrend.legend.medium}]]*/ 'Medium',
         low:      /*[[#{riskTrend.legend.low}]]*/ 'Low',
-        unscored: /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored'
+        unscored: /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored',
+        viewAsTable: /*[[#{riskTrend.chart.viewAsTable}]]*/ 'View as table',
+        viewAsChart: /*[[#{riskTrend.chart.viewAsChart}]]*/ 'View as chart',
+        trendHeading: /*[[#{orgDashboard.trend.heading}]]*/ 'Org-wide Vulnerability Trend'
     };
     /*]]>*/
     </script>
-    <script th:src="@{/js/org-dashboard/org-dashboard.js}"></script>
+    <script defer th:src="@{/js/org-dashboard/org-dashboard.min.js(v='1.0.5.1')}"></script>
 
     <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 

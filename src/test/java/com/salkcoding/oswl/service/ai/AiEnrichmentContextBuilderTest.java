@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.Cve;
-import com.salkcoding.oswl.domain.entity.Library;
+import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import org.junit.jupiter.api.DisplayName;

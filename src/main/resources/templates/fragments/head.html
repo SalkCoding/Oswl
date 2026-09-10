@@ -10,18 +10,30 @@
     <link rel="icon" th:href="@{/icon/icon-logo.svg}" type="image/svg+xml" media="(prefers-color-scheme: dark)">
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
 
+    <!-- Apply the supported appearance before styles load, including for returning users. -->
+    <meta name="color-scheme" content="only light">
+    <script>
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+        try { localStorage.setItem('oswl-theme', 'LIGHT'); } catch (e) { /* Storage is optional. */ }
+    </script>
+
+    <!-- Version these appearance assets to invalidate previously cached dark-mode styles. -->
     <!-- Tailwind CSS — precompiled by the buildTailwindCss Gradle task (no CDN runtime). -->
-    <link rel="stylesheet" th:href="@{/css/tailwind.css}">
+    <link rel="stylesheet" th:href="@{/css/tailwind.css(v='1.0.5.1')}">
     <!-- Alpine collapse plugin must load before Alpine (vendored — no CDN). -->
     <script defer th:src="@{/js/vendor/alpine-collapse.min.js}"></script>
     <script defer th:src="@{/js/vendor/alpine.min.js}"></script>
     <script defer th:src="@{/js/vendor/htmx.min.js}"></script>
 
-    <link rel="stylesheet" th:href="@{/css/globals.css}">
+    <link rel="stylesheet" th:href="@{/css/globals.css(v='1.0.5.1')}">
     <style>
         [x-cloak] { display: none !important; }
     </style>
-    <script th:src="@{/js/oswl-csrf.js}"></script>
+    <script th:src="@{/js/oswl-csrf.min.js(v='1.0.5.1')}"></script>
+    <script th:src="@{/js/oswl-http.min.js(v='1.0.5.1')}"></script>
+    <script th:src="@{/js/oswl-theme.min.js(v='1.0.5.1')}"></script>
+    <script th:src="@{/js/a11y.min.js(v='1.0.5.1')}"></script>
     <script>
         // Auto-inject CSRF header for same-origin state-changing fetch requests (token from meta, not cookie).
         (function () {

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+
+    <!-- requestId/userId come from RequestContextLoggingFilter's MDC; shown as an empty dash
+         when absent (e.g. scheduler threads, which have no HTTP request). -->
+    <property name="OSWL_CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %clr(%5p) [req=%X{requestId:--}] [user=%X{userId:--}] %clr(${PID:- }){magenta} --- [%15.15t] %clr(%-40.40logger{39}){cyan} : %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}" />
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${OSWL_CONSOLE_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Production-only rolling file log. Local/test keep console-only. Path via OSWL_LOG_DIR
+         (default ./logs); OSWL_LOG_JSON=true switches the file to structured JSON (see
+         OswlFileEncoder) for direct SIEM ingestion. -->
+    <springProfile name="prod">
+        <property name="OSWL_LOG_DIR" value="${OSWL_LOG_DIR:-./logs}" />
+
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${OSWL_LOG_DIR}/oswl.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${OSWL_LOG_DIR}/oswl.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>5GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="com.salkcoding.oswl.logging.OswlFileEncoder" />
+        </appender>
+    </springProfile>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <springProfile name="prod">
+            <appender-ref ref="FILE" />
+        </springProfile>
+    </root>
+</configuration>

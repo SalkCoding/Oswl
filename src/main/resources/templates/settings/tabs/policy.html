@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="policyTab()"
+     class="flex flex-col gap-[20px]">
+
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.policy.heading}">Policy as Code</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.policy.description}">
+            Define security-gate policies at the organization, team, or project level, and manage waiver approvals for exceptions.
+        </p>
+    </div>
+
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
+        <span x-text="apiError"></span>
+        <button type="button" @click="retry()" :disabled="!retryTarget || scopeOptionsLoading"
+                class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
+                th:text="#{common.retry}">Retry</button>
+    </div>
+
+    <!-- Sub-tabs -->
+    <div role="tablist" th:aria-label="#{settings.policy.heading}" class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('policies', #{settings.policy.subtab.policies})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('waivers', #{settings.policy.subtab.waivers})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('sync', #{settings.policy.subtab.sync})}"></div>
+    </div>
+
+    <!-- ===================== POLICIES ===================== -->
+    <div x-show="subTab==='policies'" x-cloak class="flex flex-col gap-[20px]">
+
+        <div class="flex justify-end">
+            <button type="button" @click="openNewPolicy()"
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px] tracking-[-0.13px] transition-colors"
+                    th:text="#{settings.policy.newPolicy}">+ New Policy</button>
+        </div>
+
+        <!-- Create / edit form -->
+        <div x-show="formOpen" x-cloak data-dirty-scope="policy" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[16px]">
+            <h3 class="font-bold text-[15px] text-black" x-text="editingId ? _policyI18n.editPolicy : _policyI18n.newPolicy"></h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.scopeType}">Scope</label>
+                    <select x-model="form.scopeType" :disabled="!!editingId"
+                            class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white disabled:bg-[var(--grayscale-5)]">
+                        <option value="ORGANIZATION" x-text="_policyI18n.scopeOrganization"></option>
+                        <option value="TEAM" x-text="_policyI18n.scopeTeam"></option>
+                        <option value="PROJECT" x-text="_policyI18n.scopeProject"></option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]" x-show="form.scopeType !== 'ORGANIZATION'">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.scopeId}">Applies to</label>
+                    <select x-model="form.scopeId" :disabled="!!editingId"
+                            class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white disabled:bg-[var(--grayscale-5)]">
+                        <option value="" x-text="_policyI18n.selectOne"></option>
+                        <template x-for="opt in scopeOptionsFor(form.scopeType)" :key="opt.id">
+                            <option :value="String(opt.id)" x-text="opt.name"></option>
+                        </template>
+                    </select>
+                    <p x-show="scopeOptionsLoading" class="text-[12px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</p>
+                    <p x-show="scopeOptionsFailed" class="text-[12px] text-red-700" th:text="#{settings.policy.scopeOptions.error}">Scope options could not be loaded. Retry to try again.</p>
+                    <p x-show="scopeOptionsLoaded && !scopeOptionsFailed && !scopeOptionsFor(form.scopeType).length" class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.policy.scopeOptions.empty}">No available scope options.</p>
+                </div>
+                <div class="flex flex-col gap-[6px]" x-show="form.scopeType === 'ORGANIZATION'">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.scopeId}">Applies to</label>
+                    <div class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-[var(--grayscale-5)] text-[var(--grayscale-70)]"
+                         x-text="scopeOptions.organization ? scopeOptions.organization.name : '—'"></div>
+                </div>
+
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.name}">Name</label>
+                    <input type="text" x-model="form.name" th:placeholder="#{settings.policy.form.namePlaceholder}"
+                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+                <div class="flex flex-col gap-[6px] md:col-span-2">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.description}">Description</label>
+                    <textarea x-model="form.description" rows="2"
+                              class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] resize-none"></textarea>
+                </div>
+
+                <label class="flex items-center gap-[8px] text-[13px] text-[var(--grayscale-90)]">
+                    <input type="checkbox" x-model="form.locked">
+                    <span th:text="#{settings.policy.form.locked}">Locked (lower levels cannot override this policy's fields)</span>
+                </label>
+                <label class="flex items-center gap-[8px] text-[13px] text-[var(--grayscale-90)]">
+                    <input type="checkbox" x-model="form.enabled">
+                    <span th:text="#{settings.policy.form.enabled}">Enabled</span>
+                </label>
+            </div>
+
+            <div class="border-t border-[var(--grayscale-15)] pt-[16px] grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.failOnSeverity}">Fail on severity</label>
+                    <select x-model="form.failOnSeverity" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="CRITICAL" x-text="_policyI18n.severityCritical"></option>
+                        <option value="HIGH" x-text="_policyI18n.severityHigh"></option>
+                        <option value="MEDIUM" x-text="_policyI18n.severityMedium"></option>
+                        <option value="LOW" x-text="_policyI18n.severityLow"></option>
+                        <option value="NONE" x-text="_policyI18n.severityNone"></option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.failOnKev}">Fail on known-exploited vulnerabilities (KEV)</label>
+                    <select x-model="form.failOnKev" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.failOnEpss}">Fail on EPSS score ≥</label>
+                    <input type="number" min="0" max="1" step="0.01" x-model="form.failOnEpss" :placeholder="_policyI18n.inherit"
+                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.failOnLicenseViolation}">Fail on license violation</label>
+                    <select x-model="form.failOnLicenseViolation" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.onlyNew}">Only newly introduced components</label>
+                    <select x-model="form.onlyNew" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.onlyReachable}">Fail only on reachable CVEs (Java call-graph)</label>
+                    <select x-model="form.onlyReachable" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.form.failOnSecrets}">Fail on CRITICAL/HIGH secret findings</label>
+                    <select x-model="form.failOnSecrets" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" x-text="_policyI18n.inherit"></option>
+                        <option value="true" th:text="#{common.yes}">Yes</option>
+                        <option value="false" th:text="#{common.no}">No</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-[10px] justify-end pt-[4px]">
+                <button type="button" @click="closeForm()"
+                        class="px-[14px] py-[8px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-70)] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)]"
+                        th:text="#{common.cancel}">Cancel</button>
+                <button type="button" @click="savePolicy()"
+                        class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]"
+                        th:text="#{common.save}">Save</button>
+            </div>
+        </div>
+
+        <!-- Policies table -->
+        <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden overflow-x-auto">
+            <table class="w-full text-[13px]">
+                <thead>
+                <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.table.scope}">Scope</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.table.name}">Name</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.table.status}">Status</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.table.gate}">Gate summary</th>
+                    <th class="px-[18px] py-[12px] font-bold w-[140px]" th:text="#{settings.policy.table.actions}">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr x-show="!policiesLoading && policies.length === 0" x-cloak>
+                    <td colspan="5" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.policy.table.empty}">No policies defined yet. The instance falls back to its global defaults.</td>
+                </tr>
+                <tr x-show="policiesLoading" x-cloak>
+                    <td colspan="5" class="px-[18px] py-[28px] text-center text-[12px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</td>
+                </tr>
+                <template x-for="p in policies" :key="p.id">
+                    <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                        <td class="px-[18px] py-[12px]">
+                            <div class="flex flex-col">
+                                <span class="text-[11px] font-bold text-[var(--text-accent)]" x-text="p.scope"></span>
+                                <span class="text-[12px] text-[var(--grayscale-60)]" x-text="p.scopeName"></span>
+                            </div>
+                        </td>
+                        <td class="px-[18px] py-[12px] text-[var(--grayscale-90)]" x-text="p.name"></td>
+                        <td class="px-[18px] py-[12px]">
+                            <span x-show="p.locked" class="inline-block mr-[4px] px-[8px] py-[2px] rounded-full text-[11px] bg-amber-50 text-amber-700 border border-amber-200" th:text="#{settings.policy.locked.badge}">Locked</span>
+                            <span x-show="!p.enabled" class="inline-block px-[8px] py-[2px] rounded-full text-[11px] bg-red-50 text-red-700 border border-red-200" th:text="#{settings.policy.disabled.badge}">Disabled</span>
+                        </td>
+                        <td class="px-[18px] py-[12px] text-[12px] text-[var(--grayscale-70)]" x-text="gateSummary(p)"></td>
+                        <td class="px-[18px] py-[12px]">
+                            <div class="flex gap-[10px]">
+                                <button type="button" @click="openEditPolicy(p)" class="text-[12px] font-semibold text-[var(--text-accent)] hover:underline" th:text="#{common.edit}">Edit</button>
+                                <button type="button" @click="deletePolicy(p)" class="text-[12px] font-semibold text-red-600 hover:underline" th:text="#{common.delete}">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===================== WAIVERS ===================== -->
+    <div x-show="subTab==='waivers'" x-cloak class="flex flex-col gap-[20px]">
+
+        <div class="flex items-center gap-[12px]">
+            <select x-model="waiverProjectId" @change="loadExceptions()"
+                    class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white min-w-[240px]">
+                <option value="" th:text="#{settings.policy.waivers.selectProject}">Select a project</option>
+                <template x-for="opt in scopeOptions.projects" :key="opt.id">
+                    <option :value="String(opt.id)" x-text="opt.name"></option>
+                </template>
+            </select>
+            <button type="button" x-show="waiverProjectId" @click="openNewWaiver()"
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                    th:text="#{settings.policy.waivers.newException}">+ Request Waiver</button>
+        </div>
+
+        <p x-show="!waiverProjectId" x-cloak class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.policy.waivers.selectProjectHint}">Select a project above to view or request waivers.</p>
+
+        <!-- New waiver form -->
+        <div x-show="waiverFormOpen" x-cloak data-dirty-scope="policy-waiver" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[16px]">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+                <div class="flex flex-col gap-[6px] md:col-span-2">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.waivers.form.reason}">Reason</label>
+                    <textarea x-model="waiverForm.reason" rows="2" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] resize-none"></textarea>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.waivers.form.expiry}">Expires</label>
+                    <input type="date" x-model="waiverForm.expiry" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.waivers.form.targetType}">Applies to</label>
+                    <select x-model="waiverForm.targetType" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="CVE" x-text="_policyI18n.targetCve"></option>
+                        <option value="LICENSE" x-text="_policyI18n.targetLicense"></option>
+                        <option value="MALICIOUS" x-text="_policyI18n.targetMalicious"></option>
+                        <option value="ALL" x-text="_policyI18n.targetAll"></option>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]" x-show="waiverForm.targetType === 'CVE' || waiverForm.targetType === 'LICENSE'">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.waivers.form.targetId}">CVE ID or SPDX license ID</label>
+                    <input type="text" x-model="waiverForm.targetId" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+                <div class="flex flex-col gap-[6px] md:col-span-2">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.waivers.form.componentCoordinate}">Component (optional — leave blank to apply project-wide)</label>
+                    <input type="text" x-model="waiverForm.componentCoordinate" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+            </div>
+            <div class="flex gap-[10px] justify-end">
+                <button type="button" @click="waiverFormOpen = false; if (window.OswlDirty) window.OswlDirty.clear('policy-waiver')" class="px-[14px] py-[8px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-70)] border border-[var(--grayscale-20)] hover:bg-[var(--grayscale-5)]" th:text="#{common.cancel}">Cancel</button>
+                <button type="button" @click="submitWaiver()" class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[14px] py-[8px] rounded-[8px] text-white font-medium text-[13px]" th:text="#{settings.policy.waivers.submit}">Request Waiver</button>
+            </div>
+        </div>
+
+        <!-- Waivers table -->
+        <div x-show="waiverProjectId" x-cloak class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden overflow-x-auto">
+            <table class="w-full text-[13px]">
+                <thead>
+                <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.waivers.table.requester}">Requested by</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.waivers.table.reason}">Reason</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.waivers.table.target}">Target</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.waivers.table.expiry}">Expires</th>
+                    <th class="px-[18px] py-[12px] font-bold" th:text="#{settings.policy.waivers.table.status}">Status</th>
+                    <th class="px-[18px] py-[12px] font-bold w-[160px]" th:text="#{settings.policy.waivers.table.actions}">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr x-show="!exceptionsLoading && exceptions.length === 0" x-cloak>
+                    <td colspan="6" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.policy.waivers.table.empty}">No waivers requested for this project.</td>
+                </tr>
+                <tr x-show="exceptionsLoading" x-cloak>
+                    <td colspan="6" class="px-[18px] py-[28px] text-center text-[12px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</td>
+                </tr>
+                <template x-for="ex in exceptions" :key="ex.id">
+                    <tr class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                        <td class="px-[18px] py-[12px] text-[var(--grayscale-90)]" x-text="ex.requesterName"></td>
+                        <td class="px-[18px] py-[12px] text-[var(--grayscale-70)] max-w-[220px] truncate" :title="ex.reason" x-text="ex.reason"></td>
+                        <td class="px-[18px] py-[12px] text-[12px] text-[var(--grayscale-70)]" x-text="ex.targetType + (ex.targetId ? (': ' + ex.targetId) : '') + (ex.componentCoordinate ? (' · ' + ex.componentCoordinate) : '')"></td>
+                        <td class="px-[18px] py-[12px] text-[12px] text-[var(--grayscale-70)]" x-text="formatTime(ex.expiry)"></td>
+                        <td class="px-[18px] py-[12px]">
+                            <span class="inline-block px-[8px] py-[2px] rounded-full text-[11px] border"
+                                  :class="{
+                                      'bg-amber-50 text-amber-700 border-amber-200': ex.status === 'PENDING',
+                                      'bg-emerald-50 text-emerald-700 border-emerald-200': ex.status === 'APPROVED',
+                                      'bg-[var(--grayscale-5)] text-[var(--grayscale-60)] border-[var(--grayscale-20)]': ex.status === 'REVOKED' || ex.status === 'EXPIRED'
+                                  }"
+                                  x-text="ex.status"></span>
+                        </td>
+                        <td class="px-[18px] py-[12px]">
+                            <div class="flex gap-[10px]">
+                                <button type="button" x-show="ex.status === 'PENDING'" @click="approveWaiver(ex)" class="text-[12px] font-semibold text-[var(--text-accent)] hover:underline" th:text="#{settings.policy.waivers.approve}">Approve</button>
+                                <button type="button" x-show="ex.status === 'PENDING' || ex.status === 'APPROVED'" @click="revokeWaiver(ex)" class="text-[12px] font-semibold text-red-600 hover:underline" th:text="#{settings.policy.waivers.revoke}">Revoke</button>
+                            </div>
+                        </td>
+                    </tr>
+                </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===================== IMPORT / EXPORT / GITOPS ===================== -->
+    <div x-show="subTab==='sync'" x-cloak class="flex flex-col gap-[20px]">
+
+        <!-- Export -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex items-center justify-between gap-[16px]">
+            <div>
+                <h3 class="font-bold text-[15px] text-black" th:text="#{settings.policy.sync.exportAll}">Export all policies (YAML)</h3>
+            </div>
+            <button type="button" @click="exportAll()" :disabled="exportingAll"
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px] shrink-0"
+                    th:text="#{settings.policy.sync.exportAll}">Export all policies (YAML)</button>
+        </div>
+
+        <!-- Import -->
+        <div data-dirty-scope="policy-import" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[12px]">
+            <h3 class="font-bold text-[15px] text-black" th:text="#{settings.policy.sync.import.heading}">Import from YAML</h3>
+            <textarea x-model="importText" rows="8" th:placeholder="#{settings.policy.sync.import.placeholder}"
+                      class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[10px] text-[12px] font-mono resize-y"></textarea>
+            <div x-show="importResult" x-cloak class="text-[13px] text-emerald-700" x-text="importResult"></div>
+            <div class="flex justify-end">
+                <button type="button" @click="importYaml()" :disabled="importing || !importText.trim()"
+                        class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                        th:text="#{settings.policy.sync.import.submit}">Import</button>
+            </div>
+        </div>
+
+        <!-- GitOps -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[12px]">
+            <div>
+                <h3 class="font-bold text-[15px] text-black" th:text="#{settings.policy.sync.gitops.heading}">GitOps sync</h3>
+                <p class="text-[12px] text-[var(--grayscale-60)]" th:text="#{settings.policy.sync.gitops.description}">Pull .oswl/policy.yaml from a repository and apply it as the project's policy.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.sync.gitops.project}">Project</label>
+                    <select x-model="gitops.projectId" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white">
+                        <option value="" th:text="#{settings.policy.waivers.selectProject}">Select a project</option>
+                        <template x-for="opt in scopeOptions.projects" :key="opt.id">
+                            <option :value="String(opt.id)" x-text="opt.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.sync.gitops.repoUrl}">Repository URL</label>
+                    <input type="text" x-model="gitops.repositoryUrl" placeholder="https://github.com/org/repo.git" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.sync.gitops.token}">Access token (optional, for private repos)</label>
+                    <input type="password" x-model="gitops.accessToken" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <label class="text-[12px] font-semibold text-[var(--grayscale-70)]" th:text="#{settings.policy.sync.gitops.branch}">Branch (optional — defaults to the repo's default branch)</label>
+                    <input type="text" x-model="gitops.branch" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px]">
+                </div>
+            </div>
+            <div x-show="gitopsResult" x-cloak class="text-[13px]" :class="gitopsOk ? 'text-emerald-700' : 'text-red-700'" x-text="gitopsResult"></div>
+            <div class="flex justify-end">
+                <button type="button" @click="gitopsSync()" :disabled="gitopsSyncing || !gitops.projectId || !gitops.repositoryUrl"
+                        class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                        th:text="#{settings.policy.sync.gitops.submit}">Sync Now</button>
+            </div>
+        </div>
+
+        <!-- Effective policy viewer -->
+        <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[24px] py-[20px] flex flex-col gap-[12px]">
+            <h3 class="font-bold text-[15px] text-black" th:text="#{settings.policy.sync.effective.heading}">Effective policy viewer</h3>
+            <div class="flex items-center gap-[12px]">
+                <select x-model="effectiveProjectId" class="border border-[var(--grayscale-20)] rounded-[8px] px-[10px] py-[8px] text-[13px] bg-white min-w-[240px]">
+                    <option value="" th:text="#{settings.policy.sync.effective.project}">Project</option>
+                    <template x-for="opt in scopeOptions.projects" :key="opt.id">
+                        <option :value="String(opt.id)" x-text="opt.name"></option>
+                    </template>
+                </select>
+                <button type="button" @click="loadEffective()" :disabled="!effectiveProjectId || effectiveLoading"
+                        class="bg-[var(--grayscale-90)] hover:bg-black disabled:opacity-50 px-[14px] py-[9px] rounded-[8px] text-white font-medium text-[13px]"
+                        th:text="#{settings.policy.sync.effective.load}">View Effective Policy</button>
+                <a x-show="effective" x-cloak :href="'/api/policies/effective/' + effectiveProjectId + '/export'" target="_blank"
+                   class="text-[12px] font-semibold text-[var(--text-accent)] hover:underline" th:text="#{settings.policy.sync.effective.export}">Export as YAML</a>
+            </div>
+            <div x-show="effective" x-cloak class="flex flex-col gap-[10px] mt-[8px]">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-[10px] text-[12px]">
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[12px] py-[10px]">
+                        <p class="font-semibold text-[var(--grayscale-70)] mb-[4px]" th:text="#{settings.policy.sync.effective.org}">Organization</p>
+                        <p class="text-[var(--grayscale-90)]" x-text="effective && effective.organizationPolicy ? effective.organizationPolicy.name : _policyI18n.noOverride"></p>
+                    </div>
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[12px] py-[10px]">
+                        <p class="font-semibold text-[var(--grayscale-70)] mb-[4px]" th:text="#{settings.policy.sync.effective.team}">Team</p>
+                        <p class="text-[var(--grayscale-90)]" x-text="effective && effective.teamPolicy ? effective.teamPolicy.name : _policyI18n.noOverride"></p>
+                    </div>
+                    <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[12px] py-[10px]">
+                        <p class="font-semibold text-[var(--grayscale-70)] mb-[4px]" th:text="#{settings.policy.sync.effective.projectLevel}">Project</p>
+                        <p class="text-[var(--grayscale-90)]" x-text="effective && effective.projectPolicy ? effective.projectPolicy.name : _policyI18n.noOverride"></p>
+                    </div>
+                </div>
+                <div class="border border-[var(--grayscale-20)] rounded-[8px] px-[16px] py-[12px] text-[13px] text-[var(--grayscale-90)]"
+                     x-text="effective ? gateSummary(effective) : ''"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _policyI18n = {
+        newPolicy:         /*[[#{settings.policy.newPolicy}]]*/ '+ New Policy',
+        editPolicy:        /*[[#{settings.policy.editPolicy}]]*/ 'Edit Policy',
+        scopeOrganization: /*[[#{settings.policy.form.scopeType.organization}]]*/ 'Organization',
+        scopeTeam:         /*[[#{settings.policy.form.scopeType.team}]]*/ 'Team',
+        scopeProject:      /*[[#{settings.policy.form.scopeType.project}]]*/ 'Project',
+        selectOne:         /*[[#{common.selectOne}]]*/ 'Select one…',
+        inherit:           /*[[#{settings.policy.inherit}]]*/ 'Inherit from parent',
+        severityCritical:  /*[[#{settings.policy.severity.critical}]]*/ 'Critical',
+        severityHigh:      /*[[#{settings.policy.severity.high}]]*/ 'High',
+        severityMedium:    /*[[#{settings.policy.severity.medium}]]*/ 'Medium',
+        severityLow:       /*[[#{settings.policy.severity.low}]]*/ 'Low',
+        severityNone:      /*[[#{settings.policy.severity.none}]]*/ 'Never fail on severity',
+        noOverrides:       /*[[#{settings.policy.noOverrides}]]*/ 'No overrides (inherits everything)',
+        confirmDelete:     /*[[#{settings.policy.confirmDelete}]]*/ 'Delete this policy? Lower levels will fall back to the next policy up the hierarchy.',
+        saved:             /*[[#{settings.policy.saved}]]*/ 'Policy saved.',
+        deleted:           /*[[#{settings.policy.deleted}]]*/ 'Policy deleted.',
+        loadFailed:        /*[[#{settings.policy.error.loadFailed}]]*/ 'Failed to load policies.',
+        saveFailed:        /*[[#{settings.policy.error.saveFailed}]]*/ 'Failed to save policy.',
+        deleteFailed:      /*[[#{settings.policy.error.deleteFailed}]]*/ 'Failed to delete policy.',
+        scopeRequired:     /*[[#{settings.policy.error.scopeRequired}]]*/ 'Select where this policy applies.',
+        nameRequired:      /*[[#{settings.policy.error.nameRequired}]]*/ 'Name is required.',
+        targetCve:         /*[[#{settings.policy.waivers.targetType.cve}]]*/ 'A specific CVE',
+        targetLicense:     /*[[#{settings.policy.waivers.targetType.license}]]*/ 'A specific license',
+        targetMalicious:   /*[[#{settings.policy.waivers.targetType.malicious}]]*/ 'Malicious package flag',
+        targetAll:         /*[[#{settings.policy.waivers.targetType.all}]]*/ 'Everything (whole component)',
+        waiverRequested:   /*[[#{settings.policy.waivers.requested}]]*/ 'Waiver requested — pending approval.',
+        waiverApproved:    /*[[#{settings.policy.waivers.approved}]]*/ 'Waiver approved.',
+        waiverRevoked:     /*[[#{settings.policy.waivers.revoked}]]*/ 'Waiver revoked.',
+        waiverLoadFailed:  /*[[#{settings.policy.waivers.error.loadFailed}]]*/ 'Failed to load waivers.',
+        waiverRequestFailed: /*[[#{settings.policy.waivers.error.requestFailed}]]*/ 'Failed to request waiver.',
+        waiverActionFailed: /*[[#{settings.policy.waivers.error.actionFailed}]]*/ 'Failed to update waiver.',
+        noOverride:        /*[[#{settings.policy.sync.effective.noOverride}]]*/ 'No policy defined at this level.',
+        exportFailed:      /*[[#{settings.policy.sync.exportFailed}]]*/ 'Failed to export policies.',
+        importResult:      /*[[#{settings.policy.sync.import.result}]]*/ '{0} polic(y/ies) imported.',
+        importFailed:      /*[[#{settings.policy.sync.import.failed}]]*/ 'Import failed — check the YAML.',
+        gitopsSuccess:     /*[[#{settings.policy.sync.gitops.success}]]*/ 'Synced — project policy updated.',
+        gitopsFailed:      /*[[#{settings.policy.sync.gitops.failed}]]*/ 'GitOps sync failed.',
+        effectiveLoadFailed: /*[[#{settings.policy.sync.effective.loadFailed}]]*/ 'Failed to resolve the effective policy.'
+        ,scopeLoadFailed:    /*[[#{settings.policy.scopeOptions.error}]]*/ 'Could not load policy scopes. Retry to try again.'
+    };
+    </script>
+    <script th:src="@{/js/settings/policy.min.js(v='1.0.5.1')}"></script>
+</div>
+</body>
+</html>

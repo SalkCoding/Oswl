@@ -19,7 +19,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * E5: {@code oswl-vdb} — builds/verifies/inspects offline vulnerability-DB (VDB) bundles from
+ * {@code oswl-vdb} — builds/verifies/inspects offline vulnerability-DB (VDB) bundles from
  * live upstream sources (OSV, EPSS, CISA KEV, deps.dev), for import into an air-gapped OsWL
  * instance via {@code POST /api/admin/snapshot/import}.
  *
@@ -32,12 +32,12 @@ import java.util.zip.ZipInputStream;
  *
  * <p>{@code --mode delta --since <previous-bundle.zip>} diffs the newly-built full dataset
  * against a previous bundle key-by-key (see {@link PreviousBundleReader}/{@link VdbBundleWriter}):
- * only added/changed lines are written, plus a {@code "_deleted":true} marker (E2's existing
- * convention) for keys the previous bundle had that this build doesn't.
+ * only added/changed lines are written, plus a {@code "_deleted":true} marker (the existing
+ * delete-marker convention) for keys the previous bundle had that this build doesn't.
  *
  * <p>{@code --offline-sources <dir>} builds entirely without network access from a directory
  * pre-populated by an earlier {@code --cache-dir} run — see {@link HttpCache}'s offline-only mode.
- * Only covers osv/epss/kev (deps.dev has no bulk dump at all, E5.2, so it's always skipped when
+ * Only covers osv/epss/kev (deps.dev has no bulk dump at all, so it's always skipped when
  * this flag is set).
  */
 public final class VdbBuilderCli {
@@ -111,7 +111,7 @@ public final class VdbBuilderCli {
             System.err.println("[oswl-vdb] --offline-sources " + opts.offlineSources()
                     + " — no network calls will be made; only osv/epss/kev are covered");
             if (effectiveSources.contains("depsdev")) {
-                System.err.println("[oswl-vdb] WARNING: deps.dev has no bulk dump (E5.2), so it cannot be built "
+                System.err.println("[oswl-vdb] WARNING: deps.dev has no bulk dump, so it cannot be built "
                         + "offline — skipping depsdev despite --sources including it.");
                 effectiveSources = new java.util.LinkedHashSet<>(effectiveSources);
                 effectiveSources.remove("depsdev");
@@ -119,14 +119,14 @@ public final class VdbBuilderCli {
         }
         boolean anyFailure = false;
 
-        Map<String, List<com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln>> osvVulns = Map.of();
+        Map<String, List<com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln>> osvVulns = Map.of();
         LocalDate osvAsOf = LocalDate.now();
         java.util.Set<String> osvUnresolvedKeys = java.util.Set.of();
         java.util.Set<String> osvProcessedEcosystems = java.util.Set.of();
         if (effectiveSources.contains("osv")) {
             if (wanted.isEmpty()) {
                 System.err.println("[oswl-vdb] WARNING: --sources includes osv but no --wanted was given — "
-                        + "OSV bulk dumps are vuln-indexed, not component-indexed (E5.3); without a wanted-list "
+                        + "OSV bulk dumps are vuln-indexed, not component-indexed; without a wanted-list "
                         + "there is no safe way to re-index them without a combinatorial explosion. Skipping osv.");
             } else {
                 try {
@@ -147,15 +147,17 @@ public final class VdbBuilderCli {
 
         List<DepsDevSource.VersionRecord> depsdevVersions = List.of();
         List<DepsDevSource.AdvisoryRecord> depsdevAdvisories = List.of();
+        Map<String, Integer> depsdevSkippedSystems = Map.of();
         if (effectiveSources.contains("depsdev")) {
             if (wanted.isEmpty()) {
                 System.err.println("[oswl-vdb] WARNING: --sources includes depsdev but no --wanted was given — "
-                        + "deps.dev has no bulk dump (E5.2), only a per-package API. Skipping depsdev.");
+                        + "deps.dev has no bulk dump, only a per-package API. Skipping depsdev.");
             } else {
                 try {
                     DepsDevSource.Result r = new DepsDevSource(mapper).fetch(wanted);
                     depsdevVersions = r.versions();
                     depsdevAdvisories = r.advisories();
+                    depsdevSkippedSystems = r.skippedUnsupportedSystems();
                     if (r.failedVersionLookups() > 0) {
                         System.err.println("[oswl-vdb] deps.dev: " + r.failedVersionLookups() + " GetVersion lookups failed/not-found");
                     }
@@ -208,6 +210,7 @@ public final class VdbBuilderCli {
         }
 
         new VdbBundleWriter(mapper).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
+                depsdevSkippedSystems,
                 epssScores, epssAsOf, kevIds, kevAsOf, unresolvedCount, wantedListInfo, unresolvedComponents, previous);
 
         System.err.println("[oswl-vdb] Wrote " + opts.out() + " (" + (opts.isDelta() ? "delta" : "full") + " mode)"
@@ -223,7 +226,7 @@ public final class VdbBuilderCli {
 
     private record Resolution(int resolvedCount, List<WantedComponent> unresolved) {}
 
-    /** E6: a wanted component counts as "resolved" if OSV or deps.dev actually produced an answer
+    /** A wanted component counts as "resolved" if OSV or deps.dev actually produced an answer
      * for it — either found vulnerabilities, confirmed none, or resolved a deps.dev version. Only
      * genuinely unresolved (OSV range we couldn't evaluate, deps.dev lookup failed/skipped, or an
      * ecosystem OSV never even fetched a dump for) components are excluded — those are written to
@@ -237,15 +240,15 @@ public final class VdbBuilderCli {
                                       List<DepsDevSource.VersionRecord> depsdevVersions) {
         java.util.Set<String> depsdevResolvedKeys = new java.util.HashSet<>();
         for (DepsDevSource.VersionRecord v : depsdevVersions) {
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
             if (key != null) depsdevResolvedKeys.add(key);
         }
         int resolved = 0;
         List<WantedComponent> unresolved = new ArrayList<>();
         for (WantedComponent w : wanted) {
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
             if (key == null) continue;
-            String ecosystem = com.salkcoding.oswl.service.AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
+            String ecosystem = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
             boolean osvResolved = osvVulnKeys.contains(key)
                     || (osvProcessedEcosystems.contains(ecosystem) && !osvUnresolvedKeys.contains(key));
             if (osvResolved || depsdevResolvedKeys.contains(key)) {

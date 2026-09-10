@@ -17,7 +17,8 @@
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
                     <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0" th:text="#{cli.heading}">CLI Integration</h2>
                 </div>
-                <button type="button" @click="openPanel = null"
+                <button type="button" @click="openPanel = null; oswlReleaseFocus()"
+                        th:aria-label="#{common.close}"
                         class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
                     <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                 </button>
@@ -137,7 +138,7 @@
 
     <!-- Footer -->
     <div class="bg-white flex items-center justify-center py-[48px] w-full mt-auto shrink-0 border-t border-[var(--grayscale-15)]">
-        <button type="button" @click="openPanel = null"
+        <button type="button" @click="openPanel = null; oswlReleaseFocus()"
                 class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] rounded-[8px] h-[38px] px-[24px] flex items-center justify-center text-[14px] font-bold text-[var(--grayscale-60)] tracking-[-0.14px] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-80)] transition-colors active:scale-[0.98] focus:outline-none"
                 th:text="#{common.close}">
         </button>

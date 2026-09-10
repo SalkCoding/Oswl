@@ -1,12 +1,12 @@
 package com.salkcoding.oswl.web.interceptor;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ApiKey;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
 import com.salkcoding.oswl.exception.TooManyRequestsException;
 import com.salkcoding.oswl.exception.UnauthorizedException;
 import com.salkcoding.oswl.security.ClientIpResolver;
-import com.salkcoding.oswl.service.ApiKeyService;
-import com.salkcoding.oswl.service.ScanApiCredentialThrottleService;
+import com.salkcoding.oswl.service.apikey.ApiKeyService;
+import com.salkcoding.oswl.service.ingest.ScanApiCredentialThrottleService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;

@@ -1,6 +1,6 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,11 +43,11 @@ public class AnthropicClient implements AiAnalysisClient {
     private final RestTemplate probeTemplate = AiRestTemplates.forProbe();
 
     /**
-     * F4: mark the (per-provider fixed, C4-stable) system prompt as an ephemeral cache
-     * breakpoint so repeat calls within Anthropic's cache TTL are billed as cache reads instead
-     * of full input tokens. Below Anthropic's minimum cacheable block size the marker is simply
-     * inert (no error, no charge) — see the F4 section of PERFORMANCE-AND-OFFLINE-PLAN.md for
-     * why today's short system prompt may not clear that threshold on its own.
+     * Mark the system prompt — fixed per provider and identical across repeat calls — as an
+     * ephemeral cache breakpoint so repeat calls within Anthropic's cache TTL are billed as cache
+     * reads instead of full input tokens. Below Anthropic's minimum cacheable block size the
+     * marker is simply inert (no error, no charge); today's short system prompt may not clear
+     * that threshold on its own.
      */
     @Value("${oswl.ai.anthropic.prompt-caching-enabled:true}")
     private boolean promptCachingEnabled;
@@ -129,7 +129,7 @@ public class AnthropicClient implements AiAnalysisClient {
         headers.set("anthropic-version", ANTHROPIC_VERSION);
 
         String systemPrompt = promptTemplates.getSystemPrompt(Objects.requireNonNull(setting).getProvider());
-        // F4: system as a plain string is billed as full input tokens on every call. As a block
+        // system as a plain string is billed as full input tokens on every call. As a block
         // array with cache_control, an identical block within Anthropic's cache TTL is billed
         // as a (cheaper) cache read instead — the block is byte-identical across calls for a
         // given provider (getSystemPrompt returns a fixed per-provider string), so it is always

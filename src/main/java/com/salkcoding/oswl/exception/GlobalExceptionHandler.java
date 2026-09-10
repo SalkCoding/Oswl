@@ -50,8 +50,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
     }
 
-    @ExceptionHandler(AccessDeniedException.class)
-    public Object handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+    @ExceptionHandler({AccessDeniedException.class, ForbiddenException.class})
+    public Object handleAccessDenied(RuntimeException ex, HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = "anonymous";
         String displayName = "-";
@@ -65,11 +65,15 @@ public class GlobalExceptionHandler {
         log.warn("[Security] Access denied — user='{}' name='{}' ip='{}' {} {}",
                 email, displayName, ip, request.getMethod(), request.getRequestURI());
         String accept = request.getHeader("Accept");
-        if (accept != null && accept.contains("application/json")) {
+        boolean apiRequest = request.getRequestURI() != null
+                && request.getRequestURI().startsWith(request.getContextPath() + "/api/");
+        if (apiRequest || (accept != null && accept.contains("application/json"))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Access Denied", "status", 403));
         }
-        return new ModelAndView("error/403");
+        ModelAndView view = new ModelAndView("error/403");
+        view.setStatus(HttpStatus.FORBIDDEN);
+        return view;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

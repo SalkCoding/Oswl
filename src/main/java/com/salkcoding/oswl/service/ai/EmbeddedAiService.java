@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiPreferences;
-import com.salkcoding.oswl.repository.AiPreferencesRepository;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
+import com.salkcoding.oswl.repository.ai.AiPreferencesRepository;
 import jakarta.annotation.PreDestroy;
 import lombok.Builder;
 import lombok.Value;
@@ -38,8 +38,9 @@ import java.util.stream.Stream;
  * Expected layout in {@code oswl.ai.embedded.dir} (default {@code ./embedded-ai}):
  * <pre>
  *   embedded-ai/
- *     llama-server(.exe)     — llama.cpp server binary (or on PATH)
- *     qwen3-1.7b-q4_k_m.gguf — preferred model
+ *     llama/llama-server(.exe) — runtime and its companion libraries
+ *     model/Qwen/Qwen3.5-2B-Q4_K_M.gguf — CPU default
+ *     model/Gemma/gemma-4-E2B-it-Q4_K_M.gguf — optional model
  * </pre>
  * Any other {@code .gguf} file dropped in this directory is picked up too — see
  * {@link #MODEL_PREFERENCE}.
@@ -56,16 +57,15 @@ public class EmbeddedAiService {
      * candidate by {@code startCandidates()}/{@code pickPreferredModel()}, this list only
      * orders preference among what's present.
      */
-    private static final List<String> MODEL_PREFERENCE = List.of("qwen3");
+    private static final List<String> MODEL_PREFERENCE = List.of("qwen3.5-2b-q4_k_m", "qwen3", "gemma-4-e2b-it");
 
     /**
      * Default model auto-fetched when the sidecar directory has no .gguf at all, so a fresh
      * on-premise install works out of the box with just {@code java -jar app.jar} — no
      * separate download step or build tooling required. Apache 2.0 licensed (see
-     * THIRD_PARTY_LICENSES.md), so bundling/auto-fetching it carries no extra redistribution
-     * obligation.
+     * THIRD_PARTY_LICENSES.md). Redistributors must retain the license and attribution.
      */
-    private static final String DEFAULT_MODEL_FILE = "qwen3-1.7b-q4_k_m.gguf";
+    private static final String DEFAULT_MODEL_FILE = "Qwen3.5-2B-Q4_K_M.gguf";
 
     private final String dirPath;
     private final int port;
@@ -119,16 +119,16 @@ public class EmbeddedAiService {
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.dir:embedded-ai}") String dirPath,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.port:11435}") int port,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.context-size:8192}") int contextSize,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.gpu-layers:-1}") int gpuLayers,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.threads:0}") int threads,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.parallel-slots:4}") int parallelSlots,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.gpu-layers:0}") int gpuLayers,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.threads:1}") int threads,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.parallel-slots:1}") int parallelSlots,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.flash-attn:true}") boolean flashAttn,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.cache-reuse:256}") int cacheReuse,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.extra-args:}") String extraArgs,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.startup-timeout-seconds:120}") int startupTimeoutSeconds,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-url:https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf}") String defaultModelUrl,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-sha256:d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5}") String defaultModelSha256,
-            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-size-bytes:1282439264}") long defaultModelSizeBytes,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-url:https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf}") String defaultModelUrl,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-sha256:aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223}") String defaultModelSha256,
+            @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.default-model-size-bytes:1280835840}") long defaultModelSizeBytes,
             @org.springframework.beans.factory.annotation.Value("${oswl.ai.embedded.fallback-model-url:}") String fallbackModelUrl,
             @org.springframework.beans.factory.annotation.Value("${oswl.airgapped.enabled:false}") boolean airgapped,
             AiPreferencesRepository preferencesRepository) {
@@ -169,7 +169,7 @@ public class EmbeddedAiService {
         List<String> availableModels;
         String baseUrl;
         String modelsDir;
-        /** True while the default Qwen3 model is being fetched (see {@link #downloadDefaultModel()}). */
+        /** True while the default Qwen3.5 model is being fetched (see {@link #downloadDefaultModel()}). */
         boolean downloading;
         long downloadedBytes;
         long downloadTotalBytes;
@@ -184,7 +184,7 @@ public class EmbeddedAiService {
         return "http://127.0.0.1:" + port + "/v1";
     }
 
-    /** Model name reported to the OpenAI-compatible API (file stem, e.g. {@code qwen3-1.7b-q4_k_m}). */
+    /** Model name reported to the OpenAI-compatible API (file stem, e.g. {@code Qwen3.5-2B-Q4_K_M}). */
     public String modelName() {
         String file = activeModelFile != null ? activeModelFile
                 : pickPreferredModel().map(p -> p.getFileName().toString()).orElse("embedded");
@@ -262,13 +262,13 @@ public class EmbeddedAiService {
         stopRequested = false;
 
         Path binary = findServerBinary().orElseThrow(() -> new IllegalStateException(
-                "llama-server binary not found. Place llama-server(.exe) in " + resolveDir().toAbsolutePath()
+                "llama-server binary not found. Place llama-server(.exe) in " + resolveDir().resolve("llama").toAbsolutePath()
                         + " or on PATH (download: https://github.com/ggml-org/llama.cpp/releases)."));
         List<Path> candidates = startCandidates(requestedModel);
         if (candidates.isEmpty()) {
             throw new IllegalStateException(
                     "No .gguf model found in " + resolveDir().toAbsolutePath()
-                            + ". Expected qwen3-1.7b-q4_k_m.gguf (or any other .gguf file).");
+                            + "/model. Expected " + DEFAULT_MODEL_FILE + " (or another compatible .gguf file).");
         }
 
         lastError = null;
@@ -345,7 +345,7 @@ public class EmbeddedAiService {
     }
 
     /**
-     * Downloads the default Qwen3 model into the sidecar directory, verifying its SHA256
+     * Downloads the default Qwen3.5 model into model/Qwen, verifying its SHA256
      * checksum before making it visible under its final name. Deliberately <b>not</b>
      * {@code synchronized} — a 1.2GB download can take minutes, and {@link #status()} (also
      * synchronized) must keep responding to polling for the {@code downloading}/progress
@@ -366,12 +366,18 @@ public class EmbeddedAiService {
                     + "Place a .gguf model file in " + resolveDir().toAbsolutePath() + " manually.";
             throw new IllegalStateException(lastError);
         }
-        if (downloading) return;
-        downloading = true;
-        downloadedBytes = 0;
-        downloadTotalBytes = defaultModelSizeBytes;
+        synchronized (this) {
+            if (downloading) return;
+            downloading = true;
+            downloadedBytes = 0;
+            downloadTotalBytes = defaultModelSizeBytes;
+            lastError = null;
+        }
         try {
             attemptDownloadWithFallback();
+        } catch (RuntimeException e) {
+            lastError = e.getMessage();
+            throw e;
         } finally {
             downloading = false;
         }
@@ -386,7 +392,7 @@ public class EmbeddedAiService {
      * byte-identical copy re-hosted elsewhere.
      */
     private void attemptDownloadWithFallback() {
-        Path dir = resolveDir();
+        Path dir = resolveDir().resolve("model").resolve("Qwen");
         Path dest = dir.resolve(DEFAULT_MODEL_FILE);
         Path partFile = dir.resolve(DEFAULT_MODEL_FILE + ".part");
         boolean hasFallback = fallbackModelUrl != null && !fallbackModelUrl.isBlank()
@@ -394,7 +400,7 @@ public class EmbeddedAiService {
         try {
             attemptDownload(defaultModelUrl, dir, dest, partFile);
         } catch (IllegalStateException primaryFailure) {
-            if (!hasFallback) throw primaryFailure;
+            if (!hasFallback || Thread.currentThread().isInterrupted()) throw primaryFailure;
             log.warn("[EmbeddedAI] Default model download from primary URL failed ({}) — retrying fallback {}",
                     primaryFailure.getMessage(), fallbackModelUrl);
             downloadedBytes = 0;
@@ -419,6 +425,7 @@ public class EmbeddedAiService {
                     .build();
             HttpResponse<InputStream> response = downloadClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() != 200) {
+                response.body().close();
                 throw new IllegalStateException(
                         "Model download failed: HTTP " + response.statusCode() + " from " + url);
             }
@@ -431,13 +438,16 @@ public class EmbeddedAiService {
                 byte[] buffer = new byte[64 * 1024];
                 int read;
                 while ((read = in.read(buffer)) != -1) {
+                    if (Thread.currentThread().isInterrupted()) throw new InterruptedException("Model download interrupted");
+                    if (downloadedBytes + read > defaultModelSizeBytes)
+                        throw new IOException("Model download exceeds the expected size");
                     out.write(buffer, 0, read);
                     downloadedBytes += read;
                 }
             }
 
             String actualSha256 = HexFormat.of().formatHex(digest.digest());
-            if (!actualSha256.equalsIgnoreCase(defaultModelSha256)) {
+            if (downloadedBytes != defaultModelSizeBytes || !actualSha256.equalsIgnoreCase(defaultModelSha256)) {
                 Files.deleteIfExists(partFile);
                 throw new IllegalStateException("Downloaded model failed checksum verification "
                         + "(expected " + defaultModelSha256 + ", got " + actualSha256 + ") — deleted, please retry.");
@@ -478,7 +488,7 @@ public class EmbeddedAiService {
      * Launches llama-server for one model candidate. Binary, model and log paths are
      * absolute-normalized because the child process CWD is the sidecar directory.
      *
-     * @param useGpu when {@code false}, {@code -ngl} is omitted regardless of the configured
+     * @param useGpu when {@code false}, {@code -ngl 0} is explicit regardless of the configured
      *               {@code gpu-layers} — used for the CPU-only retry after a GPU start failure
      */
     private void launch(Path binary, Path model, boolean useGpu) throws IOException {
@@ -500,22 +510,21 @@ public class EmbeddedAiService {
         cmd.add("0");
         cmd.add("--no-webui");
 
-        if (useGpu && gpuLayers != 0) {
-            cmd.add("-ngl");
-            cmd.add(gpuLayers < 0 ? "999" : String.valueOf(gpuLayers));
-        }
+        cmd.add("-ngl");
+        cmd.add(useGpu ? (gpuLayers < 0 ? "999" : String.valueOf(gpuLayers)) : "0");
         if (threads > 0) {
             cmd.add("-t");
             cmd.add(String.valueOf(threads));
         }
+        cmd.add("--parallel");
+        cmd.add(String.valueOf(Math.max(1, parallelSlots)));
         if (parallelSlots > 1) {
-            cmd.add("--parallel");
-            cmd.add(String.valueOf(parallelSlots));
             cmd.add("--cont-batching");
             logSlotContextWarningIfNeeded();
         }
         if (flashAttn) {
             cmd.add("-fa");
+            cmd.add("on");
         }
         if (cacheReuse > 0) {
             cmd.add("--cache-reuse");
@@ -529,6 +538,9 @@ public class EmbeddedAiService {
                 .directory(resolveDir().toFile())
                 .redirectErrorStream(true)
                 .redirectOutput(logFile.toFile());
+        // Use the runtime's environment option so Windows argument parsing cannot strip
+        // JSON quotes. A zero reasoning budget alone is insufficient for these templates.
+        pb.environment().put("LLAMA_ARG_CHAT_TEMPLATE_KWARGS", "{\"enable_thinking\":false}");
         process = pb.start();
         log.info("[EmbeddedAI] Started llama-server pid={} model={} port={} gpu={} ngl={} parallel={} threads={} flashAttn={} cacheReuse={}",
                 process.pid(), model.getFileName(), port, useGpu,
@@ -646,7 +658,8 @@ public class EmbeddedAiService {
     /** Model shown in the UI: persisted preference when set, otherwise the first preferred .gguf. */
     private String preferredModelFile() {
         String persisted = persistedEmbeddedModel();
-        if (persisted != null) return persisted;
+        if (persisted != null && findModels().stream()
+                .anyMatch(p -> p.getFileName().toString().equalsIgnoreCase(persisted))) return persisted;
         return pickPreferredModel().map(p -> p.getFileName().toString()).orElse(null);
     }
 
@@ -697,7 +710,8 @@ public class EmbeddedAiService {
     private Optional<Path> findServerBinary() {
         String exe = isWindows() ? "llama-server.exe" : "llama-server";
         Path dir = resolveDir();
-        for (Path candidate : List.of(dir.resolve(exe), dir.resolve("bin").resolve(exe))) {
+        for (Path candidate : List.of(dir.resolve("llama").resolve(exe),
+                dir.resolve("llama").resolve("bin").resolve(exe), dir.resolve(exe), dir.resolve("bin").resolve(exe))) {
             if (Files.isRegularFile(candidate)) return Optional.of(candidate);
         }
         // PATH lookup
@@ -715,14 +729,38 @@ public class EmbeddedAiService {
     private List<Path> findModels() {
         Path dir = resolveDir();
         if (!Files.isDirectory(dir)) return List.of();
-        try (Stream<Path> files = Files.list(dir)) {
-            return files
-                    .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".gguf"))
-                    .sorted()
-                    .toList();
+        try {
+            // Scan only the managed model tree and the legacy flat folder. Runtime assets,
+            // archived weights and multimodal projectors must never become model choices.
+            List<Path> found = new ArrayList<>();
+            Path modelDir = dir.resolve("model");
+            if (Files.isDirectory(modelDir)) {
+                try (Stream<Path> files = Files.walk(modelDir, 2)) {
+                    files.filter(p -> isChatModel(dir, p)).sorted().forEach(found::add);
+                }
+            }
+            try (Stream<Path> files = Files.list(dir)) {
+                files.filter(p -> isChatModel(dir, p)).sorted().forEach(found::add);
+            }
+            // The public API uses file names. Prefer the managed tree for duplicate names,
+            // retaining compatibility with previously saved flat-folder selections.
+            java.util.Map<String, Path> unique = new java.util.LinkedHashMap<>();
+            for (Path file : found) unique.putIfAbsent(file.getFileName().toString().toLowerCase(Locale.ROOT), file);
+            return List.copyOf(unique.values());
         } catch (IOException e) {
             log.warn("[EmbeddedAI] Could not list models in {}: {}", dir, e.getMessage());
             return List.of();
+        }
+    }
+
+    private boolean isChatModel(Path root, Path file) {
+        String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!Files.isRegularFile(file) || !name.endsWith(".gguf")
+                || name.startsWith("mmproj") || name.startsWith("mtp-") || name.startsWith("imatrix")) return false;
+        try {
+            return file.toRealPath().startsWith(root.toRealPath());
+        } catch (IOException e) {
+            return false;
         }
     }
 

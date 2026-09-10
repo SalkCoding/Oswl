@@ -89,6 +89,8 @@ ScanIngestService → CVE·라이선스 비동기 보강 (OSV / deps.dev)
 
 ---
 
+매니페스트 압축 파일의 수집 범위는 `/scripts/manifest-rules.json`을 따릅니다. 의존성 매니페스트 외에 빌드 설정, 래퍼 파일, `buildSrc`의 Java/Kotlin 파일도 포함될 수 있으므로 전송 전에 수집 규칙을 확인하세요.
+
 ## 사전 요구사항
 
 1. OsWL에 등록된 **프로젝트**
@@ -108,12 +110,12 @@ ScanIngestService → CVE·라이선스 비동기 보강 (OSV / deps.dev)
 | `POST` | `/api/scan` | API key + 비밀번호 | 스캔 제출·보강 |
 | `GET` | `/api/scan/{scanId}/status` | 세션 | 스캔 상태 폴링 (UI) |
 | `POST` | `/api/scan/gate` | API 키 | **v1.0.4** — PR / CI 보안 게이트, `exitCode`가 담긴 판정 반환 |
-| `GET` | `/api/projects/{projectId}/sbom` | 세션 / 키 | **v1.0.4** — CycloneDX 1.6 SBOM |
-| `GET` | `/api/projects/{projectId}/vex` | 세션 / 키 | **v1.0.4** — CycloneDX VEX |
-| `GET` | `/api/projects/{projectId}/sarif` | 세션 / 키 | **v1.0.4** — SARIF 2.1.0 |
+| `GET` | `/api/projects/{projectId}/sbom` | 세션 | **v1.0.4** — CycloneDX 1.6 SBOM |
+| `GET` | `/api/projects/{projectId}/vex` | 세션 | **v1.0.4** — CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | 세션 | **v1.0.4** — SARIF 2.1.0 |
 | `POST` | `/api/sbom/import` | 세션 | **v1.0.4** — 외부 CycloneDX 파일 가져오기 |
 
-> CLI 엔드포인트는 `Authorization: Bearer` 헤더만으로 인증하며, 세션 쿠키나 CSRF 토큰은 필요 없습니다. `POST /api/scan`, `POST /api/scan/parse`, `GET /api/scan/ping`은 브라우저 CSRF 검사에서 제외되고, 그 외 경로는 기존 CSRF 보호가 유지됩니다. [Scan API 보안](Scan-Api-Security.md) 참고.
+> CLI 요청은 `Authorization: Bearer`에 프로젝트 API 키를 전달합니다. `POST /api/scan`은 제출자의 이메일·비밀번호·권한·프로젝트 접근 권한도 확인합니다. `POST /api/scan`, `POST /api/scan/parse`, `POST /api/scan/gate`에는 브라우저 세션이나 CSRF 토큰이 필요하지 않습니다. `GET /api/scan/ping`은 키를 검증합니다. [스캔 API 보안](Scan-Api-Security.md)을 참고하세요.
 
 ---
 
@@ -127,9 +129,9 @@ POST /api/projects/{projectId}/keys
 
 UI: 프로젝트 → **설정(⚙)** → **CLI** → **키 생성**
 
-### 관리자 전역 키
+### 관리자의 키 관리
 
-**설정 → 관리자 → CLI 키** — [API 레퍼런스](API-Reference.md) 참고
+관리자는 여러 프로젝트의 CLI 키를 조회·폐기하고 지정한 `projectId`에 키를 발급할 수 있습니다. 스캔 키의 범위는 프로젝트 단위입니다. 별도 SCIM 토큰은 스캔 제출에 사용할 수 없습니다.
 
 ---
 
@@ -238,8 +240,14 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 | `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
 | `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
 | `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+| `onlyReachable` | `OSWL_GATE_ONLY_REACHABLE` | `false` |
+| `failOnSecrets` | `OSWL_GATE_FAIL_ON_SECRETS` | `false` |
 
-`onlyNew`는 직전 완료 스캔을 베이스라인으로 비교하므로 기존 부채가 머지를 막지 않습니다. 요청에 GitHub 대상을 포함하면 판정이 Check Run과 PR 코멘트로도 게시됩니다.
+`onlyNew`는 기준 스캔에 이미 존재하던 CVE·라이선스 문제를 제외합니다. 통과를 보장하지는 않습니다. 악성 패키지, 활성화한 시크릿 탐지 등 다른 적용 규칙으로 실패할 수 있습니다. `onlyReachable`은 지원되는 바이트코드 또는 소스 참조 분석 결과가 `REACHABLE`인 컴포넌트의 CVE만 평가합니다. 활성화하면 `UNKNOWN`인 CVE는 제외하지만, 참조가 확인되지 않았다는 사실이 악용 불가능함을 뜻하지는 않습니다. 라이선스와 악성 패키지 검사는 이 필터와 별개입니다. 분석 범위를 검토한 뒤 활성화하세요. GitHub 대상을 설정하면 Check Run과 PR 댓글로 결과를 게시할 수 있습니다.
+
+확정 악성 패키지(OSV `MAL-` 어드바이저리)는 위의 모든 임계값 및 `onlyNew`/`onlyReachable`과 무관하게 항상 차단됩니다 — 유일한 해제 방법은 승인된 정책 예외(waiver, **v1.0.5**, `/api/policies/exceptions` 참고)뿐입니다.
+
+`failOnSecrets`(**v1.0.5**)는 Quick Import 클론 스캔에서 CRITICAL/HIGH 등급 시크릿 탐지(정규식 + 엔트로피 규칙 — AWS 키, GitHub/GitLab/Slack/npm 토큰, 임베디드 프라이빗 키 블록 등)가 하나라도 있으면 차단합니다. 위의 다른 임계값과 마찬가지로 요청 오버라이드 → 조직/팀/프로젝트 정책 계층 → 인스턴스 기본값 순으로 해석됩니다.
 
 ---
 

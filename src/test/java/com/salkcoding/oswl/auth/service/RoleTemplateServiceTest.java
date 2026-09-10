@@ -5,6 +5,7 @@ import com.salkcoding.oswl.auth.dto.RoleTemplateRequest;
 import com.salkcoding.oswl.auth.entity.RoleTemplate;
 import com.salkcoding.oswl.auth.enums.Permission;
 import com.salkcoding.oswl.auth.repository.RoleTemplateRepository;
+import com.salkcoding.oswl.service.config.CacheInvalidationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,7 @@ class RoleTemplateServiceTest {
 
     @Mock RoleTemplateRepository roleTemplateRepository;
     @Mock AuditLogService        auditLogService;
+    @Mock CacheInvalidationService cacheInvalidationService;
 
     @InjectMocks RoleTemplateService roleTemplateService;
 

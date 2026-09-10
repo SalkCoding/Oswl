@@ -8,9 +8,8 @@ plugins {
 }
 
 group = 'com.salkcoding'
-// x-release-please-start-version
-version = '1.0.4'
-// x-release-please-end
+// Release tags and the production JAR use this exact version, including hotfix revisions.
+version = '1.0.5.1'
 
 java {
 	toolchain {
@@ -31,13 +30,42 @@ sourceSets {
 		compileClasspath += sourceSets.local.output
 		runtimeClasspath += sourceSets.local.output
 	}
+	// Playwright-driven UI/accessibility tests against a live app instance.
+	// Deliberately separate from `test`: needs a browser download (hundreds of MB) and a real
+	// Spring Boot boot, so it must never run as part of the default `./gradlew test`/`check`.
+	uiTest {
+		java {
+			srcDir 'src/uiTest/java'
+		}
+		// resources default to src/uiTest/resources by convention — no extra srcDir needed.
+		compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output + sourceSets.local.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.main.output + sourceSets.local.output
+	}
+}
+
+configurations {
+	uiTestImplementation.extendsFrom testImplementation
+	uiTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 repositories {
 	mavenCentral()
+	// Spring Security SAML 7+ pulls OpenSAML 5.x from the Shibboleth repository.
+	maven { url 'https://build.shibboleth.net/maven/releases/' }
 }
 
 dependencies {
+    implementation 'com.google.re2j:re2j:1.8'
+    implementation('nl.martijndwars:web-push:5.1.2') {
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
+        exclude group: 'org.apache.httpcomponents', module: 'httpasyncclient'
+        exclude group: 'org.asynchttpclient', module: 'async-http-client'
+    }
+    implementation 'org.bouncycastle:bcprov-jdk18on'
+    implementation 'org.bitbucket.b_c:jose4j:0.9.6'
+	// Bytecode call-graph analysis
+	implementation 'org.ow2.asm:asm:9.7'
+
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
@@ -45,6 +73,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+	// In-memory query cache for read-heavy configuration data
+	implementation 'com.github.ben-manes.caffeine:caffeine'
 	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
@@ -54,13 +85,22 @@ dependencies {
 	// CycloneDX SBOM export/import (spec 1.6)
 	implementation 'org.cyclonedx:cyclonedx-core-java:13.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	// Prometheus scrape endpoint (/actuator/prometheus) — roadmap #13 ops foundation
+	// Prometheus scrape endpoint (/actuator/prometheus)
 	implementation 'io.micrometer:micrometer-registry-prometheus'
 	// OIDC SSO (Okta / Entra) — optional, activated only when a provider is configured
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
-	// Flyway DB migrations (prod-profile gated) — roadmap #13
+	// SAML 2.0 SSO (Okta / Entra ID / AD FS) — optional, activated only when IdP metadata is configured
+	implementation 'org.springframework.security:spring-security-saml2-service-provider'
+	// Flyway DB migrations (prod-profile gated)
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	// Horizontal scaling / HA: cluster-wide HTTP sessions so a multi-instance
+	// deployment behind a load balancer doesn't drop auth on failover.
+	implementation 'org.springframework.session:spring-session-jdbc'
+	// Cluster-wide dedup for @Scheduled jobs — without this, 2 instances would
+	// each run the nightly monitoring/defer-expiry/trash-cleanup jobs independently.
+	implementation 'net.javacrumbs.shedlock:shedlock-spring:7.7.0'
+	implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.7.0'
 
     compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
@@ -75,6 +115,14 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	// Headless-browser UI/accessibility verification. Java-native: no
+	// package.json/npm needed, same "standalone binary, self-managed" spirit as the Tailwind CLI
+	// and esbuild downloads below — Playwright's own CLI fetches its browser binaries on demand.
+	uiTestImplementation 'com.microsoft.playwright:playwright:1.52.0'
+	uiTestImplementation 'com.deque.html.axe-core:playwright:4.10.1'
+	uiTestCompileOnly 'org.projectlombok:lombok'
+	uiTestAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -99,7 +147,7 @@ tasks.named('bootRun') {
 	dependsOn compileLocalJava
 	doFirst {
 		def os = org.gradle.internal.os.OperatingSystem.current()
-		def script = os.isWindows() ? file('scripts/check-java.ps1') : file('scripts/check-java.sh')
+		def script = os.isWindows() ? file('scripts/dev/check-java.ps1') : file('scripts/dev/check-java.sh')
 		if (script.exists()) {
 			def cmd = os.isWindows()
 					? ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script.absolutePath]
@@ -135,15 +183,24 @@ tasks.named('bootJar') {
 tasks.register('verifyProdJar') {
 	group = 'verification'
 	description = 'Fails if local-only classes (e.g. TestDataController) are packaged in bootJar.'
-	dependsOn bootJar
+	dependsOn bootJar, compileLocalJava
 	doLast {
-		def jarFile = tasks.named('bootJar').get().archiveFile.get().asFile
-		def forbidden = ['com/salkcoding/oswl/controller/TestDataController.class']
+		def jarFile = providers.gradleProperty('verifyJar').isPresent()
+				? file(providers.gradleProperty('verifyJar').get())
+				: tasks.named('bootJar').get().archiveFile.get().asFile
+		def forbidden = new HashSet<String>()
+		sourceSets.local.output.classesDirs.files.each { root ->
+			fileTree(root).matching { include '**/*.class' }.files.each { compiled ->
+				forbidden.add(root.toPath().relativize(compiled.toPath()).toString().replace('\\', '/'))
+			}
+		}
+		if (forbidden.isEmpty()) throw new GradleException('No compiled local classes to verify.')
 		jarFile.withInputStream { input ->
 			def zip = new ZipInputStream(input)
 			def entry
 			while ((entry = zip.nextEntry) != null) {
-				if (forbidden.any { entry.name == it }) {
+				def classPath = entry.name.replaceFirst('^BOOT-INF/classes/', '')
+				if (forbidden.contains(classPath)) {
 					throw new GradleException("Production JAR must not contain ${entry.name}. Use src/local/java and bootRun classpath only.")
 				}
 			}
@@ -158,6 +215,38 @@ tasks.named('compileTestJava') {
 
 tasks.named('test') {
 	dependsOn compileLocalJava
+}
+
+tasks.named('compileUiTestJava') {
+	dependsOn compileLocalJava
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Playwright + axe-core UI verification
+//
+// `./gradlew uiTest` boots the real app (@SpringBootTest RANDOM_PORT) and drives it with a
+// headless Chromium via Playwright. Kept out of `test`/`check` on purpose — see sourceSets.uiTest
+// above. In an offline/air-gapped build environment, pre-populate the browser cache and point
+// PLAYWRIGHT_BROWSERS_PATH at it instead of relying on installPlaywrightBrowsers' download.
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.register('installPlaywrightBrowsers', JavaExec) {
+	description = 'Downloads the Playwright Chromium browser binary into the local Playwright cache (cached; run once or after a Playwright version bump).'
+	group = 'verification'
+	classpath = configurations.uiTestRuntimeClasspath
+	mainClass = 'com.microsoft.playwright.CLI'
+	args = ['install', 'chromium']
+}
+
+tasks.register('uiTest', Test) {
+	description = 'Runs Playwright-driven UI and axe-core accessibility tests against a live app instance. Not part of test/check — run explicitly.'
+	group = 'verification'
+	dependsOn 'installPlaywrightBrowsers'
+	testClassesDirs = sourceSets.uiTest.output.classesDirs
+	classpath = sourceSets.uiTest.runtimeClasspath
+	useJUnitPlatform()
+	shouldRunAfter test
+	// Isolated URL rewrites let pipeline fixtures use their loopback Git server.
+	environment 'GIT_CONFIG_GLOBAL', layout.buildDirectory.file('uitest/git-config').get().asFile.absolutePath
 }
 
 jacoco {
@@ -185,6 +274,7 @@ jacocoTestReport {
 				'**/web/interceptor/**',
 				'**/aop/**',
 				'**/scheduler/**',
+				'**/logging/**',
 				'**/domain/**',
 				'**/spec/**',
 			])
@@ -252,7 +342,9 @@ tasks.register('buildTailwindCss', Exec) {
 	inputs.file(inputCss)
 	inputs.file(configJs)
 	inputs.dir('src/main/resources/templates')
-	inputs.dir('src/main/resources/static/js')
+	// Sources only — the generated .min.js files (minifyJs) mirror them and would
+	// otherwise overlap with this task's input directory.
+	inputs.files(fileTree('src/main/resources/static/js') { exclude '**/*.min.js' })
 	outputs.file(outCss)
 
 	doFirst {
@@ -310,7 +402,107 @@ tasks.register('downloadVendorJs') {
 processResources.dependsOn 'downloadVendorJs'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// H2/H3: OSS notices / THIRD_PARTY_LICENSES.md version single-sourcing.
+// Custom JS minification
+//
+// Minifies src/main/resources/static/js/**/*.js (vendor/ excluded — vendor files
+// already ship minified from their CDNs) to <name>.min.js next to each source.
+// Templates reference the .min.js files; the unminified sources stay the editable
+// originals. The generated .min.js files are gitignored (build output, same as
+// tailwind.css).
+//
+// Uses the esbuild standalone binary (no Node.js required), downloaded from the
+// npm registry to build/tools/ on first build — same pattern as the Tailwind CLI.
+// ─────────────────────────────────────────────────────────────────────────────
+ext {
+	esbuildVersion = '0.28.1'
+	esbuildToolDir = layout.buildDirectory.dir("tools/esbuild-${esbuildVersion}").get().asFile
+}
+
+static def esbuildPackageName() {
+	def os = System.getProperty('os.name').toLowerCase()
+	def arch = System.getProperty('os.arch').toLowerCase()
+	def aarch = (arch == 'aarch64' || arch == 'arm64')
+	if (os.contains('win')) {
+		return aarch ? 'win32-arm64' : 'win32-x64'
+	} else if (os.contains('mac')) {
+		return aarch ? 'darwin-arm64' : 'darwin-x64'
+	} else {
+		return aarch ? 'linux-arm64' : 'linux-x64'
+	}
+}
+
+static def esbuildBinaryFile(File toolDir) {
+	// The npm tgz extracts under package/; the binary is package/esbuild.exe on
+	// Windows and package/bin/esbuild elsewhere.
+	return System.getProperty('os.name').toLowerCase().contains('win')
+		? new File(toolDir, 'unpacked/package/esbuild.exe')
+		: new File(toolDir, 'unpacked/package/bin/esbuild')
+}
+
+tasks.register('downloadEsbuild') {
+	description = 'Downloads the esbuild standalone binary from the npm registry (cached).'
+	group = 'frontend'
+	def pkg = esbuildPackageName()
+	def tgz = new File(esbuildToolDir, "${pkg}.tgz")
+	def marker = esbuildBinaryFile(esbuildToolDir)
+	outputs.file(marker)
+	doLast {
+		if (!marker.exists()) {
+			esbuildToolDir.mkdirs()
+			def url = "https://registry.npmjs.org/@esbuild/${pkg}/-/${pkg}-${esbuildVersion}.tgz"
+			logger.lifecycle("[esbuild] downloading ${url}")
+			URI.create(url).toURL().withInputStream { i -> tgz.withOutputStream { o -> o << i } }
+			def unpacked = new File(esbuildToolDir, 'unpacked')
+			unpacked.mkdirs()
+			project.copy {
+				from(tarTree(resources.gzip(tgz)))
+				into(unpacked)
+			}
+			if (!System.getProperty('os.name').toLowerCase().contains('win')) {
+				marker.setExecutable(true, false)
+			}
+			logger.lifecycle("[esbuild] extracted to ${marker}")
+		}
+	}
+}
+
+tasks.register('minifyJs') {
+	description = 'Minifies custom static JS (vendor excluded) to <name>.min.js next to each source.'
+	group = 'frontend'
+	dependsOn 'downloadEsbuild'
+
+	def jsDir = file('src/main/resources/static/js')
+	def sources = fileTree(jsDir) {
+		include '**/*.js'
+		exclude 'vendor/**'
+		exclude '**/*.min.js'
+	}
+	def minified = sources.files.collect { f -> new File(f.parent, f.name.replaceAll(/\.js$/, '.min.js')) }
+
+	inputs.files(sources)
+	outputs.files(minified)
+
+	doLast {
+		def bin = esbuildBinaryFile(esbuildToolDir)
+		sources.files.each { src ->
+			def out = new File(src.parent, src.name.replaceAll(/\.js$/, '.min.js'))
+			// ProcessBuilder rather than an Exec task so one task handles all files;
+			// project.exec was removed in Gradle 9.
+			def proc = new ProcessBuilder(bin.absolutePath, src.absolutePath, '--minify',
+				"--outfile=${out.absolutePath}".toString())
+				.redirectErrorStream(true).start()
+			def output = proc.inputStream.text
+			if (proc.waitFor() != 0) {
+				throw new GradleException("esbuild failed for ${src}: ${output}")
+			}
+		}
+	}
+}
+
+processResources.dependsOn 'minifyJs'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OSS notices / THIRD_PARTY_LICENSES.md version single-sourcing.
 // This is version-SYNC automation, not dependency-DISCOVERY — a newly added
 // library must be added to both maps below, or it is simply not tracked.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -333,14 +525,23 @@ ext.trackedOssCoordinates = [
 	h2                     : 'com.h2database:h2',
 	postgresqlJdbc         : 'org.postgresql:postgresql',
 	lombok                 : 'org.projectlombok:lombok',
+	caffeine               : 'com.github.ben-manes.caffeine:caffeine',
 	cyclonedx              : 'org.cyclonedx:cyclonedx-core-java',
 	packageurl             : 'com.github.package-url:packageurl-java',
 	micrometer             : 'io.micrometer:micrometer-registry-prometheus',
 	flyway                 : 'org.flywaydb:flyway-core',
 	springOauth2           : 'org.springframework.security:spring-security-oauth2-client',
+	springSaml2Provider    : 'org.springframework.security:spring-security-saml2-service-provider',
+	springSessionJdbc      : 'org.springframework.session:spring-session-jdbc',
+	shedlock               : 'net.javacrumbs.shedlock:shedlock-spring',
+	re2j                   : 'com.google.re2j:re2j',
+	webPush                : 'nl.martijndwars:web-push',
+	bouncyCastle           : 'org.bouncycastle:bcprov-jdk18on',
+	jose4j                 : 'org.bitbucket.b_c:jose4j',
 ]
 
 tasks.register('generateOssManifest') {
+	inputs.file('build.gradle')
 	description = 'Resolves runtime dependency versions and writes the single OSS version manifest ' +
 			'consumed by the /oss-notices page and the THIRD_PARTY_LICENSES.md sync task.'
 	group = 'documentation'
@@ -393,7 +594,7 @@ tasks.named('processResources') {
 // line, and whether that line is a literal version or a "Managed by <project> X.Y.Z" phrase
 // (only the trailing version token is rewritten in the phrase case — see
 // syncThirdPartyLicenseVersions below). Sections not listed here (e.g. Qwen3-1.7B, which has
-// its own G3 redistribution-notice lifecycle) are left completely untouched.
+// its own redistribution-notice lifecycle) are left completely untouched.
 ext.thirdPartyVersionSections = [
 	'Spring Boot / Spring Framework'  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Spring Security'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
@@ -406,6 +607,8 @@ ext.thirdPartyVersionSections = [
 	'Micrometer Prometheus Registry'  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Flyway'                          : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Spring Security OAuth2 Client'   : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Spring Session JDBC'             : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'ShedLock'                        : [key: 'shedlock', mode: 'literal'],
 	'Jackson'                         : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Logback Classic'                 : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'SLF4J API'                       : [key: 'springBootBomVersion', mode: 'bomPhrase'],
@@ -413,6 +616,7 @@ ext.thirdPartyVersionSections = [
 	'H2 Database'                     : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'PostgreSQL JDBC Driver'          : [key: 'springBootBomVersion', mode: 'bomPhrase'],
 	'Project Lombok'                  : [key: 'springBootBomVersion', mode: 'bomPhrase'],
+	'Caffeine'                        : [key: 'caffeine', mode: 'literal'],
 	'Alpine.js'                       : [key: 'alpine', mode: 'literal'],
 	'@alpinejs/collapse'              : [key: 'alpineCollapse', mode: 'literal'],
 	'Chart.js'                        : [key: 'chartjs', mode: 'literal'],
@@ -422,7 +626,7 @@ ext.thirdPartyVersionSections = [
 
 tasks.register('syncThirdPartyLicenseVersions') {
 	description = 'Rewrites only the **Version:** lines in THIRD_PARTY_LICENSES.md from the OSS ' +
-			'manifest (H2/H3) — no other prose (license text, distribution policy) is touched.'
+			'manifest — no other prose (license text, distribution policy) is touched.'
 	group = 'documentation'
 	dependsOn 'generateOssManifest'
 	doLast {
@@ -482,7 +686,7 @@ tasks.register('syncThirdPartyLicenseVersions') {
 }
 
 tasks.register('vdbBuild', JavaExec) {
-	description = 'E5: runs the oswl-vdb CLI (build/verify/inspect offline vulnerability-DB bundles) — ' +
+	description = 'Runs the oswl-vdb CLI (build/verify/inspect offline vulnerability-DB bundles) — ' +
 			'see scripts/oswl-vdb/oswl-vdb.{sh,ps1} for thin wrapper scripts. ' +
 			'Example: ./gradlew vdbBuild --args="build --wanted wanted-list.jsonl --out bundle.zip"'
 	group = 'application'

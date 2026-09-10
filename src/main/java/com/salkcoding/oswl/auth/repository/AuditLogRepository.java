@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
@@ -31,4 +32,18 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     @Modifying
     @Query("DELETE FROM AuditLog a WHERE a.createdAt < :cutoff")
     int deleteOlderThan(@Param("cutoff") LocalDateTime cutoff);
+
+    /** Most recent audit log whose primary key is strictly lower than the given id. */
+    Optional<AuditLog> findTopByIdLessThanOrderByIdDesc(Long id);
+
+    /** All audit logs matching the optional date range, ordered by primary key ascending (chain order). */
+    @Query("""
+            select a from AuditLog a
+            where (:start is null or a.createdAt >= :start)
+              and (:end is null or a.createdAt <= :end)
+            order by a.id asc
+            """)
+    Page<AuditLog> findAllByFilterOrderByIdAsc(@Param("start") LocalDateTime start,
+                                                 @Param("end") LocalDateTime end,
+                                                 Pageable pageable);
 }

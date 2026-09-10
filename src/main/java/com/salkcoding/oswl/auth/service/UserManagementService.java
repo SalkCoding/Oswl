@@ -48,6 +48,8 @@ public class UserManagementService {
         Set<RoleTemplate> templates = new HashSet<>();
         if (request.getTemplateIds() != null && !request.getTemplateIds().isEmpty()) {
             templates.addAll(roleTemplateRepository.findAllById(request.getTemplateIds()));
+            if (templates.size() != new HashSet<>(request.getTemplateIds()).size())
+                throw new IllegalArgumentException("A selected role template no longer exists. Reload and try again.");
         }
         User user = User.builder()
                 .email(email)

@@ -9,7 +9,11 @@ import java.util.List;
 @Schema(description = "Quick Import job status snapshot")
 @Getter
 @Builder(toBuilder = true)
+@com.fasterxml.jackson.databind.annotation.JsonDeserialize(builder = QuickImportJobStatus.QuickImportJobStatusBuilder.class)
 public class QuickImportJobStatus {
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    @com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder(withPrefix = "")
+    public static class QuickImportJobStatusBuilder {}
 
     @Schema(description = "Import pipeline phase")
     public enum Phase {
@@ -63,13 +67,13 @@ public class QuickImportJobStatus {
     @Schema(description = "Latest AI preview lines from enrichment")
     private final List<String> aiPreviews;
 
-    @Schema(description = "Total components evaluated in the deps.dev cache decision (D4)", example = "1204")
+    @Schema(description = "Total components evaluated in the deps.dev cache decision", example = "1204")
     private final Integer cacheTotal;
 
-    @Schema(description = "Components served from the dependency cache without a refetch (D4)", example = "1180")
+    @Schema(description = "Components served from the dependency cache without a refetch", example = "1180")
     private final Integer cacheHit;
 
-    @Schema(description = "Components that required a fresh deps.dev fetch (D4)", example = "24")
+    @Schema(description = "Components that required a fresh deps.dev fetch", example = "24")
     private final Integer cacheToFetch;
 
     @Schema(description = "Number of imports currently executing")

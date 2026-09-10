@@ -30,4 +30,8 @@ public class AuditLogDto {
     private LocalDateTime createdAt;
     @Schema(description = "Optional extra detail", example = "roles=[Developer]")
     private String detail;
+    @Schema(description = "SHA-256 hash of the preceding audit log entry", example = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+    private String prevHash;
+    @Schema(description = "SHA-256 integrity hash of this entry", example = "b5d4045c3f466fa91fe2cc6abe79232a1a57cdf104f7a26e716e0a1e2789df78")
+    private String hash;
 }

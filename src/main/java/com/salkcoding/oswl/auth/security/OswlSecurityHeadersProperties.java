@@ -5,7 +5,7 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * HTTP security response headers (Sprint 5 / #20).
+ * HTTP security response headers.
  */
 @Getter
 @Setter

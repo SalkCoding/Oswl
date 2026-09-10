@@ -3,7 +3,6 @@
 <body>
 <div th:fragment="tab"
      x-data="securityTab()"
-     x-init="init()"
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
@@ -16,11 +15,17 @@
     <div x-show="apiError" x-cloak
          class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]"
          x-text="apiError"></div>
+    <button type="button" x-show="!loaded && !loading" @click="load()"
+            class="px-3 py-2 underline" th:text="#{common.retry}">Retry</button>
+    <p x-show="loading" x-cloak class="text-[13px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</p>
+
+    <fieldset :disabled="!loaded || loading" :class="(!loaded || loading) ? 'opacity-60' : ''" class="contents">
 
     <!-- ─────────────────────────────────────────────────────────────── -->
     <!-- Section 1: Mail Server                                         -->
     <!-- ─────────────────────────────────────────────────────────────── -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+    <div data-dirty-scope="security-mail"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.security.mail.heading}">Mail Server</h3>
 
@@ -33,7 +38,7 @@
 
         <!-- Option: SMTP -->
         <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mailMode='SMTP'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="mailMode='SMTP'">
                 <img :src="mailMode==='SMTP' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.security.mail.mode.smtp}">SMTP</span>
@@ -63,19 +68,21 @@
                     </div>
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] shrink-0" th:text="#{settings.security.mail.smtp.encryption}">Encryption</span>
                     <!-- Encryption Dropdown -->
-                    <div class="relative w-[140px]" x-data="{ encOpen: false }">
+                    <div class="relative w-[140px]" x-data="{ encOpen: false }" @keydown.escape.stop="encOpen = false">
                         <button type="button" @click="encOpen = !encOpen" @click.away="encOpen = false"
+                                :aria-expanded="encOpen" aria-haspopup="listbox" aria-controls="mail-encryption-menu"
                                 class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] focus:outline-none focus:border-[#33D1B7] transition-colors cursor-pointer"
                                 :class="encOpen ? 'border-[var(--primary-120)]' : ''">
                             <span x-text="mailForm.encryption"></span>
                             <img src="/icon/icon-triangle-down.svg" :class="encOpen ? 'rotate-180' : ''" class="transition-transform duration-150 shrink-0 w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </button>
                         <div x-show="encOpen" x-cloak
+                             id="mail-encryption-menu" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                             <template x-for="opt in ['NONE','STARTTLS','SSL_TLS']" :key="opt">
-                                <button type="button" @click="mailForm.encryption = opt; encOpen = false; applyEncryptionDefaults(opt)"
+                                <button type="button" data-dirty-mark @click="mailForm.encryption = opt; encOpen = false; applyEncryptionDefaults(opt)"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                        :class="mailForm.encryption === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="mailForm.encryption === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
                         </div>
@@ -102,7 +109,10 @@
                                autocomplete="new-password"
                                class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                         <button type="button" tabindex="-1" @click="showPwd = !showPwd"
-                                class="shrink-0 text-[var(--grayscale-50)] hover:text-[var(--grayscale-80)] transition-colors">
+                                :aria-label="showPwd ? $el.dataset.hide : $el.dataset.show"
+                                th:data-hide="#{auth.login.hide.password}"
+                                th:data-show="#{auth.login.show.password}"
+                                class="shrink-0 text-[var(--grayscale-60)] hover:text-[var(--grayscale-80)] transition-colors">
                             <svg x-show="!showPwd" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             <svg x-show="showPwd" x-cloak width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
@@ -147,16 +157,16 @@
         <!-- Action Buttons -->
         <div class="flex items-center gap-[10px] pt-[4px]">
             <button type="button"
-                    :disabled="mailMode !== 'SMTP' || mailTesting"
+                    :disabled="!loaded || loading || mailMode !== 'SMTP' || mailTesting"
                     @click="testMail()"
                     class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] px-[14px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[4px] items-center disabled:opacity-40 hover:bg-[var(--grayscale-10)] transition-colors cursor-pointer">
                 <span class="font-medium text-[14px] text-[var(--grayscale-80)] tracking-[-0.14px] whitespace-nowrap"
                       x-text="mailTesting ? _securityI18n.testing : _securityI18n.testConnection"></span>
             </button>
             <button type="button"
-                    :disabled="mailSaving"
+                    :disabled="!loaded || loading || mailSaving"
                     @click="saveMail()"
-                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[#00A093] hover:bg-[#008f83] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 <svg x-show="!mailSaving" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <svg x-show="mailSaving" x-cloak class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 <span x-text="mailSaving ? _securityI18n.saving : _securityI18n.save"></span>
@@ -168,7 +178,8 @@
     <!-- ─────────────────────────────────────────────────────────────── -->
     <!-- Section 2: Two-Factor Authentication                           -->
     <!-- ─────────────────────────────────────────────────────────────── -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+    <div data-dirty-scope="security-2fa"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.security.twoFa.heading}">Two-Factor Authentication</h3>
 
@@ -181,7 +192,7 @@
 
         <!-- Option: Email OTP -->
         <div class="flex flex-col gap-[16px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="twoFaMode='EMAIL_OTP'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="twoFaMode='EMAIL_OTP'">
                 <img :src="twoFaMode==='EMAIL_OTP' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.security.twoFa.mode.emailOtp}">Email OTP</span>
@@ -218,7 +229,7 @@
         </div>
 
         <!-- Option: TOTP (Coming Soon) -->
-        <div class="flex gap-[8px] items-start opacity-40 cursor-not-allowed select-none">
+        <div class="flex gap-[8px] items-start cursor-not-allowed select-none">
             <img src="/icon/icon-radio-off.svg" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
             <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                 <div class="flex items-center gap-[8px]">
@@ -232,15 +243,17 @@
         <!-- 2FA Save Button -->
         <div class="flex items-center gap-[10px] pt-[4px]">
             <button type="button"
-                    :disabled="twoFaSaving || (twoFaMode==='EMAIL_OTP' && mailMode !== 'SMTP')"
+                    :disabled="!loaded || loading || twoFaSaving || (twoFaMode==='EMAIL_OTP' && mailMode !== 'SMTP')"
                     @click="saveTwoFa()"
-                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[#00A093] hover:bg-[#008f83] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                 <svg x-show="!twoFaSaving" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <svg x-show="twoFaSaving" x-cloak class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
                 <span x-text="twoFaSaving ? _securityI18n.saving : _securityI18n.save"></span>
             </button>
         </div>
     </div>
+
+    </fieldset>
 
     <!-- Toast -->
     <div x-show="toastVisible" x-cloak
@@ -263,6 +276,10 @@
 
 <script th:inline="javascript">
 const _securityI18n = {
+    unauthenticated: /*[[#{common.http.unauthenticated}]]*/ 'Please sign in again.',
+    forbidden: /*[[#{common.http.forbidden}]]*/ 'Access denied.',
+    timeout: /*[[#{common.http.timeout}]]*/ 'Request timed out.',
+    network: /*[[#{common.http.network}]]*/ 'Connection failed.',
     testing:              /*[[#{settings.ai.btn.testing}]]*/ 'Testing…',
     testConnection:       /*[[#{settings.security.mail.test.btn}]]*/ 'Test Connection',
     saving:               /*[[#{common.saving}]]*/ 'Saving…',
@@ -276,140 +293,7 @@ const _securityI18n = {
     mailConfigureNow:     /*[[#{settings.security.mail.configureNow}]]*/ 'Configure now ↑'
 };
 </script>
-<script>
-function securityTab() {
-    return {
-        // ── Mail Server ──
-        mailMode: 'DISABLED',
-        mailForm: {
-            host: '',
-            port: 587,
-            encryption: 'STARTTLS',
-            username: '',
-            password: '',
-            senderName: 'OsWL',
-            senderAddress: ''
-        },
-        mailTesting: false,
-        mailSaving: false,
-        mailTestStatus: null,   // null | 'ok' | 'error'
-        mailTestMessage: '',
-
-        // ── Two-Factor Auth ──
-        twoFaMode: 'DISABLED',
-        twoFaSaving: false,
-
-        // ── Common ──
-        apiError: null,
-        toastVisible: false,
-        toastMsg: '',
-
-        init() {
-            this.load();
-        },
-
-        async load() {
-            try {
-                const r = await fetch('/api/settings/security');
-                if (!r.ok) return;
-                const d = await r.json();
-                if (d.mailMode)  this.mailMode  = d.mailMode;
-                if (d.twoFaMode) this.twoFaMode = d.twoFaMode;
-                if (d.mail) {
-                    if (d.mail.host          != null) this.mailForm.host          = d.mail.host;
-                    if (d.mail.port          != null) this.mailForm.port          = d.mail.port;
-                    if (d.mail.encryption    != null) this.mailForm.encryption    = d.mail.encryption;
-                    if (d.mail.username      != null) this.mailForm.username      = d.mail.username;
-                    if (d.mail.senderName    != null) this.mailForm.senderName    = d.mail.senderName;
-                    if (d.mail.senderAddress != null) this.mailForm.senderAddress = d.mail.senderAddress;
-                }
-            } catch (e) { /* ignore */ }
-        },
-
-        showToast(msg) {
-            this.toastMsg = msg;
-            this.toastVisible = true;
-            setTimeout(() => { this.toastVisible = false; }, 3000);
-        },
-
-        applyEncryptionDefaults(enc) {
-            if (enc === 'STARTTLS') this.mailForm.port = 587;
-            else if (enc === 'SSL_TLS') this.mailForm.port = 465;
-            else if (enc === 'NONE') this.mailForm.port = 25;
-        },
-
-        async testMail() {
-            this.mailTesting = true;
-            this.mailTestStatus = null;
-            this.mailTestMessage = '';
-            try {
-                const r = await fetch('/api/settings/security/mail/test', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...this.mailForm })
-                });
-                if (r.ok) {
-                    this.mailTestStatus = 'ok';
-                    this.mailTestMessage = _securityI18n.testOk;
-                } else {
-                    const body = await r.json().catch(() => ({}));
-                    this.mailTestStatus = 'error';
-                    this.mailTestMessage = body.message || _securityI18n.mailTestFailed.replace('{0}', r.status);
-                }
-            } catch (e) {
-                this.mailTestStatus = 'error';
-                this.mailTestMessage = _securityI18n.backendNotConnected;
-            } finally {
-                this.mailTesting = false;
-            }
-        },
-
-        async saveMail() {
-            this.mailSaving = true;
-            this.apiError = null;
-            try {
-                const r = await fetch('/api/settings/security', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mailMode: this.mailMode, mail: this.mailForm })
-                });
-                if (r.ok) {
-                    this.showToast(_securityI18n.saved);
-                } else {
-                    const body = await r.json().catch(() => ({}));
-                    this.apiError = body.message || _securityI18n.backendNotConnected;
-                }
-            } catch (e) {
-                this.apiError = _securityI18n.backendNotConnected;
-            } finally {
-                this.mailSaving = false;
-            }
-        },
-
-        async saveTwoFa() {
-            this.twoFaSaving = true;
-            this.apiError = null;
-            try {
-                const r = await fetch('/api/settings/security', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ twoFaMode: this.twoFaMode })
-                });
-                if (r.ok) {
-                    this.showToast(_securityI18n.saved);
-                } else {
-                    const body = await r.json().catch(() => ({}));
-                    this.apiError = body.message || _securityI18n.backendNotConnected;
-                }
-            } catch (e) {
-                this.apiError = _securityI18n.backendNotConnected;
-            } finally {
-                this.twoFaSaving = false;
-            }
-        }
-    };
-}
-    </script>
+<script th:src="@{/js/settings/security.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

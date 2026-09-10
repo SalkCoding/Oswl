@@ -1,6 +1,8 @@
 package com.salkcoding.oswl.web.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.web.interceptor.ApiKeyAuthInterceptor;
+import com.salkcoding.oswl.web.interceptor.ScimAuthInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final ApiKeyAuthInterceptor apiKeyAuthInterceptor;
+    private final ScimAuthInterceptor scimAuthInterceptor;
 
     // ── i18n configuration ───────────────────────────────────────────────
 
@@ -27,6 +30,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
      * the browser's Accept-Language decides — Korean browsers start in Korean,
      * everything else falls back to English (messages.properties).
      */
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
     @Bean
     public LocaleResolver localeResolver() {
         // No setDefaultLocale: CookieLocaleResolver then honors Accept-Language
@@ -71,5 +79,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/scan/**")
                 // UI polling endpoint does not require an API key
                 .excludePathPatterns("/api/scan/*/status");
+
+        // Protect SCIM 2.0 provisioning endpoints with a dedicated bearer token scope
+        registry.addInterceptor(scimAuthInterceptor)
+                .addPathPatterns("/scim/v2/**");
     }
 }

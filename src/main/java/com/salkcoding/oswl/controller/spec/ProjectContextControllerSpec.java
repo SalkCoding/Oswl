@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +24,13 @@ public interface ProjectContextControllerSpec {
             @Schema(description = "Deployment context", example = "COMMERCIAL_PRODUCT",
                     implementation = DeploymentProfile.class)
             @NotNull DeploymentProfile deploymentProfile
+    ) {}
+
+    @Schema(description = "Project tag labels update")
+    record TagsRequest(
+            @Schema(description = "Comma-separated tag labels (max 500 chars)", example = "backend,pci")
+            @Size(max = 500, message = "Tags must not exceed 500 characters")
+            String tags
     ) {}
 
     @Operation(summary = "Set project deployment profile",

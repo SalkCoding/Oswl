@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface UserVcsConnectionRepository extends JpaRepository<UserVcsConnection, Long> {
     List<UserVcsConnection> findByUserIdAndActiveTrue(Long userId);
 
+    boolean existsByUserIdAndActiveTrue(Long userId);
+
     Optional<UserVcsConnection> findByUserIdAndProviderAndActiveTrue(Long userId, VcsProvider provider);
 
     void deleteByUser_Id(Long userId);

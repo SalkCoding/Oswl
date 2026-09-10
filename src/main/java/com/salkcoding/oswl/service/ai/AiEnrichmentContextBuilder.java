@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.Cve;
-import com.salkcoding.oswl.domain.entity.Library;
+import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
+import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.domain.enums.Patchability;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
@@ -128,7 +128,7 @@ public final class AiEnrichmentContextBuilder {
     }
 
     public static Map<Long, String> depInfoByLibraryId(
-            List<com.salkcoding.oswl.domain.entity.ScanComponent> components) {
+            List<com.salkcoding.oswl.domain.entity.scan.ScanComponent> components) {
         Map<Long, String> map = new LinkedHashMap<>();
         for (var sc : components) {
             map.putIfAbsent(sc.getLibrary().getId(), sc.getDependencyInfo());

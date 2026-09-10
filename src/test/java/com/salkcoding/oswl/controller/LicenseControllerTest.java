@@ -1,9 +1,10 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.license.LicenseController;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.service.LicenseService;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
+import com.salkcoding.oswl.service.license.LicenseService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

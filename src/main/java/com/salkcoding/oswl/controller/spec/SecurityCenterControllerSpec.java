@@ -47,6 +47,39 @@ public interface SecurityCenterControllerSpec {
     );
 
     @Hidden
+    String rows(
+        @PathVariable Long projectId,
+        @RequestParam Long scanId,
+        @RequestParam(required = false) String search,
+        @RequestParam(defaultValue = "false") boolean hideNonRuntime,
+        @RequestParam(defaultValue = "false") boolean reviewed,
+        @RequestParam(defaultValue = "false") boolean nonReviewed,
+        @RequestParam(defaultValue = "false") boolean ignored,
+        @RequestParam(defaultValue = "false") boolean nonIgnored,
+        @RequestParam(defaultValue = "false") boolean deferred,
+        @RequestParam(defaultValue = "false") boolean reachable,
+        @RequestParam(defaultValue = "false") boolean notReachable,
+        @RequestParam(defaultValue = "false") boolean unknownReachability,
+        @RequestParam(defaultValue = "false") boolean secCritical,
+        @RequestParam(defaultValue = "false") boolean secHigh,
+        @RequestParam(defaultValue = "false") boolean secMedium,
+        @RequestParam(defaultValue = "false") boolean secLow,
+        @RequestParam(defaultValue = "false") boolean secUnknown,
+        @RequestParam(defaultValue = "false") boolean licRestricted,
+        @RequestParam(defaultValue = "false") boolean licCaution,
+        @RequestParam(defaultValue = "false") boolean licUnknown,
+        @RequestParam(defaultValue = "false") boolean licPermitted,
+        @RequestParam(defaultValue = "false") boolean patchable,
+        @RequestParam(defaultValue = "false") boolean nonPatchable,
+        @RequestParam(defaultValue = "false") boolean patchDeprecated,
+        @RequestParam(defaultValue = "false") boolean patchOutdated,
+        @RequestParam(defaultValue = "false") boolean patchUpToDate,
+        @RequestParam(defaultValue = "risk") String sortMode,
+        @RequestParam(defaultValue = "0") int page,
+        Model model
+    );
+
+    @Hidden
     String complianceReport(
         @PathVariable Long projectId,
         Model model
@@ -88,5 +121,23 @@ public interface SecurityCenterControllerSpec {
         @RequestParam(required = false) Long scanId,
         @Parameter(description = "Export format — only `csv` is supported", example = "csv")
         @RequestParam(defaultValue = "csv") String format
+    );
+
+    @Operation(
+        summary = "Secret / IaC misconfiguration findings",
+        description = """
+            Lists secret and Terraform/Kubernetes/Dockerfile misconfiguration findings detected
+            during the Quick Import clone scan. Never includes the matched secret
+            value — only the rule id, file location, severity and a non-reversible fingerprint.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Findings for the resolved scan")
+    })
+    java.util.List<com.salkcoding.oswl.dto.scan.ScanFindingRowDto> findings(
+        @Parameter(description = "Project ID", example = "1", required = true)
+        @PathVariable Long projectId,
+        @Parameter(description = "Specific scan ID; omit for latest")
+        @RequestParam(required = false) Long scanId
     );
 }

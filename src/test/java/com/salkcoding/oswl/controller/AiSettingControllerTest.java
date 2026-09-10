@@ -1,18 +1,19 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.ai.AiSettingController;
 
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.AiPreferences;
-import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
+import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.dto.api.AiSettingResponse;
 import com.salkcoding.oswl.dto.api.AiSettingUpdateRequest;
 import com.salkcoding.oswl.dto.api.AiTestConnectionRequest;
-import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.exception.OutboundUrlBlockedException;
 import com.salkcoding.oswl.security.OutboundUrlValidator;
-import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 import com.salkcoding.oswl.service.ai.AiAnalysisService;
 import com.salkcoding.oswl.service.ai.AiPreferencesService;
 import org.junit.jupiter.api.BeforeEach;

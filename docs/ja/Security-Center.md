@@ -89,7 +89,7 @@ OsWL は標準的な CVSS 3.x の範囲を使って CVSS ベーススコアを�
 | SBOM（CycloneDX） | `GET /api/projects/{projectId}/sbom` | CycloneDX 1.6 JSON |
 | VEX | `GET /api/projects/{projectId}/vex` | CycloneDX VEX — トリアージ判断を反映 |
 | SARIF | `GET /api/projects/{projectId}/sarif` | SARIF 2.1.0、GitHub コードスキャンにアップロード可能 |
-| コンプライアンスレポート | `GET /security-center/compliance-report` | 印刷用 HTML（*印刷 → PDF として保存*を使用） |
+| コンプライアンスレポート | `GET /projects/{projectId}/security-center/compliance-report` | 印刷用 HTML（*印刷 → PDF として保存*を使用） |
 | CVE／ライセンス CSV | — | 現在フィルタリングされているビュー |
 
 一括操作には**アップグレード PR を作成**も含まれます。選択したすべてのコンポーネントを修正バージョンに引き上げる単一のプルリクエストを作成します。

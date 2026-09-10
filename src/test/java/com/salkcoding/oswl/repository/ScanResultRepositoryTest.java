@@ -1,8 +1,10 @@
 package com.salkcoding.oswl.repository;
 
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.domain.entity.ScanResult;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,6 +56,16 @@ class ScanResultRepositoryTest {
 
         assertThat(found).isPresent();
         assertThat(found.get().getStatus()).isEqualTo(ScanStatus.COMPLETED);
+    }
+
+    @Test void retryLookupSelectsLatestResultWhenAnInterruptedAttemptIsRetained() {
+        saveScan("retry", ScanStatus.SCANNING, -2);
+        saveScan("retry", ScanStatus.COMPLETED, -1);
+        var latest = scanResultRepository.findLatestByProjectId(project.getId()).orElseThrow();
+        assertThat(scanResultRepository.findByProjectIdAndVersion(project.getId(), "retry")).get()
+                .extracting(ScanResult::getId).isEqualTo(latest.getId());
+        assertThat(scanResultRepository.lockForRescan(project.getId(), "retry")).get()
+                .extracting(ScanResult::getId).isEqualTo(latest.getId());
     }
 
     @Test

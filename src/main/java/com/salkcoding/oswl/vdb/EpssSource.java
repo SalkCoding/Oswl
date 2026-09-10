@@ -13,7 +13,7 @@ import java.util.zip.GZIPInputStream;
 
 /**
  * FIRST.org EPSS bulk scores CSV (gzip), fetched in full (~350k rows as of 2026) — not scoped to
- * a wanted-list; the plan (E5.2) notes this is the practical alternative to the query API used by
+ * a wanted-list; this is the practical alternative to the query API used by
  * the live {@code EpssClient}, which is per-CVE and unsuitable for a bulk builder.
  *
  * <p><b>Reconfirmed at implementation time</b> (the plan's own instruction — feeds move):

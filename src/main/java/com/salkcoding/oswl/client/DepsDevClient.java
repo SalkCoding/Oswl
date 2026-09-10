@@ -1,9 +1,10 @@
 package com.salkcoding.oswl.client;
 
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotAdvisory;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVersion;
-import com.salkcoding.oswl.service.EnrichmentProgressContext;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotAdvisory;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVersion;
+import com.salkcoding.oswl.service.ingest.EnrichmentProgressContext;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -46,6 +47,20 @@ import java.util.function.Supplier;
 public class DepsDevClient {
 
     private static final String BASE_URL = "https://api.deps.dev";
+    /**
+     * The only systems deps.dev supports (per its public docs). Anything else — notably
+     * COMPOSER and CONAN, which deps.dev does not cover at all — is skipped before any
+     * HTTP call, so an unsupported ecosystem resolves as {@link #unresolved()} instead of
+     * flooding the logs with 404s.
+     */
+    public static final Set<String> SUPPORTED_SYSTEMS =
+            Set.of("GO", "RUBYGEMS", "NPM", "CARGO", "MAVEN", "PYPI", "NUGET");
+
+    /** True when deps.dev has a system for this ecosystem tag (case-insensitive). */
+    public static boolean isSupportedSystem(String ecosystem) {
+        return ecosystem != null
+                && SUPPORTED_SYSTEMS.contains(ecosystem.strip().toUpperCase(java.util.Locale.ROOT));
+    }
     /** Default max simultaneous HTTP requests to deps.dev across all virtual-thread tasks. */
     private static final int DEFAULT_MAX_CONCURRENT_REQUESTS = 24;
     /** Base delay before the single retry after an HTTP 429 (doubles per attempt if more were allowed). */
@@ -73,6 +88,13 @@ public class DepsDevClient {
     private final Semaphore requestPermits;
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public DepsDevClient() {
@@ -157,13 +179,13 @@ public class DepsDevClient {
      * Calls GetVersion in parallel for all components (concurrency bounded by the permit semaphore).
      * Returns a list aligned with the input list; null means the package lookup failed.
      *
-     * Duplicate keys are fetched only once (A2): several ScanComponents often share the same
+     * Duplicate keys are fetched only once: several ScanComponents often share the same
      * (ecosystem, name, version), and previously each copy cost its own HTTP call. The returned
      * list MUST keep the input's exact size and order — callers index-match it back to their
      * component list, so a misalignment would attach licenses/CVEs to the wrong library.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components) {
-        // D3: completion counts flow to the caller either explicitly (2-arg overload) or via
+        // Completion counts flow to the caller either explicitly (2-arg overload) or via
         // the thread-scoped enrichment progress context — the 1-arg signature is kept because
         // existing callers (and their mocks) depend on it.
         return getVersionsBatch(components, EnrichmentProgressContext.currentFetchProgress());
@@ -171,7 +193,7 @@ public class DepsDevClient {
 
     /**
      * Same as {@link #getVersionsBatch(List)}, additionally invoking {@code onProgress} with the
-     * running count of completed distinct-key fetches as each parallel call finishes (D3).
+     * running count of completed distinct-key fetches as each parallel call finishes.
      */
     public List<VersionInfo> getVersionsBatch(List<ComponentKey> components, IntConsumer onProgress) {
         if (airgapped) {
@@ -292,11 +314,15 @@ public class DepsDevClient {
      */
     private <T> T withPermit(Supplier<T> call) {
         try {
-            return callUnderPermit(call);
+            T result = callUnderPermit(call);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
+            return result;
         } catch (RestClientException e) {
             if (!isRateLimited(e)) {
+                recordApiCall(OswlMetrics.OUTCOME_FAILURE);
                 throw e;
             }
+            recordApiCall(OswlMetrics.OUTCOME_RATE_LIMITED);
             log.debug("[DepsDevClient] 429 rate limit from deps.dev — backing off {}ms before a single retry",
                     RATE_LIMIT_BACKOFF_MS);
         }
@@ -308,10 +334,21 @@ public class DepsDevClient {
             return null;
         }
         try {
-            return callUnderPermit(call);
+            T result = callUnderPermit(call);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
+            return result;
         } catch (RestClientException e) {
+            recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.debug("[DepsDevClient] request still failing after 429 retry: {}", e.getMessage());
             return null;
+        }
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("depsdev", outcome);
         }
     }
 
@@ -337,6 +374,13 @@ public class DepsDevClient {
 
     private VersionInfo getVersion(ComponentKey key) {
         try {
+            if (!isSupportedSystem(key.ecosystem())) {
+                // Not a failure — deps.dev simply has no data for this ecosystem (e.g. COMPOSER,
+                // CONAN). Skip the call entirely instead of logging a 404 per component.
+                log.debug("[DepsDevClient] Skipping GetVersion {}:{} — ecosystem '{}' is not supported by deps.dev",
+                        key.name(), key.version(), key.ecosystem());
+                return unresolved();
+            }
             if (key.version() == null || key.version().isBlank()) {
                 log.debug("[DepsDevClient] Skipping GetVersion {}:{} — version is null/blank", key.name(), key.version());
                 return unresolved();
@@ -483,7 +527,7 @@ public class DepsDevClient {
 
     /**
      * Reads registry default (latest stable) version from the package listing API.
-     * Cached per {@code ECOSYSTEM|name} (A2): several scanned versions of the same package
+     * Cached per {@code ECOSYSTEM|name}: several scanned versions of the same package
      * would otherwise each trigger this listing call. Failures are negative-cached via the
      * {@link #DEFAULT_VERSION_MISS} sentinel, since ConcurrentHashMap forbids null values.
      */

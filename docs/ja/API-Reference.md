@@ -84,7 +84,7 @@ Authorization: Bearer oswl_<api_key>
 | Method | Path | 説明 |
 |---|---|---|
 | `POST` | `/api/github/connect` | GitHub PAT の接続 |
-| `DELETE` | `/api/github/disconnect` | GitHub 接続の削除 |
+| `POST` | `/api/github/disconnect` | GitHub 接続の削除 |
 | `GET` | `/api/github/status` | 接続状態 |
 | `GET` | `/api/github/accounts` | 認証済みアカウントの一覧 |
 | `GET` | `/api/github/repos` | アクセス可能なリポジトリの一覧 |
@@ -99,7 +99,6 @@ Authorization: Bearer oswl_<api_key>
 
 | Method | Path | 認証 | 説明 |
 |---|---|---|---|
-| `POST` | `/api/auth` | API key | API キーの検証（レガシー） |
 | `GET` | `/api/scan/ping` | API key | 疎通確認とキーの有効性確認 |
 | `GET` | `/api/scan/manifest-rules` | API key | マニフェストファイルの収集ルール（`/scripts/manifest-rules.json` と同じ） |
 | `POST` | `/api/scan/parse` | API key | マニフェスト zip アーカイブの解析（CLI ステップ 1） |
@@ -117,7 +116,7 @@ Authorization: Bearer oswl_<api_key>
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | CVE 状態の一括更新 |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | CVE 一覧を CSV としてダウンロード（`?scanId=`、`?format=csv`） |
 | `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — 選択したすべてのコンポーネントに対して 1 件のアップグレード PR を作成 |
-| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — 印刷用のコンプライアンスレポート |
+| `GET` | `/projects/{projectId}/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — 印刷用のコンプライアンスレポート |
 
 ### SBOM / VEX / SARIF（v1.0.4）
 
@@ -249,8 +248,8 @@ Authorization: Bearer oswl_<api_key>
 
 | Method | Path | 説明 |
 |---|---|---|
-| `GET` | `/api/admin/cli-keys` | グローバル CLI キーの一覧 |
-| `POST` | `/api/admin/cli-keys` | グローバルキーの作成 |
+| `GET` | `/api/admin/cli-keys` | 各プロジェクトの CLI キーを一覧表示 |
+| `POST` | `/api/admin/cli-keys` | プロジェクト単位のキーを発行（`projectId` 必須） |
 | `PATCH` | `/api/admin/cli-keys/{keyId}/toggle` | キーの有効／無効切り替え |
 
 ---
@@ -279,7 +278,7 @@ Authorization: Bearer oswl_<api_key>
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 使用統計 — 本日の呼び出し／トークン／推定コスト、日次上限、直近 7 日間（日次集計テーブルから取得） |
 | `GET` | `/api/settings/ai/usage/events` | `SETTINGS_AI_MANAGE` | 最近の AI 呼び出しイベント、新しい順（`?page=`、`?size=`、既定サイズ `10`）。直近**100 件**のみ保持（FIFO）のため、最大でも 10 ページ |
 | `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | 内蔵 AI の状態（`running`、`external`、`binaryFound`、`activeModel`、`fallbackUsed`、`lastError`、`availableModels`、`modelsDir`、`baseUrl`。既定モデルのダウンロード中は `downloading`、`downloadedBytes`、`downloadTotalBytes` も） |
-| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp サイドカーの起動（モデルファイル名は任意。候補間の自動フォールバック、失敗時は理由付きで 400）。新規インストールで `.gguf` がまだない場合、代わりに Apache-2.0 の Qwen3-1.7B モデルをバックグラウンドでダウンロードし即座に応答（`downloading: true`）— 進捗は `GET .../embedded` でポーリング |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp サイドカーの起動（モデルファイル名は任意。候補間の自動フォールバック、失敗時は理由付きで 400）。新規インストールで `.gguf` がまだない場合、代わりに Apache-2.0 の Qwen3.5-2B Q4_K_M モデルをバックグラウンドでダウンロードし即座に応答（`downloading: true`）— 進捗は `GET .../embedded` でポーリング |
 | `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | サイドカーの停止と LOCAL プロバイダーの無効化 |
 | `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | フォルダ／モデルの上書き設定 `{ "dir", "model" }` を保存（null は現状維持、空文字はクリア。dir が欠けている場合は 400） |
 

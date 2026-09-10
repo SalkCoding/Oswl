@@ -1,8 +1,9 @@
 package com.salkcoding.oswl.scheduler;
 
-import com.salkcoding.oswl.service.ContinuousMonitoringService;
+import com.salkcoding.oswl.service.vulnerability.ContinuousMonitoringService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,8 +26,14 @@ public class ContinuousMonitoringScheduler {
     @Value("${oswl.monitoring.enabled:true}")
     private boolean enabled;
 
-    /** Runs every night (default 03:00) after the deferral-expiry scheduler. */
+    /**
+     * Runs every night (default 03:00) after the deferral-expiry scheduler.
+     * {@code @SchedulerLock} is a no-op unless {@code oswl.scheduler-lock.enabled=true}
+     * (see {@link SchedulerLockConfig}) — a single instance is unaffected.
+     */
     @Scheduled(cron = "${oswl.monitoring.cron:0 0 3 * * *}")
+    @SchedulerLock(name = "ContinuousMonitoringScheduler_runNightlyMonitoring",
+            lockAtLeastFor = "PT1M", lockAtMostFor = "PT2H")
     public void runNightlyMonitoring() {
         if (!enabled) {
             log.debug("[Monitor] Continuous monitoring disabled (oswl.monitoring.enabled=false) — skipping.");

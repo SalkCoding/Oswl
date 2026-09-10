@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiDailyUsage;
+import com.salkcoding.oswl.domain.entity.ai.AiDailyUsage;
 import com.salkcoding.oswl.domain.enums.AiProvider;
-import com.salkcoding.oswl.repository.AiDailyUsageRepository;
+import com.salkcoding.oswl.repository.ai.AiDailyUsageRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

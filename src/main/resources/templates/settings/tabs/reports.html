@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="reportsTab()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.reports.heading}">Report Branding</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.reports.description}">Add your logo, company name, and a custom header to the compliance report.</p>
+    </div>
+
+    <p x-show="loading" role="status" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{common.loading}">Loading…</p>
+
+    <!-- API Error Banner -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
+        <span x-text="apiError"></span>
+        <!-- Only a failed initial load offers Retry here — re-loading after a failed save
+             would discard the unsaved edits, so save errors rely on the Save button. -->
+        <button x-show="loadError" type="button" @click="apiError = null; loadError = false; load()"
+                class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
+                th:text="#{common.retry}">Retry</button>
+    </div>
+
+    <!-- Settings Panel -->
+    <div :inert="!loaded || loading" :aria-busy="loading" data-dirty-scope="reports"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[28px]">
+
+        <!-- Logo -->
+        <div class="flex flex-col gap-[8px]">
+            <span class="font-bold text-[14px] text-black" th:text="#{settings.reports.logo.label}">Logo</span>
+            <div class="flex items-center gap-[16px]">
+                <div class="w-[64px] h-[64px] rounded-[8px] border border-[var(--grayscale-20)] flex items-center justify-center overflow-hidden bg-[var(--grayscale-5)] shrink-0">
+                    <img x-show="form.logoDataUri" :src="form.logoDataUri" class="max-w-full max-h-full object-contain" alt="">
+                    <img x-show="!form.logoDataUri" th:src="@{/icon/icon-logo-card.svg}" class="w-[24px] h-[32px]" alt="" aria-hidden="true">
+                </div>
+                <div class="flex flex-col gap-[6px]">
+                    <div class="flex gap-[8px]">
+                        <label class="inline-flex items-center gap-[6px] px-[12px] py-[7px] rounded-[8px] border border-[var(--grayscale-20)] text-[13px] font-medium text-[var(--grayscale-80)] hover:bg-[var(--grayscale-5)] cursor-pointer transition-colors">
+                            <span th:text="#{settings.reports.logo.upload}">Upload image</span>
+                            <input type="file" accept="image/png,image/jpeg,image/svg+xml" class="hidden" @change="onLogoSelected($event)">
+                        </label>
+                        <button type="button" x-show="form.logoDataUri" data-dirty-mark @click="form.logoDataUri = ''"
+                                class="px-[12px] py-[7px] rounded-[8px] text-[13px] font-medium text-[var(--grayscale-60)] hover:bg-[var(--grayscale-5)] transition-colors"
+                                th:text="#{common.clear}">Clear</button>
+                    </div>
+                    <p class="text-[12px] text-[var(--grayscale-60)] m-0" th:text="#{settings.reports.logo.help}">PNG, JPEG, or SVG, under 350KB. Falls back to the OsWL logo when empty.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Company name -->
+        <div class="flex flex-col gap-[8px]">
+            <span class="font-bold text-[14px] text-black" th:text="#{settings.reports.companyName.label}">Company name</span>
+            <input type="text" x-model="form.companyName" maxlength="150"
+                   th:placeholder="#{settings.reports.companyName.placeholder}"
+                   placeholder="Acme Corp"
+                   class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)] transition-colors"/>
+            <p class="text-[12px] text-[var(--grayscale-60)] m-0" th:text="#{settings.reports.companyName.help}">Replaces "OsWL" in the report header. Leave blank to keep the OsWL branding.</p>
+        </div>
+
+        <!-- Header text -->
+        <div class="flex flex-col gap-[8px]">
+            <span class="font-bold text-[14px] text-black" th:text="#{settings.reports.headerText.label}">Header text</span>
+            <input type="text" x-model="form.headerText" maxlength="300"
+                   th:placeholder="#{settings.reports.headerText.placeholder}"
+                   placeholder="Confidential — internal distribution only"
+                   class="w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] outline-none focus:border-[var(--primary-120)] transition-colors"/>
+            <p class="text-[12px] text-[var(--grayscale-60)] m-0" th:text="#{settings.reports.headerText.help}">Shown under the report title, e.g. a confidentiality notice.</p>
+        </div>
+
+        <!-- Cover page toggle -->
+        <label class="flex items-center gap-[10px] cursor-pointer relative">
+            <input type="checkbox" x-model="form.showCoverPage" class="sr-only"/>
+            <div class="w-[18px] h-[18px] rounded border-[1.5px] flex items-center justify-center transition-colors shrink-0"
+                 :class="form.showCoverPage ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                     :class="form.showCoverPage ? 'opacity-100' : 'opacity-0'"
+                     class="transition-opacity"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <span class="font-medium text-[14px] text-[var(--grayscale-80)]" th:text="#{settings.reports.coverPage.label}">Add a cover page</span>
+        </label>
+        <p class="text-[12px] text-[var(--grayscale-60)] -mt-[16px] ml-[28px]" th:text="#{settings.reports.coverPage.help}">A separate title page with your logo, company name, and the project name, before the report contents.</p>
+
+        <!-- Actions -->
+        <div class="flex items-center gap-[10px] pt-[4px]">
+            <button type="button"
+                    :disabled="saving || !loaded || loading"
+                    @click="save()"
+                    class="inline-flex items-center gap-[6px] px-[16px] py-[9px] rounded-[8px] text-[13px] font-bold bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                <svg x-show="!saving" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <svg x-show="saving" x-cloak class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                <span x-text="saving ? _reportsI18n.saving : _reportsI18n.save"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toastVisible" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toastMsg"></span>
+    </div>
+
+<script th:inline="javascript">
+const _reportsI18n = {
+    save:          /*[[#{common.save}]]*/ 'Save',
+    saving:        /*[[#{common.saving}]]*/ 'Saving…',
+    saved:         /*[[#{common.saved}]]*/ 'Saved.',
+    backendError:  /*[[#{settings.reports.error.backend}]]*/ 'Could not reach the server.',
+    logoTooLarge:  /*[[#{settings.reports.error.logoTooLarge}]]*/ 'Image is too large — please use a file under 350KB.',
+    logoInvalid:   /*[[#{settings.reports.error.logoInvalid}]]*/ 'Please select a PNG, JPEG, or SVG image.'
+};
+</script>
+<script th:src="@{/js/settings/reports.min.js(v='1.0.5.1')}"></script>
+</div>
+</body>
+</html>

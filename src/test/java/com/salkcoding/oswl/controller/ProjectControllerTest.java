@@ -1,9 +1,10 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.project.ProjectController;
 
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.ProjectSummaryDto;
-import com.salkcoding.oswl.service.ProjectService;
-import com.salkcoding.oswl.service.ScanStatusEmitterRegistry;
+import com.salkcoding.oswl.service.project.ProjectService;
+import com.salkcoding.oswl.service.scan.ScanStatusEmitterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

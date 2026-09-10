@@ -2,7 +2,9 @@ package com.salkcoding.oswl.auth.security;
 
 import com.salkcoding.oswl.auth.repository.InstanceSetupLockRepository;
 import com.salkcoding.oswl.auth.repository.UserRepository;
+import com.salkcoding.oswl.auth.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
+import org.springframework.session.security.SpringSessionBackedSessionRegistry;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -39,14 +44,29 @@ public class SecurityConfig {
     private final OswlSecurityHeadersProperties securityHeadersProperties;
     private final UserRepository userRepository;
     private final InstanceSetupLockRepository setupLockRepository;
+    private final AuditLogService auditLogService;
+    private final PasswordEncoder passwordEncoder;
     private final PermissionEvaluator oswlPermissionEvaluator;
     private final OswlAuthenticationFailureHandler authenticationFailureHandler;
     private final AuditLogoutSuccessHandler auditLogoutSuccessHandler;
     private final TwoFaAuthenticationSuccessHandler twoFaAuthenticationSuccessHandler;
     private final OswlSessionExpiredStrategy oswlSessionExpiredStrategy;
 
+    /**
+     * Horizontal scaling / HA: when {@code spring.session.store-type=jdbc} is active, a
+     * {@link FindByIndexNameSessionRepository} bean is auto-configured and single-session
+     * enforcement must see the whole cluster's sessions, not just this instance's in-memory ones —
+     * otherwise {@code maximumSessions(1)} would only be enforced per-instance and a user could hold
+     * one live session per instance behind the load balancer. Falls back to the in-memory registry
+     * when no such bean exists (default: single instance, in-memory Tomcat session).
+     */
     @Bean
-    public SessionRegistry sessionRegistry() {
+    public SessionRegistry sessionRegistry(
+            org.springframework.beans.factory.ObjectProvider<FindByIndexNameSessionRepository<? extends Session>> sessionRepositoryProvider) {
+        FindByIndexNameSessionRepository<? extends Session> sessionRepository = sessionRepositoryProvider.getIfAvailable();
+        if (sessionRepository != null) {
+            return new SpringSessionBackedSessionRegistry<>(sessionRepository);
+        }
         return new SessionRegistryImpl();
     }
 
@@ -60,7 +80,9 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
             org.springframework.beans.factory.ObjectProvider<org.springframework.security.oauth2.client.registration.ClientRegistrationRepository> clientRegistrations,
-            org.springframework.security.core.userdetails.UserDetailsService userDetailsService) {
+            org.springframework.beans.factory.ObjectProvider<org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository> relyingParties,
+            org.springframework.security.core.userdetails.UserDetailsService userDetailsService,
+            SessionRegistry sessionRegistry) {
         AccessDeniedHandler accessDeniedHandler = (request, response, _) -> {
             String accept = request.getHeader("Accept");
             String uri = request.getRequestURI();
@@ -105,11 +127,13 @@ public class SecurityConfig {
                     .maximumSessions(1)
                         .maxSessionsPreventsLogin(false)
                         .expiredSessionStrategy(oswlSessionExpiredStrategy)
-                        .sessionRegistry(sessionRegistry()))
+                        .sessionRegistry(sessionRegistry))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/", "/login", "/login/otp-verify", "/login/otp-resend", "/setup", "/error/**").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/icon/**", "/img/**", "/graphic/**", "/scripts/**", "/webjars/**", "/favicon.ico", "/oswl-push-sw.js").permitAll()
                     .requestMatchers("/oss-notices").permitAll()
+                    .requestMatchers("/saml2/service-provider-metadata/**").permitAll()
+                    .requestMatchers("/scim/v2/**").permitAll()
                     .requestMatchers("/api/scan/**").permitAll()
                     .requestMatchers("/actuator/**").hasRole("SYSTEM_ADMIN")
                     .anyRequest().authenticated())
@@ -144,15 +168,29 @@ public class SecurityConfig {
             .addFilterBefore(new SetupRedirectFilter(userRepository, setupLockRepository),
                     UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(new MustChangePasswordFilter(),
-                    SetupRedirectFilter.class);
+                    SetupRedirectFilter.class)
+            // After SecurityContextHolderFilter so the session-backed Authentication (if any) is
+            // already resolved when this filter reads it for the userId MDC value.
+            .addFilterAfter(new com.salkcoding.oswl.web.filter.RequestContextLoggingFilter(),
+                    org.springframework.security.web.context.SecurityContextHolderFilter.class);
 
-        // OIDC SSO (roadmap #13) — activated only when an OIDC provider is configured
+        // OIDC SSO — activated only when an OIDC provider is configured
         // (spring.security.oauth2.client.registration.*). Default deploys have no registration
         // bean, so nothing changes. SSO users are mapped to their existing OsWL account.
         if (clientRegistrations.getIfAvailable() != null) {
             http.oauth2Login(oauth -> oauth
                     .loginPage("/login")
                     .successHandler(new OidcLoginSuccessHandler(userDetailsService))
+                    .failureHandler(authenticationFailureHandler));
+        }
+
+        // SAML 2.0 SSO — activated only when a relying party is configured
+        // (spring.security.saml2.relyingparty.registration.*). IdP metadata and verification
+        // credentials are injected via environment variables.
+        if (relyingParties.getIfAvailable() != null) {
+            http.saml2Login(saml2 -> saml2
+                    .loginPage("/login")
+                    .successHandler(new Saml2LoginSuccessHandler(userDetailsService, userRepository, auditLogService, passwordEncoder))
                     .failureHandler(authenticationFailureHandler));
         }
 
