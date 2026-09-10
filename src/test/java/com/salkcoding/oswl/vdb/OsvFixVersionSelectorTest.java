@@ -16,6 +16,16 @@ class OsvFixVersionSelectorTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    void laterAdvisoryFixCanResolveAnUpgradeThatWouldIntroduceAnotherFinding(boolean reverse) {
+        var first = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "2.0.0"))));
+        var later = document(entry("target", "SEMVER", List.of(Map.of("introduced", "2.0.0"), Map.of("fixed", "4.0.0"))));
+        var input = reverse ? List.of(later, first) : List.of(first, later);
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(input, "npm", "target", "1.0.0").version()).isEqualTo("4.0.0");
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(List.of(later), "npm", "target", "1.0.0").version()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     void commonFixIsCheckedAgainstEveryAdvisoryRegardlessOfOrder(boolean reverse) {
         var first = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "2.0.0"))));
         var second = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "3.0.0"))));

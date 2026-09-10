@@ -63,8 +63,8 @@ class OsvPaginationTest {
         var result = client.queryBatch(List.of(query())).getFirst();
         assertThat(result.resolved()).isTrue();
         assertThat(result.vulns()).extracting(OsvClient.OsvVuln::osvId).containsExactly("OSV-first");
-        assertThat(result.commonFix().version()).isNull();
-        assertThat(result.commonFix().reason()).isEqualTo("FIX_CONFLICTS_WITH_AFFECTED_DATA");
+        assertThat(result.commonFix().version()).isEqualTo("4.0.0");
+        assertThat(result.commonFix().reason()).isEqualTo("SOURCE_FIXED_EVENT");
         server.verify();
     }
 

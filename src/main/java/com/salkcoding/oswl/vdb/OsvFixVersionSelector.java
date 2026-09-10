@@ -63,6 +63,7 @@ public final class OsvFixVersionSelector {
         Set<String> candidates = new LinkedHashSet<>();
         Comparator<String> ordering = null;
         String rangeType = null;
+        boolean installedAffected = false;
         try {
             for (JsonNode entry : advisory.path("affected")) {
                 JsonNode pkg = entry.path("package");
@@ -70,9 +71,13 @@ public final class OsvFixVersionSelector {
                 if (!AdvisoryPackageNames.canonical(ecosystem, name).equals(
                         AdvisoryPackageNames.canonical(ecosystem, pkg.path("name").asText()))) continue;
                 if (entry.has("versions") && !entry.path("versions").isArray()) return unavailable("MALFORMED_VERSIONS");
+                Set<String> declaredVersions = new LinkedHashSet<>();
                 for (JsonNode version : entry.path("versions")) {
                     if (!version.isTextual() || version.asText().isBlank()) return unavailable("MALFORMED_VERSIONS");
+                    declaredVersions.add(version.asText());
                 }
+                installedAffected |= OsvRangeEvaluator.evaluate(ecosystem.toUpperCase(java.util.Locale.ROOT), installed,
+                        declaredVersions, entry.path("ranges")) == OsvRangeEvaluator.Result.AFFECTED;
                 entries.add(entry);
                 if (!entry.path("ranges").isArray() || entry.path("ranges").isEmpty()) return unavailable("NO_RANGE_EVIDENCE");
                 for (JsonNode range : entry.path("ranges")) {
@@ -87,7 +92,7 @@ public final class OsvFixVersionSelector {
                     var singleRange = JsonNodeFactory.instance.arrayNode().add(range);
                     var affected = OsvRangeEvaluator.evaluate(ecosystem.toUpperCase(java.util.Locale.ROOT), installed, null, singleRange);
                     if (affected == OsvRangeEvaluator.Result.UNKNOWN) return unavailable("UNRESOLVED_RANGE");
-                    if (affected != OsvRangeEvaluator.Result.AFFECTED) continue;
+                    // A fix in a later interval may be needed to avoid introducing another finding.
                     for (JsonNode event : range.path("events")) {
                         if (event.path("fixed").isTextual()) {
                             String fixed = event.path("fixed").asText();
@@ -97,6 +102,7 @@ public final class OsvFixVersionSelector {
                 }
             }
             if (entries.isEmpty()) return unavailable("NO_MATCHING_PACKAGE");
+            if (!installedAffected) return unavailable("NO_APPLICABLE_FIXED_EVENT");
             if (candidates.isEmpty()) return unavailable("NO_APPLICABLE_FIXED_EVENT");
             List<String> confirmed = new ArrayList<>();
             for (String candidate : candidates) {
