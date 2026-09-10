@@ -17,6 +17,28 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAdvisoryRangeTest {
+    @ParameterizedTest
+    @CsvSource(value = {"false;2.0.0;2.0.0", "false;1.5.0;null", "true;2.0.0;null"}, delimiter = ';', nullValues = "null")
+    void liveFixDecisionReplacesCachedDecisionForTheSameAdvisory(boolean partial, String candidate, String expected) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", partial, ""));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities").path("nodes").get(0))
+                .putObject("firstPatchedVersion").put("identifier", candidate);
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var cached = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "cached", null, null, null, "9.0.0");
+        var other = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-other", null, "other", null, null, null, "3.0.0");
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of(cached, other));
+        assertThat(result.lookupFailed()).isEqualTo(partial);
+        assertThat(result.findings()).hasSize(2).contains(other);
+        assertThat(result.findings().stream().filter(f -> f.ghsaId().equals("GHSA-fixture")).findFirst().orElseThrow().fixVersion()).isEqualTo(expected);
+        server.verify();
+    }
+
     @org.junit.jupiter.api.Test
     void laterPageCanInvalidateAnEarlierFixCandidate() throws Exception {
         var builder = RestClient.builder();

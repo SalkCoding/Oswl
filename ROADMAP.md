@@ -162,6 +162,9 @@
 - **2026-09-10 OSV 버전 목록 형식 검증:** 관련 패키지의 versions가 명시적 null/배열 아닌 값이거나 숫자·객체·null·빈 버전 문자열을 포함하면 bulk 수집을 실패 처리한다. asText 변환이나 무시로 정상 비영향 coverage를 만들지 않으며 CLI는 기존 번들을 보존한다. 공통 fixed 선택기도 같은 입력에서 MALFORMED_VERSIONS로 제안을 보류한다. [OSV schema의 versions 문자열 배열 계약](https://ossf.github.io/osv-schema/), 확인 2026-09-10. 필드 생략과 빈 배열은 기존 범위 평가를 유지한다.
 - **형식 회귀:** 신규 형식 회귀 17건 중 수정 전 13건 실패를 확인했다. 실제 임시 ZIP/cache를 읽는 수집 검사, 공통 fixed 선택 검사와 malformed 목록의 CLI 출력 byte 보존 검사를 포함해 `.\gradlew.bat test --tests '*Osv*Test' --tests '*Vdb*Test' --tests '*PyPiAdvisoryComparisonTest'` 102건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-osv-version-shape-before.log`, `build/roadmap-osv-version-shape-after.log`. 커밋 제목 `fix: reject malformed osv version lists`. 자체 합성 입력이며 외부 데이터/라이브러리와 UI 변경 없음. 전체 schema 검증, 목록에 있는 문자열의 모든 생태계별 문법 검증 및 저장된 과거 오판 정정은 잔여다.
 
+- **2026-09-10 GHSA 캐시 병합 보완:** source adapter에서 같은 GHSA ID의 캐시 finding보다 현재 live finding의 판정을 반영한다. 기존 offline-first 중복 제거 때문에 새 fixed 또는 명시적 fixed 보류가 사라지던 문제를 수정했다. 부분 조회의 확인된 finding도 fixed 보류 상태로 교체하면서 lookupFailed를 유지한다. 응답에서 확인하지 못한 다른 ID의 캐시 finding은 보존한다. 이 변경만으로 순수 오프라인 과거 데이터의 수정/철회 전파가 완료되는 것은 아니다.
+- **캐시 병합 회귀:** 정상 후보·범위 내 잘못된 후보·부분 응답의 HTTP→client→source 검사 3건은 수정 전 모두 실패했다. 수정 후 `.\gradlew.bat test --tests '*GitHubAdvisoryRangeTest' --tests '*VulnerabilityEnrichmentServiceTest'` 68건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-ghsa-cache-before.log`, `build/roadmap-ghsa-cache-after.log`. 커밋 제목 `fix: preserve live advisory decisions when merging cache`. 자체 합성 입력이며 외부 자료/의존성 및 UI 변경 없음. 원문 modified 기준 revision 충돌 조정, live 미응답 ID의 철회 판정과 과거 DB fixed 정정은 잔여다.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [코드 확인]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.
