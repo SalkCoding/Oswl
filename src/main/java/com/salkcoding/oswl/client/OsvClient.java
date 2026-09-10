@@ -167,21 +167,63 @@ public class OsvClient {
 
         List<OsvResult> results = new ArrayList<>(queries.size());
         int hits = 0;
-        for (String key : keys) {
+        for (int queryIndex = 0; queryIndex < keys.size(); queryIndex++) {
+            String key = keys.get(queryIndex);
             List<SnapshotVuln> vulns = key != null ? found.get(key) : null;
             if (vulns == null) {
                 results.add(OsvResult.unresolved());
             } else {
                 hits++;
-                results.add(new OsvResult(vulns.stream()
-                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), stale ? null : v.fixVersion(), v.cweId(), risk(v.severity(), v.cvssScore()), v.cvssScore(), v.cvss3Vector(), v.fixVersionConflictCandidates()))
-                        .toList(), !stale && !unresolved.contains(key)));
+                results.add(snapshotResult(vulns, queries.get(queryIndex), !stale, !stale && !unresolved.contains(key)));
             }
         }
         log.debug("[OsvClient] air-gapped querybatch size={} snapshotHits={} totalVulns={}",
                 queries.size(), hits,
                 results.stream().mapToInt(r -> r.vulns().size()).sum());
         return results;
+    }
+
+    private static OsvResult snapshotResult(List<SnapshotVuln> vulns, OsvQuery query, boolean current, boolean resolved) {
+        List<OsvVuln> findings = new ArrayList<>();
+        List<SnapshotVuln> evidence = new ArrayList<>();
+        for (SnapshotVuln vuln : vulns) {
+            var advisory = vuln.osvAdvisory();
+            String fix = vuln.fixVersion();
+            if (advisory != null) {
+                var withdrawal = OsvWithdrawal.from(advisory);
+                if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
+                var membership = OsvRangeEvaluator.evaluateAdvisory(advisory, query.ecosystem(), query.name(), query.version());
+                if (withdrawal == OsvWithdrawal.UNKNOWN || membership == OsvRangeEvaluator.Result.UNKNOWN) {
+                    resolved = false;
+                    continue;
+                }
+                evidence.add(vuln);
+                if (membership == OsvRangeEvaluator.Result.NOT_AFFECTED) continue;
+                fix = OsvFixVersionSelector.select(advisory, query.ecosystem(), query.name(), query.version()).version();
+            } else {
+                evidence.add(vuln);
+            }
+            findings.add(new OsvVuln(vuln.osvId(), vuln.cveId(), vuln.summary(), fix, vuln.cweId(),
+                    risk(vuln.severity(), vuln.cvssScore()), vuln.cvssScore(), vuln.cvss3Vector(), vuln.fixVersionConflictCandidates()));
+        }
+        if (!current) findings = findings.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
+                v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();
+        return new OsvResult(findings, resolved, resolved ? snapshotCommonFix(evidence, query) : null);
+    }
+
+    private static OsvFixVersionSelector.Selection snapshotCommonFix(List<SnapshotVuln> vulns, OsvQuery query) {
+        Map<String, com.fasterxml.jackson.databind.JsonNode> evidence = new java.util.LinkedHashMap<>();
+        for (SnapshotVuln vuln : vulns) {
+            var advisory = vuln.osvAdvisory();
+            if (advisory == null) return new OsvFixVersionSelector.Selection(null, "NO_RANGE_EVIDENCE");
+            if (!vuln.fixVersionConflictCandidates().isEmpty())
+                return new OsvFixVersionSelector.Selection(null, "CONFLICTING_FIX_EVIDENCE");
+            var previous = evidence.putIfAbsent(vuln.osvId(), advisory);
+            if (previous != null && !previous.equals(advisory))
+                return new OsvFixVersionSelector.Selection(null, "CONFLICTING_ADVISORY_REVISIONS");
+        }
+        return OsvFixVersionSelector.selectAcrossAdvisories(List.copyOf(evidence.values()),
+                query.ecosystem(), query.name(), query.version());
     }
 
     // ── Internal ─────────────────────────────────────────────────────────

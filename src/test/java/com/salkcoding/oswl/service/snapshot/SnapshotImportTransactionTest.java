@@ -21,6 +21,64 @@ import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8, 999})
+    void suppliedOsvEvidenceSupportsCommonFixParityWithoutRefreshingOldData(int age) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        List<com.fasterxml.jackson.databind.JsonNode> originals = new ArrayList<>();
+        List<Map<String, Object>> vulns = new ArrayList<>();
+        for (int i = 2; i <= 3; i++) {
+            String id = "OSV-owned-" + i;
+            var advisory = json.valueToTree(Map.of("id", id, "modified", "2026-01-01T00:00:00Z",
+                    "credits", List.of(Map.of("name", "OsWL synthetic fixture")),
+                    "affected", List.of(Map.of("package", Map.of("ecosystem", "npm", "name", "fixture"),
+                            "ranges", List.of(Map.of("type", "SEMVER", "events", List.of(
+                                    Map.of("introduced", "0"), Map.of("fixed", i + ".0.0"))))))));
+            originals.add(advisory);
+            vulns.add(Map.of("osvId", id, "fixVersion", i + ".0.0", "osvAdvisory", advisory));
+        }
+        String line = json.writeValueAsString(Map.of("ecosystem", "npm", "name", "fixture", "version", "1.0.0", "vulns", vulns));
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(line.getBytes(StandardCharsets.UTF_8)));
+        String source = age == 999 ? "{}" : "{\"asOf\":\"" + java.time.LocalDate.now().minusDays(age) + "\"}";
+        String manifest = "{\"formatVersion\":2,\"sources\":{\"osv\":" + source
+                + "},\"files\":{\"osv.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}}}";
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", line, "meta.json", manifest))));
+        String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");
+        assertThat(service.findOsvVulns(List.of(key)).get(key)).extracting(AirgappedSnapshotService.SnapshotVuln::osvAdvisory)
+                .containsExactlyElementsOf(originals);
+        var query = new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "fixture", "1.0.0");
+        var offline = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+        var builder = org.springframework.web.client.RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        json.writeValueAsString(Map.of("results", List.of(Map.of("vulns", originals)))), org.springframework.http.MediaType.APPLICATION_JSON));
+        for (var original : originals) {
+            server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/vulns/" + original.path("id").asText()))
+                    .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(original.toString(), org.springframework.http.MediaType.APPLICATION_JSON));
+        }
+        var onlineClient = new com.salkcoding.oswl.client.OsvClient();
+        org.springframework.test.util.ReflectionTestUtils.setField(onlineClient, "restClient", builder.build());
+        var online = onlineClient.queryBatch(List.of(query)).getFirst();
+        assertThat(online.commonFix().version()).isEqualTo("3.0.0");
+        assertThat(offline.resolved()).isEqualTo(age == 0);
+        if (age == 0) assertThat(offline.commonFix()).isEqualTo(online.commonFix());
+        else assertThat(offline.commonFix().version()).isNull();
+        server.verify();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"identity", "modified", "affected"})
+    void invalidOriginalAdvisoryRejectsImportWithoutDeletingExistingData(String invalid) throws Exception {
+        String line = """
+                {"ecosystem":"npm","name":"fixture","version":"1.0.0","vulns":[{
+                "osvId":"OSV-one","osvAdvisory":{"id":"%s","modified":"%s","affected":%s}}]}
+                """.formatted(invalid.equals("identity") ? "OSV-other" : "OSV-one",
+                invalid.equals("modified") ? "unknown" : "2026-01-01T00:00:00Z", invalid.equals("affected") ? "{}" : "[]");
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", line)))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertThat(entries.findAll()).singleElement().satisfies(row -> assertThat(row.getEntryKey()).isEqualTo("CVE-OLD"));
+    }
     @Test void exportedManifestCarriesDataAttributionAndTransformationNotice() throws Exception {
         byte[] exported = service.exportBundle();
         com.fasterxml.jackson.databind.JsonNode meta = null;

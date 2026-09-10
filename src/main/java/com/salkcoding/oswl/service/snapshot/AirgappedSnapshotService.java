@@ -40,6 +40,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -139,13 +140,31 @@ public class AirgappedSnapshotService {
      */
     public record SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
                                 String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
-                                Set<String> fixVersionConflictCandidates) {
+                                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory) {
         public SnapshotVuln {
+            if (osvAdvisory != null && !osvAdvisory.isNull()) {
+                if (!osvAdvisory.isObject() || !osvAdvisory.path("id").isTextual()
+                        || !Objects.equals(osvId, osvAdvisory.path("id").asText())
+                        || !osvAdvisory.path("affected").isArray() || !osvAdvisory.path("modified").isTextual()) {
+                    throw new IllegalArgumentException("OSV evidence requires matching identity, modified time and affected entries");
+                }
+                java.time.Instant.parse(osvAdvisory.path("modified").asText());
+                osvAdvisory = osvAdvisory.deepCopy();
+            } else {
+                osvAdvisory = null;
+            }
             fixVersionConflictCandidates = fixVersionConflictCandidates == null ? Set.of() : Set.copyOf(fixVersionConflictCandidates);
             if (fixVersionConflictCandidates.stream().anyMatch(v -> v.isBlank() || v.length() > 100))
                 throw new IllegalArgumentException("Invalid conflicting fix candidate");
             if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
         }
+        public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
+                String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
+                Set<String> fixVersionConflictCandidates) {
+            this(osvId, cveId, summary, fixVersion, cweId, severity, cvssScore, cvss3Vector, matchConfidence,
+                    fixVersionConflictCandidates, null);
+        }
+        @Override public JsonNode osvAdvisory() { return osvAdvisory == null ? null : osvAdvisory.deepCopy(); }
         public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
                 String severity, Double cvssScore, String cvss3Vector, String matchConfidence) {
             this(osvId, cveId, summary, fixVersion, cweId, severity, cvssScore, cvss3Vector, matchConfidence, Set.of());
@@ -680,7 +699,7 @@ public class AirgappedSnapshotService {
                     throw new InvalidRequestException("Snapshot vulnerability requires an advisory identity");
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
                         text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
-                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v)));
+                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v), v.get("osvAdvisory")));
             }
             buffer.add(new ParsedLine(key, objectMapper.writeValueAsString(vulns), false));
         } catch (Exception e) {

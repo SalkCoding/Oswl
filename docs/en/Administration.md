@@ -255,6 +255,8 @@ Bundles are v2 format: each JSONL file is checksummed in `meta.json`, and per-so
 
 Scan exports also include `meta.json.dataNotices`: GitHub Advisory Database attribution and license links, normalization details, and the limits of these notices. This does not establish redistribution rights for the entire bundle or preserve all supplied record-level credits. Source-specific permissions and notice retention still need verification before redistribution; a GHSA alias alone does not identify the original source or license.
 
+An `osv.jsonl` vulnerability may optionally include an `osvAdvisory` JSON object containing its original OSV document. Its `id` must match `osvId`, `modified` must be a valid timestamp, and `affected` must be an array. The snapshot store retains the supplied document, including credits and references. Offline lookup rechecks membership and fixes against it; common fixes require original evidence for every contributing record and current, complete source coverage. Legacy records without it keep their existing lookup behavior but cannot establish a common fix. This field does not authorize acquiring or distributing upstream material. Automatic collectors and scan-derived re-export do not yet carry these originals: retain the source bundle and verify its rights and notices separately.
+
 | Action | Endpoint |
 |---|---|
 | Bundle status | `GET /api/admin/snapshot` |

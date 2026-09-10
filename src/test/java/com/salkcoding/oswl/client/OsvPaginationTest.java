@@ -84,6 +84,33 @@ class OsvPaginationTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"affected", "unaffected", "foreign", "withdrawn"})
+    void offlineOriginalEvidenceRechecksMembershipAndFixInsteadOfTrustingProjectedFields(String state) throws Exception {
+        var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        ReflectionTestUtils.setField(client, "airgapped", true);
+        ReflectionTestUtils.setField(client, "snapshotService", snapshots);
+        var raw = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                {"id":"OSV-original","modified":"2026-01-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"%s"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"%s"},{"fixed":"4.0.0"}]}]}]}
+                """.formatted(state.equals("foreign") ? "other" : "example", state.equals("unaffected") ? "2.0.0" : "0"));
+        if (state.equals("withdrawn")) ((com.fasterxml.jackson.databind.node.ObjectNode) raw).put("withdrawn", "2026-01-01T00:00:00Z");
+        var record = new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
+                "OSV-original", null, null, "99.0.0", null, null, null, null, null, java.util.Set.of(), raw);
+        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", "1.0.0");
+        org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(record)));
+        var result = client.queryBatch(List.of(query())).getFirst();
+        assertThat(result.resolved()).isEqualTo(!state.equals("foreign"));
+        if (state.equals("affected")) {
+            assertThat(result.vulns()).singleElement().satisfies(v -> assertThat(v.fixVersion()).isEqualTo("4.0.0"));
+            assertThat(result.commonFix().version()).isEqualTo("4.0.0");
+        } else {
+            assertThat(result.vulns()).isEmpty();
+            assertThat(result.commonFix().version()).isNull();
+        }
+        server.verify();
+    }
+
     @Test void followsOnlyThePaginatedQueryAndPreservesInputAlignment() {
         batch("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"},{}]}");
         detail("OSV-one");
