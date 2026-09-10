@@ -35,7 +35,7 @@ class NuGetAdvisoryParityTest {
         var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
                 Duration.ofSeconds(1), Duration.ofSeconds(1));
         ReflectionTestUtils.setField(client, "restClient", builder.build());
-        server.expect(anything()).andRespond(withSuccess("""
+        if (!unknown) server.expect(anything()).andRespond(withSuccess("""
                 {"data":{"securityVulnerabilities":{"pageInfo":{"hasNextPage":false,"endCursor":"end"},"nodes":[
                   {"package":{"name":"fixture","ecosystem":"NUGET"},"vulnerableVersionRange":"< 1.0.0-alpha2",
                    "firstPatchedVersion":{"identifier":"1.0.0-alpha2"},

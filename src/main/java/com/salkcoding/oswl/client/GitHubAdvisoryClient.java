@@ -150,6 +150,11 @@ public class GitHubAdvisoryClient {
      * is not supported by GitHub Advisory or the client is air-gapped. Failed requests throw.
      */
     public List<GitHubAdvisory> findByPackage(String ecosystem, String name, String version) {
+        if ("NUGET".equals(toGitHubEcosystem(ecosystem))) {
+            // Validate before either mode can accept an empty result as completed coverage.
+            AdvisoryPackageNames.canonical("NUGET", name);
+            com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(version, version);
+        }
         if (airgapped) {
             if (snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_GITHUB_ADVISORY)) {
                 // Cached findings are supplied separately; do not mark their coverage complete.
