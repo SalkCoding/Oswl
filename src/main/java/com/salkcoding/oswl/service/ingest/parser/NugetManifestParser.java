@@ -19,7 +19,7 @@ public class NugetManifestParser {
     public List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName) {
         try {
             JsonNode root = new ObjectMapper().readTree(dir.resolve("packages.lock.json").toFile());
-            Set<String> seen = new LinkedHashSet<>();
+            Set<List<String>> seen = new LinkedHashSet<>();
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
             JsonNode deps = root.path("dependencies");
             if (!deps.isMissingNode()) {
@@ -27,7 +27,8 @@ public class NugetManifestParser {
                     fw.getValue().properties().forEach(pkg -> {
                         String name = pkg.getKey();
                         String ver  = pkg.getValue().path("resolved").asText(null);
-                        if (name != null && ver != null && !ver.isBlank() && seen.add(name)) {
+                        // Different frameworks can resolve the same package to different versions.
+                        if (name != null && ver != null && !ver.isBlank() && seen.add(List.of(name, ver))) {
                             comps.add(buildComponent(name, ver, "NUGET"));
                         }
                     })
