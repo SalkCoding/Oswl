@@ -504,7 +504,7 @@
                                                : (${cve.severity == 'LOW'} ? 'bg-[var(--grayscale-30)]' : 'bg-[var(--risk-unknown)]')))"
                               class="w-[6px] h-[6px] rounded-full"></span>
                         <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]"
-                              th:text="'CVSS ' + ${#numbers.formatDecimal(cve.cvssScore, 1, 1)}">CVSS 9.8</span>
+                              th:text="'CVSS ' + (${cve.cvssScore != null} ? ${#numbers.formatDecimal(cve.cvssScore, 1, 1)} : #{common.unknown})">CVSS 9.8</span>
                     </span>
                 </button>
                 </div>
@@ -568,8 +568,8 @@
                         </span>
                         <span th:if="${cve.environmentalScore != null}" th:title="#{componentDetail.cve.envScore.tooltip}">
                             <span class="font-medium" th:text="#{componentDetail.cve.envScore} + ':'">Environmental Score:</span>
-                            <span th:classappend="${cve.environmentalScore > cve.cvssScore} ? 'text-[var(--risk-critical)] font-medium'
-                                                 : (${cve.environmentalScore < cve.cvssScore} ? 'text-[var(--grayscale-60)]' : '')"
+                            <span th:classappend="${cve.cvssScore != null and cve.environmentalScore > cve.cvssScore} ? 'text-[var(--risk-critical)] font-medium'
+                                                 : (${cve.cvssScore != null and cve.environmentalScore < cve.cvssScore} ? 'text-[var(--grayscale-60)]' : '')"
                                   th:text="${#numbers.formatDecimal(cve.environmentalScore, 1, 1)}">8.5</span>
                         </span>
                     </div>

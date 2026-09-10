@@ -173,6 +173,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **누락 CVSS 수정 누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 전체 4,195건 중 4,184건 통과·환경 의존/opt-in skip 11건·실패/오류 0. 로그 `build/roadmap-missing-cvss-build.log`. 브라우저 4건은 별도 실행했다.
+- **2026-09-11 누락 CVSS 표시 보존:** 상세 화면과 AI 재생성 응답의 CveDto.cvssScore를 nullable로 유지한다. 저장 점수가 없으면 유효한 벡터에서 계산하며 둘 다 없으면 null이다. 화면은 기존 3개 언어의 common.unknown을 사용하고 환경 점수 비교도 null을 허용한다. API 소비자는 이전의 기본 0.0 대신 null을 처리해야 한다. 실제 0.0 및 CVSS v3.1 벡터의 9.8은 유지한다. 실제 H2 저장·로그인·Chromium 검사에서 수정 전 missing 사례 1건 실패, 수정 후 점수 3상태와 기존 긴 의존성 근거 검사 총 4건 통과·skip/실패/오류 0. 로그 `build/roadmap-missing-cvss-before.log`, `build/roadmap-missing-cvss-after.log`; 화면 `build/reports/dependency-evidence-ui/unscored-patch-missing.png` 확인. 자체 합성 입력이며 외부 자료·라이브러리 추가 없음. 커밋 제목 `fix: preserve missing cvss scores in component details`. AI 분석 요청 내부의 primitive 점수 기본값과 추천문구의 미평가 개수 누락은 잔여다.
+
 - **2026-09-11 심각도 누락 CVE의 수정 버전 보존:** Library.computePatchability가 severity=null CVE를 제외해 알려진 수정 버전이 있어도 UNKNOWN 또는 NON_PATCHABLE을 반환하는 문제를 단독/혼합 입력 2건의 실패로 재현했다. null 심각도를 이유로 advisory의 수정 버전을 제외하지 않도록 고쳤다. 실제 화면 검증에서 ComponentDetailService 역시 null 심각도를 집계에서 누락해 hasVulnerabilities=false가 되는 연결 문제를 발견하여 미평가 집계에 포함했다. 명시적인 NONE에 대한 기존 패치 계산 계약은 이번에 변경하지 않았다.
 - **검증 범위:** Library/SecurityCenterService/ComponentDetailService 71건, DependencyEvidence/ComponentCoverageSummary Chromium UI 5건 통과·skip/실패/오류 0. 실제 H2 저장·로그인·상세 렌더링에서 미평가 CVE와 수정 버전 2.0.0, 패치 가능 표시를 확인했다. 로그 `build/roadmap-unscored-patch-before.log`, `build/roadmap-unscored-patch-after.log`; 이미지 `build/reports/dependency-evidence-ui/unscored-patch.png`. 커밋 제목 `fix: retain unscored findings in patchability and detail counts`. 자체 CVE fixture를 사용했고 외부 자료·라이브러리를 추가하지 않았다. 실제 공급자/오프라인 전환·전체 build 재실행은 이번 범위에 포함하지 않았다. 화면에서 누락 CVSS가 0.0으로 표시되는 DTO 기본값과 추천문구의 미평가 개수 누락도 확인했으며 후속 수정이 필요하다.
 

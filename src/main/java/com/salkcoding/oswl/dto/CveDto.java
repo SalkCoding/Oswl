@@ -23,8 +23,8 @@ public class CveDto {
     @Schema(description = "Severity (NONE = Unscored, i.e. no CVSS score)", example = "CRITICAL", allowableValues = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"})
     private final String severity;
 
-    @Schema(description = "CVSS 3.x base score (0.0 – 10.0)", example = "9.8")
-    private final double cvssScore;
+    @Schema(description = "CVSS base score (0.0 – 10.0); null when unavailable", example = "9.8")
+    private final Double cvssScore;
 
     @Schema(description = "CVSS 3.x vector string", example = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H")
     private final String cvss3Vector;

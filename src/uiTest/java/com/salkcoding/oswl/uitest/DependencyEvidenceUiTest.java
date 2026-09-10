@@ -28,20 +28,29 @@ class DependencyEvidenceUiTest extends UiTestBase {
     private final ScanComponentRepository components;
     private final com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
 
-    @Test void unscoredAdvisoryKeepsItsPatchabilityInTheRenderedDetail() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "zero", "vector"})
+    void unscoredAdvisoryKeepsItsPatchabilityInTheRenderedDetail(String scoreState) throws Exception {
         var project = projects.save(Project.builder().name("Unscored patch fixture").build());
         var scan = scans.save(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED).build());
-        var library = libraries.save(Library.builder().name("unscored-patch-fixture").version("1.0.0")
+        var library = libraries.save(Library.builder().name("unscored-patch-fixture-" + scoreState).version("1.0.0")
                 .ecosystem("NUGET").licenseStatus(LicenseStatus.UNKNOWN).build());
         var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
         cves.save(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
-                .cveId("CVE-2026-0001").severity(null).fixVersion("2.0.0").build());
+                .cveId("CVE-2026-0001").severity(null).fixVersion("2.0.0")
+                .cvssScore(scoreState.equals("zero") ? 0.0 : null)
+                .cvss3Vector(scoreState.equals("vector") ? "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" : null).build());
         loginAsTestAdmin();
         page.navigate(url("/projects/" + project.getId() + "/components/" + component.getId() + "?lang=en"));
         String body = page.locator("#component-detail-content").innerText();
         assertThat(body).contains("Patchable", "CVE-2026-0001", "2.0.0", "Unscored");
         assertThat(body).doesNotContain("No security vulnerabilities detected", "Non-Patchable");
-        Path output = Path.of("build/reports/dependency-evidence-ui/unscored-patch.png");
+        if (scoreState.equals("missing")) {
+            assertThat(body).doesNotContain("CVSS 0.0").contains("CVSS Unknown");
+        } else {
+            assertThat(body).contains(scoreState.equals("zero") ? "CVSS 0.0" : "CVSS 9.8");
+        }
+        Path output = Path.of("build/reports/dependency-evidence-ui/unscored-patch-" + scoreState + ".png");
         Files.createDirectories(output.getParent());
         page.screenshot(new Page.ScreenshotOptions().setPath(output).setFullPage(true));
     }

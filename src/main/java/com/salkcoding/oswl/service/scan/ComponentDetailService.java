@@ -146,7 +146,7 @@ public class ComponentDetailService {
                 .ghsaId(cve.getGhsaId())
                 .title(cve.getTitle())
                 .severity(cve.getSeverity() != null ? cve.getSeverity().name() : "NONE")
-                .cvssScore(cve.getCvssScore() != null ? cve.getCvssScore() : 0.0)
+                .cvssScore(resolveCvssScore(cve))
                 .cvss3Vector(cve.getCvss3Vector())
                 .cweId(cve.getCweId())
                 .summary(cve.getSummary())
@@ -313,10 +313,10 @@ public class ComponentDetailService {
      * The CVE's displayed score — the score reported directly by the data source (deps.dev/NVD/
      * GitHub Advisory) when present, falling back to computing the CVSS Base Score from the
      * stored vector (v3.x via {@link CvssV3Calculator}, v4.0 via {@link CvssV4Calculator}) so a
-     * CVE that supplied a vector without an accompanying score still shows one. {@code 0.0} when
+     * CVE that supplied a vector without an accompanying score still shows one. {@code null} when
      * neither is available (no CVSS data at all).
      */
-    private double resolveCvssScore(Cve c) {
+    private Double resolveCvssScore(Cve c) {
         if (c.getCvssScore() != null) {
             return c.getCvssScore();
         }
@@ -326,7 +326,7 @@ public class ComponentDetailService {
             case V4 -> CvssV4Calculator.baseScore(vector);
             case UNKNOWN -> null;
         };
-        return fromVector != null ? fromVector : 0.0;
+        return fromVector;
     }
 
     /**
