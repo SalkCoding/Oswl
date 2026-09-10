@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -38,6 +39,7 @@ public class GitCloneExecutor {
     private static final String ENV_PASSWORD = "OSWL_GIT_PASSWORD";
 
     private static final long GIT_TIMEOUT_MINUTES = 5;
+    private static final int MAX_OUTPUT_BYTES = 64 * 1024;
 
     /** git writes human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
     private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
@@ -70,6 +72,9 @@ public class GitCloneExecutor {
                 try {
                     cloneSparse(repositoryUrl, branch, targetDir, jobId, askpass, credentials);
                     return;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw e;
                 } catch (Exception e) {
                     log.info("[QuickImport][{}] Blobless/sparse clone failed ({}); falling back to full shallow clone",
                             jobId, e.getMessage());
@@ -181,27 +186,53 @@ public class GitCloneExecutor {
         Process proc = pb.start();
         final String[] outputHolder = {""};
         Thread outputReader = Thread.ofVirtual().start(() -> {
+            ByteArrayOutputStream retained = new ByteArrayOutputStream();
+            boolean truncated = false;
             try {
-                outputHolder[0] = new String(proc.getInputStream().readAllBytes(), CONSOLE_CHARSET);
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = proc.getInputStream().read(buffer)) != -1) {
+                    int keep = Math.min(count, MAX_OUTPUT_BYTES - retained.size());
+                    retained.write(buffer, 0, keep);
+                    truncated |= keep < count;
+                }
             } catch (IOException ignored) {
+                // Stream closure during cancellation must not prevent process cleanup.
+            } finally {
+                String output = retained.toString(CONSOLE_CHARSET);
+                if (truncated) {
+                    // Drop the incomplete line as it can contain a partially captured secret.
+                    int newline = output.lastIndexOf('\n');
+                    output = (newline < 0 ? "" : output.substring(0, newline + 1)) + "[output truncated]";
+                }
+                outputHolder[0] = output;
             }
         });
-        boolean finished = proc.waitFor(GIT_TIMEOUT_MINUTES, TimeUnit.MINUTES);
-        if (!finished) {
-            proc.destroyForcibly();
-            throw new RuntimeException(description + " timed out after " + GIT_TIMEOUT_MINUTES + " minutes");
-        }
         try {
+            if (!proc.waitFor(GIT_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
+                throw new RuntimeException(description + " timed out after " + GIT_TIMEOUT_MINUTES + " minutes");
+            }
             outputReader.join(2_000);
-        } catch (InterruptedException ignored) {
+            if (outputReader.isAlive()) {
+                throw new RuntimeException(description + " output did not finish after process exit");
+            }
+            String safe = redactSecrets(outputHolder[0], credentials);
+            int exitCode = proc.exitValue();
+            if (exitCode != 0) {
+                throw new RuntimeException(description + " failed (exit " + exitCode + "): " + safe.trim());
+            }
+            log.debug("[QuickImport][{}] {} finished: {}", jobId, description, safe.trim());
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            throw e;
+        } finally {
+            // Killing only git can leave remote helpers running with the credential environment.
+            proc.descendants().forEach(child -> child.destroyForcibly());
+            if (proc.isAlive()) proc.destroyForcibly();
+            try { proc.getInputStream().close(); } catch (IOException ignored) { }
+            try { proc.getOutputStream().close(); } catch (IOException ignored) { }
+            try { proc.getErrorStream().close(); } catch (IOException ignored) { }
         }
-        int exitCode = proc.exitValue();
-        if (exitCode != 0) {
-            String safe = redactSecrets(outputHolder[0]);
-            throw new RuntimeException(description + " failed (exit " + exitCode + "): " + safe.trim());
-        }
-        log.debug("[QuickImport][{}] {} finished: {}", jobId, description, redactSecrets(outputHolder[0]).trim());
     }
 
     /** Removes the contents of a partially cloned directory so a fallback clone can reuse it. */
@@ -220,9 +251,12 @@ public class GitCloneExecutor {
         }
     }
 
-    private static String redactSecrets(String output) {
+    private static String redactSecrets(String output, GitCloneCredentials credentials) {
         if (output == null) {
             return "";
+        }
+        if (credentials != null && credentials.password() != null && !credentials.password().isEmpty()) {
+            output = output.replace(credentials.password(), "***");
         }
         return output
                 .replaceAll("(https?://)([^@\\s]+@)", "$1***@")
