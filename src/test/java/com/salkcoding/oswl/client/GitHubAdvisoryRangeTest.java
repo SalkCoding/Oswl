@@ -18,7 +18,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GitHubAdvisoryRangeTest {
     @ParameterizedTest
-    @CsvSource({"NuGet,NUGET", "RubyGems,RUBYGEMS", "Composer,COMPOSER"})
+    @CsvSource({"RubyGems,RUBYGEMS", "Composer,COMPOSER"})
     void unsupportedNativeOrderingDoesNotBecomeAConfirmedFinding(String ecosystem, String providerEcosystem) throws Exception {
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();

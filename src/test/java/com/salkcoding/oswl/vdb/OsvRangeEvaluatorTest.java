@@ -16,6 +16,13 @@ class OsvRangeEvaluatorTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @ParameterizedTest
+    @CsvSource({"1.0.0-alpha10,AFFECTED", "1.0.0-alpha2,NOT_AFFECTED", "1.0.0-alpha2+build,NOT_AFFECTED", "1.0.0,NOT_AFFECTED"})
+    void nugetRangesUseNativePrereleaseOrdering(String version, OsvRangeEvaluator.Result expected) throws Exception {
+        var ranges = range("ECOSYSTEM", "[{\"introduced\":\"0\"},{\"fixed\":\"1.0.0-alpha2\"}]");
+        assertThat(OsvRangeEvaluator.evaluate("NUGET", version, null, ranges)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
     @CsvSource({"1.0.0,1.0,AFFECTED", "1.0RC1,1.0rc1,AFFECTED", "1.0rev1,1.0.post1,AFFECTED",
             "1.0+vendor.1,1.0,NOT_AFFECTED", "1.0,1.0.post1,NOT_AFFECTED", "1.0,invalid,UNKNOWN"})
     void pypiEnumeratedVersionsRespectVersionIdentity(String installed, String listed, OsvRangeEvaluator.Result expected) {
@@ -69,7 +76,7 @@ class OsvRangeEvaluatorTest {
         assertThat(OsvRangeEvaluator.evaluate("NPM", "abc123", null, git)).isEqualTo(UNKNOWN);
         assertThat(OsvRangeEvaluator.evaluate("NPM", "abc123", Set.of("abc123"), git)).isEqualTo(AFFECTED);
         var ecosystem = range("ECOSYSTEM", "[{\"introduced\":\"0\"}]");
-        assertThat(OsvRangeEvaluator.evaluate("NUGET", "1.0", Set.of("0.9"), ecosystem)).isEqualTo(UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("RUBYGEMS", "1.0", Set.of("0.9"), ecosystem)).isEqualTo(UNKNOWN);
         assertThat(OsvRangeEvaluator.evaluate("PYPI", "1.0", Set.of("0.9"), ecosystem)).isEqualTo(AFFECTED);
     }
 

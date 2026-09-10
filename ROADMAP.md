@@ -113,6 +113,11 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **2026-09-11 NuGet 구체 버전 비교기 구현:** 1~4개 숫자 요소, prerelease의 점 구분/대소문자 무시/숫자와 문자 순서, metadata 제외를 처리하는 `NuGetVersionComparator`를 구현했다. NuGet VersionRelease의 Int32 범위를 넘는 prerelease 숫자 문자열 처리도 고정 native 정답과 일치시켰다. 입력 길이 제한과 잘못된 구체 버전 거부를 유지하며 dependency range 문법을 구체 버전으로 비교하지 않는다. OSV ECOSYSTEM 범위의 공통 평가/수정 버전 선택과 GHSA 범위/수정 버전 선택 모두 연결했다. 커밋 제목 `feat: compare nuget advisory versions with native ordering`.
+- **누적 빌드:** Windows/Java 25의 `build verifyProdJar` 성공. 전체 4,039건 중 4,030건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nuget-build.log`. comparator의 Int32 설명 주석은 빌드 시작 후 보완했으며 실행 코드는 동일하다.
+- **근거·회귀:** 공식 NuGet.Versioning 7.9.0의 900개 정답 조합과 일치하고, 잘못된 버전 11개는 Java와 실제 native parser 모두 거부했다. OSV 범위 4건은 연결 전 UNKNOWN으로 실패했고 연결 후 정상 판정했다. mock GHSA HTTP→client→source와 OSV 공통 평가/선택의 4건으로 alpha10/alpha2/metadata 경계 및 invalid 입력을 비교했다. 연결 검증 중 GHSA 수정 버전 비교기 선택 누락을 고쳤다. 이전 미지원 NuGet 검사는 새 native 검증으로 대체하고 미지원 RubyGems/Composer 검사는 유지했다. 로그 `build/roadmap-nuget-comparator.log`, `build/roadmap-nuget-range-before.log`, `build/roadmap-nuget-integration.log`.
+- **권리·잔여:** 앞서 기록한 공식 NuGet 패키지/버전 문서와 자체 합성 관찰을 사용했으며 upstream 코드나 DLL을 애플리케이션에 복사·번들하지 않았다. 새 런타임 의존성·UI 변경은 없다. NuGet 전체 입력 별칭, enumerated versions 정규화, 실제 공지/패키지 데이터의 온라인·오프라인 왕복 대조는 필수 잔여다. 따라서 11번 전체나 NuGet 전체 지원 검증 완료로 표시하지 않는다.
+
 - **2026-09-11 NuGet native 정답 자료 확보:** 공식 NuGet.Versioning 7.9.0의 net8.0 DLL을 로컬 검증 도구로 실행해 자체 합성 버전 30개의 전체 조합 900건을 확보했다. `NuGetVersion.Parse`와 `VersionComparer.VersionRelease`를 사용했고 별도 검증 스크립트로 모든 비교값·중복 부재·전체 조합을 재확인했다. `alpha2 > alpha10`, 대소문자, 4번째 요소, metadata와 큰 숫자 사례를 포함한다. 초기 자료 생성의 파서 호출/대소문자 자료구조 문제는 수정·재생성 후 검증했으며 실패한 중간 자료는 채택하지 않았다.
 - **권리·재현:** [정답 자료 안내](src/test/resources/version-oracles/README.md)에 공식 패키지 URL·SHA-256·원본 commit·Apache-2.0 표기와 저작권자를 기록했다. DLL은 build 아래 로컬 도구로만 사용하고 저장소/애플리케이션 배포에 포함하지 않는다. 실행: `src/test/resources/version-oracles/verify-nuget.ps1 -AssemblyPath build/nuget-oracle/NuGet.Versioning.dll`, 900건 일치. commit 제목 `test: capture official nuget version ordering oracle`. 자료/재검증 스크립트만 추가했으므로 application build는 실행하지 않았다. Java 비교기 구현·온라인/오프라인 범위와 수정 버전 통합·실제 공지 대조는 이어서 수행할 필수 잔여다.
 

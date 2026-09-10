@@ -257,6 +257,7 @@ public class GitHubAdvisoryClient {
     private static List<GitHubAdvisory> confirmedFixes(String ecosystem, String installed,
             List<GitHubAdvisory> findings, Map<String, List<String>> ranges) {
         java.util.Comparator<String> comparator = switch (ecosystem) {
+            case "NUGET" -> com.salkcoding.oswl.vdb.NuGetVersionComparator::compare;
             case "NPM", "RUST" -> SemVerVersionComparator::compare;
             case "GO" -> GoVersionComparator::compare;
             case "MAVEN" -> MavenVersionComparator::compare;
@@ -420,6 +421,7 @@ public class GitHubAdvisoryClient {
                 case "GO" -> GoVersionComparator.compare(normalizedVersion, ver);
                 case "MAVEN" -> MavenVersionComparator.compare(normalizedVersion, ver);
                 case "PIP" -> Pep440VersionComparator.compare(normalizedVersion, ver);
+                case "NUGET" -> com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(normalizedVersion, ver);
                 default -> throw new IllegalArgumentException("Unsupported ecosystem version ordering");
             };
             boolean ok = switch (op) {

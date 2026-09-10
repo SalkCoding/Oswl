@@ -117,6 +117,9 @@ public final class OsvRangeEvaluator {
     }
 
     static Comparator<String> comparator(String ecosystem, String type) {
+        if ("NUGET".equalsIgnoreCase(ecosystem) && "ECOSYSTEM".equals(type)) {
+            return NuGetVersionComparator::compare;
+        }
         if ("GO".equalsIgnoreCase(ecosystem) && ("SEMVER".equals(type) || "ECOSYSTEM".equals(type))) {
             return GoVersionComparator::compare;
         }

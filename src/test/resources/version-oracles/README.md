@@ -16,7 +16,10 @@ The repository LICENSE identifies .NET Foundation and Contributors and Apache-2.
 https://github.com/NuGet/NuGet.Client/blob/977537e19c6be57fead1411e6cf05f936bf1baf4/LICENSE.txt
 No upstream implementation or documentation text is copied into these synthetic observations.
 These results cover concrete ordering, not vulnerability facts, range syntax, dependency
-resolution, or complete NuGet compatibility. A Java comparator and integration remain necessary.
+resolution, or complete NuGet compatibility. `NuGetVersionComparatorTest` checks the Java
+comparator against this matrix; OSV ECOSYSTEM ranges and GHSA range/fix comparisons use it.
+Other accepted NuGet spellings, enumerated-version identity normalization and full provider
+data parity need separate verification.
 
 `pep440.csv` contains 1,444 pairwise comparisons of 38 synthetic version strings.
 It was generated on 2026-09-10 with Python 3.14 and pip's vendored `packaging` 26.2:
