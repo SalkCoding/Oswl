@@ -274,18 +274,22 @@ public class DependencyManifestParserService {
         }
 
         // ── NuGet: packages.lock.json / .csproj ────────────────────────────────
+        var nugetLockParser = new NugetManifestParser();
+        List<ScanPayload.ComponentPayload> nugetLockComponents = new ArrayList<>();
         for (Path lock : indexByNames(index, "packages.lock.json")) {
-            List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
+            List<ScanPayload.ComponentPayload> nugetComps = nugetLockParser.parseNuGetLockFile(lock.getParent(), repoName,
+                    cloneDir.relativize(lock).toString().replace('\\', '/'));
             if (nugetComps == null) {
                 throw new com.salkcoding.oswl.exception.InvalidRequestException(
                         "Cannot parse packages.lock.json; dependency inventory is incomplete.");
             }
             if (!nugetComps.isEmpty()) {
                 if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
-                mergeComponents(allComps, seen, nugetComps, "NUGET");
+                nugetLockComponents.addAll(nugetComps);
             }
             report.accept(List.of(lock));
         }
+        mergeComponents(allComps, seen, nugetLockParser.mergeLockComponents(nugetLockComponents), "NUGET");
         if (!ecosystems.contains("NUGET") && hasCsprojFiles(index)) {
             List<ScanPayload.ComponentPayload> nugetComps = runDotNetListPackages(cloneDir, repoName, index);
             if (nugetComps == null || nugetComps.isEmpty()) {

@@ -18,12 +18,15 @@ public class NugetManifestParser {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName) {
+        return parseNuGetLockFile(dir, repoName, "packages.lock.json");
+    }
+
+    public List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName, String source) {
         try (var input = Files.newInputStream(dir.resolve("packages.lock.json"))) {
             JsonNode root = OBJECT_MAPPER.reader()
                     .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
                     .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .readTree(input);
-            Set<List<String>> seen = new LinkedHashSet<>();
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
             if (root == null || !root.isObject()) throw new IllegalArgumentException("Invalid NuGet lock root");
             JsonNode deps = root.path("dependencies");
@@ -42,12 +45,14 @@ public class NugetManifestParser {
                         throw new IllegalArgumentException("NuGet lock package has no resolved version");
                     String ver = resolved.asText();
                     com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(ver, ver);
-                    // Different frameworks can resolve the same package to different versions.
-                    if (seen.add(List.of(name, ver))) comps.add(buildComponent(name, ver, "NUGET"));
+                    String evidence = "NuGet lock source=" + OBJECT_MAPPER.writeValueAsString(source)
+                            + " target=" + OBJECT_MAPPER.writeValueAsString(framework.getKey());
+                    if (record.path("type").isTextual()) evidence += " type=" + record.get("type");
+                    comps.add(ScanPayload.ComponentPayload.create(name, ver, "NUGET", evidence, List.of()));
                 }
             }
             log.info("[DependencyParser][NuGet] Parsed {} components from packages.lock.json in '{}'", comps.size(), repoName);
-            return comps;
+            return mergeLockComponents(comps);
         } catch (Exception e) {
             log.warn("[DependencyParser][NuGet] Failed to parse packages.lock.json: {}", e.getMessage());
             return null;
@@ -112,6 +117,17 @@ public class NugetManifestParser {
             log.error("[DependencyParser][NuGet] Failed to parse .csproj/packages.config: {}", e.getMessage());
         }
         return new ParseResult("NUGET", mergeDeclarations(comps));
+    }
+
+    /** Keep each lock target's evidence when one package/version occurs in several projects. */
+    public List<ScanPayload.ComponentPayload> mergeLockComponents(List<ScanPayload.ComponentPayload> components) {
+        Map<List<String>, Set<String>> evidence = new LinkedHashMap<>();
+        for (var component : components) {
+            evidence.computeIfAbsent(List.of(component.getName(), component.getVersion()), ignored -> new LinkedHashSet<>())
+                    .add(component.getDependencyInfo());
+        }
+        return evidence.entrySet().stream().map(entry -> ScanPayload.ComponentPayload.create(
+                entry.getKey().get(0), entry.getKey().get(1), "NUGET", String.join("\n", entry.getValue()), List.of())).toList();
     }
 
     private List<ScanPayload.ComponentPayload> mergeDeclarations(List<ScanPayload.ComponentPayload> components) {

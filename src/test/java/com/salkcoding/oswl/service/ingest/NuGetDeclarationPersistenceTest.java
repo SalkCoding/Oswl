@@ -28,6 +28,34 @@ class NuGetDeclarationPersistenceTest {
     private final ScanIngestService ingest;
     private final ScanComponentRepository components;
 
+    @org.junit.jupiter.api.Test
+    @Transactional
+    void lockTargetEvidenceSurvivesIngestAndJpaReload(@TempDir Path directory) throws Exception {
+        for (int i = 0; i < 10; i++) {
+            Path projectDir = Files.createDirectories(directory.resolve("project-" + i));
+            Files.writeString(projectDir.resolve("packages.lock.json"), """
+                    {"version":1,"dependencies":{"net8.0/win-x64":{"Fixture":{"type":"Direct","resolved":"1.0.0"}}}}
+                    """);
+        }
+        var parsed = parser.parseDependencies(directory, "fixture").components();
+        assertThat(parsed).hasSize(1);
+        String evidence = parsed.getFirst().getDependencyInfo();
+        assertThat(evidence.length()).isGreaterThan(300);
+        var project = Project.builder().name("lock-target-persistence").build();
+        entityManager.persist(project);
+        entityManager.flush();
+        Long scanId = ingest.ingest(project.getId(), ScanPayload.create("fixture", parsed)).getId();
+        entityManager.flush();
+        entityManager.clear();
+        var stored = components.findByScanResultId(scanId);
+        assertThat(stored).singleElement().satisfies(component -> {
+            assertThat(component.getDependencyInfo()).isEqualTo(evidence);
+            assertThat(component.getLibrary().getVersion()).isEqualTo("1.0.0");
+            assertThat(component.getLibrary().isVulnerabilitiesAnalyzed()).isFalse();
+        });
+        for (int i = 0; i < 10; i++) assertThat(evidence).contains("project-" + i + "/packages.lock.json");
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     @Transactional

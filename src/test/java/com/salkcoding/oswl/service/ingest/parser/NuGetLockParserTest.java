@@ -23,6 +23,33 @@ import static org.mockito.Mockito.mock;
 
 class NuGetLockParserTest {
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void lockTargetsAndSourceFilesSurviveDeduplication(boolean reverse, @TempDir Path directory) throws Exception {
+        var mapper = new ObjectMapper();
+        var targets = new LinkedHashMap<String, Object>();
+        var names = reverse ? List.of("net8.0/win-x64", "net8.0") : List.of("net8.0", "net8.0/win-x64");
+        for (String target : names) targets.put(target, Map.of("Fixture", Map.of(
+                "resolved", "1.0.0", "type", target.contains("/") ? "Transitive" : "Direct")));
+        Files.createDirectories(directory.resolve("first"));
+        Files.createDirectories(directory.resolve("second"));
+        Files.writeString(directory.resolve("first/packages.lock.json"), mapper.writeValueAsString(
+                Map.of("version", 1, "dependencies", targets)));
+        Files.writeString(directory.resolve("second/packages.lock.json"), mapper.writeValueAsString(
+                Map.of("version", 1, "dependencies", Map.of("net9.0/linux-x64", Map.of("Fixture",
+                        Map.of("resolved", "1.0.0", "type", "Transitive"))))));
+        var parser = new DependencyManifestParserService(mock(MavenBomVersionResolver.class), mock(CondaPypiMappingService.class));
+        var parsed = parser.parseDependencies(directory, "fixture");
+        assertThat(parsed.components()).singleElement().satisfies(component -> {
+            assertThat(component.getName()).isEqualTo("Fixture");
+            assertThat(component.getVersion()).isEqualTo("1.0.0");
+            assertThat(component.getDependencyInfo()).contains("first/packages.lock.json", "second/packages.lock.json",
+                    "net8.0", "net8.0/win-x64", "net9.0/linux-x64", "Direct", "Transitive");
+            assertThat(component.getDependencyInfo().lines().count()).isEqualTo(3);
+            assertThat(component.getDependencyPaths()).isEmpty();
+        });
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {
             "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\",\"resolved\":\"8.0.4\"}}}}",
             "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\"},\"Fixture\":{\"resolved\":\"8.0.4\"}}}}",
