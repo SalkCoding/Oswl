@@ -22,9 +22,8 @@ import java.util.zip.ZipInputStream;
  * from vuln-unit to component-unit against a wanted-list — full re-indexing without a
  * wanted-list is a combinatorial explosion, so it is deliberately out of scope.
  *
- * <p>Coverage: an {@code affected[]} entry is resolved via its enumerated {@code versions[]} list
- * when present (exact match — always reliable), otherwise via a best-effort SEMVER range check
- * ({@link SimpleVersionComparator}) which can fail to parse exotic version strings. Anything
+ * <p>Coverage: an {@code affected[]} entry is resolved via the union of its enumerated versions
+ * and supported ranges ({@link OsvRangeEvaluator}). Anything
  * neither path can confidently resolve is <b>never</b> silently treated as "not affected" — it's
  * counted in {@code unresolvedKeys} and surfaced in the bundle's {@code meta.json} coverage
  * stats, per the plan's explicit requirement that "no data" and "confirmed clean" must stay
@@ -214,55 +213,11 @@ final class OsvBulkSource {
 
     /** {@code true} affected, {@code false} confidently not affected, {@code null} unresolved. */
     private static Boolean resolveAffected(String ecosystem, String version, Set<String> enumerated, JsonNode ranges) {
-        if (enumerated != null) {
-            return enumerated.contains(version);
-        }
-        if (!ranges.isArray() || ranges.isEmpty()) {
-            return false; // no versions[] and no ranges[] at all -> nothing says this version is affected
-        }
-        // Alpine's OSV advisories are ECOSYSTEM-typed ranges only (no enumerated versions[] and
-        // apk's version scheme isn't SemVer/GIT) — everyone else's ECOSYSTEM-typed ranges
-        // (Debian/Ubuntu style) stay unresolved here because they're already resolved via
-        // enumerated versions[] before this method is ever reached for them.
-        boolean isAlpine = ecosystem.startsWith("ALPINE:");
-        boolean anyUnresolved = false;
-        for (JsonNode range : ranges) {
-            String rangeType = range.path("type").asText(null);
-            boolean semverOrGit = "SEMVER".equals(rangeType) || "GIT".equals(rangeType);
-            boolean apkEcosystemRange = isAlpine && "ECOSYSTEM".equals(rangeType);
-            if (!semverOrGit && !apkEcosystemRange) {
-                anyUnresolved = true; // ECOSYSTEM-typed ranges for non-Alpine ecosystems — not comparable here
-                continue;
-            }
-            String introduced = null;
-            List<String> fixedBoundaries = new ArrayList<>();
-            for (JsonNode event : range.path("events")) {
-                String i = event.path("introduced").asText(null);
-                if (i != null) introduced = i.equals("0") ? null : i;
-                String f = event.path("fixed").asText(null);
-                if (f != null) fixedBoundaries.add(f);
-                String la = event.path("last_affected").asText(null);
-                if (la != null) fixedBoundaries.add(la); // treated as an inclusive upper bound below
-            }
-            try {
-                if (fixedBoundaries.isEmpty()) {
-                    if (inRange(apkEcosystemRange, version, introduced, null)) return true;
-                } else {
-                    for (String fixed : fixedBoundaries) {
-                        if (inRange(apkEcosystemRange, version, introduced, fixed)) return true;
-                    }
-                }
-            } catch (IllegalArgumentException e) {
-                anyUnresolved = true;
-            }
-        }
-        return anyUnresolved ? null : false;
-    }
-
-    private static boolean inRange(boolean apk, String version, String introduced, String fixed) {
-        return apk
-                ? ApkVersionComparator.inRange(version, introduced, fixed)
-                : SimpleVersionComparator.inRange(version, introduced, fixed);
+        return switch (OsvRangeEvaluator.evaluate(ecosystem, version, enumerated, ranges)) {
+            case AFFECTED -> true;
+            case NOT_AFFECTED -> false;
+            case UNKNOWN -> null;
+        };
     }
 
     private static SnapshotVuln toSnapshotVuln(JsonNode vuln) {
