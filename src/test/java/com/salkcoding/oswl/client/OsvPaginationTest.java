@@ -96,7 +96,8 @@ class OsvPaginationTest {
 
     private void detail(String id) {
         server.expect(requestTo("https://api.osv.dev/v1/vulns/" + id))
-                .andRespond(withSuccess("{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"" + id + "\"}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"" + id + "\"," +
+                        "\"affected\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"example\"},\"versions\":[\"1.0.0\"]}]}", MediaType.APPLICATION_JSON));
     }
 
     private OsvClient.OsvQuery query() { return new OsvClient.OsvQuery("npm", "example", "1.0.0"); }

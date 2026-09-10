@@ -25,7 +25,8 @@ class OsvLookupOutcomeTest {
         server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-withdrawn")).andRespond(withSuccess(
                 "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-withdrawn\",\"withdrawn\":\"2026-01-01T00:00:00Z\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-active")).andRespond(withSuccess(
-                "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-active\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
+                "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-active\",\"aliases\":[\"CVE-2026-0001\"]," +
+                        "\"affected\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"example\"},\"versions\":[\"1.0.0\"]}]}", MediaType.APPLICATION_JSON));
         var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
         assertThat(result.resolved()).isTrue();
         assertThat(result.vulns()).hasSize(1);
@@ -93,7 +94,9 @@ class OsvLookupOutcomeTest {
             server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
                     "{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\"}]},{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\"}]}]}", MediaType.APPLICATION_JSON));
             server.expect(requestTo("https://api.osv.dev/v1/vulns/GHSA-fixture")).andRespond(success ? withSuccess(
-                    "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\",\"aliases\":[\"CVE-2026-0001\"],\"severity\":[{\"type\":\"CVSS_V3\",\"score\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H\"}]}", MediaType.APPLICATION_JSON) : withServerError());
+                    "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\",\"aliases\":[\"CVE-2026-0001\"],\"severity\":[{\"type\":\"CVSS_V3\",\"score\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H\"}]," +
+                            "\"affected\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"a\"},\"versions\":[\"1\"]}," +
+                            "{\"package\":{\"ecosystem\":\"npm\",\"name\":\"b\"},\"versions\":[\"1\"]}]}", MediaType.APPLICATION_JSON) : withServerError());
             var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "a", "1"), new OsvClient.OsvQuery("npm", "b", "1")));
             assertThat(result).allMatch(r -> r.resolved() == success && r.vulns().size() == 1);
             if (success) {

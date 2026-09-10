@@ -13,6 +13,49 @@ public final class OsvRangeEvaluator {
 
     private OsvRangeEvaluator() { }
 
+    /** Recheck API membership using all entries for the exact queried package. */
+    public static Result evaluateAdvisory(JsonNode advisory, String ecosystem, String name, String version) {
+        if (advisory == null || !advisory.path("affected").isArray()
+                || ecosystem == null || name == null || name.isBlank()) return Result.UNKNOWN;
+        boolean matched = false;
+        boolean unknown = false;
+        for (JsonNode entry : advisory.path("affected")) {
+            JsonNode pkg = entry.path("package");
+            if (!pkg.path("ecosystem").isTextual() || !pkg.path("name").isTextual()
+                    || pkg.path("ecosystem").asText().isBlank() || pkg.path("name").asText().isBlank()) {
+                unknown = true;
+                continue;
+            }
+            if (!ecosystem.equals(pkg.path("ecosystem").asText())) continue;
+            try {
+                if (!AdvisoryPackageNames.canonical(ecosystem, name)
+                        .equals(AdvisoryPackageNames.canonical(ecosystem, pkg.path("name").asText()))) continue;
+                matched = true;
+                if (entry.has("versions") && !entry.path("versions").isArray()) {
+                    unknown = true;
+                    continue;
+                }
+                Set<String> versions = new java.util.LinkedHashSet<>();
+                boolean malformed = false;
+                for (JsonNode listed : entry.path("versions")) {
+                    if (!listed.isTextual() || listed.asText().isBlank()) malformed = true;
+                    else versions.add(listed.asText());
+                }
+                if (malformed) {
+                    unknown = true;
+                    continue;
+                }
+                Result result = evaluate(ecosystem, version, versions, entry.path("ranges"));
+                if (result == Result.AFFECTED) return result;
+                unknown |= result == Result.UNKNOWN;
+            } catch (IllegalArgumentException invalidIdentity) {
+                unknown = true;
+            }
+        }
+        // No matching package contradicts the API's membership claim, not proof of a clean lookup.
+        return matched && !unknown ? Result.NOT_AFFECTED : Result.UNKNOWN;
+    }
+
     public static Result evaluate(String ecosystem, String version, Set<String> versions, JsonNode ranges) {
         if (version == null || version.isBlank()) return Result.UNKNOWN;
         if (versions != null && versions.contains(version)) return Result.AFFECTED;

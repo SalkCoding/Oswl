@@ -205,7 +205,8 @@ final class OsvBulkSource {
         }
         JsonNode affectedList = vuln.path("affected");
         if (!affectedList.isArray()) throw new IOException("OSV advisory has no affected array; source coverage is unknown");
-        boolean anyMatch = false;
+        Set<String> affectedByThisAdvisory = new LinkedHashSet<>();
+        Set<String> unresolvedByThisAdvisory = new LinkedHashSet<>();
         for (JsonNode affected : affectedList) {
             JsonNode pkg = affected.path("package");
             String pkgEcosystem = pkg.path("ecosystem").asText(null);
@@ -239,17 +240,19 @@ final class OsvBulkSource {
                     if (key == null) continue;
                     Boolean affectedResult = resolveAffected(ecosystem, wantedVersion, enumerated, affected.path("ranges"));
                     if (affectedResult == null) {
-                        unresolvedKeys.add(key);
+                        unresolvedByThisAdvisory.add(key);
                     } else if (affectedResult) {
-                        result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, pkgName, wantedVersion));
-                        anyMatch = true;
+                        if (affectedByThisAdvisory.add(key)) {
+                            result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, pkgName, wantedVersion));
+                        }
                     }
                 }
             }
         }
-        if (!anyMatch) {
-            // still fine — most vulns don't touch any wanted component; nothing to record
-        }
+        // Matching entries are a union within this advisory. Do not erase uncertainty
+        // already recorded for the same component by another advisory.
+        unresolvedByThisAdvisory.removeAll(affectedByThisAdvisory);
+        unresolvedKeys.addAll(unresolvedByThisAdvisory);
     }
 
     /** {@code true} affected, {@code false} confidently not affected, {@code null} unresolved. */

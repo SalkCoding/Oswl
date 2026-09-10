@@ -3,6 +3,7 @@ package com.salkcoding.oswl.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.vdb.OsvFixVersionSelector;
 import com.salkcoding.oswl.vdb.OsvWithdrawal;
+import com.salkcoding.oswl.vdb.OsvRangeEvaluator;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
@@ -268,6 +269,13 @@ public class OsvClient {
                         resolved = false;
                         continue;
                     }
+                    var membership = OsvRangeEvaluator.evaluateAdvisory(JSON.valueToTree(detail),
+                            query.ecosystem(), query.name(), query.version());
+                    if (membership == OsvRangeEvaluator.Result.UNKNOWN) {
+                        resolved = false;
+                        continue;
+                    }
+                    if (membership == OsvRangeEvaluator.Result.NOT_AFFECTED) continue;
                     findings.putIfAbsent(id, parseVuln(detail, query));
                 }
             }

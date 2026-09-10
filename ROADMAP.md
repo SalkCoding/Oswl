@@ -120,6 +120,10 @@
 
 ### 12. OSV 범위·이벤트 의미를 공통 엔진으로 구현 — P0 · [코드 확인]
 
+- **2026-09-11 온라인 상세 재판정:** [OSV query 공식 계약](https://google.github.io/osv.dev/post-v1-query/)의 fuzzy version matching 결과를 그대로 확정하지 않고, revision을 확인한 상세 공지의 package identity와 versions/ranges를 `OsvRangeEvaluator`로 다시 판정한다. 일치하는 패키지의 명시적 비영향 버전은 finding에서 제외하고, 패키지 누락/불일치·범위 근거 없음/지원 불능은 미완료 상태로 남긴다. PyPI 이름 비교에는 기존 canonical 규칙을 사용한다. 상세 조회 자체 실패/불일치의 ID 보존 정책은 유지하며, 미확인 사유를 finding과 별개 evidence로 영속화하는 작업은 잔여다.
+- **공지 내부 합집합 일치:** bulk의 여러 affected 항목에서 같은 component가 확정 영향이면 다른 항목의 비교 불능 때문에 해당 공지 자체를 미확인으로 바꾸지 않는다. 이는 [OSV affected 합집합 의미](https://ossf.github.io/osv-schema/)에 따른 기존 ranges 합집합 정책과 같다. 같은 공지의 중복 finding을 방지하면서, 다른 공지에서 얻은 component 미확인 상태는 제거하지 않는다. unsupported 범위가 포함된 경우 fixed 선택기는 계속 후보를 보류한다.
+- **검증:** 새 온라인/오프라인 비교 13건 중 수정 전 10건 실패, 여러 affected 항목의 합집합 비교 추가 후 bulk 불일치 1건을 별도로 재현했다. 수정 후 경계 버전/prerelease/build metadata/versions 합집합/미지원 버전/잘못된 identity·범위와 bulk→snapshot 조회 비교, 다른 공지의 미확인 보존을 포함한 `test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 163건 통과·실패/오류/skip 0. 고정 GHSA fixture의 기존 4개 버전 검사는 parseVuln 직접 호출에서 mock querybatch→상세 HTTP→revision/identity/범위 판정으로 강화했다. 기존 정상 mock에는 검증 대상 패키지/버전 근거를 보완하고 기대 판정은 유지했다.
+- **누적 빌드:** Windows/Java 25에서 `.\gradlew.bat build verifyProdJar` 성공: 전체 2,848건 중 2,839건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-osv-live-range-before.log`, `build/roadmap-osv-live-union-before.log`, `build/roadmap-osv-live-range-after.log`, `build/roadmap-osv-consistency-build.log`. 커밋 제목 `fix: recheck live osv findings with shared range evidence`. 자체 합성 입력과 기존 CC-BY-4.0 고지/출처가 있는 고정 GHSA 자료를 재사용했으며 새 외부 데이터/코드/라이브러리는 도입하지 않았다. UI 변경 없음. 실제 전체 공급자·생태계·Git ancestry 및 미지원 비교기 검증을 완료한 것은 아니다.
 - 현재·대상: [OsvBulkSource.resolveAffected](src/main/java/com/salkcoding/oswl/vdb/OsvBulkSource.java)의 versions 우선 반환, 마지막 introduced 재사용, last_affected 배타 처리, limit 누락, GIT 일반 비교.
 - [ ] 수정: versions와 ranges를 합집합으로 평가하고 이벤트 순서대로 여러 구간을 복원한다. fixed/limit는 제외, last_affected는 포함 경계를 적용한다. GIT는 repo·commit graph 증거로 판정하고 없으면 UNKNOWN. online/offline에서 공통 함수를 사용한다.
 - 선행: 10~11번.

@@ -32,7 +32,23 @@ class OsvFixVersionParityTest {
         }
         Map<String, Object> document = mapper.readValue(bytes, new TypeReference<>() { });
         var query = new OsvClient.OsvQuery("npm", "immutable", installed);
-        OsvClient.OsvVuln live = ReflectionTestUtils.invokeMethod(new OsvClient(), "parseVuln", document, query);
+        var builder = org.springframework.web.client.RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        mapper.writeValueAsString(Map.of("results", List.of(Map.of("vulns", List.of(
+                                Map.of("id", document.get("id"), "modified", document.get("modified"))))))),
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/vulns/" + document.get("id")))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        new String(bytes, java.nio.charset.StandardCharsets.UTF_8), org.springframework.http.MediaType.APPLICATION_JSON));
+        var liveResult = client.queryBatch(List.of(query)).getFirst();
+        assertThat(liveResult.resolved()).isTrue();
+        assertThat(liveResult.vulns()).hasSize(1);
+        OsvClient.OsvVuln live = liveResult.vulns().getFirst();
+        server.verify();
         assertThat(live.fixVersion()).isEqualTo(fixed);
 
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();

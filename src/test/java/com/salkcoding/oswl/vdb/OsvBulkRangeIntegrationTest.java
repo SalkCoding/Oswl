@@ -73,6 +73,24 @@ class OsvBulkRangeIntegrationTest {
                 "NPM", Map.of("example", wanted), findings, unknown);
     }
 
+    @Test
+    void confirmedUnionDoesNotEraseUncertaintyFromAnotherAdvisory() {
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        process("""
+                {"id":"OSV-unresolved","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                "ranges":[{"type":"GIT","events":[{"introduced":"0"}]}]}]}
+                """, Set.of("1.0.0"), findings, unknown);
+        process("""
+                {"id":"OSV-confirmed","affected":[
+                {"package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]},
+                {"package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
+                """, Set.of("1.0.0"), findings, unknown);
+        assertThat(unknown).containsExactly(key("1.0.0"));
+        assertThat(findings.get(key("1.0.0"))).singleElement()
+                .extracting(SnapshotVuln::osvId).isEqualTo("OSV-confirmed");
+    }
+
     private String key(String version) {
         return AirgappedSnapshotService.componentKey("NPM", "example", version);
     }
