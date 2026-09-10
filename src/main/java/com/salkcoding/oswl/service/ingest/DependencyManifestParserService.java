@@ -276,7 +276,11 @@ public class DependencyManifestParserService {
         // ── NuGet: packages.lock.json / .csproj ────────────────────────────────
         for (Path lock : indexByNames(index, "packages.lock.json")) {
             List<ScanPayload.ComponentPayload> nugetComps = parseNuGetLockFile(lock.getParent(), repoName);
-            if (nugetComps != null && !nugetComps.isEmpty()) {
+            if (nugetComps == null) {
+                throw new com.salkcoding.oswl.exception.InvalidRequestException(
+                        "Cannot parse packages.lock.json; dependency inventory is incomplete.");
+            }
+            if (!nugetComps.isEmpty()) {
                 if (!ecosystems.contains("NUGET")) ecosystems.add("NUGET");
                 mergeComponents(allComps, seen, nugetComps, "NUGET");
             }

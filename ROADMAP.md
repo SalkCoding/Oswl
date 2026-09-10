@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 손상된 lock의 성공 처리 차단:** NuGet lock의 JSON/root/dependencies/프레임워크/패키지 구조와 resolved 문자열 누락을 검사한다. 공용 파싱 서비스가 parser의 null 실패를 성공 인벤토리 또는 .csproj fallback으로 바꾸지 않고 InvalidRequestException으로 전달한다. 초기 오류 10종은 수정 전 모두 실패했고, 정상 패키지 뒤의 손상 항목도 전체 실패로 처리하는 회귀를 추가했다. 유효한 빈 프레임워크와 Project 참조는 패키지로 만들지 않고 허용한다. 기존 수집 결과의 부분 성공 모델을 새로 구현한 것은 아니며 손상된 파일이 있는 요청은 중단한다.
+- **검증·근거·범위:** NuGet/공용 파서/ScanController 기존 테스트 1,009건 중 1,008건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-lock-failure-before.log`, `build/roadmap-nuget-lock-failure-after.log`. 커밋 제목 `fix: reject incomplete nuget lock inventories`. [Microsoft PackageReference/lock 문서](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files#locking-dependencies)를 확인했고 테스트 입력은 자체 합성했다. 새 외부 자료나 라이브러리는 배포에 포함하지 않았다. 호출 코드 확인상 /parse 예외 응답으로 전달되고 Quick Import는 프로젝트/스캔 생성 전에 실패한다. 이번 오류의 실제 HTTP/Quick Import 작업 상태 검증, 전체 lock schema/revision·버전 문법 검증 및 전체 build는 별도 잔여다.
+
 - **2026-09-11 프레임워크별 설치 버전 누락 수정:** packages.lock.json 파서가 패키지 이름만으로 중복 제거해 뒤쪽 TFM의 다른 resolved version을 버렸다. 이름·버전 쌍으로 중복 제거하도록 변경했다. 합성 lock의 3개 TFM에서 System.Text.Json 8.0.3/8.0.4와 같은 버전 중복을 입력하고 순서를 뒤집은 2조건 모두 수정 전 실패했다. 수정 후 개별 파서와 공용 parseDependencies 병합에서 두 버전을 보존한다. 고정 Microsoft/GHSA 공지로 8.0.3의 영향/8.0.4 수정 안내와 8.0.4의 해당 공지 비영향을 검증했다. requested 최소 범위를 resolved version 대신 사용하지 않는다.
 - **검증·출처·잔여:** NuGet/공용 파서/OSV 공지 parity 관련 1,001건 중 1,000건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-framework-before.log`, `build/roadmap-nuget-framework-after.log`. 커밋 제목 `fix: retain nuget versions across target frameworks`. [Microsoft 의존성 해석 문서](https://learn.microsoft.com/en-us/nuget/concepts/dependency-resolution)와 대상 프레임워크별 해석 계약을 대조했고 자체 합성 lock 및 기존 출처/CC-BY-4.0 고지된 공지만 재사용했다. 이번에는 전체 build·실제 SDK restore·DB 저장을 재실행하지 않았다. TFM/RID 자체와 의존 그래프의 저장, publish 결과 및 중앙 버전 관리의 조건별 해석은 여전히 잔여다.
 

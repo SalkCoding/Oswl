@@ -18,9 +18,36 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 class NuGetLockParserTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"{", "null", "[]", "{}", "{\"dependencies\":[]}",
+            "{\"dependencies\":{\"net8.0\":[]}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":null}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"type\":\"Direct\"}}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":123}}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\" \"}}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Valid\":{\"resolved\":\"1.0.0\"},\"Broken\":{}}}}"})
+    void brokenLockCannotReturnASuccessfulInventory(String json, @TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("packages.lock.json"), json);
+        Files.writeString(directory.resolve("fallback.csproj"),
+                "<Project><ItemGroup><PackageReference Include=\"Fallback\" Version=\"1.0.0\" /></ItemGroup></Project>");
+        var service = new DependencyManifestParserService(mock(MavenBomVersionResolver.class), mock(CondaPypiMappingService.class));
+        assertThatThrownBy(() -> service.parseDependencies(directory, "fixture"))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class)
+                .hasMessageContaining("packages.lock.json");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"App\":{\"type\":\"Project\"}}"})
+    void emptyAndProjectOnlyFrameworksAreValid(String packages, @TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("packages.lock.json"),
+                "{\"version\":1,\"dependencies\":{\"net8.0\":" + packages + "}}");
+        assertThat(new NugetManifestParser().parseNuGetLockFile(directory, "fixture")).isEmpty();
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void everyFrameworkVersionReachesAdvisoryEvaluation(boolean vulnerableFirst, @TempDir Path directory) throws Exception {

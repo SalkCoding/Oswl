@@ -21,18 +21,25 @@ public class NugetManifestParser {
             JsonNode root = new ObjectMapper().readTree(dir.resolve("packages.lock.json").toFile());
             Set<List<String>> seen = new LinkedHashSet<>();
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
+            if (root == null || !root.isObject()) throw new IllegalArgumentException("Invalid NuGet lock root");
             JsonNode deps = root.path("dependencies");
-            if (!deps.isMissingNode()) {
-                deps.properties().forEach(fw ->
-                    fw.getValue().properties().forEach(pkg -> {
-                        String name = pkg.getKey();
-                        String ver  = pkg.getValue().path("resolved").asText(null);
-                        // Different frameworks can resolve the same package to different versions.
-                        if (name != null && ver != null && !ver.isBlank() && seen.add(List.of(name, ver))) {
-                            comps.add(buildComponent(name, ver, "NUGET"));
-                        }
-                    })
-                );
+            if (!deps.isObject()) throw new IllegalArgumentException("Invalid NuGet lock dependencies");
+            for (var framework : deps.properties()) {
+                if (framework.getKey().isBlank() || !framework.getValue().isObject())
+                    throw new IllegalArgumentException("Invalid NuGet lock framework");
+                for (var pkg : framework.getValue().properties()) {
+                    String name = pkg.getKey();
+                    JsonNode record = pkg.getValue();
+                    if (name.isBlank() || !record.isObject())
+                        throw new IllegalArgumentException("Invalid NuGet lock package");
+                    if ("Project".equals(record.path("type").asText())) continue;
+                    JsonNode resolved = record.path("resolved");
+                    if (!resolved.isTextual() || resolved.asText().isBlank())
+                        throw new IllegalArgumentException("NuGet lock package has no resolved version");
+                    String ver = resolved.asText();
+                    // Different frameworks can resolve the same package to different versions.
+                    if (seen.add(List.of(name, ver))) comps.add(buildComponent(name, ver, "NUGET"));
+                }
             }
             log.info("[DependencyParser][NuGet] Parsed {} components from packages.lock.json in '{}'", comps.size(), repoName);
             return comps;
