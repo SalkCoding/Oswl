@@ -90,7 +90,9 @@ The **Export** dropdown in the action toolbar produces standards-based artifacts
 | VEX | `GET /api/projects/{projectId}/vex` | CycloneDX VEX — carries your triage decisions |
 | SARIF | `GET /api/projects/{projectId}/sarif` | SARIF 2.1.0, uploadable to GitHub code scanning |
 | Compliance report | `GET /projects/{projectId}/security-center/compliance-report` | Print-ready HTML (use *Print → Save as PDF*) |
-| CVE / license CSV | — | Current filtered view |
+| CVE / license CSV | — | Component summary for the selected completed scan (latest completed scan by default) |
+
+The component CSV appends `Vulnerability Lookup Complete`, `Lookup Outcomes`, and `Lookup Attempt At` after the existing columns. `No` means zero CVEs cannot establish a completed lookup. `Yes` follows the same completion rule as the component screen and is not a safety guarantee. Source outcomes are sorted `SOURCE=STATUS` pairs; absent historical metadata stays blank. Legacy cache records can have `Yes` without source outcomes. The attempt time is the stored local timestamp, not the advisory dataset's publication date or freshness guarantee. Consumers that require a fixed column count must accommodate these three additional columns.
 
 Bulk actions also include **Create upgrade PR**, which opens one pull request bumping every selected component to its fix version.
 

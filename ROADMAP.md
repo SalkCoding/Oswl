@@ -106,6 +106,10 @@
 
 ### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [설계]
 
+- **CSV 변경 누적 빌드:** Windows/Java 25에서 `build verifyProdJar` 성공. 최근 상세/인쇄 템플릿과 CSV 변경을 포함해 전체 4,193건 중 4,182건 통과·11건 skip·실패/오류 0. skip은 기존 환경 의존 9건과 기본 비활성 OSV live/PostgreSQL 각 1건이다. 운영 JAR local 전용 클래스/검증 fixture 제외 검사도 통과했다. 로그 `build/roadmap-csv-coverage-build.log`. 별도 uiTest는 이번 빌드에 포함되지 않으며 각 UI 변경의 앞선 실행 결과를 참조한다. CSV를 통한 실제 외부 소비자 호환·스프레드시트 앱 열기·운영 PostgreSQL 검증은 잔여다.
+
+- **2026-09-11 CSV 조회 상태 보존:** 컴포넌트 CSV가 CVE 개수만 내보내 미조회/부분 실패의 0건과 완료 조회의 0건을 구분할 수 없음을 확인했다. 기존 16개 열 뒤에 완료 여부·이름순 출처별 결과·저장된 조회 시각을 추가한다. 시각/출처 metadata가 없으면 빈 값으로 유지하고 데이터 기준일을 생성하지 않는다. 완료 여부는 화면과 같은 Library 판정을 사용하므로 레거시 캐시의 기존 완료 취급도 유지한다. 이 호환 동작이 원천별 coverage의 입증을 대신하지 않음을 세 언어 Security-Center 문서에 명시했다. CSV 고정 열 개수 소비자의 변경 필요성과 조회 시각/원천 기준일의 차이도 안내했다. 새 회귀 6건이 수정 전 실패했고 수정 후 SecurityCenterService/Controller 27건 통과·실패/오류/skip 0. 로그 `build/roadmap-csv-coverage-before.log`, `build/roadmap-csv-coverage-after.log`. 커밋 제목 `feat: include lookup coverage in component csv exports`. 자체 메모리 fixture로 검증했으며 외부 자료·라이브러리를 추가하지 않았다.
+
 - **2026-09-11 인쇄 보고서 불확실성·근거:** 실제 Chromium print media에서 긴 근거가 표를 용지 너비 밖으로 밀어내고 null 버전 상태가 '최신'으로 표시되는 문제를 세 언어에서 재현했다(각 테스트에서 두 조건 실패). 일반 화면과 인쇄 화면을 비교해 라이선스 집계의 허용/미확인 변수도 뒤바뀐 것을 확인했다. 인쇄 템플릿의 버전 true/false/null 분기를 분리하고, 허용=licenseLow/미확인=licenseMedium으로 일반 화면과 일치시켰으며 미확인 막대 구간을 보존했다. 긴 근거는 원문과 줄바꿈을 유지하며 너비 안에서 줄바꿈하고, 조회 미완료 표시는 분리되지 않게 하며 기존 회색 팔레트 안에서 대비를 높였다.
 - **검증 범위:** SecurityPrintEvidenceUiTest 3건(영어/한국어/일본어) 통과·skip/실패/오류 0. 각 언어에서 미확인/최신/구버전/지원 종료, 라이선스 미확인 4건과 허용/주의/제한 각 1건, 집계·막대 비율·조회 미완료·긴 원문 보존·표 너비를 검증했다. Chromium 인쇄 CSS 스크린샷을 직접 확인했다. 로그 `build/roadmap-print-evidence-before.log`, `build/roadmap-print-evidence-after.log`; 이미지 `build/reports/security-print-evidence-ui/`. 커밋 제목 `fix: preserve uncertainty and evidence in printed reports`. 자체 H2 fixture와 실제 앱/로그인을 사용하고 외부 데이터/라이브러리를 추가하지 않았다. 실제 프린터/PDF 페이지 분할·완전 망분리 폰트 로딩·전체 build 재실행·운영 PostgreSQL은 이번 범위에 포함하지 않았다.
 
