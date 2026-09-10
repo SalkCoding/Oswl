@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 조회 상태의 스냅샷 왕복 검증:** 실제 H2 DB의 라이브러리/CVE를 ZIP으로 내보내고 재가져온 뒤 오프라인 OSV client까지 조회했다. GHSA 미완료 사례는 unresolved key를 유지하고 정상 빈 GHSA 조회 자료로 바뀌지 않으며, 완료 대조군은 빈 GHSA 자료를 보존한다. 두 경우 모두 정상 CVE를 유지하되 스캔 내보내기에 검증된 원천 기준일이 없으므로 오프라인 조회는 미완료이고 수정 버전 제안은 보류된다. 새 2건은 기존 동작을 확인한 검증이며 제품 결함 재현으로 표시하지 않는다.
+- **검증·범위:** Windows/Java 25의 `test --tests '*FixConflictPersistenceTest' --tests '*SnapshotImportTransactionTest' --tests '*VulnerabilityEnrichmentServiceTest'` 189건 통과·실패/오류/skip 0. 로그 `build/roadmap-coverage-roundtrip.log`. 커밋 제목 `test: preserve incomplete coverage through snapshot round trips`. 자체 합성 입력으로 외부 원문/데이터·라이브러리·UI 변경은 없다. 전체 build는 재실행하지 않았으며 실제 PostgreSQL, 공급자 데이터의 재배포 권한 및 원천별 판정 근거의 완전한 왕복 검증은 잔여다.
+
 - **2026-09-11 자료 누락과 수정 버전 충돌의 전체 enrichment 회귀:** `enrich` 진입부터 조회 상태 기록과 기존 CVE 수정 버전까지 실행했다. GHSA 자료 누락은 `UNAVAILABLE`, 정상 빈 목록은 `RESOLVED`지만 두 경우 모두 기존 수정 버전 충돌을 해제하지 않는다. OSV/GHSA가 동일 수정 후보를 제공하고 조회가 완료된 대조군에서만 충돌이 해제된다. 중복 CVE를 만들지 않는 것도 검사했다. 원천 응답은 자체 합성 mock이며 실제 네트워크/DB를 모두 연결한 실환경 검증은 아니다. 신규 3건은 기존 동작의 보강 검증으로 제품 결함 수정 전 재현을 주장하지 않는다. 초기 mock의 List/Set 인자 불일치를 고쳤고 기대값을 바꾸지 않았다.
 - **누적 검증:** 먼저 최근 NVD/GHSA 누락 수정까지 `build verifyProdJar` 성공: Windows/Java 25, 전체 3,113건 중 3,104건 통과·기존 환경 의존 skip 9건·실패/오류 0. 이후 신규 흐름 회귀를 포함한 `test --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 184건 통과·실패/오류/skip 0. 로그 `build/roadmap-coverage-cumulative-build.log`, `build/roadmap-coverage-fix-enrichment.log`. 커밋 제목 `test: verify offline coverage before resolving fix conflicts`. 외부 자료·라이브러리·UI 변경 없음. 전체 공급자/생태계의 실제 수정 버전 정답 및 원천 재배포 조건 검증은 계속 잔여다.
 
