@@ -187,21 +187,23 @@ public class OsvClient {
         List<OsvVuln> findings = new ArrayList<>();
         List<SnapshotVuln> evidence = new ArrayList<>();
         Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
-        Set<String> conflictingIds = new LinkedHashSet<>();
+        Set<String> untrustedIds = new LinkedHashSet<>();
         Set<String> handledOriginalIds = new LinkedHashSet<>();
-        // Detect conflicts before filtering withdrawn or currently unaffected entries.
+        // Validate revisions before filtering withdrawn or currently unaffected entries.
         for (SnapshotVuln vuln : vulns) {
-            if (vuln.osvAdvisory() != null && !vuln.fixVersionConflictCandidates().isEmpty()) conflictingIds.add(vuln.osvId());
+            var original = vuln.osvAdvisory();
+            if (original != null && (!sameRevision(original.path("modified").asText(), original.path("modified").asText())
+                    || !vuln.fixVersionConflictCandidates().isEmpty())) untrustedIds.add(vuln.osvId());
             var previous = revisions.putIfAbsent(vuln.osvId(), vuln);
             if (previous != null && (previous.osvAdvisory() != null || vuln.osvAdvisory() != null)
                     && (!java.util.Objects.equals(previous.osvAdvisory(), vuln.osvAdvisory())
                     || !previous.fixVersionConflictCandidates().isEmpty() || !vuln.fixVersionConflictCandidates().isEmpty())) {
-                conflictingIds.add(vuln.osvId());
+                untrustedIds.add(vuln.osvId());
             }
         }
         for (SnapshotVuln vuln : vulns) {
             var advisory = vuln.osvAdvisory();
-            if (conflictingIds.contains(vuln.osvId())) {
+            if (untrustedIds.contains(vuln.osvId())) {
                 resolved = false;
                 if (handledOriginalIds.add(vuln.osvId())) {
                     String id = vuln.osvId();

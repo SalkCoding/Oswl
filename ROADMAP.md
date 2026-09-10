@@ -173,6 +173,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **미래 offline revision 검증:** Windows/Java 25에서 `test --tests '*Osv*Test' --tests '*SnapshotImportTransactionTest' --tests '*VulnerabilityEnrichmentServiceTest'` 410건 중 409건 통과·opt-in skip 1건·실패/오류 0. 상기 미래 revision 수정의 대상/연결 검사 결과다.
+- **2026-09-11 개별 OSV 원문의 미래 revision 차단:** online sameRevision에는 이미 미래 시각 차단이 있었으나 offline 원문 경로는 source 기준일만 검사해 미래 modified를 정상 근거로 사용했다. 동일한 자체 원문을 mock HTTP online과 snapshot client에 넣은 미래 수정/미래 원문의 철회 표시 2건이 수정 전 실패했다. offline도 기존 sameRevision 시각 검사를 재사용하며, 철회/영향 범위 필터 전에 미신뢰 ID를 보존하고 조회 미완료·개별/common fix 미확인으로 남긴다. 과거 정상 revision 대조군은 online/offline의 commonFix 결과가 일치한다. 로그 `build/roadmap-offline-future-revision-before.log`, `build/roadmap-offline-future-revision-after.log`. 커밋 제목 `fix: reject future offline advisory revisions`. 새 외부 데이터/라이브러리·UI 변경 없음. 원문을 삭제하거나 source 날짜를 새로 쓰지 않는다. 원문 수집·재내보내기와 공통 수정의 화면/PR 연결 등 잔여는 유지하며 전체 build/UI는 이번에 재실행하지 않았다.
+
 - **오프라인 원문 충돌 누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 전체 4,238건 중 4,227건 통과·환경 의존/opt-in skip 11건·실패/오류 0. 로그 `build/roadmap-offline-revision-conflict-build.log`. UI 변경·재실행 없음.
 - **2026-09-11 오프라인 동일 공지 원문 충돌:** 동일 ID의 서로 다른 modified 원문, 순서 반전, 철회 원문 혼재, 원문 없는 레거시 레코드 혼재에서도 resolved=true 및 개별 fix가 남는 문제를 재현했다. 동일 원문 중복 역시 finding 두 건을 반환해 새 검사 5건이 수정 전 실패했다. 철회/영향 범위 필터 전에 원문별 충돌을 검사하고, 충돌 ID는 상세/수정 버전을 확정하지 않은 한 건으로 보존하며 조회를 미완료로 처리한다. 동일 원문은 한 번만 처리하고 중복에 포함된 fix conflict metadata도 무시하지 않는다. 수정 후 신규 6개 상태에서 무관한 정상 공지와 그 수정 버전은 유지함을 함께 검증했다. 로그 `build/roadmap-offline-revision-conflict-before.log`, `build/roadmap-offline-revision-conflict-after.log`. 커밋 제목 `fix: withhold offline fixes for conflicting advisory revisions`. 자체 합성 자료이며 외부 데이터/라이브러리·UI 변경 없음. 저장된 원문을 변경하지 않는다. 원문 수집·재내보내기와 공통 수정의 화면/PR 연결 등 기존 잔여는 유지한다.
 
