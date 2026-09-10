@@ -62,6 +62,10 @@ public class EpssClient {
         if (ids.isEmpty()) return Map.of();
 
         if (airgapped) {
+            if (snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_EPSS)) {
+                log.debug("[EPSS] snapshot freshness unknown or stale; current scores unavailable");
+                return Map.of();
+            }
             Map<String, Double> result = snapshotService.findEpssScores(ids);
             log.debug("[EPSS] air-gapped fetch requested={} snapshotHits={}", ids.size(), result.size());
             return result;

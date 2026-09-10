@@ -23,6 +23,18 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
+    void offlineEpssWithholdsStaleScoresWithoutReplacingStoredEvidence(int age, boolean current) {
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
+        var actual = new com.salkcoding.oswl.client.EpssClient(service, true).fetchScores(List.of("CVE-OLD"));
+        if (current) assertThat(actual).containsExactly(entry("CVE-OLD", 0.25));
+        else assertThat(actual).doesNotContainKey("CVE-OLD");
+        assertThat(service.findEpssScores(List.of("CVE-OLD"))).containsExactly(entry("CVE-OLD", 0.25));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
     void offlineDepsDevDoesNotRefreshVersionStatusFromStaleData(int age, boolean resolved) {
         String key = AirgappedSnapshotService.componentKey("NPM", "fixture", "1.0.0");
         entries.saveAndFlush(SnapshotEntry.builder().source("depsdev-version").entryKey(key)
