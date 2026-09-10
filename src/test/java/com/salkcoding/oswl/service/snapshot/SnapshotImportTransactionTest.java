@@ -23,6 +23,30 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true", "-1,true", "999,true"})
+    void offlineNvdRetainsFindingsWithoutConfirmingStaleCoverage(int age, boolean stale) {
+        String key = AirgappedSnapshotService.componentKey("CONAN", "fixture", "1.0.0");
+        String empty = AirgappedSnapshotService.componentKey("CONAN", "empty", "1.0.0");
+        entries.saveAndFlush(SnapshotEntry.builder().source("nvd").entryKey(key)
+                .payload("[{\"cveId\":\"CVE-2026-0001\",\"summary\":\"fixture\"}]").build());
+        entries.saveAndFlush(SnapshotEntry.builder().source("nvd").entryKey(empty).payload("[]").build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("nvd")
+                .recordCount(2).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
+        var client = new com.salkcoding.oswl.client.NvdClient(service, true, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var cpe = org.mockito.Mockito.mock(com.salkcoding.oswl.client.CpeMatchService.class);
+        var source = new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(client, cpe);
+        var stored = client.findByComponentKeys(List.of(key, empty));
+        assertThat(stored).containsKeys(key, empty);
+        var actual = source.lookup("fixture", "1.0.0", null, stored.get(key));
+        assertThat(actual.lookupFailed()).isEqualTo(stale);
+        assertThat(actual.findings()).singleElement().extracting(v -> v.cveId()).isEqualTo("CVE-2026-0001");
+        assertThat(source.lookup("empty", "1.0.0", null, stored.get(empty)).lookupFailed()).isEqualTo(stale);
+        org.mockito.Mockito.verifyNoInteractions(cpe);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true", "-1,true", "999,true"})
     void offlineGithubRetainsFindingsButWithholdsStaleCoverageAndFixes(int age, boolean stale) {
         String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");
         String empty = AirgappedSnapshotService.componentKey("npm", "empty", "1.0.0");

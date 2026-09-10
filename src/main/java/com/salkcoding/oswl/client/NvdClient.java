@@ -100,9 +100,13 @@ public class NvdClient {
 
     public boolean isAirgapped() { return airgapped; }
 
+    public boolean isSnapshotCoverageUncertain() {
+        return airgapped && snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_NVD);
+    }
+
     /**
      * Offline path: looks up NVD-derived CVEs by component key.
-     * Returns a map keyed by the input component keys; absent keys mean "no known vulnerabilities".
+     * Returns stored findings by component key; absent keys have no completed lookup evidence.
      */
     public Map<String, List<NvdCve>> findByComponentKeys(Collection<String> componentKeys) {
         if (!airgapped || componentKeys == null || componentKeys.isEmpty()) {

@@ -425,6 +425,9 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 오프라인 freshness 연결:** NVD source adapter의 망분리 조기 반환에도 공통 source 기준일 검사를 적용했다. 날짜 미상·미래·경고 임계값 초과면 `lookupFailed`로 전달하고 과거 finding과 저장 CPE는 보존한다. 오프라인에서 CPE 추론이나 네트워크 조회로 보완하지 않는다. NVD client의 누락 key 설명도 조회 근거 없음으로 바로잡았다. deps.dev 등 나머지 source와 과거 finding의 별도 후보/이력 모델은 계속 잔여다.
+- **회귀 검증:** 실제 H2 metadata/entry→NVD client→source adapter에서 오늘/7일/8일/40일/미래/날짜 미상 6건 중 수정 전 4건 실패했다. 수정 후 빈 결과의 미완료, finding 보존 및 CPE 추론 미호출을 확인했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 145건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-freshness-before.log`, `build/roadmap-nvd-freshness-after.log`. 커밋 제목 `fix: preserve stale nvd snapshot coverage uncertainty`. 자체 합성 자료이며 새 외부 자료/라이브러리·UI 변경 없음. 실제 NVD 데이터의 재배포 권한을 이 검사로 승인한 것은 아니다.
+
 - **2026-09-11 GHSA 오프라인 freshness 연결:** GHSA source의 날짜 누락·미래·경고 임계값 초과도 기존 공통 검사로 확인한다. offline component-key 조회는 과거 finding/충돌 후보를 보존하되 fixed를 보류하고, 단일 패키지 조회 단계는 기존 incomplete 예외 계약을 통해 source adapter의 `lookupFailed`로 전달한다. 빈 snapshot 결과도 완료된 현재 조회로 승격하지 않는다. 정상 날짜 결과와 온라인 경로는 유지한다. NVD/deps.dev 등 나머지 source와 과거 finding의 별도 상태 모델은 잔여다.
 - **회귀 검증:** 실제 H2 metadata/entry→GHSA client→source adapter의 오늘/7일/8일/40일/미래/날짜 미상 6건 중 수정 전 4건 실패했다. 수정 후 빈 결과의 미완료, finding 보존, fixed 보류를 확인했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*GitHubAdvisoryRangeTest' --tests '*FixConflictPersistenceTest' --tests '*VulnerabilityEnrichmentServiceTest'` 181건 통과·실패/오류/skip 0. 로그 `build/roadmap-ghsa-freshness-before.log`, `build/roadmap-ghsa-freshness-after.log`. 커밋 제목 `fix: propagate stale github snapshot lookup uncertainty`. 자체 합성 자료이며 외부 데이터/라이브러리·UI 변경 없음. UI 종단 검증을 완료한 것은 아니다.
 
