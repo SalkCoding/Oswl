@@ -201,7 +201,7 @@ final class OsvBulkSource {
                 if (affectedResult == null) {
                     unresolvedKeys.add(key);
                 } else if (affectedResult) {
-                    result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln));
+                    result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, pkgName, wantedVersion));
                     anyMatch = true;
                 }
             }
@@ -220,7 +220,7 @@ final class OsvBulkSource {
         };
     }
 
-    private static SnapshotVuln toSnapshotVuln(JsonNode vuln) {
+    private static SnapshotVuln toSnapshotVuln(JsonNode vuln, String ecosystem, String name, String version) {
         String osvId = vuln.path("id").asText(null);
         String summary = vuln.path("summary").asText(null);
         String cveId = null;
@@ -228,16 +228,7 @@ final class OsvBulkSource {
             String a = alias.asText("");
             if (a.startsWith("CVE-")) { cveId = a; break; }
         }
-        String fixVersion = null;
-        outer:
-        for (JsonNode affected : vuln.path("affected")) {
-            for (JsonNode range : affected.path("ranges")) {
-                for (JsonNode event : range.path("events")) {
-                    String fixed = event.path("fixed").asText(null);
-                    if (fixed != null && !fixed.isBlank()) { fixVersion = fixed; break outer; }
-                }
-            }
-        }
+        String fixVersion = OsvFixVersionSelector.select(vuln, ecosystem, name, version).version();
         String cweId = null;
         JsonNode cweIds = vuln.path("database_specific").path("cwe_ids");
         if (cweIds.isArray() && !cweIds.isEmpty()) {

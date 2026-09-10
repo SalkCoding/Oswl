@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.4.0",
+  "id": "GHSA-wf6x-7x77-mvgw",
+  "modified": "2026-04-24T20:48:56Z",
+  "aliases": [
+    "CVE-2026-29063"
+  ],
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "npm",
+        "name": "immutable"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "4.0.0-rc.1"
+            },
+            {
+              "fixed": "4.3.8"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package": {
+        "ecosystem": "npm",
+        "name": "immutable"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "5.0.0"
+            },
+            {
+              "fixed": "5.1.5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "package": {
+        "ecosystem": "npm",
+        "name": "immutable"
+      },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [
+            {
+              "introduced": "0"
+            },
+            {
+              "fixed": "3.8.3"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "_oswl_fixture_provenance": {
+    "source": "https://raw.githubusercontent.com/github/advisory-database/623b6fd0079a96ea7f0247007f47166c8cb9bcaf/advisories/github-reviewed/2026/03/GHSA-wf6x-7x77-mvgw/GHSA-wf6x-7x77-mvgw.json",
+    "revision": "623b6fd0079a96ea7f0247007f47166c8cb9bcaf",
+    "source_sha256": "40626506c617c9083a48b57ed9a8d20e134047bb8d64a53bb70076b4f35fcd6f",
+    "retrieved": "2026-09-10",
+    "attribution": "GitHub Advisory Database contributors; original advisory published by jdeniau (immutable-js/immutable-js)",
+    "license": "CC-BY-4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "changes": "Selected identity, revision and affected range fields only. Prose, exploit examples and other fields omitted. Added fixture provenance.",
+    "conflict": "Structured 4.x fixed boundary is 4.3.8; upstream narrative still lists 4.3.7. Official v4.3.8 release documents the security fix."
+  }
+}

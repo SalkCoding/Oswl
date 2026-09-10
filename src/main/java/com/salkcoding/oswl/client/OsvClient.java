@@ -1,5 +1,7 @@
 package com.salkcoding.oswl.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salkcoding.oswl.vdb.OsvFixVersionSelector;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
@@ -31,6 +33,7 @@ import java.util.Set;
 public class OsvClient {
 
     private static final String BASE_URL = "https://api.osv.dev";
+    private static final ObjectMapper JSON = new ObjectMapper();
     private static final int MAX_BATCH_SIZE = 1000;
     /** Default timeouts used by the no-arg/2-arg constructors (unit tests, and any caller not wired through Spring config). */
     private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
@@ -283,49 +286,8 @@ public class OsvClient {
                     .orElse(cveId);
         }
 
-        // Extract the fixed version from affected[].ranges[].events[fixed]
-        String fixVersion = null;
-        Set<String> fixedVersions = new LinkedHashSet<>();
-        int rangeCount = 0;
-        int introducedCount = 0;
-        boolean openEnded = false;
-        Object affectedObj = vuln.get("affected");
-        if (affectedObj instanceof List<?> affected) {
-            for (Object aff : affected) {
-                if (!(aff instanceof Map<?, ?> affMap)) continue;
-                if (query != null && (!(affMap.get("package") instanceof Map<?, ?> pkg)
-                        || !query.name().equals(pkg.get("name")) || !query.ecosystem().equals(pkg.get("ecosystem")))) continue;
-                Object rangesObj = affMap.get("ranges");
-                if (!(rangesObj instanceof List<?> ranges)) continue;
-                for (Object range : ranges) {
-                    if (!(range instanceof Map<?, ?> rangeMap)) continue;
-                    if ("GIT".equals(rangeMap.get("type"))) continue;
-                    Object eventsObj = rangeMap.get("events");
-                    if (!(eventsObj instanceof List<?> events)) continue;
-                    rangeCount++;
-                    boolean open = false;
-                    for (Object event : events) {
-                        if (!(event instanceof Map<?, ?> eventMap)) continue;
-                        if (eventMap.containsKey("introduced")) { introducedCount++; open = true; }
-                        Object fixed = eventMap.get("fixed");
-                        if (fixed instanceof String fs && !fs.isBlank()) {
-                            fixedVersions.add(fs);
-                            open = false;
-                        }
-                    }
-                    openEnded |= open;
-                }
-            }
-        }
-
-        // Ecosystem-specific ordering is needed to choose among disjoint ranges. Never
-        // recommend an earlier fix when the advisory includes a later vulnerable interval.
-        if (rangeCount == 1 && introducedCount <= 1 && !openEnded && fixedVersions.size() == 1)
-            fixVersion = fixedVersions.iterator().next();
-        if (query != null && affectedObj instanceof List<?> affected) {
-            String matchedFix = fixForInstalledVersion(affected, query);
-            if (matchedFix != null) fixVersion = matchedFix;
-        }
+        String fixVersion = query == null ? null : OsvFixVersionSelector.select(
+                JSON.valueToTree(vuln), query.ecosystem(), query.name(), query.version()).version();
 
         Double score = null; String vector = null;
         if (vuln.get("severity") instanceof List<?> severities) {
@@ -342,55 +304,6 @@ public class OsvClient {
         }
         String severity = vuln.get("database_specific") instanceof Map<?, ?> db && db.get("severity") instanceof String value ? value : null;
         return new OsvVuln(osvId, cveId, summary, fixVersion, extractCweId(vuln), risk(severity, score), score, vector);
-    }
-
-    private record VersionInterval(String introduced, String fixed) {}
-
-    /** Select a fix in the installed release's interval, never a fix from an older release line. */
-    private static String fixForInstalledVersion(List<?> affected, OsvQuery query) {
-        if (!numericRelease(query.version())) return null;
-        List<VersionInterval> intervals = new ArrayList<>();
-        for (Object raw : affected) {
-            if (!(raw instanceof Map<?, ?> entry) || !(entry.get("package") instanceof Map<?, ?> pkg)
-                    || !query.name().equals(pkg.get("name")) || !query.ecosystem().equals(pkg.get("ecosystem"))
-                    || !(entry.get("ranges") instanceof List<?> ranges)) continue;
-            for (Object rawRange : ranges) {
-                if (!(rawRange instanceof Map<?, ?> range) || "GIT".equals(range.get("type"))
-                        || !(range.get("events") instanceof List<?> events)) continue;
-                String introduced = null;
-                for (Object rawEvent : events) {
-                    if (!(rawEvent instanceof Map<?, ?> event)) continue;
-                    if (event.get("introduced") instanceof String value) introduced = value;
-                    if (event.containsKey("last_affected") || event.containsKey("limit")) return null;
-                    if (event.get("fixed") instanceof String fixed && introduced != null) {
-                        if (!numericRelease(introduced) || !numericRelease(fixed)) return null;
-                        intervals.add(new VersionInterval(introduced, fixed));
-                        introduced = null;
-                    }
-                }
-                if (introduced != null) {
-                    if (!numericRelease(introduced)) return null;
-                    intervals.add(new VersionInterval(introduced, null));
-                }
-            }
-        }
-        try {
-            return intervals.stream().filter(i -> containsVersion(i, query.version()) && i.fixed() != null)
-                    .map(VersionInterval::fixed)
-                    .filter(candidate -> intervals.stream().noneMatch(i -> containsVersion(i, candidate)))
-                    .min(com.salkcoding.oswl.vdb.SimpleVersionComparator::compare).orElse(null);
-        } catch (IllegalArgumentException unsupported) {
-            return null;
-        }
-    }
-
-    private static boolean containsVersion(VersionInterval interval, String version) {
-        return com.salkcoding.oswl.vdb.SimpleVersionComparator.compare(version, interval.introduced()) >= 0
-                && (interval.fixed() == null || com.salkcoding.oswl.vdb.SimpleVersionComparator.compare(version, interval.fixed()) < 0);
-    }
-
-    private static boolean numericRelease(String value) {
-        return value != null && value.matches("[vV]?[0-9]+(?:\\.[0-9]+)*");
     }
 
     private static final class DetailBudget {

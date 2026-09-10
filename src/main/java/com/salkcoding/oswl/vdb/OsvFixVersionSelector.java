@@ -1,0 +1,79 @@
+package com.salkcoding.oswl.vdb;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+/** Chooses source fixed events for an installed package, never a registry's latest release. */
+public final class OsvFixVersionSelector {
+    public record Selection(String version, String reason) { }
+
+    private OsvFixVersionSelector() { }
+
+    public static Selection select(JsonNode advisory, String ecosystem, String name, String installed) {
+        if (ecosystem == null || name == null || installed == null || installed.isBlank()) return unavailable("MISSING_IDENTITY");
+        if (advisory == null || !advisory.isObject() || !advisory.path("affected").isArray()) return unavailable("MALFORMED_ADVISORY");
+        if (advisory.hasNonNull("withdrawn")) return unavailable("WITHDRAWN");
+        List<JsonNode> entries = new ArrayList<>();
+        Set<String> candidates = new LinkedHashSet<>();
+        Comparator<String> ordering = null;
+        String rangeType = null;
+        try {
+            for (JsonNode entry : advisory.path("affected")) {
+                JsonNode pkg = entry.path("package");
+                if (!name.equals(pkg.path("name").asText()) || !ecosystem.equals(pkg.path("ecosystem").asText())) continue;
+                if (entry.hasNonNull("versions") && !entry.path("versions").isArray()) return unavailable("MALFORMED_VERSIONS");
+                entries.add(entry);
+                if (!entry.path("ranges").isArray() || entry.path("ranges").isEmpty()) return unavailable("NO_RANGE_EVIDENCE");
+                for (JsonNode range : entry.path("ranges")) {
+                    String type = range.path("type").asText();
+                    Comparator<String> comparator = OsvRangeEvaluator.comparator(ecosystem.toUpperCase(java.util.Locale.ROOT), type);
+                    if (comparator == null) return unavailable("UNSUPPORTED_RANGE");
+                    if (rangeType != null && !type.equals(rangeType) && !"npm".equals(ecosystem)) {
+                        return unavailable("INCOMPATIBLE_RANGE_TYPES");
+                    }
+                    rangeType = type;
+                    ordering = comparator;
+                    var singleRange = JsonNodeFactory.instance.arrayNode().add(range);
+                    var affected = OsvRangeEvaluator.evaluate(ecosystem.toUpperCase(java.util.Locale.ROOT), installed, null, singleRange);
+                    if (affected == OsvRangeEvaluator.Result.UNKNOWN) return unavailable("UNRESOLVED_RANGE");
+                    if (affected != OsvRangeEvaluator.Result.AFFECTED) continue;
+                    for (JsonNode event : range.path("events")) {
+                        if (event.path("fixed").isTextual()) {
+                            String fixed = event.path("fixed").asText();
+                            if (comparator.compare(fixed, installed) > 0) candidates.add(fixed);
+                        }
+                    }
+                }
+            }
+            if (entries.isEmpty()) return unavailable("NO_MATCHING_PACKAGE");
+            if (candidates.isEmpty()) return unavailable("NO_APPLICABLE_FIXED_EVENT");
+            List<String> confirmed = new ArrayList<>();
+            for (String candidate : candidates) {
+                boolean excludedFromAll = true;
+                for (JsonNode entry : entries) {
+                    Set<String> versions = new LinkedHashSet<>();
+                    for (JsonNode version : entry.path("versions")) {
+                        if (!version.isTextual()) return unavailable("MALFORMED_VERSIONS");
+                        versions.add(version.asText());
+                    }
+                    excludedFromAll &= OsvRangeEvaluator.evaluate(ecosystem.toUpperCase(java.util.Locale.ROOT), candidate,
+                            versions, entry.path("ranges")) == OsvRangeEvaluator.Result.NOT_AFFECTED;
+                }
+                if (excludedFromAll) confirmed.add(candidate);
+            }
+            if (confirmed.isEmpty()) return unavailable("FIX_CONFLICTS_WITH_AFFECTED_DATA");
+            confirmed.sort(ordering);
+            return new Selection(confirmed.getFirst(), "SOURCE_FIXED_EVENT");
+        } catch (IllegalArgumentException unsupported) {
+            return unavailable("UNSUPPORTED_VERSION");
+        }
+    }
+
+    private static Selection unavailable(String reason) { return new Selection(null, reason); }
+}

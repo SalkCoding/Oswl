@@ -22,13 +22,8 @@ public final class OsvRangeEvaluator {
         if (!ranges.isArray()) return Result.UNKNOWN;
         boolean unknown = false;
         for (JsonNode range : ranges) {
-            Comparator<String> comparator;
-            if ("SEMVER".equals(range.path("type").asText())) {
-                comparator = SemVerVersionComparator::compare;
-            } else if (ecosystem != null && ecosystem.startsWith("ALPINE:")
-                    && "ECOSYSTEM".equals(range.path("type").asText())) {
-                comparator = ApkVersionComparator::compare;
-            } else {
+            Comparator<String> comparator = comparator(ecosystem, range.path("type").asText());
+            if (comparator == null) {
                 // A commit's lexical ordering cannot establish ancestry in its repository.
                 unknown = true;
                 continue;
@@ -40,6 +35,16 @@ public final class OsvRangeEvaluator {
             }
         }
         return unknown ? Result.UNKNOWN : Result.NOT_AFFECTED;
+    }
+
+    static Comparator<String> comparator(String ecosystem, String type) {
+        if ("SEMVER".equals(type) || ("ECOSYSTEM".equals(type) && "NPM".equalsIgnoreCase(ecosystem))) {
+            return SemVerVersionComparator::compare;
+        }
+        if (ecosystem != null && ecosystem.startsWith("ALPINE:") && "ECOSYSTEM".equals(type)) {
+            return ApkVersionComparator::compare;
+        }
+        return null;
     }
 
     private static boolean inRange(String version, JsonNode rawEvents, Comparator<String> comparator) {
