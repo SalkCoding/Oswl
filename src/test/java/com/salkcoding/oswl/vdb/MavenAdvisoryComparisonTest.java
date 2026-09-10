@@ -10,6 +10,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MavenAdvisoryComparisonTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"LATEST", "RELEASE", "${revision}", "[1.0,2.0)", " "})
+    void unresolvedListedVersionsPreventCleanResultsAndFixSuggestions(String listed) throws Exception {
+        var advisory = new ObjectMapper().readTree("""
+                {"affected":[{"package":{"ecosystem":"Maven","name":"org.example:fixture"},
+                "ranges":[{"type":"ECOSYSTEM","events":[{"introduced":"0"},{"fixed":"2.0"}]}]}]}
+                """);
+        var entry = (com.fasterxml.jackson.databind.node.ObjectNode) advisory.path("affected").get(0);
+        entry.putArray("versions").add(listed);
+        var versions = java.util.Set.of(listed);
+
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", "2.0", versions, null))
+                .isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", "2.0", versions, entry.path("ranges")))
+                .isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", "1.0", versions, entry.path("ranges")))
+                .isEqualTo(OsvRangeEvaluator.Result.AFFECTED);
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", "1.0", java.util.Set.of(listed, "1.0"), null))
+                .isEqualTo(OsvRangeEvaluator.Result.AFFECTED);
+        assertThat(OsvFixVersionSelector.select(advisory, "Maven", "org.example:fixture", "1.0").version())
+                .isNull();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"LATEST", "RELEASE"})
     void unresolvedRepositorySelectorsCannotBeComparedOrRecommended(String selector) throws Exception {
         var advisory = new ObjectMapper().readTree("""

@@ -67,6 +67,15 @@ public final class OsvRangeEvaluator {
         }
         if (versions != null && versions.contains(version)) return Result.AFFECTED;
         boolean unknown = false;
+        if ("MAVEN".equalsIgnoreCase(ecosystem) && versions != null) {
+            for (String listed : versions) {
+                try {
+                    MavenVersionComparator.validate(listed);
+                } catch (IllegalArgumentException unresolvedVersion) {
+                    unknown = true;
+                }
+            }
+        }
         if ("GO".equalsIgnoreCase(ecosystem) && versions != null) {
             for (String listed : versions) {
                 try {
